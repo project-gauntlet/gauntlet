@@ -1,0 +1,18 @@
+{
+  "name": "react_renderer",
+  "version": "1.0.0",
+  "main": "main.ts",
+  "scripts": {
+    "build": "tsc --noEmit && node ./esbuild.config.mjs"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-reconciler": "^0.28.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.17.19",
+    "@types/react": "^18.2.0",
+    "@types/react-reconciler": "^0.28.2",
+    "typescript": "^5.0.4"
+  }
+}

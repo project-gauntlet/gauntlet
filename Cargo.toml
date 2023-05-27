@@ -1,0 +1,13 @@
+[package]
+name = "raycast-for-linux"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+deno_core = "0.188.0"
+deno_runtime = "0.114.0"
+tokio = "1.28.1"
+#taffy = "0.3.12"
+gtk = { version = "0.6.6", package = "gtk4", features = ["v4_10"] }
+#gtk-layer-shell = { version = "0.0.3", package = "gtk4-layer-shell" }
