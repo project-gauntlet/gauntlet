@@ -1,151 +1,194 @@
-use std::any::type_name;
-use std::ffi::c_void;
-use std::future::Future;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::thread;
 
-use deno_core::{op, OpState, serde_v8, v8};
-use deno_runtime::deno_core::error::AnyError;
+use deno_core::{op, OpState};
+use serde::{Serialize, Deserialize};
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
+use deno_runtime::inspector_server::InspectorServer;
 use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use gtk::glib;
-use gtk::glib::ffi::GType;
-use gtk::glib::translate::{FromGlib, FromGlibPtrFull, FromGlibPtrNone, IntoGlib, Ptr, ToGlibPtr};
+use gtk::glib::MainContext;
 use gtk::prelude::*;
-
-const APP_ID: &str = "org.gtk_rs.HelloWorld2";
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::task::LocalSet;
 
 fn main() -> glib::ExitCode {
-    let app = gtk::Application::builder().application_id(APP_ID).build();
 
-    app.connect_activate(build_ui);
+    let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
+
+    let app = gtk::Application::builder()
+        .application_id("org.gtk_rs.HelloWorld2")
+        .build();
+
+    thread::spawn(|| {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let local_set = LocalSet::new();
+
+        local_set.block_on(&runtime, async {
+            let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("react_renderer/dist/main.js");
+            let main_module = ModuleSpecifier::from_file_path(js_path).unwrap();
+
+            let inspector_server = Arc::new(
+                InspectorServer::new(
+                    "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
+                    "test"
+                )
+            );
+            let mut worker = MainWorker::bootstrap_from_options(
+                main_module.clone(),
+                PermissionsContainer::allow_all(),
+                WorkerOptions {
+                    module_loader: Rc::new(FsModuleLoader),
+                    extensions: vec![gtk_ext::init_ops(react_request_sender)],
+                    // maybe_inspector_server: Some(inspector_server),
+                    maybe_inspector_server: None,
+                    should_wait_for_inspector_session: false,
+                    should_break_on_first_statement: false,
+                    ..Default::default()
+                },
+            );
+            worker.execute_main_module(&main_module).await.unwrap();
+
+            loop {
+                worker.run_event_loop(false).await.unwrap();
+            }
+        })
+    });
+
+    app.connect_activate(move |app| {
+        let react_request_receiver = Rc::clone(&react_request_receiver);
+        build_ui(app, react_request_receiver);
+    });
 
     app.run()
 }
 
-#[op(v8)]
-pub fn op_gtk_get_container<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    state: &mut OpState,
-) -> serde_v8::Value<'scope> {
-    let root_container = state.borrow::<gtk::Box>();
-    let root_container = root_container.clone().upcast::<gtk::Widget>();
-
-    from_gtk_widget_to_js(scope, root_container.clone())
-}
-
-#[op(v8)]
-pub fn op_gtk_append_child<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    parent: serde_v8::Value<'scope>,
-    child: serde_v8::Value<'scope>,
-) {
-    let parent = from_js_to_gtk_widget(scope, parent)
-        .downcast::<gtk::Box>()
-        .unwrap();
-    let child = from_js_to_gtk_widget(scope, child)
-        .downcast::<gtk::Widget>()
-        .unwrap();
-
-    parent.append(&child)
-}
-
-#[op(v8)]
-pub fn op_gtk_remove_child<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    parent: serde_v8::Value<'scope>,
-    child: serde_v8::Value<'scope>,
-) {
-    let parent = from_js_to_gtk_widget(scope, parent)
-        .downcast::<gtk::Box>()
-        .unwrap();
-    let child = from_js_to_gtk_widget(scope, child)
-        .downcast::<gtk::Widget>()
-        .unwrap();
-
-    // TODO somehow make sure we do not have dangling pointers
-
-    parent.remove(&child)
-}
-
-#[op(v8)]
-pub fn op_gtk_insert_before<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    parent: serde_v8::Value<'scope>,
-    child: serde_v8::Value<'scope>,
-    before_child: serde_v8::Value<'scope>,
-) {
-    let parent = from_js_to_gtk_widget(scope, parent)
-        .downcast::<gtk::Box>()
-        .unwrap();
-    let child = from_js_to_gtk_widget(scope, child)
-        .downcast::<gtk::Widget>()
-        .unwrap();
-    let before_child = from_js_to_gtk_widget(scope, before_child)
-        .downcast::<gtk::Widget>()
-        .unwrap();
-
-    child.insert_before(&parent, Some(&before_child))
-}
-
-#[op(v8)]
-pub fn op_gtk_create_instance<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    jsx_type: serde_v8::Value<'scope>,
-    props: serde_v8::Value<'scope>,
-) -> serde_v8::Value<'scope> {
-    let jsx_type: v8::Local<v8::Value> = jsx_type.into();
-    let jsx_type: v8::Local<v8::String> = jsx_type.try_into().unwrap();
-    let jsx_type: String = jsx_type.to_rust_string_lossy(scope);
-
-    let props: v8::Local<v8::Value> = props.into();
-    let props: v8::Local<v8::Object> = props.try_into().unwrap();
-
-    let widget: gtk::Widget = match jsx_type.as_str() {
-        "box" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
-        "button1" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
-        // "button1" => {
-        //     let children_name = v8::String::new(scope, "children").unwrap();
-        //     let on_click_name = v8::String::new(scope, "onClick").unwrap();
-        //
-        //     let children = props.get(scope, children_name.into()).unwrap();
-        //     let children: v8::Local<v8::String> = children.try_into().unwrap();
-        //     let children: String = children.to_rust_string_lossy(scope);
-        //
-        //     let on_click = props.get(scope, on_click_name.into()).unwrap();
-        //     let on_click: v8::Local<v8::Function> = on_click.try_into().unwrap();
-        //
-        //     // let nested_scope = v8::HandleScope::new(scope);
-        //
-        //     // TODO: not sure if lifetime of children is ok here
-        //     let button = gtk::Button::with_label(&children);
-        //     button.connect_clicked(|button| {
-        //         // let nested_scope = &mut nested_scope;
-        //
-        //         let null: v8::Local<v8::Value> = v8::null(scope).into();
-        //
-        //         on_click.call(scope, null, &[]);
-        //     });
-        //
-        //     button.into()
-        // }
-        _ => panic!("jsx_type {} not supported", jsx_type)
+#[must_use]
+async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiResponseData {
+    let sender = {
+        state.borrow()
+            .borrow::<UnboundedSender<UiRequest>>()
+            .clone()
     };
 
-    from_gtk_widget_to_js(scope, widget.upcast::<gtk::Widget>())
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    sender.send(UiRequest { response_sender: tx, data }).unwrap();
+
+    rx.await.unwrap()
 }
 
-#[op(v8)]
-pub fn op_gtk_create_text_instance<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    text: String,
-) -> serde_v8::Value<'scope> {
-    let label = gtk::Label::new(Some(&text));
+#[op]
+pub async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> GuiWidget {
+    println!("op_gtk_get_container");
 
-    from_gtk_widget_to_js(scope, label.upcast::<gtk::Widget>())
+    let container = match make_request(&state, UiRequestData::GetContainer).await {
+        UiResponseData::GetContainer { container: container_pointer } => container_pointer,
+        value @ _ => panic!("unsupported response type {:?}", value),
+    };
+
+    println!("op_gtk_get_container end");
+
+    container
+}
+
+#[op]
+pub async fn op_gtk_append_child(
+    state: Rc<RefCell<OpState>>,
+    parent: GuiWidget,
+    child: GuiWidget,
+) {
+    println!("op_gtk_append_child");
+
+    let data = UiRequestData::AppendChild { parent, child };
+
+    let _ = make_request(&state, data).await;
+}
+
+#[op]
+pub async fn op_gtk_remove_child(
+    state: Rc<RefCell<OpState>>,
+    parent: GuiWidget,
+    child: GuiWidget,
+) {
+    println!("op_gtk_remove_child");
+
+    let data = UiRequestData::RemoveChild { parent, child };
+
+    let _ = make_request(&state, data).await;
+}
+
+#[op]
+pub async fn op_gtk_insert_before(
+    state: Rc<RefCell<OpState>>,
+    parent: GuiWidget,
+    child: GuiWidget,
+    before_child: GuiWidget,
+) {
+    println!("op_gtk_insert_before");
+
+    let data = UiRequestData::InsertBefore {
+        parent,
+        child,
+        before_child,
+    };
+
+    let _ = make_request(&state, data);
+}
+
+#[op]
+pub async fn op_gtk_create_instance(
+    state: Rc<RefCell<OpState>>,
+    jsx_type: String,
+    // props: serde_v8::Value<'scope>,
+) -> GuiWidget {
+
+    println!("op_gtk_create_instance");
+
+    let data = UiRequestData::CreateInstance {
+        type_: jsx_type,
+        // props: Default::default(),
+    };
+
+    let widget = match make_request(&state, data).await {
+        UiResponseData::CreateInstance { widget: widget_pointer } => widget_pointer,
+        value @ _=> panic!("unsupported response type {:?}", value),
+    };
+    println!("op_gtk_create_instance end");
+
+    widget
+}
+
+#[op]
+pub async fn op_gtk_create_text_instance(
+    state: Rc<RefCell<OpState>>,
+    text: String,
+) -> GuiWidget {
+
+    println!("op_gtk_create_text_instance");
+
+    let data = UiRequestData::CreateTextInstance { text };
+
+    let widget = match make_request(&state, data).await {
+        UiResponseData::CreateTextInstance { widget: widget_pointer } => widget_pointer,
+        value @ _=> panic!("unsupported response type {:?}", value),
+    };
+
+    return widget;
 }
 
 deno_core::extension!(
@@ -158,120 +201,87 @@ deno_core::extension!(
         op_gtk_insert_before,
     ],
     options = {
-        root_container: gtk::Box,
+        react_request_sender: UnboundedSender<UiRequest>,
     },
     state = |state, options| {
-        state.put(options.root_container);
+        state.put(options.react_request_sender);
     },
     customizer = |ext: &mut deno_core::ExtensionBuilder| {
         ext.force_op_registration();
     },
 );
 
-const POINTER_FIELD: &str = "__ptr__";
-const GTYPE_FIELD: &str = "__gtype__";
-
-fn from_js_to_gtk_widget<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    widget: serde_v8::Value<'scope>,
-) -> glib::Object {
-    let widget: v8::Local<v8::Value> = widget.into();
-    let widget: v8::Local<v8::Object> = widget.try_into().unwrap();
-
-    // let gtype = {
-    //     let gtype_name = v8::String::new(scope, GTYPE_FIELD).unwrap();
-    //
-    //     let prototype = widget.get_prototype(scope).unwrap();
-    //     let prototype: v8::Local<v8::Object> = prototype.try_into().unwrap();
-    //
-    //
-    //     let gtype_value = prototype.get(scope, gtype_name.into()).unwrap();
-    //     let gtype_value: v8::Local<v8::BigInt> = gtype_value.try_into().unwrap();
-    //     let (gtype_value, wrapped) = gtype_value.u64_value();
-    //     assert!(!wrapped);
-    //
-    //     // no idea what i am doing here
-    //     let gtype = gtype_value as GType;
-    //     let gtype = unsafe { glib::Type::from_glib(gtype) };
-    //
-    //     gtype
-    // };
-
-    let ptr_value = {
-        let ptr_name = v8::String::new(scope, POINTER_FIELD).unwrap();
-
-        let ptr_value = widget.get(scope, ptr_name.into()).unwrap();
-        let ptr_value: v8::Local<v8::External> = ptr_value.try_into().unwrap();
-        let ptr_value = ptr_value.value();
-
-        ptr_value
-    };
-
-    let widget = {
-        // no idea what i am doing here
-        let widget = ptr_value as *mut glib::gobject_ffi::GObject;
-        let widget = unsafe { glib::Object::from_glib_none(widget) };
-
-        widget
-    };
-
-    widget
+#[derive(Debug)]
+pub struct UiContext {
+    next_id: WidgetId,
+    widget_map: HashMap<WidgetId, gtk::Widget>
 }
 
-fn from_gtk_widget_to_js<'scope>(
-    scope: &mut v8::HandleScope<'scope>,
-    widget: gtk::Widget,
-) -> serde_v8::Value<'scope> {
-    let result = v8::Object::new(scope);
 
-    // {
-    //     let gtype_name = v8::String::new(scope, GTYPE_FIELD).unwrap();
-    //
-    //     let gtype_value = widget.type_();
-    //     let gtype_value = gtype_value.into_glib();
-    //     debug_assert!(std::mem::size_of::<GType>() <= std::mem::size_of::<u64>());
-    //     let gtype_value = v8::BigInt::new_from_u64(scope, gtype_value as u64);
-    //
-    //     let prototype_object = v8::Object::new(scope);
-    //     prototype_object.set(scope, gtype_name.into(), gtype_value.into());
-    //     assert!(result
-    //         .set_prototype(scope, prototype_object.into())
-    //         .unwrap());
-    // }
-
-    {
-        let widget_ptr: *const gtk::ffi::GtkWidget = widget.to_glib_full();
-
-        let ptr_name = v8::String::new(scope, POINTER_FIELD).unwrap();
-        let ptr_value = v8::External::new(scope, widget_ptr as *mut c_void);
-
-        let is_set = result.set(scope, ptr_name.into(), ptr_value.into());
-        assert!(is_set.unwrap());
-    }
-
-    let result: v8::Local<v8::Value> = result.into();
-
-    result.into()
+#[derive(Debug)]
+pub struct UiRequest {
+    response_sender: tokio::sync::oneshot::Sender<UiResponseData>,
+    data: UiRequestData
 }
 
-fn run_js(root_container: gtk::Box) -> impl Future<Output=Result<(), AnyError>> {
-    async {
-        let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("react_renderer/dist/main.js");
-        let main_module = ModuleSpecifier::from_file_path(js_path).unwrap();
-        let mut worker = MainWorker::bootstrap_from_options(
-            main_module.clone(),
-            PermissionsContainer::allow_all(),
-            WorkerOptions {
-                module_loader: Rc::new(FsModuleLoader),
-                extensions: vec![gtk_ext::init_ops(root_container)],
-                ..Default::default()
-            },
-        );
-        worker.execute_main_module(&main_module).await
+#[derive(Debug)]
+pub enum UiResponseData {
+    GetContainer {
+        container: GuiWidget
+    },
+    CreateInstance {
+        widget: GuiWidget
+    },
+    CreateTextInstance {
+        widget: GuiWidget
+    },
+    Unit
+}
+
+#[derive(Debug)]
+pub enum UiRequestData {
+    GetContainer,
+    CreateInstance {
+        type_: String,
+        // props: HashMap<String, serde_v8::Global>,
+    },
+    CreateTextInstance {
+        text: String,
+    },
+    AppendChild {
+        parent: GuiWidget,
+        child: GuiWidget,
+    },
+    RemoveChild {
+        parent: GuiWidget,
+        child: GuiWidget,
+    },
+    InsertBefore {
+        parent: GuiWidget,
+        child: GuiWidget,
+        before_child: GuiWidget,
+    },
+}
+
+#[derive(Debug)]
+pub enum GuiEvent {
+    ButtonClick,
+}
+
+pub type WidgetId = u32;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GuiWidget {
+    widget_id: WidgetId,
+}
+
+impl GuiWidget {
+    fn new(widget_id: WidgetId) -> Self {
+        Self { widget_id }
     }
 }
 
-fn build_ui(app: &gtk::Application) {
+fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .deletable(false)
@@ -337,21 +347,125 @@ fn build_ui(app: &gtk::Application) {
 
     let window_in_list_view_callback = window.clone();
     list_view.connect_activate(move |list_view, position| {
+        let react_request_receiver = Rc::clone(&react_request_receiver);
         // let model = list_view.model().expect("The model has to exist.");
         // let string_object = model
         //     .item(position)
         //     .and_downcast::<gtk::StringObject>()
         //     .expect("The item has to be an `StringObject`.");
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-
         let gtk_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window_in_list_view_callback.set_child(Some(&gtk_box));
 
-        rt.block_on(run_js(gtk_box.clone())).unwrap();
+        MainContext::default().spawn_local(async move {
+            let react_request_receiver = Rc::clone(&react_request_receiver);
+            let context = Rc::new(RefCell::new(UiContext { widget_map: HashMap::new(), next_id: 0 }));
+            while let Some(request) = react_request_receiver.borrow_mut().recv().await {
+                println!("got value");
+                let gtk_box = gtk_box.clone();
+
+                let UiRequest { response_sender: oneshot, data } = request;
+
+                let get_gui_widget = |widget: gtk::Widget| -> GuiWidget {
+                    let mut context = context.borrow_mut();
+                    let id = context.next_id;
+                    context.widget_map.insert(id, widget);
+
+                    context.next_id += 1;
+
+                    GuiWidget::new(id)
+                };
+
+                let get_gtk_widget = |gui_widget: GuiWidget| -> gtk::Widget {
+                    let context = context.borrow();
+                    context.widget_map.get(&gui_widget.widget_id).unwrap().clone()
+                };
+
+                match data {
+                    UiRequestData::GetContainer => {
+                        let response_data = UiResponseData::GetContainer {
+                            container: get_gui_widget(gtk_box.upcast::<gtk::Widget>())
+                        };
+                        oneshot.send(response_data).unwrap();
+                    }
+                    UiRequestData::CreateInstance { type_/*, props*/ } => {
+                        let widget: gtk::Widget = match type_.as_str() {
+                            "box" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
+                            // "button1" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
+                            "button1" => {
+                                // let children_name = v8::String::new(scope, "children").unwrap();
+                                // let on_click_name = v8::String::new(scope, "onClick").unwrap();
+
+                                // let children = props.get(scope, children_name.into()).unwrap();
+                                // let children: v8::Local<v8::String> = children.try_into().unwrap();
+                                // let children: String = children.to_rust_string_lossy(scope);
+
+                                // let on_click = props.get(scope, on_click_name.into()).unwrap();
+                                // let on_click: v8::Local<v8::Function> = on_click.try_into().unwrap();
+                                //
+                                // let nested_scope = v8::HandleScope::new(scope);
+
+                                // TODO: not sure if lifetime of children is ok here
+                                let button = gtk::Button::with_label(&type_);
+                                // let button = gtk::Button::with_label(&children);
+                                button.connect_clicked(move |button| {
+                                    // let nested_scope = &mut nested_scope;
+
+                                    // let null: v8::Local<v8::Value> = v8::null(scope).into();
+
+                                    // on_click.call(scope, null, &[]);
+
+                                    // tx.send(GuiEvent::ButtonClick).unwrap();
+
+                                    println!("button pressed");
+                                });
+
+                                button.into()
+                            }
+                            _ => panic!("jsx_type {} not supported", type_)
+                        };
+
+                        let response_data = UiResponseData::CreateInstance {
+                            widget: get_gui_widget(widget)
+                        };
+                        oneshot.send(response_data).unwrap();
+                    }
+                    UiRequestData::CreateTextInstance { text } => {
+                        let label = gtk::Label::new(Some(&text));
+
+                        let response_data = UiResponseData::CreateInstance {
+                            widget: get_gui_widget(label.upcast::<gtk::Widget>())
+                        };
+                        oneshot.send(response_data).unwrap();
+                    }
+                    UiRequestData::AppendChild { parent, child } => {
+                        let parent = get_gtk_widget(parent);
+                        let child = get_gtk_widget(child);
+
+                        if let Some(gtk_box) = parent.downcast_ref::<gtk::Box>() {
+                            gtk_box.append(&child)
+                        } else if let Some(button) = parent.downcast_ref::<gtk::Button>() {
+                            button.set_child(Some(&child))
+                        }
+                    }
+                    UiRequestData::RemoveChild { parent, child } => {
+                        let parent = get_gtk_widget(parent)
+                            .downcast::<gtk::Box>()
+                            .unwrap();
+                        let child = get_gtk_widget(child);
+
+                        parent.remove(&child)
+                    }
+                    UiRequestData::InsertBefore { parent, child, before_child } => {
+                        let parent = get_gtk_widget(parent);
+                        let child = get_gtk_widget(child);
+                        let before_child = get_gtk_widget(before_child);
+
+                        child.insert_before(&parent, Some(&before_child))
+                    }
+                }
+            }
+        });
 
         println!("test timeout")
 

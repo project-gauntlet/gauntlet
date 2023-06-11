@@ -1,10 +1,10 @@
 import ReactReconciler, {HostConfig, OpaqueHandle} from "react-reconciler";
-import React, {MouseEventHandler} from 'react';
+import React from 'react';
 import {DefaultEventPriority} from 'react-reconciler/constants';
 import Preview from "./preview";
 
 type Type = keyof JSX.IntrinsicElements;
-type Props = { [key: string]: any };
+type Props = { children: any } & { [key: string]: any };
 
 type SuspenseInstance = Instance;
 type PublicInstance = Instance;
