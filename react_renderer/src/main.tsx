@@ -6,7 +6,7 @@ import Preview from "./preview";
 type Type = keyof JSX.IntrinsicElements;
 type Props = { children: any } & { [key: string]: any };
 
-type SuspenseInstance = Instance;
+type SuspenseInstance = never;
 type PublicInstance = Instance;
 type HostContext = any;
 type UpdatePayload = any;
@@ -28,23 +28,25 @@ declare global {
 const InternalApi: InternalApi = Deno[Deno.internal].core.ops;
 
 type Container = Instance
+type Instance = Promise<GuiWidget>
+type TextInstance = Promise<GuiWidget>
+type InstanceSync = GuiWidget
+type TextInstanceSync = GuiWidget
 
-declare interface Instance {
-}
-
-declare interface TextInstance {
+declare interface GuiWidget {
 }
 
 declare interface InternalApi {
     op_gtk_get_container(): Container;
     op_gtk_create_instance(type: Type, props: Props): Instance;
     op_gtk_create_text_instance(text: string): TextInstance;
-    op_gtk_append_child(parent: Instance, child: Instance | TextInstance): void;
-    op_gtk_remove_child(parent: Instance, child: Instance | TextInstance): void;
+
+    op_gtk_append_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
+    op_gtk_remove_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
     op_gtk_insert_before(
-        parent: Instance,
-        child: Instance | TextInstance,
-        beforeChild: Instance | TextInstance | SuspenseInstance
+        parent: InstanceSync,
+        child: InstanceSync | TextInstanceSync | SuspenseInstance,
+        beforeChild: InstanceSync | TextInstanceSync | SuspenseInstance
     ): void;
 }
 
@@ -166,15 +168,25 @@ const hostConfig: HostConfig<
     supportsMutation: true,
     appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
         console.log("appendInitialChild", parentInstance, child)
-        InternalApi.op_gtk_append_child(parentInstance, child)
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
+            })
     },
     appendChild(parentInstance: Instance, child: Instance | TextInstance): void {
         console.log("appendChild", parentInstance, child)
-        InternalApi.op_gtk_append_child(parentInstance, child)
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
+            })
     },
     appendChildToContainer(container: Container, child: Instance | TextInstance): void {
         console.log("appendChildToContainer", container, child)
-        InternalApi.op_gtk_append_child(container, child)
+
+        Promise.all([container, child])
+            .then(([resolvedContainer, resolvedChild]) => {
+                InternalApi.op_gtk_append_child(resolvedContainer, resolvedChild)
+            })
     },
 
     insertBefore(
@@ -182,27 +194,39 @@ const hostConfig: HostConfig<
         child: Instance | TextInstance,
         beforeChild: Instance | TextInstance | SuspenseInstance
     ): void {
-        InternalApi.op_gtk_insert_before(parentInstance, child, beforeChild)
+        Promise.all([parentInstance, child, beforeChild])
+            .then(([resolvedParentInstance, resolvedChild, resolvedBeforeChild]) => {
+                InternalApi.op_gtk_insert_before(resolvedParentInstance, resolvedChild, resolvedBeforeChild)
+            })
     },
     insertInContainerBefore(
         container: Container,
         child: Instance | TextInstance,
         beforeChild: Instance | TextInstance | SuspenseInstance
     ): void {
-        InternalApi.op_gtk_insert_before(container, child, beforeChild)
+        Promise.all([container, child, beforeChild])
+            .then(([resolvedContainer, resolvedChild, resolvedBeforeChild]) => {
+                InternalApi.op_gtk_insert_before(resolvedContainer, resolvedChild, resolvedBeforeChild)
+            })
     },
 
     removeChild(
         parentInstance: Instance,
         child: Instance | TextInstance | SuspenseInstance
     ): void {
-        InternalApi.op_gtk_remove_child(parentInstance, child)
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_gtk_remove_child(resolvedParent, resolvedChild)
+            })
     },
     removeChildFromContainer(
         container: Container,
         child: Instance | TextInstance | SuspenseInstance
     ): void {
-        InternalApi.op_gtk_remove_child(container, child)
+        Promise.all([container, child])
+            .then(([resolvedContainer, resolvedChild]) => {
+                InternalApi.op_gtk_remove_child(resolvedContainer, resolvedChild)
+            })
     },
 
 

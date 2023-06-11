@@ -55,6 +55,8 @@ fn main() -> glib::ExitCode {
                     module_loader: Rc::new(FsModuleLoader),
                     extensions: vec![gtk_ext::init_ops(react_request_sender)],
                     // maybe_inspector_server: Some(inspector_server),
+                    // should_wait_for_inspector_session: true,
+                    // should_break_on_first_statement: true,
                     maybe_inspector_server: None,
                     should_wait_for_inspector_session: false,
                     should_break_on_first_statement: false,
@@ -433,7 +435,7 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                     UiRequestData::CreateTextInstance { text } => {
                         let label = gtk::Label::new(Some(&text));
 
-                        let response_data = UiResponseData::CreateInstance {
+                        let response_data = UiResponseData::CreateTextInstance {
                             widget: get_gui_widget(label.upcast::<gtk::Widget>())
                         };
                         oneshot.send(response_data).unwrap();
@@ -443,10 +445,11 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                         let child = get_gtk_widget(child);
 
                         if let Some(gtk_box) = parent.downcast_ref::<gtk::Box>() {
-                            gtk_box.append(&child)
+                            gtk_box.append(&child);
                         } else if let Some(button) = parent.downcast_ref::<gtk::Button>() {
-                            button.set_child(Some(&child))
+                            button.set_child(Some(&child));
                         }
+                        oneshot.send(UiResponseData::Unit).unwrap();
                     }
                     UiRequestData::RemoveChild { parent, child } => {
                         let parent = get_gtk_widget(parent)
@@ -454,14 +457,16 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                             .unwrap();
                         let child = get_gtk_widget(child);
 
-                        parent.remove(&child)
+                        parent.remove(&child);
+                        oneshot.send(UiResponseData::Unit).unwrap();
                     }
                     UiRequestData::InsertBefore { parent, child, before_child } => {
                         let parent = get_gtk_widget(parent);
                         let child = get_gtk_widget(child);
                         let before_child = get_gtk_widget(before_child);
 
-                        child.insert_before(&parent, Some(&before_child))
+                        child.insert_before(&parent, Some(&before_child));
+                        oneshot.send(UiResponseData::Unit).unwrap();
                     }
                 }
             }
