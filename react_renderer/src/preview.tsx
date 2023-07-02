@@ -7,7 +7,10 @@ const Preview: React.FC = (): JSX.Element => {
     return (
         <box>
             <box>You clicked {count} times</box>
-            <button1 onClick={() => setCount(count + 1)}>
+            <button1 onClick={() => {
+                console.log("test events " + count)
+                setCount(count + 1);
+            }}>
                 Click me
             </button1>
         </box>

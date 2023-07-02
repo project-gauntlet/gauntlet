@@ -1,13 +1,16 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::{Future, poll_fn};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
+use std::task::Poll;
 use std::thread;
 
-use deno_core::{op, OpState};
+use deno_core::{op, OpState, serde_v8, v8};
 use serde::{Serialize, Deserialize};
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
@@ -16,21 +19,22 @@ use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use gtk::glib;
-use gtk::glib::MainContext;
+use gtk::glib::{MainContext};
 use gtk::prelude::*;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::LocalSet;
 
 fn main() -> glib::ExitCode {
-
-    let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
     let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
+
+    let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<GuiEvent>();
 
     let app = gtk::Application::builder()
         .application_id("org.gtk_rs.HelloWorld2")
         .build();
 
-    thread::spawn(|| {
+    thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -45,35 +49,40 @@ fn main() -> glib::ExitCode {
             let inspector_server = Arc::new(
                 InspectorServer::new(
                     "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
-                    "test"
+                    "test",
                 )
             );
+
+            let wait_for_inspector_session = false;
             let mut worker = MainWorker::bootstrap_from_options(
                 main_module.clone(),
                 PermissionsContainer::allow_all(),
                 WorkerOptions {
                     module_loader: Rc::new(FsModuleLoader),
-                    extensions: vec![gtk_ext::init_ops(react_request_sender)],
+                    extensions: vec![gtk_ext::init_ops(
+                        EventListeners::new(),
+                        EventReceiver::new(react_event_receiver),
+                        react_request_sender
+                    )],
                     // maybe_inspector_server: Some(inspector_server),
                     // should_wait_for_inspector_session: true,
                     // should_break_on_first_statement: true,
                     maybe_inspector_server: None,
-                    should_wait_for_inspector_session: false,
+                    should_wait_for_inspector_session: wait_for_inspector_session,
                     should_break_on_first_statement: false,
                     ..Default::default()
                 },
             );
-            worker.execute_main_module(&main_module).await.unwrap();
 
-            loop {
-                worker.run_event_loop(false).await.unwrap();
-            }
+            worker.execute_main_module(&main_module).await.unwrap();
+            worker.run_event_loop(wait_for_inspector_session).await.unwrap();
         })
     });
 
     app.connect_activate(move |app| {
         let react_request_receiver = Rc::clone(&react_request_receiver);
-        build_ui(app, react_request_receiver);
+        let react_event_sender = react_event_sender.clone();
+        build_ui(app, react_request_receiver, react_event_sender);
     });
 
     app.run()
@@ -156,19 +165,16 @@ pub async fn op_gtk_insert_before(
 pub async fn op_gtk_create_instance(
     state: Rc<RefCell<OpState>>,
     jsx_type: String,
-    // props: serde_v8::Value<'scope>,
 ) -> GuiWidget {
-
     println!("op_gtk_create_instance");
 
     let data = UiRequestData::CreateInstance {
         type_: jsx_type,
-        // props: Default::default(),
     };
 
     let widget = match make_request(&state, data).await {
         UiResponseData::CreateInstance { widget: widget_pointer } => widget_pointer,
-        value @ _=> panic!("unsupported response type {:?}", value),
+        value @ _ => panic!("unsupported response type {:?}", value),
     };
     println!("op_gtk_create_instance end");
 
@@ -180,17 +186,116 @@ pub async fn op_gtk_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
 ) -> GuiWidget {
-
     println!("op_gtk_create_text_instance");
 
     let data = UiRequestData::CreateTextInstance { text };
 
     let widget = match make_request(&state, data).await {
         UiResponseData::CreateTextInstance { widget: widget_pointer } => widget_pointer,
-        value @ _=> panic!("unsupported response type {:?}", value),
+        value @ _ => panic!("unsupported response type {:?}", value),
     };
 
     return widget;
+}
+
+#[op(v8)]
+pub fn op_gtk_set_properties<'a>(
+    scope: &mut v8::HandleScope,
+    state: Rc<RefCell<OpState>>,
+    widget: GuiWidget,
+    props: HashMap<String, serde_v8::Value<'a>>,
+) -> Result<impl Future<Output=Result<(), deno_core::anyhow::Error>> + 'static, deno_core::anyhow::Error> {
+    println!("op_gtk_set_properties");
+
+    let mut state_ref = state.borrow_mut();
+    let event_listeners = state_ref.borrow_mut::<EventListeners>();
+
+    let properties = props.iter()
+        .filter(|(name, _)| name.as_str() != "children")
+        .map(|(name, value)| {
+            let val = value.v8_value;
+            if val.is_function() {
+                let fn_value: v8::Local<v8::Function> = val.try_into().unwrap();
+                let global_fn = v8::Global::new(scope, fn_value);
+                event_listeners.add_listener(widget.widget_id, name.clone(), global_fn);
+                (name.clone(), PropertyValue::Function)
+            } else if val.is_string() {
+                (name.clone(), PropertyValue::String(val.to_rust_string_lossy(scope)))
+            } else if val.is_number() {
+                (name.clone(), PropertyValue::Number(val.number_value(scope).unwrap()))
+            } else if val.is_boolean() {
+                (name.clone(), PropertyValue::Bool(val.boolean_value(scope)))
+            } else {
+                panic!("{:?}: {:?}", name, val.type_of(scope).to_rust_string_lossy(scope))
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    let data = UiRequestData::SetProperties {
+        widget,
+        properties,
+    };
+
+    drop(state_ref);
+
+    Ok(async move {
+        let _ = make_request(&state, data).await;
+
+        Ok(())
+    })
+}
+
+#[op]
+pub async fn op_get_next_pending_gui_event<'a>(
+    state: Rc<RefCell<OpState>>,
+) -> GuiEvent2 {
+
+    let receiver = {
+        state.borrow()
+            .borrow::<EventReceiver>()
+            .clone()
+    };
+
+    poll_fn(|cx| {
+        match receiver.inner.borrow().try_recv() {
+            Ok(value) => {
+                println!("Poll::Ready {:?}", value);
+                let event = GuiEvent2 {
+                    widget_id: GuiWidget {
+                        widget_id: value.widget_id
+                    },
+                    event_name: value.event_name
+                };
+                Poll::Ready(event)
+            },
+            Err(TryRecvError::Disconnected) => panic!("disconnected"),
+            Err(TryRecvError::Empty) => {
+                // println!("Poll::Pending");
+                // TODO is there a way to avoid doing wake every time
+                //  because id currently spams poll pending
+                cx.waker().clone().wake();
+                Poll::Pending
+            }
+        }
+    }).await
+}
+
+#[op(v8)]
+pub fn op_call_event_listener(
+    scope: &mut v8::HandleScope,
+    state: Rc<RefCell<OpState>>,
+    widget: GuiWidget,
+    event_name: String,
+) {
+    println!("op_call_event_listener");
+
+    let event_listeners = {
+        state.borrow()
+            .borrow::<EventListeners>()
+            .clone()
+    };
+
+    event_listeners.call_listener_handler(scope, &widget.widget_id, &event_name)
 }
 
 deno_core::extension!(
@@ -201,11 +306,18 @@ deno_core::extension!(
         op_gtk_create_text_instance,
         op_gtk_append_child,
         op_gtk_insert_before,
+        op_gtk_set_properties,
+        op_get_next_pending_gui_event,
+        op_call_event_listener,
     ],
     options = {
+        event_listeners: EventListeners,
+        react_event_receiver: EventReceiver,
         react_request_sender: UnboundedSender<UiRequest>,
     },
     state = |state, options| {
+        state.put(options.event_listeners);
+        state.put(options.react_event_receiver);
         state.put(options.react_request_sender);
     },
     customizer = |ext: &mut deno_core::ExtensionBuilder| {
@@ -213,17 +325,70 @@ deno_core::extension!(
     },
 );
 
+#[derive(Clone)]
+pub struct EventListeners {
+    inner: Rc<RefCell<EventListenersInner>>,
+}
+
+pub struct EventListenersInner {
+    listeners: HashMap<WidgetId, HashMap<GtkEventName, v8::Global<v8::Function>>>,
+}
+
+impl EventListeners {
+    fn new() -> EventListeners {
+        Self {
+            inner: Rc::new(RefCell::new(
+                EventListenersInner {
+                    listeners: HashMap::new()
+                }
+            ))
+        }
+    }
+
+    fn add_listener(&mut self, widget: WidgetId, event_name: GtkEventName, function: v8::Global<v8::Function>) {
+        let mut inner = self.inner.borrow_mut();
+        inner.listeners.entry(widget).or_default().insert(event_name, function);
+    }
+
+    fn call_listener_handler(&self, scope: &mut v8::HandleScope, widget: &WidgetId, event_name: &GtkEventName) {
+        let inner = self.inner.borrow();
+        let option_func = inner.listeners.get(widget)
+            .map(|handlers| handlers.get(event_name))
+            .flatten();
+
+        if let Some(func) = option_func {
+            let local_fn = v8::Local::new(scope, func);
+            scope.enqueue_microtask(local_fn);
+        };
+    }
+}
+
+
+#[derive(Clone)]
+pub struct EventReceiver {
+    inner: Rc<RefCell<Receiver<GuiEvent>>>,
+}
+
+
+impl EventReceiver {
+    fn new(receiver: Receiver<GuiEvent>) -> EventReceiver {
+        Self {
+            inner: Rc::new(RefCell::new(receiver))
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct UiContext {
     next_id: WidgetId,
-    widget_map: HashMap<WidgetId, gtk::Widget>
+    widget_map: HashMap<WidgetId, gtk::Widget>,
 }
 
 
 #[derive(Debug)]
 pub struct UiRequest {
     response_sender: tokio::sync::oneshot::Sender<UiResponseData>,
-    data: UiRequestData
+    data: UiRequestData,
 }
 
 #[derive(Debug)]
@@ -237,7 +402,7 @@ pub enum UiResponseData {
     CreateTextInstance {
         widget: GuiWidget
     },
-    Unit
+    Unit,
 }
 
 #[derive(Debug)]
@@ -245,7 +410,6 @@ pub enum UiRequestData {
     GetContainer,
     CreateInstance {
         type_: String,
-        // props: HashMap<String, serde_v8::Global>,
     },
     CreateTextInstance {
         text: String,
@@ -263,18 +427,39 @@ pub enum UiRequestData {
         child: GuiWidget,
         before_child: GuiWidget,
     },
+    SetProperties {
+        widget: GuiWidget,
+        properties: HashMap<String, PropertyValue>,
+    },
 }
 
 #[derive(Debug)]
-pub enum GuiEvent {
-    ButtonClick,
+pub enum PropertyValue {
+    Function,
+    String(String),
+    Number(f64),
+    Bool(bool),
+}
+
+
+#[derive(Debug)]
+pub struct GuiEvent {
+    pub widget_id: WidgetId,
+    pub event_name: GtkEventName,
 }
 
 pub type WidgetId = u32;
+pub type GtkEventName = String;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GuiWidget {
     widget_id: WidgetId,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GuiEvent2 {
+    pub widget_id: GuiWidget,
+    pub event_name: GtkEventName,
 }
 
 impl GuiWidget {
@@ -283,7 +468,7 @@ impl GuiWidget {
     }
 }
 
-fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>) {
+fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, react_event_sender: Sender<GuiEvent>) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .deletable(false)
@@ -347,6 +532,7 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
         .show_separators(true)
         .build();
 
+    let react_event_sender = react_event_sender.clone();
     let window_in_list_view_callback = window.clone();
     list_view.connect_activate(move |list_view, position| {
         let react_request_receiver = Rc::clone(&react_request_receiver);
@@ -359,6 +545,7 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
         let gtk_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window_in_list_view_callback.set_child(Some(&gtk_box));
 
+        let react_event_sender = react_event_sender.clone();
         MainContext::default().spawn_local(async move {
             let react_request_receiver = Rc::clone(&react_request_receiver);
             let context = Rc::new(RefCell::new(UiContext { widget_map: HashMap::new(), next_id: 0 }));
@@ -390,7 +577,7 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                         };
                         oneshot.send(response_data).unwrap();
                     }
-                    UiRequestData::CreateInstance { type_/*, props*/ } => {
+                    UiRequestData::CreateInstance { type_ } => {
                         let widget: gtk::Widget = match type_.as_str() {
                             "box" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
                             // "button1" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
@@ -409,18 +596,6 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
 
                                 // TODO: not sure if lifetime of children is ok here
                                 let button = gtk::Button::with_label(&type_);
-                                // let button = gtk::Button::with_label(&children);
-                                button.connect_clicked(move |button| {
-                                    // let nested_scope = &mut nested_scope;
-
-                                    // let null: v8::Local<v8::Value> = v8::null(scope).into();
-
-                                    // on_click.call(scope, null, &[]);
-
-                                    // tx.send(GuiEvent::ButtonClick).unwrap();
-
-                                    println!("button pressed");
-                                });
 
                                 button.into()
                             }
@@ -466,6 +641,53 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                         let before_child = get_gtk_widget(before_child);
 
                         child.insert_before(&parent, Some(&before_child));
+                        oneshot.send(UiResponseData::Unit).unwrap();
+                    }
+                    UiRequestData::SetProperties {
+                        widget,
+                        properties
+                    } => {
+                        let widget_id = widget.widget_id;
+                        let widget = get_gtk_widget(widget);
+
+                        for (name, value) in properties {
+                            match value {
+                                PropertyValue::Function => {
+                                    let button = widget.downcast_ref::<gtk::Button>().unwrap();
+
+                                    let react_event_sender = react_event_sender.clone();
+
+                                    match name.as_str() {
+                                        "onClick" => {
+                                            println!("connect button listener");
+                                            let signal_handler_id = button.connect_clicked(move |button| {
+                                                println!("button clicked");
+                                                let event_name = name.clone();
+                                                react_event_sender.send(GuiEvent {
+                                                    event_name,
+                                                    widget_id,
+                                                }).unwrap();
+                                            });
+
+                                            // TODO
+                                            // button.disconnect(signal_handler_id)
+                                        },
+                                        _ => todo!()
+                                    };
+                                }
+                                PropertyValue::String(value) => {
+                                    widget.set_property(name.as_str(), value)
+                                }
+                                PropertyValue::Number(value) => {
+                                    widget.set_property(name.as_str(), value)
+                                }
+                                PropertyValue::Bool(value) => {
+                                    widget.set_property(name.as_str(), value)
+                                }
+                            }
+                        }
+
+
                         oneshot.send(UiResponseData::Unit).unwrap();
                     }
                 }

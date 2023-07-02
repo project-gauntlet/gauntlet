@@ -9,7 +9,7 @@ type Props = { children: any } & { [key: string]: any };
 type SuspenseInstance = never;
 type PublicInstance = Instance;
 type HostContext = any;
-type UpdatePayload = any;
+type UpdatePayload = string[];
 type TimeoutHandle = any;
 type NoTimeout = -1;
 
@@ -25,7 +25,9 @@ declare global {
 
 
 // @ts-expect-error "Deno[Deno.internal]" is not a public interface
-const InternalApi: InternalApi = Deno[Deno.internal].core.ops;
+const denoCore = Deno[Deno.internal].core;
+
+const InternalApi: InternalApi = denoCore.ops;
 
 type Container = Instance
 type Instance = Promise<GuiWidget>
@@ -38,7 +40,7 @@ declare interface GuiWidget {
 
 declare interface InternalApi {
     op_gtk_get_container(): Container;
-    op_gtk_create_instance(type: Type, props: Props): Instance;
+    op_gtk_create_instance(type: Type): Instance;
     op_gtk_create_text_instance(text: string): TextInstance;
 
     op_gtk_append_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
@@ -48,6 +50,9 @@ declare interface InternalApi {
         child: InstanceSync | TextInstanceSync | SuspenseInstance,
         beforeChild: InstanceSync | TextInstanceSync | SuspenseInstance
     ): void;
+
+    op_gtk_set_properties(instance: InstanceSync, child: Record<string, any>): void;
+    op_call_event_listener(instance: InstanceSync, eventName: string): void;
 }
 
 const hostConfig: HostConfig<
@@ -76,7 +81,7 @@ const hostConfig: HostConfig<
         internalHandle: OpaqueHandle,
     ): Instance => {
         console.log("createInstance")
-        return InternalApi.op_gtk_create_instance(type, props);
+        return InternalApi.op_gtk_create_instance(type);
     },
 
     createTextInstance: (
@@ -88,8 +93,15 @@ const hostConfig: HostConfig<
         console.log("createTextInstance")
         return InternalApi.op_gtk_create_text_instance(text);
     },
-    finalizeInitialChildren: (): boolean => {
+    finalizeInitialChildren: (
+        instance: Instance,
+        type: Type,
+        props: Props,
+        rootContainer: Container,
+        hostContext: HostContext
+    ): boolean => {
         console.log("finalizeInitialChildren")
+        instance.then(value => InternalApi.op_gtk_set_properties(value, props));
         return false;
     },
     prepareUpdate: (
@@ -101,8 +113,7 @@ const hostConfig: HostConfig<
         hostContext: HostContext,
     ): UpdatePayload | null => {
         console.log("prepareUpdate")
-        // TODO diffing of props is done here
-        return null;
+        return shallowDiff(oldProps, newProps);
     },
     shouldSetTextContent: (type: Type, props: Props): boolean => {
         return false; // in gtk arbitrary node cannot contain text, only Label can
@@ -232,6 +243,12 @@ const hostConfig: HostConfig<
 
     commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: Type, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
         console.log("commitUpdate")
+        if (updatePayload.length) {
+            const props = Object.fromEntries(
+                updatePayload.map(propName => [propName, nextProps[propName]])
+            );
+            instance.then(value => InternalApi.op_gtk_set_properties(value, props));
+        }
     },
     commitTextUpdate(textInstance: TextInstance, oldText: string, newText: string): void {
         console.log("commitTextUpdate")
@@ -269,6 +286,12 @@ const hostConfig: HostConfig<
     supportsHydration: false
 };
 
+function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): string[] {
+    const uniqueProps = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
+    return Array.from(uniqueProps)
+        .filter(propName => oldObj[propName] !== newObj[propName]);
+}
+
 const reconciler = ReactReconciler(hostConfig);
 
 const root = reconciler.createContainer(InternalApi.op_gtk_get_container(), 0, null, false, false, "custom", error => {
@@ -277,6 +300,11 @@ const root = reconciler.createContainer(InternalApi.op_gtk_get_container(), 0, n
 // console.dir(root)
 reconciler.updateContainer(<Preview/>, root, null, null);
 
-setTimeout(() => {
-    console.log("test timeout console")
-}, 3000)
+(async () => {
+    // noinspection InfiniteLoopJS
+    while (true) {
+        console.log("while loop")
+        const guiEvent = await denoCore.opAsync("op_get_next_pending_gui_event");
+        InternalApi.op_call_event_listener(guiEvent.widget_id, guiEvent.event_name)
+    }
+})();
