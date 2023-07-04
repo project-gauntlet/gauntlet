@@ -112,7 +112,7 @@ const hostConfig: HostConfig<
         rootContainer: Container,
         hostContext: HostContext,
     ): UpdatePayload | null => {
-        console.log("prepareUpdate")
+        console.log("prepareUpdate", oldProps, newProps)
         return shallowDiff(oldProps, newProps);
     },
     shouldSetTextContent: (type: Type, props: Props): boolean => {
@@ -242,7 +242,7 @@ const hostConfig: HostConfig<
 
 
     commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: Type, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
-        console.log("commitUpdate")
+        console.log("commitUpdate ", updatePayload)
         if (updatePayload.length) {
             const props = Object.fromEntries(
                 updatePayload.map(propName => [propName, nextProps[propName]])

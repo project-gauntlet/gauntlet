@@ -5,4 +5,5 @@ await esbuild.build({
     bundle: true,
     outfile: 'dist/main.js',
     target: 'deno1.33',
+    sourcemap: 'linked'
 })
