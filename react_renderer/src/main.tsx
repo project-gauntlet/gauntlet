@@ -299,13 +299,11 @@ const reconciler = ReactReconciler(hostConfig);
 const root = reconciler.createContainer(InternalApi.op_gtk_get_container(), 0, null, false, false, "custom", error => {
 }, null);
 
-// console.dir(root)
 reconciler.updateContainer(<Preview/>, root, null, null);
 
 (async () => {
     // noinspection InfiniteLoopJS
     while (true) {
-        console.log("while loop")
         const guiEvent = await denoCore.opAsync("op_get_next_pending_gui_event");
         InternalApi.op_call_event_listener(guiEvent.widget_id, guiEvent.event_name)
     }

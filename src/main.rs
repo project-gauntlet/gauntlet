@@ -11,6 +11,7 @@ use std::task::Poll;
 use std::thread;
 
 use deno_core::{op, OpState, serde_v8, v8};
+use deno_core::futures::task::AtomicWaker;
 use serde::{Serialize, Deserialize};
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
@@ -29,12 +30,17 @@ fn main() -> glib::ExitCode {
     let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
 
     let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<GuiEvent>();
+    let event_waker = Arc::new(AtomicWaker::new());
+
+    let gtk_context = GtkContext::new(react_request_receiver, react_event_sender, event_waker.clone());
 
     let app = gtk::Application::builder()
         .application_id("org.gtk_rs.HelloWorld2")
         .build();
 
     thread::spawn(move || {
+        let react_context = ReactContext::new(react_event_receiver, event_waker, react_request_sender);
+
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -60,8 +66,7 @@ fn main() -> glib::ExitCode {
                     module_loader: Rc::new(FsModuleLoader),
                     extensions: vec![gtk_ext::init_ops(
                         EventHandlers::new(),
-                        EventReceiver::new(react_event_receiver),
-                        react_request_sender
+                        react_context
                     )],
                     // maybe_inspector_server: Some(inspector_server.clone()),
                     // should_wait_for_inspector_session: true,
@@ -79,9 +84,7 @@ fn main() -> glib::ExitCode {
     });
 
     app.connect_activate(move |app| {
-        let react_request_receiver = Rc::clone(&react_request_receiver);
-        let react_event_sender = react_event_sender.clone();
-        build_ui(app, react_request_receiver, react_event_sender);
+        build_ui(app, gtk_context.clone());
     });
 
     app.run()
@@ -89,15 +92,15 @@ fn main() -> glib::ExitCode {
 
 #[must_use]
 async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiResponseData {
-    let sender = {
+    let react_context = {
         state.borrow()
-            .borrow::<UnboundedSender<UiRequest>>()
+            .borrow::<ReactContext>()
             .clone()
     };
 
     let (tx, rx) = tokio::sync::oneshot::channel();
 
-    sender.send(UiRequest { response_sender: tx, data }).unwrap();
+    react_context.request_sender.send(UiRequest { response_sender: tx, data }).unwrap();
 
     rx.await.unwrap()
 }
@@ -249,14 +252,18 @@ pub async fn op_get_next_pending_gui_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> GuiEvent2 {
 
-    let receiver = {
+    let react_context = {
         state.borrow()
-            .borrow::<EventReceiver>()
+            .borrow::<ReactContext>()
             .clone()
     };
 
     poll_fn(|cx| {
-        match receiver.inner.borrow().try_recv() {
+        let receiver = &react_context.event_receiver;
+        receiver.waker.register(cx.waker());
+        let receiver = receiver.inner.borrow();
+
+        match receiver.try_recv() {
             Ok(value) => {
                 println!("Poll::Ready {:?}", value);
                 let event = GuiEvent2 {
@@ -268,12 +275,7 @@ pub async fn op_get_next_pending_gui_event<'a>(
                 Poll::Ready(event)
             },
             Err(TryRecvError::Disconnected) => panic!("disconnected"),
-            Err(TryRecvError::Empty) => {
-                // TODO is there a way to avoid doing wake every time
-                //  because it currently spams poll pending
-                cx.waker().clone().wake();
-                Poll::Pending
-            }
+            Err(TryRecvError::Empty) => Poll::Pending
         }
     }).await
 }
@@ -287,13 +289,13 @@ pub fn op_call_event_listener(
 ) {
     println!("op_call_event_listener");
 
-    let event_listeners = {
+    let event_handlers = {
         state.borrow()
             .borrow::<EventHandlers>()
             .clone()
     };
 
-    event_listeners.call_listener_handler(scope, &widget.widget_id, &event_name)
+    event_handlers.call_listener_handler(scope, &widget.widget_id, &event_name)
 }
 
 #[op]
@@ -324,18 +326,48 @@ deno_core::extension!(
     ],
     options = {
         event_listeners: EventHandlers,
-        react_event_receiver: EventReceiver,
-        react_request_sender: UnboundedSender<UiRequest>,
+        react_context: ReactContext,
     },
     state = |state, options| {
         state.put(options.event_listeners);
-        state.put(options.react_event_receiver);
-        state.put(options.react_request_sender);
+        state.put(options.react_context);
     },
     customizer = |ext: &mut deno_core::ExtensionBuilder| {
         ext.force_op_registration();
     },
 );
+
+#[derive(Clone)]
+pub struct ReactContext {
+    event_receiver: EventReceiver,
+    request_sender: UnboundedSender<UiRequest>
+}
+
+impl ReactContext {
+    fn new(receiver: Receiver<GuiEvent>, event_waker: Arc<AtomicWaker>, request_sender: UnboundedSender<UiRequest>) -> ReactContext {
+        Self {
+            event_receiver: EventReceiver::new(receiver, event_waker),
+            request_sender
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct GtkContext {
+    request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>,
+    event_sender: Sender<GuiEvent>,
+    event_waker: Arc<AtomicWaker>,
+}
+
+impl GtkContext {
+    fn new(request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, event_sender: Sender<GuiEvent>, event_waker: Arc<AtomicWaker>) -> GtkContext {
+        Self {
+            request_receiver,
+            event_sender,
+            event_waker
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct EventHandlers {
@@ -379,13 +411,14 @@ impl EventHandlers {
 #[derive(Clone)]
 pub struct EventReceiver {
     inner: Rc<RefCell<Receiver<GuiEvent>>>,
+    waker: Arc<AtomicWaker>,
 }
 
-
 impl EventReceiver {
-    fn new(receiver: Receiver<GuiEvent>) -> EventReceiver {
+    fn new(receiver: Receiver<GuiEvent>, waker: Arc<AtomicWaker>) -> EventReceiver {
         Self {
-            inner: Rc::new(RefCell::new(receiver))
+            inner: Rc::new(RefCell::new(receiver)),
+            waker
         }
     }
 }
@@ -485,7 +518,7 @@ impl GuiWidget {
     }
 }
 
-fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, react_event_sender: Sender<GuiEvent>) {
+fn build_ui(app: &gtk::Application, gtk_context: GtkContext) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .deletable(false)
@@ -549,10 +582,10 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
         .show_separators(true)
         .build();
 
-    let react_event_sender = react_event_sender.clone();
+    let gtk_context = gtk_context.clone();
     let window_in_list_view_callback = window.clone();
     list_view.connect_activate(move |list_view, position| {
-        let react_request_receiver = Rc::clone(&react_request_receiver);
+        let gtk_context = gtk_context.clone();
         // let model = list_view.model().expect("The model has to exist.");
         // let string_object = model
         //     .item(position)
@@ -562,11 +595,11 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
         let gtk_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window_in_list_view_callback.set_child(Some(&gtk_box));
 
-        let react_event_sender = react_event_sender.clone();
+        let gtk_context = gtk_context.clone();
         MainContext::default().spawn_local(async move {
-            let react_request_receiver = Rc::clone(&react_request_receiver);
+            let gtk_context = gtk_context.clone();
             let context = Rc::new(RefCell::new(UiContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }));
-            while let Some(request) = react_request_receiver.borrow_mut().recv().await {
+            while let Some(request) = gtk_context.request_receiver.borrow_mut().recv().await {
                 println!("got value");
                 let gtk_box = gtk_box.clone();
 
@@ -672,7 +705,8 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                                 PropertyValue::Function => {
                                     let button = widget.downcast_ref::<gtk::Button>().unwrap();
 
-                                    let react_event_sender = react_event_sender.clone();
+                                    let react_event_sender = gtk_context.event_sender.clone();
+                                    let event_waker = gtk_context.event_waker.clone();
 
                                     match name.as_str() {
                                         "onClick" => {
@@ -682,6 +716,7 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                                             let signal_handler_id = button.connect_clicked(move |button| {
                                                 println!("button clicked");
                                                 let event_name = name.clone();
+                                                event_waker.wake();
                                                 react_event_sender.send(GuiEvent {
                                                     event_name,
                                                     widget_id,
