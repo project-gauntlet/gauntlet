@@ -721,7 +721,7 @@ fn build_ui(app: &gtk::Application, gtk_context: GtkContext) {
                                                     widget_id,
                                                 }).unwrap();
                                                 event_waker.wake();
-                                     o       });
+                                            });
 
                                             unregister_signal_handler_id(widget_id, &event_name);
                                             register_signal_handler_id(widget_id, &event_name, signal_handler_id);

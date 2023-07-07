@@ -26,6 +26,8 @@ declare global {
 
 // @ts-expect-error "Deno[Deno.internal]" is not a public interface
 const denoCore = Deno[Deno.internal].core;
+// @ts-expect-error // TODO "Deno" does not have typings
+const denoInspect = Deno.inspect;
 
 const InternalApi: InternalApi = denoCore.ops;
 
@@ -81,7 +83,6 @@ const hostConfig: HostConfig<
         hostContext: HostContext,
         internalHandle: OpaqueHandle,
     ): Instance => {
-        console.log("createInstance")
         return InternalApi.op_gtk_create_instance(type);
     },
 
@@ -91,7 +92,6 @@ const hostConfig: HostConfig<
         hostContext: HostContext,
         internalHandle: OpaqueHandle
     ): TextInstance => {
-        console.log("createTextInstance")
         return InternalApi.op_gtk_create_text_instance(text);
     },
     finalizeInitialChildren: (
@@ -101,7 +101,6 @@ const hostConfig: HostConfig<
         rootContainer: Container,
         hostContext: HostContext
     ): boolean => {
-        console.log("finalizeInitialChildren")
         instance.then(value => InternalApi.op_gtk_set_properties(value, props));
         return false;
     },
@@ -113,65 +112,50 @@ const hostConfig: HostConfig<
         rootContainer: Container,
         hostContext: HostContext,
     ): UpdatePayload | null => {
-        console.log("prepareUpdate", oldProps, newProps)
         return shallowDiff(oldProps, newProps);
     },
     shouldSetTextContent: (type: Type, props: Props): boolean => {
         return false; // in gtk arbitrary node cannot contain text, only Label can
     },
     getRootHostContext: (rootContainer: Container): HostContext | null => {
-        console.log("getRootHostContext")
         return null;
     },
     getChildHostContext: (parentHostContext: HostContext, type: Type, rootContainer: Container): HostContext => {
-        console.log("getChildHostContext")
         return parentHostContext;
     },
     getPublicInstance: (instance: Instance | TextInstance): PublicInstance => {
-        console.log("getPublicInstance")
         return instance;
     },
     prepareForCommit: (containerInfo: Container): Record<string, any> | null => {
-        console.log("prepareForCommit")
         return null;
     },
     resetAfterCommit: (containerInfo: Container): void => {
-        console.log("resetAfterCommit")
     },
     preparePortalMount: (containerInfo: Container): void => {
-        console.log("preparePortalMount")
     },
     scheduleTimeout(fn: (...args: unknown[]) => unknown, delay: number | undefined): TimeoutHandle {
         // TODO schedule timeout in tokio
-        console.log("scheduleTimeout")
         return undefined;
     },
     cancelTimeout(id: TimeoutHandle): void {
         // TODO cancel timeout in tokio
-        console.log("cancelTimeout")
     },
     noTimeout: -1,
     isPrimaryRenderer: true, // we have single separate renderer per view
     getCurrentEventPriority: () => DefaultEventPriority,
     getInstanceFromNode(node: any): ReactReconciler.Fiber | null | undefined {
-        console.log("getInstanceFromNode")
         return undefined;
     },
     beforeActiveInstanceBlur: (): void => {
-        console.log("beforeActiveInstanceBlur")
     },
     afterActiveInstanceBlur: (): void => {
-        console.log("afterActiveInstanceBlur")
     },
     prepareScopeUpdate: (scopeInstance: any, instance: any): void => {
-        console.log("prepareScopeUpdate")
     },
     getInstanceFromScope: (scopeInstance: any): null | Instance => {
-        console.log("getInstanceFromScope")
         return null;
     },
     detachDeletedInstance: (node: Instance): void => {
-        console.log("detachDeletedInstance")
     },
 
     /*
@@ -179,22 +163,18 @@ const hostConfig: HostConfig<
     */
     supportsMutation: true,
     appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
-        console.log("appendInitialChild", parentInstance, child)
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
                 InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
             })
     },
     appendChild(parentInstance: Instance, child: Instance | TextInstance): void {
-        console.log("appendChild", parentInstance, child)
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
                 InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
             })
     },
     appendChildToContainer(container: Container, child: Instance | TextInstance): void {
-        console.log("appendChildToContainer", container, child)
-
         Promise.all([container, child])
             .then(([resolvedContainer, resolvedChild]) => {
                 InternalApi.op_gtk_append_child(resolvedContainer, resolvedChild)
@@ -243,7 +223,6 @@ const hostConfig: HostConfig<
 
 
     commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: Type, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
-        console.log("commitUpdate ", updatePayload, prevProps, nextProps)
         if (updatePayload.length) {
             const props = Object.fromEntries(
                 updatePayload.map(propName => [propName, nextProps[propName]])
@@ -252,29 +231,23 @@ const hostConfig: HostConfig<
         }
     },
     commitTextUpdate(textInstance: TextInstance, oldText: string, newText: string): void {
-        console.log("commitTextUpdate", oldText, newText)
         textInstance.then(value => InternalApi.op_gtk_set_text(value, newText))
     },
 
     hideInstance(instance: Instance): void {
         // TODO suspend support
-        console.log("hideInstance")
     },
     hideTextInstance(textInstance: TextInstance): void {
         // TODO suspend support
-        console.log("hideTextInstance")
     },
     unhideInstance(instance: Instance, props: Props): void {
         // TODO suspend support
-        console.log("unhideInstance")
     },
     unhideTextInstance(textInstance: TextInstance, text: string): void {
         // TODO suspend support
-        console.log("unhideTextInstance")
     },
 
     clearContainer: (container: Container): void => {
-        console.log("clearContainer")
     },
 
     /*
@@ -294,7 +267,36 @@ function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): 
         .filter(propName => oldObj[propName] !== newObj[propName]);
 }
 
-const reconciler = ReactReconciler(hostConfig);
+
+const tracedHostConfig = new Proxy(hostConfig, {
+    get(target, propKey, receiver) {
+        const f = (target as any)[propKey];
+
+        if (typeof f === 'undefined') {
+            console.log('MethodTrace: Stubbing undefined property access for', propKey);
+
+            return function _noop(...args: any[]) {
+                console.log('MethodTrace Stub:', propKey, ...args.map(function (arg) {
+                    return denoInspect(arg, {depth: 1});
+                }));
+            }
+        }
+
+        if (typeof f === 'function') {
+            return function _traced(this: any, ...args: any[]) {
+                console.log('MethodTrace:', propKey, ...args.map(function(arg) {
+                    return denoInspect(arg, {depth: 1});
+                }));
+
+                return f.apply(this, args);
+            }
+        }
+
+        return f;
+    }
+});
+
+const reconciler = ReactReconciler(tracedHostConfig);
 
 const root = reconciler.createContainer(InternalApi.op_gtk_get_container(), 0, null, false, false, "custom", error => {
 }, null);
