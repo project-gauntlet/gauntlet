@@ -6,6 +6,10 @@ const Preview: React.FC = (): JSX.Element => {
 
     return (
         <box>
+            test
+            <box>
+                {count}
+            </box>
             <box>You clicked {count} times</box>
             <button1 onClick={() => {
                 console.log("test events " + count)

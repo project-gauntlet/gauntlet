@@ -52,6 +52,7 @@ declare interface InternalApi {
     ): void;
 
     op_gtk_set_properties(instance: InstanceSync, child: Record<string, any>): void;
+    op_gtk_set_text(instance: InstanceSync, text: string): void;
     op_call_event_listener(instance: InstanceSync, eventName: string): void;
 }
 
@@ -242,7 +243,7 @@ const hostConfig: HostConfig<
 
 
     commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: Type, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
-        console.log("commitUpdate ", updatePayload)
+        console.log("commitUpdate ", updatePayload, prevProps, nextProps)
         if (updatePayload.length) {
             const props = Object.fromEntries(
                 updatePayload.map(propName => [propName, nextProps[propName]])
@@ -251,7 +252,8 @@ const hostConfig: HostConfig<
         }
     },
     commitTextUpdate(textInstance: TextInstance, oldText: string, newText: string): void {
-        console.log("commitTextUpdate")
+        console.log("commitTextUpdate", oldText, newText)
+        textInstance.then(value => InternalApi.op_gtk_set_text(value, newText))
     },
 
     hideInstance(instance: Instance): void {

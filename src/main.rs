@@ -63,12 +63,12 @@ fn main() -> glib::ExitCode {
                         EventReceiver::new(react_event_receiver),
                         react_request_sender
                     )],
-                    maybe_inspector_server: Some(inspector_server.clone()),
-                    should_wait_for_inspector_session: true,
-                    should_break_on_first_statement: true,
-                    // maybe_inspector_server: None,
-                    // should_wait_for_inspector_session: false,
-                    // should_break_on_first_statement: false,
+                    // maybe_inspector_server: Some(inspector_server.clone()),
+                    // should_wait_for_inspector_session: true,
+                    // should_break_on_first_statement: true,
+                    maybe_inspector_server: None,
+                    should_wait_for_inspector_session: false,
+                    should_break_on_first_statement: false,
                     ..Default::default()
                 },
             );
@@ -296,6 +296,19 @@ pub fn op_call_event_listener(
     event_listeners.call_listener_handler(scope, &widget.widget_id, &event_name)
 }
 
+#[op]
+pub async fn op_gtk_set_text(
+    state: Rc<RefCell<OpState>>,
+    widget: GuiWidget,
+    text: String,
+) {
+    println!("op_gtk_set_text");
+
+    let data = UiRequestData::SetText { widget, text };
+
+    let _ = make_request(&state, data).await;
+}
+
 deno_core::extension!(
     gtk_ext,
     ops = [
@@ -305,6 +318,7 @@ deno_core::extension!(
         op_gtk_append_child,
         op_gtk_insert_before,
         op_gtk_set_properties,
+        op_gtk_set_text,
         op_get_next_pending_gui_event,
         op_call_event_listener,
     ],
@@ -429,6 +443,10 @@ pub enum UiRequestData {
     SetProperties {
         widget: GuiWidget,
         properties: HashMap<String, PropertyValue>,
+    },
+    SetText {
+        widget: GuiWidget,
+        text: String,
     },
 }
 
@@ -688,6 +706,17 @@ fn build_ui(app: &gtk::Application, react_request_receiver: Rc<RefCell<Unbounded
                             }
                         }
 
+
+                        oneshot.send(UiResponseData::Unit).unwrap();
+                    }
+                    UiRequestData::SetText { widget, text } => {
+                        let widget = get_gtk_widget(widget);
+
+                        let label = widget
+                            .downcast_ref::<gtk::Label>()
+                            .expect("unable to set text to non label widget");
+
+                        label.set_label(&text);
 
                         oneshot.send(UiResponseData::Unit).unwrap();
                     }
