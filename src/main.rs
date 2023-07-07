@@ -716,12 +716,12 @@ fn build_ui(app: &gtk::Application, gtk_context: GtkContext) {
                                             let signal_handler_id = button.connect_clicked(move |button| {
                                                 println!("button clicked");
                                                 let event_name = name.clone();
-                                                event_waker.wake();
                                                 react_event_sender.send(GuiEvent {
                                                     event_name,
                                                     widget_id,
                                                 }).unwrap();
-                                            });
+                                                event_waker.wake();
+                                     o       });
 
                                             unregister_signal_handler_id(widget_id, &event_name);
                                             register_signal_handler_id(widget_id, &event_name, signal_handler_id);
