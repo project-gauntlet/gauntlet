@@ -29,10 +29,10 @@ fn main() -> glib::ExitCode {
     let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
     let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
 
-    let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<GuiEvent>();
+    let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<UiEvent>();
     let event_waker = Arc::new(AtomicWaker::new());
 
-    let gtk_context = GtkContext::new(react_request_receiver, react_event_sender, event_waker.clone());
+    let gtk_context = UiContext::new(react_request_receiver, react_event_sender, event_waker.clone());
 
     let app = gtk::Application::builder()
         .application_id("org.gtk_rs.HelloWorld2")
@@ -344,7 +344,7 @@ pub struct ReactContext {
 }
 
 impl ReactContext {
-    fn new(receiver: Receiver<GuiEvent>, event_waker: Arc<AtomicWaker>, request_sender: UnboundedSender<UiRequest>) -> ReactContext {
+    fn new(receiver: Receiver<UiEvent>, event_waker: Arc<AtomicWaker>, request_sender: UnboundedSender<UiRequest>) -> ReactContext {
         Self {
             event_receiver: EventReceiver::new(receiver, event_waker),
             request_sender
@@ -353,14 +353,14 @@ impl ReactContext {
 }
 
 #[derive(Clone)]
-pub struct GtkContext {
+pub struct UiContext {
     request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>,
-    event_sender: Sender<GuiEvent>,
+    event_sender: Sender<UiEvent>,
     event_waker: Arc<AtomicWaker>,
 }
 
-impl GtkContext {
-    fn new(request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, event_sender: Sender<GuiEvent>, event_waker: Arc<AtomicWaker>) -> GtkContext {
+impl UiContext {
+    fn new(request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, event_sender: Sender<UiEvent>, event_waker: Arc<AtomicWaker>) -> UiContext {
         Self {
             request_receiver,
             event_sender,
@@ -410,12 +410,12 @@ impl EventHandlers {
 
 #[derive(Clone)]
 pub struct EventReceiver {
-    inner: Rc<RefCell<Receiver<GuiEvent>>>,
+    inner: Rc<RefCell<Receiver<UiEvent>>>,
     waker: Arc<AtomicWaker>,
 }
 
 impl EventReceiver {
-    fn new(receiver: Receiver<GuiEvent>, waker: Arc<AtomicWaker>) -> EventReceiver {
+    fn new(receiver: Receiver<UiEvent>, waker: Arc<AtomicWaker>) -> EventReceiver {
         Self {
             inner: Rc::new(RefCell::new(receiver)),
             waker
@@ -424,7 +424,7 @@ impl EventReceiver {
 }
 
 #[derive(Debug)]
-pub struct UiContext {
+pub struct GtkContext {
     next_id: WidgetId,
     widget_map: HashMap<WidgetId, gtk::Widget>,
     event_signal_handlers: HashMap<(WidgetId, GtkEventName), glib::SignalHandlerId>
@@ -493,7 +493,7 @@ pub enum PropertyValue {
 
 
 #[derive(Debug)]
-pub struct GuiEvent {
+pub struct UiEvent {
     pub widget_id: WidgetId,
     pub event_name: GtkEventName,
 }
@@ -518,7 +518,7 @@ impl GuiWidget {
     }
 }
 
-fn build_ui(app: &gtk::Application, gtk_context: GtkContext) {
+fn build_ui(app: &gtk::Application, gtk_context: UiContext) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .deletable(false)
@@ -598,7 +598,7 @@ fn build_ui(app: &gtk::Application, gtk_context: GtkContext) {
         let gtk_context = gtk_context.clone();
         MainContext::default().spawn_local(async move {
             let gtk_context = gtk_context.clone();
-            let context = Rc::new(RefCell::new(UiContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }));
+            let context = Rc::new(RefCell::new(GtkContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }));
             while let Some(request) = gtk_context.request_receiver.borrow_mut().recv().await {
                 println!("got value");
                 let gtk_box = gtk_box.clone();
@@ -716,7 +716,7 @@ fn build_ui(app: &gtk::Application, gtk_context: GtkContext) {
                                             let signal_handler_id = button.connect_clicked(move |button| {
                                                 println!("button clicked");
                                                 let event_name = name.clone();
-                                                react_event_sender.send(GuiEvent {
+                                                react_event_sender.send(UiEvent {
                                                     event_name,
                                                     widget_id,
                                                 }).unwrap();
