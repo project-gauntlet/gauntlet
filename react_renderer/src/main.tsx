@@ -32,12 +32,12 @@ const denoInspect = Deno.inspect;
 const InternalApi: InternalApi = denoCore.ops;
 
 type Container = Instance
-type Instance = Promise<GuiWidget>
-type TextInstance = Promise<GuiWidget>
-type InstanceSync = GuiWidget
-type TextInstanceSync = GuiWidget
+type Instance = Promise<UiWidget>
+type TextInstance = Promise<UiWidget>
+type InstanceSync = UiWidget
+type TextInstanceSync = UiWidget
 
-declare interface GuiWidget {
+declare interface UiWidget {
 }
 
 declare interface InternalApi {
@@ -306,7 +306,7 @@ reconciler.updateContainer(<Preview/>, root, null, null);
 (async () => {
     // noinspection InfiniteLoopJS
     while (true) {
-        const guiEvent = await denoCore.opAsync("op_get_next_pending_gui_event");
-        InternalApi.op_call_event_listener(guiEvent.widget, guiEvent.event_name)
+        const uiEvent = await denoCore.opAsync("op_get_next_pending_ui_event");
+        InternalApi.op_call_event_listener(uiEvent.widget, uiEvent.event_name)
     }
 })();

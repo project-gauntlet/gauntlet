@@ -85,6 +85,37 @@ pub struct GtkContext {
     event_signal_handlers: HashMap<(UiWidgetId, UiEventName), glib::SignalHandlerId>,
 }
 
+impl GtkContext {
+    fn new() -> Self {
+        GtkContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }
+    }
+
+    fn get_ui_widget(&mut self, widget: gtk::Widget) -> UiWidget {
+        let id = self.next_id;
+        self.widget_map.insert(id, widget);
+
+        self.next_id += 1;
+
+        UiWidget {
+            widget_id: id
+        }
+    }
+
+    fn get_gtk_widget(&self, ui_widget: UiWidget) -> gtk::Widget {
+        self.widget_map.get(&ui_widget.widget_id).unwrap().clone()
+    }
+
+    fn register_signal_handler_id(&mut self, widget_id: UiWidgetId, event: &UiEventName, signal_id: glib::SignalHandlerId) {
+        self.event_signal_handlers.insert((widget_id, event.clone()), signal_id);
+    }
+
+    fn unregister_signal_handler_id(&mut self, widget_id: UiWidgetId, event: &UiEventName) {
+        if let Some(signal_handler_id) = self.event_signal_handlers.remove(&(widget_id, event.clone())) {
+            self.widget_map.get(&widget_id).unwrap().disconnect(signal_handler_id);
+        }
+    }
+}
+
 
 fn build_ui(app: &gtk::Application, ui_context: UiContext) {
     let window = gtk::ApplicationWindow::builder()
@@ -166,46 +197,19 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
         let ui_context = ui_context.clone();
         MainContext::default().spawn_local(async move {
             let ui_context = ui_context.clone();
-            let context = Rc::new(RefCell::new(GtkContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }));
+            let context = Rc::new(RefCell::new(GtkContext::new()));
             while let Some(request) = ui_context.request_receiver.borrow_mut().recv().await {
                 println!("got value");
                 let gtk_box = gtk_box.clone();
 
                 let UiRequest { response_sender: oneshot, data } = request;
 
-                let get_gui_widget = |widget: gtk::Widget| -> UiWidget {
-                    let mut context = context.borrow_mut();
-                    let id = context.next_id;
-                    context.widget_map.insert(id, widget);
-
-                    context.next_id += 1;
-
-                    UiWidget {
-                        widget_id: id
-                    }
-                };
-
-                let get_gtk_widget = |gui_widget: UiWidget| -> gtk::Widget {
-                    let context = context.borrow();
-                    context.widget_map.get(&gui_widget.widget_id).unwrap().clone()
-                };
-
-                let register_signal_handler_id = |widget_id: UiWidgetId, event: &UiEventName, signal_id: glib::SignalHandlerId| {
-                    let mut context = context.borrow_mut();
-                    context.event_signal_handlers.insert((widget_id, event.clone()), signal_id)
-                };
-
-                let unregister_signal_handler_id = |widget_id: UiWidgetId, event: &UiEventName| {
-                    let mut context = context.borrow_mut();
-                    if let Some(signal_handler_id) = context.event_signal_handlers.remove(&(widget_id, event.clone())) {
-                        context.widget_map.get(&widget_id).unwrap().disconnect(signal_handler_id);
-                    }
-                };
+                let mut context = context.borrow_mut();
 
                 match data {
                     UiRequestData::GetContainer => {
                         let response_data = UiResponseData::GetContainer {
-                            container: get_gui_widget(gtk_box.upcast::<gtk::Widget>())
+                            container: context.get_ui_widget(gtk_box.upcast::<gtk::Widget>())
                         };
                         oneshot.send(response_data).unwrap();
                     }
@@ -222,7 +226,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         };
 
                         let response_data = UiResponseData::CreateInstance {
-                            widget: get_gui_widget(widget)
+                            widget: context.get_ui_widget(widget)
                         };
                         oneshot.send(response_data).unwrap();
                     }
@@ -230,13 +234,13 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         let label = gtk::Label::new(Some(&text));
 
                         let response_data = UiResponseData::CreateTextInstance {
-                            widget: get_gui_widget(label.upcast::<gtk::Widget>())
+                            widget: context.get_ui_widget(label.upcast::<gtk::Widget>())
                         };
                         oneshot.send(response_data).unwrap();
                     }
                     UiRequestData::AppendChild { parent, child } => {
-                        let parent = get_gtk_widget(parent);
-                        let child = get_gtk_widget(child);
+                        let parent = context.get_gtk_widget(parent);
+                        let child = context.get_gtk_widget(child);
 
                         if let Some(gtk_box) = parent.downcast_ref::<gtk::Box>() {
                             gtk_box.append(&child);
@@ -246,18 +250,18 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         oneshot.send(UiResponseData::Unit).unwrap();
                     }
                     UiRequestData::RemoveChild { parent, child } => {
-                        let parent = get_gtk_widget(parent)
+                        let parent = context.get_gtk_widget(parent)
                             .downcast::<gtk::Box>()
                             .unwrap();
-                        let child = get_gtk_widget(child);
+                        let child = context.get_gtk_widget(child);
 
                         parent.remove(&child);
                         oneshot.send(UiResponseData::Unit).unwrap();
                     }
                     UiRequestData::InsertBefore { parent, child, before_child } => {
-                        let parent = get_gtk_widget(parent);
-                        let child = get_gtk_widget(child);
-                        let before_child = get_gtk_widget(before_child);
+                        let parent = context.get_gtk_widget(parent);
+                        let child = context.get_gtk_widget(child);
+                        let before_child = context.get_gtk_widget(before_child);
 
                         child.insert_before(&parent, Some(&before_child));
                         oneshot.send(UiResponseData::Unit).unwrap();
@@ -267,7 +271,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         properties
                     } => {
                         let widget_id = widget.widget_id;
-                        let widget = get_gtk_widget(widget);
+                        let widget = context.get_gtk_widget(widget);
 
                         for (name, value) in properties {
                             println!("setting property {:?} to value {:?}", name, value);
@@ -293,8 +297,8 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                                                 event_waker.wake();
                                             });
 
-                                            unregister_signal_handler_id(widget_id, &event_name);
-                                            register_signal_handler_id(widget_id, &event_name, signal_handler_id);
+                                            context.unregister_signal_handler_id(widget_id, &event_name);
+                                            context.register_signal_handler_id(widget_id, &event_name, signal_handler_id);
                                         }
                                         _ => todo!()
                                     };
@@ -314,7 +318,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         oneshot.send(UiResponseData::Unit).unwrap();
                     }
                     UiRequestData::SetText { widget, text } => {
-                        let widget = get_gtk_widget(widget);
+                        let widget = context.get_gtk_widget(widget);
 
                         let label = widget
                             .downcast_ref::<gtk::Label>()

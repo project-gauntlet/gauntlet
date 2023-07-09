@@ -71,7 +71,7 @@ deno_core::extension!(
         op_gtk_remove_child,
         op_gtk_set_properties,
         op_gtk_set_text,
-        op_get_next_pending_gui_event,
+        op_get_next_pending_ui_event,
         op_call_event_listener,
     ],
     options = {
@@ -240,7 +240,7 @@ fn op_gtk_set_properties<'a>(
 }
 
 #[op]
-async fn op_get_next_pending_gui_event<'a>(
+async fn op_get_next_pending_ui_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> JsUiEvent {
     let event_receiver = {
