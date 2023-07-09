@@ -14,7 +14,7 @@ use gtk::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::LocalSet;
 
-use crate::react_side::{GtkEventName, GuiWidget, PropertyValue, ReactContext, run_react, UiEvent, UiRequest, UiRequestData, UiResponseData, WidgetId};
+use crate::react_side::{UiEventName, UiWidget, PropertyValue, ReactContext, run_react, UiEvent, UiRequest, UiRequestData, UiResponseData, UiWidgetId};
 
 mod react_side;
 
@@ -74,13 +74,13 @@ impl UiContext {
 
 #[derive(Debug)]
 pub struct GtkContext {
-    next_id: WidgetId,
-    widget_map: HashMap<WidgetId, gtk::Widget>,
-    event_signal_handlers: HashMap<(WidgetId, GtkEventName), glib::SignalHandlerId>,
+    next_id: UiWidgetId,
+    widget_map: HashMap<UiWidgetId, gtk::Widget>,
+    event_signal_handlers: HashMap<(UiWidgetId, UiEventName), glib::SignalHandlerId>,
 }
 
 
-fn build_ui(app: &gtk::Application, gtk_context: UiContext) {
+fn build_ui(app: &gtk::Application, ui_context: UiContext) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .deletable(false)
@@ -144,10 +144,10 @@ fn build_ui(app: &gtk::Application, gtk_context: UiContext) {
         .show_separators(true)
         .build();
 
-    let gtk_context = gtk_context.clone();
+    let ui_context = ui_context.clone();
     let window_in_list_view_callback = window.clone();
     list_view.connect_activate(move |list_view, position| {
-        let gtk_context = gtk_context.clone();
+        let ui_context = ui_context.clone();
         // let model = list_view.model().expect("The model has to exist.");
         // let string_object = model
         //     .item(position)
@@ -157,37 +157,37 @@ fn build_ui(app: &gtk::Application, gtk_context: UiContext) {
         let gtk_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window_in_list_view_callback.set_child(Some(&gtk_box));
 
-        let gtk_context = gtk_context.clone();
+        let ui_context = ui_context.clone();
         MainContext::default().spawn_local(async move {
-            let gtk_context = gtk_context.clone();
+            let ui_context = ui_context.clone();
             let context = Rc::new(RefCell::new(GtkContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }));
-            while let Some(request) = gtk_context.request_receiver.borrow_mut().recv().await {
+            while let Some(request) = ui_context.request_receiver.borrow_mut().recv().await {
                 println!("got value");
                 let gtk_box = gtk_box.clone();
 
                 let UiRequest { response_sender: oneshot, data } = request;
 
-                let get_gui_widget = |widget: gtk::Widget| -> GuiWidget {
+                let get_gui_widget = |widget: gtk::Widget| -> UiWidget {
                     let mut context = context.borrow_mut();
                     let id = context.next_id;
                     context.widget_map.insert(id, widget);
 
                     context.next_id += 1;
 
-                    GuiWidget::new(id)
+                    UiWidget::new(id)
                 };
 
-                let get_gtk_widget = |gui_widget: GuiWidget| -> gtk::Widget {
+                let get_gtk_widget = |gui_widget: UiWidget| -> gtk::Widget {
                     let context = context.borrow();
                     context.widget_map.get(&gui_widget.widget_id()).unwrap().clone()
                 };
 
-                let register_signal_handler_id = |widget_id: WidgetId, event: &GtkEventName, signal_id: glib::SignalHandlerId| {
+                let register_signal_handler_id = |widget_id: UiWidgetId, event: &UiEventName, signal_id: glib::SignalHandlerId| {
                     let mut context = context.borrow_mut();
                     context.event_signal_handlers.insert((widget_id, event.clone()), signal_id)
                 };
 
-                let unregister_signal_handler_id = |widget_id: WidgetId, event: &GtkEventName| {
+                let unregister_signal_handler_id = |widget_id: UiWidgetId, event: &UiEventName| {
                     let mut context = context.borrow_mut();
                     if let Some(signal_handler_id) = context.event_signal_handlers.remove(&(widget_id, event.clone())) {
                         context.widget_map.get(&widget_id).unwrap().disconnect(signal_handler_id);
@@ -267,8 +267,8 @@ fn build_ui(app: &gtk::Application, gtk_context: UiContext) {
                                 PropertyValue::Function => {
                                     let button = widget.downcast_ref::<gtk::Button>().unwrap();
 
-                                    let react_event_sender = gtk_context.event_sender.clone();
-                                    let event_waker = gtk_context.event_waker.clone();
+                                    let react_event_sender = ui_context.event_sender.clone();
+                                    let event_waker = ui_context.event_waker.clone();
 
                                     match name.as_str() {
                                         "onClick" => {
@@ -302,7 +302,6 @@ fn build_ui(app: &gtk::Application, gtk_context: UiContext) {
                                 }
                             }
                         }
-
 
                         oneshot.send(UiResponseData::Unit).unwrap();
                     }

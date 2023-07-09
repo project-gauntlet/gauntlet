@@ -22,6 +22,10 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn run_react(react_context: ReactContext) {
+
+    let event_receiver = EventReceiver::new(react_context.event_receiver, react_context.event_receiver_waker);
+    let request_sender =  RequestSender::new(react_context.request_sender);
+
     let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("react_renderer/dist/main.js");
     let main_module = ModuleSpecifier::from_file_path(js_path).unwrap();
 
@@ -39,7 +43,8 @@ pub async fn run_react(react_context: ReactContext) {
             module_loader: Rc::new(FsModuleLoader),
             extensions: vec![gtk_ext::init_ops(
                 EventHandlers::new(),
-                react_context,
+                event_receiver,
+                request_sender
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -71,11 +76,13 @@ deno_core::extension!(
     ],
     options = {
         event_listeners: EventHandlers,
-        react_context: ReactContext,
+        event_receiver: EventReceiver,
+        request_sender: RequestSender,
     },
     state = |state, options| {
         state.put(options.event_listeners);
-        state.put(options.react_context);
+        state.put(options.event_receiver);
+        state.put(options.request_sender);
     },
     customizer = |ext: &mut deno_core::ExtensionBuilder| {
         ext.force_op_registration();
@@ -85,7 +92,7 @@ deno_core::extension!(
 
 
 #[op]
-pub async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> GuiWidget {
+pub async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> UiWidget {
     println!("op_gtk_get_container");
 
     let container = match make_request(&state, UiRequestData::GetContainer).await {
@@ -101,8 +108,8 @@ pub async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> GuiWidget {
 #[op]
 pub async fn op_gtk_append_child(
     state: Rc<RefCell<OpState>>,
-    parent: GuiWidget,
-    child: GuiWidget,
+    parent: UiWidget,
+    child: UiWidget,
 ) {
     println!("op_gtk_append_child");
 
@@ -114,8 +121,8 @@ pub async fn op_gtk_append_child(
 #[op]
 pub async fn op_gtk_remove_child(
     state: Rc<RefCell<OpState>>,
-    parent: GuiWidget,
-    child: GuiWidget,
+    parent: UiWidget,
+    child: UiWidget,
 ) {
     println!("op_gtk_remove_child");
 
@@ -127,9 +134,9 @@ pub async fn op_gtk_remove_child(
 #[op]
 pub async fn op_gtk_insert_before(
     state: Rc<RefCell<OpState>>,
-    parent: GuiWidget,
-    child: GuiWidget,
-    before_child: GuiWidget,
+    parent: UiWidget,
+    child: UiWidget,
+    before_child: UiWidget,
 ) {
     println!("op_gtk_insert_before");
 
@@ -146,7 +153,7 @@ pub async fn op_gtk_insert_before(
 pub async fn op_gtk_create_instance(
     state: Rc<RefCell<OpState>>,
     jsx_type: String,
-) -> GuiWidget {
+) -> UiWidget {
     println!("op_gtk_create_instance");
 
     let data = UiRequestData::CreateInstance {
@@ -166,7 +173,7 @@ pub async fn op_gtk_create_instance(
 pub async fn op_gtk_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
-) -> GuiWidget {
+) -> UiWidget {
     println!("op_gtk_create_text_instance");
 
     let data = UiRequestData::CreateTextInstance { text };
@@ -183,7 +190,7 @@ pub async fn op_gtk_create_text_instance(
 pub fn op_gtk_set_properties<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    widget: GuiWidget,
+    widget: UiWidget,
     props: HashMap<String, serde_v8::Value<'a>>,
 ) -> Result<impl Future<Output=Result<(), deno_core::anyhow::Error>> + 'static, deno_core::anyhow::Error> {
     println!("op_gtk_set_properties");
@@ -230,22 +237,21 @@ pub fn op_gtk_set_properties<'a>(
 pub async fn op_get_next_pending_gui_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> GuiEvent2 {
-    let react_context = {
+    let event_receiver = {
         state.borrow()
-            .borrow::<ReactContext>()
+            .borrow::<EventReceiver>()
             .clone()
     };
 
     poll_fn(|cx| {
-        let receiver = &react_context.event_receiver;
-        receiver.waker.register(cx.waker());
-        let receiver = receiver.inner.borrow();
+        event_receiver.waker.register(cx.waker());
+        let receiver = event_receiver.inner.borrow();
 
         match receiver.try_recv() {
             Ok(value) => {
                 println!("Poll::Ready {:?}", value);
                 let event = GuiEvent2 {
-                    widget_id: GuiWidget {
+                    widget_id: UiWidget {
                         widget_id: value.widget_id
                     },
                     event_name: value.event_name,
@@ -262,7 +268,7 @@ pub async fn op_get_next_pending_gui_event<'a>(
 pub fn op_call_event_listener(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    widget: GuiWidget,
+    widget: UiWidget,
     event_name: String,
 ) {
     println!("op_call_event_listener");
@@ -279,7 +285,7 @@ pub fn op_call_event_listener(
 #[op]
 pub async fn op_gtk_set_text(
     state: Rc<RefCell<OpState>>,
-    widget: GuiWidget,
+    widget: UiWidget,
     text: String,
 ) {
     println!("op_gtk_set_text");
@@ -292,32 +298,44 @@ pub async fn op_gtk_set_text(
 
 #[must_use]
 async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiResponseData {
-    let react_context = {
+    let request_sender = {
         state.borrow()
-            .borrow::<ReactContext>()
+            .borrow::<RequestSender>()
             .clone()
     };
 
     let (tx, rx) = tokio::sync::oneshot::channel();
 
-    react_context.request_sender.send(UiRequest { response_sender: tx, data }).unwrap();
+    request_sender.inner.send(UiRequest { response_sender: tx, data }).unwrap();
 
     rx.await.unwrap()
 }
 
 
-#[derive(Clone)]
 pub struct ReactContext {
-    event_receiver: EventReceiver,
+    event_receiver: Receiver<UiEvent>,
+    event_receiver_waker: Arc<AtomicWaker>,
     request_sender: UnboundedSender<UiRequest>,
 }
 
 impl ReactContext {
-    pub fn new(receiver: Receiver<UiEvent>, event_waker: Arc<AtomicWaker>, request_sender: UnboundedSender<UiRequest>) -> ReactContext {
+    pub fn new(event_receiver: Receiver<UiEvent>, event_receiver_waker: Arc<AtomicWaker>, request_sender: UnboundedSender<UiRequest>) -> ReactContext {
         Self {
-            event_receiver: EventReceiver::new(receiver, event_waker),
+            event_receiver,
+            event_receiver_waker,
             request_sender,
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct RequestSender {
+    inner: UnboundedSender<UiRequest>,
+}
+
+impl RequestSender {
+    fn new(sender: UnboundedSender<UiRequest>) -> Self {
+        Self { inner: sender }
     }
 }
 
@@ -343,7 +361,7 @@ pub struct EventHandlers {
 }
 
 pub struct EventHandlersInner {
-    listeners: HashMap<WidgetId, HashMap<GtkEventName, v8::Global<v8::Function>>>,
+    listeners: HashMap<UiWidgetId, HashMap<UiEventName, v8::Global<v8::Function>>>,
 }
 
 impl EventHandlers {
@@ -357,12 +375,12 @@ impl EventHandlers {
         }
     }
 
-    fn add_listener(&mut self, widget: WidgetId, event_name: GtkEventName, function: v8::Global<v8::Function>) {
+    fn add_listener(&mut self, widget: UiWidgetId, event_name: UiEventName, function: v8::Global<v8::Function>) {
         let mut inner = self.inner.borrow_mut();
         inner.listeners.entry(widget).or_default().insert(event_name, function);
     }
 
-    fn call_listener_handler(&self, scope: &mut v8::HandleScope, widget: &WidgetId, event_name: &GtkEventName) {
+    fn call_listener_handler(&self, scope: &mut v8::HandleScope, widget: &UiWidgetId, event_name: &UiEventName) {
         let inner = self.inner.borrow();
         let option_func = inner.listeners.get(widget)
             .map(|handlers| handlers.get(event_name))
@@ -385,13 +403,13 @@ pub struct UiRequest {
 #[derive(Debug)]
 pub enum UiResponseData {
     GetContainer {
-        container: GuiWidget
+        container: UiWidget
     },
     CreateInstance {
-        widget: GuiWidget
+        widget: UiWidget
     },
     CreateTextInstance {
-        widget: GuiWidget
+        widget: UiWidget
     },
     Unit,
 }
@@ -406,24 +424,24 @@ pub enum UiRequestData {
         text: String,
     },
     AppendChild {
-        parent: GuiWidget,
-        child: GuiWidget,
+        parent: UiWidget,
+        child: UiWidget,
     },
     RemoveChild {
-        parent: GuiWidget,
-        child: GuiWidget,
+        parent: UiWidget,
+        child: UiWidget,
     },
     InsertBefore {
-        parent: GuiWidget,
-        child: GuiWidget,
-        before_child: GuiWidget,
+        parent: UiWidget,
+        child: UiWidget,
+        before_child: UiWidget,
     },
     SetProperties {
-        widget: GuiWidget,
+        widget: UiWidget,
         properties: HashMap<String, PropertyValue>,
     },
     SetText {
-        widget: GuiWidget,
+        widget: UiWidget,
         text: String,
     },
 }
@@ -439,31 +457,31 @@ pub enum PropertyValue {
 
 #[derive(Debug)]
 pub struct UiEvent {
-    pub widget_id: WidgetId,
-    pub event_name: GtkEventName,
+    pub widget_id: UiWidgetId,
+    pub event_name: UiEventName,
 }
 
-pub type WidgetId = u32;
-pub type GtkEventName = String;
+pub type UiWidgetId = u32;
+pub type UiEventName = String;
 
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GuiWidget {
-    widget_id: WidgetId,
+pub struct UiWidget {
+    widget_id: UiWidgetId,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GuiEvent2 {
-    pub widget_id: GuiWidget,
-    pub event_name: GtkEventName,
+    pub widget_id: UiWidget,
+    pub event_name: UiEventName,
 }
 
-impl GuiWidget {
-    pub fn new(widget_id: WidgetId) -> Self {
+impl UiWidget {
+    pub fn new(widget_id: UiWidgetId) -> Self {
         Self { widget_id }
     }
 
-    pub fn widget_id(&self) -> WidgetId {
+    pub fn widget_id(&self) -> UiWidgetId {
         self.widget_id
     }
 }
