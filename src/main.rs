@@ -19,20 +19,13 @@ use crate::react_side::{UiEventName, PropertyValue, ReactContext, run_react, UiE
 mod react_side;
 
 fn main() -> glib::ExitCode {
-    let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
-    let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
-
-    let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<UiEvent>();
-    let event_waker = Arc::new(AtomicWaker::new());
-
-    let gtk_context = UiContext::new(react_request_receiver, react_event_sender, event_waker.clone());
+    let (react_context, ui_context) = create_contexts();
 
     let app = gtk::Application::builder()
         .application_id("org.gtk_rs.HelloWorld2")
         .build();
 
     thread::spawn(move || {
-        let react_context = ReactContext::new(react_event_receiver, event_waker, react_request_sender);
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -47,10 +40,23 @@ fn main() -> glib::ExitCode {
     });
 
     app.connect_activate(move |app| {
-        build_ui(app, gtk_context.clone());
+        build_ui(app, ui_context.clone());
     });
 
     app.run()
+}
+
+fn create_contexts() -> (ReactContext, UiContext) {
+    let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
+    let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
+
+    let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<UiEvent>();
+    let event_waker = Arc::new(AtomicWaker::new());
+
+    let ui_context = UiContext::new(react_request_receiver, react_event_sender, event_waker.clone());
+    let react_context = ReactContext::new(react_event_receiver, event_waker, react_request_sender);
+
+    (react_context, ui_context)
 }
 
 
