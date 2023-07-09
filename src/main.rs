@@ -14,7 +14,7 @@ use gtk::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::LocalSet;
 
-use crate::react_side::{UiEventName, UiWidget, PropertyValue, ReactContext, run_react, UiEvent, UiRequest, UiRequestData, UiResponseData, UiWidgetId};
+use crate::react_side::{UiEventName, PropertyValue, ReactContext, run_react, UiEvent, UiRequest, UiRequestData, UiResponseData, UiWidgetId, UiWidget};
 
 mod react_side;
 
@@ -174,12 +174,14 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
 
                     context.next_id += 1;
 
-                    UiWidget::new(id)
+                    UiWidget {
+                        widget_id: id
+                    }
                 };
 
                 let get_gtk_widget = |gui_widget: UiWidget| -> gtk::Widget {
                     let context = context.borrow();
-                    context.widget_map.get(&gui_widget.widget_id()).unwrap().clone()
+                    context.widget_map.get(&gui_widget.widget_id).unwrap().clone()
                 };
 
                 let register_signal_handler_id = |widget_id: UiWidgetId, event: &UiEventName, signal_id: glib::SignalHandlerId| {
@@ -201,7 +203,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         };
                         oneshot.send(response_data).unwrap();
                     }
-                    UiRequestData::CreateInstance { type_ } => {
+                    UiRequestData::CreateInstance { widget_type: type_ } => {
                         let widget: gtk::Widget = match type_.as_str() {
                             "box" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
                             "button1" => {
@@ -258,7 +260,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                         widget,
                         properties
                     } => {
-                        let widget_id = widget.widget_id();
+                        let widget_id = widget.widget_id;
                         let widget = get_gtk_widget(widget);
 
                         for (name, value) in properties {

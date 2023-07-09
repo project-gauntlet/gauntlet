@@ -92,105 +92,111 @@ deno_core::extension!(
 
 
 #[op]
-pub async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> UiWidget {
+async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> JsUiWidget {
     println!("op_gtk_get_container");
 
     let container = match make_request(&state, UiRequestData::GetContainer).await {
-        UiResponseData::GetContainer { container: container_pointer } => container_pointer,
+        UiResponseData::GetContainer { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
     println!("op_gtk_get_container end");
 
-    container
+    container.into()
 }
 
 #[op]
-pub async fn op_gtk_append_child(
+async fn op_gtk_append_child(
     state: Rc<RefCell<OpState>>,
-    parent: UiWidget,
-    child: UiWidget,
+    parent: JsUiWidget,
+    child: JsUiWidget,
 ) {
     println!("op_gtk_append_child");
 
-    let data = UiRequestData::AppendChild { parent, child };
+    let data = UiRequestData::AppendChild {
+        parent: parent.into(),
+        child: child.into()
+    };
 
     let _ = make_request(&state, data).await;
 }
 
 #[op]
-pub async fn op_gtk_remove_child(
+async fn op_gtk_remove_child(
     state: Rc<RefCell<OpState>>,
-    parent: UiWidget,
-    child: UiWidget,
+    parent: JsUiWidget,
+    child: JsUiWidget,
 ) {
     println!("op_gtk_remove_child");
 
-    let data = UiRequestData::RemoveChild { parent, child };
+    let data = UiRequestData::RemoveChild {
+        parent: parent.into(),
+        child: child.into()
+    };
 
     let _ = make_request(&state, data).await;
 }
 
 #[op]
-pub async fn op_gtk_insert_before(
+async fn op_gtk_insert_before(
     state: Rc<RefCell<OpState>>,
-    parent: UiWidget,
-    child: UiWidget,
-    before_child: UiWidget,
+    parent: JsUiWidget,
+    child: JsUiWidget,
+    before_child: JsUiWidget,
 ) {
     println!("op_gtk_insert_before");
 
     let data = UiRequestData::InsertBefore {
-        parent,
-        child,
-        before_child,
+        parent: parent.into(),
+        child: child.into(),
+        before_child: before_child.into(),
     };
 
     let _ = make_request(&state, data);
 }
 
 #[op]
-pub async fn op_gtk_create_instance(
+async fn op_gtk_create_instance(
     state: Rc<RefCell<OpState>>,
-    jsx_type: String,
-) -> UiWidget {
+    widget_type: String,
+) -> JsUiWidget {
     println!("op_gtk_create_instance");
 
     let data = UiRequestData::CreateInstance {
-        type_: jsx_type,
+        widget_type,
     };
 
     let widget = match make_request(&state, data).await {
-        UiResponseData::CreateInstance { widget: widget_pointer } => widget_pointer,
+        UiResponseData::CreateInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
     println!("op_gtk_create_instance end");
 
-    widget
+    widget.into()
 }
 
 #[op]
-pub async fn op_gtk_create_text_instance(
+async fn op_gtk_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
-) -> UiWidget {
+) -> JsUiWidget {
     println!("op_gtk_create_text_instance");
 
     let data = UiRequestData::CreateTextInstance { text };
 
     let widget = match make_request(&state, data).await {
-        UiResponseData::CreateTextInstance { widget: widget_pointer } => widget_pointer,
+        UiResponseData::CreateTextInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    return widget;
+    return widget.into();
 }
 
 #[op(v8)]
-pub fn op_gtk_set_properties<'a>(
+fn op_gtk_set_properties<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    widget: UiWidget,
+    widget: JsUiWidget,
     props: HashMap<String, serde_v8::Value<'a>>,
 ) -> Result<impl Future<Output=Result<(), deno_core::anyhow::Error>> + 'static, deno_core::anyhow::Error> {
     println!("op_gtk_set_properties");
@@ -220,7 +226,7 @@ pub fn op_gtk_set_properties<'a>(
         .collect::<HashMap<_, _>>();
 
     let data = UiRequestData::SetProperties {
-        widget,
+        widget: widget.into(),
         properties,
     };
 
@@ -234,9 +240,9 @@ pub fn op_gtk_set_properties<'a>(
 }
 
 #[op]
-pub async fn op_get_next_pending_gui_event<'a>(
+async fn op_get_next_pending_gui_event<'a>(
     state: Rc<RefCell<OpState>>,
-) -> GuiEvent2 {
+) -> JsUiEvent {
     let event_receiver = {
         state.borrow()
             .borrow::<EventReceiver>()
@@ -250,8 +256,8 @@ pub async fn op_get_next_pending_gui_event<'a>(
         match receiver.try_recv() {
             Ok(value) => {
                 println!("Poll::Ready {:?}", value);
-                let event = GuiEvent2 {
-                    widget_id: UiWidget {
+                let event = JsUiEvent {
+                    widget: JsUiWidget {
                         widget_id: value.widget_id
                     },
                     event_name: value.event_name,
@@ -265,10 +271,10 @@ pub async fn op_get_next_pending_gui_event<'a>(
 }
 
 #[op(v8)]
-pub fn op_call_event_listener(
+fn op_call_event_listener(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    widget: UiWidget,
+    widget: JsUiWidget,
     event_name: String,
 ) {
     println!("op_call_event_listener");
@@ -283,14 +289,17 @@ pub fn op_call_event_listener(
 }
 
 #[op]
-pub async fn op_gtk_set_text(
+async fn op_gtk_set_text(
     state: Rc<RefCell<OpState>>,
-    widget: UiWidget,
+    widget: JsUiWidget,
     text: String,
 ) {
     println!("op_gtk_set_text");
 
-    let data = UiRequestData::SetText { widget, text };
+    let data = UiRequestData::SetText {
+        widget: widget.into(),
+        text
+    };
 
     let _ = make_request(&state, data).await;
 }
@@ -418,7 +427,7 @@ pub enum UiResponseData {
 pub enum UiRequestData {
     GetContainer,
     CreateInstance {
-        type_: String,
+        widget_type: String,
     },
     CreateTextInstance {
         text: String,
@@ -454,6 +463,8 @@ pub enum PropertyValue {
     Bool(bool),
 }
 
+pub type UiWidgetId = u32;
+pub type UiEventName = String;
 
 #[derive(Debug)]
 pub struct UiEvent {
@@ -461,27 +472,34 @@ pub struct UiEvent {
     pub event_name: UiEventName,
 }
 
-pub type UiWidgetId = u32;
-pub type UiEventName = String;
+#[derive(Debug, Deserialize, Serialize)]
+struct JsUiEvent {
+    widget: JsUiWidget,
+    event_name: UiEventName,
+}
 
+#[derive(Debug)]
+pub struct UiWidget {
+    pub widget_id: UiWidgetId,
+}
+
+impl From<UiWidget> for JsUiWidget {
+    fn from(value: UiWidget) -> Self {
+        Self {
+            widget_id: value.widget_id
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct UiWidget {
+struct JsUiWidget {
     widget_id: UiWidgetId,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct GuiEvent2 {
-    pub widget_id: UiWidget,
-    pub event_name: UiEventName,
-}
-
-impl UiWidget {
-    pub fn new(widget_id: UiWidgetId) -> Self {
-        Self { widget_id }
-    }
-
-    pub fn widget_id(&self) -> UiWidgetId {
-        self.widget_id
+impl From<JsUiWidget> for UiWidget {
+    fn from(value: JsUiWidget) -> Self {
+        Self {
+            widget_id: value.widget_id
+        }
     }
 }
