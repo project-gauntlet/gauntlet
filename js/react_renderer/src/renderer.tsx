@@ -304,9 +304,11 @@ const root = reconciler.createContainer(InternalApi.op_gtk_get_container(), 0, n
 reconciler.updateContainer(<Preview/>, root, null, null);
 
 (async () => {
-    // noinspection InfiniteLoopJS
     while (true) {
         const uiEvent = await denoCore.opAsync("op_get_next_pending_ui_event");
+        if (uiEvent.event_name === "containerDestroyed") {
+            break
+        }
         InternalApi.op_call_event_listener(uiEvent.widget, uiEvent.event_name)
     }
 })();

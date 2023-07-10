@@ -198,6 +198,17 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
         MainContext::default().spawn_local(async move {
             let ui_context = ui_context.clone();
             let context = Rc::new(RefCell::new(GtkContext::new()));
+
+            let react_event_sender = ui_context.event_sender.clone();
+            let event_waker = ui_context.event_waker.clone();
+            gtk_box.connect_destroy(move |button| {
+                react_event_sender.send(UiEvent {
+                    event_name: "containerDestroyed".to_owned(),
+                    widget_id: u32::MAX, // TODO events without widget_id
+                }).unwrap();
+                event_waker.wake();
+            });
+
             while let Some(request) = ui_context.request_receiver.borrow_mut().recv().await {
                 println!("got value");
                 let gtk_box = gtk_box.clone();
