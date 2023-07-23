@@ -26,12 +26,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn run_react(react_context: ReactContext) {
-    let event_receiver = EventReceiver::new(react_context.event_receiver, react_context.event_receiver_waker);
-    let request_sender = RequestSender::new(react_context.request_sender);
-
-    let render_view_js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("js/react_renderer/dist/dev/render_view.js");
-    let render_view_module = ModuleSpecifier::from_file_path(render_view_js_path).unwrap();
-
     let _inspector_server = Arc::new(
         InspectorServer::new(
             "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
@@ -40,15 +34,14 @@ pub async fn run_react(react_context: ReactContext) {
     );
 
     let mut worker = MainWorker::bootstrap_from_options(
-        render_view_module.clone(),
-        // "plugin:unused".parse().unwrap(),
+        "plugin:unused".parse().unwrap(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
             module_loader: Rc::new(CustomModuleLoader::new()),
             extensions: vec![gtk_ext::init_ops_and_esm(
                 EventHandlers::new(),
-                event_receiver,
-                request_sender,
+                EventReceiver::new(react_context.event_receiver, react_context.event_receiver_waker),
+                RequestSender::new(react_context.request_sender),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -61,7 +54,6 @@ pub async fn run_react(react_context: ReactContext) {
     );
 
     worker.execute_side_module(&"plugin:render".parse().unwrap()).await.unwrap();
-
     worker.run_event_loop(false).await.unwrap();
 }
 
@@ -483,7 +475,7 @@ impl EventHandlers {
 
         if let Some(func) = option_func {
             let local_fn = v8::Local::new(scope, func);
-            scope.enqueue_microtask(local_fn);
+            scope.enqueue_microtask(local_fn); // TODO call straight away instead of enqueue?
         };
     }
 }
