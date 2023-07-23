@@ -4,13 +4,17 @@ use std::fmt::Debug;
 use std::future::{Future, poll_fn};
 use std::net::SocketAddr;
 use std::path::Path;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
 use std::task::Poll;
 
-use deno_core::{op, OpState, serde_v8, v8};
+use deno_core::{anyhow, ascii_str, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
+use deno_core::anyhow::anyhow;
+use deno_core::error::AnyError;
+use deno_core::futures::FutureExt;
 use deno_core::futures::task::AtomicWaker;
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
@@ -22,14 +26,13 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn run_react(react_context: ReactContext) {
-
     let event_receiver = EventReceiver::new(react_context.event_receiver, react_context.event_receiver_waker);
-    let request_sender =  RequestSender::new(react_context.request_sender);
+    let request_sender = RequestSender::new(react_context.request_sender);
 
-    let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("react_renderer/dist/main.js");
-    let main_module = ModuleSpecifier::from_file_path(js_path).unwrap();
+    let render_view_js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("js/react_renderer/dist/dev/render_view.js");
+    let render_view_module = ModuleSpecifier::from_file_path(render_view_js_path).unwrap();
 
-    let inspector_server = Arc::new(
+    let _inspector_server = Arc::new(
         InspectorServer::new(
             "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
             "test",
@@ -37,14 +40,15 @@ pub async fn run_react(react_context: ReactContext) {
     );
 
     let mut worker = MainWorker::bootstrap_from_options(
-        main_module.clone(),
+        render_view_module.clone(),
+        // "plugin:unused".parse().unwrap(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
-            module_loader: Rc::new(FsModuleLoader),
-            extensions: vec![gtk_ext::init_ops(
+            module_loader: Rc::new(CustomModuleLoader::new()),
+            extensions: vec![gtk_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 event_receiver,
-                request_sender
+                request_sender,
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -56,9 +60,83 @@ pub async fn run_react(react_context: ReactContext) {
         },
     );
 
-    worker.execute_main_module(&main_module).await.unwrap();
+    worker.execute_side_module(&"plugin:render".parse().unwrap()).await.unwrap();
+
     worker.run_event_loop(false).await.unwrap();
 }
+
+pub struct CustomModuleLoader {
+    inner: FsModuleLoader,
+}
+
+impl CustomModuleLoader {
+    fn new() -> Self {
+        Self {
+            inner: FsModuleLoader
+        }
+    }
+}
+
+impl ModuleLoader for CustomModuleLoader {
+    fn resolve(
+        &self,
+        specifier: &str,
+        referrer: &str,
+        _kind: ResolutionKind,
+    ) -> Result<ModuleSpecifier, anyhow::Error> {
+        // self.inner.resolve(specifier, referrer, kind)
+
+        if specifier == "plugin:view" {
+            let plugin_view_js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("js/plugin/dist/view.js");
+            let plugin_view_module = ModuleSpecifier::from_file_path(plugin_view_js_path).unwrap();
+
+            return Ok(plugin_view_module);
+        }
+
+        let specifier = match (specifier, referrer) {
+            ("plugin:render", _) => "plugin:render",
+            ("plugin:renderer", _) => "ext:gtk_ext/react_renderer/dist/prod/renderer.js",
+            ("react", _) => "ext:gtk_ext/react/dist/prod/react.production.min.js",
+            ("react/jsx-runtime", _) => "ext:gtk_ext/react/dist/prod/react-jsx-runtime.production.min.js",
+            _ => {
+                return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer))
+            }
+        };
+
+        return Ok(ModuleSpecifier::parse(specifier)?);
+    }
+
+    fn load(
+        &self,
+        module_specifier: &ModuleSpecifier,
+        maybe_referrer: Option<&ModuleSpecifier>,
+        is_dynamic: bool,
+    ) -> Pin<Box<ModuleSourceFuture>> {
+        if module_specifier == &"plugin:render".parse().unwrap() {
+
+            fn load(
+                module_specifier: &ModuleSpecifier,
+            ) -> Result<ModuleSource, AnyError> {
+
+                let code = ascii_str!(r#"
+                    import view from "plugin:view";
+                    import { render } from "plugin:renderer";
+
+                    render(view)
+                "#).into();
+
+                let module = ModuleSource::new(ModuleType::JavaScript, code, module_specifier);
+                Ok(module)
+            }
+
+            return futures::future::ready(load(module_specifier)).boxed_local()
+        }
+
+
+        self.inner.load(module_specifier, maybe_referrer, is_dynamic)
+    }
+}
+
 
 deno_core::extension!(
     gtk_ext,
@@ -73,6 +151,14 @@ deno_core::extension!(
         op_gtk_set_text,
         op_get_next_pending_ui_event,
         op_call_event_listener,
+    ],
+    esm_entry_point = "ext:gtk_ext/entry_point.js",
+    esm = [
+        dir "../js",
+        "entry_point.js",
+        "react_renderer/dist/prod/renderer.js",
+        "react/dist/prod/react.production.min.js", // TODO dev
+        "react/dist/prod/react-jsx-runtime.production.min.js",
     ],
     options = {
         event_listeners: EventHandlers,
@@ -115,7 +201,7 @@ async fn op_gtk_append_child(
 
     let data = UiRequestData::AppendChild {
         parent: parent.into(),
-        child: child.into()
+        child: child.into(),
     };
 
     let _ = make_request(&state, data).await;
@@ -131,7 +217,7 @@ async fn op_gtk_remove_child(
 
     let data = UiRequestData::RemoveChild {
         parent: parent.into(),
-        child: child.into()
+        child: child.into(),
     };
 
     let _ = make_request(&state, data).await;
@@ -298,7 +384,7 @@ async fn op_gtk_set_text(
 
     let data = UiRequestData::SetText {
         widget: widget.into(),
-        text
+        text,
     };
 
     let _ = make_request(&state, data).await;

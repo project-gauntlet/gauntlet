@@ -1,6 +1,16 @@
 import React, {useState} from 'react';
 
-const Preview: React.FC = (): JSX.Element => {
+declare global {
+    namespace JSX {
+        interface IntrinsicElements {
+            box: {}
+            button1: { onClick?: () => void, children: string }
+            // TODO remove default html IntrinsicElements
+        }
+    }
+}
+
+const View: React.FC = (): JSX.Element => {
 
     const [count, setCount] = useState(0);
 
@@ -21,4 +31,4 @@ const Preview: React.FC = (): JSX.Element => {
     );
 };
 
-export default Preview;
+export default View;

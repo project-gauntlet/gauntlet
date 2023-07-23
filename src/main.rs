@@ -183,7 +183,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
 
     let ui_context = ui_context.clone();
     let window_in_list_view_callback = window.clone();
-    list_view.connect_activate(move |list_view, position| {
+    list_view.connect_activate(move |_list_view, _position| {
         let ui_context = ui_context.clone();
         // let model = list_view.model().expect("The model has to exist.");
         // let string_object = model
@@ -201,7 +201,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
 
             let react_event_sender = ui_context.event_sender.clone();
             let event_waker = ui_context.event_waker.clone();
-            gtk_box.connect_destroy(move |button| {
+            gtk_box.connect_destroy(move |_button| {
                 react_event_sender.send(UiEvent {
                     event_name: "containerDestroyed".to_owned(),
                     widget_id: u32::MAX, // TODO events without widget_id
@@ -298,7 +298,7 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
                                             println!("connect button listener");
                                             let event_name = name.clone();
 
-                                            let signal_handler_id = button.connect_clicked(move |button| {
+                                            let signal_handler_id = button.connect_clicked(move |_button| {
                                                 println!("button clicked");
                                                 let event_name = name.clone();
                                                 react_event_sender.send(UiEvent {

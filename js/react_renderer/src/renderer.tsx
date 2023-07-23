@@ -1,9 +1,8 @@
 import ReactReconciler, {HostConfig, OpaqueHandle} from "react-reconciler";
-import React from 'react';
+import type React from 'react';
 import {DefaultEventPriority} from 'react-reconciler/constants';
-import Preview from "./preview";
 
-type Type = keyof JSX.IntrinsicElements;
+type Type = string;
 type Props = { children: any } & { [key: string]: any };
 
 type SuspenseInstance = never;
@@ -13,19 +12,8 @@ type UpdatePayload = string[];
 type TimeoutHandle = any;
 type NoTimeout = -1;
 
-declare global {
-    namespace JSX {
-        interface IntrinsicElements {
-            box: {}
-            button1: { onClick?: () => void, children: string }
-            // TODO remove default html IntrinsicElements
-        }
-    }
-}
-
-
 // @ts-expect-error "Deno[Deno.internal]" is not a public interface
-const denoCore = Deno[Deno.internal].core;
+const denoCore = Deno.core;
 // @ts-expect-error // TODO "Deno" does not have typings
 const denoInspect = Deno.inspect;
 
@@ -296,19 +284,34 @@ const tracedHostConfig = new Proxy(hostConfig, {
     }
 });
 
-const reconciler = ReactReconciler(tracedHostConfig);
+export function render(View: React.FC) {
+    const reconciler = ReactReconciler(hostConfig); // tracedHostConfig TODO for some reason Deno.inspect is undefined now
 
-const root = reconciler.createContainer(InternalApi.op_gtk_get_container(), 0, null, false, false, "custom", error => {
-}, null);
+    const root = reconciler.createContainer(
+        InternalApi.op_gtk_get_container(),
+        0,
+        null,
+        false,
+        false,
+        "custom",
+        error => {},
+        null
+    );
 
-reconciler.updateContainer(<Preview/>, root, null, null);
+    reconciler.updateContainer(
+        <View/>,
+        root,
+        null,
+        null
+    );
 
-(async () => {
-    while (true) {
-        const uiEvent = await denoCore.opAsync("op_get_next_pending_ui_event");
-        if (uiEvent.event_name === "containerDestroyed") {
-            break
+    (async () => {
+        while (true) {
+            const uiEvent = await denoCore.opAsync("op_get_next_pending_ui_event");
+            if (uiEvent.event_name === "containerDestroyed") {
+                break // this will return from worker.run_event_loop
+            }
+            InternalApi.op_call_event_listener(uiEvent.widget, uiEvent.event_name)
         }
-        InternalApi.op_call_event_listener(uiEvent.widget, uiEvent.event_name)
-    }
-})();
+    })();
+}

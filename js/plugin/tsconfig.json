@@ -4,10 +4,8 @@
     "module": "ES2022",
     "esModuleInterop": true,
     "target": "ES2022",
-    "moduleResolution": "node",
-    "sourceMap": true,
-    "jsx": "react",
-    "outDir": "dist"
+    "moduleResolution": "nodenext",
+    "jsx": "react-jsx"
   },
   "lib": ["ES2020"]
 }
