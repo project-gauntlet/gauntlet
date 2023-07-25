@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use gtk::glib;
+use gtk::glib::MainContext;
 use gtk::prelude::*;
 
 use crate::react_side::{PropertyValue, UiEvent, UiEventName, UiRequest, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
@@ -46,29 +47,23 @@ impl GtkContext {
     }
 }
 
-pub(crate) async fn run_request_receiver_loop(ui_context: UiContext, container: gtk::Widget) {
+pub(crate) fn start_request_receiver_loop(ui_context: UiContext) {
+    MainContext::default().spawn_local(async move {
+        run_request_receiver_loop(ui_context.clone()).await
+    });
+}
+
+async fn run_request_receiver_loop(ui_context: UiContext) {
     let context = Rc::new(RefCell::new(GtkContext::new()));
 
-    let react_event_sender = ui_context.event_sender.clone();
-    let event_waker = ui_context.event_waker.clone();
-    container.connect_destroy(move |_button| {
-        react_event_sender.send(UiEvent {
-            event_name: "containerDestroyed".to_owned(),
-            widget_id: u32::MAX, // TODO events without widget_id
-        }).unwrap();
-        event_waker.wake();
-    });
-
-    while let Some(request) = ui_context.request_receiver.borrow_mut().recv().await {
-        println!("got value");
-        let container = container.clone();
-
+    while let Some(request) = ui_context.request_recv().await {
         let UiRequest { response_sender: oneshot, data } = request;
 
         let mut context = context.borrow_mut();
 
         match data {
             UiRequestData::GetContainer => {
+                let container = ui_context.current_container().unwrap();
                 let response_data = UiResponseData::GetContainer {
                     container: context.get_ui_widget(container)
                 };
@@ -140,8 +135,7 @@ pub(crate) async fn run_request_receiver_loop(ui_context: UiContext, container: 
                         PropertyValue::Function => {
                             let button = widget.downcast_ref::<gtk::Button>().unwrap();
 
-                            let react_event_sender = ui_context.event_sender.clone();
-                            let event_waker = ui_context.event_waker.clone();
+                            let ui_context = ui_context.clone();
 
                             match name.as_str() {
                                 "onClick" => {
@@ -151,11 +145,10 @@ pub(crate) async fn run_request_receiver_loop(ui_context: UiContext, container: 
                                     let signal_handler_id = button.connect_clicked(move |_button| {
                                         println!("button clicked");
                                         let event_name = name.clone();
-                                        react_event_sender.send(UiEvent {
+                                        ui_context.send_event(UiEvent::ViewEvent {
                                             event_name,
                                             widget_id,
-                                        }).unwrap();
-                                        event_waker.wake();
+                                        });
                                     });
 
                                     context.unregister_signal_handler_id(widget_id, &event_name);

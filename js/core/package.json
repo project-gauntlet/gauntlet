@@ -1,0 +1,16 @@
+{
+  "name": "core",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.2",
+    "@rollup/plugin-node-resolve": "^15.1.0",
+    "@rollup/plugin-typescript": "^11.1.2",
+    "@types/react": "^18.2.14",
+    "rollup": "^3.26.2",
+    "tslib": "^2.6.0",
+    "typescript": "^5.1.6"
+  }
+}

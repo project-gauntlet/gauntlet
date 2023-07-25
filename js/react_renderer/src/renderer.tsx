@@ -304,14 +304,4 @@ export function render(View: React.FC) {
         null,
         null
     );
-
-    (async () => {
-        while (true) {
-            const uiEvent = await denoCore.opAsync("op_get_next_pending_ui_event");
-            if (uiEvent.event_name === "containerDestroyed") {
-                break // this will return from worker.run_event_loop
-            }
-            InternalApi.op_call_event_listener(uiEvent.widget, uiEvent.event_name)
-        }
-    })();
 }

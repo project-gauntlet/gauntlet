@@ -11,10 +11,8 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
 use std::task::Poll;
 
-use deno_core::{anyhow, ascii_str, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
+use deno_core::{anyhow, ModuleLoader, ModuleSourceFuture, op, OpState, ResolutionKind, serde_v8, v8};
 use deno_core::anyhow::anyhow;
-use deno_core::error::AnyError;
-use deno_core::futures::FutureExt;
 use deno_core::futures::task::AtomicWaker;
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
@@ -24,6 +22,7 @@ use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::task;
 
 pub async fn run_react(react_context: ReactContext) {
     let _inspector_server = Arc::new(
@@ -33,7 +32,7 @@ pub async fn run_react(react_context: ReactContext) {
         )
     );
 
-    let mut worker = MainWorker::bootstrap_from_options(
+    let worker = MainWorker::bootstrap_from_options(
         "plugin:unused".parse().unwrap(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
@@ -53,8 +52,13 @@ pub async fn run_react(react_context: ReactContext) {
         },
     );
 
-    worker.execute_side_module(&"plugin:render".parse().unwrap()).await.unwrap();
-    worker.run_event_loop(false).await.unwrap();
+    let worker = Rc::new(RefCell::new(worker));
+
+    task::spawn_local(async move {
+        let mut worker = worker.borrow_mut();
+        worker.execute_side_module(&"plugin:core".parse().unwrap()).await.unwrap();
+        worker.run_event_loop(false).await.unwrap();
+    });
 }
 
 pub struct CustomModuleLoader {
@@ -86,12 +90,12 @@ impl ModuleLoader for CustomModuleLoader {
         }
 
         let specifier = match (specifier, referrer) {
-            ("plugin:render", _) => "plugin:render",
+            ("plugin:core", _) => "ext:gtk_ext/core/dist/prod/init.js",
             ("plugin:renderer", _) => "ext:gtk_ext/react_renderer/dist/prod/renderer.js",
             ("react", _) => "ext:gtk_ext/react/dist/prod/react.production.min.js",
             ("react/jsx-runtime", _) => "ext:gtk_ext/react/dist/prod/react-jsx-runtime.production.min.js",
             _ => {
-                return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer))
+                return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
             }
         };
 
@@ -104,27 +108,6 @@ impl ModuleLoader for CustomModuleLoader {
         maybe_referrer: Option<&ModuleSpecifier>,
         is_dynamic: bool,
     ) -> Pin<Box<ModuleSourceFuture>> {
-        if module_specifier == &"plugin:render".parse().unwrap() {
-
-            fn load(
-                module_specifier: &ModuleSpecifier,
-            ) -> Result<ModuleSource, AnyError> {
-
-                let code = ascii_str!(r#"
-                    import view from "plugin:view";
-                    import { render } from "plugin:renderer";
-
-                    render(view)
-                "#).into();
-
-                let module = ModuleSource::new(ModuleType::JavaScript, code, module_specifier);
-                Ok(module)
-            }
-
-            return futures::future::ready(load(module_specifier)).boxed_local()
-        }
-
-
         self.inner.load(module_specifier, maybe_referrer, is_dynamic)
     }
 }
@@ -149,8 +132,9 @@ deno_core::extension!(
         dir "../js",
         "entry_point.js",
         "react_renderer/dist/prod/renderer.js",
-        "react/dist/prod/react.production.min.js", // TODO dev
+        "react/dist/prod/react.production.min.js", // TODO dev https://github.com/rollup/plugins/issues/1546
         "react/dist/prod/react-jsx-runtime.production.min.js",
+        "core/dist/prod/init.js",
     ],
     options = {
         event_listeners: EventHandlers,
@@ -334,13 +318,7 @@ async fn op_get_next_pending_ui_event<'a>(
         match receiver.try_recv() {
             Ok(value) => {
                 println!("Poll::Ready {:?}", value);
-                let event = JsUiEvent {
-                    widget: JsUiWidget {
-                        widget_id: value.widget_id
-                    },
-                    event_name: value.event_name,
-                };
-                Poll::Ready(event)
+                Poll::Ready(value.into())
             }
             Err(TryRecvError::Disconnected) => panic!("disconnected"),
             Err(TryRecvError::Empty) => Poll::Pending
@@ -545,15 +523,43 @@ pub type UiWidgetId = u32;
 pub type UiEventName = String;
 
 #[derive(Debug)]
-pub struct UiEvent {
-    pub widget_id: UiWidgetId,
-    pub event_name: UiEventName,
+pub enum UiEvent {
+    ViewCreated,
+    ViewDestroyed,
+    ViewEvent {
+        event_name: UiEventName,
+        widget_id: UiWidgetId,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct JsUiEvent {
-    widget: JsUiWidget,
-    event_name: UiEventName,
+#[serde(tag = "type")]
+enum JsUiEvent {
+    ViewCreated,
+    ViewDestroyed,
+    ViewEvent {
+        widget: JsUiWidget,
+        #[serde(rename = "eventName")]
+        event_name: UiEventName,
+    },
+}
+
+impl From<UiEvent> for JsUiEvent {
+    fn from(value: UiEvent) -> Self {
+        match value {
+            UiEvent::ViewCreated => JsUiEvent::ViewCreated,
+            UiEvent::ViewDestroyed => JsUiEvent::ViewDestroyed,
+            UiEvent::ViewEvent {
+                event_name,
+                widget_id
+            } => JsUiEvent::ViewEvent {
+                event_name,
+                widget: JsUiWidget {
+                    widget_id
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -571,6 +577,7 @@ impl From<UiWidget> for JsUiWidget {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct JsUiWidget {
+    #[serde(rename = "widgetId")]
     widget_id: UiWidgetId,
 }
 
