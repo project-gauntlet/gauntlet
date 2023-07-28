@@ -12,31 +12,35 @@ use gtk::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::LocalSet;
 use crate::gtk_side::start_request_receiver_loop;
+use crate::plugins::{Plugin, PluginManager};
 
-use crate::react_side::{ReactContext, run_react, UiEvent, UiRequest};
+use crate::react_side::{PluginReactContext, run_react, UiEvent, UiRequest};
 
 mod react_side;
 mod gtk_side;
+mod plugins;
 
 fn main() -> glib::ExitCode {
-    let (react_context, ui_context) = create_contexts();
+    let mut plugin_manager = PluginManager::new();
+
+    let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
 
     let app = gtk::Application::builder()
         .application_id("org.gtk_rs.HelloWorld2")
         .build();
 
-    spawn_react_thread(react_context);
+    spawn_react_thread(react_contexts);
 
-    start_request_receiver_loop(ui_context.clone());
+    start_request_receiver_loop(ui_contexts.clone());
 
     app.connect_activate(move |app| {
-        build_ui(app, ui_context.clone());
+        build_ui(app, plugin_manager.clone());
     });
 
     app.run()
 }
 
-fn spawn_react_thread(react_context: ReactContext) {
+fn spawn_react_thread(react_contexts: Vec<PluginReactContext>) {
     let handle = move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -46,7 +50,14 @@ fn spawn_react_thread(react_context: ReactContext) {
         let local_set = LocalSet::new();
 
         local_set.block_on(&runtime, async {
-            run_react(react_context).await
+            let mut join_set = tokio::task::JoinSet::new();
+            for react_context in react_contexts {
+                join_set.spawn_local(async {
+                    run_react(react_context).await
+                });
+            }
+            while let Some(_) = join_set.join_next().await {
+            }
         })
     };
 
@@ -56,31 +67,20 @@ fn spawn_react_thread(react_context: ReactContext) {
         .expect("failed to spawn thread");
 }
 
-fn create_contexts() -> (ReactContext, UiContext) {
-    let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
-    let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
-
-    let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<UiEvent>();
-    let event_waker = Arc::new(AtomicWaker::new());
-
-    let ui_context = UiContext::new(react_request_receiver, react_event_sender, event_waker.clone());
-    let react_context = ReactContext::new(react_event_receiver, event_waker, react_request_sender);
-
-    (react_context, ui_context)
-}
-
 
 #[derive(Clone)]
-pub struct UiContext {
+pub struct PluginUiContext {
+    plugin: Plugin,
     request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>,
     event_sender: Sender<UiEvent>,
     event_waker: Arc<AtomicWaker>,
-    inner: Rc<RefCell<Option<gtk::Widget>>>, // FIXME bare option after cloning it seems to none?
+    inner: Rc<RefCell<Option<gtk::Widget>>>, // FIXME bare option after cloning it seems to be set to none?
 }
 
-impl UiContext {
-    fn new(request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, event_sender: Sender<UiEvent>, event_waker: Arc<AtomicWaker>) -> UiContext {
+impl PluginUiContext {
+    fn new(plugin: Plugin, request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>, event_sender: Sender<UiEvent>, event_waker: Arc<AtomicWaker>) -> PluginUiContext {
         Self {
+            plugin,
             request_receiver,
             event_sender,
             event_waker,
@@ -107,7 +107,7 @@ impl UiContext {
 }
 
 
-fn build_ui(app: &gtk::Application, ui_context: UiContext) {
+fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .deletable(false)
@@ -171,10 +171,11 @@ fn build_ui(app: &gtk::Application, ui_context: UiContext) {
         .show_separators(true)
         .build();
 
-    let ui_context = ui_context.clone();
+    let plugin_manager = plugin_manager.clone();
     let window_clone = window.clone();
     list_view.connect_activate(move |_list_view, _position| {
-        let mut ui_context = ui_context.clone();
+        let mut plugin_manager = plugin_manager.clone();
+        let mut ui_context = plugin_manager.get_ui_context("x").unwrap();
         // let model = list_view.model().expect("The model has to exist.");
         // let string_object = model
         //     .item(position)

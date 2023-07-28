@@ -7,7 +7,7 @@ use gtk::glib::MainContext;
 use gtk::prelude::*;
 
 use crate::react_side::{PropertyValue, UiEvent, UiEventName, UiRequest, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
-use crate::UiContext;
+use crate::PluginUiContext;
 
 #[derive(Debug)]
 pub struct GtkContext {
@@ -47,13 +47,15 @@ impl GtkContext {
     }
 }
 
-pub(crate) fn start_request_receiver_loop(ui_context: UiContext) {
-    MainContext::default().spawn_local(async move {
-        run_request_receiver_loop(ui_context.clone()).await
-    });
+pub(crate) fn start_request_receiver_loop(ui_contexts: Vec<PluginUiContext>) {
+    for ui_context in ui_contexts {
+        MainContext::default().spawn_local(async {
+            run_request_receiver_loop(ui_context).await
+        });
+    }
 }
 
-async fn run_request_receiver_loop(ui_context: UiContext) {
+async fn run_request_receiver_loop(ui_context: PluginUiContext) {
     let context = Rc::new(RefCell::new(GtkContext::new()));
 
     while let Some(request) = ui_context.request_recv().await {
