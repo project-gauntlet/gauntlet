@@ -2,7 +2,7 @@
   "name": "plugin",
   "version": "1.0.0",
   "scripts": {
-    "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
+    "build": "node_modules/.bin/tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.2",
@@ -12,5 +12,17 @@
     "@types/react": "^18.2.14",
     "tslib": "^2.6.0",
     "typescript": "^5.1.6"
+  },
+  "plugin": {
+    "metadata": {
+      "name": "some-interesting-plugin-name"
+    },
+    "entrypoints": [
+      {
+        "id": "some-view",
+        "name": "Some view",
+        "path": "src/view.tsx"
+      }
+    ]
   }
 }

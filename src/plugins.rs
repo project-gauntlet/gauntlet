@@ -1,8 +1,13 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
+use deno_core::anyhow::Context;
 use deno_core::futures::task::AtomicWaker;
+use deno_core::serde_json;
+use directories::ProjectDirs;
+use serde::Deserialize;
 use crate::react_side::{PluginReactContext, UiEvent, UiRequest};
 use crate::PluginUiContext;
 
@@ -18,10 +23,12 @@ pub struct PluginManagerInner {
 
 impl PluginManager {
 
-    pub fn new() -> Self {
+    pub fn create() -> Self {
+        let plugins = PluginLoader.load_plugins();
+
         Self {
             inner: Rc::new(RefCell::new(PluginManagerInner {
-                plugins: vec![Plugin::new("x"), Plugin::new("y"), Plugin::new("z")],
+                plugins,
                 ui_contexts: HashMap::new(),
             }))
         }
@@ -65,20 +72,142 @@ impl PluginManager {
 
 }
 
+#[derive(Debug, Deserialize)]
+struct Config {
+    readonly_ui: Option<bool>,
+    plugins: Option<Vec<PluginConfig>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginConfig {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PackageJson {
+    plugin: PackageJsonPlugin,
+}
+
+#[derive(Debug, Deserialize)]
+struct PackageJsonPlugin {
+    entrypoints: Vec<PackageJsonPluginEntrypoint>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PackageJsonPluginEntrypoint {
+    id: String,
+    name: String,
+    path: String,
+}
+
+pub struct PluginLoader;
+
+impl PluginLoader {
+    pub fn load_plugins(&self) -> Vec<Plugin> {
+        let project_dirs = ProjectDirs::from("org", "gtk_rs", "HelloWorld2").unwrap();
+
+        let config_dir = project_dirs.config_dir();
+
+        std::fs::create_dir_all(config_dir).unwrap();
+
+        let config_file = config_dir.join("config.toml");
+        let config_file_path = config_file.to_string_lossy().into_owned();
+        let config_content = std::fs::read_to_string(config_file).context(config_file_path).unwrap();
+        let config: Config = toml::from_str(&config_content).unwrap();
+
+        let plugins: Vec<_> = config.plugins.unwrap()
+            .into_iter()
+            .map(|plugin| self.fetch_plugin(plugin))
+            .collect();
+
+        plugins
+    }
+
+    fn fetch_plugin(&self, plugin: PluginConfig) -> Plugin {
+        // TODO fetch from git repo
+        let plugin_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/plugin");
+        let js_path = plugin_dir.join("dist/view.js");
+        let js_content = std::fs::read_to_string(js_path).unwrap();
+
+        let package_path = plugin_dir.join("package.json");
+        let package_content = std::fs::read_to_string(package_path).unwrap();
+        let package_json: PackageJson = serde_json::from_str(&package_content).unwrap();
+
+        let entrypoints: Vec<_> = package_json.plugin
+            .entrypoints
+            .into_iter()
+            .map(|entrypoint| PluginEntrypoint::new(entrypoint.id, entrypoint.name, entrypoint.path))
+            .collect();
+
+        let mut js = HashMap::new();
+        js.insert("view.js".into(), js_content);
+
+        Plugin::new(&plugin.id, PluginCode::new(js, None), entrypoints)
+    }
+
+}
 
 #[derive(Clone)]
 pub struct Plugin {
-    id: String
+    id: String,
+    code: PluginCode,
+    entrypoints: Vec<PluginEntrypoint>
 }
 
 impl Plugin {
-    fn new(id: &str) -> Self {
+    fn new(id: &str, code: PluginCode, entrypoints: Vec<PluginEntrypoint>) -> Self {
         Self {
-            id: id.into()
+            id: id.into(),
+            code,
+            entrypoints,
         }
     }
 
-    fn id(&self) -> &String {
+    pub fn id(&self) -> &String {
         &self.id
+    }
+
+    pub fn code(&self) -> &PluginCode {
+        &self.code
+    }
+}
+
+#[derive(Clone)]
+pub struct PluginEntrypoint {
+    id: String,
+    name: String,
+    path: String,
+}
+
+impl PluginEntrypoint {
+    fn new(id: String, name: String, path: String) -> Self {
+        Self {
+            id,
+            name,
+            path,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PluginCode {
+    js: HashMap<String, String>,
+    css: Option<String>,
+}
+
+impl PluginCode {
+    fn new(js: HashMap<String, String>, css: Option<String>) -> Self {
+        Self {
+            js,
+            css,
+        }
+    }
+
+    pub fn js(&self) -> &HashMap<String, String> {
+        &self.js
+    }
+
+    pub fn css(&self) -> &Option<String> {
+        &self.css
     }
 }

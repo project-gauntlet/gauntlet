@@ -10,7 +10,7 @@ declare global {
     }
 }
 
-const View: React.FC = (): JSX.Element => {
+export default function View(): JSX.Element {
 
     const [count, setCount] = useState(0);
 
@@ -31,4 +31,3 @@ const View: React.FC = (): JSX.Element => {
     );
 };
 
-export default View;

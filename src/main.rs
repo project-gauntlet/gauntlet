@@ -21,7 +21,7 @@ mod gtk_side;
 mod plugins;
 
 fn main() -> glib::ExitCode {
-    let mut plugin_manager = PluginManager::new();
+    let mut plugin_manager = PluginManager::create();
 
     let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
 

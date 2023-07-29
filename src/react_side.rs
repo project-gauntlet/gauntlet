@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::future::{Future, poll_fn};
 use std::net::SocketAddr;
-use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -11,8 +10,9 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
 use std::task::Poll;
 
-use deno_core::{anyhow, ModuleLoader, ModuleSourceFuture, op, OpState, ResolutionKind, serde_v8, v8};
+use deno_core::{anyhow, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
 use deno_core::anyhow::anyhow;
+use deno_core::futures::FutureExt;
 use deno_core::futures::task::AtomicWaker;
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
@@ -23,6 +23,7 @@ use deno_runtime::worker::WorkerOptions;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task;
+
 use crate::plugins::Plugin;
 
 pub async fn run_react(react_context: PluginReactContext) {
@@ -37,7 +38,7 @@ pub async fn run_react(react_context: PluginReactContext) {
         "plugin:unused".parse().unwrap(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
-            module_loader: Rc::new(CustomModuleLoader::new()),
+            module_loader: Rc::new(CustomModuleLoader::new(react_context.plugin)),
             extensions: vec![gtk_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 EventReceiver::new(react_context.event_receiver, react_context.event_receiver_waker),
@@ -63,12 +64,14 @@ pub async fn run_react(react_context: PluginReactContext) {
 }
 
 pub struct CustomModuleLoader {
+    plugin: Plugin,
     inner: FsModuleLoader,
 }
 
 impl CustomModuleLoader {
-    fn new() -> Self {
+    fn new(plugin: Plugin) -> Self {
         Self {
+            plugin,
             inner: FsModuleLoader
         }
     }
@@ -83,14 +86,8 @@ impl ModuleLoader for CustomModuleLoader {
     ) -> Result<ModuleSpecifier, anyhow::Error> {
         // self.inner.resolve(specifier, referrer, kind)
 
-        if specifier == "plugin:view" {
-            let plugin_view_js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("js/plugin/dist/view.js");
-            let plugin_view_module = ModuleSpecifier::from_file_path(plugin_view_js_path).unwrap();
-
-            return Ok(plugin_view_module);
-        }
-
         let specifier = match (specifier, referrer) {
+            ("plugin:view", _) => "plugin:view",
             ("plugin:core", _) => "ext:gtk_ext/core/dist/prod/init.js",
             ("plugin:renderer", _) => "ext:gtk_ext/react_renderer/dist/prod/renderer.js",
             ("react", _) => "ext:gtk_ext/react/dist/prod/react.production.min.js",
@@ -109,6 +106,16 @@ impl ModuleLoader for CustomModuleLoader {
         maybe_referrer: Option<&ModuleSpecifier>,
         is_dynamic: bool,
     ) -> Pin<Box<ModuleSourceFuture>> {
+        if module_specifier == &"plugin:view".parse().unwrap() {
+            let js = self.plugin.code().js();
+            let js = js.get("view.js").unwrap();
+
+            let module = ModuleSource::new(ModuleType::JavaScript, js.to_owned().into(), module_specifier);
+
+            return futures::future::ready(Ok(module)).boxed_local()
+        }
+
+
         self.inner.load(module_specifier, maybe_referrer, is_dynamic)
     }
 }
