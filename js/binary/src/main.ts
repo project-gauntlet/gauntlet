@@ -23,15 +23,8 @@ const mapInputs = packageJson.plugin.entrypoints.map(entrypoint => [entrypoint.i
 const entries = new Map(mapInputs);
 const inputs = Object.fromEntries(entries);
 
-await rollup({
+const rollupBuild = await rollup({
     input: inputs,
-    output: [
-        {
-            dir: 'dist',
-            format: 'esm',
-            sourcemap: true
-        }
-    ],
     external: ["react", "react/jsx-runtime"],
     plugins: [
         nodeResolve(),
@@ -40,4 +33,16 @@ await rollup({
             tsconfig: './tsconfig.json',
         }),
     ]
+});
+
+await rollupBuild.write({
+    dir: 'dist',
+    format: 'esm',
+    sourcemap: true,
+    manualChunks: (id, _meta) => {
+        if (id.includes('node_modules')) {
+            return 'vendor';
+        }
+    },
+    chunkFileNames: '[name].js'
 });

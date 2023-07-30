@@ -10,7 +10,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::TryRecvError;
 use std::task::Poll;
 
-use deno_core::{anyhow, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
+use deno_core::{futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
 use deno_core::anyhow::anyhow;
 use deno_core::futures::FutureExt;
 use deno_core::futures::task::AtomicWaker;
@@ -83,11 +83,17 @@ impl ModuleLoader for CustomModuleLoader {
         specifier: &str,
         referrer: &str,
         _kind: ResolutionKind,
-    ) -> Result<ModuleSpecifier, anyhow::Error> {
-        // self.inner.resolve(specifier, referrer, kind)
+    ) -> Result<ModuleSpecifier, deno_core::anyhow::Error> {
+
+        if specifier.starts_with("plugin:view?") {
+            return Ok(specifier.parse()?)
+        };
+
+        if specifier == "./vendor.js" && referrer.starts_with("plugin:view?") {
+            return Ok("plugin:view?vendor".parse()?)
+        };
 
         let specifier = match (specifier, referrer) {
-            ("plugin:view", _) => "plugin:view",
             ("plugin:core", _) => "ext:gtk_ext/core/dist/prod/init.js",
             ("plugin:renderer", _) => "ext:gtk_ext/react_renderer/dist/prod/renderer.js",
             ("react", _) => "ext:gtk_ext/react/dist/prod/react.production.min.js",
@@ -97,7 +103,7 @@ impl ModuleLoader for CustomModuleLoader {
             }
         };
 
-        return Ok(ModuleSpecifier::parse(specifier)?);
+        return Ok(specifier.parse()?);
     }
 
     fn load(
@@ -106,9 +112,15 @@ impl ModuleLoader for CustomModuleLoader {
         maybe_referrer: Option<&ModuleSpecifier>,
         is_dynamic: bool,
     ) -> Pin<Box<ModuleSourceFuture>> {
-        if module_specifier == &"plugin:view".parse().unwrap() {
+
+        let mut specifier = module_specifier.clone();
+        specifier.set_query(None);
+
+        if &specifier == &"plugin:view".parse().unwrap() {
+            let view_name = module_specifier.query().unwrap();
+
             let js = self.plugin.code().js();
-            let js = js.get("view.js").unwrap();
+            let js = js.get(view_name).unwrap();
 
             let module = ModuleSource::new(ModuleType::JavaScript, js.to_owned().into(), module_specifier);
 
@@ -534,7 +546,9 @@ pub type UiEventName = String;
 
 #[derive(Debug)]
 pub enum UiEvent {
-    ViewCreated,
+    ViewCreated {
+        view_name: String
+    },
     ViewDestroyed,
     ViewEvent {
         event_name: UiEventName,
@@ -545,7 +559,10 @@ pub enum UiEvent {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 enum JsUiEvent {
-    ViewCreated,
+    ViewCreated {
+        #[serde(rename = "viewName")]
+        view_name: String
+    },
     ViewDestroyed,
     ViewEvent {
         widget: JsUiWidget,
@@ -557,7 +574,7 @@ enum JsUiEvent {
 impl From<UiEvent> for JsUiEvent {
     fn from(value: UiEvent) -> Self {
         match value {
-            UiEvent::ViewCreated => JsUiEvent::ViewCreated,
+            UiEvent::ViewCreated { view_name } => JsUiEvent::ViewCreated { view_name },
             UiEvent::ViewDestroyed => JsUiEvent::ViewDestroyed,
             UiEvent::ViewEvent {
                 event_name,

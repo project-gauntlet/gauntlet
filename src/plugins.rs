@@ -111,7 +111,7 @@ impl PluginLoader {
         std::fs::create_dir_all(config_dir).unwrap();
 
         let config_file = config_dir.join("config.toml");
-        let config_file_path = config_file.to_string_lossy().into_owned();
+        let config_file_path = config_file.display().to_string();
         let config_content = std::fs::read_to_string(config_file).context(config_file_path).unwrap();
         let config: Config = toml::from_str(&config_content).unwrap();
 
@@ -126,8 +126,20 @@ impl PluginLoader {
     fn fetch_plugin(&self, plugin: PluginConfig) -> Plugin {
         // TODO fetch from git repo
         let plugin_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/plugin");
-        let js_path = plugin_dir.join("dist/view.js");
-        let js_content = std::fs::read_to_string(js_path).unwrap();
+        let dist_dir = plugin_dir.join("dist");
+
+        let dist_paths = std::fs::read_dir(dist_dir).unwrap();
+
+        let js: HashMap<_, _> = dist_paths.into_iter()
+            .map(|dist_path| {
+                let dist_path = dist_path.unwrap().path();
+
+                let js_content = std::fs::read_to_string(&dist_path).unwrap();
+                let id = dist_path.file_stem().unwrap().to_str().unwrap().to_owned();
+
+                (id, js_content)
+            })
+            .collect();
 
         let package_path = plugin_dir.join("package.json");
         let package_content = std::fs::read_to_string(package_path).unwrap();
@@ -138,9 +150,6 @@ impl PluginLoader {
             .into_iter()
             .map(|entrypoint| PluginEntrypoint::new(entrypoint.id, entrypoint.name, entrypoint.path))
             .collect();
-
-        let mut js = HashMap::new();
-        js.insert("view.js".into(), js_content);
 
         Plugin::new(&plugin.id, PluginCode::new(js, None), entrypoints)
     }

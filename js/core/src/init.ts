@@ -24,7 +24,7 @@ declare interface InternalApi {
                 break;
             }
             case "ViewCreated": {
-                const view = (await import("plugin:view")).default;
+                const view = (await import(`plugin:view?${uiEvent.viewName}`)).default;
                 const { render } = await import("plugin:renderer");
 
                 render(view)

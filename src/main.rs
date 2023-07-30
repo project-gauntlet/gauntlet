@@ -187,7 +187,7 @@ fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
         let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window_clone.set_child(Some(&container.clone()));
         ui_context.set_current_container(container.clone().upcast::<gtk::Widget>());
-        ui_context.send_event(UiEvent::ViewCreated);
+        ui_context.send_event(UiEvent::ViewCreated { view_name: "some-view".to_string() });
 
         let window_clone = window_clone.clone();
         let controller = gtk::EventControllerKey::new();

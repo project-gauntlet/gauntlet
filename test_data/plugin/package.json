@@ -17,7 +17,16 @@
         "id": "some-view",
         "name": "Some view",
         "path": "src/view.tsx"
+      },
+      {
+        "id": "other-view",
+        "name": "Other view",
+        "path": "src/other_view.tsx"
       }
     ]
+  },
+  "dependencies": {
+    "@types/lodash": "^4.14.196",
+    "lodash": "^4.17.21"
   }
 }

@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import upperCase from "lodash/upperCase";
 
 declare global {
     namespace JSX {
@@ -22,7 +23,7 @@ export default function View(): JSX.Element {
             </box>
             <box>You clicked {count} times</box>
             <button1 onClick={() => {
-                console.log("test events " + count)
+                console.log("test " + upperCase("events") + count)
                 setCount(count + 1);
             }}>
                 Click me
