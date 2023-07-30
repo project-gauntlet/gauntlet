@@ -26,7 +26,7 @@ fn main() -> glib::ExitCode {
     let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
 
     let app = gtk::Application::builder()
-        .application_id("org.gtk_rs.HelloWorld2")
+        .application_id("org.placeholdername.placeholdername") // TODO what is proper letter case here?
         .build();
 
     spawn_react_thread(react_contexts);

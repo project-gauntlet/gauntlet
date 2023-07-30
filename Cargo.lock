@@ -3227,6 +3227,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
+name = "placeholdername"
+version = "0.1.0"
+dependencies = [
+ "deno_core",
+ "deno_runtime",
+ "directories",
+ "gtk4",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml 0.7.6",
+]
+
+[[package]]
 name = "platforms"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3404,20 +3418,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom 0.2.9",
-]
-
-[[package]]
-name = "raycast-for-linux"
-version = "0.1.0"
-dependencies = [
- "deno_core",
- "deno_runtime",
- "directories",
- "gtk4",
- "serde",
- "serde_json",
- "tokio",
- "toml 0.7.6",
 ]
 
 [[package]]

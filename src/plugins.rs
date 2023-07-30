@@ -104,7 +104,7 @@ pub struct PluginLoader;
 
 impl PluginLoader {
     pub fn load_plugins(&self) -> Vec<Plugin> {
-        let project_dirs = ProjectDirs::from("org", "gtk_rs", "HelloWorld2").unwrap();
+        let project_dirs = ProjectDirs::from("org", "placeholdername", "placeholdername").unwrap();
 
         let config_dir = project_dirs.config_dir();
 
