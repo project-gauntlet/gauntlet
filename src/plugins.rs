@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -131,9 +133,9 @@ impl PluginLoader {
         let dist_paths = std::fs::read_dir(dist_dir).unwrap();
 
         let js: HashMap<_, _> = dist_paths.into_iter()
+            .map(|dist_path| dist_path.unwrap().path())
+            .filter(|dist_path| dist_path.extension() == Some(OsStr::from_bytes(b"js")))
             .map(|dist_path| {
-                let dist_path = dist_path.unwrap().path();
-
                 let js_content = std::fs::read_to_string(&dist_path).unwrap();
                 let id = dist_path.file_stem().unwrap().to_str().unwrap().to_owned();
 
