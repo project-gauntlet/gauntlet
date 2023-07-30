@@ -2,7 +2,7 @@
   "name": "plugin",
   "version": "1.0.0",
   "scripts": {
-    "build": "tsc --noEmit && placeholdername"
+    "build": "placeholdername"
   },
   "devDependencies": {
     "@types/react": "^18.2.14",
