@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
@@ -36,7 +36,11 @@ impl PluginManager {
         }
     }
 
-    pub fn get_ui_context(&mut self, plugin_id: &str) -> Option<PluginUiContext> {
+    pub fn plugins(&self) -> Ref<'_, Vec<Plugin>> {
+        Ref::map(self.inner.borrow(), |inn| &inn.plugins)
+    }
+
+    pub fn ui_context(&mut self, plugin_id: &str) -> Option<PluginUiContext> {
         self.inner
             .borrow_mut()
             .ui_contexts
@@ -53,7 +57,7 @@ impl PluginManager {
             .unzip();
 
         self.inner.borrow_mut().ui_contexts = ui_contexts.iter()
-            .map(|context| (context.plugin.id().clone(), context.clone()))
+            .map(|context| (context.plugin.id().to_owned(), context.clone()))
             .collect::<HashMap<_, _>>();
 
         (react_contexts, ui_contexts)
@@ -93,6 +97,7 @@ struct PackageJson {
 #[derive(Debug, Deserialize)]
 struct PackageJsonPlugin {
     entrypoints: Vec<PackageJsonPluginEntrypoint>,
+    metadata: PackageJsonPluginMetadata,
 }
 
 #[derive(Debug, Deserialize)]
@@ -100,6 +105,11 @@ struct PackageJsonPluginEntrypoint {
     id: String,
     name: String,
     path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PackageJsonPluginMetadata {
+    name: String,
 }
 
 pub struct PluginLoader;
@@ -153,33 +163,49 @@ impl PluginLoader {
             .map(|entrypoint| PluginEntrypoint::new(entrypoint.id, entrypoint.name, entrypoint.path))
             .collect();
 
-        Plugin::new(&plugin.id, PluginCode::new(js, None), entrypoints)
+        Plugin::new(&plugin.id, &package_json.plugin.metadata.name, PluginCode::new(js, None), entrypoints)
     }
 
 }
 
 #[derive(Clone)]
 pub struct Plugin {
+    inner: Arc<PluginInner>
+}
+
+pub struct PluginInner {
     id: String,
+    name: String,
     code: PluginCode,
     entrypoints: Vec<PluginEntrypoint>
 }
 
 impl Plugin {
-    fn new(id: &str, code: PluginCode, entrypoints: Vec<PluginEntrypoint>) -> Self {
+    fn new(id: &str, name: &str, code: PluginCode, entrypoints: Vec<PluginEntrypoint>) -> Self {
         Self {
-            id: id.into(),
-            code,
-            entrypoints,
+            inner: Arc::new(PluginInner {
+                id: id.into(),
+                name: name.into(),
+                code,
+                entrypoints,
+            })
         }
     }
 
-    pub fn id(&self) -> &String {
-        &self.id
+    pub fn id(&self) -> &str {
+        &self.inner.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.inner.name
     }
 
     pub fn code(&self) -> &PluginCode {
-        &self.code
+        &self.inner.code
+    }
+
+    pub fn entrypoints(&self) -> &Vec<PluginEntrypoint> {
+        &self.inner.entrypoints
     }
 }
 
@@ -197,6 +223,18 @@ impl PluginEntrypoint {
             name,
             path,
         }
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
     }
 }
 

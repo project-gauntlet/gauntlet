@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
@@ -107,6 +107,72 @@ impl PluginUiContext {
 }
 
 
+glib::wrapper! {
+    pub struct SearchEntry(ObjectSubclass<imp::SearchEntry>);
+}
+
+impl SearchEntry {
+    pub fn new(
+        entrypoint_name: &str,
+        entrypoint_id: &str,
+        plugin_name: &str,
+        plugin_id: &str,
+        image_path: Option<PathBuf>,
+    ) -> Self {
+        glib::Object::builder()
+            .property("entrypoint-name", entrypoint_name.to_owned())
+            .property("entrypoint-id", entrypoint_id.to_owned())
+            .property("plugin-name", plugin_name.to_owned())
+            .property("plugin-id", plugin_id.to_owned())
+            .property("image-path", image_path)
+            .build()
+    }
+}
+
+mod imp {
+    use gtk::glib;
+    use gtk::prelude::*;
+    use gtk::subclass::prelude::*;
+    use std::cell::RefCell;
+    use std::path::PathBuf;
+
+    #[derive(glib::Properties, Default)]
+    #[properties(wrapper_type = super::SearchEntry)]
+    pub struct SearchEntry {
+        #[property(get, set)]
+        entrypoint_name: RefCell<String>,
+        #[property(get, set)]
+        entrypoint_id: RefCell<String>,
+        #[property(get, set)]
+        plugin_name: RefCell<String>,
+        #[property(get, set)]
+        plugin_id: RefCell<String>,
+
+        #[property(get, set, nullable)]
+        image_path: RefCell<Option<PathBuf>>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for SearchEntry {
+        const NAME: &'static str = "SearchEntry";
+        type Type = super::SearchEntry;
+    }
+
+    impl ObjectImpl for SearchEntry {
+        fn properties() -> &'static [glib::ParamSpec] {
+            Self::derived_properties()
+        }
+
+        fn set_property(&self, id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
+            self.derived_set_property(id, value, pspec)
+        }
+
+        fn property(&self, id: usize, pspec: &glib::ParamSpec) -> glib::Value {
+            self.derived_property(id, pspec)
+        }
+    }
+}
+
 fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
@@ -128,19 +194,35 @@ fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
 
     let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
 
-    let string_list = gtk::StringList::new(&[
-        "test1", "test2", "test3", "test4", "test5", "test5", "test5", "test5", "test5", "test5",
-        "test5", "test5", "test5", "test5", "test5", "test5", "test5", "test5", "test5", "test5",
-        "test5", "test5", "test5", "test5", "test5", "test5", "test5",
-    ]);
+    let entrypoints: Vec<_> = plugin_manager.plugins()
+        .iter()
+        .flat_map(|plugin| {
+            plugin.entrypoints()
+                .iter()
+                .map(|entrypoint| {
+                    SearchEntry::new(
+                        entrypoint.name(),
+                        entrypoint.id(),
+                        plugin.name(),
+                        plugin.id(),
+                        Some(Path::new("extension_icon.png").to_owned())
+                    )
+                })
+        })
+        .collect();
 
-    let selection = gtk::SingleSelection::new(Some(string_list));
+    let model = gtk::gio::ListStore::new(SearchEntry::static_type());
+
+    model.extend_from_slice(&entrypoints);
+
+    let selection = gtk::SingleSelection::new(Some(model));
 
     let factory = gtk::SignalListItemFactory::new();
     {
         factory.connect_setup(move |_, list_item| {
-            let image = gtk::Image::from_file(Path::new("extension_icon.png"));
+            let image = gtk::Image::new();
             let label = gtk::Label::builder().margin_start(6).build();
+            let sub_label = gtk::Label::builder().margin_start(6).build();
 
             let gtk_box = gtk::Box::builder()
                 .orientation(gtk::Orientation::Horizontal)
@@ -152,6 +234,7 @@ fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
 
             gtk_box.append(&image);
             gtk_box.append(&label);
+            gtk_box.append(&sub_label);
 
             let list_item = list_item
                 .downcast_ref::<gtk::ListItem>()
@@ -160,8 +243,18 @@ fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
 
             list_item
                 .property_expression("item")
-                .chain_property::<gtk::StringObject>("string")
+                .chain_property::<SearchEntry>("entrypoint-name")
                 .bind(&label, "label", gtk::Widget::NONE);
+
+            list_item
+                .property_expression("item")
+                .chain_property::<SearchEntry>("plugin-name")
+                .bind(&sub_label, "label", gtk::Widget::NONE);
+
+            list_item
+                .property_expression("item")
+                .chain_property::<SearchEntry>("image-path")
+                .bind(&image, "file", gtk::Widget::NONE);
         });
     }
 
@@ -173,21 +266,27 @@ fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
 
     let plugin_manager = plugin_manager.clone();
     let window_clone = window.clone();
-    list_view.connect_activate(move |_list_view, _position| {
+    list_view.connect_activate(move |list_view, position| {
+
+        let model = list_view.model().expect("The model has to exist.");
+
+        let search_entry = model
+            .item(position)
+            .and_downcast::<SearchEntry>()
+            .expect("The item has to be an `SearchEntry`.");
+
+        let plugin_id = search_entry.plugin_id();
+        let entrypoint_id = search_entry.entrypoint_id();
+
         let mut plugin_manager = plugin_manager.clone();
-        let mut ui_context = plugin_manager.get_ui_context("x").unwrap();
-        // let model = list_view.model().expect("The model has to exist.");
-        // let string_object = model
-        //     .item(position)
-        //     .and_downcast::<gtk::StringObject>()
-        //     .expect("The item has to be an `StringObject`.");
+        let mut ui_context = plugin_manager.ui_context(&plugin_id).unwrap();
 
         let prev_child = window_clone.child().unwrap().clone();
 
         let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window_clone.set_child(Some(&container.clone()));
         ui_context.set_current_container(container.clone().upcast::<gtk::Widget>());
-        ui_context.send_event(UiEvent::ViewCreated { view_name: "some-view".to_string() });
+        ui_context.send_event(UiEvent::ViewCreated { view_name: entrypoint_id });
 
         let window_clone = window_clone.clone();
         let controller = gtk::EventControllerKey::new();
