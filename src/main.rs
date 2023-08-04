@@ -9,35 +9,272 @@ use deno_core::futures::task::AtomicWaker;
 use gtk::gdk::Key;
 use gtk::glib;
 use gtk::prelude::*;
+use relm4::{ComponentParts, ComponentSender, gtk, RelmApp,  SimpleComponent};
+use relm4::typed_list_view::{RelmListItem, TypedListView};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::LocalSet;
+
 use crate::gtk_side::start_request_receiver_loop;
 use crate::plugins::{Plugin, PluginManager};
-
 use crate::react_side::{PluginReactContext, run_react, UiEvent, UiRequest};
 
 mod react_side;
 mod gtk_side;
 mod plugins;
 
-fn main() -> glib::ExitCode {
+
+const SPACING: i32 = 12;
+
+
+#[derive(Debug, Clone)]
+struct SearchEntry {
+    entrypoint_name: String,
+    entrypoint_id: String,
+    plugin_name: String,
+    plugin_id: String,
+    image_path: Option<PathBuf>,
+}
+
+impl SearchEntry {
+    fn new(
+        entrypoint_name: &str,
+        entrypoint_id: &str,
+        plugin_name: &str,
+        plugin_id: &str,
+        image_path: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            entrypoint_name: entrypoint_name.to_owned(),
+            entrypoint_id: entrypoint_id.to_owned(),
+            plugin_name: plugin_name.to_owned(),
+            plugin_id: plugin_id.to_owned(),
+            image_path,
+        }
+    }
+}
+
+struct Widgets {
+    image: gtk::Image,
+    label: gtk::Label,
+    sub_label: gtk::Label,
+}
+
+impl RelmListItem for SearchEntry {
+    type Root = gtk::Box;
+    type Widgets = Widgets;
+
+    fn setup(_item: &gtk::ListItem) -> (gtk::Box, Widgets) {
+        relm4::view! {
+            my_box = gtk::Box {
+                set_orientation: gtk::Orientation::Horizontal,
+                set_margin_top: 6,
+                set_margin_bottom: 6,
+                set_margin_start: 6,
+                set_margin_end: 6,
+
+                #[name = "image"]
+                gtk::Image,
+
+                #[name = "label"]
+                gtk::Label {
+                    set_margin_start: 6,
+                },
+
+                #[name = "sub_label"]
+                gtk::Label {
+                    set_margin_start: 6,
+                },
+            }
+        }
+
+        let widgets = Widgets {
+            image,
+            label,
+            sub_label,
+        };
+
+        (my_box, widgets)
+    }
+
+    fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
+        let Widgets {
+            image,
+            label,
+            sub_label,
+        } = widgets;
+
+        if let Some(path) = &self.image_path {
+            image.set_file(Some(path.to_str().unwrap())) // FIXME this shouldn't be fallible
+        }
+
+        label.set_label(&self.entrypoint_name);
+        sub_label.set_label(&self.plugin_name);
+    }
+}
+
+#[derive(Debug)]
+enum AppMsg {
+    OpenView {
+        plugin_id: String,
+        entrypoint_id: String,
+    },
+}
+
+struct AppModel {
+    window: gtk::ApplicationWindow,
+    plugin_manager: PluginManager,
+    entrypoints: Vec<SearchEntry>,
+}
+
+#[relm4::component]
+impl SimpleComponent for AppModel {
+    type Input = AppMsg;
+    type Output = ();
+    type Init = PluginManager;
+
+    view! {
+        #[name = "window"]
+        gtk::ApplicationWindow {
+            set_title: Some("My GTK App"),
+            set_deletable: false,
+            set_resizable: false,
+            set_decorated: false,
+            set_default_height: 400,
+            set_default_width: 650,
+
+            gtk::Box::new(gtk::Orientation::Vertical, 0) {
+                gtk::Entry {
+                    set_margin_top: SPACING,
+                    set_margin_bottom: SPACING,
+                    set_margin_start: SPACING,
+                    set_margin_end: SPACING,
+                },
+
+                gtk::Separator::new(gtk::Orientation::Horizontal),
+
+                gtk::ScrolledWindow {
+                    set_hscrollbar_policy: gtk::PolicyType::Never,
+                    set_vexpand: true,
+                    set_margin_top: SPACING,
+                    set_margin_bottom: SPACING,
+                    set_margin_start: SPACING,
+                    set_margin_end: SPACING,
+
+                    #[local_ref]
+                    list_view -> gtk::ListView {
+                        connect_activate[sender] => move |list_view, pos| {
+                            let model = list_view
+                                .model()
+                                .expect("The model has to exist.");
+
+                            let object = model
+                                .item(pos)
+                                .and_downcast::<glib::BoxedAnyObject>()
+                                .expect("The item has to be an `BoxedAnyObject`, unless relm internals changed");
+
+                            let item = object.borrow::<SearchEntry>();
+
+                            sender.input(AppMsg::OpenView {
+                                plugin_id: item.plugin_id.to_owned(),
+                                entrypoint_id: item.entrypoint_id.to_owned()
+                            });
+                        }
+                    },
+                },
+            }
+        }
+    }
+
+    fn init(
+        plugin_manager: Self::Init,
+        root: &Self::Root,
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
+
+        let entrypoints: Vec<_> = plugin_manager.plugins()
+            .iter()
+            .flat_map(|plugin| {
+                plugin.entrypoints()
+                    .iter()
+                    .map(|entrypoint| {
+                        SearchEntry::new(
+                            entrypoint.name(),
+                            entrypoint.id(),
+                            plugin.name(),
+                            plugin.id(),
+                            Some(Path::new("extension_icon.png").to_owned())
+                        )
+                    })
+            })
+            .collect();
+
+        let mut list = TypedListView::<SearchEntry, gtk::SingleSelection>::new();
+
+        list.extend_from_iter(entrypoints.clone());
+
+        let model = AppModel {
+            window: root.clone(),
+            plugin_manager,
+            entrypoints,
+        };
+
+        let list_view = &list.view;
+
+        let widgets = view_output!();
+
+        ComponentParts { model, widgets }
+    }
+
+    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+        match message {
+            AppMsg::OpenView { plugin_id, entrypoint_id} => {
+                create_list_view(
+                    self.plugin_manager.clone(),
+                    self.window.clone(),
+                    &plugin_id,
+                    &entrypoint_id,
+                )
+            }
+        }
+    }
+}
+
+fn create_list_view(mut plugin_manager: PluginManager, window: gtk::ApplicationWindow, plugin_id: &str, entrypoint_id: &str) {
+    let mut ui_context = plugin_manager.ui_context(&plugin_id).unwrap();
+
+    let prev_child = window.child().unwrap().clone();
+
+    let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    window.set_child(Some(&container.clone()));
+    ui_context.set_current_container(container.clone().upcast::<gtk::Widget>());
+    ui_context.send_event(UiEvent::ViewCreated { view_name: entrypoint_id.to_owned() });
+
+    let window = window.clone();
+    let controller = gtk::EventControllerKey::new();
+    controller.connect_key_pressed(move |_controller, key, _keycode, _state| {
+        if key == Key::q {
+            ui_context.send_event(UiEvent::ViewDestroyed);
+            window.set_child(Some(&prev_child));
+        }
+
+        gtk::Inhibit(false)
+    });
+    container.add_controller(controller);
+}
+
+fn main() {
     let mut plugin_manager = PluginManager::create();
 
     let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
 
-    let app = gtk::Application::builder()
-        .application_id("org.placeholdername.placeholdername") // TODO what is proper letter case here?
-        .build();
+    // TODO what is proper letter case here?
+    let app = RelmApp::new("org.placeholdername.placeholdername");
 
     spawn_react_thread(react_contexts);
 
     start_request_receiver_loop(ui_contexts.clone());
 
-    app.connect_activate(move |app| {
-        build_ui(app, plugin_manager.clone());
-    });
-
-    app.run()
+    app.run::<AppModel>(plugin_manager.clone());
 }
 
 fn spawn_react_thread(react_contexts: Vec<PluginReactContext>) {
@@ -104,255 +341,4 @@ impl PluginUiContext {
     fn set_current_container(&mut self, container: gtk::Widget) {
         *self.inner.borrow_mut() = Some(container);
     }
-}
-
-
-glib::wrapper! {
-    pub struct SearchEntry(ObjectSubclass<imp::SearchEntry>);
-}
-
-impl SearchEntry {
-    pub fn new(
-        entrypoint_name: &str,
-        entrypoint_id: &str,
-        plugin_name: &str,
-        plugin_id: &str,
-        image_path: Option<PathBuf>,
-    ) -> Self {
-        glib::Object::builder()
-            .property("entrypoint-name", entrypoint_name.to_owned())
-            .property("entrypoint-id", entrypoint_id.to_owned())
-            .property("plugin-name", plugin_name.to_owned())
-            .property("plugin-id", plugin_id.to_owned())
-            .property("image-path", image_path)
-            .build()
-    }
-}
-
-mod imp {
-    use gtk::glib;
-    use gtk::prelude::*;
-    use gtk::subclass::prelude::*;
-    use std::cell::RefCell;
-    use std::path::PathBuf;
-
-    #[derive(glib::Properties, Default)]
-    #[properties(wrapper_type = super::SearchEntry)]
-    pub struct SearchEntry {
-        #[property(get, set)]
-        entrypoint_name: RefCell<String>,
-        #[property(get, set)]
-        entrypoint_id: RefCell<String>,
-        #[property(get, set)]
-        plugin_name: RefCell<String>,
-        #[property(get, set)]
-        plugin_id: RefCell<String>,
-
-        #[property(get, set, nullable)]
-        image_path: RefCell<Option<PathBuf>>,
-    }
-
-    #[glib::object_subclass]
-    impl ObjectSubclass for SearchEntry {
-        const NAME: &'static str = "SearchEntry";
-        type Type = super::SearchEntry;
-    }
-
-    impl ObjectImpl for SearchEntry {
-        fn properties() -> &'static [glib::ParamSpec] {
-            Self::derived_properties()
-        }
-
-        fn set_property(&self, id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
-            self.derived_set_property(id, value, pspec)
-        }
-
-        fn property(&self, id: usize, pspec: &glib::ParamSpec) -> glib::Value {
-            self.derived_property(id, pspec)
-        }
-    }
-}
-
-fn build_ui(app: &gtk::Application, plugin_manager: PluginManager) {
-    let window = gtk::ApplicationWindow::builder()
-        .application(app)
-        .deletable(false)
-        .resizable(false)
-        .decorated(false)
-        .default_height(400)
-        .default_width(650)
-        .title("My GTK App")
-        .build();
-
-    let spacing = 12;
-    let entry = gtk::Entry::builder()
-        .margin_top(spacing)
-        .margin_bottom(spacing)
-        .margin_start(spacing)
-        .margin_end(spacing)
-        .build();
-
-    let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-
-    let entrypoints: Vec<_> = plugin_manager.plugins()
-        .iter()
-        .flat_map(|plugin| {
-            plugin.entrypoints()
-                .iter()
-                .map(|entrypoint| {
-                    SearchEntry::new(
-                        entrypoint.name(),
-                        entrypoint.id(),
-                        plugin.name(),
-                        plugin.id(),
-                        Some(Path::new("extension_icon.png").to_owned())
-                    )
-                })
-        })
-        .collect();
-
-    let model = gtk::gio::ListStore::new(SearchEntry::static_type());
-
-    model.extend_from_slice(&entrypoints);
-
-    let selection = gtk::SingleSelection::new(Some(model));
-
-    let factory = gtk::SignalListItemFactory::new();
-    {
-        factory.connect_setup(move |_, list_item| {
-            let image = gtk::Image::new();
-            let label = gtk::Label::builder().margin_start(6).build();
-            let sub_label = gtk::Label::builder().margin_start(6).build();
-
-            let gtk_box = gtk::Box::builder()
-                .orientation(gtk::Orientation::Horizontal)
-                .margin_top(6)
-                .margin_bottom(6)
-                .margin_start(6)
-                .margin_end(6)
-                .build();
-
-            gtk_box.append(&image);
-            gtk_box.append(&label);
-            gtk_box.append(&sub_label);
-
-            let list_item = list_item
-                .downcast_ref::<gtk::ListItem>()
-                .expect("Needs to be ListItem");
-            list_item.set_child(Some(&gtk_box));
-
-            list_item
-                .property_expression("item")
-                .chain_property::<SearchEntry>("entrypoint-name")
-                .bind(&label, "label", gtk::Widget::NONE);
-
-            list_item
-                .property_expression("item")
-                .chain_property::<SearchEntry>("plugin-name")
-                .bind(&sub_label, "label", gtk::Widget::NONE);
-
-            list_item
-                .property_expression("item")
-                .chain_property::<SearchEntry>("image-path")
-                .bind(&image, "file", gtk::Widget::NONE);
-        });
-    }
-
-    let list_view = gtk::ListView::builder()
-        .model(&selection)
-        .factory(&factory)
-        .show_separators(true)
-        .build();
-
-    let plugin_manager = plugin_manager.clone();
-    let window_clone = window.clone();
-    list_view.connect_activate(move |list_view, position| {
-
-        let model = list_view.model().expect("The model has to exist.");
-
-        let search_entry = model
-            .item(position)
-            .and_downcast::<SearchEntry>()
-            .expect("The item has to be an `SearchEntry`.");
-
-        let plugin_id = search_entry.plugin_id();
-        let entrypoint_id = search_entry.entrypoint_id();
-
-        let mut plugin_manager = plugin_manager.clone();
-        let mut ui_context = plugin_manager.ui_context(&plugin_id).unwrap();
-
-        let prev_child = window_clone.child().unwrap().clone();
-
-        let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        window_clone.set_child(Some(&container.clone()));
-        ui_context.set_current_container(container.clone().upcast::<gtk::Widget>());
-        ui_context.send_event(UiEvent::ViewCreated { view_name: entrypoint_id });
-
-        let window_clone = window_clone.clone();
-        let controller = gtk::EventControllerKey::new();
-        controller.connect_key_pressed(move |controller, key, keycode, state| {
-            if key == Key::q {
-                ui_context.send_event(UiEvent::ViewDestroyed);
-                window_clone.set_child(Some(&prev_child));
-            }
-
-            gtk::Inhibit(false)
-        });
-        container.add_controller(controller);
-        // println!("test {}", string_object.string());
-
-        // let label = gtk::Label::builder()
-        //     .margin_start(6)
-        //     .label(string_object.string())
-        //     .build();
-        //
-        // window_in_list_view_callback.set_child(Some(&label));
-    });
-
-    let scrolled_window = gtk::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .child(&list_view)
-        .vexpand(true)
-        .margin_top(spacing)
-        .margin_bottom(spacing)
-        .margin_start(spacing)
-        .margin_end(spacing)
-        .build();
-
-    let gtk_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    gtk_box.append(&entry);
-    gtk_box.append(&separator);
-    gtk_box.append(&scrolled_window);
-
-    window.set_child(Some(&gtk_box));
-
-    // // Before the window is first realized, set it up to be a layer surface
-    // gtk_layer_shell::init_for_window(&window);
-    //
-    // // Order below normal windows
-    // gtk_layer_shell::set_layer(&window, gtk_layer_shell::Layer::Overlay);
-    //
-    // // Push other windows out of the way
-    // gtk_layer_shell::auto_exclusive_zone_enable(&window);
-    //
-    // // The margins are the gaps around the window's edges
-    // // Margins and anchors can be set like this...
-    // gtk_layer_shell::set_margin(&window, gtk_layer_shell::Edge::Left, 40);
-    // gtk_layer_shell::set_margin(&window, gtk_layer_shell::Edge::Right, 40);
-    // gtk_layer_shell::set_margin(&window, gtk_layer_shell::Edge::Top, 20);
-    //
-    // // ... or like this
-    // // Anchors are if the window is pinned to each edge of the output
-    // let anchors = [
-    //     (gtk_layer_shell::Edge::Left, true),
-    //     (gtk_layer_shell::Edge::Right, true),
-    //     (gtk_layer_shell::Edge::Top, false),
-    //     (gtk_layer_shell::Edge::Bottom, true),
-    // ];
-    //
-    // for (anchor, state) in anchors {
-    //     gtk_layer_shell::set_anchor(&window, anchor, state);
-    // }
-
-    window.present();
 }

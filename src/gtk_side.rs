@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use gtk::glib;
-use gtk::glib::MainContext;
 use gtk::prelude::*;
 
 use crate::react_side::{PropertyValue, UiEvent, UiEventName, UiRequest, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
@@ -49,7 +48,7 @@ impl GtkContext {
 
 pub(crate) fn start_request_receiver_loop(ui_contexts: Vec<PluginUiContext>) {
     for ui_context in ui_contexts {
-        MainContext::default().spawn_local(async {
+        relm4::spawn_local(async {
             run_request_receiver_loop(ui_context).await
         });
     }
