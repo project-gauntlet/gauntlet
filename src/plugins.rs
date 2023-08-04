@@ -10,8 +10,8 @@ use deno_core::futures::task::AtomicWaker;
 use deno_core::serde_json;
 use directories::ProjectDirs;
 use serde::Deserialize;
+use crate::gtk::PluginUiContext;
 use crate::react_side::{PluginReactContext, UiEvent, UiRequest};
-use crate::PluginUiContext;
 
 #[derive(Clone)]
 pub struct PluginManager {
@@ -57,7 +57,7 @@ impl PluginManager {
             .unzip();
 
         self.inner.borrow_mut().ui_contexts = ui_contexts.iter()
-            .map(|context| (context.plugin.id().to_owned(), context.clone()))
+            .map(|context| (context.plugin().id().to_owned(), context.clone()))
             .collect::<HashMap<_, _>>();
 
         (react_contexts, ui_contexts)

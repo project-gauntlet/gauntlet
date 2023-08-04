@@ -4,9 +4,9 @@ use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
+use crate::gtk::PluginUiContext;
 
 use crate::react_side::{PropertyValue, UiEvent, UiEventName, UiRequest, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
-use crate::PluginUiContext;
 
 #[derive(Debug)]
 pub struct GtkContext {
