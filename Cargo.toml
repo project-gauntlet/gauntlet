@@ -16,3 +16,4 @@ gtk = { version = "0.6.6", package = "gtk4", features = ["v4_10"] }
 directories = "5.0"
 toml = "0.7.6"
 serde_json = "1.0"
+tantivy = "0.20.2"

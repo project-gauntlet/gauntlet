@@ -4,7 +4,7 @@ use gtk::prelude::*;
 use relm4::typed_list_view::RelmListItem;
 
 #[derive(Debug, Clone)]
-pub struct SearchEntry {
+pub struct SearchListEntry {
     entrypoint_name: String,
     entrypoint_id: String,
     plugin_name: String,
@@ -12,19 +12,19 @@ pub struct SearchEntry {
     image_path: Option<PathBuf>,
 }
 
-impl SearchEntry {
+impl SearchListEntry {
     pub(crate) fn new(
-        entrypoint_name: &str,
-        entrypoint_id: &str,
-        plugin_name: &str,
-        plugin_id: &str,
+        entrypoint_name: impl Into<String>,
+        entrypoint_id: impl Into<String>,
+        plugin_name: impl Into<String>,
+        plugin_id: impl Into<String>,
         image_path: Option<PathBuf>,
     ) -> Self {
         Self {
-            entrypoint_name: entrypoint_name.to_owned(),
-            entrypoint_id: entrypoint_id.to_owned(),
-            plugin_name: plugin_name.to_owned(),
-            plugin_id: plugin_id.to_owned(),
+            entrypoint_name: entrypoint_name.into(),
+            entrypoint_id: entrypoint_id.into(),
+            plugin_name: plugin_name.into(),
+            plugin_id: plugin_id.into(),
             image_path,
         }
     }
@@ -56,7 +56,7 @@ pub struct Widgets {
     sub_label: gtk::Label,
 }
 
-impl RelmListItem for SearchEntry {
+impl RelmListItem for SearchListEntry {
     type Root = gtk::Box;
     type Widgets = Widgets;
 
