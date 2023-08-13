@@ -94,6 +94,7 @@ impl SimpleComponent for AppModel {
 
                             #[local_ref]
                             list_view -> gtk::ListView {
+                                set_single_click_activate: true,
                                 connect_activate[sender, plugin_container] => move |list_view, pos| {
                                     let item = get_item_from_list_view(list_view, pos);
                                     let item = item.borrow::<SearchListEntry>();
