@@ -201,6 +201,8 @@ async fn op_gtk_append_child(
     };
 
     let _ = make_request(&state, data).await;
+
+    println!("op_gtk_append_child end");
 }
 
 #[op]
@@ -217,6 +219,8 @@ async fn op_gtk_remove_child(
     };
 
     let _ = make_request(&state, data).await;
+
+    println!("op_gtk_remove_child end");
 }
 
 #[op]
@@ -235,6 +239,8 @@ async fn op_gtk_insert_before(
     };
 
     let _ = make_request(&state, data);
+
+    println!("op_gtk_insert_before end");
 }
 
 #[op]
@@ -270,6 +276,8 @@ async fn op_gtk_create_text_instance(
         UiResponseData::CreateTextInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
+
+    println!("op_gtk_create_text_instance end");
 
     return widget.into();
 }
@@ -314,6 +322,8 @@ fn op_gtk_set_properties<'a>(
 
     drop(state_ref);
 
+    println!("op_gtk_set_properties end");
+
     Ok(async move {
         let _ = make_request(&state, data).await;
 
@@ -337,11 +347,15 @@ async fn op_get_next_pending_ui_event<'a>(
 
         match receiver.try_recv() {
             Ok(value) => {
-                println!("Poll::Ready {:?}", value);
+                println!("op_get_next_pending_ui_event {:?}", value);
                 Poll::Ready(value.into())
             }
             Err(TryRecvError::Disconnected) => panic!("disconnected"),
-            Err(TryRecvError::Empty) => Poll::Pending
+            Err(TryRecvError::Empty) => {
+                println!("op_get_next_pending_ui_event Pending");
+
+                Poll::Pending
+            }
         }
     }).await
 }
@@ -361,7 +375,9 @@ fn op_call_event_listener(
             .clone()
     };
 
-    event_handlers.call_listener_handler(scope, &widget.widget_id, &event_name)
+    event_handlers.call_listener_handler(scope, &widget.widget_id, &event_name);
+
+    println!("op_call_event_listener end");
 }
 
 #[op]
@@ -376,6 +392,8 @@ async fn op_gtk_set_text(
         widget: widget.into(),
         text,
     };
+
+    println!("op_gtk_set_text end");
 
     let _ = make_request(&state, data).await;
 }

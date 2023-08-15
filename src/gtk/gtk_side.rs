@@ -60,6 +60,8 @@ async fn run_request_receiver_loop(ui_context: PluginUiContext) {
     while let Some(request) = ui_context.request_recv().await {
         let UiRequest { response_sender: oneshot, data } = request;
 
+        println!("run_request_receiver_loop {:?}", data);
+
         let mut context = context.borrow_mut();
 
         match data {
@@ -131,7 +133,6 @@ async fn run_request_receiver_loop(ui_context: PluginUiContext) {
                 let widget = context.get_gtk_widget(widget);
 
                 for (name, value) in properties {
-                    println!("setting property {:?} to value {:?}", name, value);
                     match value {
                         PropertyValue::Function => {
                             let button = widget.downcast_ref::<gtk::Button>().unwrap();
@@ -140,11 +141,9 @@ async fn run_request_receiver_loop(ui_context: PluginUiContext) {
 
                             match name.as_str() {
                                 "onClick" => {
-                                    println!("connect button listener");
                                     let event_name = name.clone();
 
                                     let signal_handler_id = button.connect_clicked(move |_button| {
-                                        println!("button clicked");
                                         let event_name = name.clone();
                                         ui_context.send_event(UiEvent::ViewEvent {
                                             event_name,
