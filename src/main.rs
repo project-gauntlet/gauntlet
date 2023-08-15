@@ -65,9 +65,9 @@ fn spawn_react_thread(react_contexts: Vec<PluginReactContext>) {
         local_set.block_on(&runtime, async {
             let mut join_set = tokio::task::JoinSet::new();
             for react_context in react_contexts {
-                join_set.spawn_local(async {
+                join_set.spawn_local(tokio::task::unconstrained(async {
                     run_react(react_context).await
-                });
+                }));
             }
             while let Some(_) = join_set.join_next().await {
             }
