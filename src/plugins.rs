@@ -116,11 +116,13 @@ pub struct PluginLoader;
 
 impl PluginLoader {
     pub fn load_plugins(&self) -> Vec<Plugin> {
-        let project_dirs = ProjectDirs::from("org", "placeholdername", "placeholdername").unwrap();
+        // let project_dirs = ProjectDirs::from("org", "placeholdername", "placeholdername").unwrap();
 
-        let config_dir = project_dirs.config_dir();
+        // let config_dir = project_dirs.config_dir();
+        let config_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data/xdg_config/placeholdername");
 
-        std::fs::create_dir_all(config_dir).unwrap();
+        std::fs::create_dir_all(&config_dir).unwrap();
 
         let config_file = config_dir.join("config.toml");
         let config_file_path = config_file.display().to_string();
