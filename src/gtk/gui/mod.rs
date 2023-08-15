@@ -65,6 +65,13 @@ impl SimpleComponent for AppModel {
             set_decorated: false,
             set_default_height: 400,
             set_default_width: 650,
+            add_controller = gtk::EventControllerKey {
+                 connect_key_released[sender] => move |_controller, key, _keycode, _state| {
+                    if key == Key::Escape {
+                        sender.input(AppMsg::CloseCurrentView);
+                    }
+                }
+            },
 
             match model.state {
                 AppState::SearchView => {
@@ -112,13 +119,7 @@ impl SimpleComponent for AppModel {
                 AppState::PluginView { .. } => {
                     #[name = "plugin_container"]
                     gtk::Box::new(gtk::Orientation::Vertical, 0) {
-                        add_controller = gtk::EventControllerKey {
-                             connect_key_released[sender] => move |_controller, key, _keycode, _state| {
-                                if key == Key::q {
-                                    sender.input(AppMsg::CloseCurrentView);
-                                }
-                            }
-                        }
+                        // plugin content
                     }
                 }
             }
@@ -180,7 +181,7 @@ impl SimpleComponent for AppModel {
             AppMsg::CloseCurrentView => {
                 match &self.state {
                     AppState::SearchView => {
-                        panic!("invalid state");
+                        self.window.application().unwrap().quit();
                     }
                     AppState::PluginView { plugin_id, .. } => {
                         let mut ui_context = self.plugin_manager.ui_context(&plugin_id).unwrap();
