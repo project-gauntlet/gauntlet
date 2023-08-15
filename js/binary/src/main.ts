@@ -40,8 +40,10 @@ await rollupBuild.write({
     format: 'esm',
     sourcemap: true,
     manualChunks: (id, _meta) => {
-        if (id.includes('node_modules')) {
+        if (id.includes('node_modules') || id === '\x00commonjsHelpers.js') {
             return 'vendor';
+        } else {
+            return 'shared';
         }
     },
     chunkFileNames: '[name].js'

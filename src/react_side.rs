@@ -20,6 +20,8 @@ use deno_runtime::inspector_server::InspectorServer;
 use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task;
@@ -85,13 +87,19 @@ impl ModuleLoader for CustomModuleLoader {
         _kind: ResolutionKind,
     ) -> Result<ModuleSpecifier, deno_core::anyhow::Error> {
 
-        if specifier.starts_with("plugin:view?") {
-            return Ok(specifier.parse()?)
-        };
+        static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").unwrap());
+        static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").unwrap());
+        static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>\w+)\.js$").unwrap());
 
-        if specifier == "./vendor.js" && referrer.starts_with("plugin:view?") {
-            return Ok("plugin:view?vendor".parse()?)
-        };
+        if PLUGIN_VIEW_PATTERN.is_match(specifier) {
+            return Ok(specifier.parse()?)
+        }
+
+        if PLUGIN_VIEW_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
+            if let Some(captures) = PATH_PATTERN.captures(specifier) {
+                return Ok(format!("plugin:module?{}", &captures["js_module"]).parse()?)
+            }
+        }
 
         let specifier = match (specifier, referrer) {
             ("plugin:core", _) => "ext:gtk_ext/core/dist/prod/init.js",
@@ -116,7 +124,7 @@ impl ModuleLoader for CustomModuleLoader {
         let mut specifier = module_specifier.clone();
         specifier.set_query(None);
 
-        if &specifier == &"plugin:view".parse().unwrap() {
+        if &specifier == &"plugin:view".parse().unwrap() || &specifier == &"plugin:module".parse().unwrap() {
             let view_name = module_specifier.query().unwrap();
 
             let js = self.plugin.code().js();
