@@ -34,7 +34,6 @@ enum AppState {
 pub struct AppInput {
     pub search: SearchHandle,
     pub plugin_manager: PluginManager,
-    pub search_items: Vec<SearchItem>,
 }
 
 #[derive(Debug)]
@@ -134,28 +133,18 @@ impl SimpleComponent for AppModel {
 
         let plugin_manager = init_data.plugin_manager;
         let search = init_data.search;
-        let search_items: Vec<_> = init_data.search_items
-            .into_iter()
-            .map(|item| SearchListEntry::new(
-                item.entrypoint_name,
-                item.entrypoint_id,
-                item.plugin_name,
-                item.plugin_id,
-                Some(Path::new("extension_icon.png").to_owned())
-            ))
-            .collect();
 
         let mut list = TypedListView::<SearchListEntry, gtk::SingleSelection>::new();
 
-        list.extend_from_iter(search_items);
-
-        let model = AppModel {
+        let mut model = AppModel {
             window: root.clone(),
             search,
             list,
             plugin_manager,
             state: AppState::SearchView
         };
+
+        model.initial_search();
 
         let list_view = &model.list.view;
 
@@ -192,21 +181,31 @@ impl SimpleComponent for AppModel {
                 }
             }
             AppMsg::PromptChanged { value } => {
-                let result: Vec<_> = self.search.search(&value).unwrap()
-                    .into_iter()
-                    .map(|item| SearchListEntry::new(
-                        item.entrypoint_name,
-                        item.entrypoint_id,
-                        item.plugin_name,
-                        item.plugin_id,
-                        None
-                    ))
-                    .collect();
-
-                self.list.clear();
-                self.list.extend_from_iter(result);
+                self.search(&value);
             }
         }
+    }
+}
+
+impl AppModel {
+    fn initial_search(&mut self) {
+        self.search("");
+    }
+
+    fn search(&mut self, value: &str) {
+        let result: Vec<_> = self.search.search(value).unwrap()
+            .into_iter()
+            .map(|item| SearchListEntry::new(
+                item.entrypoint_name,
+                item.entrypoint_id,
+                item.plugin_name,
+                item.plugin_id,
+                Some(Path::new("extension_icon.png").to_owned())
+            ))
+            .collect();
+
+        self.list.clear();
+        self.list.extend_from_iter(result);
     }
 }
 

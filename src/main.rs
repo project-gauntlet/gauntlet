@@ -35,7 +35,7 @@ fn main() {
         })
         .collect();
 
-    search_index.add_entries(search_items.clone()).unwrap();
+    search_index.add_entries(search_items).unwrap();
 
     let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
 
@@ -49,7 +49,6 @@ fn main() {
     app.run::<AppModel>(AppInput {
         search: search_index.create_handle(),
         plugin_manager: plugin_manager.clone(),
-        search_items
     });
 }
 

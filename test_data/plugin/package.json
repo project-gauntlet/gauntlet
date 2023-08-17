@@ -10,7 +10,7 @@
   },
   "plugin": {
     "metadata": {
-      "name": "Some Interesting Plugin Name"
+      "name": "Interesting Plugin Name"
     },
     "entrypoints": [
       {
