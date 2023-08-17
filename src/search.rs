@@ -83,7 +83,7 @@ impl SearchIndex {
         let query_parser = QueryParser::new(
             self.index.tokenizers().clone(),
             self.entrypoint_name,
-            self.plugin_name
+            self.plugin_name,
         );
 
         SearchHandle {
@@ -119,6 +119,33 @@ impl SearchHandle {
     pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchItem>> {
         let query = self.query_parser.create_query(query);
 
+        let mut index = 0;
+
+        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<SearchItem>>> {
+            let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20));
+
+            index += 1;
+
+            match result {
+                Ok(result) => {
+                    if result.is_empty() {
+                        None
+                    } else {
+                        Some(Ok(result))
+                    }
+                }
+                Err(error) => {
+                    Some(Err(error))
+                }
+            }
+        });
+
+        let result = fetch.collect::<Result<Vec<Vec<_>>, _>>()?;
+
+        Ok(result.into_iter().flatten().collect::<Vec<_>>())
+    }
+
+    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<SearchItem>> {
         let get_str_field = |retrieved_doc: &Document, field: Field| -> String {
             retrieved_doc.get_first(field)
                 .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
@@ -127,7 +154,7 @@ impl SearchHandle {
                 .to_owned()
         };
 
-        let result = self.searcher.search(&query, &TopDocs::with_limit(10))? // TODO pagination
+        let result = self.searcher.search(query, &collector)?
             .into_iter()
             .map(|(_score, doc_address)| {
                 let retrieved_doc = self.searcher.doc(doc_address)
@@ -157,7 +184,7 @@ impl QueryParser {
         Self {
             tokenizer_manager,
             entrypoint_name,
-            plugin_name
+            plugin_name,
         }
     }
 
@@ -170,6 +197,7 @@ impl QueryParser {
         //  fuzzy search scoring doesn't account for levenshtein distance
         //  which means results don't make sense
         //  if distance is > 0
+        //  FuzzyTermQuery is used because it supports prefix matching
 
         let fuzzy_terms_fn = |field: Field| -> Box<dyn Query> {
             let res = self.tokenize(field, query)
@@ -186,9 +214,7 @@ impl QueryParser {
 
         let terms_fn = |field: Field| -> Box<dyn Query> {
             Box::new(
-                BooleanQuery::union(vec![
-                    fuzzy_terms_fn(field)
-                ])
+                fuzzy_terms_fn(field)
             )
         };
 
@@ -203,7 +229,7 @@ impl QueryParser {
         );
     }
 
-    fn tokenize(&self, field: Field, query: &str) -> Vec<Term>{
+    fn tokenize(&self, field: Field, query: &str) -> Vec<Term> {
         let mut text_analyzer = self
             .tokenizer_manager
             .get("default")
