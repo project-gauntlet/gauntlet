@@ -71,7 +71,11 @@ impl SimpleComponent for AppModel {
                     }
                 }
             },
-
+            connect_is_active_notify => move |window| {
+                if !window.is_active() {
+                    // window.application().unwrap().quit()
+                }
+            },
             match model.state {
                 AppState::SearchView => {
                     gtk::Box::new(gtk::Orientation::Vertical, 0) {
