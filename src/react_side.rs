@@ -28,7 +28,7 @@ use tokio::task;
 
 use crate::plugins::Plugin;
 
-pub async fn run_react(react_context: PluginReactContext) {
+pub async fn run_react(react_context: PluginReactData) {
     let _inspector_server = Arc::new(
         InspectorServer::new(
             "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
@@ -423,22 +423,11 @@ async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiRe
 }
 
 
-pub struct PluginReactContext {
-    plugin: Plugin,
-    event_receiver: Receiver<UiEvent>,
-    event_receiver_waker: Arc<AtomicWaker>,
-    request_sender: UnboundedSender<UiRequest>,
-}
-
-impl PluginReactContext {
-    pub fn new(plugin: Plugin, event_receiver: Receiver<UiEvent>, event_receiver_waker: Arc<AtomicWaker>, request_sender: UnboundedSender<UiRequest>) -> PluginReactContext {
-        Self {
-            plugin,
-            event_receiver,
-            event_receiver_waker,
-            request_sender,
-        }
-    }
+pub struct PluginReactData {
+    pub plugin: Plugin,
+    pub event_receiver: Receiver<UiEvent>,
+    pub event_receiver_waker: Arc<AtomicWaker>,
+    pub request_sender: UnboundedSender<UiRequest>,
 }
 
 #[derive(Clone)]

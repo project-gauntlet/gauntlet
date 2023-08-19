@@ -1,26 +1,24 @@
-use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+
 use deno_core::anyhow::Context;
 use deno_core::futures::task::AtomicWaker;
 use deno_core::serde_json;
-use directories::ProjectDirs;
 use serde::Deserialize;
-use crate::gtk::PluginUiContext;
-use crate::react_side::{PluginReactContext, UiEvent, UiRequest};
+
+use crate::gtk::PluginUiData;
+use crate::react_side::{PluginReactData, UiEvent, UiRequest};
 
 #[derive(Clone)]
 pub struct PluginManager {
-    inner: Rc<RefCell<PluginManagerInner>>,
+    inner: Arc<RwLock<PluginManagerInner>>,
 }
 
 pub struct PluginManagerInner {
     plugins: Vec<Plugin>,
-    ui_contexts: HashMap<String, PluginUiContext>
 }
 
 impl PluginManager {
@@ -29,49 +27,44 @@ impl PluginManager {
         let plugins = PluginLoader.load_plugins();
 
         Self {
-            inner: Rc::new(RefCell::new(PluginManagerInner {
+            inner: Arc::new(RwLock::new(PluginManagerInner {
                 plugins,
-                ui_contexts: HashMap::new(),
             }))
         }
     }
 
-    pub fn plugins(&self) -> Ref<'_, Vec<Plugin>> {
-        Ref::map(self.inner.borrow(), |inn| &inn.plugins)
+    pub fn plugins(&self) -> Vec<Plugin> {
+        self.inner.read().unwrap().plugins.clone()
     }
 
-    pub fn ui_context(&mut self, plugin_id: &str) -> Option<PluginUiContext> {
-        self.inner
-            .borrow_mut()
-            .ui_contexts
-            .get_mut(plugin_id)
-            .map(|context| context.clone())
-    }
-
-    pub fn create_all_contexts(&mut self) -> (Vec<PluginReactContext>, Vec<PluginUiContext>) {
-        let (react_contexts, ui_contexts): (Vec<_>, Vec<_>) = self.inner
-            .borrow()
-            .plugins
+    pub fn create_all_contexts(&mut self) -> (Vec<PluginReactData>, Vec<PluginUiData>) {
+        let (react_contexts, ui_contexts): (Vec<_>, Vec<_>) = self.plugins()
             .iter()
             .map(|plugin| self.create_contexts_for_plugin(plugin.clone()))
             .unzip();
 
-        self.inner.borrow_mut().ui_contexts = ui_contexts.iter()
-            .map(|context| (context.plugin().id().to_owned(), context.clone()))
-            .collect::<HashMap<_, _>>();
-
         (react_contexts, ui_contexts)
     }
 
-    fn create_contexts_for_plugin(&self, plugin: Plugin) -> (PluginReactContext, PluginUiContext) {
+    fn create_contexts_for_plugin(&self, plugin: Plugin) -> (PluginReactData, PluginUiData) {
         let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
-        let react_request_receiver = Rc::new(RefCell::new(react_request_receiver));
-
         let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<UiEvent>();
+
         let event_waker = Arc::new(AtomicWaker::new());
 
-        let ui_context = PluginUiContext::new(plugin.clone(), react_request_receiver, react_event_sender, event_waker.clone());
-        let react_context = PluginReactContext::new(plugin.clone(), react_event_receiver, event_waker, react_request_sender);
+        let ui_context = PluginUiData {
+            plugin: plugin.clone(),
+            request_receiver: react_request_receiver,
+            event_sender: react_event_sender,
+            event_waker: event_waker.clone()
+        };
+
+        let react_context = PluginReactData {
+            plugin: plugin.clone(),
+            event_receiver: react_event_receiver,
+            event_receiver_waker: event_waker.clone(),
+            request_sender: react_request_sender,
+        };
 
         (react_context, ui_context)
     }

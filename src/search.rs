@@ -1,9 +1,9 @@
 use std::thread;
 
 use deno_core::anyhow;
-use tantivy::{doc, HasLen, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher};
+use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
-use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, TermQuery};
+use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
 

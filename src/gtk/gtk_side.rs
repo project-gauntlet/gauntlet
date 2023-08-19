@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
-use crate::gtk::PluginUiContext;
 
+use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer, PluginUiContext};
 use crate::react_side::{PropertyValue, UiEvent, UiEventName, UiRequest, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
 
 #[derive(Debug)]
@@ -46,15 +46,25 @@ impl GtkContext {
     }
 }
 
-pub(crate) fn start_request_receiver_loop(ui_contexts: Vec<PluginUiContext>) {
+pub(crate) fn start_request_receiver_loop(
+    ui_contexts: Vec<PluginUiContext>,
+    container_container: PluginContainerContainer,
+    event_senders_container: PluginEventSenderContainer
+) {
     for ui_context in ui_contexts {
-        relm4::spawn_local(async {
-            run_request_receiver_loop(ui_context).await
+        let container_container = container_container.clone();
+        let event_senders_container = event_senders_container.clone();
+        glib::MainContext::default().spawn_local(async move {
+            run_request_receiver_loop(ui_context, container_container, event_senders_container).await
         });
     }
 }
 
-async fn run_request_receiver_loop(ui_context: PluginUiContext) {
+async fn run_request_receiver_loop(
+    ui_context: PluginUiContext,
+    container_container: PluginContainerContainer,
+    event_senders_container: PluginEventSenderContainer
+) {
     let context = Rc::new(RefCell::new(GtkContext::new()));
 
     while let Some(request) = ui_context.request_recv().await {
@@ -66,7 +76,8 @@ async fn run_request_receiver_loop(ui_context: PluginUiContext) {
 
         match data {
             UiRequestData::GetContainer => {
-                let container = ui_context.current_container().unwrap();
+                let plugin_id = ui_context.plugin().id();
+                let container = container_container.current_container(plugin_id).unwrap();
                 let response_data = UiResponseData::GetContainer {
                     container: context.get_ui_widget(container)
                 };
@@ -137,15 +148,15 @@ async fn run_request_receiver_loop(ui_context: PluginUiContext) {
                         PropertyValue::Function => {
                             let button = widget.downcast_ref::<gtk::Button>().unwrap();
 
-                            let ui_context = ui_context.clone();
-
                             match name.as_str() {
                                 "onClick" => {
                                     let event_name = name.clone();
 
+                                    let plugin_id = ui_context.plugin().id().to_owned();
+                                    let event_senders_container = event_senders_container.clone();
                                     let signal_handler_id = button.connect_clicked(move |_button| {
                                         let event_name = name.clone();
-                                        ui_context.send_event(UiEvent::ViewEvent {
+                                        event_senders_container.send_event(&plugin_id, UiEvent::ViewEvent {
                                             event_name,
                                             widget_id,
                                         });

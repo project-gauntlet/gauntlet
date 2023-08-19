@@ -6,10 +6,11 @@ use relm4::{ComponentParts, ComponentSender, RelmRemoveAllExt, SimpleComponent};
 use relm4::typed_list_view::TypedListView;
 
 use search_entry::SearchListEntry;
+use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
 
 use crate::plugins::PluginManager;
 use crate::react_side::UiEvent;
-use crate::search::{SearchHandle, SearchItem};
+use crate::search::SearchHandle;
 
 mod search_entry;
 
@@ -20,6 +21,8 @@ pub struct AppModel {
     search: SearchHandle,
     list: TypedListView<SearchListEntry, gtk::SingleSelection>,
     plugin_manager: PluginManager,
+    container_container: PluginContainerContainer,
+    event_senders_container: PluginEventSenderContainer,
     state: AppState,
 }
 
@@ -34,6 +37,8 @@ enum AppState {
 pub struct AppInput {
     pub search: SearchHandle,
     pub plugin_manager: PluginManager,
+    pub container_container: PluginContainerContainer,
+    pub event_senders_container: PluginEventSenderContainer,
 }
 
 #[derive(Debug)]
@@ -137,14 +142,18 @@ impl SimpleComponent for AppModel {
 
         let plugin_manager = init_data.plugin_manager;
         let search = init_data.search;
+        let container_container = init_data.container_container;
+        let event_senders_container = init_data.event_senders_container;
 
-        let mut list = TypedListView::<SearchListEntry, gtk::SingleSelection>::new();
+        let list = TypedListView::<SearchListEntry, gtk::SingleSelection>::new();
 
         let mut model = AppModel {
             window: root.clone(),
             search,
             list,
             plugin_manager,
+            container_container,
+            event_senders_container,
             state: AppState::SearchView
         };
 
@@ -162,9 +171,11 @@ impl SimpleComponent for AppModel {
             AppMsg::OpenView { plugin_container, plugin_id,  entrypoint_id} => {
                 plugin_container.remove_all();
 
-                let mut ui_context = self.plugin_manager.ui_context(&plugin_id).unwrap();
-                ui_context.set_current_container(plugin_container.clone().upcast::<gtk::Widget>());
-                ui_context.send_event(UiEvent::ViewCreated { view_name: entrypoint_id.to_owned() });
+                self.event_senders_container.send_event(&plugin_id, UiEvent::ViewCreated {
+                    view_name: entrypoint_id.to_owned()
+                });
+
+                self.container_container.set_current_container(&plugin_id, plugin_container.clone().upcast::<gtk::Widget>());
 
                 self.state = AppState::PluginView {
                     plugin_id: plugin_id.clone(),
@@ -177,8 +188,7 @@ impl SimpleComponent for AppModel {
                         self.window.application().unwrap().quit();
                     }
                     AppState::PluginView { plugin_id, .. } => {
-                        let mut ui_context = self.plugin_manager.ui_context(&plugin_id).unwrap();
-                        ui_context.send_event(UiEvent::ViewDestroyed);
+                        self.event_senders_container.send_event(&plugin_id, UiEvent::ViewDestroyed);
 
                         self.state = AppState::SearchView;
                     }
