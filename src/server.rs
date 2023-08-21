@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::process::exit;
 use std::thread;
 
+use tokio::runtime::Runtime;
 use tokio::task::LocalSet;
 
 use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer, PluginUiContext, PluginUiData};
@@ -10,42 +12,17 @@ use crate::plugins::PluginManager;
 use crate::react_side::{PluginReactData, run_react};
 use crate::search::{SearchIndex, SearchItem};
 
-// enum StartupStatus {
-//     Server,
-//     Agent,
-//     Error(zbus::Error),
-// }
+struct DbusInterface;
 
-// struct Greeter;
-//
-// #[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
-// impl Greeter {
-//
-// }
+#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
+impl DbusInterface {
+}
 
 pub fn run_server() {
-    // let status = relm4::gtk::glib::MainContext::default().block_on(async {
-    //     let _conn = zbus::ConnectionBuilder::session()?
-    //         .name("org.placeholdername.PlaceHolderName")?
-    //         .serve_at("/org/placeholdername/PlaceHolderName", Greeter)?
-    //         .build()
-    //         .await?;
-    //
-    //
-    //     let conn = zbus::Connection::session().await?;
-    //
-    //     match conn.request_name("org.placeholdername.placeholdername") {
-    //         Ok(()) => StartupStatus::Server,
-    //         Err(zbus::Error::NameTaken) => StartupStatus::Agent,
-    //         Err(error) => StartupStatus::Error(error)
-    //     }
-    // });
-    //
-    // match status {
-    //     StartupStatus::Server => {}
-    //     StartupStatus::Agent => {}
-    //     StartupStatus::Error(_) => {}
-    // }
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
     let mut plugin_manager = PluginManager::create();
     let mut search_index = SearchIndex::create_index().unwrap();
@@ -70,9 +47,29 @@ pub fn run_server() {
 
     let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
 
+    let zbus_connection: Result<zbus::Connection, zbus::Error> = runtime.block_on(async {
+        let interface = DbusInterface;
+
+        let conn = zbus::ConnectionBuilder::session()?
+            .name("org.placeholdername.PlaceHolderName")?
+            .serve_at("/org/placeholdername/PlaceHolderName", interface)?
+            .build()
+            .await?;
+
+        Ok(conn)
+    });
+
+    let _zbus_connection = zbus_connection.unwrap_or_else(|error| {
+        match error {
+            zbus::Error::NameTaken => eprintln!("Another server already running"),
+            _ => eprintln!("Unexpected error occurred when setting up dbus connection: {error}"),
+        }
+        exit(1)
+    });
+
     spawn_gtk_thread(ui_contexts, plugin_manager, search_index);
 
-    run_react_loops(react_contexts);
+    run_react_loops(&runtime, react_contexts);
 }
 
 fn spawn_gtk_thread(ui_data: Vec<PluginUiData>, plugin_manager: PluginManager, search_index: SearchIndex) {
@@ -115,15 +112,10 @@ fn spawn_gtk_thread(ui_data: Vec<PluginUiData>, plugin_manager: PluginManager, s
 }
 
 
-fn run_react_loops(react_contexts: Vec<PluginReactData>) {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
+fn run_react_loops(runtime: &Runtime, react_contexts: Vec<PluginReactData>) {
     let local_set = LocalSet::new();
 
-    local_set.block_on(&runtime, async {
+    local_set.block_on(runtime, async {
         let mut join_set = tokio::task::JoinSet::new();
         for react_context in react_contexts {
             join_set.spawn_local(tokio::task::unconstrained(async {
