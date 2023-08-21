@@ -48,7 +48,7 @@ impl PluginManager {
 
     fn create_contexts_for_plugin(&self, plugin: Plugin) -> (PluginReactData, PluginUiData) {
         let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
-        let (react_event_sender, react_event_receiver) = std::sync::mpsc::channel::<UiEvent>();
+        let (react_event_sender, react_event_receiver) = tokio::sync::mpsc::unbounded_channel::<UiEvent>();
 
         let event_waker = Arc::new(AtomicWaker::new());
 

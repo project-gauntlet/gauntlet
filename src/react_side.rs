@@ -6,8 +6,6 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::TryRecvError;
 use std::task::Poll;
 
 use deno_core::{futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
@@ -23,7 +21,8 @@ use deno_runtime::worker::WorkerOptions;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::task;
 
 use crate::plugins::Plugin;
@@ -351,7 +350,7 @@ async fn op_get_next_pending_ui_event<'a>(
 
     poll_fn(|cx| {
         event_receiver.waker.register(cx.waker());
-        let receiver = event_receiver.inner.borrow();
+        let mut receiver = event_receiver.inner.borrow_mut();
 
         match receiver.try_recv() {
             Ok(value) => {
@@ -425,7 +424,7 @@ async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiRe
 
 pub struct PluginReactData {
     pub plugin: Plugin,
-    pub event_receiver: Receiver<UiEvent>,
+    pub event_receiver: UnboundedReceiver<UiEvent>,
     pub event_receiver_waker: Arc<AtomicWaker>,
     pub request_sender: UnboundedSender<UiRequest>,
 }
@@ -443,12 +442,12 @@ impl RequestSender {
 
 #[derive(Clone)]
 pub struct EventReceiver {
-    inner: Rc<RefCell<Receiver<UiEvent>>>,
+    inner: Rc<RefCell<UnboundedReceiver<UiEvent>>>,
     waker: Arc<AtomicWaker>,
 }
 
 impl EventReceiver {
-    fn new(receiver: Receiver<UiEvent>, waker: Arc<AtomicWaker>) -> EventReceiver {
+    fn new(receiver: UnboundedReceiver<UiEvent>, waker: Arc<AtomicWaker>) -> EventReceiver {
         Self {
             inner: Rc::new(RefCell::new(receiver)),
             waker,

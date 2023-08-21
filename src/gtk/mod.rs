@@ -2,11 +2,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::mpsc::Sender;
 
 use deno_core::futures::task::AtomicWaker;
 use relm4::gtk;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::plugins::Plugin;
 use crate::react_side::{UiEvent, UiRequest};
@@ -18,7 +17,7 @@ pub mod gtk_side;
 pub struct PluginUiData {
     pub plugin: Plugin,
     pub request_receiver: UnboundedReceiver<UiRequest>,
-    pub event_sender: Sender<UiEvent>,
+    pub event_sender: UnboundedSender<UiEvent>,
     pub event_waker: Arc<AtomicWaker>,
 }
 
@@ -47,7 +46,7 @@ impl PluginUiContext {
 }
 
 #[derive(Clone)]
-pub struct PluginContainerContainer {
+pub struct PluginContainerContainer { // creative name, isn't it?
     containers: Rc<RefCell<HashMap<String, gtk::Widget>>>
 }
 
@@ -69,11 +68,11 @@ impl PluginContainerContainer {
 
 #[derive(Clone)]
 pub struct PluginEventSenderContainer {
-    senders: Rc<RefCell<HashMap<String, (Sender<UiEvent>, Arc<AtomicWaker>)>>>
+    senders: Rc<RefCell<HashMap<String, (UnboundedSender<UiEvent>, Arc<AtomicWaker>)>>>
 }
 
 impl PluginEventSenderContainer {
-    pub fn new(senders: HashMap<String, (Sender<UiEvent>, Arc<AtomicWaker>)>) -> Self {
+    pub fn new(senders: HashMap<String, (UnboundedSender<UiEvent>, Arc<AtomicWaker>)>) -> Self {
         Self {
             senders: Rc::new(RefCell::new(senders)),
         }
