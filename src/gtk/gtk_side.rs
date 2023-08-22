@@ -4,9 +4,11 @@ use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer, PluginUiContext};
 use crate::react_side::{PropertyValue, UiEvent, UiEventName, UiRequest, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
+use crate::server::ServerEvent;
 
 #[derive(Debug)]
 pub struct GtkContext {
@@ -58,6 +60,21 @@ pub(crate) fn start_request_receiver_loop(
             run_request_receiver_loop(ui_context, container_container, event_senders_container).await
         });
     }
+}
+
+pub(crate) fn start_server_event_receiver_loop(
+    window: gtk::Window,
+    mut server_event_receiver: UnboundedReceiver<ServerEvent>,
+) {
+    glib::MainContext::default().spawn_local(async move {
+        while let Some(event) = server_event_receiver.recv().await {
+            match event {
+                ServerEvent::OpenWindow => {
+                    window.set_visible(true);
+                }
+            }
+        }
+    });
 }
 
 async fn run_request_receiver_loop(

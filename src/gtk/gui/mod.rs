@@ -78,7 +78,7 @@ impl SimpleComponent for AppModel {
             },
             connect_is_active_notify => move |window| {
                 if !window.is_active() {
-                    // window.application().unwrap().quit()
+                    window.set_visible(false);
                 }
             },
             match model.state {
@@ -185,7 +185,7 @@ impl SimpleComponent for AppModel {
             AppMsg::CloseCurrentView => {
                 match &self.state {
                     AppState::SearchView => {
-                        self.window.application().unwrap().quit();
+                        self.window.set_visible(false);
                     }
                     AppState::PluginView { plugin_id, .. } => {
                         self.event_senders_container.send_event(&plugin_id, UiEvent::ViewDestroyed);

@@ -2,15 +2,22 @@ use clap::Parser;
 use crate::agent::run_agent;
 use crate::server::run_server;
 
-#[derive(clap::Parser)]
-enum Cli {
-    Server,
+
+#[derive(Debug, clap::Parser)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum Commands {
     OpenWindow,
 }
 
 pub fn init() {
-    match Cli::parse() {
-        Cli::Server => run_server(),
-        Cli::OpenWindow => run_agent()
+    let cli = Cli::parse();
+    match &cli.command {
+        None => run_server(false),
+        Some(Commands::OpenWindow) => run_agent()
     };
 }
