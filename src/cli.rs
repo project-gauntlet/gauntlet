@@ -17,7 +17,10 @@ enum Commands {
 pub fn init() {
     let cli = Cli::parse();
     match &cli.command {
-        None => run_server(false),
+        None => {
+            let dev = std::env::var("PLACEHOLDERNAME_DEV").is_ok();
+            run_server(dev)
+        },
         Some(Commands::OpenWindow) => run_agent()
     };
 }
