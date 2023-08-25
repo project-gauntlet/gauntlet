@@ -38,7 +38,7 @@ const rollupBuild = await rollup({
 await rollupBuild.write({
     dir: 'dist',
     format: 'esm',
-    sourcemap: true,
+    sourcemap: 'inline',
     manualChunks: (id, _meta) => {
         if (id.includes('node_modules') || id === '\x00commonjsHelpers.js') {
             return 'vendor';
