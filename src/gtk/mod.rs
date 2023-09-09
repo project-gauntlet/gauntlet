@@ -1,14 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::Arc;
 
-use deno_core::futures::task::AtomicWaker;
 use relm4::gtk;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::plugins::Plugin;
-use crate::react_side::{UiEvent, UiRequest};
+use crate::react_side::UiEvent;
+use crate::channel::RequestSender;
 
 pub mod gui;
 pub mod gtk_side;
@@ -16,38 +14,11 @@ pub mod gtk_side;
 
 pub struct PluginUiData {
     pub plugin: Plugin,
-    pub request_receiver: UnboundedReceiver<UiRequest>,
-    pub event_sender: UnboundedSender<UiEvent>,
-    pub event_waker: Arc<AtomicWaker>,
-}
-
-
-#[derive(Clone)]
-pub struct PluginUiContext {
-    plugin: Plugin,
-    request_receiver: Rc<RefCell<UnboundedReceiver<UiRequest>>>,
-}
-
-impl PluginUiContext {
-    pub fn new(plugin: Plugin, request_receiver: UnboundedReceiver<UiRequest>) -> Self {
-        Self {
-            plugin,
-            request_receiver: Rc::new(RefCell::new(request_receiver)),
-        }
-    }
-
-    async fn request_recv(&self) -> Option<UiRequest> {
-        self.request_receiver.borrow_mut().recv().await
-    }
-
-    pub fn plugin(&self) -> &Plugin {
-        &self.plugin
-    }
 }
 
 #[derive(Clone)]
 pub struct PluginContainerContainer { // creative name, isn't it?
-    containers: Rc<RefCell<HashMap<String, gtk::Widget>>>
+    containers: Rc<RefCell<HashMap<String, gtk::Widget>>>,
 }
 
 impl PluginContainerContainer {
@@ -68,20 +39,17 @@ impl PluginContainerContainer {
 
 #[derive(Clone)]
 pub struct PluginEventSenderContainer {
-    senders: Rc<RefCell<HashMap<String, (UnboundedSender<UiEvent>, Arc<AtomicWaker>)>>>
+    sender: RequestSender<(String, UiEvent), ()>,
 }
 
 impl PluginEventSenderContainer {
-    pub fn new(senders: HashMap<String, (UnboundedSender<UiEvent>, Arc<AtomicWaker>)>) -> Self {
+    pub fn new(sender: RequestSender<(String, UiEvent), ()>) -> Self {
         Self {
-            senders: Rc::new(RefCell::new(senders)),
+            sender,
         }
     }
 
-    fn send_event(&self, plugin_id: &str, event: UiEvent) {
-        let senders = self.senders.borrow();
-        let (sender, waker) = senders.get(plugin_id).unwrap();
-        sender.send(event).unwrap();
-        waker.wake();
+    fn send_event(&self, plugin_uuid: &str, event: UiEvent) {
+        self.sender.send((plugin_uuid.to_owned(), event)).unwrap();
     }
 }

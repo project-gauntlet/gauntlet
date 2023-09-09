@@ -1,16 +1,17 @@
 use std::path::Path;
+
 use gtk::gdk::Key;
 use gtk::glib;
 use gtk::prelude::*;
 use relm4::{ComponentParts, ComponentSender, RelmRemoveAllExt, SimpleComponent};
 use relm4::typed_list_view::TypedListView;
+use tokio::runtime::Handle;
 
 use search_entry::SearchListEntry;
-use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
 
-use crate::plugins::PluginManager;
+use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
 use crate::react_side::UiEvent;
-use crate::search::SearchHandle;
+use crate::search::SearchClient;
 
 mod search_entry;
 
@@ -18,9 +19,8 @@ const SPACING: i32 = 12;
 
 pub struct AppModel {
     window: gtk::ApplicationWindow,
-    search: SearchHandle,
     list: TypedListView<SearchListEntry, gtk::SingleSelection>,
-    plugin_manager: PluginManager,
+    search_client: SearchClient,
     container_container: PluginContainerContainer,
     event_senders_container: PluginEventSenderContainer,
     state: AppState,
@@ -35,8 +35,7 @@ enum AppState {
 }
 
 pub struct AppInput {
-    pub search: SearchHandle,
-    pub plugin_manager: PluginManager,
+    pub search_client: SearchClient,
     pub container_container: PluginContainerContainer,
     pub event_senders_container: PluginEventSenderContainer,
 }
@@ -45,7 +44,7 @@ pub struct AppInput {
 pub enum AppMsg {
     OpenView {
         plugin_container: gtk::Box,
-        plugin_id: String,
+        plugin_uuid: String,
         entrypoint_id: String,
     },
     CloseCurrentView,
@@ -78,7 +77,7 @@ impl SimpleComponent for AppModel {
             },
             connect_is_active_notify => move |window| {
                 if !window.is_active() {
-                    window.set_visible(false);
+                    // TODO window.set_visible(false);
                 }
             },
             match model.state {
@@ -116,7 +115,7 @@ impl SimpleComponent for AppModel {
 
                                     sender.input(AppMsg::OpenView {
                                         plugin_container: plugin_container.clone(),
-                                        plugin_id: item.plugin_id().to_owned(),
+                                        plugin_uuid: item.plugin_id().to_owned(),
                                         entrypoint_id: item.entrypoint_id().to_owned()
                                     });
                                 }
@@ -140,8 +139,7 @@ impl SimpleComponent for AppModel {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
 
-        let plugin_manager = init_data.plugin_manager;
-        let search = init_data.search;
+        let search_client = init_data.search_client;
         let container_container = init_data.container_container;
         let event_senders_container = init_data.event_senders_container;
 
@@ -149,9 +147,8 @@ impl SimpleComponent for AppModel {
 
         let mut model = AppModel {
             window: root.clone(),
-            search,
+            search_client,
             list,
-            plugin_manager,
             container_container,
             event_senders_container,
             state: AppState::SearchView
@@ -168,24 +165,24 @@ impl SimpleComponent for AppModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            AppMsg::OpenView { plugin_container, plugin_id,  entrypoint_id} => {
+            AppMsg::OpenView { plugin_container, plugin_uuid,  entrypoint_id} => {
                 plugin_container.remove_all();
 
-                self.event_senders_container.send_event(&plugin_id, UiEvent::ViewCreated {
+                self.event_senders_container.send_event(&plugin_uuid, UiEvent::ViewCreated {
                     view_name: entrypoint_id.to_owned()
                 });
 
-                self.container_container.set_current_container(&plugin_id, plugin_container.clone().upcast::<gtk::Widget>());
+                self.container_container.set_current_container(&plugin_uuid, plugin_container.clone().upcast::<gtk::Widget>());
 
                 self.state = AppState::PluginView {
-                    plugin_id: plugin_id.clone(),
+                    plugin_id: plugin_uuid.clone(),
                     entrypoint_id: entrypoint_id.clone()
                 };
             }
             AppMsg::CloseCurrentView => {
                 match &self.state {
                     AppState::SearchView => {
-                        self.window.set_visible(false);
+                        self.window.close();
                     }
                     AppState::PluginView { plugin_id, .. } => {
                         self.event_senders_container.send_event(&plugin_id, UiEvent::ViewDestroyed);
@@ -207,19 +204,25 @@ impl AppModel {
     }
 
     fn search(&mut self, value: &str) {
-        let result: Vec<_> = self.search.search(value).unwrap()
-            .into_iter()
-            .map(|item| SearchListEntry::new(
-                item.entrypoint_name,
-                item.entrypoint_id,
-                item.plugin_name,
-                item.plugin_id,
-                Some(Path::new("extension_icon.png").to_owned())
-            ))
-            .collect();
+        let value = value.to_owned();
 
-        self.list.clear();
-        self.list.extend_from_iter(result);
+        let handle = Handle::current();
+        handle.block_on(async move {
+            let result: Vec<_> = self.search_client.search(&value)
+                .await
+                .into_iter()
+                .map(|item| SearchListEntry::new(
+                    item.entrypoint_name,
+                    item.entrypoint_id,
+                    item.plugin_name,
+                    item.plugin_uuid,
+                    Some(Path::new("extension_icon.png").to_owned())
+                ))
+                .collect();
+
+            self.list.clear();
+            self.list.extend_from_iter(result);
+        });
     }
 }
 

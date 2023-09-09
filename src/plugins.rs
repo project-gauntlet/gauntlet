@@ -5,12 +5,10 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use deno_core::anyhow::Context;
-use deno_core::futures::task::AtomicWaker;
 use deno_core::serde_json;
 use serde::Deserialize;
 
-use crate::gtk::PluginUiData;
-use crate::react_side::{PluginReactData, UiEvent, UiRequest};
+use crate::react_side::run_react;
 
 #[derive(Clone)]
 pub struct PluginManager {
@@ -37,36 +35,16 @@ impl PluginManager {
         self.inner.read().unwrap().plugins.clone()
     }
 
-    pub fn create_all_contexts(&mut self) -> (Vec<PluginReactData>, Vec<PluginUiData>) {
-        let (react_contexts, ui_contexts): (Vec<_>, Vec<_>) = self.plugins()
+    pub fn start_all_contexts(&mut self) {
+        self.plugins()
             .iter()
-            .map(|plugin| self.create_contexts_for_plugin(plugin.clone()))
-            .unzip();
-
-        (react_contexts, ui_contexts)
+            .for_each(|plugin| self.start_context_for_plugin(plugin.clone()));
     }
 
-    fn create_contexts_for_plugin(&self, plugin: Plugin) -> (PluginReactData, PluginUiData) {
-        let (react_request_sender, react_request_receiver) = tokio::sync::mpsc::unbounded_channel::<UiRequest>();
-        let (react_event_sender, react_event_receiver) = tokio::sync::mpsc::unbounded_channel::<UiEvent>();
-
-        let event_waker = Arc::new(AtomicWaker::new());
-
-        let ui_context = PluginUiData {
-            plugin: plugin.clone(),
-            request_receiver: react_request_receiver,
-            event_sender: react_event_sender,
-            event_waker: event_waker.clone()
-        };
-
-        let react_context = PluginReactData {
-            plugin: plugin.clone(),
-            event_receiver: react_event_receiver,
-            event_receiver_waker: event_waker.clone(),
-            request_sender: react_request_sender,
-        };
-
-        (react_context, ui_context)
+    fn start_context_for_plugin(&self, plugin: Plugin) {
+        tokio::spawn(tokio::task::unconstrained(async {
+            run_react(plugin).await
+        }));
     }
 
 }

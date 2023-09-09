@@ -23,3 +23,4 @@ zbus = { version = "3.14.1", default-features = false, features = ["tokio"] }
 clap = { version = "4.3.22", features = ["derive"] }
 gix = { version = "0.52.0", features = ["blocking-network-client"] }
 tempfile = "3"
+futures-concurrency = "7.4.2"

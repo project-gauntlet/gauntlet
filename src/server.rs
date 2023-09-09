@@ -1,44 +1,69 @@
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::process::exit;
-use std::thread;
 
+use deno_core::anyhow;
 use gtk::prelude::{ApplicationExt, ApplicationExtManual, Cast, GtkApplicationExt, WidgetExt};
 use relm4::{Component, ComponentController};
+use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::task::LocalSet;
+use zbus::zvariant::Type;
 
-use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer, PluginUiContext, PluginUiData};
-use crate::gtk::gtk_side::{start_request_receiver_loop, start_server_event_receiver_loop};
+use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
+use crate::gtk::gtk_side::{ClientContext, DbusClient, GtkContext};
 use crate::gtk::gui::{AppInput, AppModel};
 use crate::plugins::PluginManager;
-use crate::react_side::{PluginReactData, run_react};
-use crate::search::{SearchIndex, SearchItem};
+use crate::react_side::{UiEvent, UiEventViewCreated, UiEventViewEvent, UiRequestData, UiResponseData};
+use crate::channel::channel;
+use crate::search::{SearchClient, SearchIndex, SearchItem, UiSearchRequest, UiSearchResult};
 
-pub enum ServerEvent {
-    OpenWindow
-}
-
-struct DbusInterface {
-    server_event_sender: UnboundedSender<ServerEvent>,
+struct DbusServer {
+    plugins: Vec<String>,
+    search_index: SearchIndex,
 }
 
 #[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
-impl DbusInterface {
-    fn open_window(&mut self) {
-        self.server_event_sender.send(ServerEvent::OpenWindow).unwrap();
+impl DbusServer {
+    fn plugins(&mut self) -> Vec<String> {
+        self.plugins.clone()
+    }
+
+    fn search(&self, text: &str) -> Vec<DBusSearchResult> {
+        self.search_index.create_handle()
+            .search(text)
+            .unwrap()
+            .into_iter()
+            .map(|item| {
+                DBusSearchResult {
+                    entrypoint_name: item.entrypoint_name,
+                    entrypoint_id: item.entrypoint_id,
+                    plugin_name: item.plugin_name,
+                    plugin_uuid: item.plugin_id,
+                }
+            })
+            .collect()
     }
 }
 
-pub fn run_server(dev: bool) {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+#[zbus::dbus_proxy(
+    default_service = "org.placeholdername.PlaceHolderName",
+    default_path = "/org/placeholdername/PlaceHolderName",
+    interface = "org.placeholdername.PlaceHolderName",
+)]
+trait DbusServerProxy {
+    async fn plugins(&self) -> zbus::Result<Vec<String>>;
+    async fn search(&self, text: &str) -> zbus::Result<Vec<DBusSearchResult>>;
+}
 
-    let (server_event_sender, server_event_receiver) = tokio::sync::mpsc::unbounded_channel::<ServerEvent>();
+#[derive(Debug, Serialize, Deserialize, Type)]
+#[zvariant(signature = "(ssss)")]
+pub struct DBusSearchResult {
+    pub plugin_uuid: String,
+    pub plugin_name: String,
+    pub entrypoint_id: String,
+    pub entrypoint_name: String,
+}
 
+pub async fn run_server() -> anyhow::Result<()> {
     let mut plugin_manager = PluginManager::create();
     let mut search_index = SearchIndex::create_index().unwrap();
 
@@ -58,126 +83,184 @@ pub fn run_server(dev: bool) {
         })
         .collect();
 
+    let plugin_uuids: Vec<_> = plugin_manager.plugins()
+        .iter()
+        .map(|plugin| plugin.id().to_owned())
+        .collect();
+
     search_index.add_entries(search_items).unwrap();
 
-    let (react_contexts, ui_contexts) = plugin_manager.create_all_contexts();
+    plugin_manager.start_all_contexts();
 
-    let zbus_connection: Result<zbus::Connection, zbus::Error> = runtime.block_on(async {
-        let interface = DbusInterface { server_event_sender };
+    let interface = DbusServer { plugins: plugin_uuids, search_index };
 
-        let conn = zbus::ConnectionBuilder::session()?
-            .name("org.placeholdername.PlaceHolderName")?
-            .serve_at("/org/placeholdername/PlaceHolderName", interface)?
-            .build()
-            .await?;
+    let _conn = zbus::ConnectionBuilder::session()?
+        .name("org.placeholdername.PlaceHolderName")?
+        .serve_at("/org/placeholdername/PlaceHolderName", interface)?
+        .build()
+        .await?;
 
-        Ok(conn)
-    });
-
-    let _zbus_connection = zbus_connection.unwrap_or_else(|error| {
-        match error {
-            zbus::Error::NameTaken => eprintln!("Another server already running"),
-            _ => eprintln!("Unexpected error occurred when setting up dbus connection: {error}"),
-        }
-        exit(1)
-    });
-
-    spawn_gtk_thread(dev, ui_contexts, plugin_manager, search_index, server_event_receiver);
-
-    run_react_loops(&runtime, react_contexts);
+    Ok(std::future::pending::<()>().await)
 }
 
-fn spawn_gtk_thread(
-    dev: bool,
-    ui_data: Vec<PluginUiData>,
-    plugin_manager: PluginManager,
-    search_index: SearchIndex,
-    server_event_receiver: UnboundedReceiver<ServerEvent>,
-) {
-    let handle = move || {
-        let (contexts, event_senders): (Vec<_>, Vec<_>) = ui_data.into_iter()
-            .map(|ui_data| {
-                let context = (ui_data.plugin.clone(), ui_data.request_receiver);
-                let event_sender = (ui_data.plugin.id().to_owned(), (ui_data.event_sender, ui_data.event_waker));
-                (context, event_sender)
-            })
-            .unzip();
+pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
 
-        let ui_contexts = contexts.into_iter()
-            .map(|(plugin, receiver)| PluginUiContext::new(plugin, receiver))
-            .collect::<Vec<_>>();
+    let (request_tx, mut request_rx) = channel::<(String, UiRequestData), UiResponseData>();
+    let (event_tx, mut event_rx) = channel::<(String, UiEvent), ()>();
+    let (search_tx, mut search_rx) = channel::<UiSearchRequest, Vec<UiSearchResult>>();
 
-        let event_senders = event_senders.into_iter()
-            .collect::<HashMap<_, _>>();
-
-        let container_container = PluginContainerContainer::new();
-        let event_senders_container = PluginEventSenderContainer::new(event_senders);
-
-        start_request_receiver_loop(
-            ui_contexts,
-            container_container.clone(),
-            event_senders_container.clone(),
-        );
-
-        let input = AppInput {
-            search: search_index.create_handle(),
-            plugin_manager,
-            container_container,
-            event_senders_container,
-        };
-
-        let application = gtk::Application::builder()
-            .build();
-
-        let _ = application.hold();
-
-        let payload = Cell::new(Some((input, server_event_receiver)));
-
-        application.connect_activate(move |application| {
-            if let Some((input, server_event_receiver)) = payload.take() {
-                let mut controller = AppModel::builder()
-                    .launch(input)
-                    .detach();
-
-                let window = controller.widget()
-                    .clone()
-                    .upcast::<gtk::Window>();
-
-                controller.detach_runtime();
-
-                start_server_event_receiver_loop(
-                    window.clone(),
-                    server_event_receiver,
-                );
-
-                application.add_window(&window);
-                if dev {
-                    window.set_visible(true);
-                }
-            }
-        });
-
-        application.run();
+    let dbus_client = DbusClient {
+        channel: request_tx
     };
 
-    thread::Builder::new()
-        .name("gtk-thread".into())
-        .spawn(handle)
-        .expect("failed to spawn thread");
-}
+    let path = "/org/placeholdername/PlaceHolderName";
 
+    let (connection, server_proxy) = runtime.block_on(async {
+        let connection = zbus::ConnectionBuilder::session()?
+            .name("org.placeholdername.PlaceHolderName.Client")?
+            .serve_at(path, dbus_client)?
+            .build()
+            .await?;
+        let server_proxy = DbusServerProxyProxy::new(&connection).await?;
 
-fn run_react_loops(runtime: &Runtime, react_contexts: Vec<PluginReactData>) {
-    let local_set = LocalSet::new();
+        Ok::<_, anyhow::Error>((connection, server_proxy))
+    })?;
 
-    local_set.block_on(runtime, async {
-        let mut join_set = tokio::task::JoinSet::new();
-        for react_context in react_contexts {
-            join_set.spawn_local(tokio::task::unconstrained(async {
-                run_react(react_context).await
-            }));
+    let connection_clone = connection.clone();
+
+    runtime.spawn(async move {
+        let interface_ref = connection_clone
+            .object_server()
+            .interface::<_, DbusClient>(path)
+            .await
+            .unwrap();
+
+        let signal_context = interface_ref
+            .signal_context();
+
+        while let Ok(((plugin_uuid, event_data), _)) = event_rx.recv().await {
+            match event_data {
+                UiEvent::ViewCreated { view_name } => {
+                    DbusClient::view_created_signal(&signal_context, &plugin_uuid, UiEventViewCreated { view_name })
+                        .await
+                        .unwrap();
+                }
+                UiEvent::ViewDestroyed => {}
+                UiEvent::ViewEvent { event_name, widget_id } => {
+                    DbusClient::view_event_signal(&signal_context, &plugin_uuid, UiEventViewEvent { event_name, widget_id })
+                        .await
+                        .unwrap();
+                }
+            }
         }
-        while let Some(_) = join_set.join_next().await {}
     });
+
+    let event_senders_container = PluginEventSenderContainer::new(event_tx);
+    let container = event_senders_container.clone();
+
+    let container_container = PluginContainerContainer::new();
+    let containers = container_container.clone();
+
+    let server_proxy_clone = server_proxy.clone();
+    let local = tokio::task::LocalSet::new();
+    local.spawn_local(async move {
+        let plugin_uuids = server_proxy_clone.plugins().await.unwrap();
+
+        let contexts: HashMap<_, _> = plugin_uuids.iter()
+            .map(|plugin_uuid| (plugin_uuid.to_owned(), GtkContext::new()))
+            .collect();
+
+        let mut client_context = ClientContext {
+            contexts,
+            containers,
+        };
+
+        while let Ok(((plugin_uuid, request_data), responder)) = request_rx.recv().await {
+            match request_data {
+                UiRequestData::GetContainer => {
+                    let response = client_context.get_container(&plugin_uuid);
+                    responder.respond(response).unwrap()
+                }
+                UiRequestData::CreateInstance { widget_type } => {
+                    let response = client_context.create_instance(&plugin_uuid, &widget_type);
+                    responder.respond(response).unwrap()
+                }
+                UiRequestData::CreateTextInstance { text } => {
+                    let response = client_context.create_text_instance(&plugin_uuid, &text);
+                    responder.respond(response).unwrap()
+                }
+                UiRequestData::AppendChild { parent, child } => {
+                    client_context.append_child(&plugin_uuid, parent, child);
+                }
+                UiRequestData::RemoveChild { parent, child } => {
+                    client_context.remove_child(&plugin_uuid, parent, child);
+                }
+                UiRequestData::InsertBefore { parent, child, before_child } => {
+                    client_context.insert_before(&plugin_uuid, parent, child, before_child);
+                }
+                UiRequestData::SetProperties { widget, properties } => {
+                    client_context.set_properties(container.clone(), &plugin_uuid, widget, properties).await;
+                }
+                UiRequestData::SetText { widget, text } => {
+                    client_context.set_text(&plugin_uuid, widget, &text);
+                }
+            }
+        }
+    });
+
+    let server_proxy_clone = server_proxy.clone();
+    runtime.spawn(async move {
+        while let Ok((search_request, responder)) = search_rx.recv().await {
+            let result: Vec<_> = server_proxy_clone.search(&search_request.prompt)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|item| {
+                    UiSearchResult {
+                        plugin_uuid: item.plugin_uuid,
+                        plugin_name: item.plugin_name,
+                        entrypoint_id: item.entrypoint_id,
+                        entrypoint_name: item.entrypoint_name,
+                    }
+                })
+                .collect();
+
+            responder.respond(result).unwrap();
+        }
+    });
+
+    let search_client = SearchClient::new(search_tx);
+
+    let input = AppInput {
+        search_client,
+        container_container,
+        event_senders_container,
+    };
+
+    let application = gtk::Application::builder()
+        .build();
+
+    let payload = Cell::new(Some(input));
+
+    application.connect_activate(move |application| {
+        if let Some(input) = payload.take() {
+            let mut controller = AppModel::builder()
+                .launch(input)
+                .detach();
+
+            let window = controller.widget()
+                .clone()
+                .upcast::<gtk::Window>();
+
+            controller.detach_runtime();
+
+            application.add_window(&window);
+            window.set_visible(true);
+        }
+    });
+
+    application.run();
+
+    Ok(())
 }
 

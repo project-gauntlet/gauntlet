@@ -1,49 +1,175 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::future::{Future, poll_fn};
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::task::Poll;
 
-use deno_core::{futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
+use deno_core::{anyhow, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
 use deno_core::anyhow::anyhow;
-use deno_core::futures::FutureExt;
-use deno_core::futures::task::AtomicWaker;
+use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
-use deno_runtime::inspector_server::InspectorServer;
 use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
+use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::sync::mpsc::error::TryRecvError;
-use tokio::task;
+use zbus::zvariant::Type;
 
 use crate::plugins::Plugin;
+use crate::channel::{channel, RequestSender};
 
-pub async fn run_react(react_context: PluginReactData) {
-    let _inspector_server = Arc::new(
-        InspectorServer::new(
-            "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
-            "test",
-        )
-    );
+#[zbus::dbus_proxy(
+    default_service = "org.placeholdername.PlaceHolderName.Client",
+    default_path = "/org/placeholdername/PlaceHolderName",
+    interface = "org.placeholdername.PlaceHolderName.Client",
+)]
+trait DbusClientProxy {
+    #[dbus_proxy(signal)]
+    fn view_created_signal(&self, plugin_uuid: &str, event: UiEventViewCreated) -> zbus::Result<()>;
 
-    let worker = MainWorker::bootstrap_from_options(
+    #[dbus_proxy(signal)]
+    fn view_event_signal(&self, plugin_uuid: &str, event: UiEventViewEvent) -> zbus::Result<()>;
+
+    fn get_container(&self, plugin_uuid: &str) -> zbus::Result<DBusUiWidget>;
+
+    fn create_instance(&self, plugin_uuid: &str, widget_type: &str) -> zbus::Result<DBusUiWidget>;
+
+    fn create_text_instance(&self, plugin_uuid: &str, text: &str) -> zbus::Result<DBusUiWidget>;
+
+    fn append_child(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
+
+    fn remove_child(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
+
+    fn insert_before(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) -> zbus::Result<()>;
+
+    fn set_properties(&self, plugin_uuid: &str, widget: DBusUiWidget, properties: DBusUiPropertyContainer) -> zbus::Result<()>;
+
+    fn set_text(&self, plugin_uuid: &str, widget: DBusUiWidget, text: &str) -> zbus::Result<()>;
+}
+
+pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
+
+    let conn = zbus::Connection::session().await?;
+    let client_proxy = DbusClientProxyProxy::new(&conn).await?;
+
+    let plugin_uuid = plugin.id().to_owned();
+    let view_created_signal = client_proxy.receive_view_created_signal()
+        .await?
+        .filter_map(move |signal: ViewCreatedSignal| {
+            let plugin_uuid = plugin_uuid.clone();
+            async move {
+                let signal = signal.args().unwrap();
+
+                if signal.plugin_uuid != plugin_uuid {
+                    None
+                } else {
+                    Some(UiEvent::ViewCreated {
+                        view_name: signal.event.view_name
+                    })
+                }
+            }
+        });
+
+    let plugin_uuid = plugin.id().to_owned();
+    let view_event_signal = client_proxy.receive_view_event_signal()
+        .await?
+        .filter_map(move |signal: ViewEventSignal| {
+            let plugin_uuid = plugin_uuid.clone();
+            async move {
+                let signal = signal.args().unwrap();
+
+                if signal.plugin_uuid != plugin_uuid {
+                    None
+                } else {
+                    Some(UiEvent::ViewEvent {
+                        event_name: signal.event.event_name,
+                        widget_id: signal.event.widget_id,
+                    })
+                }
+            }
+        });
+
+    let event_stream = (view_event_signal, view_created_signal).merge();
+
+    let (tx, mut rx) = channel::<UiRequestData, UiResponseData>();
+
+    let plugin_uuid: String = plugin.id().to_owned();
+    tokio::spawn(async move {
+        println!("test");
+        while let Ok((request_data, responder)) = rx.recv().await {
+            match request_data {
+                UiRequestData::GetContainer => {
+                    let container = client_proxy.get_container(&plugin_uuid)
+                        .await
+                        .unwrap()
+                        .into();
+                    responder.respond(UiResponseData::GetContainer { container }).unwrap()
+                }
+                UiRequestData::CreateInstance { widget_type } => {
+                    let widget = client_proxy.create_instance(&plugin_uuid, &widget_type)
+                        .await
+                        .unwrap()
+                        .into();
+                    responder.respond(UiResponseData::CreateInstance { widget }).unwrap()
+                }
+                UiRequestData::CreateTextInstance { text } => {
+                    let widget = client_proxy.create_text_instance(&plugin_uuid, &text)
+                        .await
+                        .unwrap()
+                        .into();
+
+                    responder.respond(UiResponseData::CreateTextInstance { widget }).unwrap()
+                }
+                UiRequestData::AppendChild { parent, child } => {
+                    client_proxy.append_child(&plugin_uuid, parent.into(), child.into())
+                        .await
+                        .unwrap();
+                }
+                UiRequestData::RemoveChild { parent, child } => {
+                    client_proxy.remove_child(&plugin_uuid, parent.into(), child.into())
+                        .await
+                        .unwrap();
+                }
+                UiRequestData::InsertBefore { parent, child, before_child } => {
+                    client_proxy.insert_before(&plugin_uuid, parent.into(), child.into(), before_child.into())
+                        .await
+                        .unwrap();
+                }
+                UiRequestData::SetProperties { widget, properties } => {
+                    client_proxy.set_properties(&plugin_uuid, widget.into(), properties.into())
+                        .await
+                        .unwrap();
+                }
+                UiRequestData::SetText { widget, text } => {
+                    client_proxy.set_text(&plugin_uuid, widget.into(), &text)
+                        .await
+                        .unwrap();
+                }
+            }
+        }
+    });
+
+    // let _inspector_server = Arc::new(
+    //     InspectorServer::new(
+    //         "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
+    //         "test",
+    //     )
+    // );
+
+    let mut worker = MainWorker::bootstrap_from_options(
         "plugin:unused".parse().unwrap(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
-            module_loader: Rc::new(CustomModuleLoader::new(react_context.plugin)),
+            module_loader: Rc::new(CustomModuleLoader::new(plugin)),
             extensions: vec![gtk_ext::init_ops_and_esm(
                 EventHandlers::new(),
-                EventReceiver::new(react_context.event_receiver, react_context.event_receiver_waker),
-                RequestSender::new(react_context.request_sender),
+                EventReceiver::new(Box::pin(event_stream)),
+                RequestSender1::new(tx),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -55,13 +181,12 @@ pub async fn run_react(react_context: PluginReactData) {
         },
     );
 
-    let worker = Rc::new(RefCell::new(worker));
-
-    task::spawn_local(async move {
-        let mut worker = worker.borrow_mut();
+    tokio::task::spawn_local(async move {
         worker.execute_side_module(&"plugin:core".parse().unwrap()).await.unwrap();
         worker.run_event_loop(false).await.unwrap();
     });
+
+    Ok(())
 }
 
 pub struct CustomModuleLoader {
@@ -166,7 +291,7 @@ deno_core::extension!(
     options = {
         event_listeners: EventHandlers,
         event_receiver: EventReceiver,
-        request_sender: RequestSender,
+        request_sender: RequestSender1,
     },
     state = |state, options| {
         state.put(options.event_listeners);
@@ -309,13 +434,13 @@ fn op_gtk_set_properties<'a>(
                 let fn_value: v8::Local<v8::Function> = val.try_into().unwrap();
                 let global_fn = v8::Global::new(scope, fn_value);
                 event_listeners.add_listener(widget.widget_id, name.clone(), global_fn);
-                (name.clone(), PropertyValue::Function)
+                (name.clone(), UiPropertyValue::Function)
             } else if val.is_string() {
-                (name.clone(), PropertyValue::String(val.to_rust_string_lossy(scope)))
+                (name.clone(), UiPropertyValue::String(val.to_rust_string_lossy(scope)))
             } else if val.is_number() {
-                (name.clone(), PropertyValue::Number(val.number_value(scope).unwrap()))
+                (name.clone(), UiPropertyValue::Number(val.number_value(scope).unwrap()))
             } else if val.is_boolean() {
-                (name.clone(), PropertyValue::Bool(val.boolean_value(scope)))
+                (name.clone(), UiPropertyValue::Bool(val.boolean_value(scope)))
             } else {
                 panic!("{:?}: {:?}", name, val.type_of(scope).to_rust_string_lossy(scope))
             }
@@ -342,29 +467,17 @@ fn op_gtk_set_properties<'a>(
 async fn op_get_next_pending_ui_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> JsUiEvent {
-    let event_receiver = {
+    let mut event_stream = {
         state.borrow()
             .borrow::<EventReceiver>()
+            .event_stream
             .clone()
     };
 
-    poll_fn(|cx| {
-        event_receiver.waker.register(cx.waker());
-        let mut receiver = event_receiver.inner.borrow_mut();
+    println!("op_get_next_pending_ui_event");
 
-        match receiver.try_recv() {
-            Ok(value) => {
-                println!("op_get_next_pending_ui_event {:?}", value);
-                Poll::Ready(value.into())
-            }
-            Err(TryRecvError::Disconnected) => panic!("disconnected"),
-            Err(TryRecvError::Empty) => {
-                println!("op_get_next_pending_ui_event Pending");
-
-                Poll::Pending
-            }
-        }
-    }).await
+    let mut event_stream = event_stream.borrow_mut();
+    event_stream.next().await.unwrap().into()
 }
 
 #[op(v8)]
@@ -410,47 +523,33 @@ async fn op_gtk_set_text(
 async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiResponseData {
     let request_sender = {
         state.borrow()
-            .borrow::<RequestSender>()
+            .borrow::<RequestSender1>()
             .clone()
     };
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    request_sender.inner.send(UiRequest { response_sender: tx, data }).unwrap();
-
-    rx.await.unwrap()
+    request_sender.channel.send_receive(data).await.unwrap()
 }
 
-
-pub struct PluginReactData {
-    pub plugin: Plugin,
-    pub event_receiver: UnboundedReceiver<UiEvent>,
-    pub event_receiver_waker: Arc<AtomicWaker>,
-    pub request_sender: UnboundedSender<UiRequest>,
-}
 
 #[derive(Clone)]
-pub struct RequestSender {
-    inner: UnboundedSender<UiRequest>,
+pub struct RequestSender1 {
+    channel: RequestSender<UiRequestData, UiResponseData>,
 }
 
-impl RequestSender {
-    fn new(sender: UnboundedSender<UiRequest>) -> Self {
-        Self { inner: sender }
+impl RequestSender1 {
+    fn new(channel: RequestSender<UiRequestData, UiResponseData>) -> Self {
+        Self { channel }
     }
 }
 
-#[derive(Clone)]
 pub struct EventReceiver {
-    inner: Rc<RefCell<UnboundedReceiver<UiEvent>>>,
-    waker: Arc<AtomicWaker>,
+    event_stream: Rc<RefCell<Pin<Box<dyn Stream<Item=UiEvent>>>>>,
 }
 
 impl EventReceiver {
-    fn new(receiver: UnboundedReceiver<UiEvent>, waker: Arc<AtomicWaker>) -> EventReceiver {
+    fn new(event_stream: Pin<Box<dyn Stream<Item=UiEvent>>>, ) -> EventReceiver {
         Self {
-            inner: Rc::new(RefCell::new(receiver)),
-            waker,
+            event_stream: Rc::new(RefCell::new(event_stream)),
         }
     }
 }
@@ -496,12 +595,6 @@ impl EventHandlers {
 
 
 #[derive(Debug)]
-pub struct UiRequest {
-    pub response_sender: tokio::sync::oneshot::Sender<UiResponseData>,
-    pub data: UiRequestData,
-}
-
-#[derive(Debug)]
 pub enum UiResponseData {
     GetContainer {
         container: UiWidget
@@ -539,7 +632,7 @@ pub enum UiRequestData {
     },
     SetProperties {
         widget: UiWidget,
-        properties: HashMap<String, PropertyValue>,
+        properties: HashMap<String, UiPropertyValue>,
     },
     SetText {
         widget: UiWidget,
@@ -548,7 +641,7 @@ pub enum UiRequestData {
 }
 
 #[derive(Debug)]
-pub enum PropertyValue {
+pub enum UiPropertyValue {
     Function,
     String(String),
     Number(f64),
@@ -569,6 +662,18 @@ pub enum UiEvent {
         widget_id: UiWidgetId,
     },
 }
+
+#[derive(Debug, Deserialize, Serialize, Type)]
+pub struct UiEventViewCreated {
+    pub view_name: String
+}
+
+#[derive(Debug, Deserialize, Serialize, Type)]
+pub struct UiEventViewEvent {
+    pub event_name: UiEventName,
+    pub widget_id: UiWidgetId,
+}
+
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
@@ -628,4 +733,108 @@ impl From<JsUiWidget> for UiWidget {
             widget_id: value.widget_id
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize, Type)]
+pub struct DBusUiWidget {
+    pub widget_id: UiWidgetId,
+}
+
+impl From<UiWidget> for DBusUiWidget {
+    fn from(value: UiWidget) -> Self {
+        Self {
+            widget_id: value.widget_id
+        }
+    }
+}
+
+impl From<DBusUiWidget> for UiWidget {
+    fn from(value: DBusUiWidget) -> Self {
+        Self {
+            widget_id: value.widget_id
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+#[zvariant(signature = "({s(u)}{s(uv)})")]
+pub struct DBusUiPropertyContainer {
+    pub zero: HashMap<String, DBusUiPropertyZeroValue>,
+    pub one: HashMap<String, DBusUiPropertyOneValue>
+}
+
+impl From<HashMap<String, UiPropertyValue>> for DBusUiPropertyContainer {
+    fn from(value: HashMap<String, UiPropertyValue>) -> Self {
+        let properties_one: HashMap<_, _> = value.iter()
+            .filter_map(|(key, value)| {
+                match value {
+                    UiPropertyValue::Function => None,
+                    UiPropertyValue::String(value) => Some((key.to_owned(), DBusUiPropertyOneValue::String(value.to_owned()))),
+                    UiPropertyValue::Number(value) => Some((key.to_owned(), DBusUiPropertyOneValue::Number(value.to_owned()))),
+                    UiPropertyValue::Bool(value) => Some((key.to_owned(), DBusUiPropertyOneValue::Bool(value.to_owned()))),
+                }
+            })
+            .collect();
+
+        let properties_zero: HashMap<_, _> = value.iter()
+            .filter_map(|(key, value)| {
+                match value {
+                    UiPropertyValue::Function => Some((key.to_owned(), DBusUiPropertyZeroValue::Function)),
+                    UiPropertyValue::String(_) => None,
+                    UiPropertyValue::Number(_) => None,
+                    UiPropertyValue::Bool(_) => None,
+                }
+            })
+            .collect();
+
+
+        DBusUiPropertyContainer { one: properties_one, zero: properties_zero }
+    }
+}
+
+impl From<DBusUiPropertyContainer> for HashMap<String, UiPropertyValue> {
+    fn from(value: DBusUiPropertyContainer) -> Self {
+
+        let properties_one: HashMap<_, _> = value.one
+            .into_iter()
+            .map(|(key, value)| {
+                let value = match value {
+                    DBusUiPropertyOneValue::String(value) => UiPropertyValue::String(value),
+                    DBusUiPropertyOneValue::Number(value) => UiPropertyValue::Number(value),
+                    DBusUiPropertyOneValue::Bool(value) => UiPropertyValue::Bool(value),
+                };
+
+                (key, value)
+            })
+            .collect();
+
+        let mut properties: HashMap<_, _> = value.zero
+            .into_iter()
+            .map(|(key, value)| {
+                let value = match value {
+                    DBusUiPropertyZeroValue::Function => UiPropertyValue::Function,
+                };
+
+                (key, value)
+            })
+            .collect();
+
+        properties.extend(properties_one);
+
+        properties
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+#[zvariant(signature = "(uv)")]
+pub enum DBusUiPropertyOneValue {
+    String(String),
+    Number(f64),
+    Bool(bool),
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+#[zvariant(signature = "u")]
+pub enum DBusUiPropertyZeroValue {
+    Function,
 }

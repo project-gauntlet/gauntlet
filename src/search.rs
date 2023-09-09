@@ -7,6 +7,8 @@ use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
 
+use crate::channel::RequestSender;
+
 pub struct SearchIndex {
     index: Index,
     index_reader: IndexReader,
@@ -72,7 +74,7 @@ impl SearchIndex {
         index_writer.commit()?;
 
         thread::sleep(std::time::Duration::from_secs(1)); // FIXME this shouldn't be needed because commit blocks, maybe inmemory index has race condition?
-        println!("{:?}", self.index_reader.searcher().num_docs()); // shouldn't return 0
+        println!("num_docs {:?}", self.index_reader.searcher().num_docs()); // shouldn't return 0
 
         Ok(())
     }
@@ -243,4 +245,35 @@ impl QueryParser {
 
         terms
     }
+}
+
+pub struct SearchClient {
+    search: RequestSender<UiSearchRequest, Vec<UiSearchResult>>
+}
+
+impl SearchClient {
+    pub fn new(search: RequestSender<UiSearchRequest, Vec<UiSearchResult>>) -> SearchClient {
+        Self {
+            search
+        }
+    }
+
+    pub async fn search(&self, prompt: &str) -> Vec<UiSearchResult> {
+        self.search.send_receive(UiSearchRequest { prompt: prompt.to_owned() })
+            .await
+            .unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub struct UiSearchRequest {
+    pub prompt: String
+}
+
+#[derive(Debug)]
+pub struct UiSearchResult {
+    pub plugin_uuid: String,
+    pub plugin_name: String,
+    pub entrypoint_id: String,
+    pub entrypoint_name: String,
 }

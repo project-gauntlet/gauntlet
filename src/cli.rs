@@ -1,9 +1,9 @@
 use std::path::Path;
+
 use clap::Parser;
 use deno_core::anyhow;
-use crate::agent::run_agent;
-use crate::server::run_server;
 
+use crate::server::{run_client, run_server};
 
 #[derive(Debug, clap::Parser)]
 struct Cli {
@@ -13,18 +13,35 @@ struct Cli {
 
 #[derive(Debug, clap::Subcommand)]
 enum Commands {
-    OpenWindow,
+    // Open,
+    Server,
     Download,
 }
 
 pub fn init() {
     let cli = Cli::parse();
     match &cli.command {
+        // Some(Commands::Open) => {
         None => {
-            let dev = std::env::var("PLACEHOLDERNAME_DEV").is_ok();
-            run_server(dev)
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            let _guard = runtime.enter();
+
+            run_client(&runtime).unwrap()
+        }
+        Some(Commands::Server) => {
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            runtime.block_on(async {
+                run_server().await
+            }).unwrap();
         },
-        Some(Commands::OpenWindow) => run_agent(),
         Some(Commands::Download) => download_repo().unwrap()
     };
 }
