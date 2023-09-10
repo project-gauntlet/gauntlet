@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use deno_core::anyhow;
+use gtk::glib::MainContext;
 use gtk::prelude::WidgetExt;
 use relm4::{Component, RelmApp};
 use serde::{Deserialize, Serialize};
@@ -129,7 +130,7 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
 
     let connection_clone = connection.clone();
 
-    runtime.spawn(async move {
+    runtime.spawn(tokio::task::unconstrained(async move {
         println!("starting event handler loop");
 
         let interface_ref = connection_clone
@@ -156,7 +157,7 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
                 }
             }
         }
-    });
+    }));
 
     let event_senders_container = PluginEventSenderContainer::new(event_tx);
     let container = event_senders_container.clone();
@@ -165,8 +166,7 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
     let containers = container_container.clone();
 
     let server_proxy_clone = server_proxy.clone();
-    let local = tokio::task::LocalSet::new();
-    local.spawn_local(async move {
+    MainContext::default().spawn_local(async move {
         println!("starting request handler loop");
 
         let plugin_uuids = server_proxy_clone.plugins().await.unwrap();
@@ -214,7 +214,8 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
     });
 
     let server_proxy_clone = server_proxy.clone();
-    runtime.spawn(async move {
+    runtime.spawn(tokio::task::unconstrained(async move {
+        println!("starting search handler loop");
         while let Ok((search_request, responder)) = search_rx.recv().await {
             let result: Vec<_> = server_proxy_clone.search(&search_request.prompt)
                 .await
@@ -232,7 +233,7 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
 
             responder.respond(result).unwrap();
         }
-    });
+    }));
 
     let search_client = SearchClient::new(search_tx);
 

@@ -97,7 +97,7 @@ pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
     let (tx, mut rx) = channel::<UiRequestData, UiResponseData>();
 
     let plugin_uuid: String = plugin.id().to_owned();
-    tokio::spawn(async move {
+    tokio::spawn(tokio::task::unconstrained(async move {
         println!("starting request handler loop");
 
         while let Ok((request_data, responder)) = rx.recv().await {
@@ -151,7 +151,7 @@ pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
                 }
             }
         }
-    });
+    }));
 
     // let _inspector_server = Arc::new(
     //     InspectorServer::new(
