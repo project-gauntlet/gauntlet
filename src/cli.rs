@@ -33,7 +33,7 @@ pub fn init() {
             run_client(&runtime).unwrap()
         }
         Some(Commands::Server) => {
-            let runtime = tokio::runtime::Builder::new_multi_thread()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .unwrap();

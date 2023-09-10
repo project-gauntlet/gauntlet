@@ -1,5 +1,7 @@
+import "plugin:renderer"
+
 // @ts-expect-error "Deno[Deno.internal]" is not a public interface
-const denoCore = Deno.core;
+const denoCore = Deno[Deno.internal].core;
 
 const InternalApi: InternalApi = denoCore.ops;
 

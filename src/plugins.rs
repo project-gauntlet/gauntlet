@@ -42,11 +42,23 @@ impl PluginManager {
     }
 
     fn start_context_for_plugin(&self, plugin: Plugin) {
-        tokio::spawn(tokio::task::unconstrained(async {
-            run_react(plugin).await
-        }));
-    }
+        let handle = move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
 
+            let local_set = tokio::task::LocalSet::new();
+            local_set.block_on(&runtime, tokio::task::unconstrained(async move {
+                run_react(plugin).await
+            }))
+        };
+
+        std::thread::Builder::new()
+            .name("react-thread".into())
+            .spawn(handle)
+            .expect("failed to spawn react thread");
+    }
 }
 
 #[derive(Debug, Deserialize)]

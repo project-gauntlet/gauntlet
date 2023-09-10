@@ -1,19 +1,18 @@
-use std::cell::Cell;
 use std::collections::HashMap;
 
 use deno_core::anyhow;
-use gtk::prelude::{ApplicationExt, ApplicationExtManual, Cast, GtkApplicationExt, WidgetExt};
-use relm4::{Component, ComponentController};
+use gtk::prelude::WidgetExt;
+use relm4::{Component, RelmApp};
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 use zbus::zvariant::Type;
 
+use crate::channel::channel;
 use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
 use crate::gtk::gtk_side::{ClientContext, DbusClient, GtkContext};
 use crate::gtk::gui::{AppInput, AppModel};
 use crate::plugins::PluginManager;
 use crate::react_side::{UiEvent, UiEventViewCreated, UiEventViewEvent, UiRequestData, UiResponseData};
-use crate::channel::channel;
 use crate::search::{SearchClient, SearchIndex, SearchItem, UiSearchRequest, UiSearchResult};
 
 struct DbusServer {
@@ -100,7 +99,9 @@ pub async fn run_server() -> anyhow::Result<()> {
         .build()
         .await?;
 
-    Ok(std::future::pending::<()>().await)
+    std::future::pending::<()>().await;
+
+    Ok(())
 }
 
 pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
@@ -129,6 +130,8 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
     let connection_clone = connection.clone();
 
     runtime.spawn(async move {
+        println!("starting event handler loop");
+
         let interface_ref = connection_clone
             .object_server()
             .interface::<_, DbusClient>(path)
@@ -164,6 +167,8 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
     let server_proxy_clone = server_proxy.clone();
     let local = tokio::task::LocalSet::new();
     local.spawn_local(async move {
+        println!("starting request handler loop");
+
         let plugin_uuids = server_proxy_clone.plugins().await.unwrap();
 
         let contexts: HashMap<_, _> = plugin_uuids.iter()
@@ -237,29 +242,8 @@ pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
         event_senders_container,
     };
 
-    let application = gtk::Application::builder()
-        .build();
-
-    let payload = Cell::new(Some(input));
-
-    application.connect_activate(move |application| {
-        if let Some(input) = payload.take() {
-            let mut controller = AppModel::builder()
-                .launch(input)
-                .detach();
-
-            let window = controller.widget()
-                .clone()
-                .upcast::<gtk::Window>();
-
-            controller.detach_runtime();
-
-            application.add_window(&window);
-            window.set_visible(true);
-        }
-    });
-
-    application.run();
+    let app = RelmApp::from_app(gtk::Application::builder().build());
+    app.run::<AppModel>(input);
 
     Ok(())
 }

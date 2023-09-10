@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-deno_core = { version = "0.188.0", path = "../deno/core" }
-deno_runtime = { version = "0.114.0", path = "../deno/runtime" }
+deno_core = { version = "0.204.0" }
+deno_runtime = { version = "0.126.0" }
 tokio = "1.28.1"
 #taffy = "0.3.12"
 relm4 = "0.6.0"

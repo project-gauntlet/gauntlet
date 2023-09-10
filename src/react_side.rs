@@ -1,15 +1,13 @@
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::future::{Future, poll_fn};
+use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::task::Poll;
 
-use deno_core::{anyhow, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, v8};
+use deno_core::{anyhow, FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::anyhow::anyhow;
 use deno_core::futures::{FutureExt, Stream, StreamExt};
-use deno_runtime::deno_core::FsModuleLoader;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
@@ -20,8 +18,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zbus::zvariant::Type;
 
-use crate::plugins::Plugin;
 use crate::channel::{channel, RequestSender};
+use crate::plugins::Plugin;
 
 #[zbus::dbus_proxy(
     default_service = "org.placeholdername.PlaceHolderName.Client",
@@ -100,11 +98,12 @@ pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
 
     let plugin_uuid: String = plugin.id().to_owned();
     tokio::spawn(async move {
-        println!("test");
+        println!("starting request handler loop");
+
         while let Ok((request_data, responder)) = rx.recv().await {
             match request_data {
                 UiRequestData::GetContainer => {
-                    let container = client_proxy.get_container(&plugin_uuid)
+                    let container = client_proxy.get_container(&plugin_uuid) // TODO add timeout handling
                         .await
                         .unwrap()
                         .into();
@@ -181,34 +180,42 @@ pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
         },
     );
 
-    tokio::task::spawn_local(async move {
-        worker.execute_side_module(&"plugin:core".parse().unwrap()).await.unwrap();
-        worker.run_event_loop(false).await.unwrap();
-    });
+   worker.execute_side_module(&"plugin:core".parse().unwrap()).await.unwrap();
+   worker.run_event_loop(false).await.unwrap();
 
     Ok(())
 }
 
 pub struct CustomModuleLoader {
     plugin: Plugin,
-    inner: FsModuleLoader,
+    static_loader: StaticModuleLoader,
 }
 
 impl CustomModuleLoader {
     fn new(plugin: Plugin) -> Self {
+        let module_map: HashMap<_, _> = MODULES.iter()
+            .map(|(key, value)| (key.parse().unwrap(), FastString::from_static(value)))
+            .collect();
         Self {
             plugin,
-            inner: FsModuleLoader
+            static_loader: StaticModuleLoader::new(module_map)
         }
     }
 }
+
+const MODULES: [(&str, &str); 4] = [
+    ("plugin:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/js/core/dist/prod/init.js"))),
+    ("plugin:renderer", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/js/react_renderer/dist/prod/renderer.js"))),
+    ("plugin:react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/js/react/dist/prod/react.production.min.js"))), // TODO dev https://github.com/rollup/plugins/issues/1546
+    ("plugin:react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/js/react/dist/prod/react-jsx-runtime.production.min.js"))),
+];
 
 impl ModuleLoader for CustomModuleLoader {
     fn resolve(
         &self,
         specifier: &str,
         referrer: &str,
-        _kind: ResolutionKind,
+        kind: ResolutionKind,
     ) -> Result<ModuleSpecifier, deno_core::anyhow::Error> {
 
         static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").unwrap());
@@ -226,16 +233,16 @@ impl ModuleLoader for CustomModuleLoader {
         }
 
         let specifier = match (specifier, referrer) {
-            ("plugin:core", _) => "ext:gtk_ext/core/dist/prod/init.js",
-            ("plugin:renderer", _) => "ext:gtk_ext/react_renderer/dist/prod/renderer.js",
-            ("react", _) => "ext:gtk_ext/react/dist/prod/react.production.min.js",
-            ("react/jsx-runtime", _) => "ext:gtk_ext/react/dist/prod/react-jsx-runtime.production.min.js",
+            ("plugin:core", _) => "plugin:core",
+            ("plugin:renderer", _) => "plugin:renderer",
+            ("react", _) => "plugin:react",
+            ("react/jsx-runtime", _) => "plugin:react-jsx-runtime",
             _ => {
                 return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
             }
         };
 
-        return Ok(specifier.parse()?);
+        self.static_loader.resolve(specifier, referrer, kind)
     }
 
     fn load(
@@ -259,8 +266,7 @@ impl ModuleLoader for CustomModuleLoader {
             return futures::future::ready(Ok(module)).boxed_local()
         }
 
-
-        self.inner.load(module_specifier, maybe_referrer, is_dynamic)
+        self.static_loader.load(module_specifier, maybe_referrer, is_dynamic)
     }
 }
 
@@ -279,15 +285,6 @@ deno_core::extension!(
         op_get_next_pending_ui_event,
         op_call_event_listener,
     ],
-    esm_entry_point = "ext:gtk_ext/entry_point.js",
-    esm = [
-        dir "../js",
-        "entry_point.js",
-        "react_renderer/dist/prod/renderer.js",
-        "react/dist/prod/react.production.min.js", // TODO dev https://github.com/rollup/plugins/issues/1546
-        "react/dist/prod/react-jsx-runtime.production.min.js",
-        "core/dist/prod/init.js",
-    ],
     options = {
         event_listeners: EventHandlers,
         event_receiver: EventReceiver,
@@ -297,9 +294,6 @@ deno_core::extension!(
         state.put(options.event_listeners);
         state.put(options.event_receiver);
         state.put(options.request_sender);
-    },
-    customizer = |ext: &mut deno_core::ExtensionBuilder| {
-        ext.force_op_registration();
     },
 );
 
@@ -467,7 +461,7 @@ fn op_gtk_set_properties<'a>(
 async fn op_get_next_pending_ui_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> JsUiEvent {
-    let mut event_stream = {
+    let event_stream = {
         state.borrow()
             .borrow::<EventReceiver>()
             .event_stream

@@ -13,7 +13,7 @@ type TimeoutHandle = any;
 type NoTimeout = -1;
 
 // @ts-expect-error "Deno[Deno.internal]" is not a public interface
-const denoCore = Deno.core;
+const denoCore = Deno[Deno.internal].core;
 // @ts-expect-error // TODO "Deno" does not have typings
 const denoInspect = Deno.inspect;
 
