@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
-use deno_core::anyhow;
 use gtk::glib::MainContext;
-use gtk::prelude::WidgetExt;
-use relm4::{Component, RelmApp};
+use relm4::RelmApp;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 use zbus::zvariant::Type;

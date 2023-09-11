@@ -4,7 +4,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use deno_core::anyhow::Context;
+use anyhow::Context;
 use deno_core::serde_json;
 use serde::Deserialize;
 
@@ -20,7 +20,6 @@ pub struct PluginManagerInner {
 }
 
 impl PluginManager {
-
     pub fn create() -> Self {
         let plugins = PluginLoader.load_plugins();
 
@@ -150,19 +149,18 @@ impl PluginLoader {
 
         Plugin::new(&plugin.id, &package_json.plugin.metadata.name, PluginCode::new(js, None), entrypoints)
     }
-
 }
 
 #[derive(Clone)]
 pub struct Plugin {
-    inner: Arc<PluginInner>
+    inner: Arc<PluginInner>,
 }
 
 pub struct PluginInner {
     id: String,
     name: String,
     code: PluginCode,
-    entrypoints: Vec<PluginEntrypoint>
+    entrypoints: Vec<PluginEntrypoint>,
 }
 
 impl Plugin {

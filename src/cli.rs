@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use clap::Parser;
-use deno_core::anyhow;
 
 use crate::server::{run_client, run_server};
 
@@ -19,6 +18,8 @@ enum Commands {
 }
 
 pub fn init() {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
     match &cli.command {
         // Some(Commands::Open) => {

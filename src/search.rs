@@ -1,6 +1,5 @@
 use std::thread;
 
-use deno_core::anyhow;
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query};

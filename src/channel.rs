@@ -1,3 +1,4 @@
+use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 
 pub type Payload<Req, Res> = (Req, Responder<Res>);
@@ -9,15 +10,26 @@ pub struct ResponseReceiver<Res> {
 
 impl<Res> ResponseReceiver<Res> {
     pub(crate) fn new(response_receiver: oneshot::Receiver<Res>) -> Self {
+        println!("ResponseReceiver");
         Self {
             response_receiver: Some(response_receiver),
         }
     }
 
-    pub async fn recv<Req>(&mut self) -> Result<Res, RequestError<Req>> {
+    pub async fn recv(&mut self) -> Result<Res, ReceiveError> {
+        println!("recv");
         match self.response_receiver.take() {
-            Some(response_receiver) => response_receiver.await.map_err(|_| RequestError::RecvError),
-            None => Err(RequestError::RecvError),
+            Some(response_receiver) => {
+                response_receiver.await.map_err(|_| {
+                    println!("RecvError 1");
+
+                    ReceiveError::RecvError
+                })
+            },
+            None => {
+                println!("RecvError 2");
+                Err(ReceiveError::RecvError)
+            },
         }
     }
 }
@@ -78,7 +90,11 @@ impl<Req, Res> RequestReceiver<Req, Res> {
     pub async fn recv(&mut self) -> Result<Payload<Req, Res>, RequestError<Req>> {
         match self.request_receiver.recv().await {
             Some(payload) => Ok(payload),
-            None => Err(RequestError::RecvError),
+            None => {
+                println!("RecvError 3");
+
+                Err(RequestError::RecvError)
+            },
         }
     }
 }
@@ -98,9 +114,11 @@ pub struct Responder<Res> {
     response_sender: oneshot::Sender<Res>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Error, Debug, Copy, Clone, PartialEq)]
 pub enum RequestError<T> {
+    #[error("Recv error")]
     RecvError,
+    #[error("send error")]
     SendError(T),
 }
 
@@ -110,6 +128,14 @@ pub struct RespondError<T>(pub T);
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ReceiveError {
     RecvError,
+}
+
+impl<T> From<ReceiveError> for RequestError<T> {
+    fn from(err: ReceiveError) -> RequestError<T> {
+        match err {
+            ReceiveError::RecvError => RequestError::RecvError,
+        }
+    }
 }
 
 pub fn channel<Req, Res>() -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {

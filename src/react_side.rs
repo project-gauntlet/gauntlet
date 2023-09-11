@@ -5,8 +5,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use deno_core::{anyhow, FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
-use deno_core::anyhow::anyhow;
+use anyhow::anyhow;
+use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::PermissionsContainer;
@@ -51,7 +51,6 @@ trait DbusClientProxy {
 }
 
 pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
-
     let conn = zbus::Connection::session().await?;
     let client_proxy = DbusClientProxyProxy::new(&conn).await?;
 
@@ -151,6 +150,7 @@ pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
                 }
             }
         }
+        println!("stopped request handler loop");
     }));
 
     // let _inspector_server = Arc::new(
@@ -180,8 +180,8 @@ pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
         },
     );
 
-   worker.execute_side_module(&"plugin:core".parse().unwrap()).await.unwrap();
-   worker.run_event_loop(false).await.unwrap();
+    worker.execute_side_module(&"plugin:core".parse().unwrap()).await.unwrap();
+    worker.run_event_loop(false).await.unwrap();
 
     Ok(())
 }
@@ -198,7 +198,7 @@ impl CustomModuleLoader {
             .collect();
         Self {
             plugin,
-            static_loader: StaticModuleLoader::new(module_map)
+            static_loader: StaticModuleLoader::new(module_map),
         }
     }
 }
@@ -216,19 +216,18 @@ impl ModuleLoader for CustomModuleLoader {
         specifier: &str,
         referrer: &str,
         kind: ResolutionKind,
-    ) -> Result<ModuleSpecifier, deno_core::anyhow::Error> {
-
+    ) -> Result<ModuleSpecifier, anyhow::Error> {
         static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").unwrap());
         static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").unwrap());
         static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>\w+)\.js$").unwrap());
 
         if PLUGIN_VIEW_PATTERN.is_match(specifier) {
-            return Ok(specifier.parse()?)
+            return Ok(specifier.parse()?);
         }
 
         if PLUGIN_VIEW_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
             if let Some(captures) = PATH_PATTERN.captures(specifier) {
-                return Ok(format!("plugin:module?{}", &captures["js_module"]).parse()?)
+                return Ok(format!("plugin:module?{}", &captures["js_module"]).parse()?);
             }
         }
 
@@ -251,7 +250,6 @@ impl ModuleLoader for CustomModuleLoader {
         maybe_referrer: Option<&ModuleSpecifier>,
         is_dynamic: bool,
     ) -> Pin<Box<ModuleSourceFuture>> {
-
         let mut specifier = module_specifier.clone();
         specifier.set_query(None);
 
@@ -263,7 +261,7 @@ impl ModuleLoader for CustomModuleLoader {
 
             let module = ModuleSource::new(ModuleType::JavaScript, js.to_owned().into(), module_specifier);
 
-            return futures::future::ready(Ok(module)).boxed_local()
+            return futures::future::ready(Ok(module)).boxed_local();
         }
 
         self.static_loader.load(module_specifier, maybe_referrer, is_dynamic)
@@ -300,17 +298,17 @@ deno_core::extension!(
 
 
 #[op]
-async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> JsUiWidget {
+async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
     println!("op_gtk_get_container");
 
-    let container = match make_request(&state, UiRequestData::GetContainer).await {
+    let container = match make_request_receive(&state, UiRequestData::GetContainer).await? {
         UiResponseData::GetContainer { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
     println!("op_gtk_get_container end");
 
-    container.into()
+    Ok(container.into())
 }
 
 #[op]
@@ -318,7 +316,7 @@ async fn op_gtk_append_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
-) {
+) -> anyhow::Result<()> {
     println!("op_gtk_append_child");
 
     let data = UiRequestData::AppendChild {
@@ -326,9 +324,11 @@ async fn op_gtk_append_child(
         child: child.into(),
     };
 
-    let _ = make_request(&state, data).await;
+    let _ = make_request(&state, data)?;
 
     println!("op_gtk_append_child end");
+
+    Ok(())
 }
 
 #[op]
@@ -336,7 +336,7 @@ async fn op_gtk_remove_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
-) {
+) -> anyhow::Result<()> {
     println!("op_gtk_remove_child");
 
     let data = UiRequestData::RemoveChild {
@@ -344,9 +344,11 @@ async fn op_gtk_remove_child(
         child: child.into(),
     };
 
-    let _ = make_request(&state, data).await;
+    let _ = make_request(&state, data)?;
 
     println!("op_gtk_remove_child end");
+
+    Ok(())
 }
 
 #[op]
@@ -355,7 +357,7 @@ async fn op_gtk_insert_before(
     parent: JsUiWidget,
     child: JsUiWidget,
     before_child: JsUiWidget,
-) {
+) -> anyhow::Result<()> {
     println!("op_gtk_insert_before");
 
     let data = UiRequestData::InsertBefore {
@@ -364,48 +366,50 @@ async fn op_gtk_insert_before(
         before_child: before_child.into(),
     };
 
-    let _ = make_request(&state, data);
+    let _ = make_request(&state, data)?;
 
     println!("op_gtk_insert_before end");
+
+    Ok(())
 }
 
 #[op]
 async fn op_gtk_create_instance(
     state: Rc<RefCell<OpState>>,
     widget_type: String,
-) -> JsUiWidget {
+) -> anyhow::Result<JsUiWidget> {
     println!("op_gtk_create_instance");
 
     let data = UiRequestData::CreateInstance {
         widget_type,
     };
 
-    let widget = match make_request(&state, data).await {
+    let widget = match make_request_receive(&state, data).await? {
         UiResponseData::CreateInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
     println!("op_gtk_create_instance end");
 
-    widget.into()
+    Ok(widget.into())
 }
 
 #[op]
 async fn op_gtk_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
-) -> JsUiWidget {
+) -> anyhow::Result<JsUiWidget> {
     println!("op_gtk_create_text_instance");
 
     let data = UiRequestData::CreateTextInstance { text };
 
-    let widget = match make_request(&state, data).await {
+    let widget = match make_request_receive(&state, data).await? {
         UiResponseData::CreateTextInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
     println!("op_gtk_create_text_instance end");
 
-    return widget.into();
+    Ok(widget.into())
 }
 
 #[op(v8)]
@@ -414,7 +418,7 @@ fn op_gtk_set_properties<'a>(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     props: HashMap<String, serde_v8::Value<'a>>,
-) -> Result<impl Future<Output=Result<(), deno_core::anyhow::Error>> + 'static, deno_core::anyhow::Error> {
+) -> anyhow::Result<impl Future<Output=anyhow::Result<()>> + 'static> {
     println!("op_gtk_set_properties");
 
     let mut state_ref = state.borrow_mut();
@@ -451,7 +455,7 @@ fn op_gtk_set_properties<'a>(
     println!("op_gtk_set_properties end");
 
     Ok(async move {
-        let _ = make_request(&state, data).await;
+        let _ = make_request(&state, data)?;
 
         Ok(())
     })
@@ -460,7 +464,7 @@ fn op_gtk_set_properties<'a>(
 #[op]
 async fn op_get_next_pending_ui_event<'a>(
     state: Rc<RefCell<OpState>>,
-) -> JsUiEvent {
+) -> anyhow::Result<JsUiEvent> {
     let event_stream = {
         state.borrow()
             .borrow::<EventReceiver>()
@@ -471,7 +475,11 @@ async fn op_get_next_pending_ui_event<'a>(
     println!("op_get_next_pending_ui_event");
 
     let mut event_stream = event_stream.borrow_mut();
-    event_stream.next().await.unwrap().into()
+    let event = event_stream.next()
+        .await
+        .ok_or_else(|| anyhow!("event stream was suddenly closed"))?
+        .into();
+    Ok(event)
 }
 
 #[op(v8)]
@@ -499,7 +507,7 @@ async fn op_gtk_set_text(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     text: String,
-) {
+) -> anyhow::Result<()> {
     println!("op_gtk_set_text");
 
     let data = UiRequestData::SetText {
@@ -509,19 +517,33 @@ async fn op_gtk_set_text(
 
     println!("op_gtk_set_text end");
 
-    let _ = make_request(&state, data).await;
+    let _ = make_request(&state, data)?;
+
+    Ok(())
 }
 
-
-#[must_use]
-async fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> UiResponseData {
+async fn make_request_receive(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> anyhow::Result<UiResponseData> {
     let request_sender = {
         state.borrow()
             .borrow::<RequestSender1>()
             .clone()
     };
 
-    request_sender.channel.send_receive(data).await.unwrap()
+    let result = request_sender.channel.send_receive(data).await?;
+
+    Ok(result)
+}
+
+fn make_request(state: &Rc<RefCell<OpState>>, data: UiRequestData) -> anyhow::Result<()> {
+    let request_sender = {
+        state.borrow()
+            .borrow::<RequestSender1>()
+            .clone()
+    };
+
+    let _ = request_sender.channel.send(data)?;
+
+    Ok(())
 }
 
 
@@ -541,7 +563,7 @@ pub struct EventReceiver {
 }
 
 impl EventReceiver {
-    fn new(event_stream: Pin<Box<dyn Stream<Item=UiEvent>>>, ) -> EventReceiver {
+    fn new(event_stream: Pin<Box<dyn Stream<Item=UiEvent>>>) -> EventReceiver {
         Self {
             event_stream: Rc::new(RefCell::new(event_stream)),
         }
@@ -659,7 +681,7 @@ pub enum UiEvent {
 
 #[derive(Debug, Deserialize, Serialize, Type)]
 pub struct UiEventViewCreated {
-    pub view_name: String
+    pub view_name: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Type)]
@@ -696,7 +718,7 @@ impl From<UiEvent> for JsUiEvent {
                 event_name,
                 widget: JsUiWidget {
                     widget_id
-                }
+                },
             }
         }
     }
@@ -754,7 +776,7 @@ impl From<DBusUiWidget> for UiWidget {
 #[zvariant(signature = "({s(u)}{s(uv)})")]
 pub struct DBusUiPropertyContainer {
     pub zero: HashMap<String, DBusUiPropertyZeroValue>,
-    pub one: HashMap<String, DBusUiPropertyOneValue>
+    pub one: HashMap<String, DBusUiPropertyOneValue>,
 }
 
 impl From<HashMap<String, UiPropertyValue>> for DBusUiPropertyContainer {
@@ -788,7 +810,6 @@ impl From<HashMap<String, UiPropertyValue>> for DBusUiPropertyContainer {
 
 impl From<DBusUiPropertyContainer> for HashMap<String, UiPropertyValue> {
     fn from(value: DBusUiPropertyContainer) -> Self {
-
         let properties_one: HashMap<_, _> = value.one
             .into_iter()
             .map(|(key, value)| {
