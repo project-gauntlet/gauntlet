@@ -4,23 +4,25 @@ use gtk::glib::MainContext;
 use relm4::RelmApp;
 use tokio::runtime::Runtime;
 
+use crate::client::context::{ClientContext, GtkContext, NativeUiEvent, PluginContainerContainer, PluginEventSenderContainer};
 use crate::client::dbus::DbusClient;
-use crate::client::context::{ClientContext, GtkContext, PluginContainerContainer, PluginEventSenderContainer};
+use crate::client::dbus::DbusServerProxyProxy;
+use crate::client::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchRequest, NativeUiSearchResult};
 use crate::client::native_ui::{AppInput, AppModel};
-use crate::client::search::{SearchClient, UiSearchRequest, UiSearchResult};
-use crate::server::dbus::DbusServerProxyProxy;
-use crate::server::plugins::js::{UiEvent, UiEventViewCreated, UiEventViewEvent, UiRequestData, UiResponseData};
+use crate::client::search::SearchClient;
+use crate::dbus::{DbusEventViewCreated, DbusEventViewEvent};
 use crate::utils::channel::channel;
 
-pub(crate) mod dbus;
-pub(crate) mod search;
-pub mod context;
-mod native_ui;
+pub(in crate::client) mod dbus;
+pub(in crate::client) mod search;
+pub(in crate::client) mod context;
+pub(in crate::client) mod native_ui;
+pub(in crate::client) mod model;
 
 pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
-    let (request_tx, mut request_rx) = channel::<(String, UiRequestData), UiResponseData>();
-    let (event_tx, mut event_rx) = channel::<(String, UiEvent), ()>();
-    let (search_tx, mut search_rx) = channel::<UiSearchRequest, Vec<UiSearchResult>>();
+    let (request_tx, mut request_rx) = channel::<(String, NativeUiRequestData), NativeUiResponseData>();
+    let (event_tx, mut event_rx) = channel::<(String, NativeUiEvent), ()>();
+    let (search_tx, mut search_rx) = channel::<NativeUiSearchRequest, Vec<NativeUiSearchResult>>();
 
     let dbus_client = DbusClient {
         channel: request_tx
@@ -55,14 +57,14 @@ pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
 
         while let Ok(((plugin_uuid, event_data), _)) = event_rx.recv().await {
             match event_data {
-                UiEvent::ViewCreated { view_name } => {
-                    DbusClient::view_created_signal(&signal_context, &plugin_uuid, UiEventViewCreated { view_name })
+                NativeUiEvent::ViewCreated { view_name } => {
+                    DbusClient::view_created_signal(&signal_context, &plugin_uuid, DbusEventViewCreated { view_name })
                         .await
                         .unwrap();
                 }
-                UiEvent::ViewDestroyed => {}
-                UiEvent::ViewEvent { event_name, widget_id } => {
-                    DbusClient::view_event_signal(&signal_context, &plugin_uuid, UiEventViewEvent { event_name, widget_id })
+                NativeUiEvent::ViewDestroyed => {}
+                NativeUiEvent::ViewEvent { event_name, widget_id } => {
+                    DbusClient::view_event_signal(&signal_context, &plugin_uuid, DbusEventViewEvent { event_name, widget_id })
                         .await
                         .unwrap();
                 }
@@ -93,31 +95,31 @@ pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
 
         while let Ok(((plugin_uuid, request_data), responder)) = request_rx.recv().await {
             match request_data {
-                UiRequestData::GetContainer => {
+                NativeUiRequestData::GetContainer => {
                     let response = client_context.get_container(&plugin_uuid);
                     responder.respond(response).unwrap()
                 }
-                UiRequestData::CreateInstance { widget_type } => {
+                NativeUiRequestData::CreateInstance { widget_type } => {
                     let response = client_context.create_instance(&plugin_uuid, &widget_type);
                     responder.respond(response).unwrap()
                 }
-                UiRequestData::CreateTextInstance { text } => {
+                NativeUiRequestData::CreateTextInstance { text } => {
                     let response = client_context.create_text_instance(&plugin_uuid, &text);
                     responder.respond(response).unwrap()
                 }
-                UiRequestData::AppendChild { parent, child } => {
+                NativeUiRequestData::AppendChild { parent, child } => {
                     client_context.append_child(&plugin_uuid, parent, child);
                 }
-                UiRequestData::RemoveChild { parent, child } => {
+                NativeUiRequestData::RemoveChild { parent, child } => {
                     client_context.remove_child(&plugin_uuid, parent, child);
                 }
-                UiRequestData::InsertBefore { parent, child, before_child } => {
+                NativeUiRequestData::InsertBefore { parent, child, before_child } => {
                     client_context.insert_before(&plugin_uuid, parent, child, before_child);
                 }
-                UiRequestData::SetProperties { widget, properties } => {
+                NativeUiRequestData::SetProperties { widget, properties } => {
                     client_context.set_properties(container.clone(), &plugin_uuid, widget, properties).await;
                 }
-                UiRequestData::SetText { widget, text } => {
+                NativeUiRequestData::SetText { widget, text } => {
                     client_context.set_text(&plugin_uuid, widget, &text);
                 }
             }
@@ -133,7 +135,7 @@ pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
                 .unwrap()
                 .into_iter()
                 .map(|item| {
-                    UiSearchResult {
+                    NativeUiSearchResult {
                         plugin_uuid: item.plugin_uuid,
                         plugin_name: item.plugin_name,
                         entrypoint_id: item.entrypoint_id,

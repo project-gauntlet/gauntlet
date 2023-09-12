@@ -6,7 +6,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use relm4::gtk;
 
-use crate::server::plugins::js::{UiEvent, UiEventName, UiPropertyValue, UiResponseData, UiWidget, UiWidgetId};
+use crate::client::model::{NativeUiEventName, NativeUiPropertyValue, NativeUiResponseData, NativeUiWidget, NativeUiWidgetId};
 use crate::utils::channel::RequestSender;
 
 pub struct ClientContext {
@@ -15,18 +15,18 @@ pub struct ClientContext {
 }
 
 impl ClientContext {
-    pub fn get_container(&mut self, plugin_uuid: &str) -> UiResponseData {
+    pub fn get_container(&mut self, plugin_uuid: &str) -> NativeUiResponseData {
         let container = self.containers.current_container(plugin_uuid).unwrap();
         let widget = self.contexts.get_mut(plugin_uuid)
             .unwrap()
             .get_ui_widget(container.clone());
 
-        UiResponseData::GetContainer {
+        NativeUiResponseData::GetContainer {
             container: widget
         }
     }
 
-    pub fn create_instance(&mut self, plugin_uuid: &str, widget_type: &str) -> UiResponseData {
+    pub fn create_instance(&mut self, plugin_uuid: &str, widget_type: &str) -> NativeUiResponseData {
         let widget: gtk::Widget = match widget_type {
             "box" => gtk::Box::new(gtk::Orientation::Horizontal, 6).into(),
             "button1" => {
@@ -41,23 +41,23 @@ impl ClientContext {
             .unwrap()
             .get_ui_widget(widget);
 
-        UiResponseData::CreateInstance {
+        NativeUiResponseData::CreateInstance {
             widget
         }
     }
 
-    pub fn create_text_instance(&mut self, plugin_uuid: &str, text: &str) -> UiResponseData {
+    pub fn create_text_instance(&mut self, plugin_uuid: &str, text: &str) -> NativeUiResponseData {
         let label = gtk::Label::new(Some(&text));
         let widget = self.contexts.get_mut(plugin_uuid)
             .unwrap()
             .get_ui_widget(label.upcast::<gtk::Widget>());
 
-        UiResponseData::CreateTextInstance {
+        NativeUiResponseData::CreateTextInstance {
             widget
         }
     }
 
-    pub fn append_child(&mut self, plugin_uuid: &str, parent: UiWidget, child: UiWidget) {
+    pub fn append_child(&mut self, plugin_uuid: &str, parent: NativeUiWidget, child: NativeUiWidget) {
         let parent = self.contexts.get(plugin_uuid)
             .unwrap()
             .get_gtk_widget(parent);
@@ -72,7 +72,7 @@ impl ClientContext {
         }
     }
 
-    pub fn remove_child(&mut self, plugin_uuid: &str, parent: UiWidget, child: UiWidget) {
+    pub fn remove_child(&mut self, plugin_uuid: &str, parent: NativeUiWidget, child: NativeUiWidget) {
         let parent = self.contexts.get(plugin_uuid)
             .unwrap()
             .get_gtk_widget(parent)
@@ -86,7 +86,7 @@ impl ClientContext {
         parent.remove(&child);
     }
 
-    pub fn insert_before(&mut self, plugin_uuid: &str, parent: UiWidget, child: UiWidget, before_child: UiWidget) {
+    pub fn insert_before(&mut self, plugin_uuid: &str, parent: NativeUiWidget, child: NativeUiWidget, before_child: NativeUiWidget) {
         let parent = self.contexts.get(plugin_uuid)
             .unwrap()
             .get_gtk_widget(parent);
@@ -106,8 +106,8 @@ impl ClientContext {
         &mut self,
         event_sender: PluginEventSenderContainer,
         plugin_uuid: &str,
-        widget: UiWidget,
-        properties: HashMap<String, UiPropertyValue>,
+        widget: NativeUiWidget,
+        properties: HashMap<String, NativeUiPropertyValue>,
     ) {
         let widget_id = widget.widget_id;
         let widget = self.contexts
@@ -117,7 +117,7 @@ impl ClientContext {
 
         for (name, value) in properties {
             match value {
-                UiPropertyValue::Function => {
+                NativeUiPropertyValue::Function => {
                     let button = widget.downcast_ref::<gtk::Button>().unwrap();
 
                     match name.as_str() {
@@ -129,7 +129,7 @@ impl ClientContext {
 
                             let signal_handler_id = button.connect_clicked(move |_button| {
                                 let event_name = name.clone();
-                                let event = UiEvent::ViewEvent {
+                                let event = NativeUiEvent::ViewEvent {
                                     event_name,
                                     widget_id,
                                 };
@@ -143,20 +143,20 @@ impl ClientContext {
                         _ => todo!()
                     };
                 }
-                UiPropertyValue::String(value) => {
+                NativeUiPropertyValue::String(value) => {
                     widget.set_property(name.as_str(), value)
                 }
-                UiPropertyValue::Number(value) => {
+                NativeUiPropertyValue::Number(value) => {
                     widget.set_property(name.as_str(), value)
                 }
-                UiPropertyValue::Bool(value) => {
+                NativeUiPropertyValue::Bool(value) => {
                     widget.set_property(name.as_str(), value)
                 }
             }
         }
     }
 
-    pub fn set_text(&mut self, plugin_uuid: &str, widget: UiWidget, text: &str) {
+    pub fn set_text(&mut self, plugin_uuid: &str, widget: NativeUiWidget, text: &str) {
         let widget = self.contexts
             .get(plugin_uuid)
             .unwrap()
@@ -173,9 +173,9 @@ impl ClientContext {
 
 #[derive(Debug)]
 pub struct GtkContext {
-    next_id: UiWidgetId,
-    widget_map: HashMap<UiWidgetId, gtk::Widget>,
-    event_signal_handlers: HashMap<(UiWidgetId, UiEventName), glib::SignalHandlerId>,
+    next_id: NativeUiWidgetId,
+    widget_map: HashMap<NativeUiWidgetId, gtk::Widget>,
+    event_signal_handlers: HashMap<(NativeUiWidgetId, NativeUiEventName), glib::SignalHandlerId>,
 }
 
 impl GtkContext {
@@ -183,22 +183,22 @@ impl GtkContext {
         GtkContext { widget_map: HashMap::new(), event_signal_handlers: HashMap::new(), next_id: 0 }
     }
 
-    fn get_ui_widget(&mut self, widget: gtk::Widget) -> UiWidget {
+    fn get_ui_widget(&mut self, widget: gtk::Widget) -> NativeUiWidget {
         let id = self.next_id;
         self.widget_map.insert(id, widget);
 
         self.next_id += 1;
 
-        UiWidget {
+        NativeUiWidget {
             widget_id: id
         }
     }
 
-    fn get_gtk_widget(&self, ui_widget: UiWidget) -> gtk::Widget {
+    fn get_gtk_widget(&self, ui_widget: NativeUiWidget) -> gtk::Widget {
         self.widget_map.get(&ui_widget.widget_id).unwrap().clone()
     }
 
-    fn register_signal_handler_id(&mut self, widget_id: UiWidgetId, event: &UiEventName, signal_id: glib::SignalHandlerId) {
+    fn register_signal_handler_id(&mut self, widget_id: NativeUiWidgetId, event: &NativeUiEventName, signal_id: glib::SignalHandlerId) {
         if let Some(signal_handler_id) = self.event_signal_handlers.remove(&(widget_id, event.clone())) {
             self.widget_map.get(&widget_id).unwrap().disconnect(signal_handler_id);
         }
@@ -229,18 +229,30 @@ impl PluginContainerContainer {
 
 #[derive(Clone)]
 pub struct PluginEventSenderContainer {
-    sender: RequestSender<(String, UiEvent), ()>,
+    sender: RequestSender<(String, NativeUiEvent), ()>,
 }
 
 impl PluginEventSenderContainer {
-    pub fn new(sender: RequestSender<(String, UiEvent), ()>) -> Self {
+    pub fn new(sender: RequestSender<(String, NativeUiEvent), ()>) -> Self {
         Self {
             sender,
         }
     }
 
-    pub fn send_event(&self, plugin_uuid: &str, event: UiEvent) {
+    pub fn send_event(&self, plugin_uuid: &str, event: NativeUiEvent) {
         self.sender.send((plugin_uuid.to_owned(), event)).unwrap();
     }
 }
 
+
+#[derive(Debug)]
+pub enum NativeUiEvent {
+    ViewCreated {
+        view_name: String
+    },
+    ViewDestroyed,
+    ViewEvent {
+        event_name: NativeUiEventName,
+        widget_id: NativeUiWidgetId,
+    },
+}

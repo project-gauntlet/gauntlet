@@ -8,9 +8,8 @@ use relm4::typed_list_view::TypedListView;
 use tokio::runtime::Handle;
 
 use search_entry::SearchListEntry;
-use crate::client::context::{PluginContainerContainer, PluginEventSenderContainer};
 
-use crate::server::plugins::js::UiEvent;
+use crate::client::context::{NativeUiEvent, PluginContainerContainer, PluginEventSenderContainer};
 use crate::client::search::SearchClient;
 
 mod search_entry;
@@ -168,7 +167,7 @@ impl SimpleComponent for AppModel {
             AppMsg::OpenView { plugin_container, plugin_uuid,  entrypoint_id} => {
                 plugin_container.remove_all();
 
-                self.event_senders_container.send_event(&plugin_uuid, UiEvent::ViewCreated {
+                self.event_senders_container.send_event(&plugin_uuid, NativeUiEvent::ViewCreated {
                     view_name: entrypoint_id.to_owned()
                 });
 
@@ -185,7 +184,7 @@ impl SimpleComponent for AppModel {
                         self.window.close();
                     }
                     AppState::PluginView { plugin_id, .. } => {
-                        self.event_senders_container.send_event(&plugin_id, UiEvent::ViewDestroyed);
+                        self.event_senders_container.send_event(&plugin_id, NativeUiEvent::ViewDestroyed);
 
                         self.state = AppState::SearchView;
                     }

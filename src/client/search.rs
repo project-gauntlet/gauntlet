@@ -1,32 +1,20 @@
+use crate::client::model::{NativeUiSearchRequest, NativeUiSearchResult};
 use crate::utils::channel::RequestSender;
 
 pub struct SearchClient {
-    search: RequestSender<UiSearchRequest, Vec<UiSearchResult>>
+    search: RequestSender<NativeUiSearchRequest, Vec<NativeUiSearchResult>>
 }
 
 impl SearchClient {
-    pub fn new(search: RequestSender<UiSearchRequest, Vec<UiSearchResult>>) -> SearchClient {
+    pub fn new(search: RequestSender<NativeUiSearchRequest, Vec<NativeUiSearchResult>>) -> SearchClient {
         Self {
             search
         }
     }
 
-    pub async fn search(&self, prompt: &str) -> Vec<UiSearchResult> {
-        self.search.send_receive(UiSearchRequest { prompt: prompt.to_owned() })
+    pub async fn search(&self, prompt: &str) -> Vec<NativeUiSearchResult> {
+        self.search.send_receive(NativeUiSearchRequest { prompt: prompt.to_owned() })
             .await
             .unwrap()
     }
-}
-
-#[derive(Debug)]
-pub struct UiSearchRequest {
-    pub prompt: String
-}
-
-#[derive(Debug)]
-pub struct UiSearchResult {
-    pub plugin_uuid: String,
-    pub plugin_name: String,
-    pub entrypoint_id: String,
-    pub entrypoint_name: String,
 }
