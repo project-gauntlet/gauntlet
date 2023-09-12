@@ -1,84 +1,13 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
+use relm4::gtk;
 
-use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
-use crate::react_side::{DBusUiPropertyContainer, DBusUiWidget, UiEvent, UiEventName, UiEventViewCreated, UiEventViewEvent, UiPropertyValue, UiRequestData, UiResponseData, UiWidget, UiWidgetId};
-use crate::channel::RequestSender;
-
-pub struct DbusClient {
-    pub(crate) channel: RequestSender<(String, UiRequestData), UiResponseData>,
-}
-
-#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName.Client")]
-impl DbusClient {
-    #[dbus_interface(signal)]
-    pub async fn view_created_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_uuid: &str, event: UiEventViewCreated) -> zbus::Result<()>;
-
-    #[dbus_interface(signal)]
-    pub async fn view_event_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_uuid: &str, event: UiEventViewEvent) -> zbus::Result<()>;
-
-    async fn get_container(&mut self, plugin_uuid: &str) -> DBusUiWidget {
-        let input = (plugin_uuid.to_owned(), UiRequestData::GetContainer);
-
-        match self.channel.send_receive(input).await.unwrap() {
-            UiResponseData::GetContainer { container } => container.into(),
-            value @ _ => panic!("unsupported response type {:?}", value),
-        }
-    }
-
-    async fn create_instance(&mut self, plugin_uuid: &str, widget_type: &str) -> DBusUiWidget {
-        let data = UiRequestData::CreateInstance { widget_type: widget_type.to_owned() };
-        let input = (plugin_uuid.to_owned(), data);
-
-        match self.channel.send_receive(input).await.unwrap() {
-            UiResponseData::CreateInstance { widget } => widget.into(),
-            value @ _ => panic!("unsupported response type {:?}", value),
-        }
-    }
-
-    async fn create_text_instance(&mut self, plugin_uuid: &str, text: &str) -> DBusUiWidget {
-        let data = UiRequestData::CreateTextInstance { text: text.to_owned() };
-        let input = (plugin_uuid.to_owned(), data);
-
-        match self.channel.send_receive(input).await.unwrap() {
-            UiResponseData::CreateTextInstance { widget } => widget.into(),
-            value @ _ => panic!("unsupported response type {:?}", value),
-        }
-    }
-
-    async fn append_child(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) {
-        let data = UiRequestData::AppendChild { parent: parent.into(), child: child.into() };
-        let input = (plugin_uuid.to_owned(), data);
-        self.channel.send(input).unwrap();
-    }
-
-    async fn insert_before(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) {
-        let data = UiRequestData::InsertBefore { parent: parent.into(), child: child.into(), before_child: before_child.into() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-
-    async fn remove_child(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) {
-        let data = UiRequestData::RemoveChild { parent: parent.into(), child: child.into() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-
-    async fn set_properties(
-        &mut self,
-        plugin_uuid: &str,
-        widget: DBusUiWidget,
-        properties: DBusUiPropertyContainer,
-    ) {
-        let data = UiRequestData::SetProperties { widget: widget.into(), properties: properties.into() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-
-    fn set_text(&mut self, plugin_uuid: &str, widget: DBusUiWidget, text: &str) {
-        let data = UiRequestData::SetText { widget: widget.into(), text: text.to_owned() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-}
+use crate::server::plugins::js::{UiEvent, UiEventName, UiPropertyValue, UiResponseData, UiWidget, UiWidgetId};
+use crate::utils::channel::RequestSender;
 
 pub struct ClientContext {
     pub contexts: HashMap<String, GtkContext>,
@@ -276,3 +205,42 @@ impl GtkContext {
         self.event_signal_handlers.insert((widget_id, event.clone()), signal_id);
     }
 }
+
+#[derive(Clone)]
+pub struct PluginContainerContainer { // creative name, isn't it?
+    containers: Rc<RefCell<HashMap<String, gtk::Widget>>>,
+}
+
+impl PluginContainerContainer {
+    pub(crate) fn new() -> Self {
+        Self {
+            containers: Rc::new(RefCell::new(HashMap::new()))
+        }
+    }
+
+    pub fn current_container(&self, plugin_id: &str) -> Option<gtk::Widget> {
+        self.containers.borrow().get(plugin_id).cloned()
+    }
+
+    pub fn set_current_container(&mut self, plugin_id: &str, container: gtk::Widget) {
+        self.containers.borrow_mut().insert(plugin_id.to_owned(), container);
+    }
+}
+
+#[derive(Clone)]
+pub struct PluginEventSenderContainer {
+    sender: RequestSender<(String, UiEvent), ()>,
+}
+
+impl PluginEventSenderContainer {
+    pub fn new(sender: RequestSender<(String, UiEvent), ()>) -> Self {
+        Self {
+            sender,
+        }
+    }
+
+    pub fn send_event(&self, plugin_uuid: &str, event: UiEvent) {
+        self.sender.send((plugin_uuid.to_owned(), event)).unwrap();
+    }
+}
+

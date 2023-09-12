@@ -2,109 +2,22 @@ use std::collections::HashMap;
 
 use gtk::glib::MainContext;
 use relm4::RelmApp;
-use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
-use zbus::zvariant::Type;
 
-use crate::channel::channel;
-use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
-use crate::gtk::gtk_side::{ClientContext, DbusClient, GtkContext};
-use crate::gtk::gui::{AppInput, AppModel};
-use crate::plugins::PluginManager;
-use crate::react_side::{UiEvent, UiEventViewCreated, UiEventViewEvent, UiRequestData, UiResponseData};
-use crate::search::{SearchClient, SearchIndex, SearchItem, UiSearchRequest, UiSearchResult};
+use crate::client::dbus::DbusClient;
+use crate::client::context::{ClientContext, GtkContext, PluginContainerContainer, PluginEventSenderContainer};
+use crate::client::native_ui::{AppInput, AppModel};
+use crate::client::search::{SearchClient, UiSearchRequest, UiSearchResult};
+use crate::server::dbus::DbusServerProxyProxy;
+use crate::server::plugins::js::{UiEvent, UiEventViewCreated, UiEventViewEvent, UiRequestData, UiResponseData};
+use crate::utils::channel::channel;
 
-struct DbusServer {
-    plugins: Vec<String>,
-    search_index: SearchIndex,
-}
+pub(crate) mod dbus;
+pub(crate) mod search;
+pub mod context;
+mod native_ui;
 
-#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
-impl DbusServer {
-    fn plugins(&mut self) -> Vec<String> {
-        self.plugins.clone()
-    }
-
-    fn search(&self, text: &str) -> Vec<DBusSearchResult> {
-        self.search_index.create_handle()
-            .search(text)
-            .unwrap()
-            .into_iter()
-            .map(|item| {
-                DBusSearchResult {
-                    entrypoint_name: item.entrypoint_name,
-                    entrypoint_id: item.entrypoint_id,
-                    plugin_name: item.plugin_name,
-                    plugin_uuid: item.plugin_id,
-                }
-            })
-            .collect()
-    }
-}
-
-#[zbus::dbus_proxy(
-    default_service = "org.placeholdername.PlaceHolderName",
-    default_path = "/org/placeholdername/PlaceHolderName",
-    interface = "org.placeholdername.PlaceHolderName",
-)]
-trait DbusServerProxy {
-    async fn plugins(&self) -> zbus::Result<Vec<String>>;
-    async fn search(&self, text: &str) -> zbus::Result<Vec<DBusSearchResult>>;
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-#[zvariant(signature = "(ssss)")]
-pub struct DBusSearchResult {
-    pub plugin_uuid: String,
-    pub plugin_name: String,
-    pub entrypoint_id: String,
-    pub entrypoint_name: String,
-}
-
-pub async fn run_server() -> anyhow::Result<()> {
-    let mut plugin_manager = PluginManager::create();
-    let mut search_index = SearchIndex::create_index().unwrap();
-
-    let search_items: Vec<_> = plugin_manager.plugins()
-        .iter()
-        .flat_map(|plugin| {
-            plugin.entrypoints()
-                .iter()
-                .map(|entrypoint| {
-                    SearchItem {
-                        entrypoint_name: entrypoint.name().to_owned(),
-                        entrypoint_id: entrypoint.id().to_owned(),
-                        plugin_name: plugin.name().to_owned(),
-                        plugin_id: plugin.id().to_owned(),
-                    }
-                })
-        })
-        .collect();
-
-    let plugin_uuids: Vec<_> = plugin_manager.plugins()
-        .iter()
-        .map(|plugin| plugin.id().to_owned())
-        .collect();
-
-    search_index.add_entries(search_items).unwrap();
-
-    plugin_manager.start_all_contexts();
-
-    let interface = DbusServer { plugins: plugin_uuids, search_index };
-
-    let _conn = zbus::ConnectionBuilder::session()?
-        .name("org.placeholdername.PlaceHolderName")?
-        .serve_at("/org/placeholdername/PlaceHolderName", interface)?
-        .build()
-        .await?;
-
-    std::future::pending::<()>().await;
-
-    Ok(())
-}
-
-pub fn run_client(runtime: &Runtime) -> anyhow::Result<()> {
-
+pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
     let (request_tx, mut request_rx) = channel::<(String, UiRequestData), UiResponseData>();
     let (event_tx, mut event_rx) = channel::<(String, UiEvent), ()>();
     let (search_tx, mut search_rx) = channel::<UiSearchRequest, Vec<UiSearchResult>>();

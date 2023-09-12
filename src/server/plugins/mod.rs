@@ -8,7 +8,9 @@ use anyhow::Context;
 use deno_core::serde_json;
 use serde::Deserialize;
 
-use crate::react_side::run_react;
+use crate::server::plugins::js::start_js_runtime;
+
+pub mod js;
 
 #[derive(Clone)]
 pub struct PluginManager {
@@ -49,7 +51,7 @@ impl PluginManager {
 
             let local_set = tokio::task::LocalSet::new();
             local_set.block_on(&runtime, tokio::task::unconstrained(async move {
-                run_react(plugin).await
+                start_js_runtime(plugin).await
             }))
         };
 

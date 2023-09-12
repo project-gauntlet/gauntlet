@@ -2,7 +2,8 @@ use std::path::Path;
 
 use clap::Parser;
 
-use crate::server::{run_client, run_server};
+use crate::client::start_client;
+use crate::server::start_server;
 
 #[derive(Debug, clap::Parser)]
 struct Cli {
@@ -31,7 +32,7 @@ pub fn init() {
 
             let _guard = runtime.enter();
 
-            run_client(&runtime).unwrap()
+            start_client(&runtime).unwrap()
         }
         Some(Commands::Server) => {
             let runtime = tokio::runtime::Builder::new_current_thread()
@@ -40,9 +41,9 @@ pub fn init() {
                 .unwrap();
 
             runtime.block_on(async {
-                run_server().await
+                start_server().await
             }).unwrap();
-        },
+        }
         Some(Commands::Download) => download_repo().unwrap()
     };
 }

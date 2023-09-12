@@ -8,10 +8,10 @@ use relm4::typed_list_view::TypedListView;
 use tokio::runtime::Handle;
 
 use search_entry::SearchListEntry;
+use crate::client::context::{PluginContainerContainer, PluginEventSenderContainer};
 
-use crate::gtk::{PluginContainerContainer, PluginEventSenderContainer};
-use crate::react_side::UiEvent;
-use crate::search::SearchClient;
+use crate::server::plugins::js::UiEvent;
+use crate::client::search::SearchClient;
 
 mod search_entry;
 

@@ -18,39 +18,11 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zbus::zvariant::Type;
 
-use crate::channel::{channel, RequestSender};
-use crate::plugins::Plugin;
+use crate::client::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
+use crate::server::plugins::Plugin;
+use crate::utils::channel::{channel, RequestSender};
 
-#[zbus::dbus_proxy(
-    default_service = "org.placeholdername.PlaceHolderName.Client",
-    default_path = "/org/placeholdername/PlaceHolderName",
-    interface = "org.placeholdername.PlaceHolderName.Client",
-)]
-trait DbusClientProxy {
-    #[dbus_proxy(signal)]
-    fn view_created_signal(&self, plugin_uuid: &str, event: UiEventViewCreated) -> zbus::Result<()>;
-
-    #[dbus_proxy(signal)]
-    fn view_event_signal(&self, plugin_uuid: &str, event: UiEventViewEvent) -> zbus::Result<()>;
-
-    fn get_container(&self, plugin_uuid: &str) -> zbus::Result<DBusUiWidget>;
-
-    fn create_instance(&self, plugin_uuid: &str, widget_type: &str) -> zbus::Result<DBusUiWidget>;
-
-    fn create_text_instance(&self, plugin_uuid: &str, text: &str) -> zbus::Result<DBusUiWidget>;
-
-    fn append_child(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
-
-    fn remove_child(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
-
-    fn insert_before(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) -> zbus::Result<()>;
-
-    fn set_properties(&self, plugin_uuid: &str, widget: DBusUiWidget, properties: DBusUiPropertyContainer) -> zbus::Result<()>;
-
-    fn set_text(&self, plugin_uuid: &str, widget: DBusUiWidget, text: &str) -> zbus::Result<()>;
-}
-
-pub async fn run_react(plugin: Plugin) -> anyhow::Result<()> {
+pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
     let conn = zbus::Connection::session().await?;
     let client_proxy = DbusClientProxyProxy::new(&conn).await?;
 
@@ -749,107 +721,4 @@ impl From<JsUiWidget> for UiWidget {
             widget_id: value.widget_id
         }
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, Type)]
-pub struct DBusUiWidget {
-    pub widget_id: UiWidgetId,
-}
-
-impl From<UiWidget> for DBusUiWidget {
-    fn from(value: UiWidget) -> Self {
-        Self {
-            widget_id: value.widget_id
-        }
-    }
-}
-
-impl From<DBusUiWidget> for UiWidget {
-    fn from(value: DBusUiWidget) -> Self {
-        Self {
-            widget_id: value.widget_id
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-// #[zvariant(signature = "({s(u)}{s(uv)})")] // TODO create issue, for better error reporting
-pub struct DBusUiPropertyContainer {
-    pub zero: HashMap<String, DBusUiPropertyZeroValue>,
-    pub one: HashMap<String, DBusUiPropertyOneValue>,
-}
-
-impl From<HashMap<String, UiPropertyValue>> for DBusUiPropertyContainer {
-    fn from(value: HashMap<String, UiPropertyValue>) -> Self {
-        let properties_one: HashMap<_, _> = value.iter()
-            .filter_map(|(key, value)| {
-                match value {
-                    UiPropertyValue::Function => None,
-                    UiPropertyValue::String(value) => Some((key.to_owned(), DBusUiPropertyOneValue::String(value.to_owned()))),
-                    UiPropertyValue::Number(value) => Some((key.to_owned(), DBusUiPropertyOneValue::Number(value.to_owned()))),
-                    UiPropertyValue::Bool(value) => Some((key.to_owned(), DBusUiPropertyOneValue::Bool(value.to_owned()))),
-                }
-            })
-            .collect();
-
-        let properties_zero: HashMap<_, _> = value.iter()
-            .filter_map(|(key, value)| {
-                match value {
-                    UiPropertyValue::Function => Some((key.to_owned(), DBusUiPropertyZeroValue::Function)),
-                    UiPropertyValue::String(_) => None,
-                    UiPropertyValue::Number(_) => None,
-                    UiPropertyValue::Bool(_) => None,
-                }
-            })
-            .collect();
-
-
-        DBusUiPropertyContainer { one: properties_one, zero: properties_zero }
-    }
-}
-
-impl From<DBusUiPropertyContainer> for HashMap<String, UiPropertyValue> {
-    fn from(value: DBusUiPropertyContainer) -> Self {
-        let properties_one: HashMap<_, _> = value.one
-            .into_iter()
-            .map(|(key, value)| {
-                let value = match value {
-                    DBusUiPropertyOneValue::String(value) => UiPropertyValue::String(value),
-                    DBusUiPropertyOneValue::Number(value) => UiPropertyValue::Number(value),
-                    DBusUiPropertyOneValue::Bool(value) => UiPropertyValue::Bool(value),
-                };
-
-                (key, value)
-            })
-            .collect();
-
-        let mut properties: HashMap<_, _> = value.zero
-            .into_iter()
-            .map(|(key, value)| {
-                let value = match value {
-                    DBusUiPropertyZeroValue::Function => UiPropertyValue::Function,
-                };
-
-                (key, value)
-            })
-            .collect();
-
-        properties.extend(properties_one);
-
-        properties
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-#[zvariant(signature = "(uv)")]
-pub enum DBusUiPropertyOneValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-#[zvariant(signature = "u")]
-pub enum DBusUiPropertyZeroValue {
-    Function,
 }
