@@ -773,7 +773,7 @@ impl From<DBusUiWidget> for UiWidget {
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-#[zvariant(signature = "({s(u)}{s(uv)})")]
+// #[zvariant(signature = "({s(u)}{s(uv)})")] // TODO create issue, for better error reporting
 pub struct DBusUiPropertyContainer {
     pub zero: HashMap<String, DBusUiPropertyZeroValue>,
     pub one: HashMap<String, DBusUiPropertyOneValue>,
