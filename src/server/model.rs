@@ -15,6 +15,9 @@ pub enum JsUiResponseData {
     CreateTextInstance {
         widget: JsUiWidget
     },
+    CloneInstance {
+        widget: JsUiWidget
+    },
     Unit,
 }
 
@@ -48,6 +51,14 @@ pub enum JsUiRequestData {
         widget: JsUiWidget,
         text: String,
     },
+    CloneInstance {
+        widget_type: String,
+        properties: HashMap<String, JsUiPropertyValue>,
+    },
+    ReplaceContainerChildren {
+        container: JsUiWidget,
+        new_children: Vec<JsUiWidget>,
+    },
 }
 
 pub type UiWidgetId = u32;
@@ -57,6 +68,8 @@ pub type UiEventName = String;
 #[serde(tag = "type")]
 pub enum JsUiEvent {
     ViewCreated {
+        #[serde(rename = "reconcilerMode")]
+        reconciler_mode: String,
         #[serde(rename = "viewName")]
         view_name: String
     },

@@ -73,6 +73,22 @@ impl DbusClient {
         let data = NativeUiRequestData::SetText { widget: widget.into(), text: text.to_owned() };
         self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
     }
+
+    async fn clone_instance(&self, plugin_uuid: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> DBusUiWidget {
+        let data = NativeUiRequestData::CloneInstance { widget_type: widget_type.to_owned(), properties: properties.into() };
+        let input = (plugin_uuid.to_owned(), data);
+
+        match self.channel.send_receive(input).await.unwrap() {
+            NativeUiResponseData::CloneInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
+            value @ _ => panic!("unsupported response type {:?}", value),
+        }
+    }
+
+    fn replace_container_children(&self, plugin_uuid: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) {
+        let new_children = new_children.into_iter().map(|child| child.into()).collect();
+        let data = NativeUiRequestData::ReplaceContainerChildren { container: container.into(), new_children };
+        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
+    }
 }
 
 

@@ -36,7 +36,8 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                     None
                 } else {
                     Some(JsUiEvent::ViewCreated {
-                        view_name: signal.event.view_name
+                        reconciler_mode: signal.event.reconciler_mode,
+                        view_name: signal.event.view_name,
                     })
                 }
             }
@@ -115,6 +116,23 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                 }
                 JsUiRequestData::SetText { widget, text } => {
                     client_proxy.set_text(&plugin_uuid, widget.into(), &text)
+                        .await
+                        .unwrap();
+                }
+                JsUiRequestData::CloneInstance { widget_type, properties } => {
+                    let widget = client_proxy.clone_instance(&plugin_uuid, &widget_type, properties.into())
+                        .await
+                        .unwrap()
+                        .into();
+
+                    responder.respond(JsUiResponseData::CloneInstance { widget }).unwrap()
+                }
+                JsUiRequestData::ReplaceContainerChildren { container, new_children } => {
+                    let new_children = new_children.into_iter()
+                        .map(|child| child.into())
+                        .collect();
+
+                    client_proxy.replace_container_children(&plugin_uuid, container.into(), new_children)
                         .await
                         .unwrap();
                 }
@@ -252,6 +270,8 @@ deno_core::extension!(
         op_gtk_set_text,
         op_get_next_pending_ui_event,
         op_call_event_listener,
+        op_gtk_clone_instance,
+        op_gtk_replace_container_children,
     ],
     options = {
         event_listeners: EventHandlers,
@@ -290,8 +310,8 @@ async fn op_gtk_append_child(
     println!("op_gtk_append_child");
 
     let data = JsUiRequestData::AppendChild {
-        parent: parent.into(),
-        child: child.into(),
+        parent,
+        child,
     };
 
     let _ = make_request(&state, data)?;
@@ -331,9 +351,9 @@ async fn op_gtk_insert_before(
     println!("op_gtk_insert_before");
 
     let data = JsUiRequestData::InsertBefore {
-        parent: parent.into(),
-        child: child.into(),
-        before_child: before_child.into(),
+        parent,
+        child,
+        before_child,
     };
 
     let _ = make_request(&state, data)?;
@@ -387,40 +407,22 @@ fn op_gtk_set_properties<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
-    props: HashMap<String, serde_v8::Value<'a>>,
+    v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<impl Future<Output=anyhow::Result<()>> + 'static> {
     println!("op_gtk_set_properties");
 
-    let mut state_ref = state.borrow_mut();
-    let event_listeners = state_ref.borrow_mut::<EventHandlers>();
+    let properties = convert_properties(scope, v8_properties);
 
-    let properties = props.iter()
-        .filter(|(name, _)| name.as_str() != "children")
-        .map(|(name, value)| {
-            let val = value.v8_value;
-            if val.is_function() {
-                let fn_value: v8::Local<v8::Function> = val.try_into().unwrap();
-                let global_fn = v8::Global::new(scope, fn_value);
-                event_listeners.add_listener(widget.widget_id, name.clone(), global_fn);
-                (name.clone(), JsUiPropertyValue::Function)
-            } else if val.is_string() {
-                (name.clone(), JsUiPropertyValue::String(val.to_rust_string_lossy(scope)))
-            } else if val.is_number() {
-                (name.clone(), JsUiPropertyValue::Number(val.number_value(scope).unwrap()))
-            } else if val.is_boolean() {
-                (name.clone(), JsUiPropertyValue::Bool(val.boolean_value(scope)))
-            } else {
-                panic!("{:?}: {:?}", name, val.type_of(scope).to_rust_string_lossy(scope))
-            }
-        })
-        .collect::<HashMap<_, _>>();
+    assign_event_listeners(&state, &widget, &properties);
+
+    let properties = properties.into_iter()
+        .map(|(name, val)| (name, val.into()))
+        .collect();
 
     let data = JsUiRequestData::SetProperties {
-        widget: widget.into(),
+        widget,
         properties,
     };
-
-    drop(state_ref);
 
     println!("op_gtk_set_properties end");
 
@@ -480,7 +482,7 @@ async fn op_gtk_set_text(
     println!("op_gtk_set_text");
 
     let data = JsUiRequestData::SetText {
-        widget: widget.into(),
+        widget,
         text,
     };
 
@@ -489,6 +491,61 @@ async fn op_gtk_set_text(
     let _ = make_request(&state, data)?;
 
     Ok(())
+}
+
+#[op]
+fn op_gtk_replace_container_children(
+    state: Rc<RefCell<OpState>>,
+    container: JsUiWidget,
+    new_children: Vec<JsUiWidget>,
+) -> anyhow::Result<()> {
+    println!("op_gtk_replace_container_children");
+
+    let data = JsUiRequestData::ReplaceContainerChildren {
+        container,
+        new_children,
+    };
+
+    println!("op_gtk_replace_container_children end");
+
+    let _ = make_request(&state, data)?;
+
+    Ok(())
+}
+
+#[op(v8)]
+fn op_gtk_clone_instance<'a>(
+    scope: &mut v8::HandleScope,
+    state: Rc<RefCell<OpState>>,
+    widget_type: String,
+    v8_properties: HashMap<String, serde_v8::Value<'a>>,
+) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
+
+    let properties = convert_properties(scope, v8_properties);
+
+    let conversion_properties = properties.clone();
+
+    let properties = properties.into_iter()
+        .map(|(name, val)| (name, val.into()))
+        .collect();
+
+    let data = JsUiRequestData::CloneInstance {
+        widget_type,
+        properties,
+    };
+
+    println!("op_gtk_clone_instance end");
+
+    Ok(async move {
+        let widget = match make_request_receive(&state, data).await? {
+            JsUiResponseData::CloneInstance { widget } => widget,
+            value @ _ => panic!("unsupported response type {:?}", value),
+        };
+
+        assign_event_listeners(&state, &widget, &conversion_properties);
+
+        Ok(widget.into())
+    })
 }
 
 async fn make_request_receive(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
@@ -513,6 +570,70 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
     let _ = request_sender.channel.send(data)?;
 
     Ok(())
+}
+
+#[derive(Clone)]
+pub enum ConversionPropertyValue {
+    Function(v8::Global<v8::Function>),
+    String(String),
+    Number(f64),
+    Bool(bool),
+}
+
+impl From<ConversionPropertyValue> for JsUiPropertyValue {
+    fn from(value: ConversionPropertyValue) -> Self {
+        match value {
+            ConversionPropertyValue::Function(_) => JsUiPropertyValue::Function,
+            ConversionPropertyValue::String(value) => JsUiPropertyValue::String(value),
+            ConversionPropertyValue::Number(value) => JsUiPropertyValue::Number(value),
+            ConversionPropertyValue::Bool(value) => JsUiPropertyValue::Bool(value),
+        }
+    }
+}
+
+
+fn convert_properties(
+    scope: &mut v8::HandleScope,
+    v8_properties: HashMap<String, serde_v8::Value>,
+) -> HashMap<String, ConversionPropertyValue> {
+    v8_properties.into_iter()
+        .filter(|(name, _)| name.as_str() != "children")
+        .map(|(name, value)| {
+            let val = value.v8_value;
+            if val.is_function() {
+                let fn_value: v8::Local<v8::Function> = val.try_into().unwrap();
+                let global_fn = v8::Global::new(scope, fn_value);
+
+                (name, ConversionPropertyValue::Function(global_fn))
+            } else if val.is_string() {
+                (name, ConversionPropertyValue::String(val.to_rust_string_lossy(scope)))
+            } else if val.is_number() {
+                (name, ConversionPropertyValue::Number(val.number_value(scope).unwrap()))
+            } else if val.is_boolean() {
+                (name, ConversionPropertyValue::Bool(val.boolean_value(scope)))
+            } else {
+                panic!("{:?}: {:?}", name, val.type_of(scope).to_rust_string_lossy(scope))
+            }
+        })
+        .collect::<HashMap<_, _>>()
+}
+
+fn assign_event_listeners(
+    state: &Rc<RefCell<OpState>>,
+    widget: &JsUiWidget,
+    properties: &HashMap<String, ConversionPropertyValue>
+) {
+    let mut state_ref = state.borrow_mut();
+    let event_listeners = state_ref.borrow_mut::<EventHandlers>();
+
+    for (name, value) in properties {
+        match value {
+            ConversionPropertyValue::Function(global_fn) => {
+                event_listeners.add_listener(widget.widget_id, name.clone(), global_fn.clone());
+            }
+            _ => {}
+        }
+    }
 }
 
 

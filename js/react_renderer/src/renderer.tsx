@@ -24,29 +24,44 @@ type Instance = Promise<UiWidget>
 type TextInstance = Promise<UiWidget>
 type InstanceSync = UiWidget
 type TextInstanceSync = UiWidget
+type ChildSet = (Instance | TextInstance)[]
 
 declare interface UiWidget {
 }
 
 declare interface InternalApi {
     op_gtk_get_container(): Container;
+
     op_gtk_create_instance(type: Type): Instance;
+
     op_gtk_create_text_instance(text: string): TextInstance;
 
     op_gtk_append_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
+
+    op_call_event_listener(instance: InstanceSync, eventName: string): void;
+
+    // mutation mode
     op_gtk_remove_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
+
     op_gtk_insert_before(
         parent: InstanceSync,
         child: InstanceSync | TextInstanceSync | SuspenseInstance,
         beforeChild: InstanceSync | TextInstanceSync | SuspenseInstance
     ): void;
 
-    op_gtk_set_properties(instance: InstanceSync, child: Record<string, any>): void;
+    op_gtk_set_properties(instance: InstanceSync, properties: Record<string, any>): void;
+
     op_gtk_set_text(instance: InstanceSync, text: string): void;
-    op_call_event_listener(instance: InstanceSync, eventName: string): void;
+
+    // persistent mode
+    op_gtk_clone_instance(type: Type, properties: Record<string, any>): Instance;
+
+    op_gtk_replace_container_children(container: InstanceSync, newChildren: ChildSet): void;
 }
 
-const hostConfig: HostConfig<
+// TODO add on not used methods: throw new Error("NOT IMPLEMENTED")
+
+export const createHostConfig = (options: { mode: "mutation" | "persistent" }): HostConfig<
     Type,
     Props,
     Container,
@@ -57,10 +72,10 @@ const hostConfig: HostConfig<
     PublicInstance,
     HostContext,
     UpdatePayload,
-    never,
+    ChildSet,
     TimeoutHandle,
     NoTimeout
-> = {
+> => ({
     /*
      core items
     */
@@ -82,6 +97,14 @@ const hostConfig: HostConfig<
     ): TextInstance => {
         return InternalApi.op_gtk_create_text_instance(text);
     },
+
+    appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
+            })
+    },
+
     finalizeInitialChildren: (
         instance: Instance,
         type: Type,
@@ -103,7 +126,7 @@ const hostConfig: HostConfig<
         return shallowDiff(oldProps, newProps);
     },
     shouldSetTextContent: (type: Type, props: Props): boolean => {
-        return false; // in gtk arbitrary node cannot contain text, only Label can
+        return false;
     },
     getRootHostContext: (rootContainer: Container): HostContext | null => {
         return null;
@@ -149,20 +172,19 @@ const hostConfig: HostConfig<
     /*
      mutation items
     */
-    supportsMutation: true,
-    appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
-        Promise.all([parentInstance, child])
-            .then(([resolvedParent, resolvedChild]) => {
-                InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
-            })
-    },
+    supportsMutation: isMutationMode(options.mode),
+
     appendChild(parentInstance: Instance, child: Instance | TextInstance): void {
+        assertMutationMode(options.mode);
+
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
                 InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
             })
     },
     appendChildToContainer(container: Container, child: Instance | TextInstance): void {
+        assertMutationMode(options.mode);
+
         Promise.all([container, child])
             .then(([resolvedContainer, resolvedChild]) => {
                 InternalApi.op_gtk_append_child(resolvedContainer, resolvedChild)
@@ -174,6 +196,8 @@ const hostConfig: HostConfig<
         child: Instance | TextInstance,
         beforeChild: Instance | TextInstance | SuspenseInstance
     ): void {
+        assertMutationMode(options.mode);
+
         Promise.all([parentInstance, child, beforeChild])
             .then(([resolvedParentInstance, resolvedChild, resolvedBeforeChild]) => {
                 InternalApi.op_gtk_insert_before(resolvedParentInstance, resolvedChild, resolvedBeforeChild)
@@ -184,6 +208,8 @@ const hostConfig: HostConfig<
         child: Instance | TextInstance,
         beforeChild: Instance | TextInstance | SuspenseInstance
     ): void {
+        assertMutationMode(options.mode);
+
         Promise.all([container, child, beforeChild])
             .then(([resolvedContainer, resolvedChild, resolvedBeforeChild]) => {
                 InternalApi.op_gtk_insert_before(resolvedContainer, resolvedChild, resolvedBeforeChild)
@@ -194,6 +220,8 @@ const hostConfig: HostConfig<
         parentInstance: Instance,
         child: Instance | TextInstance | SuspenseInstance
     ): void {
+        assertMutationMode(options.mode);
+
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
                 InternalApi.op_gtk_remove_child(resolvedParent, resolvedChild)
@@ -224,15 +252,19 @@ const hostConfig: HostConfig<
 
     hideInstance(instance: Instance): void {
         // TODO suspend support
+        throw new Error("NOT IMPLEMENTED")
     },
     hideTextInstance(textInstance: TextInstance): void {
         // TODO suspend support
+        throw new Error("NOT IMPLEMENTED")
     },
     unhideInstance(instance: Instance, props: Props): void {
         // TODO suspend support
+        throw new Error("NOT IMPLEMENTED")
     },
     unhideTextInstance(textInstance: TextInstance, text: string): void {
         // TODO suspend support
+        throw new Error("NOT IMPLEMENTED")
     },
 
     clearContainer: (container: Container): void => {
@@ -241,13 +273,77 @@ const hostConfig: HostConfig<
     /*
      persistence items
     */
-    supportsPersistence: false,
+    supportsPersistence: isPersistentMode(options.mode),
+
+    cloneInstance(
+        instance: Instance,
+        updatePayload: UpdatePayload,
+        type: Type,
+        oldProps: Props,
+        newProps: Props,
+        internalInstanceHandle: OpaqueHandle,
+        keepChildren: boolean,
+        recyclableInstance: null | Instance,
+    ): Instance {
+        assertPersistentMode(options.mode);
+
+        return InternalApi.op_gtk_clone_instance(type, newProps);
+    },
+
+    createContainerChildSet(container: Container): ChildSet {
+        assertPersistentMode(options.mode);
+
+        return []
+    },
+
+    appendChildToContainerChildSet(childSet: ChildSet, child: Instance | TextInstance): void {
+        assertPersistentMode(options.mode);
+
+        childSet.push(child);
+    },
+
+    finalizeContainerChildren(container: Container, newChildren: ChildSet): void {
+        assertPersistentMode(options.mode);
+    },
+
+    replaceContainerChildren(container: Container, newChildren: ChildSet): void {
+        assertPersistentMode(options.mode);
+
+        container.then(value => InternalApi.op_gtk_replace_container_children(value, newChildren));
+    },
+
+    cloneHiddenInstance(
+        instance: Instance,
+        type: Type,
+        props: Props,
+        internalInstanceHandle: OpaqueHandle,
+    ): Instance {
+        throw new Error("NOT IMPLEMENTED")
+    },
+
+    cloneHiddenTextInstance(instance: Instance, text: Type, internalInstanceHandle: OpaqueHandle): TextInstance {
+        throw new Error("NOT IMPLEMENTED")
+    },
 
     /*
      hydration items
     */
     supportsHydration: false
-};
+});
+
+const isPersistentMode = (mode: "mutation" | "persistent") => mode === "persistent";
+const assertPersistentMode = (mode: "mutation" | "persistent") => {
+    if (!isPersistentMode(mode)) {
+        throw new Error("Wrong reconciler mode")
+    }
+}
+
+const isMutationMode = (mode: "mutation" | "persistent") => mode === "mutation";
+const assertMutationMode = (mode: "mutation" | "persistent") => {
+    if (!isMutationMode(mode)) {
+        throw new Error("Wrong reconciler mode")
+    }
+}
 
 function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): string[] {
     const uniqueProps = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
@@ -256,7 +352,7 @@ function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): 
 }
 
 
-const tracedHostConfig = new Proxy(hostConfig, {
+const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     get(target, propKey, receiver) {
         const f = (target as any)[propKey];
 
@@ -272,7 +368,7 @@ const tracedHostConfig = new Proxy(hostConfig, {
 
         if (typeof f === 'function') {
             return function _traced(this: any, ...args: any[]) {
-                console.log('MethodTrace:', propKey, ...args.map(function(arg) {
+                console.log('MethodTrace:', propKey, ...args.map(function (arg) {
                     return denoInspect(arg, {depth: 1});
                 }));
 
@@ -284,8 +380,12 @@ const tracedHostConfig = new Proxy(hostConfig, {
     }
 });
 
-export function render(View: React.FC) {
-    const reconciler = ReactReconciler(hostConfig); // tracedHostConfig TODO for some reason Deno.inspect is undefined now
+export function render(mode: "mutation" | "persistent", View: React.FC) {
+    const hostConfig = createHostConfig({mode});
+
+    // const createTracedHostConfig = createTracedHostConfig(hostConfig);
+
+    const reconciler = ReactReconciler(hostConfig);
 
     const root = reconciler.createContainer(
         InternalApi.op_gtk_get_container(),
@@ -294,7 +394,8 @@ export function render(View: React.FC) {
         false,
         false,
         "custom",
-        error => {},
+        error => {
+        },
         null
     );
 

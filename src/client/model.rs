@@ -26,6 +26,9 @@ pub enum NativeUiResponseData {
     CreateTextInstance {
         widget: NativeUiWidget
     },
+    CloneInstance {
+        widget: NativeUiWidget
+    },
     Unit,
 }
 
@@ -58,6 +61,14 @@ pub enum NativeUiRequestData {
     SetText {
         widget: NativeUiWidget,
         text: String,
+    },
+    CloneInstance {
+        widget_type: String,
+        properties: HashMap<String, NativeUiPropertyValue>,
+    },
+    ReplaceContainerChildren {
+        container: NativeUiWidget,
+        new_children: Vec<NativeUiWidget>,
     },
 }
 

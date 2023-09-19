@@ -32,7 +32,7 @@ declare interface InternalApi {
                 const view = (await import(`plugin:view?${uiEvent.viewName}`)).default;
                 const { render } = await import("plugin:renderer");
 
-                render(view)
+                render(uiEvent.reconcilerMode, view)
                 break;
             }
             case "ViewDestroyed": {

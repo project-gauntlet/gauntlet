@@ -30,7 +30,7 @@ enum AppState {
     PluginView {
         plugin_id: String,
         entrypoint_id: String,
-    }
+    },
 }
 
 pub struct AppInput {
@@ -49,7 +49,7 @@ pub enum AppMsg {
     CloseCurrentView,
     PromptChanged {
         value: String
-    }
+    },
 }
 
 #[relm4::component(pub)]
@@ -137,7 +137,6 @@ impl SimpleComponent for AppModel {
         root: &Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-
         let search_client = init_data.search_client;
         let container_container = init_data.container_container;
         let event_senders_container = init_data.event_senders_container;
@@ -150,7 +149,7 @@ impl SimpleComponent for AppModel {
             list,
             container_container,
             event_senders_container,
-            state: AppState::SearchView
+            state: AppState::SearchView,
         };
 
         model.initial_search();
@@ -164,7 +163,7 @@ impl SimpleComponent for AppModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            AppMsg::OpenView { plugin_container, plugin_uuid,  entrypoint_id} => {
+            AppMsg::OpenView { plugin_container, plugin_uuid, entrypoint_id } => {
                 plugin_container.remove_all();
 
                 self.event_senders_container.send_event(&plugin_uuid, NativeUiEvent::ViewCreated {
@@ -175,7 +174,7 @@ impl SimpleComponent for AppModel {
 
                 self.state = AppState::PluginView {
                     plugin_id: plugin_uuid.clone(),
-                    entrypoint_id: entrypoint_id.clone()
+                    entrypoint_id: entrypoint_id.clone(),
                 };
             }
             AppMsg::CloseCurrentView => {
@@ -215,7 +214,7 @@ impl AppModel {
                     item.entrypoint_id,
                     item.plugin_name,
                     item.plugin_uuid,
-                    Some(Path::new("extension_icon.png").to_owned())
+                    Some(Path::new("extension_icon.png").to_owned()),
                 ))
                 .collect();
 

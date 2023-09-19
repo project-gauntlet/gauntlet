@@ -10,6 +10,6 @@ declare module "plugin:view" {
 declare module "plugin:renderer" {
     import { FC } from "react";
 
-    const render: (component: FC) => void;
+    const render: (mode: "mutation" | "persistent", component: FC) => void;
     export { render };
 }

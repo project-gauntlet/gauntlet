@@ -21,6 +21,7 @@ pub struct DBusUiWidget {
 
 #[derive(Debug, Deserialize, Serialize, Type)]
 pub struct DbusEventViewCreated {
+    pub reconciler_mode: String,
     pub view_name: String,
 }
 
@@ -39,14 +40,6 @@ pub type DbusUiEventName = String;
 pub struct DBusUiPropertyContainer {
     pub zero: HashMap<String, DBusUiPropertyZeroValue>,
     pub one: HashMap<String, DBusUiPropertyOneValue>,
-}
-
-#[derive(Debug)]
-pub enum DbusUiPropertyValue {
-    Function,
-    String(String),
-    Number(f64),
-    Bool(bool),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]

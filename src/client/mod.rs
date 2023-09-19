@@ -58,13 +58,21 @@ pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
         while let Ok(((plugin_uuid, event_data), _)) = event_rx.recv().await {
             match event_data {
                 NativeUiEvent::ViewCreated { view_name } => {
-                    DbusClient::view_created_signal(&signal_context, &plugin_uuid, DbusEventViewCreated { view_name })
+                    let event_view_created = DbusEventViewCreated {
+                        reconciler_mode: "mutation".to_owned(),
+                        view_name
+                    };
+                    DbusClient::view_created_signal(&signal_context, &plugin_uuid, event_view_created)
                         .await
                         .unwrap();
                 }
                 NativeUiEvent::ViewDestroyed => {}
                 NativeUiEvent::ViewEvent { event_name, widget_id } => {
-                    DbusClient::view_event_signal(&signal_context, &plugin_uuid, DbusEventViewEvent { event_name, widget_id })
+                    let event_view_event = DbusEventViewEvent {
+                        event_name,
+                        widget_id
+                    };
+                    DbusClient::view_event_signal(&signal_context, &plugin_uuid, event_view_event)
                         .await
                         .unwrap();
                 }
@@ -121,6 +129,12 @@ pub fn start_client(runtime: &Runtime) -> anyhow::Result<()> {
                 }
                 NativeUiRequestData::SetText { widget, text } => {
                     client_context.set_text(&plugin_uuid, widget, &text);
+                }
+                NativeUiRequestData::CloneInstance { .. } => {
+                    panic!("not supported")
+                }
+                NativeUiRequestData::ReplaceContainerChildren { .. } => {
+                    panic!("not supported")
                 }
             }
         }
