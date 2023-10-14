@@ -3,7 +3,7 @@ import type React from 'react';
 import {DefaultEventPriority} from 'react-reconciler/constants';
 
 type Type = string;
-type Props = { children: any } & { [key: string]: any };
+type Props = { children?: any } & { [key: string]: any };
 
 type SuspenseInstance = never;
 type PublicInstance = Instance;
@@ -24,39 +24,39 @@ type Instance = Promise<UiWidget>
 type TextInstance = Promise<UiWidget>
 type InstanceSync = UiWidget
 type TextInstanceSync = UiWidget
-type ChildSet = (Instance | TextInstance)[]
+type ChildSet = (InstanceSync | TextInstanceSync)[]
 
 declare interface UiWidget {
 }
 
 declare interface InternalApi {
-    op_gtk_get_container(): Container;
+    op_react_get_container(): Container;
 
-    op_gtk_create_instance(type: Type): Instance;
+    op_react_create_instance(type: Type, props: Props): Instance;
 
-    op_gtk_create_text_instance(text: string): TextInstance;
+    op_react_create_text_instance(text: string): TextInstance;
 
-    op_gtk_append_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
+    op_react_append_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
 
-    op_call_event_listener(instance: InstanceSync, eventName: string): void;
+    op_react_call_event_listener(instance: InstanceSync, eventName: string): void;
 
     // mutation mode
-    op_gtk_remove_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
+    op_react_remove_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
 
-    op_gtk_insert_before(
+    op_react_insert_before(
         parent: InstanceSync,
         child: InstanceSync | TextInstanceSync | SuspenseInstance,
         beforeChild: InstanceSync | TextInstanceSync | SuspenseInstance
     ): void;
 
-    op_gtk_set_properties(instance: InstanceSync, properties: Record<string, any>): void;
+    op_react_set_properties(instance: InstanceSync, properties: Props): void;
 
-    op_gtk_set_text(instance: InstanceSync, text: string): void;
+    op_react_set_text(instance: InstanceSync, text: string): void;
 
     // persistent mode
-    op_gtk_clone_instance(type: Type, properties: Record<string, any>): Instance;
+    op_react_clone_instance(type: Type, properties: Props): Instance;
 
-    op_gtk_replace_container_children(container: InstanceSync, newChildren: ChildSet): void;
+    op_react_replace_container_children(container: InstanceSync, newChildren: ChildSet): void;
 }
 
 // TODO add on not used methods: throw new Error("NOT IMPLEMENTED")
@@ -86,7 +86,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         hostContext: HostContext,
         internalHandle: OpaqueHandle,
     ): Instance => {
-        return InternalApi.op_gtk_create_instance(type);
+        return InternalApi.op_react_create_instance(type, props);
     },
 
     createTextInstance: (
@@ -95,13 +95,13 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         hostContext: HostContext,
         internalHandle: OpaqueHandle
     ): TextInstance => {
-        return InternalApi.op_gtk_create_text_instance(text);
+        return InternalApi.op_react_create_text_instance(text);
     },
 
     appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
-                InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
+                InternalApi.op_react_append_child(resolvedParent, resolvedChild)
             })
     },
 
@@ -112,9 +112,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         rootContainer: Container,
         hostContext: HostContext
     ): boolean => {
-        instance.then(value => InternalApi.op_gtk_set_properties(value, props));
+        // instance.then(value => InternalApi.op_react_set_properties(value, props));
         return false;
     },
+
     prepareUpdate: (
         instance: Instance,
         type: Type,
@@ -179,7 +180,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
-                InternalApi.op_gtk_append_child(resolvedParent, resolvedChild)
+                InternalApi.op_react_append_child(resolvedParent, resolvedChild)
             })
     },
     appendChildToContainer(container: Container, child: Instance | TextInstance): void {
@@ -187,7 +188,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
         Promise.all([container, child])
             .then(([resolvedContainer, resolvedChild]) => {
-                InternalApi.op_gtk_append_child(resolvedContainer, resolvedChild)
+                InternalApi.op_react_append_child(resolvedContainer, resolvedChild)
             })
     },
 
@@ -200,7 +201,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
         Promise.all([parentInstance, child, beforeChild])
             .then(([resolvedParentInstance, resolvedChild, resolvedBeforeChild]) => {
-                InternalApi.op_gtk_insert_before(resolvedParentInstance, resolvedChild, resolvedBeforeChild)
+                InternalApi.op_react_insert_before(resolvedParentInstance, resolvedChild, resolvedBeforeChild)
             })
     },
     insertInContainerBefore(
@@ -212,7 +213,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
         Promise.all([container, child, beforeChild])
             .then(([resolvedContainer, resolvedChild, resolvedBeforeChild]) => {
-                InternalApi.op_gtk_insert_before(resolvedContainer, resolvedChild, resolvedBeforeChild)
+                InternalApi.op_react_insert_before(resolvedContainer, resolvedChild, resolvedBeforeChild)
             })
     },
 
@@ -224,30 +225,36 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
         Promise.all([parentInstance, child])
             .then(([resolvedParent, resolvedChild]) => {
-                InternalApi.op_gtk_remove_child(resolvedParent, resolvedChild)
+                InternalApi.op_react_remove_child(resolvedParent, resolvedChild)
             })
     },
     removeChildFromContainer(
         container: Container,
         child: Instance | TextInstance | SuspenseInstance
     ): void {
+        assertMutationMode(options.mode);
+
         Promise.all([container, child])
             .then(([resolvedContainer, resolvedChild]) => {
-                InternalApi.op_gtk_remove_child(resolvedContainer, resolvedChild)
+                InternalApi.op_react_remove_child(resolvedContainer, resolvedChild)
             })
     },
 
 
     commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: Type, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
+        assertMutationMode(options.mode);
+
         if (updatePayload.length) {
             const props = Object.fromEntries(
                 updatePayload.map(propName => [propName, nextProps[propName]])
             );
-            instance.then(value => InternalApi.op_gtk_set_properties(value, props));
+            instance.then(value => InternalApi.op_react_set_properties(value, props));
         }
     },
     commitTextUpdate(textInstance: TextInstance, oldText: string, newText: string): void {
-        textInstance.then(value => InternalApi.op_gtk_set_text(value, newText))
+        assertMutationMode(options.mode);
+
+        textInstance.then(value => InternalApi.op_react_set_text(value, newText))
     },
 
     hideInstance(instance: Instance): void {
@@ -287,7 +294,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): Instance {
         assertPersistentMode(options.mode);
 
-        return InternalApi.op_gtk_clone_instance(type, newProps);
+        return InternalApi.op_react_clone_instance(type, newProps);
     },
 
     createContainerChildSet(container: Container): ChildSet {
@@ -308,8 +315,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
     replaceContainerChildren(container: Container, newChildren: ChildSet): void {
         assertPersistentMode(options.mode);
-
-        container.then(value => InternalApi.op_gtk_replace_container_children(value, newChildren));
+        Promise.all([container, ...newChildren])
+            .then(([resolvedContainer, ...resolvedChild]) => {
+                InternalApi.op_react_replace_container_children(resolvedContainer, resolvedChild)
+            })
     },
 
     cloneHiddenInstance(
@@ -383,12 +392,11 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
 export function render(mode: "mutation" | "persistent", View: React.FC) {
     const hostConfig = createHostConfig({mode});
 
-    // const createTracedHostConfig = createTracedHostConfig(hostConfig);
-
+    // const reconciler = ReactReconciler(createTracedHostConfig(hostConfig));
     const reconciler = ReactReconciler(hostConfig);
 
     const root = reconciler.createContainer(
-        InternalApi.op_gtk_get_container(),
+        InternalApi.op_react_get_container(),
         0,
         null,
         false,

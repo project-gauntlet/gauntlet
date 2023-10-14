@@ -8,12 +8,12 @@ use crate::server::start_server;
 #[derive(Debug, clap::Parser)]
 struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Debug, clap::Subcommand)]
 enum Commands {
-    // Open,
+    Open,
     Server,
     Download,
 }
@@ -23,18 +23,8 @@ pub fn init() {
 
     let cli = Cli::parse();
     match &cli.command {
-        // Some(Commands::Open) => {
-        None => {
-            let runtime = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-
-            let _guard = runtime.enter();
-
-            start_client(&runtime).unwrap()
-        }
-        Some(Commands::Server) => {
+        Commands::Open => start_client(),
+        Commands::Server => {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -44,7 +34,7 @@ pub fn init() {
                 start_server().await
             }).unwrap();
         }
-        Some(Commands::Download) => download_repo().unwrap()
+        Commands::Download => download_repo().unwrap()
     };
 }
 
@@ -76,7 +66,7 @@ fn download_repo() -> anyhow::Result<()> {
     let git_repo_dir = temp_dir.path();
 
     let plugins_path = git_repo_dir.join("plugins");
-    let version_path = plugins_path.join("v1");
+    let _version_path = plugins_path.join("v1");
 
     // copy_dir_all(version_path, )
 

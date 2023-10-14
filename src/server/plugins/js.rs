@@ -32,6 +32,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
             async move {
                 let signal = signal.args().unwrap();
 
+                // TODO add logging here that we received signal
                 if signal.plugin_uuid != plugin_uuid {
                     None
                 } else {
@@ -51,6 +52,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
             async move {
                 let signal = signal.args().unwrap();
 
+                // TODO add logging here that we received signal
                 if signal.plugin_uuid != plugin_uuid {
                     None
                 } else {
@@ -79,8 +81,8 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                         .into();
                     responder.respond(JsUiResponseData::GetContainer { container }).unwrap()
                 }
-                JsUiRequestData::CreateInstance { widget_type } => {
-                    let widget = client_proxy.create_instance(&plugin_uuid, &widget_type)
+                JsUiRequestData::CreateInstance { widget_type, properties } => {
+                    let widget = client_proxy.create_instance(&plugin_uuid, &widget_type, properties.into())
                         .await
                         .unwrap()
                         .into();
@@ -153,7 +155,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
         PermissionsContainer::allow_all(),
         WorkerOptions {
             module_loader: Rc::new(CustomModuleLoader::new(plugin)),
-            extensions: vec![gtk_ext::init_ops_and_esm(
+            extensions: vec![react_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 EventReceiver::new(Box::pin(event_stream)),
                 RequestSender1::new(tx),
@@ -258,20 +260,20 @@ impl ModuleLoader for CustomModuleLoader {
 
 
 deno_core::extension!(
-    gtk_ext,
+    react_ext,
     ops = [
-        op_gtk_get_container,
-        op_gtk_create_instance,
-        op_gtk_create_text_instance,
-        op_gtk_append_child,
-        op_gtk_insert_before,
-        op_gtk_remove_child,
-        op_gtk_set_properties,
-        op_gtk_set_text,
-        op_get_next_pending_ui_event,
-        op_call_event_listener,
-        op_gtk_clone_instance,
-        op_gtk_replace_container_children,
+        op_react_get_container,
+        op_react_create_instance,
+        op_react_create_text_instance,
+        op_react_append_child,
+        op_react_insert_before,
+        op_react_remove_child,
+        op_react_set_properties,
+        op_react_set_text,
+        op_react_get_next_pending_ui_event,
+        op_react_call_event_listener,
+        op_react_clone_instance,
+        op_react_replace_container_children,
     ],
     options = {
         event_listeners: EventHandlers,
@@ -288,26 +290,26 @@ deno_core::extension!(
 
 
 #[op]
-async fn op_gtk_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
-    println!("op_gtk_get_container");
+async fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
+    println!("op_react_get_container");
 
     let container = match make_request_receive(&state, JsUiRequestData::GetContainer).await? {
         JsUiResponseData::GetContainer { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    println!("op_gtk_get_container end");
+    println!("op_react_get_container end");
 
     Ok(container.into())
 }
 
 #[op]
-async fn op_gtk_append_child(
+async fn op_react_append_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
 ) -> anyhow::Result<()> {
-    println!("op_gtk_append_child");
+    println!("op_react_append_child");
 
     let data = JsUiRequestData::AppendChild {
         parent,
@@ -316,18 +318,18 @@ async fn op_gtk_append_child(
 
     let _ = make_request(&state, data)?;
 
-    println!("op_gtk_append_child end");
+    println!("op_react_append_child end");
 
     Ok(())
 }
 
 #[op]
-async fn op_gtk_remove_child(
+async fn op_react_remove_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
 ) -> anyhow::Result<()> {
-    println!("op_gtk_remove_child");
+    println!("op_react_remove_child");
 
     let data = JsUiRequestData::RemoveChild {
         parent: parent.into(),
@@ -336,19 +338,19 @@ async fn op_gtk_remove_child(
 
     let _ = make_request(&state, data)?;
 
-    println!("op_gtk_remove_child end");
+    println!("op_react_remove_child end");
 
     Ok(())
 }
 
 #[op]
-async fn op_gtk_insert_before(
+async fn op_react_insert_before(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
     before_child: JsUiWidget,
 ) -> anyhow::Result<()> {
-    println!("op_gtk_insert_before");
+    println!("op_react_insert_before");
 
     let data = JsUiRequestData::InsertBefore {
         parent,
@@ -358,37 +360,53 @@ async fn op_gtk_insert_before(
 
     let _ = make_request(&state, data)?;
 
-    println!("op_gtk_insert_before end");
+    println!("op_react_insert_before end");
 
     Ok(())
 }
 
-#[op]
-async fn op_gtk_create_instance(
+#[op(v8)]
+fn op_react_create_instance<'a>(
+    scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
     widget_type: String,
-) -> anyhow::Result<JsUiWidget> {
-    println!("op_gtk_create_instance");
+    v8_properties: HashMap<String, serde_v8::Value<'a>>,
+) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
+    println!("op_react_create_instance");
+
+    let properties = convert_properties(scope, v8_properties);
+
+    let conversion_properties = properties.clone();
+
+    let properties = properties.into_iter()
+        .map(|(name, val)| (name, val.into()))
+        .collect();
 
     let data = JsUiRequestData::CreateInstance {
         widget_type,
+        properties,
     };
 
-    let widget = match make_request_receive(&state, data).await? {
-        JsUiResponseData::CreateInstance { widget } => widget,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
-    println!("op_gtk_create_instance end");
+    println!("op_react_create_instance end");
 
-    Ok(widget.into())
+    Ok(async move {
+        let widget = match make_request_receive(&state, data).await? {
+            JsUiResponseData::CreateInstance { widget } => widget,
+            value @ _ => panic!("unsupported response type {:?}", value),
+        };
+
+        assign_event_listeners(&state, &widget, &conversion_properties);
+
+        Ok(widget.into())
+    })
 }
 
 #[op]
-async fn op_gtk_create_text_instance(
+async fn op_react_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
 ) -> anyhow::Result<JsUiWidget> {
-    println!("op_gtk_create_text_instance");
+    println!("op_react_create_text_instance");
 
     let data = JsUiRequestData::CreateTextInstance { text };
 
@@ -397,19 +415,19 @@ async fn op_gtk_create_text_instance(
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    println!("op_gtk_create_text_instance end");
+    println!("op_react_create_text_instance end");
 
     Ok(widget.into())
 }
 
 #[op(v8)]
-fn op_gtk_set_properties<'a>(
+fn op_react_set_properties<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<impl Future<Output=anyhow::Result<()>> + 'static> {
-    println!("op_gtk_set_properties");
+    println!("op_react_set_properties");
 
     let properties = convert_properties(scope, v8_properties);
 
@@ -424,7 +442,7 @@ fn op_gtk_set_properties<'a>(
         properties,
     };
 
-    println!("op_gtk_set_properties end");
+    println!("op_react_set_properties end");
 
     Ok(async move {
         let _ = make_request(&state, data)?;
@@ -434,7 +452,7 @@ fn op_gtk_set_properties<'a>(
 }
 
 #[op]
-async fn op_get_next_pending_ui_event<'a>(
+async fn op_react_get_next_pending_ui_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> anyhow::Result<JsUiEvent> {
     let event_stream = {
@@ -444,7 +462,7 @@ async fn op_get_next_pending_ui_event<'a>(
             .clone()
     };
 
-    println!("op_get_next_pending_ui_event");
+    println!("op_react_get_next_pending_ui_event");
 
     let mut event_stream = event_stream.borrow_mut();
     let event = event_stream.next()
@@ -454,13 +472,13 @@ async fn op_get_next_pending_ui_event<'a>(
 }
 
 #[op(v8)]
-fn op_call_event_listener(
+fn op_react_call_event_listener(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     event_name: String,
 ) {
-    println!("op_call_event_listener");
+    println!("op_react_call_event_listener");
 
     let event_handlers = {
         state.borrow()
@@ -470,23 +488,23 @@ fn op_call_event_listener(
 
     event_handlers.call_listener_handler(scope, &widget.widget_id, &event_name);
 
-    println!("op_call_event_listener end");
+    println!("op_react_call_event_listener end");
 }
 
 #[op]
-async fn op_gtk_set_text(
+async fn op_react_set_text(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     text: String,
 ) -> anyhow::Result<()> {
-    println!("op_gtk_set_text");
+    println!("op_react_set_text");
 
     let data = JsUiRequestData::SetText {
         widget,
         text,
     };
 
-    println!("op_gtk_set_text end");
+    println!("op_react_set_text end");
 
     let _ = make_request(&state, data)?;
 
@@ -494,19 +512,19 @@ async fn op_gtk_set_text(
 }
 
 #[op]
-fn op_gtk_replace_container_children(
+fn op_react_replace_container_children(
     state: Rc<RefCell<OpState>>,
     container: JsUiWidget,
     new_children: Vec<JsUiWidget>,
 ) -> anyhow::Result<()> {
-    println!("op_gtk_replace_container_children");
+    println!("op_react_replace_container_children");
 
     let data = JsUiRequestData::ReplaceContainerChildren {
         container,
         new_children,
     };
 
-    println!("op_gtk_replace_container_children end");
+    println!("op_react_replace_container_children end");
 
     let _ = make_request(&state, data)?;
 
@@ -514,7 +532,7 @@ fn op_gtk_replace_container_children(
 }
 
 #[op(v8)]
-fn op_gtk_clone_instance<'a>(
+fn op_react_clone_instance<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
     widget_type: String,
@@ -534,7 +552,7 @@ fn op_gtk_clone_instance<'a>(
         properties,
     };
 
-    println!("op_gtk_clone_instance end");
+    println!("op_react_clone_instance end");
 
     Ok(async move {
         let widget = match make_request_receive(&state, data).await? {

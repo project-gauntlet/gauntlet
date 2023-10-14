@@ -13,18 +13,18 @@ declare interface UiWidget {
 // TODO move all InternalApi declares to one place
 // TODO import other submodules with types but without bundling
 declare interface InternalApi {
-    op_call_event_listener(instance: InstanceSync, eventName: string): void;
+    op_react_call_event_listener(instance: InstanceSync, eventName: string): void;
 }
 
 (async () => {
     // noinspection InfiniteLoopJS
     while (true) {
-        console.log("before op_get_next_pending_ui_event")
-        const uiEvent = await denoCore.opAsync("op_get_next_pending_ui_event");
+        console.log("before op_react_get_next_pending_ui_event")
+        const uiEvent = await denoCore.opAsync("op_react_get_next_pending_ui_event");
         switch (uiEvent.type) {
             case "ViewEvent": {
-                console.log("ViewCreated")
-                InternalApi.op_call_event_listener(uiEvent.widget, uiEvent.eventName)
+                console.log("ViewEvent")
+                InternalApi.op_react_call_event_listener(uiEvent.widget, uiEvent.eventName)
                 break;
             }
             case "ViewCreated": {

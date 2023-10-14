@@ -26,6 +26,7 @@ pub enum JsUiRequestData {
     GetContainer,
     CreateInstance {
         widget_type: String,
+        properties: HashMap<String, JsUiPropertyValue>,
     },
     CreateTextInstance {
         text: String,

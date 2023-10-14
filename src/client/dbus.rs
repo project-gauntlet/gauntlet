@@ -3,7 +3,7 @@ use crate::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusSearchResult, DB
 use crate::utils::channel::RequestSender;
 
 pub struct DbusClient {
-    pub(crate) channel: RequestSender<(String, NativeUiRequestData), NativeUiResponseData>,
+    pub(crate) context_tx: RequestSender<(String, NativeUiRequestData), NativeUiResponseData>
 }
 
 #[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName.Client")]
@@ -17,17 +17,17 @@ impl DbusClient {
     async fn get_container(&mut self, plugin_uuid: &str) -> DBusUiWidget {
         let input = (plugin_uuid.to_owned(), NativeUiRequestData::GetContainer);
 
-        match self.channel.send_receive(input).await.unwrap() {
+        match self.context_tx.send_receive(input).await.unwrap() {
             NativeUiResponseData::GetContainer { container } => DBusUiWidget { widget_id: container.widget_id },
             value @ _ => panic!("unsupported response type {:?}", value),
         }
     }
 
-    async fn create_instance(&mut self, plugin_uuid: &str, widget_type: &str) -> DBusUiWidget {
-        let data = NativeUiRequestData::CreateInstance { widget_type: widget_type.to_owned() };
+    async fn create_instance(&mut self, plugin_uuid: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> DBusUiWidget {
+        let data = NativeUiRequestData::CreateInstance { widget_type: widget_type.to_owned(), properties: properties.into() };
         let input = (plugin_uuid.to_owned(), data);
 
-        match self.channel.send_receive(input).await.unwrap() {
+        match self.context_tx.send_receive(input).await.unwrap() {
             NativeUiResponseData::CreateInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
             value @ _ => panic!("unsupported response type {:?}", value),
         }
@@ -37,48 +37,22 @@ impl DbusClient {
         let data = NativeUiRequestData::CreateTextInstance { text: text.to_owned() };
         let input = (plugin_uuid.to_owned(), data);
 
-        match self.channel.send_receive(input).await.unwrap() {
+        match self.context_tx.send_receive(input).await.unwrap() {
             NativeUiResponseData::CreateTextInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
             value @ _ => panic!("unsupported response type {:?}", value),
         }
     }
 
-    async fn append_child(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) {
+    fn append_child(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) {
         let data = NativeUiRequestData::AppendChild { parent: parent.into(), child: child.into() };
-        let input = (plugin_uuid.to_owned(), data);
-        self.channel.send(input).unwrap();
-    }
-
-    async fn insert_before(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) {
-        let data = NativeUiRequestData::InsertBefore { parent: parent.into(), child: child.into(), before_child: before_child.into() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-
-    async fn remove_child(&mut self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) {
-        let data = NativeUiRequestData::RemoveChild { parent: parent.into(), child: child.into() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-
-    async fn set_properties(
-        &mut self,
-        plugin_uuid: &str,
-        widget: DBusUiWidget,
-        properties: DBusUiPropertyContainer,
-    ) {
-        let data = NativeUiRequestData::SetProperties { widget: widget.into(), properties: properties.into() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
-    }
-
-    fn set_text(&mut self, plugin_uuid: &str, widget: DBusUiWidget, text: &str) {
-        let data = NativeUiRequestData::SetText { widget: widget.into(), text: text.to_owned() };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
+        self.context_tx.send((plugin_uuid.to_owned(), data)).unwrap();
     }
 
     async fn clone_instance(&self, plugin_uuid: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> DBusUiWidget {
         let data = NativeUiRequestData::CloneInstance { widget_type: widget_type.to_owned(), properties: properties.into() };
         let input = (plugin_uuid.to_owned(), data);
 
-        match self.channel.send_receive(input).await.unwrap() {
+        match self.context_tx.send_receive(input).await.unwrap() {
             NativeUiResponseData::CloneInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
             value @ _ => panic!("unsupported response type {:?}", value),
         }
@@ -87,15 +61,14 @@ impl DbusClient {
     fn replace_container_children(&self, plugin_uuid: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) {
         let new_children = new_children.into_iter().map(|child| child.into()).collect();
         let data = NativeUiRequestData::ReplaceContainerChildren { container: container.into(), new_children };
-        self.channel.send((plugin_uuid.to_owned(), data)).unwrap();
+        self.context_tx.send((plugin_uuid.to_owned(), data)).unwrap();
     }
 }
 
-
 #[zbus::dbus_proxy(
-default_service = "org.placeholdername.PlaceHolderName",
-default_path = "/org/placeholdername/PlaceHolderName",
-interface = "org.placeholdername.PlaceHolderName",
+    default_service = "org.placeholdername.PlaceHolderName",
+    default_path = "/org/placeholdername/PlaceHolderName",
+    interface = "org.placeholdername.PlaceHolderName",
 )]
 trait DbusServerProxy {
     async fn plugins(&self) -> zbus::Result<Vec<String>>;

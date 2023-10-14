@@ -1,28 +1,31 @@
-use std::path::Path;
+mod plugin_container;
+mod search_list;
 
-use gtk::gdk::Key;
-use gtk::glib;
-use gtk::prelude::*;
-use relm4::{ComponentParts, ComponentSender, RelmRemoveAllExt, SimpleComponent};
-use relm4::typed_list_view::TypedListView;
-use tokio::runtime::Handle;
+use std::sync::{Arc, RwLock};
+use deno_core::error::AnyError;
 
-use search_entry::SearchListEntry;
+use iced::{Application, Command, Element, Event, executor, futures, keyboard, Length, Padding, Renderer, Subscription, subscription, widget};
+use iced::{Settings, window};
+use iced::keyboard::KeyCode;
+use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
+use iced::window::Position;
+use zbus::{Connection, InterfaceRef};
 
-use crate::client::context::{NativeUiEvent, PluginContainerContainer, PluginEventSenderContainer};
-use crate::client::search::SearchClient;
-
-mod search_entry;
-
-const SPACING: i32 = 12;
+use crate::client::dbus::{DbusClient, DbusServerProxyProxy};
+use crate::client::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult};
+use crate::client::native_ui::plugin_container::{BuiltInWidgetEvent, ClientContext, plugin_container};
+use crate::client::native_ui::search_list::search_list;
+use crate::dbus::{DbusEventViewCreated, DbusEventViewEvent};
+use crate::utils::channel::{channel, RequestReceiver};
 
 pub struct AppModel {
-    window: gtk::ApplicationWindow,
-    list: TypedListView<SearchListEntry, gtk::SingleSelection>,
-    search_client: SearchClient,
-    container_container: PluginContainerContainer,
-    event_senders_container: PluginEventSenderContainer,
+    client_context: Arc<RwLock<ClientContext>>,
+    dbus_connection: Connection,
+    dbus_server: DbusServerProxyProxy<'static>,
+    dbus_client: InterfaceRef<DbusClient>,
     state: AppState,
+    prompt: Option<String>,
+    search_results: Vec<NativeUiSearchResult>,
 }
 
 enum AppState {
@@ -33,206 +36,278 @@ enum AppState {
     },
 }
 
-pub struct AppInput {
-    pub search_client: SearchClient,
-    pub container_container: PluginContainerContainer,
-    pub event_senders_container: PluginEventSenderContainer,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AppMsg {
     OpenView {
-        plugin_container: gtk::Box,
         plugin_uuid: String,
         entrypoint_id: String,
     },
-    CloseCurrentView,
-    PromptChanged {
-        value: String
+    PromptChanged(String),
+    SetSearchResults(Vec<NativeUiSearchResult>),
+    IcedEvent(Event),
+    WidgetEvent {
+        plugin_uuid: String,
+        widget_event: BuiltInWidgetEvent
     },
+    Noop,
 }
 
-#[relm4::component(pub)]
-impl SimpleComponent for AppModel {
-    type Input = AppMsg;
-    type Output = ();
-    type Init = AppInput;
+pub fn run() {
+    AppModel::run(Settings {
+        id: None,
+        window: window::Settings {
+            size: (650, 400),
+            position: Position::Centered,
+            resizable: false,
+            decorations: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    }).unwrap();
+}
 
-    view! {
-        #[name = "window"]
-        gtk::ApplicationWindow {
-            set_title: Some("My GTK App"),
-            set_deletable: false,
-            set_resizable: false,
-            set_decorated: false,
-            set_default_height: 400,
-            set_default_width: 650,
-            add_controller = gtk::EventControllerKey {
-                 connect_key_released[sender] => move |_controller, key, _keycode, _state| {
-                    if key == Key::Escape {
-                        sender.input(AppMsg::CloseCurrentView);
-                    }
-                }
+
+impl Application for AppModel {
+    type Executor = executor::Default;
+    type Message = AppMsg;
+    type Theme = iced::Theme;
+    type Flags = ();
+
+    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+
+        let (context_tx, request_rx) = channel::<(String, NativeUiRequestData), NativeUiResponseData>();
+
+        let client_context = Arc::new(RwLock::new(
+            ClientContext { containers: Default::default(), }
+        ));
+
+        let (dbus_connection, dbus_server, dbus_client) = futures::executor::block_on(async {
+            let path = "/org/placeholdername/PlaceHolderName";
+
+            let dbus_connection = zbus::ConnectionBuilder::session()?
+                .name("org.placeholdername.PlaceHolderName.Client")?
+                .serve_at(path, DbusClient { context_tx })?
+                .build()
+                .await?;
+
+            let dbus_server = DbusServerProxyProxy::new(&dbus_connection).await?;
+
+            let dbus_client = dbus_connection
+                .object_server()
+                .interface::<_, DbusClient>(path)
+                .await?;
+
+            Ok::<(Connection, DbusServerProxyProxy<'_>, InterfaceRef<DbusClient>), AnyError>((dbus_connection, dbus_server, dbus_client))
+        }).unwrap();
+
+        (
+            AppModel {
+                client_context: client_context.clone(),
+                dbus_connection,
+                dbus_server,
+                dbus_client,
+                state: AppState::SearchView,
+                prompt: None,
+                search_results: vec![]
             },
-            connect_is_active_notify => move |window| {
-                if !window.is_active() {
-                    // TODO window.set_visible(false);
-                }
-            },
-            match model.state {
-                AppState::SearchView => {
-                    gtk::Box::new(gtk::Orientation::Vertical, 0) {
-                        #[name = "search"]
-                        gtk::Entry {
-                            set_margin_top: SPACING,
-                            set_margin_bottom: SPACING,
-                            set_margin_start: SPACING,
-                            set_margin_end: SPACING,
-                            connect_changed[sender] => move |entry| {
-                                sender.input(AppMsg::PromptChanged {
-                                    value: entry.buffer().text().to_string(),
-                                });
-                            }
-                        },
-
-                        gtk::Separator::new(gtk::Orientation::Horizontal),
-
-                        gtk::ScrolledWindow {
-                            set_hscrollbar_policy: gtk::PolicyType::Never,
-                            set_vexpand: true,
-                            set_margin_top: SPACING,
-                            set_margin_bottom: SPACING,
-                            set_margin_start: SPACING,
-                            set_margin_end: SPACING,
-
-                            #[local_ref]
-                            list_view -> gtk::ListView {
-                                set_single_click_activate: true,
-                                connect_activate[sender, plugin_container] => move |list_view, pos| {
-                                    let item = get_item_from_list_view(list_view, pos);
-                                    let item = item.borrow::<SearchListEntry>();
-
-                                    sender.input(AppMsg::OpenView {
-                                        plugin_container: plugin_container.clone(),
-                                        plugin_uuid: item.plugin_id().to_owned(),
-                                        entrypoint_id: item.entrypoint_id().to_owned()
-                                    });
-                                }
-                            },
-                        },
-                    }
-                },
-                AppState::PluginView { .. } => {
-                    #[name = "plugin_container"]
-                    gtk::Box::new(gtk::Orientation::Vertical, 0) {
-                        // plugin content
-                    }
-                }
-            }
-        }
+            Command::batch([
+                request_loop(client_context, request_rx),
+                Command::perform(async {  }, |_| AppMsg::PromptChanged("".to_owned()))
+            ]),
+        )
     }
 
-    fn init(
-        init_data: Self::Init,
-        root: &Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> ComponentParts<Self> {
-        let search_client = init_data.search_client;
-        let container_container = init_data.container_container;
-        let event_senders_container = init_data.event_senders_container;
-
-        let list = TypedListView::<SearchListEntry, gtk::SingleSelection>::new();
-
-        let mut model = AppModel {
-            window: root.clone(),
-            search_client,
-            list,
-            container_container,
-            event_senders_container,
-            state: AppState::SearchView,
-        };
-
-        model.initial_search();
-
-        let list_view = &model.list.view;
-
-        let widgets = view_output!();
-
-        ComponentParts { model, widgets }
+    fn title(&self) -> String {
+        "test".to_owned()
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            AppMsg::OpenView { plugin_container, plugin_uuid, entrypoint_id } => {
-                plugin_container.remove_all();
-
-                self.event_senders_container.send_event(&plugin_uuid, NativeUiEvent::ViewCreated {
-                    view_name: entrypoint_id.to_owned()
-                });
-
-                self.container_container.set_current_container(&plugin_uuid, plugin_container.clone().upcast::<gtk::Widget>());
-
+            AppMsg::OpenView { plugin_uuid, entrypoint_id } => {
                 self.state = AppState::PluginView {
                     plugin_id: plugin_uuid.clone(),
                     entrypoint_id: entrypoint_id.clone(),
                 };
-            }
-            AppMsg::CloseCurrentView => {
-                match &self.state {
-                    AppState::SearchView => {
-                        self.window.close();
-                    }
-                    AppState::PluginView { plugin_id, .. } => {
-                        self.event_senders_container.send_event(&plugin_id, NativeUiEvent::ViewDestroyed);
 
-                        self.state = AppState::SearchView;
+                let mut client_context = self.client_context.write().unwrap();
+                client_context.create_view_container(&plugin_uuid);
+
+                let dbus_client = self.dbus_client.clone();
+
+                let plugin_uuid = plugin_uuid.clone();
+
+                Command::perform(async move {
+                    let event_view_created = DbusEventViewCreated {
+                        reconciler_mode: "persistent".to_owned(),
+                        view_name: entrypoint_id, // TODO what was view_name supposed to be?
+                    };
+
+                    let signal_context = dbus_client.signal_context();
+
+                    DbusClient::view_created_signal(signal_context, &plugin_uuid, event_view_created)
+                        .await
+                        .unwrap();
+                }, |_| AppMsg::Noop)
+            }
+            AppMsg::PromptChanged(prompt) => {
+                self.prompt.replace(prompt.clone());
+
+                let dbus_server = self.dbus_server.clone();
+
+                Command::perform(async move {
+                    dbus_server.search(&prompt)
+                        .await
+                        .unwrap()
+                        .into_iter()
+                        .map(|search_result| NativeUiSearchResult {
+                            plugin_uuid: search_result.plugin_uuid,
+                            plugin_name: search_result.plugin_name,
+                            entrypoint_id: search_result.entrypoint_id,
+                            entrypoint_name: search_result.entrypoint_name,
+                        })
+                        .collect()
+                }, AppMsg::SetSearchResults)
+            },
+            AppMsg::SetSearchResults(search_results) => {
+                self.search_results = search_results;
+                Command::none()
+            }
+            AppMsg::IcedEvent(Event::Keyboard(event)) => {
+                match event {
+                    keyboard::Event::KeyPressed { key_code, .. } => {
+                        match key_code {
+                            KeyCode::Up => widget::focus_previous(),
+                            KeyCode::Down => widget::focus_next(),
+                            _ => Command::none()
+                        }
                     }
+                    _ => Command::none()
                 }
             }
-            AppMsg::PromptChanged { value } => {
-                self.search(&value);
+            AppMsg::IcedEvent(_) => Command::none(),
+            AppMsg::WidgetEvent { widget_event, plugin_uuid } => {
+                match widget_event {
+                    BuiltInWidgetEvent::ButtonClick { widget_id } => {
+                        let dbus_client = self.dbus_client.clone();
+
+                        Command::perform(async move {
+                            let signal_context = dbus_client.signal_context();
+
+                            let event_view_event = DbusEventViewEvent {
+                                event_name: "onClick".to_owned(),
+                                widget_id,
+                            };
+
+                            DbusClient::view_event_signal(&signal_context, &plugin_uuid, event_view_event)
+                                .await
+                                .unwrap();
+                        }, |_| AppMsg::Noop)
+                    }
+                }
+            },
+            AppMsg::Noop => Command::none(),
+        }
+    }
+
+    fn view(&self) -> Element<'_, Self::Message, Renderer<Self::Theme>> {
+        let client_context = self.client_context.clone();
+
+        match &self.state {
+            AppState::SearchView => {
+                let input: Element<_> = text_input("", self.prompt.as_ref().unwrap_or(&"".to_owned()))
+                    .on_input(AppMsg::PromptChanged)
+                    .width(Length::Fill)
+                    .into();
+
+                let search_results = self.search_results.iter().cloned().collect();
+
+                let search_list = search_list(search_results, |event| {
+                    AppMsg::OpenView {
+                        plugin_uuid: event.plugin_uuid,
+                        entrypoint_id: event.entrypoint_id
+                    }
+                });
+
+                let list: Element<_> = scrollable(search_list)
+                    .width(Length::Fill)
+                    .into();
+
+                let column: Element<_> = column(vec![
+                    container(input)
+                        .width(Length::Fill)
+                        .padding(Padding::new(10.0))
+                        .into(),
+                    horizontal_rule(1)
+                        .into(),
+                    container(list)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .padding(Padding::new(5.0))
+                        .into(),
+                ])
+                    .into();
+
+                // column.explain(Color::from_rgb(1f32, 0f32, 0f32))
+                column
+            }
+            AppState::PluginView { plugin_id: plugin_uuid, entrypoint_id } => {
+                let container: Element<BuiltInWidgetEvent> = plugin_container(client_context, plugin_uuid.clone())
+                    .into();
+
+                container.map(|widget_event| AppMsg::WidgetEvent {
+                    plugin_uuid: plugin_uuid.to_owned(),
+                    widget_event,
+                })
             }
         }
     }
-}
 
-impl AppModel {
-    fn initial_search(&mut self) {
-        self.search("");
-    }
-
-    fn search(&mut self, value: &str) {
-        let value = value.to_owned();
-
-        let handle = Handle::current();
-        handle.block_on(async move {
-            let result: Vec<_> = self.search_client.search(&value)
-                .await
-                .into_iter()
-                .map(|item| SearchListEntry::new(
-                    item.entrypoint_name,
-                    item.entrypoint_id,
-                    item.plugin_name,
-                    item.plugin_uuid,
-                    Some(Path::new("extension_icon.png").to_owned()),
-                ))
-                .collect();
-
-            self.list.clear();
-            self.list.extend_from_iter(result);
-        });
+    fn subscription(&self) -> Subscription<AppMsg> {
+        subscription::events().map(AppMsg::IcedEvent)
     }
 }
 
-fn get_item_from_list_view(list_view: &gtk::ListView, position: u32) -> glib::BoxedAnyObject {
-    let model = list_view
-        .model()
-        .expect("The model has to exist.");
 
-    let object = model
-        .item(position)
-        .and_downcast::<glib::BoxedAnyObject>()
-        .expect("The item has to be an `BoxedAnyObject`, unless relm internals changed");
+fn request_loop(client_context: Arc<RwLock<ClientContext>>, mut request_rx: RequestReceiver<(String, NativeUiRequestData), NativeUiResponseData>) -> Command<AppMsg> {
+    Command::perform(async move {
+        while let Ok(((plugin_uuid, request_data), responder)) = request_rx.recv().await {
+            let mut client_context = client_context.write().unwrap();
+            match request_data {
+                NativeUiRequestData::GetContainer => {
+                    let container = client_context.get_container(&plugin_uuid);
 
-    return object;
+                    let response = NativeUiResponseData::GetContainer { container };
+
+                    responder.respond(response).unwrap()
+                }
+                NativeUiRequestData::CreateInstance { widget_type, properties } => {
+                    let widget = client_context.create_instance(&plugin_uuid, &widget_type, properties);
+
+                    let response = NativeUiResponseData::CreateInstance { widget };
+
+                    responder.respond(response).unwrap()
+                }
+                NativeUiRequestData::CreateTextInstance { text } => {
+                    let widget = client_context.create_text_instance(&plugin_uuid, &text);
+
+                    let response = NativeUiResponseData::CreateTextInstance { widget };
+
+                    responder.respond(response).unwrap()
+                }
+                NativeUiRequestData::AppendChild { parent, child } => {
+                    client_context.append_child(&plugin_uuid, parent, child);
+                }
+                NativeUiRequestData::CloneInstance { widget_type, properties } => {
+                    let widget = client_context.clone_instance(&plugin_uuid, &widget_type, properties);
+
+                    let response = NativeUiResponseData::CloneInstance { widget };
+
+                    responder.respond(response).unwrap()
+                }
+                NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
+                    client_context.replace_container_children(&plugin_uuid, container, new_children);
+                }
+            }
+        }
+    }, |_| AppMsg::Noop)
 }

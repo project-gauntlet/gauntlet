@@ -45,7 +45,7 @@ trait DbusClientProxy {
 
     fn get_container(&self, plugin_uuid: &str) -> zbus::Result<DBusUiWidget>;
 
-    fn create_instance(&self, plugin_uuid: &str, widget_type: &str) -> zbus::Result<DBusUiWidget>;
+    fn create_instance(&self, plugin_uuid: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
 
     fn create_text_instance(&self, plugin_uuid: &str, text: &str) -> zbus::Result<DBusUiWidget>;
 

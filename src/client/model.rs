@@ -2,12 +2,7 @@ use std::collections::HashMap;
 
 use crate::dbus::{DBusUiPropertyContainer, DBusUiPropertyOneValue, DBusUiPropertyZeroValue, DBusUiWidget};
 
-#[derive(Debug)]
-pub struct NativeUiSearchRequest {
-    pub prompt: String
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NativeUiSearchResult {
     pub plugin_uuid: String,
     pub plugin_name: String,
@@ -15,7 +10,7 @@ pub struct NativeUiSearchResult {
     pub entrypoint_name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NativeUiResponseData {
     GetContainer {
         container: NativeUiWidget
@@ -32,11 +27,12 @@ pub enum NativeUiResponseData {
     Unit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NativeUiRequestData {
     GetContainer,
     CreateInstance {
         widget_type: String,
+        properties: HashMap<String, NativeUiPropertyValue>,
     },
     CreateTextInstance {
         text: String,
@@ -44,23 +40,6 @@ pub enum NativeUiRequestData {
     AppendChild {
         parent: NativeUiWidget,
         child: NativeUiWidget,
-    },
-    RemoveChild {
-        parent: NativeUiWidget,
-        child: NativeUiWidget,
-    },
-    InsertBefore {
-        parent: NativeUiWidget,
-        child: NativeUiWidget,
-        before_child: NativeUiWidget,
-    },
-    SetProperties {
-        widget: NativeUiWidget,
-        properties: HashMap<String, NativeUiPropertyValue>,
-    },
-    SetText {
-        widget: NativeUiWidget,
-        text: String,
     },
     CloneInstance {
         widget_type: String,
@@ -107,7 +86,7 @@ impl From<DBusUiPropertyContainer> for HashMap<String, NativeUiPropertyValue> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NativeUiPropertyValue {
     Function,
     String(String),
@@ -115,7 +94,7 @@ pub enum NativeUiPropertyValue {
     Bool(bool),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NativeUiWidget {
     pub widget_id: NativeUiWidgetId,
 }

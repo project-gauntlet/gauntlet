@@ -10,9 +10,6 @@ deno_core = { version = "0.204.0" }
 deno_runtime = { version = "0.126.0" }
 tokio = "1.28.1"
 #taffy = "0.3.12"
-relm4 = "0.6.0"
-gtk = { version = "0.6.6", package = "gtk4", features = ["v4_10"] }
-#gtk-layer-shell = { version = "0.0.3", package = "gtk4-layer-shell" }
 directories = "5.0"
 toml = "0.7.6"
 serde_json = "1.0"
@@ -26,6 +23,6 @@ tempfile = "3"
 futures-concurrency = "7.4.2"
 anyhow = "1.0.75"
 thiserror = "1.0.48"
-
+iced = { version = "0.10", features = ["tokio", "lazy", "advanced"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
