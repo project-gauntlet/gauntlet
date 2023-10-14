@@ -1,14 +1,14 @@
-mod plugin_container;
-mod search_list;
+use std::sync::{Arc, RwLock as StdRwLock};
 
-use std::sync::{Arc, RwLock};
 use deno_core::error::AnyError;
-
+use deno_core::futures::channel::mpsc::Sender;
 use iced::{Application, Command, Element, Event, executor, futures, keyboard, Length, Padding, Renderer, Subscription, subscription, widget};
 use iced::{Settings, window};
+use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::window::Position;
+use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};
 
 use crate::client::dbus::{DbusClient, DbusServerProxyProxy};
@@ -18,14 +18,18 @@ use crate::client::native_ui::search_list::search_list;
 use crate::dbus::{DbusEventViewCreated, DbusEventViewEvent};
 use crate::utils::channel::{channel, RequestReceiver};
 
+mod plugin_container;
+mod search_list;
+
 pub struct AppModel {
-    client_context: Arc<RwLock<ClientContext>>,
+    client_context: Arc<StdRwLock<ClientContext>>,
     dbus_connection: Connection,
     dbus_server: DbusServerProxyProxy<'static>,
     dbus_client: InterfaceRef<DbusClient>,
     state: AppState,
     prompt: Option<String>,
     search_results: Vec<NativeUiSearchResult>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<(String, NativeUiRequestData), NativeUiResponseData>>>,
 }
 
 enum AppState {
@@ -77,7 +81,7 @@ impl Application for AppModel {
 
         let (context_tx, request_rx) = channel::<(String, NativeUiRequestData), NativeUiResponseData>();
 
-        let client_context = Arc::new(RwLock::new(
+        let client_context = Arc::new(StdRwLock::new(
             ClientContext { containers: Default::default(), }
         ));
 
@@ -106,14 +110,12 @@ impl Application for AppModel {
                 dbus_connection,
                 dbus_server,
                 dbus_client,
+                request_rx: Arc::new(TokioRwLock::new(request_rx)),
                 state: AppState::SearchView,
                 prompt: None,
                 search_results: vec![]
             },
-            Command::batch([
-                request_loop(client_context, request_rx),
-                Command::perform(async {  }, |_| AppMsg::PromptChanged("".to_owned()))
-            ]),
+            Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
         )
     }
 
@@ -263,15 +265,36 @@ impl Application for AppModel {
     }
 
     fn subscription(&self) -> Subscription<AppMsg> {
-        subscription::events().map(AppMsg::IcedEvent)
+        let client_context = self.client_context.clone();
+        let request_rx = self.request_rx.clone();
+
+        struct RequestLoop;
+
+        Subscription::batch([
+            subscription::events().map(AppMsg::IcedEvent),
+            subscription::channel(
+                std::any::TypeId::of::<RequestLoop>(),
+                100,
+                |sender| async move {
+                    request_loop(client_context, request_rx, sender).await;
+
+                    panic!("request_rx was unexpectedly closed")
+                }
+            )
+        ])
     }
 }
 
-
-fn request_loop(client_context: Arc<RwLock<ClientContext>>, mut request_rx: RequestReceiver<(String, NativeUiRequestData), NativeUiResponseData>) -> Command<AppMsg> {
-    Command::perform(async move {
-        while let Ok(((plugin_uuid, request_data), responder)) = request_rx.recv().await {
+async fn request_loop(
+    client_context: Arc<StdRwLock<ClientContext>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<(String, NativeUiRequestData), NativeUiResponseData>>>,
+    mut sender: Sender<AppMsg>,
+) {
+    let mut request_rx = request_rx.write().await;
+    while let Ok(((plugin_uuid, request_data), responder)) = request_rx.recv().await {
+        {
             let mut client_context = client_context.write().unwrap();
+
             match request_data {
                 NativeUiRequestData::GetContainer => {
                     let container = client_context.get_container(&plugin_uuid);
@@ -309,5 +332,7 @@ fn request_loop(client_context: Arc<RwLock<ClientContext>>, mut request_rx: Requ
                 }
             }
         }
-    }, |_| AppMsg::Noop)
+
+        let _ = sender.send(AppMsg::Noop).await; // refresh ui
+    }
 }

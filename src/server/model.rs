@@ -18,7 +18,6 @@ pub enum JsUiResponseData {
     CloneInstance {
         widget: JsUiWidget
     },
-    Unit,
 }
 
 #[derive(Debug)]

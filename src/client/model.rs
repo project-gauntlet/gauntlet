@@ -52,7 +52,6 @@ pub enum NativeUiRequestData {
 }
 
 pub type NativeUiWidgetId = u32;
-pub type NativeUiEventName = String;
 
 impl From<DBusUiPropertyContainer> for HashMap<String, NativeUiPropertyValue> {
     fn from(value: DBusUiPropertyContainer) -> Self {

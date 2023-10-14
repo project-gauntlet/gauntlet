@@ -149,7 +149,7 @@ impl PluginLoader {
             .map(|entrypoint| PluginEntrypoint::new(entrypoint.id, entrypoint.name, entrypoint.path))
             .collect();
 
-        Plugin::new(&plugin.id, &package_json.plugin.metadata.name, PluginCode::new(js, None), entrypoints)
+        Plugin::new(&plugin.id, &package_json.plugin.metadata.name, PluginCode::new(js), entrypoints)
     }
 }
 
@@ -226,22 +226,16 @@ impl PluginEntrypoint {
 #[derive(Clone)]
 pub struct PluginCode {
     js: HashMap<String, String>,
-    css: Option<String>,
 }
 
 impl PluginCode {
-    fn new(js: HashMap<String, String>, css: Option<String>) -> Self {
+    fn new(js: HashMap<String, String>) -> Self {
         Self {
             js,
-            css,
         }
     }
 
     pub fn js(&self) -> &HashMap<String, String> {
         &self.js
-    }
-
-    pub fn css(&self) -> &Option<String> {
-        &self.css
     }
 }

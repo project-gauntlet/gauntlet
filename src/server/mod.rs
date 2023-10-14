@@ -7,7 +7,18 @@ pub(in crate::server) mod search;
 pub(in crate::server) mod plugins;
 pub(in crate::server) mod model;
 
-pub async fn start_server() -> anyhow::Result<()> {
+pub fn start_server() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        run_server().await
+    }).unwrap();
+}
+
+async fn run_server() -> anyhow::Result<()> {
     let mut plugin_manager = PluginManager::create();
     let mut search_index = SearchIndex::create_index().unwrap();
 

@@ -1,4 +1,6 @@
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
 use clap::Parser;
 
@@ -14,6 +16,7 @@ struct Cli {
 #[derive(Debug, clap::Subcommand)]
 enum Commands {
     Open,
+    Standalone,
     Server,
     Download,
 }
@@ -24,17 +27,17 @@ pub fn init() {
     let cli = Cli::parse();
     match &cli.command {
         Commands::Open => start_client(),
-        Commands::Server => {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
+        Commands::Server => start_server(),
+        Commands::Download => download_repo().unwrap(),
+        Commands::Standalone => {
+            thread::spawn(|| {
+                start_server();
+            });
 
-            runtime.block_on(async {
-                start_server().await
-            }).unwrap();
+            thread::sleep(Duration::from_secs(2));
+
+            start_client();
         }
-        Commands::Download => download_repo().unwrap()
     };
 }
 
