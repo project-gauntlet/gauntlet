@@ -1,4 +1,4 @@
-use crate::server::dbus::DbusServer;
+use crate::server::dbus::{DbusManagementServer, DbusServer};
 use crate::server::plugins::PluginManager;
 use crate::server::search::{SearchIndex, SearchItem};
 
@@ -30,7 +30,7 @@ async fn run_server() -> anyhow::Result<()> {
                 .map(|entrypoint| {
                     SearchItem {
                         entrypoint_name: entrypoint.name().to_owned(),
-                        entrypoint_id: entrypoint.id().to_owned(),
+                        entrypoint_uuid: entrypoint.id().to_owned(),
                         plugin_name: plugin.name().to_owned(),
                         plugin_id: plugin.id().to_owned(),
                     }
@@ -38,20 +38,17 @@ async fn run_server() -> anyhow::Result<()> {
         })
         .collect();
 
-    let plugin_uuids: Vec<_> = plugin_manager.plugins()
-        .iter()
-        .map(|plugin| plugin.id().to_owned())
-        .collect();
-
     search_index.add_entries(search_items).unwrap();
 
     plugin_manager.start_all_contexts();
 
-    let interface = DbusServer { plugins: plugin_uuids, search_index };
+    let interface = DbusServer { search_index };
+    let management_interface = DbusManagementServer { plugin_manager };
 
     let _conn = zbus::ConnectionBuilder::session()?
         .name("org.placeholdername.PlaceHolderName")?
         .serve_at("/org/placeholdername/PlaceHolderName", interface)?
+        .serve_at("/org/placeholdername/PlaceHolderName/Management", management_interface)?
         .build()
         .await?;
 

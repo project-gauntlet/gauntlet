@@ -3954,6 +3954,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_aw"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46c51860ce7be5be6f6104c4e13b14e56662ebbd7c96c50e10069d59f8c3d892"
+dependencies = [
+ "iced_widget",
+]
+
+[[package]]
 name = "iced_core"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4031,6 +4040,17 @@ dependencies = [
  "iced_core",
  "once_cell",
  "palette",
+]
+
+[[package]]
+name = "iced_table"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdcdab72b7db4099a94b1d9a04ade90a67f7812f9f72f52949e9d04fba274ea0"
+dependencies = [
+ "iced_core",
+ "iced_style",
+ "iced_widget",
 ]
 
 [[package]]
@@ -5659,6 +5679,8 @@ dependencies = [
  "futures-concurrency",
  "gix",
  "iced",
+ "iced_aw",
+ "iced_table",
  "once_cell",
  "regex",
  "serde",

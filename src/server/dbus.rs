@@ -1,19 +1,15 @@
 use std::fmt::Debug;
 
-use crate::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusSearchResult, DBusUiPropertyContainer, DBusUiWidget};
+use crate::common::dbus::{DBusEntrypoint, DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiPropertyContainer, DBusUiWidget};
+use crate::server::plugins::PluginManager;
 use crate::server::search::SearchIndex;
 
 pub struct DbusServer {
-    pub plugins: Vec<String>,
     pub search_index: SearchIndex,
 }
 
 #[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
 impl DbusServer {
-    fn plugins(&mut self) -> Vec<String> {
-        self.plugins.clone()
-    }
-
     fn search(&self, text: &str) -> Vec<DBusSearchResult> {
         self.search_index.create_handle()
             .search(text)
@@ -22,7 +18,7 @@ impl DbusServer {
             .map(|item| {
                 DBusSearchResult {
                     entrypoint_name: item.entrypoint_name,
-                    entrypoint_id: item.entrypoint_id,
+                    entrypoint_uuid: item.entrypoint_uuid,
                     plugin_name: item.plugin_name,
                     plugin_uuid: item.plugin_id,
                 }
@@ -30,6 +26,32 @@ impl DbusServer {
             .collect()
     }
 }
+
+
+pub struct DbusManagementServer {
+    pub plugin_manager: PluginManager,
+}
+
+#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName.Management")]
+impl DbusManagementServer {
+    fn plugins(&mut self) -> Vec<DBusPlugin> {
+        self.plugin_manager.plugins()
+            .iter()
+            .map(|plugin| DBusPlugin {
+                plugin_uuid: plugin.id().to_owned(),
+                plugin_name: plugin.name().to_owned(),
+                entrypoints: plugin.entrypoints()
+                    .into_iter()
+                    .map(|entrypoint| DBusEntrypoint {
+                        entrypoint_uuid: entrypoint.id().to_owned(),
+                        entrypoint_name: entrypoint.name().to_owned()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+}
+
 
 #[zbus::dbus_proxy(
 default_service = "org.placeholdername.PlaceHolderName.Client",

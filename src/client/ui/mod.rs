@@ -13,9 +13,10 @@ use zbus::{Connection, InterfaceRef};
 
 use crate::client::dbus::{DbusClient, DbusServerProxyProxy};
 use crate::client::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult};
-use crate::client::native_ui::plugin_container::{BuiltInWidgetEvent, ClientContext, plugin_container};
-use crate::client::native_ui::search_list::search_list;
-use crate::dbus::{DbusEventViewCreated, DbusEventViewEvent};
+use crate::client::ui::plugin_container::{BuiltInWidgetEvent, ClientContext, plugin_container};
+use crate::client::ui::search_list::search_list;
+use crate::common::dbus::{DbusEventViewCreated, DbusEventViewEvent};
+use crate::common::model::{EntrypointUuid, PluginUuid};
 use crate::utils::channel::{channel, RequestReceiver};
 
 mod plugin_container;
@@ -29,28 +30,28 @@ pub struct AppModel {
     state: AppState,
     prompt: Option<String>,
     search_results: Vec<NativeUiSearchResult>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<(String, NativeUiRequestData), NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginUuid, NativeUiRequestData), NativeUiResponseData>>>,
 }
 
 enum AppState {
     SearchView,
     PluginView {
-        plugin_id: String,
-        entrypoint_id: String,
+        plugin_uuid: PluginUuid,
+        entrypoint_uuid: EntrypointUuid,
     },
 }
 
 #[derive(Debug, Clone)]
 pub enum AppMsg {
     OpenView {
-        plugin_uuid: String,
-        entrypoint_id: String,
+        plugin_uuid: PluginUuid,
+        entrypoint_uuid: EntrypointUuid,
     },
     PromptChanged(String),
     SetSearchResults(Vec<NativeUiSearchResult>),
     IcedEvent(Event),
     WidgetEvent {
-        plugin_uuid: String,
+        plugin_uuid: PluginUuid,
         widget_event: BuiltInWidgetEvent
     },
     Noop,
@@ -79,7 +80,7 @@ impl Application for AppModel {
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
 
-        let (context_tx, request_rx) = channel::<(String, NativeUiRequestData), NativeUiResponseData>();
+        let (context_tx, request_rx) = channel::<(PluginUuid, NativeUiRequestData), NativeUiResponseData>();
 
         let client_context = Arc::new(StdRwLock::new(
             ClientContext { containers: Default::default(), }
@@ -125,28 +126,26 @@ impl Application for AppModel {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            AppMsg::OpenView { plugin_uuid, entrypoint_id } => {
+            AppMsg::OpenView { plugin_uuid, entrypoint_uuid } => {
                 self.state = AppState::PluginView {
-                    plugin_id: plugin_uuid.clone(),
-                    entrypoint_id: entrypoint_id.clone(),
+                    plugin_uuid: plugin_uuid.clone(),
+                    entrypoint_uuid: entrypoint_uuid.clone(),
                 };
 
                 let mut client_context = self.client_context.write().unwrap();
-                client_context.create_view_container(&plugin_uuid);
+                client_context.create_view_container(plugin_uuid.clone());
 
                 let dbus_client = self.dbus_client.clone();
-
-                let plugin_uuid = plugin_uuid.clone();
 
                 Command::perform(async move {
                     let event_view_created = DbusEventViewCreated {
                         reconciler_mode: "persistent".to_owned(),
-                        view_name: entrypoint_id, // TODO what was view_name supposed to be?
+                        view_name: entrypoint_uuid.to_string(), // TODO what was view_name supposed to be?
                     };
 
                     let signal_context = dbus_client.signal_context();
 
-                    DbusClient::view_created_signal(signal_context, &plugin_uuid, event_view_created)
+                    DbusClient::view_created_signal(signal_context, &plugin_uuid.to_string(), event_view_created)
                         .await
                         .unwrap();
                 }, |_| AppMsg::Noop)
@@ -162,9 +161,9 @@ impl Application for AppModel {
                         .unwrap()
                         .into_iter()
                         .map(|search_result| NativeUiSearchResult {
-                            plugin_uuid: search_result.plugin_uuid,
+                            plugin_uuid: PluginUuid::new(search_result.plugin_uuid),
                             plugin_name: search_result.plugin_name,
-                            entrypoint_id: search_result.entrypoint_id,
+                            entrypoint_uuid: EntrypointUuid::new(search_result.entrypoint_uuid),
                             entrypoint_name: search_result.entrypoint_name,
                         })
                         .collect()
@@ -200,7 +199,7 @@ impl Application for AppModel {
                                 widget_id,
                             };
 
-                            DbusClient::view_event_signal(&signal_context, &plugin_uuid, event_view_event)
+                            DbusClient::view_event_signal(&signal_context, &plugin_uuid.to_string(), event_view_event)
                                 .await
                                 .unwrap();
                         }, |_| AppMsg::Noop)
@@ -226,7 +225,7 @@ impl Application for AppModel {
                 let search_list = search_list(search_results, |event| {
                     AppMsg::OpenView {
                         plugin_uuid: event.plugin_uuid,
-                        entrypoint_id: event.entrypoint_id
+                        entrypoint_uuid: event.entrypoint_uuid
                     }
                 });
 
@@ -252,7 +251,7 @@ impl Application for AppModel {
                 // column.explain(Color::from_rgb(1f32, 0f32, 0f32))
                 column
             }
-            AppState::PluginView { plugin_id: plugin_uuid, entrypoint_id } => {
+            AppState::PluginView { plugin_uuid, entrypoint_uuid } => {
                 let container: Element<BuiltInWidgetEvent> = plugin_container(client_context, plugin_uuid.clone())
                     .into();
 
@@ -287,7 +286,7 @@ impl Application for AppModel {
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<(String, NativeUiRequestData), NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginUuid, NativeUiRequestData), NativeUiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
     let mut request_rx = request_rx.write().await;
