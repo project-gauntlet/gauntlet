@@ -30,7 +30,7 @@ async fn run_server() -> anyhow::Result<()> {
                 .map(|entrypoint| {
                     SearchItem {
                         entrypoint_name: entrypoint.name().to_owned(),
-                        entrypoint_uuid: entrypoint.id().to_owned(),
+                        entrypoint_id: entrypoint.id().to_owned(),
                         plugin_name: plugin.name().to_owned(),
                         plugin_id: plugin.id().to_owned(),
                     }

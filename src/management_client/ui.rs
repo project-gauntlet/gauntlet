@@ -7,7 +7,7 @@ use iced_aw::graphics::icons;
 use iced_table::table;
 use zbus::Connection;
 
-use crate::common::model::{EntrypointUuid, PluginUuid};
+use crate::common::model::{EntrypointId, PluginId};
 use crate::management_client::dbus::DbusManagementServerProxyProxy;
 
 pub fn run() {
@@ -27,7 +27,7 @@ struct ManagementAppModel {
     dbus_connection: Connection,
     dbus_server: DbusManagementServerProxyProxy<'static>,
     columns: Vec<Column>,
-    plugins: HashMap<PluginUuid, Plugin>,
+    plugins: HashMap<PluginId, Plugin>,
     selected_item: SelectedItem,
     header: scrollable::Id,
     body: scrollable::Id,
@@ -37,9 +37,9 @@ struct ManagementAppModel {
 enum ManagementAppMsg {
     TableSyncHeader(scrollable::AbsoluteOffset),
     FontLoaded(Result<(), font::Error>),
-    PluginsLoaded(HashMap<PluginUuid, Plugin>),
+    PluginsLoaded(HashMap<PluginId, Plugin>),
     ToggleShowEntrypoints {
-        plugin_uuid: PluginUuid,
+        plugin_id: PluginId,
     },
     SelectItem(SelectedItem)
 }
@@ -48,26 +48,26 @@ enum ManagementAppMsg {
 enum SelectedItem {
     None,
     Plugin {
-        plugin_uuid: PluginUuid
+        plugin_id: PluginId
     },
     Entrypoint {
-        plugin_uuid: PluginUuid,
-        entrypoint_uuid: EntrypointUuid
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId
     }
 }
 
 
 #[derive(Debug, Clone)]
 struct Plugin {
-    plugin_uuid: PluginUuid,
+    plugin_id: PluginId,
     plugin_name: String,
     show_entrypoints: bool,
-    entrypoints: HashMap<EntrypointUuid, Entrypoint>,
+    entrypoints: HashMap<EntrypointId, Entrypoint>,
 }
 
 #[derive(Debug, Clone)]
 struct Entrypoint {
-    entrypoint_uuid: EntrypointUuid,
+    entrypoint_id: EntrypointId,
     entrypoint_name: String,
 }
 
@@ -113,24 +113,24 @@ impl Application for ManagementAppModel {
                             let entrypoints: HashMap<_, _> = plugin.entrypoints
                                 .into_iter()
                                 .map(|entrypoint| {
-                                    let uuid = EntrypointUuid::new(entrypoint.entrypoint_uuid);
+                                    let id = EntrypointId::new(entrypoint.entrypoint_id);
                                     let entrypoint = Entrypoint {
-                                        entrypoint_uuid: uuid.clone(),
+                                        entrypoint_id: id.clone(),
                                         entrypoint_name: entrypoint.entrypoint_name.clone(),
                                     };
-                                    (uuid, entrypoint)
+                                    (id, entrypoint)
                                 })
                                 .collect();
 
-                            let uuid = PluginUuid::new(plugin.plugin_uuid);
+                            let id = PluginId::new(plugin.plugin_id);
                             let plugin = Plugin {
-                                plugin_uuid: uuid.clone(),
+                                plugin_id: id.clone(),
                                 plugin_name: plugin.plugin_name,
                                 show_entrypoints: true,
                                 entrypoints,
                             };
 
-                            (uuid, plugin)
+                            (id, plugin)
                         })
                         .collect();
 
@@ -153,8 +153,8 @@ impl Application for ManagementAppModel {
                 result.unwrap();
                 Command::none()
             }
-            ManagementAppMsg::ToggleShowEntrypoints { plugin_uuid } => {
-                let plugin = self.plugins.get_mut(&plugin_uuid).unwrap();
+            ManagementAppMsg::ToggleShowEntrypoints { plugin_id } => {
+                let plugin = self.plugins.get_mut(&plugin_id).unwrap();
                 plugin.show_entrypoints = !plugin.show_entrypoints;
                 Command::none()
             }
@@ -223,8 +223,8 @@ impl Application for ManagementAppModel {
                     .width(Length::Fill)
                     .into()
             }
-            SelectedItem::Plugin { plugin_uuid } => {
-                let plugin = self.plugins.get(plugin_uuid).unwrap();
+            SelectedItem::Plugin { plugin_id } => {
+                let plugin = self.plugins.get(plugin_id).unwrap();
 
                 let name = container(text(&plugin.plugin_name))
                     .padding(Padding::new(10.0))
@@ -234,9 +234,9 @@ impl Application for ManagementAppModel {
                     name,
                 ]).into()
             }
-            SelectedItem::Entrypoint { plugin_uuid, entrypoint_uuid } => {
-                let plugin = self.plugins.get(plugin_uuid).unwrap();
-                let entrypoint = plugin.entrypoints.get(entrypoint_uuid).unwrap();
+            SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
+                let plugin = self.plugins.get(plugin_id).unwrap();
+                let entrypoint = plugin.entrypoints.get(entrypoint_id).unwrap();
 
                 let name = container(text(&entrypoint.entrypoint_name))
                     .padding(Padding::new(10.0))
@@ -319,7 +319,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
 
                         button(icon)
                             .style(theme::Button::Text)
-                            .on_press(ManagementAppMsg::ToggleShowEntrypoints { plugin_uuid: plugin.plugin_uuid.clone() })
+                            .on_press(ManagementAppMsg::ToggleShowEntrypoints { plugin_id: plugin.plugin_id.clone() })
                             .into()
                     }
                     Row::Entrypoint { .. } => {
@@ -351,10 +351,10 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                 };
 
                 let msg = match &row_entry {
-                    Row::Plugin { plugin } => SelectedItem::Plugin { plugin_uuid: plugin.plugin_uuid.clone() },
+                    Row::Plugin { plugin } => SelectedItem::Plugin { plugin_id: plugin.plugin_id.clone() },
                     Row::Entrypoint { entrypoint, plugin } => SelectedItem::Entrypoint {
-                        plugin_uuid: plugin.plugin_uuid.clone(),
-                        entrypoint_uuid: entrypoint.entrypoint_uuid.clone()
+                        plugin_id: plugin.plugin_id.clone(),
+                        entrypoint_id: entrypoint.entrypoint_id.clone()
                     }
                 };
 

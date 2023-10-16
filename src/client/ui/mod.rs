@@ -16,7 +16,7 @@ use crate::client::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSe
 use crate::client::ui::plugin_container::{BuiltInWidgetEvent, ClientContext, plugin_container};
 use crate::client::ui::search_list::search_list;
 use crate::common::dbus::{DbusEventViewCreated, DbusEventViewEvent};
-use crate::common::model::{EntrypointUuid, PluginUuid};
+use crate::common::model::{EntrypointId, PluginId};
 use crate::utils::channel::{channel, RequestReceiver};
 
 mod plugin_container;
@@ -30,28 +30,28 @@ pub struct AppModel {
     state: AppState,
     prompt: Option<String>,
     search_results: Vec<NativeUiSearchResult>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginUuid, NativeUiRequestData), NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
 }
 
 enum AppState {
     SearchView,
     PluginView {
-        plugin_uuid: PluginUuid,
-        entrypoint_uuid: EntrypointUuid,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
     },
 }
 
 #[derive(Debug, Clone)]
 pub enum AppMsg {
     OpenView {
-        plugin_uuid: PluginUuid,
-        entrypoint_uuid: EntrypointUuid,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
     },
     PromptChanged(String),
     SetSearchResults(Vec<NativeUiSearchResult>),
     IcedEvent(Event),
     WidgetEvent {
-        plugin_uuid: PluginUuid,
+        plugin_id: PluginId,
         widget_event: BuiltInWidgetEvent
     },
     Noop,
@@ -80,7 +80,7 @@ impl Application for AppModel {
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
 
-        let (context_tx, request_rx) = channel::<(PluginUuid, NativeUiRequestData), NativeUiResponseData>();
+        let (context_tx, request_rx) = channel::<(PluginId, NativeUiRequestData), NativeUiResponseData>();
 
         let client_context = Arc::new(StdRwLock::new(
             ClientContext { containers: Default::default(), }
@@ -126,26 +126,26 @@ impl Application for AppModel {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            AppMsg::OpenView { plugin_uuid, entrypoint_uuid } => {
+            AppMsg::OpenView { plugin_id, entrypoint_id } => {
                 self.state = AppState::PluginView {
-                    plugin_uuid: plugin_uuid.clone(),
-                    entrypoint_uuid: entrypoint_uuid.clone(),
+                    plugin_id: plugin_id.clone(),
+                    entrypoint_id: entrypoint_id.clone(),
                 };
 
                 let mut client_context = self.client_context.write().unwrap();
-                client_context.create_view_container(plugin_uuid.clone());
+                client_context.create_view_container(plugin_id.clone());
 
                 let dbus_client = self.dbus_client.clone();
 
                 Command::perform(async move {
                     let event_view_created = DbusEventViewCreated {
                         reconciler_mode: "persistent".to_owned(),
-                        view_name: entrypoint_uuid.to_string(), // TODO what was view_name supposed to be?
+                        view_name: entrypoint_id.to_string(), // TODO what was view_name supposed to be?
                     };
 
                     let signal_context = dbus_client.signal_context();
 
-                    DbusClient::view_created_signal(signal_context, &plugin_uuid.to_string(), event_view_created)
+                    DbusClient::view_created_signal(signal_context, &plugin_id.to_string(), event_view_created)
                         .await
                         .unwrap();
                 }, |_| AppMsg::Noop)
@@ -161,9 +161,9 @@ impl Application for AppModel {
                         .unwrap()
                         .into_iter()
                         .map(|search_result| NativeUiSearchResult {
-                            plugin_uuid: PluginUuid::new(search_result.plugin_uuid),
+                            plugin_id: PluginId::new(search_result.plugin_id),
                             plugin_name: search_result.plugin_name,
-                            entrypoint_uuid: EntrypointUuid::new(search_result.entrypoint_uuid),
+                            entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
                             entrypoint_name: search_result.entrypoint_name,
                         })
                         .collect()
@@ -186,7 +186,7 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(_) => Command::none(),
-            AppMsg::WidgetEvent { widget_event, plugin_uuid } => {
+            AppMsg::WidgetEvent { widget_event, plugin_id } => {
                 match widget_event {
                     BuiltInWidgetEvent::ButtonClick { widget_id } => {
                         let dbus_client = self.dbus_client.clone();
@@ -199,7 +199,7 @@ impl Application for AppModel {
                                 widget_id,
                             };
 
-                            DbusClient::view_event_signal(&signal_context, &plugin_uuid.to_string(), event_view_event)
+                            DbusClient::view_event_signal(&signal_context, &plugin_id.to_string(), event_view_event)
                                 .await
                                 .unwrap();
                         }, |_| AppMsg::Noop)
@@ -224,8 +224,8 @@ impl Application for AppModel {
 
                 let search_list = search_list(search_results, |event| {
                     AppMsg::OpenView {
-                        plugin_uuid: event.plugin_uuid,
-                        entrypoint_uuid: event.entrypoint_uuid
+                        plugin_id: event.plugin_id,
+                        entrypoint_id: event.entrypoint_id
                     }
                 });
 
@@ -251,12 +251,12 @@ impl Application for AppModel {
                 // column.explain(Color::from_rgb(1f32, 0f32, 0f32))
                 column
             }
-            AppState::PluginView { plugin_uuid, entrypoint_uuid } => {
-                let container: Element<BuiltInWidgetEvent> = plugin_container(client_context, plugin_uuid.clone())
+            AppState::PluginView { plugin_id, entrypoint_id } => {
+                let container: Element<BuiltInWidgetEvent> = plugin_container(client_context, plugin_id.clone())
                     .into();
 
                 container.map(|widget_event| AppMsg::WidgetEvent {
-                    plugin_uuid: plugin_uuid.to_owned(),
+                    plugin_id: plugin_id.to_owned(),
                     widget_event,
                 })
             }
@@ -286,48 +286,48 @@ impl Application for AppModel {
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginUuid, NativeUiRequestData), NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
     let mut request_rx = request_rx.write().await;
-    while let Ok(((plugin_uuid, request_data), responder)) = request_rx.recv().await {
+    while let Ok(((plugin_id, request_data), responder)) = request_rx.recv().await {
         {
             let mut client_context = client_context.write().unwrap();
 
             match request_data {
                 NativeUiRequestData::GetContainer => {
-                    let container = client_context.get_container(&plugin_uuid);
+                    let container = client_context.get_container(&plugin_id);
 
                     let response = NativeUiResponseData::GetContainer { container };
 
                     responder.respond(response).unwrap()
                 }
                 NativeUiRequestData::CreateInstance { widget_type, properties } => {
-                    let widget = client_context.create_instance(&plugin_uuid, &widget_type, properties);
+                    let widget = client_context.create_instance(&plugin_id, &widget_type, properties);
 
                     let response = NativeUiResponseData::CreateInstance { widget };
 
                     responder.respond(response).unwrap()
                 }
                 NativeUiRequestData::CreateTextInstance { text } => {
-                    let widget = client_context.create_text_instance(&plugin_uuid, &text);
+                    let widget = client_context.create_text_instance(&plugin_id, &text);
 
                     let response = NativeUiResponseData::CreateTextInstance { widget };
 
                     responder.respond(response).unwrap()
                 }
                 NativeUiRequestData::AppendChild { parent, child } => {
-                    client_context.append_child(&plugin_uuid, parent, child);
+                    client_context.append_child(&plugin_id, parent, child);
                 }
                 NativeUiRequestData::CloneInstance { widget_type, properties } => {
-                    let widget = client_context.clone_instance(&plugin_uuid, &widget_type, properties);
+                    let widget = client_context.clone_instance(&plugin_id, &widget_type, properties);
 
                     let response = NativeUiResponseData::CloneInstance { widget };
 
                     responder.respond(response).unwrap()
                 }
                 NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
-                    client_context.replace_container_children(&plugin_uuid, container, new_children);
+                    client_context.replace_container_children(&plugin_id, container, new_children);
                 }
             }
         }

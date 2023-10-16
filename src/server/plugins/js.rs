@@ -24,16 +24,16 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
     let conn = zbus::Connection::session().await?;
     let client_proxy = DbusClientProxyProxy::new(&conn).await?;
 
-    let plugin_uuid = plugin.id().to_owned();
+    let plugin_id = plugin.id().to_owned();
     let view_created_signal = client_proxy.receive_view_created_signal()
         .await?
         .filter_map(move |signal: ViewCreatedSignal| {
-            let plugin_uuid = plugin_uuid.clone();
+            let plugin_id = plugin_id.clone();
             async move {
                 let signal = signal.args().unwrap();
 
                 // TODO add logging here that we received signal
-                if signal.plugin_uuid != plugin_uuid {
+                if signal.plugin_id != plugin_id {
                     None
                 } else {
                     Some(JsUiEvent::ViewCreated {
@@ -44,16 +44,16 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
             }
         });
 
-    let plugin_uuid = plugin.id().to_owned();
+    let plugin_id = plugin.id().to_owned();
     let view_event_signal = client_proxy.receive_view_event_signal()
         .await?
         .filter_map(move |signal: ViewEventSignal| {
-            let plugin_uuid = plugin_uuid.clone();
+            let plugin_id = plugin_id.clone();
             async move {
                 let signal = signal.args().unwrap();
 
                 // TODO add logging here that we received signal
-                if signal.plugin_uuid != plugin_uuid {
+                if signal.plugin_id != plugin_id {
                     None
                 } else {
                     Some(JsUiEvent::ViewEvent {
@@ -68,28 +68,28 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
 
     let (tx, mut rx) = channel::<JsUiRequestData, JsUiResponseData>();
 
-    let plugin_uuid: String = plugin.id().to_owned();
+    let plugin_id: String = plugin.id().to_owned();
     tokio::spawn(tokio::task::unconstrained(async move {
         println!("starting request handler loop");
 
         while let Ok((request_data, responder)) = rx.recv().await {
             match request_data {
                 JsUiRequestData::GetContainer => {
-                    let container = client_proxy.get_container(&plugin_uuid) // TODO add timeout handling
+                    let container = client_proxy.get_container(&plugin_id) // TODO add timeout handling
                         .await
                         .unwrap()
                         .into();
                     responder.respond(JsUiResponseData::GetContainer { container }).unwrap()
                 }
                 JsUiRequestData::CreateInstance { widget_type, properties } => {
-                    let widget = client_proxy.create_instance(&plugin_uuid, &widget_type, properties.into())
+                    let widget = client_proxy.create_instance(&plugin_id, &widget_type, properties.into())
                         .await
                         .unwrap()
                         .into();
                     responder.respond(JsUiResponseData::CreateInstance { widget }).unwrap()
                 }
                 JsUiRequestData::CreateTextInstance { text } => {
-                    let widget = client_proxy.create_text_instance(&plugin_uuid, &text)
+                    let widget = client_proxy.create_text_instance(&plugin_id, &text)
                         .await
                         .unwrap()
                         .into();
@@ -97,32 +97,32 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                     responder.respond(JsUiResponseData::CreateTextInstance { widget }).unwrap()
                 }
                 JsUiRequestData::AppendChild { parent, child } => {
-                    client_proxy.append_child(&plugin_uuid, parent.into(), child.into())
+                    client_proxy.append_child(&plugin_id, parent.into(), child.into())
                         .await
                         .unwrap();
                 }
                 JsUiRequestData::RemoveChild { parent, child } => {
-                    client_proxy.remove_child(&plugin_uuid, parent.into(), child.into())
+                    client_proxy.remove_child(&plugin_id, parent.into(), child.into())
                         .await
                         .unwrap();
                 }
                 JsUiRequestData::InsertBefore { parent, child, before_child } => {
-                    client_proxy.insert_before(&plugin_uuid, parent.into(), child.into(), before_child.into())
+                    client_proxy.insert_before(&plugin_id, parent.into(), child.into(), before_child.into())
                         .await
                         .unwrap();
                 }
                 JsUiRequestData::SetProperties { widget, properties } => {
-                    client_proxy.set_properties(&plugin_uuid, widget.into(), properties.into())
+                    client_proxy.set_properties(&plugin_id, widget.into(), properties.into())
                         .await
                         .unwrap();
                 }
                 JsUiRequestData::SetText { widget, text } => {
-                    client_proxy.set_text(&plugin_uuid, widget.into(), &text)
+                    client_proxy.set_text(&plugin_id, widget.into(), &text)
                         .await
                         .unwrap();
                 }
                 JsUiRequestData::CloneInstance { widget_type, properties } => {
-                    let widget = client_proxy.clone_instance(&plugin_uuid, &widget_type, properties.into())
+                    let widget = client_proxy.clone_instance(&plugin_id, &widget_type, properties.into())
                         .await
                         .unwrap()
                         .into();
@@ -134,7 +134,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                         .map(|child| child.into())
                         .collect();
 
-                    client_proxy.replace_container_children(&plugin_uuid, container.into(), new_children)
+                    client_proxy.replace_container_children(&plugin_id, container.into(), new_children)
                         .await
                         .unwrap();
                 }

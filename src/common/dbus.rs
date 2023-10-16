@@ -6,22 +6,22 @@ use zbus::zvariant::Type;
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DBusSearchResult {
-    pub plugin_uuid: String,
+    pub plugin_id: String,
     pub plugin_name: String,
-    pub entrypoint_uuid: String,
+    pub entrypoint_id: String,
     pub entrypoint_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DBusPlugin {
-    pub plugin_uuid: String,
+    pub plugin_id: String,
     pub plugin_name: String,
     pub entrypoints: Vec<DBusEntrypoint>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DBusEntrypoint {
-    pub entrypoint_uuid: String,
+    pub entrypoint_id: String,
     pub entrypoint_name: String,
 }
 

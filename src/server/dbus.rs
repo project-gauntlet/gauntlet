@@ -18,9 +18,9 @@ impl DbusServer {
             .map(|item| {
                 DBusSearchResult {
                     entrypoint_name: item.entrypoint_name,
-                    entrypoint_uuid: item.entrypoint_uuid,
+                    entrypoint_id: item.entrypoint_id,
                     plugin_name: item.plugin_name,
-                    plugin_uuid: item.plugin_id,
+                    plugin_id: item.plugin_id,
                 }
             })
             .collect()
@@ -38,12 +38,12 @@ impl DbusManagementServer {
         self.plugin_manager.plugins()
             .iter()
             .map(|plugin| DBusPlugin {
-                plugin_uuid: plugin.id().to_owned(),
+                plugin_id: plugin.id().to_owned(),
                 plugin_name: plugin.name().to_owned(),
                 entrypoints: plugin.entrypoints()
                     .into_iter()
                     .map(|entrypoint| DBusEntrypoint {
-                        entrypoint_uuid: entrypoint.id().to_owned(),
+                        entrypoint_id: entrypoint.id().to_owned(),
                         entrypoint_name: entrypoint.name().to_owned()
                     })
                     .collect()
@@ -60,28 +60,28 @@ interface = "org.placeholdername.PlaceHolderName.Client",
 )]
 trait DbusClientProxy {
     #[dbus_proxy(signal)]
-    fn view_created_signal(&self, plugin_uuid: &str, event: DbusEventViewCreated) -> zbus::Result<()>;
+    fn view_created_signal(&self, plugin_id: &str, event: DbusEventViewCreated) -> zbus::Result<()>;
 
     #[dbus_proxy(signal)]
-    fn view_event_signal(&self, plugin_uuid: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
+    fn view_event_signal(&self, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    fn get_container(&self, plugin_uuid: &str) -> zbus::Result<DBusUiWidget>;
+    fn get_container(&self, plugin_id: &str) -> zbus::Result<DBusUiWidget>;
 
-    fn create_instance(&self, plugin_uuid: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
+    fn create_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
 
-    fn create_text_instance(&self, plugin_uuid: &str, text: &str) -> zbus::Result<DBusUiWidget>;
+    fn create_text_instance(&self, plugin_id: &str, text: &str) -> zbus::Result<DBusUiWidget>;
 
-    fn append_child(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
+    fn append_child(&self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
 
-    fn remove_child(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
+    fn remove_child(&self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
 
-    fn insert_before(&self, plugin_uuid: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) -> zbus::Result<()>;
+    fn insert_before(&self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) -> zbus::Result<()>;
 
-    fn set_properties(&self, plugin_uuid: &str, widget: DBusUiWidget, properties: DBusUiPropertyContainer) -> zbus::Result<()>;
+    fn set_properties(&self, plugin_id: &str, widget: DBusUiWidget, properties: DBusUiPropertyContainer) -> zbus::Result<()>;
 
-    fn set_text(&self, plugin_uuid: &str, widget: DBusUiWidget, text: &str) -> zbus::Result<()>;
+    fn set_text(&self, plugin_id: &str, widget: DBusUiWidget, text: &str) -> zbus::Result<()>;
 
-    fn clone_instance(&self, plugin_uuid: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
+    fn clone_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
 
-    fn replace_container_children(&self, plugin_uuid: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> zbus::Result<()>;
+    fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> zbus::Result<()>;
 }

@@ -62,7 +62,7 @@ impl SearchIndex {
         for entry in entries {
             index_writer.add_document(doc!(
                 self.entrypoint_name => entry.entrypoint_name,
-                self.entrypoint_id => entry.entrypoint_uuid,
+                self.entrypoint_id => entry.entrypoint_id,
                 self.plugin_name => entry.plugin_name,
                 self.plugin_id => entry.plugin_id,
             ))?;
@@ -99,7 +99,7 @@ impl SearchIndex {
 #[derive(Clone, Debug)]
 pub struct SearchItem {
     pub entrypoint_name: String,
-    pub entrypoint_uuid: String,
+    pub entrypoint_id: String,
     pub plugin_name: String,
     pub plugin_id: String,
 }
@@ -161,7 +161,7 @@ impl SearchHandle {
 
                 SearchItem {
                     entrypoint_name: get_str_field(&retrieved_doc, self.entrypoint_name),
-                    entrypoint_uuid: get_str_field(&retrieved_doc, self.entrypoint_id),
+                    entrypoint_id: get_str_field(&retrieved_doc, self.entrypoint_id),
                     plugin_name: get_str_field(&retrieved_doc, self.plugin_name),
                     plugin_id: get_str_field(&retrieved_doc, self.plugin_id),
                 }

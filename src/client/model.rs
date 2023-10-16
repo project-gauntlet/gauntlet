@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use crate::common::dbus::{DBusUiPropertyContainer, DBusUiPropertyOneValue, DBusUiPropertyZeroValue, DBusUiWidget};
-use crate::common::model::{EntrypointUuid, PluginUuid};
+use crate::common::model::{EntrypointId, PluginId};
 
 #[derive(Debug, Clone)]
 pub struct NativeUiSearchResult {
-    pub plugin_uuid: PluginUuid,
+    pub plugin_id: PluginId,
     pub plugin_name: String,
-    pub entrypoint_uuid: EntrypointUuid,
+    pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
 }
 

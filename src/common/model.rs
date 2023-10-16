@@ -1,30 +1,30 @@
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PluginUuid(Arc<str>);
+pub struct PluginId(Arc<str>);
 
-impl PluginUuid {
-    pub fn new(plugin_uuid: impl ToString) -> Self {
-        PluginUuid(plugin_uuid.to_string().into())
+impl PluginId {
+    pub fn new(plugin_id: impl ToString) -> Self {
+        PluginId(plugin_id.to_string().into())
     }
 }
 
-impl ToString for PluginUuid {
+impl ToString for PluginId {
     fn to_string(&self) -> String {
         self.0.to_string()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntrypointUuid(Arc<str>);
+pub struct EntrypointId(Arc<str>);
 
-impl EntrypointUuid {
-    pub fn new(entrypoint_uuid: impl ToString) -> Self {
-        EntrypointUuid(entrypoint_uuid.to_string().into())
+impl EntrypointId {
+    pub fn new(entrypoint_id: impl ToString) -> Self {
+        EntrypointId(entrypoint_id.to_string().into())
     }
 }
 
-impl ToString for EntrypointUuid {
+impl ToString for EntrypointId {
     fn to_string(&self) -> String {
         self.0.to_string()
     }

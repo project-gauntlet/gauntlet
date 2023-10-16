@@ -8,17 +8,17 @@ use iced::widget::{button, column, Component, text, vertical_space};
 use iced::widget::component;
 
 use crate::client::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
-use crate::common::model::PluginUuid;
+use crate::common::model::PluginId;
 
 pub struct PluginContainer {
     client_context: Arc<RwLock<ClientContext>>,
-    plugin_uuid: PluginUuid
+    plugin_id: PluginId
 }
 
-pub fn plugin_container(client_context: Arc<RwLock<ClientContext>>, plugin_uuid: PluginUuid) -> PluginContainer {
+pub fn plugin_container(client_context: Arc<RwLock<ClientContext>>, plugin_id: PluginId) -> PluginContainer {
     PluginContainer {
         client_context,
-        plugin_uuid
+        plugin_id
     }
 }
 
@@ -169,7 +169,7 @@ impl Component<BuiltInWidgetEvent, Renderer> for PluginContainer {
 
     fn view(&self, _state: &Self::State) -> Element<Self::Event, Renderer> {
         let client_context = self.client_context.read().unwrap();
-        let container = client_context.get_view_container(&self.plugin_uuid);
+        let container = client_context.get_view_container(&self.plugin_id);
 
         if let Some(widget) = container.widget_map.get(&container.root_id) {
             create_view_subtree(widget.clone())
@@ -213,42 +213,42 @@ impl<'a> From<PluginContainer> for Element<'a, BuiltInWidgetEvent> {
 }
 
 pub struct ClientContext {
-    pub containers: HashMap<PluginUuid, PluginViewContainer>,
+    pub containers: HashMap<PluginId, PluginViewContainer>,
 }
 
 impl ClientContext {
-    pub fn create_view_container(&mut self, plugin_uuid: PluginUuid) {
-        self.containers.insert(plugin_uuid, PluginViewContainer::default());
+    pub fn create_view_container(&mut self, plugin_id: PluginId) {
+        self.containers.insert(plugin_id, PluginViewContainer::default());
     }
 
-    pub fn get_view_container(&self, plugin_uuid: &PluginUuid) -> &PluginViewContainer {
-        self.containers.get(plugin_uuid).unwrap()
+    pub fn get_view_container(&self, plugin_id: &PluginId) -> &PluginViewContainer {
+        self.containers.get(plugin_id).unwrap()
     }
-    pub fn get_view_container_mut(&mut self, plugin_uuid: &PluginUuid) -> &mut PluginViewContainer {
-        self.containers.get_mut(plugin_uuid).unwrap()
-    }
-
-    pub fn get_container(&mut self, plugin_uuid: &PluginUuid) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_uuid).get_container()
+    pub fn get_view_container_mut(&mut self, plugin_id: &PluginId) -> &mut PluginViewContainer {
+        self.containers.get_mut(plugin_id).unwrap()
     }
 
-    pub fn create_instance(&mut self, plugin_uuid: &PluginUuid, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_uuid).create_instance(widget_type, properties)
+    pub fn get_container(&mut self, plugin_id: &PluginId) -> NativeUiWidget {
+        self.get_view_container_mut(plugin_id).get_container()
     }
 
-    pub fn create_text_instance(&mut self, plugin_uuid: &PluginUuid, text: &str) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_uuid).create_text_instance(text)
+    pub fn create_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
+        self.get_view_container_mut(plugin_id).create_instance(widget_type, properties)
     }
 
-    pub fn append_child(&mut self, plugin_uuid: &PluginUuid, parent: NativeUiWidget, child: NativeUiWidget) {
-        self.get_view_container_mut(plugin_uuid).append_child(parent, child)
+    pub fn create_text_instance(&mut self, plugin_id: &PluginId, text: &str) -> NativeUiWidget {
+        self.get_view_container_mut(plugin_id).create_text_instance(text)
     }
 
-    pub fn clone_instance(&mut self, plugin_uuid: &PluginUuid, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_uuid).clone_instance(widget_type, properties)
+    pub fn append_child(&mut self, plugin_id: &PluginId, parent: NativeUiWidget, child: NativeUiWidget) {
+        self.get_view_container_mut(plugin_id).append_child(parent, child)
     }
 
-    pub fn replace_container_children(&mut self, plugin_uuid: &PluginUuid, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
-        self.get_view_container_mut(plugin_uuid).replace_container_children(container, new_children)
+    pub fn clone_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
+        self.get_view_container_mut(plugin_id).clone_instance(widget_type, properties)
+    }
+
+    pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
+        self.get_view_container_mut(plugin_id).replace_container_children(container, new_children)
     }
 }

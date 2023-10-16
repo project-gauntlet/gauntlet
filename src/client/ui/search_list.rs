@@ -10,7 +10,7 @@ use iced::widget::row;
 use iced::widget::text;
 
 use crate::client::model::NativeUiSearchResult;
-use crate::common::model::{EntrypointUuid, PluginUuid};
+use crate::common::model::{EntrypointId, PluginId};
 
 pub struct SearchList<Message> {
     on_open_view: Box<dyn Fn(OpenViewEvent) -> Message>,
@@ -25,15 +25,15 @@ pub fn search_list<Message>(
 }
 
 pub struct OpenViewEvent {
-    pub plugin_uuid: PluginUuid,
-    pub entrypoint_uuid: EntrypointUuid,
+    pub plugin_id: PluginId,
+    pub entrypoint_id: EntrypointId,
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     OpenView {
-        plugin_uuid: PluginUuid,
-        entrypoint_uuid: EntrypointUuid,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
     },
 }
 
@@ -56,8 +56,8 @@ impl<Message> Component<Message, Renderer> for SearchList<Message> {
         event: Event,
     ) -> Option<Message> {
         match event {
-            Event::OpenView { plugin_uuid, entrypoint_uuid } => {
-                let event = OpenViewEvent { plugin_uuid, entrypoint_uuid, };
+            Event::OpenView { plugin_id, entrypoint_id } => {
+                let event = OpenViewEvent { plugin_id, entrypoint_id, };
                 Some((self.on_open_view)(event))
             }
         }
@@ -88,7 +88,7 @@ impl<Message> Component<Message, Renderer> for SearchList<Message> {
                 button(button_content)
                     .width(Length::Fill)
                     .style(Button::Secondary)
-                    .on_press(Event::OpenView { entrypoint_uuid: search_result.entrypoint_uuid.clone(), plugin_uuid: search_result.plugin_uuid.clone() })
+                    .on_press(Event::OpenView { entrypoint_id: search_result.entrypoint_id.clone(), plugin_id: search_result.plugin_id.clone() })
                     .padding(Padding::new(5.0))
                     .into()
             })
