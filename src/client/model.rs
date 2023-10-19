@@ -25,7 +25,6 @@ pub enum NativeUiResponseData {
     CloneInstance {
         widget: NativeUiWidget
     },
-    Unit,
 }
 
 #[derive(Debug, Clone)]

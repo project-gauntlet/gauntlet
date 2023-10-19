@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use deno_core::error::AnyError;
 use iced::{Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, theme, window};
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text};
+use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text};
 use iced_aw::graphics::icons;
 use iced_table::table;
 use zbus::Connection;
@@ -37,11 +37,12 @@ struct ManagementAppModel {
 enum ManagementAppMsg {
     TableSyncHeader(scrollable::AbsoluteOffset),
     FontLoaded(Result<(), font::Error>),
-    PluginsLoaded(HashMap<PluginId, Plugin>),
+    PluginsReloaded(HashMap<PluginId, Plugin>),
     ToggleShowEntrypoints {
         plugin_id: PluginId,
     },
-    SelectItem(SelectedItem)
+    SelectItem(SelectedItem),
+    EnabledToggleItem(EnabledItem),
 }
 
 #[derive(Debug, Clone)]
@@ -56,12 +57,26 @@ enum SelectedItem {
     }
 }
 
+#[derive(Debug, Clone)]
+enum EnabledItem {
+    Plugin {
+        enabled: bool,
+        plugin_id: PluginId
+    },
+    Entrypoint {
+        enabled: bool,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId
+    }
+}
+
 
 #[derive(Debug, Clone)]
 struct Plugin {
     plugin_id: PluginId,
     plugin_name: String,
     show_entrypoints: bool,
+    enabled: bool,
     entrypoints: HashMap<EntrypointId, Entrypoint>,
 }
 
@@ -69,6 +84,7 @@ struct Plugin {
 struct Entrypoint {
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
+    enabled: bool,
 }
 
 impl Application for ManagementAppModel {
@@ -95,8 +111,9 @@ impl Application for ManagementAppModel {
                 dbus_connection,
                 dbus_server,
                 columns: vec![
-                    Column::new(ColumnKind::EntrypointToggle),
+                    Column::new(ColumnKind::ShowEntrypointsToggle),
                     Column::new(ColumnKind::Name),
+                    Column::new(ColumnKind::EnableToggle),
                 ],
                 plugins: HashMap::new(),
                 selected_item: SelectedItem::None,
@@ -106,36 +123,8 @@ impl Application for ManagementAppModel {
             Command::batch([
                 font::load(icons::ICON_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
                 Command::perform(async move {
-                    let plugins = dbus_server_clone.plugins().await.unwrap();
-
-                    let plugins: HashMap<_, _> = plugins.into_iter()
-                        .map(|plugin| {
-                            let entrypoints: HashMap<_, _> = plugin.entrypoints
-                                .into_iter()
-                                .map(|entrypoint| {
-                                    let id = EntrypointId::new(entrypoint.entrypoint_id);
-                                    let entrypoint = Entrypoint {
-                                        entrypoint_id: id.clone(),
-                                        entrypoint_name: entrypoint.entrypoint_name.clone(),
-                                    };
-                                    (id, entrypoint)
-                                })
-                                .collect();
-
-                            let id = PluginId::new(plugin.plugin_id);
-                            let plugin = Plugin {
-                                plugin_id: id.clone(),
-                                plugin_name: plugin.plugin_name,
-                                show_entrypoints: true,
-                                entrypoints,
-                            };
-
-                            (id, plugin)
-                        })
-                        .collect();
-
-                    plugins
-                }, ManagementAppMsg::PluginsLoaded)
+                    reload_plugins(dbus_server_clone).await
+                }, ManagementAppMsg::PluginsReloaded)
             ]),
         )
     }
@@ -158,13 +147,36 @@ impl Application for ManagementAppModel {
                 plugin.show_entrypoints = !plugin.show_entrypoints;
                 Command::none()
             }
-            ManagementAppMsg::PluginsLoaded(plugins) => {
+            ManagementAppMsg::PluginsReloaded(plugins) => {
                 self.plugins = plugins;
                 Command::none()
             }
             ManagementAppMsg::SelectItem(selected_item) => {
                 self.selected_item = selected_item;
                 Command::none()
+            }
+            ManagementAppMsg::EnabledToggleItem(item) => {
+                match item {
+                    EnabledItem::Plugin { enabled, plugin_id } => {
+                        let dbus_server = self.dbus_server.clone();
+
+                        Command::perform(async move {
+                            dbus_server.set_plugin_state(&plugin_id.to_string(), enabled).await.unwrap();
+
+                            reload_plugins(dbus_server).await
+
+                        }, ManagementAppMsg::PluginsReloaded)
+                    }
+                    EnabledItem::Entrypoint { enabled, plugin_id, entrypoint_id } => {
+                        let dbus_server = self.dbus_server.clone();
+
+                        Command::perform(async move {
+                            dbus_server.set_entrypoint_state(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled).await.unwrap();
+
+                            reload_plugins(dbus_server).await
+                        }, ManagementAppMsg::PluginsReloaded)
+                    }
+                }
             }
         }
     }
@@ -268,8 +280,9 @@ enum Row<'a> {
 }
 
 enum ColumnKind {
-    EntrypointToggle,
+    ShowEntrypointsToggle,
     Name,
+    EnableToggle,
 }
 
 struct Column {
@@ -289,12 +302,17 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
 
     fn header(&'b self, _col_index: usize) -> Element<'a, ManagementAppMsg> {
         match self.kind {
-            ColumnKind::EntrypointToggle => {
+            ColumnKind::ShowEntrypointsToggle => {
                 horizontal_space(Length::Fill)
                     .into()
             }
             ColumnKind::Name => {
                 container(text("Name"))
+                    .center_y()
+                    .into()
+            }
+            ColumnKind::EnableToggle => {
+                container(text("Enabled"))
                     .center_y()
                     .into()
             }
@@ -308,7 +326,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
         row_entry: &'b Self::Row,
     ) -> Element<'a, ManagementAppMsg> {
         match self.kind {
-            ColumnKind::EntrypointToggle => {
+            ColumnKind::ShowEntrypointsToggle => {
                 match row_entry {
                     Row::Plugin { plugin } => {
                         let icon = if plugin.show_entrypoints { icons::Icon::CaretDown } else { icons::Icon::CaretRight };
@@ -351,7 +369,9 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                 };
 
                 let msg = match &row_entry {
-                    Row::Plugin { plugin } => SelectedItem::Plugin { plugin_id: plugin.plugin_id.clone() },
+                    Row::Plugin { plugin } => SelectedItem::Plugin {
+                        plugin_id: plugin.plugin_id.clone()
+                    },
                     Row::Entrypoint { entrypoint, plugin } => SelectedItem::Entrypoint {
                         plugin_id: plugin.plugin_id.clone(),
                         entrypoint_id: entrypoint.entrypoint_id.clone()
@@ -364,17 +384,91 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                     .width(Length::Fill)
                     .into()
             }
+            ColumnKind::EnableToggle => {
+                let (enabled, plugin_id, entrypoint_id) = match &row_entry {
+                    Row::Plugin { plugin } => {
+                        (
+                            plugin.enabled,
+                            plugin.plugin_id.clone(),
+                            None
+                        )
+                    },
+                    Row::Entrypoint { entrypoint, plugin } => {
+                        (
+                            entrypoint.enabled,
+                            plugin.plugin_id.clone(),
+                            Some(entrypoint.entrypoint_id.clone())
+                        )
+                    }
+                };
+
+
+                // TODO disable if plugin is disabled but preserve current state https://github.com/iced-rs/iced/pull/2109
+                let checkbox: Element<_> = checkbox("", enabled, move |enabled| {
+                    let enabled_item = match &entrypoint_id {
+                        None => EnabledItem::Plugin {
+                            enabled,
+                            plugin_id: plugin_id.clone(),
+                        },
+                        Some(entrypoint_id) => EnabledItem::Entrypoint {
+                            enabled,
+                            plugin_id: plugin_id.clone(),
+                            entrypoint_id: entrypoint_id.clone()
+                        }
+                    };
+                    ManagementAppMsg::EnabledToggleItem(enabled_item)
+                }).into();
+
+                container(checkbox)
+                    .width(Length::Fill)
+                    .center_x()
+                    .into()
+            }
         }
     }
 
     fn width(&self) -> f32 {
         match self.kind {
-            ColumnKind::EntrypointToggle => 35.0,
+            ColumnKind::ShowEntrypointsToggle => 35.0,
             ColumnKind::Name => 550.0,
+            ColumnKind::EnableToggle => 75.0
         }
     }
 
     fn resize_offset(&self) -> Option<f32> {
         None
     }
+}
+
+
+async fn reload_plugins(dbus_server: DbusManagementServerProxyProxy<'static>) -> HashMap<PluginId, Plugin> {
+    let plugins = dbus_server.plugins().await.unwrap();
+
+    plugins.into_iter()
+        .map(|plugin| {
+            let entrypoints: HashMap<_, _> = plugin.entrypoints
+                .into_iter()
+                .map(|entrypoint| {
+                    let id = EntrypointId::new(entrypoint.entrypoint_id);
+                    let entrypoint = Entrypoint {
+                        enabled: entrypoint.enabled,
+                        entrypoint_id: id.clone(),
+                        entrypoint_name: entrypoint.entrypoint_name.clone(),
+                    };
+                    (id, entrypoint)
+                })
+                .collect();
+
+            let id = PluginId::new(plugin.plugin_id);
+            let plugin = Plugin {
+                plugin_id: id.clone(),
+                plugin_name: plugin.plugin_name,
+                show_entrypoints: true,
+                enabled: plugin.enabled,
+                entrypoints,
+            };
+
+            (id, plugin)
+        })
+        .collect()
 }

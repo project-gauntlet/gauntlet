@@ -1,15 +1,13 @@
-use std::thread;
-
-use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher};
+use tantivy::{doc, Index, IndexReader, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
 
+#[derive(Clone)]
 pub struct SearchIndex {
     index: Index,
     index_reader: IndexReader,
-    index_writer: IndexWriter,
 
     entrypoint_name: Field,
     entrypoint_id: Field,
@@ -35,10 +33,7 @@ impl SearchIndex {
         let plugin_name = schema.get_field("plugin_name").unwrap();
         let plugin_id = schema.get_field("plugin_id").unwrap();
 
-
         let index = Index::create_in_ram(schema.clone());
-
-        let index_writer = index.writer(50_000_000)?;
 
         let index_reader = index
             .reader_builder()
@@ -48,7 +43,6 @@ impl SearchIndex {
         Ok(Self {
             index,
             index_reader,
-            index_writer,
             entrypoint_name,
             entrypoint_id,
             plugin_name,
@@ -56,22 +50,23 @@ impl SearchIndex {
         })
     }
 
-    pub fn add_entries(&mut self, entries: Vec<SearchItem>) -> tantivy::Result<()> {
-        let index_writer = &mut self.index_writer;
+    pub fn reload(&mut self, search_items: Vec<SearchItem>) -> tantivy::Result<()> {
+        let mut index_writer = self.index.writer(50_000_000)?;
 
-        for entry in entries {
+        index_writer.delete_all_documents()?;
+
+        println!("{:?}", search_items);
+
+        for search_item in search_items {
             index_writer.add_document(doc!(
-                self.entrypoint_name => entry.entrypoint_name,
-                self.entrypoint_id => entry.entrypoint_id,
-                self.plugin_name => entry.plugin_name,
-                self.plugin_id => entry.plugin_id,
+                self.entrypoint_name => search_item.entrypoint_name,
+                self.entrypoint_id => search_item.entrypoint_id,
+                self.plugin_name => search_item.plugin_name,
+                self.plugin_id => search_item.plugin_id,
             ))?;
         }
 
         index_writer.commit()?;
-
-        thread::sleep(std::time::Duration::from_secs(1)); // FIXME this shouldn't be needed because commit blocks, maybe inmemory index has race condition?
-        println!("num_docs {:?}", self.index_reader.searcher().num_docs()); // shouldn't return 0
 
         Ok(())
     }

@@ -7,5 +7,7 @@ use crate::common::dbus::DBusPlugin;
 )]
 trait DbusManagementServerProxy {
     async fn plugins(&self) -> zbus::Result<Vec<DBusPlugin>>;
+    async fn set_plugin_state(&self, plugin_id: &str, enabled: bool) -> zbus::Result<()>;
+    async fn set_entrypoint_state(&self, plugin_id: &str, entrypoint_id: &str, enabled: bool) -> zbus::Result<()>;
 }
 

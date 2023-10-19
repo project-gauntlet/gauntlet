@@ -16,6 +16,7 @@ pub struct DBusSearchResult {
 pub struct DBusPlugin {
     pub plugin_id: String,
     pub plugin_name: String,
+    pub enabled: bool,
     pub entrypoints: Vec<DBusEntrypoint>,
 }
 
@@ -23,6 +24,7 @@ pub struct DBusPlugin {
 pub struct DBusEntrypoint {
     pub entrypoint_id: String,
     pub entrypoint_name: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Type)]

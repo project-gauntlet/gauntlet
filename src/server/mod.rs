@@ -1,6 +1,6 @@
 use crate::server::dbus::{DbusManagementServer, DbusServer};
 use crate::server::plugins::PluginManager;
-use crate::server::search::{SearchIndex, SearchItem};
+use crate::server::search::SearchIndex;
 
 pub mod dbus;
 pub(in crate::server) mod search;
@@ -19,28 +19,10 @@ pub fn start_server() {
 }
 
 async fn run_server() -> anyhow::Result<()> {
-    let mut plugin_manager = PluginManager::create();
-    let mut search_index = SearchIndex::create_index().unwrap();
+    let search_index = SearchIndex::create_index().unwrap();
+    let mut plugin_manager = PluginManager::create(search_index.clone());
 
-    let search_items: Vec<_> = plugin_manager.plugins()
-        .iter()
-        .flat_map(|plugin| {
-            plugin.entrypoints()
-                .iter()
-                .map(|entrypoint| {
-                    SearchItem {
-                        entrypoint_name: entrypoint.name().to_owned(),
-                        entrypoint_id: entrypoint.id().to_owned(),
-                        plugin_name: plugin.name().to_owned(),
-                        plugin_id: plugin.id().to_owned(),
-                    }
-                })
-        })
-        .collect();
-
-    search_index.add_entries(search_items).unwrap();
-
-    plugin_manager.start_all_contexts();
+    plugin_manager.reload_all_plugins();
 
     let interface = DbusServer { search_index };
     let management_interface = DbusManagementServer { plugin_manager };

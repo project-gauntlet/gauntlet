@@ -25,12 +25,12 @@
       },
       {
         "id": "other-view-1",
-        "name": "Other view",
+        "name": "Other view 1",
         "path": "src/other_view.tsx"
       },
       {
         "id": "other-view-2",
-        "name": "Other view",
+        "name": "Other view 2",
         "path": "src/other_view.tsx"
       },
       {

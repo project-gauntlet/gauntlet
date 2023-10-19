@@ -79,6 +79,10 @@ pub enum JsUiEvent {
         #[serde(rename = "eventName")]
         event_name: UiEventName,
     },
+    PluginCommand {
+        #[serde(rename = "commandType")]
+        command_type: String,
+    }
 }
 
 #[derive(Debug)]

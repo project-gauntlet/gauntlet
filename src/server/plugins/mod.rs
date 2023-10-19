@@ -7,8 +7,11 @@ use std::sync::{Arc, RwLock};
 use anyhow::Context;
 use deno_core::serde_json;
 use serde::Deserialize;
+use crate::common::dbus::{DBusEntrypoint, DBusPlugin};
 
-use crate::server::plugins::js::start_js_runtime;
+use crate::common::model::{EntrypointId, PluginId};
+use crate::server::plugins::js::{PluginCommand, PluginCommandData, PluginContextData, start_js_runtime};
+use crate::server::search::{SearchIndex, SearchItem};
 
 pub mod js;
 
@@ -18,31 +21,175 @@ pub struct PluginManager {
 }
 
 pub struct PluginManagerInner {
-    plugins: Vec<Plugin>,
+    plugins: HashMap<PluginId, Plugin>,
+    search_index: SearchIndex,
+    command_broadcaster: tokio::sync::broadcast::Sender<PluginCommand>,
 }
 
 impl PluginManager {
-    pub fn create() -> Self {
-        let plugins = PluginLoader.load_plugins();
+    pub fn create(search_index: SearchIndex) -> Self {
+        let plugins = PluginLoader.load_plugins()
+            .into_iter()
+            .map(|plugin| (plugin.id.clone(), plugin))
+            .collect();
+
+        let (tx, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
         Self {
             inner: Arc::new(RwLock::new(PluginManagerInner {
                 plugins,
-            }))
+                search_index,
+                command_broadcaster: tx
+            })),
         }
     }
 
-    pub fn plugins(&self) -> Vec<Plugin> {
-        self.inner.read().unwrap().plugins.clone()
+    pub fn plugins(&self) -> Vec<DBusPlugin> {
+        let plugins = &self.inner.read().unwrap().plugins;
+
+        plugins.iter()
+            .map(|(_, plugin)| DBusPlugin {
+                plugin_id: plugin.id().to_string(),
+                plugin_name: plugin.name().to_owned(),
+                enabled: plugin.enabled(),
+                entrypoints: plugin.entrypoints()
+                    .into_iter()
+                    .map(|entrypoint| DBusEntrypoint {
+                        enabled: entrypoint.enabled(),
+                        entrypoint_id: entrypoint.id().to_string(),
+                        entrypoint_name: entrypoint.name().to_owned()
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
-    pub fn start_all_contexts(&mut self) {
-        self.plugins()
+    pub fn set_plugin_state(&mut self, plugin_id: PluginId, enabled: bool) {
+        let mut inner = self.inner.write().unwrap();
+        inner.set_plugin_state(plugin_id, enabled);
+    }
+
+    pub fn set_entrypoint_state(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) {
+        let mut inner = self.inner.write().unwrap();
+        inner.set_entrypoint_state(plugin_id, entrypoint_id, enabled);
+    }
+
+    pub fn reload_all_plugins(&mut self) {
+        let mut inner = self.inner.write().unwrap();
+        inner.reload_all_plugins();
+    }
+}
+
+impl PluginManagerInner {
+    fn set_plugin_state(&mut self, plugin_id: PluginId, enabled: bool) {
+        let x = self.is_plugin_enabled(&plugin_id);
+        println!("set_plugin_state {:?} {:?}", x, enabled );
+        match (x, enabled) {
+            (false, true) => {
+                self.start_plugin(plugin_id);
+            },
+            (true, false) => {
+                self.stop_plugin(plugin_id);
+            }
+            _ => {}
+        }
+    }
+
+    fn set_entrypoint_state(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) {
+        let entrypoint = self.plugins.get_mut(&plugin_id)
+            .unwrap()
+            .entrypoints_mut()
+            .iter_mut()
+            .find(|entrypoint| entrypoint.id() == entrypoint_id)
+            .unwrap();
+
+        entrypoint.enabled = enabled;
+
+        self.reload_search_index();
+    }
+
+    fn reload_all_plugins(&mut self) {
+        self.reload_search_index();
+
+        self.plugins
             .iter()
-            .for_each(|plugin| self.start_context_for_plugin(plugin.clone()));
+            .filter(|(_, plugin)| plugin.enabled)
+            .for_each(|(_, plugin)| {
+                let receiver = self.command_broadcaster.subscribe();
+
+                let data = PluginContextData {
+                    id: plugin.id(),
+                    code: plugin.code().clone(),
+                    command_receiver: receiver,
+                };
+
+                self.start_plugin_context(data)
+            });
     }
 
-    fn start_context_for_plugin(&self, plugin: Plugin) {
+    fn is_plugin_enabled(&self, plugin_id: &PluginId) -> bool {
+        let plugin = self.plugins.get(plugin_id).unwrap();
+
+        plugin.enabled
+    }
+
+    fn start_plugin(&mut self, plugin_id: PluginId) {
+        println!("plugin_id {:?}", plugin_id);
+        let plugin = self.plugins.get_mut(&plugin_id).unwrap();
+
+        plugin.enabled = true;
+
+        let receiver = self.command_broadcaster.subscribe();
+        let data = PluginContextData {
+            id: plugin_id.clone(),
+            code: plugin.code().clone(),
+            command_receiver: receiver,
+        };
+
+        self.reload_search_index();
+        self.start_plugin_context(data)
+    }
+
+    fn stop_plugin(&mut self, plugin_id: PluginId) {
+        println!("stop_plugin {:?}", plugin_id);
+        let plugin = self.plugins.get_mut(&plugin_id).unwrap();
+
+        plugin.enabled = false;
+
+        let data = PluginCommand {
+            id: plugin.id(),
+            data: PluginCommandData::Stop,
+        };
+
+        self.reload_search_index();
+        self.send_command(data)
+    }
+
+    fn reload_search_index(&mut self) {
+        println!("reload_search_index");
+
+        let search_items: Vec<_> = self.plugins
+            .iter()
+            .filter(|(_, plugin)| plugin.enabled)
+            .flat_map(|(_, plugin)| {
+                plugin.entrypoints()
+                    .iter()
+                    .filter(|entrypoint| entrypoint.enabled)
+                    .map(|entrypoint| {
+                        SearchItem {
+                            entrypoint_name: entrypoint.name().to_owned(),
+                            entrypoint_id: entrypoint.id().to_string(),
+                            plugin_name: plugin.name().to_owned(),
+                            plugin_id: plugin.id().to_string(),
+                        }
+                    })
+            })
+            .collect();
+
+        self.search_index.reload(search_items).unwrap();
+    }
+
+    fn start_plugin_context(&self, data: PluginContextData) {
         let handle = move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -51,20 +198,24 @@ impl PluginManager {
 
             let local_set = tokio::task::LocalSet::new();
             local_set.block_on(&runtime, tokio::task::unconstrained(async move {
-                start_js_runtime(plugin).await
+                start_js_runtime(data).await
             }))
         };
 
         std::thread::Builder::new()
-            .name("react-thread".into())
+            .name("plugin-js-thread".into())
             .spawn(handle)
-            .expect("failed to spawn react thread");
+            .expect("failed to spawn plugin js thread");
+    }
+
+    fn send_command(&self, command: PluginCommand) {
+        self.command_broadcaster.send(command).unwrap();
     }
 }
 
 #[derive(Debug, Deserialize)]
 struct Config {
-    readonly_ui: Option<bool>,
+    readonly_ui: Option<bool>, // TODO 3 modes: no changes, changes saved to config, changes saved to data
     plugins: Option<Vec<PluginConfig>>,
 }
 
@@ -135,7 +286,7 @@ impl PluginLoader {
                 let js_content = std::fs::read_to_string(&dist_path).unwrap();
                 let id = dist_path.file_stem().unwrap().to_str().unwrap().to_owned();
 
-                (id, js_content)
+                (id, JsCode::new(js_content))
             })
             .collect();
 
@@ -146,76 +297,91 @@ impl PluginLoader {
         let entrypoints: Vec<_> = package_json.plugin
             .entrypoints
             .into_iter()
-            .map(|entrypoint| PluginEntrypoint::new(entrypoint.id, entrypoint.name, entrypoint.path))
+            .map(|entrypoint| PluginEntrypoint::new(EntrypointId::new(entrypoint.id), entrypoint.name, entrypoint.path))
             .collect();
 
-        Plugin::new(&plugin.id, &package_json.plugin.metadata.name, PluginCode::new(js), entrypoints)
+        Plugin::new(
+            PluginId::new(plugin.id),
+            &package_json.plugin.metadata.name,
+            true,
+            PluginCode::new(js),
+            entrypoints
+        )
     }
 }
 
-#[derive(Clone)]
 pub struct Plugin {
-    inner: Arc<PluginInner>,
-}
-
-pub struct PluginInner {
-    id: String,
+    id: PluginId,
     name: String,
+    enabled: bool,
     code: PluginCode,
     entrypoints: Vec<PluginEntrypoint>,
 }
 
 impl Plugin {
-    fn new(id: &str, name: &str, code: PluginCode, entrypoints: Vec<PluginEntrypoint>) -> Self {
+    fn new(id: PluginId, name: &str, enabled: bool, code: PluginCode, entrypoints: Vec<PluginEntrypoint>) -> Self {
         Self {
-            inner: Arc::new(PluginInner {
-                id: id.into(),
-                name: name.into(),
-                code,
-                entrypoints,
-            })
+            id,
+            name: name.into(),
+            enabled,
+            code,
+            entrypoints,
         }
     }
 
-    pub fn id(&self) -> &str {
-        &self.inner.id
+    pub fn id(&self) -> PluginId {
+        self.id.clone()
     }
 
     pub fn name(&self) -> &str {
-        &self.inner.name
+        &self.name
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
     }
 
     pub fn code(&self) -> &PluginCode {
-        &self.inner.code
+        &self.code
     }
 
     pub fn entrypoints(&self) -> &Vec<PluginEntrypoint> {
-        &self.inner.entrypoints
+        &self.entrypoints
+    }
+
+    pub fn entrypoints_mut(&mut self) -> &mut Vec<PluginEntrypoint> {
+        &mut self.entrypoints
     }
 }
 
 #[derive(Clone)]
 pub struct PluginEntrypoint {
-    id: String,
+    id: EntrypointId,
     name: String,
+    enabled: bool,
     path: String,
 }
 
 impl PluginEntrypoint {
-    fn new(id: String, name: String, path: String) -> Self {
+    fn new(id: EntrypointId, name: String, path: String) -> Self {
         Self {
             id,
             name,
+            enabled: true, // TODO load from config
             path,
         }
     }
 
-    pub fn id(&self) -> &str {
-        &self.id
+    pub fn id(&self) -> EntrypointId {
+        self.id.clone()
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
     }
 
     pub fn path(&self) -> &str {
@@ -225,17 +391,33 @@ impl PluginEntrypoint {
 
 #[derive(Clone)]
 pub struct PluginCode {
-    js: HashMap<String, String>,
+    js: HashMap<String, JsCode>,
 }
 
 impl PluginCode {
-    fn new(js: HashMap<String, String>) -> Self {
+    fn new(js: HashMap<String, JsCode>) -> Self {
         Self {
             js,
         }
     }
 
-    pub fn js(&self) -> &HashMap<String, String> {
+    pub fn js(&self) -> &HashMap<String, JsCode> {
         &self.js
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsCode(Arc<str>);
+
+impl JsCode {
+    pub fn new(code: impl ToString) -> Self {
+        JsCode(code.to_string().into())
+    }
+}
+
+impl ToString for JsCode {
+    fn to_string(&self) -> String {
+        self.0.to_string()
     }
 }

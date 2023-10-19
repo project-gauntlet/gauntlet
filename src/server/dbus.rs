@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
-use crate::common::dbus::{DBusEntrypoint, DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiPropertyContainer, DBusUiWidget};
+use crate::common::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiPropertyContainer, DBusUiWidget};
+use crate::common::model::{EntrypointId, PluginId};
 use crate::server::plugins::PluginManager;
 use crate::server::search::SearchIndex;
 
@@ -36,19 +37,16 @@ pub struct DbusManagementServer {
 impl DbusManagementServer {
     fn plugins(&mut self) -> Vec<DBusPlugin> {
         self.plugin_manager.plugins()
-            .iter()
-            .map(|plugin| DBusPlugin {
-                plugin_id: plugin.id().to_owned(),
-                plugin_name: plugin.name().to_owned(),
-                entrypoints: plugin.entrypoints()
-                    .into_iter()
-                    .map(|entrypoint| DBusEntrypoint {
-                        entrypoint_id: entrypoint.id().to_owned(),
-                        entrypoint_name: entrypoint.name().to_owned()
-                    })
-                    .collect()
-            })
-            .collect()
+    }
+
+    fn set_plugin_state(&mut self, plugin_id: &str, enabled: bool) {
+        println!("set_plugin_state {:?} {:?}", plugin_id, enabled);
+        self.plugin_manager.set_plugin_state(PluginId::new(plugin_id), enabled)
+    }
+
+    fn set_entrypoint_state(&mut self, plugin_id: &str, entrypoint_id: &str, enabled: bool) {
+        println!("set_entrypoint_state {:?} {:?}", plugin_id, enabled);
+        self.plugin_manager.set_entrypoint_state(PluginId::new(plugin_id), EntrypointId::new(entrypoint_id), enabled)
     }
 }
 

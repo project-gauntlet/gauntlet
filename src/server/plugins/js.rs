@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
-use std::pin::Pin;
+use std::pin::{Pin};
 use std::rc::Rc;
 
 use anyhow::anyhow;
@@ -14,17 +14,35 @@ use deno_runtime::worker::WorkerOptions;
 use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use crate::common::model::PluginId;
 
 use crate::server::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
 use crate::server::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData};
-use crate::server::plugins::Plugin;
+use crate::server::plugins::{PluginCode};
 use crate::utils::channel::{channel, RequestSender};
 
-pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
+pub struct PluginContextData {
+    pub id: PluginId,
+    pub code: PluginCode,
+    pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PluginCommand {
+    pub id: PluginId,
+    pub data: PluginCommandData,
+}
+
+#[derive(Clone, Debug)]
+pub enum PluginCommandData {
+    Stop
+}
+
+pub async fn start_js_runtime(data: PluginContextData) -> anyhow::Result<()> {
     let conn = zbus::Connection::session().await?;
     let client_proxy = DbusClientProxyProxy::new(&conn).await?;
 
-    let plugin_id = plugin.id().to_owned();
+    let plugin_id = data.id.clone();
     let view_created_signal = client_proxy.receive_view_created_signal()
         .await?
         .filter_map(move |signal: ViewCreatedSignal| {
@@ -33,7 +51,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                 let signal = signal.args().unwrap();
 
                 // TODO add logging here that we received signal
-                if signal.plugin_id != plugin_id {
+                if PluginId::new(signal.plugin_id) != plugin_id {
                     None
                 } else {
                     Some(JsUiEvent::ViewCreated {
@@ -44,7 +62,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
             }
         });
 
-    let plugin_id = plugin.id().to_owned();
+    let plugin_id = data.id.clone();
     let view_event_signal = client_proxy.receive_view_event_signal()
         .await?
         .filter_map(move |signal: ViewEventSignal| {
@@ -53,7 +71,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
                 let signal = signal.args().unwrap();
 
                 // TODO add logging here that we received signal
-                if signal.plugin_id != plugin_id {
+                if PluginId::new(signal.plugin_id) != plugin_id {
                     None
                 } else {
                     Some(JsUiEvent::ViewEvent {
@@ -64,12 +82,42 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
             }
         });
 
-    let event_stream = (view_event_signal, view_created_signal).merge();
+    let mut command_receiver = data.command_receiver;
+    let command_stream = async_stream::stream! {
+        loop {
+            yield command_receiver.recv().await.unwrap();
+        }
+    };
+
+    let plugin_id = data.id.clone();
+    let command_stream = command_stream
+        .filter_map(move |command: PluginCommand| {
+            let plugin_id = plugin_id.clone();
+            async move {
+                let id = command.id;
+
+                // TODO add logging here that we received signal
+                if id != plugin_id {
+                    None
+                } else {
+                    match command.data {
+                        PluginCommandData::Stop => {
+                            Some(JsUiEvent::PluginCommand {
+                                command_type: "stop".to_string(),
+                            })
+                        }
+                    }
+                }
+            }
+        });
+
+    let event_stream = (view_event_signal, view_created_signal, command_stream).merge();
 
     let (tx, mut rx) = channel::<JsUiRequestData, JsUiResponseData>();
 
-    let plugin_id: String = plugin.id().to_owned();
+    let plugin_id = data.id.clone();
     tokio::spawn(tokio::task::unconstrained(async move {
+        let plugin_id = plugin_id.to_string();
         println!("starting request handler loop");
 
         while let Ok((request_data, responder)) = rx.recv().await {
@@ -154,7 +202,7 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
         "plugin:unused".parse().unwrap(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
-            module_loader: Rc::new(CustomModuleLoader::new(plugin)),
+            module_loader: Rc::new(CustomModuleLoader::new(data.code)),
             extensions: vec![react_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 EventReceiver::new(Box::pin(event_stream)),
@@ -177,17 +225,17 @@ pub async fn start_js_runtime(plugin: Plugin) -> anyhow::Result<()> {
 }
 
 pub struct CustomModuleLoader {
-    plugin: Plugin,
+    code: PluginCode,
     static_loader: StaticModuleLoader,
 }
 
 impl CustomModuleLoader {
-    fn new(plugin: Plugin) -> Self {
+    fn new(code: PluginCode) -> Self {
         let module_map: HashMap<_, _> = MODULES.iter()
             .map(|(key, value)| (key.parse().unwrap(), FastString::from_static(value)))
             .collect();
         Self {
-            plugin,
+            code,
             static_loader: StaticModuleLoader::new(module_map),
         }
     }
@@ -246,10 +294,10 @@ impl ModuleLoader for CustomModuleLoader {
         if &specifier == &"plugin:view".parse().unwrap() || &specifier == &"plugin:module".parse().unwrap() {
             let view_name = module_specifier.query().unwrap();
 
-            let js = self.plugin.code().js();
+            let js = self.code.js();
             let js = js.get(view_name).unwrap();
 
-            let module = ModuleSource::new(ModuleType::JavaScript, js.to_owned().into(), module_specifier);
+            let module = ModuleSource::new(ModuleType::JavaScript, js.to_string().into(), module_specifier);
 
             return futures::future::ready(Ok(module)).boxed_local();
         }
@@ -270,7 +318,7 @@ deno_core::extension!(
         op_react_remove_child,
         op_react_set_properties,
         op_react_set_text,
-        op_react_get_next_pending_ui_event,
+        op_plugin_get_pending_event,
         op_react_call_event_listener,
         op_react_clone_instance,
         op_react_replace_container_children,
@@ -452,7 +500,7 @@ fn op_react_set_properties<'a>(
 }
 
 #[op]
-async fn op_react_get_next_pending_ui_event<'a>(
+async fn op_plugin_get_pending_event<'a>(
     state: Rc<RefCell<OpState>>,
 ) -> anyhow::Result<JsUiEvent> {
     let event_stream = {
@@ -462,7 +510,7 @@ async fn op_react_get_next_pending_ui_event<'a>(
             .clone()
     };
 
-    println!("op_react_get_next_pending_ui_event");
+    println!("op_plugin_get_pending_event");
 
     let mut event_stream = event_stream.borrow_mut();
     let event = event_stream.next()

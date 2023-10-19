@@ -21,6 +21,7 @@ clap = { version = "4.3.22", features = ["derive"] }
 gix = { version = "0.52.0", features = ["blocking-network-client"] }
 tempfile = "3"
 futures-concurrency = "7.4.2"
+async-stream = "0.3.5"
 anyhow = "1.0.75"
 thiserror = "1.0.48"
 iced = { version = "0.10", features = ["tokio", "lazy", "advanced"] }
