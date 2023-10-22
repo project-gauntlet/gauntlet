@@ -1,14 +1,16 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use deno_core::error::AnyError;
-use iced::{Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, theme, window};
-use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text};
+use futures::stream::StreamExt;
+use iced::{Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, subscription, theme, window};
+use iced::widget::{button, checkbox, column, container, horizontal_space, progress_bar, row, scrollable, text, text_input};
 use iced_aw::graphics::icons;
 use iced_table::table;
 use zbus::Connection;
 
 use crate::common::model::{EntrypointId, PluginId};
-use crate::management_client::dbus::DbusManagementServerProxyProxy;
+use crate::management_client::dbus::{DbusManagementServerProxyProxy, PluginDownloadFinishedSignalStream, PluginDownloadStatusSignalStream};
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -31,6 +33,11 @@ struct ManagementAppModel {
     selected_item: SelectedItem,
     header: scrollable::Id,
     body: scrollable::Id,
+    running_downloads: HashMap<String, RunningDownload>,
+}
+
+struct RunningDownload {
+    percent: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -43,31 +50,44 @@ enum ManagementAppMsg {
     },
     SelectItem(SelectedItem),
     EnabledToggleItem(EnabledItem),
+    NewDownload {
+        repository_url: String,
+    },
+    RunningDownloadStatus {
+        download_id: String,
+        percent: f32,
+    },
+    RunningDownloadFinished {
+        download_id: String,
+    },
 }
 
 #[derive(Debug, Clone)]
 enum SelectedItem {
     None,
+    NewPlugin {
+        repository_url: String
+    },
     Plugin {
         plugin_id: PluginId
     },
     Entrypoint {
         plugin_id: PluginId,
-        entrypoint_id: EntrypointId
-    }
+        entrypoint_id: EntrypointId,
+    },
 }
 
 #[derive(Debug, Clone)]
 enum EnabledItem {
     Plugin {
         enabled: bool,
-        plugin_id: PluginId
+        plugin_id: PluginId,
     },
     Entrypoint {
         enabled: bool,
         plugin_id: PluginId,
-        entrypoint_id: EntrypointId
-    }
+        entrypoint_id: EntrypointId,
+    },
 }
 
 
@@ -119,6 +139,7 @@ impl Application for ManagementAppModel {
                 selected_item: SelectedItem::None,
                 header: scrollable::Id::unique(),
                 body: scrollable::Id::unique(),
+                running_downloads: HashMap::new(),
             },
             Command::batch([
                 font::load(icons::ICON_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
@@ -164,7 +185,6 @@ impl Application for ManagementAppModel {
                             dbus_server.set_plugin_state(&plugin_id.to_string(), enabled).await.unwrap();
 
                             reload_plugins(dbus_server).await
-
                         }, ManagementAppMsg::PluginsReloaded)
                     }
                     EnabledItem::Entrypoint { enabled, plugin_id, entrypoint_id } => {
@@ -178,6 +198,28 @@ impl Application for ManagementAppModel {
                     }
                 }
             }
+            ManagementAppMsg::NewDownload { repository_url } => {
+                let dbus_server = self.dbus_server.clone();
+
+                Command::perform(async move {
+                    dbus_server.start_plugin_download(&repository_url).await.unwrap()
+                }, |download_id| ManagementAppMsg::RunningDownloadStatus { download_id, percent: 0.0 })
+            }
+            ManagementAppMsg::RunningDownloadStatus { download_id, percent } => {
+                match self.running_downloads.entry(download_id) {
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().percent = percent;
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(RunningDownload { percent });
+                    }
+                }
+                Command::none()
+            }
+            ManagementAppMsg::RunningDownloadFinished { download_id } => {
+                self.running_downloads.remove(&download_id).unwrap();
+                Command::none()
+            }
         }
     }
 
@@ -187,7 +229,7 @@ impl Application for ManagementAppModel {
             .map(|(_, plugin)| plugin)
             .collect();
 
-        plugins.sort_by_key(|plugins| &plugins.plugin_name);
+        plugins.sort_by_key(|plugin| &plugin.plugin_name);
 
         let rows: Vec<_> = plugins
             .iter()
@@ -211,7 +253,7 @@ impl Application for ManagementAppModel {
                         .map(|entrypoint| {
                             Row::Entrypoint {
                                 plugin,
-                                entrypoint
+                                entrypoint,
                             }
                         })
                         .collect();
@@ -226,7 +268,7 @@ impl Application for ManagementAppModel {
         let table: Element<_> = table(self.header.clone(), self.body.clone(), &self.columns, &rows, ManagementAppMsg::TableSyncHeader)
             .into();
 
-        let sidebar: Element<_> = match &self.selected_item {
+        let sidebar_content: Element<_> = match &self.selected_item {
             SelectedItem::None => {
                 container(text("Select item from the list"))
                     .center_y()
@@ -258,7 +300,50 @@ impl Application for ManagementAppModel {
                     name,
                 ]).into()
             }
+            SelectedItem::NewPlugin { repository_url } => {
+                let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
+                    .on_input(|value| ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: value }))
+                    .on_submit(ManagementAppMsg::NewDownload { repository_url: repository_url.to_string() })
+                    .into();
+
+                let content: Element<_> = column(vec![
+                    url_input,
+                    text("Supported protocols: file, http(s), ssh").into(),
+                ]).into();
+
+                container(content)
+                    .padding(Padding::new(10.0))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .into()
+            }
         };
+
+        let new_plugin_button_text = text(icons::Icon::Plus)
+            .font(icons::ICON_FONT);
+
+        let new_plugin_button_text_container: Element<_> = container(new_plugin_button_text)
+            .width(Length::Fill)
+            .center_y()
+            .center_x()
+            .into();
+
+        let new_plugin_button = button(new_plugin_button_text_container)
+            .width(Length::Fill)
+            .on_press(ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: Default::default() }))
+            .into();
+
+        let multiple = if self.running_downloads.len() > 1 { "s" } else { "" };
+        let progress_bar_text: Element<_> = text(format!("{} plugin{} downloading...", self.running_downloads.len(), multiple))
+            .into();
+
+        let progress_bar: Element<_> = progress_bar(0.0..=100.0, 50.0)
+            .into();
+
+        let sidebar: Element<_> = column(vec![new_plugin_button, sidebar_content, progress_bar_text, progress_bar])
+            .padding(Padding::new(4.0))
+            .into();
 
         let content: Element<_> = row(vec![table, sidebar])
             .into();
@@ -267,7 +352,43 @@ impl Application for ManagementAppModel {
             .padding(Padding::new(3.0))
             .into()
     }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+
+        let (dbus_download_status_stream, dbus_download_finished_stream) = futures::executor::block_on(async {
+            let download_status_stream = self.dbus_server.receive_plugin_download_status_signal().await?;
+            let download_finished_stream = self.dbus_server.receive_plugin_download_finished_signal().await?;
+
+            Ok::<(PluginDownloadStatusSignalStream<'_>, PluginDownloadFinishedSignalStream<'_>), AnyError>((download_status_stream, download_finished_stream))
+        }).unwrap();
+
+        let dbus_download_status_stream = dbus_download_status_stream
+            .map(|signal| {
+                let signal = signal.args().unwrap();
+                ManagementAppMsg::RunningDownloadStatus {
+                    download_id: signal.download_id.to_owned(),
+                    percent: signal.percent,
+                }
+            });
+
+        let dbus_download_finished_stream = dbus_download_finished_stream
+            .map(|signal| {
+                let signal = signal.args().unwrap();
+                ManagementAppMsg::RunningDownloadFinished {
+                    download_id: signal.download_id.to_owned(),
+                }
+            });
+
+        struct DownloadStatusStream;
+        struct DownloadFinishedStream;
+
+        Subscription::batch([
+            subscription::run_with_id(std::any::TypeId::of::<DownloadStatusStream>(), dbus_download_status_stream),
+            subscription::run_with_id(std::any::TypeId::of::<DownloadFinishedStream>(), dbus_download_finished_stream)
+        ])
+    }
 }
+
 
 enum Row<'a> {
     Plugin {
@@ -275,7 +396,7 @@ enum Row<'a> {
     },
     Entrypoint {
         plugin: &'a Plugin,
-        entrypoint: &'a Entrypoint
+        entrypoint: &'a Entrypoint,
     },
 }
 
@@ -352,7 +473,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                         container(text(&plugin.plugin_name))
                             .center_y()
                             .into()
-                    },
+                    }
                     Row::Entrypoint { entrypoint, .. } => {
                         let text: Element<_> = text(&entrypoint.entrypoint_name)
                             .into();
@@ -374,7 +495,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                     },
                     Row::Entrypoint { entrypoint, plugin } => SelectedItem::Entrypoint {
                         plugin_id: plugin.plugin_id.clone(),
-                        entrypoint_id: entrypoint.entrypoint_id.clone()
+                        entrypoint_id: entrypoint.entrypoint_id.clone(),
                     }
                 };
 
@@ -392,7 +513,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                             plugin.plugin_id.clone(),
                             None
                         )
-                    },
+                    }
                     Row::Entrypoint { entrypoint, plugin } => {
                         (
                             entrypoint.enabled,
@@ -413,7 +534,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                         Some(entrypoint_id) => EnabledItem::Entrypoint {
                             enabled,
                             plugin_id: plugin_id.clone(),
-                            entrypoint_id: entrypoint_id.clone()
+                            entrypoint_id: entrypoint_id.clone(),
                         }
                     };
                     ManagementAppMsg::EnabledToggleItem(enabled_item)
@@ -430,7 +551,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
     fn width(&self) -> f32 {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => 35.0,
-            ColumnKind::Name => 550.0,
+            ColumnKind::Name => 500.0,
             ColumnKind::EnableToggle => 75.0
         }
     }

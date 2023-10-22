@@ -44,6 +44,10 @@ impl PluginManager {
         }
     }
 
+    pub fn start_plugin_download(&mut self, repository_url: &str) -> String {
+        unimplemented!()
+    }
+
     pub fn plugins(&self) -> Vec<DBusPlugin> {
         let plugins = &self.inner.read().unwrap().plugins;
 

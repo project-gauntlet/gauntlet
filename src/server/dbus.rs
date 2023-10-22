@@ -35,7 +35,18 @@ pub struct DbusManagementServer {
 
 #[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName.Management")]
 impl DbusManagementServer {
-    fn plugins(&mut self) -> Vec<DBusPlugin> {
+
+    #[dbus_interface(signal)]
+    pub async fn plugin_download_status_signal(signal_ctxt: &zbus::SignalContext<'_>, download_id: &str, percent: f32) -> zbus::Result<()>;
+
+    #[dbus_interface(signal)]
+    pub async fn plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, download_id: &str) -> zbus::Result<()>;
+
+    fn start_plugin_download(&mut self, repository_url: &str) -> String {
+        self.plugin_manager.start_plugin_download(repository_url)
+    }
+
+    fn plugins(&self) -> Vec<DBusPlugin> {
         self.plugin_manager.plugins()
     }
 
