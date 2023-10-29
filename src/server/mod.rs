@@ -1,11 +1,12 @@
 use crate::server::dbus::{DbusManagementServer, DbusServer};
-use crate::server::plugins::PluginManager;
+use crate::server::plugins::ApplicationManager;
 use crate::server::search::SearchIndex;
 
 pub mod dbus;
 pub(in crate::server) mod search;
 pub(in crate::server) mod plugins;
 pub(in crate::server) mod model;
+mod dirs;
 
 pub fn start_server() {
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -20,12 +21,12 @@ pub fn start_server() {
 
 async fn run_server() -> anyhow::Result<()> {
     let search_index = SearchIndex::create_index().unwrap();
-    let mut plugin_manager = PluginManager::create(search_index.clone());
+    let mut application_manager = ApplicationManager::create(search_index.clone()).await?;
 
-    plugin_manager.reload_all_plugins();
+    application_manager.reload_all_plugins().await;
 
     let interface = DbusServer { search_index };
-    let management_interface = DbusManagementServer { plugin_manager };
+    let management_interface = DbusManagementServer { application_manager };
 
     let _conn = zbus::ConnectionBuilder::session()?
         .name("org.placeholdername.PlaceHolderName")?

@@ -4,7 +4,7 @@ use std::sync::Arc;
 pub struct PluginId(Arc<str>);
 
 impl PluginId {
-    pub fn new(plugin_id: impl ToString) -> Self {
+    pub fn from_string(plugin_id: impl ToString) -> Self {
         PluginId(plugin_id.to_string().into())
     }
 }

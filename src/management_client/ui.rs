@@ -580,7 +580,7 @@ async fn reload_plugins(dbus_server: DbusManagementServerProxyProxy<'static>) ->
                 })
                 .collect();
 
-            let id = PluginId::new(plugin.plugin_id);
+            let id = PluginId::from_string(plugin.plugin_id);
             let plugin = Plugin {
                 plugin_id: id.clone(),
                 plugin_name: plugin.plugin_name,

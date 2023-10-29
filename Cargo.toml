@@ -29,3 +29,7 @@ iced_table = "0.1.0"
 iced_aw = { version = "0.7.0", default-features = false, features = ["icons"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
+sqlx = { version = "0.7", features = [ "runtime-tokio", "json", "sqlite" ] }
+
+[features]
+dev = []

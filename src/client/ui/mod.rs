@@ -161,7 +161,7 @@ impl Application for AppModel {
                         .unwrap()
                         .into_iter()
                         .map(|search_result| NativeUiSearchResult {
-                            plugin_id: PluginId::new(search_result.plugin_id),
+                            plugin_id: PluginId::from_string(search_result.plugin_id),
                             plugin_name: search_result.plugin_name,
                             entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
                             entrypoint_name: search_result.entrypoint_name,

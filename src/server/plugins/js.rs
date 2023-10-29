@@ -18,13 +18,16 @@ use crate::common::model::PluginId;
 
 use crate::server::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
 use crate::server::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData};
-use crate::server::plugins::{PluginCode};
 use crate::utils::channel::{channel, RequestSender};
 
-pub struct PluginContextData {
+pub struct PluginRuntimeData {
     pub id: PluginId,
     pub code: PluginCode,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
+}
+
+pub struct PluginCode {
+    pub js: HashMap<String, String>,
 }
 
 #[derive(Clone, Debug)]
@@ -38,7 +41,7 @@ pub enum PluginCommandData {
     Stop
 }
 
-pub async fn start_js_runtime(data: PluginContextData) -> anyhow::Result<()> {
+pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()> {
     let conn = zbus::Connection::session().await?;
     let client_proxy = DbusClientProxyProxy::new(&conn).await?;
 
@@ -51,7 +54,7 @@ pub async fn start_js_runtime(data: PluginContextData) -> anyhow::Result<()> {
                 let signal = signal.args().unwrap();
 
                 // TODO add logging here that we received signal
-                if PluginId::new(signal.plugin_id) != plugin_id {
+                if PluginId::from_string(signal.plugin_id) != plugin_id {
                     None
                 } else {
                     Some(JsUiEvent::ViewCreated {
@@ -71,7 +74,7 @@ pub async fn start_js_runtime(data: PluginContextData) -> anyhow::Result<()> {
                 let signal = signal.args().unwrap();
 
                 // TODO add logging here that we received signal
-                if PluginId::new(signal.plugin_id) != plugin_id {
+                if PluginId::from_string(signal.plugin_id) != plugin_id {
                     None
                 } else {
                     Some(JsUiEvent::ViewEvent {
@@ -294,10 +297,10 @@ impl ModuleLoader for CustomModuleLoader {
         if &specifier == &"plugin:view".parse().unwrap() || &specifier == &"plugin:module".parse().unwrap() {
             let view_name = module_specifier.query().unwrap();
 
-            let js = self.code.js();
+            let js = &self.code.js;
             let js = js.get(view_name).unwrap();
 
-            let module = ModuleSource::new(ModuleType::JavaScript, js.to_string().into(), module_specifier);
+            let module = ModuleSource::new(ModuleType::JavaScript, js.clone().into(), module_specifier);
 
             return futures::future::ready(Ok(module)).boxed_local();
         }
