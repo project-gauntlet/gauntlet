@@ -52,12 +52,16 @@ impl DbusManagementServer {
 
     async fn set_plugin_state(&mut self, plugin_id: &str, enabled: bool) {
         println!("set_plugin_state {:?} {:?}", plugin_id, enabled);
-        self.application_manager.set_plugin_state(PluginId::from_string(plugin_id), enabled).await
+        self.application_manager.set_plugin_state(PluginId::from_string(plugin_id), enabled)
+            .await
+            .unwrap()
     }
 
     async fn set_entrypoint_state(&mut self, plugin_id: &str, entrypoint_id: &str, enabled: bool) {
         println!("set_entrypoint_state {:?} {:?}", plugin_id, enabled);
-        self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::new(entrypoint_id), enabled).await
+        self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::new(entrypoint_id), enabled)
+            .await
+            .unwrap()
     }
 }
 

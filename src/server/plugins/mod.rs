@@ -7,12 +7,14 @@ use crate::server::plugins::config_reader::ConfigReader;
 use crate::server::plugins::data_db_repository::DataDbRepository;
 use crate::server::plugins::downloader::PluginDownloader;
 use crate::server::plugins::js::{PluginCode, PluginCommand, PluginCommandData, PluginRuntimeData, start_plugin_runtime};
+use crate::server::plugins::run_status::RunStatusHolder;
 use crate::server::search::{SearchIndex, SearchItem};
 
 pub mod js;
 mod data_db_repository;
 mod config_reader;
 mod downloader;
+mod run_status;
 
 pub struct ApplicationManager {
     config_reader: ConfigReader,
@@ -20,6 +22,7 @@ pub struct ApplicationManager {
     command_broadcaster: tokio::sync::broadcast::Sender<PluginCommand>,
     db_repository: DataDbRepository,
     plugin_downloader: PluginDownloader,
+    run_status_holder: RunStatusHolder,
 }
 
 impl ApplicationManager {
@@ -27,7 +30,8 @@ impl ApplicationManager {
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginDownloader::new(db_repository.clone());
-        let config_reader = ConfigReader::new(dirs);
+        let config_reader = ConfigReader::new(dirs, db_repository.clone());
+        let run_status_holder = RunStatusHolder::new();
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
@@ -37,6 +41,7 @@ impl ApplicationManager {
             command_broadcaster,
             db_repository,
             plugin_downloader,
+            run_status_holder
         })
     }
 
@@ -71,47 +76,69 @@ impl ApplicationManager {
         Ok(result)
     }
 
-    pub async fn set_plugin_state(&mut self, plugin_id: PluginId, enabled: bool) {
-        let x = self.is_plugin_enabled(&plugin_id).await;
-        println!("set_plugin_state {:?} {:?}", x, enabled);
-        match (x, enabled) {
-            (false, true) => {
-                self.start_plugin(plugin_id).await;
+    pub async fn set_plugin_state(&mut self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
+        let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
+        let currently_enabled = self.is_plugin_enabled(&plugin_id).await;
+        println!("set_plugin_state {:?} {:?}", currently_enabled, set_enabled);
+        match (currently_running, currently_enabled, set_enabled) {
+            (false, false, true) => {
+                self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)
+                    .await?;
+
+                self.start_plugin(plugin_id).await?;
             }
-            (true, false) => {
+            (false, true, true) => {
+                self.start_plugin(plugin_id).await?;
+            }
+            (true, true, false) => {
+                self.db_repository.set_plugin_enabled(&plugin_id.to_string(), false)
+                    .await?;
+
                 self.stop_plugin(plugin_id).await;
             }
             _ => {}
         }
+
+        self.reload_search_index().await;
+
+        Ok(())
     }
 
-    pub async fn set_entrypoint_state(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) {
+    pub async fn set_entrypoint_state(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> anyhow::Result<()> {
         self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
-            .await
-            .unwrap();
+            .await?;
 
         self.reload_search_index().await;
+
+        Ok(())
     }
 
-    pub async fn reload_all_plugins(&mut self) {
+    pub async fn reload_config(&self) -> anyhow::Result<()> {
+        self.config_reader.reload_config().await?;
+
+        Ok(())
+    }
+
+    pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
+        self.reload_config().await?;
+
+        for plugin in self.db_repository.list_plugins().await? {
+            let plugin_id = PluginId::from_string(plugin.id);
+            let running = self.run_status_holder.is_plugin_running(&plugin_id);
+            match (running, plugin.enabled) {
+                (false, true) => {
+                    self.start_plugin(plugin_id).await?;
+                }
+                (true, false) => {
+                    self.stop_plugin(plugin_id).await;
+                }
+                _ => {}
+            }
+        }
+
         self.reload_search_index().await;
 
-        self.db_repository.list_plugins()
-            .await
-            .unwrap()
-            .into_iter()
-            .filter(|plugin| plugin.enabled)
-            .for_each(|plugin| {
-                let receiver = self.command_broadcaster.subscribe();
-
-                let data = PluginRuntimeData {
-                    id: PluginId::from_string(plugin.id),
-                    code: PluginCode { js: plugin.code.js },
-                    command_receiver: receiver,
-                };
-
-                self.start_plugin_runtime(data)
-            });
+        Ok(())
     }
 
     async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> bool {
@@ -120,16 +147,11 @@ impl ApplicationManager {
             .unwrap()
     }
 
-    async fn start_plugin(&mut self, plugin_id: PluginId) {
+    async fn start_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
         println!("plugin_id {:?}", plugin_id);
 
-        self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)
-            .await
-            .unwrap();
-
         let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())
-            .await
-            .unwrap();
+            .await?;
 
         let receiver = self.command_broadcaster.subscribe();
         let data = PluginRuntimeData {
@@ -138,23 +160,19 @@ impl ApplicationManager {
             command_receiver: receiver,
         };
 
-        self.reload_search_index().await;
-        self.start_plugin_runtime(data)
+        self.start_plugin_runtime(data);
+
+        Ok(())
     }
 
     async fn stop_plugin(&mut self, plugin_id: PluginId) {
         println!("stop_plugin {:?}", plugin_id);
-
-        self.db_repository.set_plugin_enabled(&plugin_id.to_string(), false)
-            .await
-            .unwrap();
 
         let data = PluginCommand {
             id: plugin_id,
             data: PluginCommandData::Stop,
         };
 
-        self.reload_search_index().await;
         self.send_command(data)
     }
 
@@ -185,8 +203,11 @@ impl ApplicationManager {
         self.search_index.reload(search_items).unwrap();
     }
 
-    fn start_plugin_runtime(&self, data: PluginRuntimeData) {
+    fn start_plugin_runtime(&mut self, data: PluginRuntimeData) {
+        let run_status_guard = self.run_status_holder.start_block(data.id.clone());
+
         let handle = move || {
+            let _run_status_guard = run_status_guard;
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -209,17 +230,8 @@ impl ApplicationManager {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    readonly_ui: Option<bool>,
-    // TODO 3 modes: no changes, changes saved to config, changes saved to data
-    plugins: Option<Vec<PluginConfig>>,
-}
 
-#[derive(Debug, Deserialize)]
-struct PluginConfig {
-    id: String,
-}
+
 
 #[derive(Debug, Deserialize)]
 struct PackageJson {

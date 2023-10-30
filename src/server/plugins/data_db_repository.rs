@@ -36,6 +36,11 @@ pub struct GetPlugin {
 }
 
 #[derive(sqlx::FromRow)]
+pub struct GetPendingPlugin {
+    pub id: String,
+}
+
+#[derive(sqlx::FromRow)]
 pub struct GetPluginEntrypoint {
     pub id: String,
     pub plugin_id: String,
@@ -60,6 +65,10 @@ pub struct SavePluginEntrypoint {
     pub name: String,
 }
 
+pub struct SavePendingPlugin {
+    pub id: String,
+}
+
 #[derive(sqlx::FromRow)]
 struct PluginEnabled {
     pub enabled: bool,
@@ -68,12 +77,8 @@ struct PluginEnabled {
 
 impl DataDbRepository {
     pub async fn new(dirs: Dirs) -> anyhow::Result<Self> {
-        let data_dir = dirs.data_dir();
-
-        std::fs::create_dir_all(&data_dir).unwrap();
-
         let conn = SqliteConnectOptions::new()
-            .filename(data_dir.join("data.db"))
+            .filename(dirs.data_db_file())
             .create_if_missing(true);
 
         let pool = SqlitePool::connect_with(conn)
@@ -134,6 +139,35 @@ impl DataDbRepository {
         Ok(result)
     }
 
+    pub async fn list_pending_plugins(&self) -> anyhow::Result<Vec<GetPendingPlugin>> {
+        // language=SQLite
+        let plugins = sqlx::query_as::<_, GetPendingPlugin>("SELECT * FROM pending_plugin")
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(plugins)
+    }
+
+    pub async fn is_plugin_pending(&self, plugin_id: &str) -> anyhow::Result<bool> {
+        // language=SQLite
+        let result = sqlx::query_as::<_, (u8, )>("SELECT 1 FROM pending_plugin WHERE id = ?1")
+            .bind(plugin_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        Ok(result.is_some())
+    }
+
+    pub async fn does_plugin_exist(&self, plugin_id: &str) -> anyhow::Result<bool> {
+        // language=SQLite
+        let result = sqlx::query_as::<_, (u8, )>("SELECT 1 FROM plugin WHERE id = ?1")
+            .bind(plugin_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        Ok(result.is_some())
+    }
+
     pub async fn is_plugin_enabled(&self, plugin_id: &str) -> anyhow::Result<bool> {
         // language=SQLite
         let result = sqlx::query_as::<_, PluginEnabled>("SELECT enabled FROM plugin WHERE id = ?1")
@@ -167,8 +201,17 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn save_plugin(&self, plugin: SavePlugin) -> anyhow::Result<()>{
+    pub async fn save_pending_plugin(&self, plugin: SavePendingPlugin) -> anyhow::Result<()> {
+        // language=SQLite
+        sqlx::query("INSERT INTO pending_plugin VALUES(?1)")
+            .bind(&plugin.id)
+            .execute(&self.pool)
+            .await?;
 
+        Ok(())
+    }
+
+    pub async fn save_plugin(&self, plugin: SavePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite

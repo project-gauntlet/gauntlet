@@ -23,7 +23,7 @@ async fn run_server() -> anyhow::Result<()> {
     let search_index = SearchIndex::create_index().unwrap();
     let mut application_manager = ApplicationManager::create(search_index.clone()).await?;
 
-    application_manager.reload_all_plugins().await;
+    application_manager.reload_all_plugins().await?;
 
     let interface = DbusServer { search_index };
     let management_interface = DbusManagementServer { application_manager };
