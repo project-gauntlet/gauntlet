@@ -33,6 +33,7 @@ pub struct GetPlugin {
     pub name: String,
     pub enabled: bool,
     pub code: Json<Code>,
+    pub from_config: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -215,7 +216,7 @@ impl DataDbRepository {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4)")
+        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, false)")
             .bind(&plugin.id)
             .bind(plugin.name)
             .bind(true)
