@@ -337,14 +337,16 @@ impl Application for ManagementAppModel {
             .on_press(ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: Default::default() }))
             .into();
 
-        let multiple = if self.running_downloads.len() > 1 { "s" } else { "" };
-        let progress_bar_text: Element<_> = text(format!("{} plugin{} downloading...", self.running_downloads.len(), multiple))
-            .into();
+        let progress_bar_text: Element<_> = if self.running_downloads.is_empty() {
+            horizontal_space(Length::Fill)
+                .into()
+        } else {
+            let multiple = if self.running_downloads.len() > 1 { "s" } else { "" };
+             text(format!("{} plugin{} downloading...", self.running_downloads.len(), multiple))
+                .into()
+        };
 
-        let progress_bar: Element<_> = progress_bar(0.0..=100.0, 50.0)
-            .into();
-
-        let sidebar: Element<_> = column(vec![new_plugin_button, sidebar_content, progress_bar_text, progress_bar])
+        let sidebar: Element<_> = column(vec![new_plugin_button, sidebar_content, progress_bar_text])
             .padding(Padding::new(4.0))
             .into();
 
