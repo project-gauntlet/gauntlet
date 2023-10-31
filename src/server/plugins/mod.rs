@@ -45,8 +45,12 @@ impl ApplicationManager {
         })
     }
 
-    pub fn start_plugin_download(&mut self, repository_url: &str) -> String {
-        unimplemented!()
+    pub async fn start_plugin_download(
+        &mut self,
+        signal_context: zbus::SignalContext<'_>,
+        plugin_id: PluginId
+    ) -> anyhow::Result<String> {
+        self.plugin_downloader.download_plugin(signal_context, plugin_id).await
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<DBusPlugin>> {

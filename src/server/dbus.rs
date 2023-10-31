@@ -42,12 +42,21 @@ impl DbusManagementServer {
     #[dbus_interface(signal)]
     pub async fn plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, download_id: &str) -> zbus::Result<()>;
 
-    fn start_plugin_download(&mut self, repository_url: &str) -> String {
-        self.application_manager.start_plugin_download(repository_url)
+    async fn start_plugin_download(
+        &mut self,
+        #[zbus(signal_context)]
+        signal_context: zbus::SignalContext<'_>,
+        plugin_id: &str
+    ) -> String {
+        self.application_manager.start_plugin_download(signal_context, PluginId::from_string(plugin_id))
+            .await
+            .unwrap()
     }
 
     async fn plugins(&self) -> Vec<DBusPlugin> {
-        self.application_manager.plugins().await.unwrap()
+        self.application_manager.plugins()
+            .await
+            .unwrap()
     }
 
     async fn set_plugin_state(&mut self, plugin_id: &str, enabled: bool) {
