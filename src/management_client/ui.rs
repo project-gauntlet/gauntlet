@@ -218,7 +218,10 @@ impl Application for ManagementAppModel {
             }
             ManagementAppMsg::RunningDownloadFinished { download_id } => {
                 self.running_downloads.remove(&download_id).unwrap();
-                Command::none()
+                let dbus_server = self.dbus_server.clone();
+                Command::perform(async move {
+                    reload_plugins(dbus_server).await
+                }, ManagementAppMsg::PluginsReloaded)
             }
         }
     }
