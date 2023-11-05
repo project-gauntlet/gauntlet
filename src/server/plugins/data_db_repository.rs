@@ -215,6 +215,7 @@ impl DataDbRepository {
     }
 
     pub async fn remove_plugin(&self, plugin_id: &str) -> anyhow::Result<()> {
+        // language=SQLite
         sqlx::query("DELETE FROM plugin WHERE id = ?1")
             .bind(plugin_id)
             .execute(&self.pool)

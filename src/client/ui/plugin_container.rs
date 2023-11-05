@@ -1,13 +1,14 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock};
 
 use iced::{Element, Length};
 use iced::Renderer;
-use iced::widget::{button, column, Component, text, vertical_space};
+use iced::widget::{Component, vertical_space};
 use iced::widget::component;
 
 use crate::client::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
+use crate::client::ui::widget::{BuiltInWidgetEvent, BuiltInWidgetWrapper};
 use crate::common::model::PluginId;
 
 pub struct PluginContainer {
@@ -39,9 +40,9 @@ impl Default for PluginViewContainer {
 }
 
 impl PluginViewContainer {
-    fn get_native_widget(&mut self, widget: BuiltInWidget) -> NativeUiWidget {
+    fn get_native_widget(&mut self, create_fn: impl FnOnce(NativeUiWidgetId) -> BuiltInWidgetWrapper) -> NativeUiWidget {
         let id = self.next_id;
-        self.widget_map.insert(id, BuiltInWidgetWrapper::new(id, widget));
+        self.widget_map.insert(id, create_fn(id));
 
         self.next_id += 1;
 
@@ -56,7 +57,7 @@ impl PluginViewContainer {
 
     fn get_container(&mut self) -> NativeUiWidget {
         if let Entry::Vacant(value) = self.widget_map.entry(self.root_id) {
-            value.insert(BuiltInWidgetWrapper::new(self.root_id, BuiltInWidget::Container { children: vec![] }));
+            value.insert(BuiltInWidgetWrapper::empty_container(self.root_id));
         };
 
         NativeUiWidget {
@@ -65,93 +66,28 @@ impl PluginViewContainer {
     }
 
     fn create_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        let widget = match widget_type.as_ref() {
-            "box" => BuiltInWidget::Container { children: vec![] },
-            "button1" => BuiltInWidget::Button(widget_type.to_owned()),
-            _ => panic!("widget_type {} not supported", widget_type)
-        };
-
-        self.get_native_widget(widget)
+        self.get_native_widget(|id| BuiltInWidgetWrapper::widget(id, widget_type, properties))
     }
 
     fn create_text_instance(&mut self, text: &str) -> NativeUiWidget {
-        self.get_native_widget(BuiltInWidget::Text(text.to_owned()))
-    }
-
-    fn clone_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        let widget = self.create_instance(widget_type, properties);
-        // let widget = self.get_builtin_widget(widget);
-        widget
+        self.get_native_widget(|id| BuiltInWidgetWrapper::text(id, text))
     }
 
     fn append_child(&mut self, parent: NativeUiWidget, child: NativeUiWidget) {
         let parent = self.get_builtin_widget(parent);
-        let mut parent = parent.get_mut();
-        match *parent {
-            BuiltInWidget::Container { ref mut children } => {
-                let child = self.get_builtin_widget(child);
+        let child = self.get_builtin_widget(child);
 
-                children.push(child)
-            }
-            BuiltInWidget::Button(_) => {}
-            _ => panic!("parent not supported")
-        };
+        parent.append_child(child);
     }
 
     fn replace_container_children(&mut self, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
         let container = self.get_builtin_widget(container);
-        let mut container = container.get_mut();
-        match *container {
-            BuiltInWidget::Container { ref mut children } => {
-                *children = new_children.into_iter()
-                    .map(|child| self.get_builtin_widget(child))
-                    .collect();
-            }
-            BuiltInWidget::Button(_) => {}
-            _ => panic!("not supported parent")
-        };
-    }
-}
 
-#[derive(Clone)]
-struct BuiltInWidgetWrapper {
-    id: NativeUiWidgetId,
-    inner: Arc<RwLock<BuiltInWidget>>,
-}
+        let children = new_children.into_iter()
+            .map(|child| self.get_builtin_widget(child))
+            .collect();
 
-impl BuiltInWidgetWrapper {
-    fn new(id: NativeUiWidgetId, widget: BuiltInWidget) -> Self {
-        Self {
-            id,
-            inner: Arc::new(RwLock::new(widget)),
-        }
-    }
-
-    fn id(&self) -> NativeUiWidgetId {
-        self.id
-    }
-
-    fn get(&self) -> RwLockReadGuard<'_, BuiltInWidget> {
-        self.inner.read().unwrap()
-    }
-
-    fn get_mut(&self) -> RwLockWriteGuard<'_, BuiltInWidget> {
-        self.inner.write().unwrap()
-    }
-}
-
-enum BuiltInWidget {
-    Container {
-        children: Vec<BuiltInWidgetWrapper>
-    },
-    Button(String),
-    Text(String),
-}
-
-#[derive(Clone, Debug)]
-pub enum BuiltInWidgetEvent {
-    ButtonClick {
-        widget_id: NativeUiWidgetId
+        container.set_children(children);
     }
 }
 
@@ -172,36 +108,9 @@ impl Component<BuiltInWidgetEvent, Renderer> for PluginContainer {
         let container = client_context.get_view_container(&self.plugin_id);
 
         if let Some(widget) = container.widget_map.get(&container.root_id) {
-            create_view_subtree(widget.clone())
+            widget.render_widget()
         } else {
             vertical_space(Length::Fill).into()
-        }
-    }
-}
-
-fn create_view_subtree<'a>(widget_wrapper: BuiltInWidgetWrapper) -> Element<'a, BuiltInWidgetEvent> {
-    let widget = widget_wrapper.get();
-    match &*widget {
-        BuiltInWidget::Container { children } => {
-            let children: Vec<Element<_>> = children
-                .into_iter()
-                .map(|child| create_view_subtree(child.clone()))
-                .collect();
-
-            column(children)
-                .into()
-        }
-        BuiltInWidget::Button(text_content) => {
-            let text: Element<_> = text(text_content)
-                .into();
-
-            button(text)
-                .on_press(BuiltInWidgetEvent::ButtonClick { widget_id: widget_wrapper.id() })
-                .into()
-        }
-        BuiltInWidget::Text(text_content) => {
-            text(text_content)
-                .into()
         }
     }
 }
@@ -245,7 +154,7 @@ impl ClientContext {
     }
 
     pub fn clone_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_id).clone_instance(widget_type, properties)
+        self.get_view_container_mut(plugin_id).create_instance(widget_type, properties)
     }
 
     pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
