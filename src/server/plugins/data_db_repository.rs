@@ -9,7 +9,6 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
-use crate::common::model::{EntrypointId, PluginId};
 
 use crate::server::dirs::Dirs;
 

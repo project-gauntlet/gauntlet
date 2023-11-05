@@ -1,5 +1,3 @@
-use serde::Deserialize;
-
 use crate::common::dbus::{DBusEntrypoint, DBusPlugin};
 use crate::common::model::{EntrypointId, PluginId};
 use crate::server::dirs::Dirs;
@@ -133,7 +131,7 @@ impl ApplicationManager {
     pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
 
         if cfg!(feature = "dev") {
-            let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "test_data/plugin/dist").to_owned();
+            let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/test_data/plugin/dist").to_owned();
 
             // ignore any error
             let _ = self.new_local_plugin(PluginId::from_string(plugin_id)).await;
@@ -247,30 +245,4 @@ impl ApplicationManager {
     fn send_command(&self, command: PluginCommand) {
         self.command_broadcaster.send(command).unwrap();
     }
-}
-
-
-
-
-#[derive(Debug, Deserialize)]
-struct PackageJson {
-    plugin: PackageJsonPlugin,
-}
-
-#[derive(Debug, Deserialize)]
-struct PackageJsonPlugin {
-    entrypoints: Vec<PackageJsonPluginEntrypoint>,
-    metadata: PackageJsonPluginMetadata,
-}
-
-#[derive(Debug, Deserialize)]
-struct PackageJsonPluginEntrypoint {
-    id: String,
-    name: String,
-    path: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PackageJsonPluginMetadata {
-    name: String,
 }

@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use std::thread;
 
 use anyhow::{anyhow, Context};
+use serde::Deserialize;
 
 use crate::common::model::PluginId;
 use crate::server::dbus::DbusManagementServer;
 use crate::server::plugins::data_db_repository::{Code, DataDbRepository, SavePlugin, SavePluginEntrypoint};
-use crate::server::plugins::PackageJson;
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
@@ -130,7 +129,8 @@ impl PluginLoader {
     async fn read_plugin_dir(plugin_dir: PathBuf, plugin_id: PluginId) -> anyhow::Result<PluginDirData> {
         let js_dir = plugin_dir.join("js");
 
-        let js_files = std::fs::read_dir(js_dir)?;
+        let js_dir_context = js_dir.display().to_string();
+        let js_files = std::fs::read_dir(js_dir).context(js_dir_context)?;
 
         let js: HashMap<_, _> = js_files.into_iter()
             .map(|dist_path| dist_path.unwrap().path())
@@ -143,15 +143,14 @@ impl PluginLoader {
             })
             .collect();
 
-        let package_path = plugin_dir.join("package.json");
-        let package_path_context = package_path.display().to_string();
-        let package_content = std::fs::read_to_string(package_path).context(package_path_context)?;
-        let package_json: PackageJson = serde_json::from_str(&package_content)?;
+        let config_path = plugin_dir.join("placeholdername.toml");
+        let config_path_context = config_path.display().to_string();
+        let config_content = std::fs::read_to_string(config_path).context(config_path_context)?;
+        let config: PluginConfig = toml::from_str(&config_content).unwrap();
 
-        let plugin_name = package_json.plugin.metadata.name;
+        let plugin_name = config.metadata.name;
 
-        let entrypoints: Vec<_> = package_json.plugin
-            .entrypoints
+        let entrypoints: Vec<_> = config.entrypoints
             .into_iter()
             .map(|entrypoint| SavePluginEntrypoint {
                 id: entrypoint.id,
@@ -175,4 +174,22 @@ struct PluginDirData {
     pub name: String,
     pub code: Code,
     pub entrypoints: Vec<SavePluginEntrypoint>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginConfig {
+    metadata: PluginConfigMetadata,
+    entrypoints: Vec<PluginConfigEntrypoint>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginConfigEntrypoint {
+    id: String,
+    name: String,
+    path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginConfigMetadata {
+    name: String,
 }

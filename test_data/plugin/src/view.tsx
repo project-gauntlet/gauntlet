@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import {useState} from 'react';
 import upperCase from "lodash/upperCase";
 
 declare global {

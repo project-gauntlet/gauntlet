@@ -2,24 +2,26 @@ import nodeResolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import { rollup } from "rollup";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { parse as parseToml } from "toml";
 
-interface PackageJson {
-    plugin: PackageJsonPlugin
+interface Config {
+    metadata: ConfigMetadata
+    entrypoints: ConfigPluginEntrypoint[]
 }
-interface PackageJsonPlugin {
-    entrypoints: PackageJsonPluginEntrypoint[]
+
+interface ConfigMetadata {
+    name: string
 }
-interface PackageJsonPluginEntrypoint {
+
+interface ConfigPluginEntrypoint {
     id: string
     path: string
 }
 
-
-// TODO separate config file, to not tie to package.json and json in general
-const text: string = readFileSync("./package.json", "utf8");
-const packageJson = JSON.parse(text) as PackageJson;
-const mapInputs = packageJson.plugin.entrypoints.map(entrypoint => [entrypoint.id, entrypoint.path] as const);
+const text: string = readFileSync("./placeholdername.toml", "utf8");
+const config = parseToml(text) as Config;
+const mapInputs = config.entrypoints.map(entrypoint => [entrypoint.id, entrypoint.path] as const);
 const entries = new Map(mapInputs);
 const inputs = Object.fromEntries(entries);
 
@@ -36,7 +38,7 @@ const rollupBuild = await rollup({
 });
 
 await rollupBuild.write({
-    dir: 'dist',
+    dir: 'dist/js',
     format: 'esm',
     sourcemap: 'inline',
     manualChunks: (id, _meta) => {
@@ -48,3 +50,5 @@ await rollupBuild.write({
     },
     chunkFileNames: '[name].js'
 });
+
+writeFileSync("dist/placeholdername.toml", text)
