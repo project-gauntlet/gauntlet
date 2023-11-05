@@ -7,11 +7,9 @@ use crate::common::dbus::DBusPlugin;
 )]
 trait DbusManagementServerProxy {
     #[dbus_proxy(signal)]
-    fn plugin_download_status_signal(&self, download_id: &str, percent: f32) -> zbus::Result<()>;
-    #[dbus_proxy(signal)]
-    fn plugin_download_finished_signal(&self, download_id: &str) -> zbus::Result<()>;
+    fn remote_plugin_download_finished_signal(&self, plugin_id: &str) -> zbus::Result<()>;
 
-    async fn start_plugin_download(&self, repository_url: &str) -> zbus::Result<String>;
+    async fn new_remote_plugin(&self, plugin_id: &str) -> zbus::Result<()>;
     async fn plugins(&self) -> zbus::Result<Vec<DBusPlugin>>;
     async fn set_plugin_state(&self, plugin_id: &str, enabled: bool) -> zbus::Result<()>;
     async fn set_entrypoint_state(&self, plugin_id: &str, entrypoint_id: &str, enabled: bool) -> zbus::Result<()>;

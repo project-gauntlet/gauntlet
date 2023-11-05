@@ -1,42 +1,36 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::thread;
 
 use anyhow::{anyhow, Context};
-use uuid::Uuid;
 
 use crate::common::model::PluginId;
 use crate::server::dbus::DbusManagementServer;
 use crate::server::plugins::data_db_repository::{Code, DataDbRepository, SavePlugin, SavePluginEntrypoint};
 use crate::server::plugins::PackageJson;
 
-pub struct PluginDownloader {
+pub struct PluginLoader {
     db_repository: DataDbRepository,
 }
 
-impl PluginDownloader {
+impl PluginLoader {
     pub fn new(db_repository: DataDbRepository) -> Self {
         Self {
             db_repository
         }
     }
 
-    pub async fn download_plugin(
+    pub async fn add_remote_plugin(
         &self,
         signal_context: zbus::SignalContext<'_>,
         plugin_id: PluginId
-    ) -> anyhow::Result<String> {
-        let download_id = Uuid::new_v4().to_string();
-
+    ) -> anyhow::Result<()> {
         let data_db_repository = self.db_repository.clone();
         let signal_context = signal_context.to_owned();
-        let download_id_clone = download_id.clone();
         thread::spawn(move || {
             let temp_dir = tempfile::tempdir()
-                .unwrap();
-
-            let temp_plugin_dir = PluginDownloader::download(temp_dir.path(), plugin_id.clone())
                 .unwrap();
 
             let runtime = tokio::runtime::Builder::new_current_thread()
@@ -44,24 +38,53 @@ impl PluginDownloader {
                 .build()
                 .unwrap();
 
-            let local_set = tokio::task::LocalSet::new();
-            local_set.block_on(&runtime, async move {
-                PluginDownloader::save(data_db_repository, temp_plugin_dir, plugin_id)
+            runtime.block_on(async move {
+                let plugin_dir = PluginLoader::download(temp_dir.path(), plugin_id.clone())
+                    .unwrap();
+
+                let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
                     .await
                     .unwrap();
 
-                DbusManagementServer::plugin_download_finished_signal(&signal_context, &download_id_clone)
+                DbusManagementServer::remote_plugin_download_finished_signal(&signal_context, &plugin_id.to_string())
                     .await
-                    .unwrap()
+                    .unwrap();
+
+                data_db_repository.save_plugin(SavePlugin {
+                    id: plugin_data.id,
+                    name: plugin_data.name,
+                    code: plugin_data.code,
+                    entrypoints: plugin_data.entrypoints,
+                    from_config: false,
+                }).await.unwrap();
             });
         });
 
-        Ok(download_id)
+        Ok(())
     }
 
-    fn download(git_repo_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PathBuf> {
-        let url = gix::url::parse(gix::path::os_str_into_bstr(plugin_id.to_string().as_ref())?)?;
-        let mut prepare_fetch = gix::clone::PrepareFetch::new(url, &git_repo_dir, gix::create::Kind::WithWorktree, Default::default(), Default::default())?
+    pub async fn add_local_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        let plugin_dir = plugin_id.try_to_path()?;
+
+        let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
+            .await
+            .unwrap();
+
+        self.db_repository.save_plugin(SavePlugin {
+            id: plugin_data.id,
+            name: plugin_data.name,
+            code: plugin_data.code,
+            entrypoints: plugin_data.entrypoints,
+            from_config: false,
+        }).await?;
+
+        Ok(())
+    }
+
+    fn download(target_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PathBuf> {
+        let url = plugin_id.try_to_git_url()?;
+
+        let mut prepare_fetch = gix::clone::PrepareFetch::new(url, &target_dir, gix::create::Kind::WithWorktree, Default::default(), Default::default())?
             .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(1.try_into().unwrap()))
             .configure_remote(|mut remote| {
                 remote.replace_refspecs(
@@ -82,7 +105,7 @@ impl PluginDownloader {
             &gix::interrupt::IS_INTERRUPTED,
         )?;
 
-        let plugins_path = git_repo_dir.join("plugins");
+        let plugins_path = target_dir.join("plugins");
 
         let mut latest_version = None;
 
@@ -104,7 +127,7 @@ impl PluginDownloader {
         Ok(version_path)
     }
 
-    async fn save(db_repository: DataDbRepository, plugin_dir: PathBuf, plugin_id: PluginId) -> anyhow::Result<()> {
+    async fn read_plugin_dir(plugin_dir: PathBuf, plugin_id: PluginId) -> anyhow::Result<PluginDirData> {
         let js_dir = plugin_dir.join("js");
 
         let js_files = std::fs::read_dir(js_dir)?;
@@ -136,15 +159,20 @@ impl PluginDownloader {
             })
             .collect();
 
-        db_repository.save_plugin(SavePlugin {
+        Ok(PluginDirData {
             id: plugin_id.to_string(),
             name: plugin_name,
             code: Code {
                 js
             },
             entrypoints,
-        }).await?;
-
-        Ok(())
+        })
     }
+}
+
+struct PluginDirData {
+    pub id: String,
+    pub name: String,
+    pub code: Code,
+    pub entrypoints: Vec<SavePluginEntrypoint>,
 }

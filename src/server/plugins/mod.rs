@@ -5,15 +5,15 @@ use crate::common::model::{EntrypointId, PluginId};
 use crate::server::dirs::Dirs;
 use crate::server::plugins::config_reader::ConfigReader;
 use crate::server::plugins::data_db_repository::DataDbRepository;
-use crate::server::plugins::downloader::PluginDownloader;
 use crate::server::plugins::js::{PluginCode, PluginCommand, PluginCommandData, PluginRuntimeData, start_plugin_runtime};
+use crate::server::plugins::loader::PluginLoader;
 use crate::server::plugins::run_status::RunStatusHolder;
 use crate::server::search::{SearchIndex, SearchItem};
 
 pub mod js;
 mod data_db_repository;
 mod config_reader;
-mod downloader;
+mod loader;
 mod run_status;
 
 pub struct ApplicationManager {
@@ -21,7 +21,7 @@ pub struct ApplicationManager {
     search_index: SearchIndex,
     command_broadcaster: tokio::sync::broadcast::Sender<PluginCommand>,
     db_repository: DataDbRepository,
-    plugin_downloader: PluginDownloader,
+    plugin_downloader: PluginLoader,
     run_status_holder: RunStatusHolder,
 }
 
@@ -29,7 +29,7 @@ impl ApplicationManager {
     pub async fn create(search_index: SearchIndex) -> anyhow::Result<Self> {
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
-        let plugin_downloader = PluginDownloader::new(db_repository.clone());
+        let plugin_downloader = PluginLoader::new(db_repository.clone());
         let config_reader = ConfigReader::new(dirs, db_repository.clone());
         let run_status_holder = RunStatusHolder::new();
 
@@ -45,12 +45,19 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn start_plugin_download(
+    pub async fn new_remote_plugin(
         &mut self,
         signal_context: zbus::SignalContext<'_>,
         plugin_id: PluginId
-    ) -> anyhow::Result<String> {
-        self.plugin_downloader.download_plugin(signal_context, plugin_id).await
+    ) -> anyhow::Result<()> {
+        self.plugin_downloader.add_remote_plugin(signal_context, plugin_id).await
+    }
+
+    pub async fn new_local_plugin(
+        &mut self,
+        plugin_id: PluginId,
+    ) -> anyhow::Result<()> {
+        self.plugin_downloader.add_local_plugin(plugin_id).await
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<DBusPlugin>> {
@@ -124,6 +131,14 @@ impl ApplicationManager {
     }
 
     pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
+
+        if cfg!(feature = "dev") {
+            let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "test_data/plugin/dist").to_owned();
+
+            // ignore any error
+            let _ = self.new_local_plugin(PluginId::from_string(plugin_id)).await;
+        }
+
         self.reload_config().await?;
 
         for plugin in self.db_repository.list_plugins().await? {
@@ -160,7 +175,7 @@ impl ApplicationManager {
         let receiver = self.command_broadcaster.subscribe();
         let data = PluginRuntimeData {
             id: plugin_id,
-            code: PluginCode { js: plugin.code.0.js },
+            code: PluginCode { js: plugin.code.js },
             command_receiver: receiver,
         };
 

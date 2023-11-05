@@ -1,16 +1,15 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use deno_core::error::AnyError;
 use futures::stream::StreamExt;
 use iced::{Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, subscription, theme, window};
-use iced::widget::{button, checkbox, column, container, horizontal_space, progress_bar, row, scrollable, text, text_input};
+use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text, text_input};
 use iced_aw::graphics::icons;
 use iced_table::table;
 use zbus::Connection;
 
 use crate::common::model::{EntrypointId, PluginId};
-use crate::management_client::dbus::{DbusManagementServerProxyProxy, PluginDownloadFinishedSignalStream, PluginDownloadStatusSignalStream};
+use crate::management_client::dbus::{DbusManagementServerProxyProxy, RemotePluginDownloadFinishedSignalStream};
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -33,11 +32,7 @@ struct ManagementAppModel {
     selected_item: SelectedItem,
     header: scrollable::Id,
     body: scrollable::Id,
-    running_downloads: HashMap<String, RunningDownload>,
-}
-
-struct RunningDownload {
-    percent: f32,
+    running_downloads: HashSet<PluginId>,
 }
 
 #[derive(Debug, Clone)]
@@ -50,16 +45,13 @@ enum ManagementAppMsg {
     },
     SelectItem(SelectedItem),
     EnabledToggleItem(EnabledItem),
-    NewDownload {
-        repository_url: String,
+    RemotePluginNew {
+        plugin_id: PluginId,
     },
-    RunningDownloadStatus {
-        download_id: String,
-        percent: f32,
+    RemotePluginDownloadFinished {
+        plugin_id: PluginId,
     },
-    RunningDownloadFinished {
-        download_id: String,
-    },
+    Noop
 }
 
 #[derive(Debug, Clone)]
@@ -139,7 +131,7 @@ impl Application for ManagementAppModel {
                 selected_item: SelectedItem::None,
                 header: scrollable::Id::unique(),
                 body: scrollable::Id::unique(),
-                running_downloads: HashMap::new(),
+                running_downloads: HashSet::new(),
             },
             Command::batch([
                 font::load(icons::ICON_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
@@ -198,30 +190,27 @@ impl Application for ManagementAppModel {
                     }
                 }
             }
-            ManagementAppMsg::NewDownload { repository_url } => {
+            ManagementAppMsg::RemotePluginNew { plugin_id } => {
                 let dbus_server = self.dbus_server.clone();
 
-                Command::perform(async move {
-                    dbus_server.start_plugin_download(&repository_url).await.unwrap()
-                }, |download_id| ManagementAppMsg::RunningDownloadStatus { download_id, percent: 0.0 })
-            }
-            ManagementAppMsg::RunningDownloadStatus { download_id, percent } => {
-                match self.running_downloads.entry(download_id) {
-                    Entry::Occupied(mut entry) => {
-                        entry.get_mut().percent = percent;
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(RunningDownload { percent });
-                    }
+                let exists = self.running_downloads.insert(plugin_id.clone());
+                if !exists {
+                    panic!("already downloading this plugins")
                 }
-                Command::none()
+
+                Command::perform(async move {
+                    dbus_server.new_remote_plugin(&plugin_id.to_string()).await.unwrap()
+                }, |_| ManagementAppMsg::Noop)
             }
-            ManagementAppMsg::RunningDownloadFinished { download_id } => {
-                self.running_downloads.remove(&download_id).unwrap();
+            ManagementAppMsg::RemotePluginDownloadFinished { plugin_id } => {
+                self.running_downloads.remove(&plugin_id);
                 let dbus_server = self.dbus_server.clone();
                 Command::perform(async move {
                     reload_plugins(dbus_server).await
                 }, ManagementAppMsg::PluginsReloaded)
+            }
+            ManagementAppMsg::Noop => {
+                Command::none()
             }
         }
     }
@@ -306,7 +295,7 @@ impl Application for ManagementAppModel {
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
                     .on_input(|value| ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: value }))
-                    .on_submit(ManagementAppMsg::NewDownload { repository_url: repository_url.to_string() })
+                    .on_submit(ManagementAppMsg::RemotePluginNew { plugin_id: PluginId::from_string(repository_url) })
                     .into();
 
                 let content: Element<_> = column(vec![
@@ -360,35 +349,23 @@ impl Application for ManagementAppModel {
 
     fn subscription(&self) -> Subscription<Self::Message> {
 
-        let (dbus_download_status_stream, dbus_download_finished_stream) = futures::executor::block_on(async {
-            let download_status_stream = self.dbus_server.receive_plugin_download_status_signal().await?;
-            let download_finished_stream = self.dbus_server.receive_plugin_download_finished_signal().await?;
+        let (dbus_download_finished_stream, ) = futures::executor::block_on(async {
+            let download_finished_stream = self.dbus_server.receive_remote_plugin_download_finished_signal().await?;
 
-            Ok::<(PluginDownloadStatusSignalStream<'_>, PluginDownloadFinishedSignalStream<'_>), AnyError>((download_status_stream, download_finished_stream))
+            Ok::<(RemotePluginDownloadFinishedSignalStream<'_>, ), AnyError>((download_finished_stream, ))
         }).unwrap();
-
-        let dbus_download_status_stream = dbus_download_status_stream
-            .map(|signal| {
-                let signal = signal.args().unwrap();
-                ManagementAppMsg::RunningDownloadStatus {
-                    download_id: signal.download_id.to_owned(),
-                    percent: signal.percent,
-                }
-            });
 
         let dbus_download_finished_stream = dbus_download_finished_stream
             .map(|signal| {
                 let signal = signal.args().unwrap();
-                ManagementAppMsg::RunningDownloadFinished {
-                    download_id: signal.download_id.to_owned(),
+                ManagementAppMsg::RemotePluginDownloadFinished {
+                    plugin_id: PluginId::from_string(signal.plugin_id),
                 }
             });
 
-        struct DownloadStatusStream;
         struct DownloadFinishedStream;
 
         Subscription::batch([
-            subscription::run_with_id(std::any::TypeId::of::<DownloadStatusStream>(), dbus_download_status_stream),
             subscription::run_with_id(std::any::TypeId::of::<DownloadFinishedStream>(), dbus_download_finished_stream)
         ])
     }

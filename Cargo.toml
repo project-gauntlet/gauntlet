@@ -30,7 +30,6 @@ iced_aw = { version = "0.7.0", default-features = false, features = ["icons"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 sqlx = { version = "0.7", features = [ "runtime-tokio", "json", "sqlite" ] }
-uuid = { version = "1.4.1", features = ["v4"] }
 
 [features]
 dev = []

@@ -5866,7 +5866,6 @@ dependencies = [
  "toml 0.7.8",
  "tracing",
  "tracing-subscriber",
- "uuid",
  "zbus",
 ]
 

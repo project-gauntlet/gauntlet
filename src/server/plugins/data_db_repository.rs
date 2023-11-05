@@ -9,6 +9,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
+use crate::common::model::{EntrypointId, PluginId};
 
 use crate::server::dirs::Dirs;
 
@@ -32,7 +33,8 @@ pub struct GetPlugin {
     pub id: String,
     pub name: String,
     pub enabled: bool,
-    pub code: Json<Code>,
+    #[sqlx(json)]
+    pub code: Code,
     pub from_config: bool,
 }
 
@@ -59,6 +61,7 @@ pub struct SavePlugin {
     pub name: String,
     pub code: Code,
     pub entrypoints: Vec<SavePluginEntrypoint>,
+    pub from_config: bool,
 }
 
 pub struct SavePluginEntrypoint {
@@ -110,7 +113,7 @@ impl DataDbRepository {
                     id: plugin.id,
                     name: plugin.name,
                     enabled: plugin.enabled,
-                    code: plugin.code.0,
+                    code: plugin.code,
                     entrypoints,
                 })
             })

@@ -37,18 +37,15 @@ pub struct DbusManagementServer {
 impl DbusManagementServer {
 
     #[dbus_interface(signal)]
-    pub async fn plugin_download_status_signal(signal_ctxt: &zbus::SignalContext<'_>, download_id: &str, percent: f32) -> zbus::Result<()>;
+    pub async fn remote_plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str) -> zbus::Result<()>;
 
-    #[dbus_interface(signal)]
-    pub async fn plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, download_id: &str) -> zbus::Result<()>;
-
-    async fn start_plugin_download(
+    async fn new_remote_plugin(
         &mut self,
         #[zbus(signal_context)]
         signal_context: zbus::SignalContext<'_>,
         plugin_id: &str
-    ) -> String {
-        self.application_manager.start_plugin_download(signal_context, PluginId::from_string(plugin_id))
+    ) {
+        self.application_manager.new_remote_plugin(signal_context, PluginId::from_string(plugin_id))
             .await
             .unwrap()
     }
