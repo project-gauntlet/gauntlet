@@ -62,12 +62,16 @@ impl PluginLoader {
         Ok(())
     }
 
-    pub async fn add_local_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub async fn add_local_plugin(&self, plugin_id: PluginId, overwrite: bool) -> anyhow::Result<()> {
         let plugin_dir = plugin_id.try_to_path()?;
 
         let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
             .await
             .unwrap();
+
+        if overwrite {
+            self.db_repository.remove_plugin(&plugin_data.id).await?
+        }
 
         self.db_repository.save_plugin(SavePlugin {
             id: plugin_data.id,

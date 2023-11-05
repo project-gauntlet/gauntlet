@@ -55,7 +55,7 @@ impl ApplicationManager {
         &mut self,
         plugin_id: PluginId,
     ) -> anyhow::Result<()> {
-        self.plugin_downloader.add_local_plugin(plugin_id).await
+        self.plugin_downloader.add_local_plugin(plugin_id, false).await
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<DBusPlugin>> {
@@ -134,7 +134,8 @@ impl ApplicationManager {
             let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/test_data/plugin/dist").to_owned();
 
             // ignore any error
-            let _ = self.new_local_plugin(PluginId::from_string(plugin_id)).await;
+            let _ = self.plugin_downloader.add_local_plugin(PluginId::from_string(plugin_id), true)
+                .await;
         }
 
         self.reload_config().await?;

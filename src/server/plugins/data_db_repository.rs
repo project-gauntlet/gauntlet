@@ -214,6 +214,14 @@ impl DataDbRepository {
         Ok(())
     }
 
+    pub async fn remove_plugin(&self, plugin_id: &str) -> anyhow::Result<()> {
+        sqlx::query("DELETE FROM plugin WHERE id = ?1")
+            .bind(plugin_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn save_plugin(&self, plugin: SavePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
