@@ -1,0 +1,15 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.3.22", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+management_client = { path = "../management_client" }
+client = { path = "../client" }
+server = { path = "../server" }
+
+[features]
+dev = ["server/dev"]

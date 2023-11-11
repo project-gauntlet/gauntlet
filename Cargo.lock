@@ -866,6 +866,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "client",
+ "management_client",
+ "server",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+ "iced",
+ "iced_aw",
+ "iced_table",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "utils",
+ "zbus",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -980,6 +1009,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35ed6e9d84f0b51a7f52daf1c7d71dd136fd7a3f41a8462b8cdb8c78d920fad4"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gix",
+ "serde",
+ "zbus",
 ]
 
 [[package]]
@@ -4764,6 +4803,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "management_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "iced",
+ "iced_aw",
+ "iced_table",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zbus",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5843,29 +5899,7 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 name = "placeholdername"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "async-stream",
- "clap",
- "deno_core",
- "deno_runtime",
- "directories",
- "futures-concurrency",
- "gix",
- "iced",
- "iced_aw",
- "iced_table",
- "once_cell",
- "regex",
- "serde",
- "sqlx",
- "tantivy",
- "tempfile",
- "thiserror",
- "tokio",
- "toml 0.7.8",
- "tracing",
- "tracing-subscriber",
- "zbus",
+ "cli",
 ]
 
 [[package]]
@@ -6855,6 +6889,34 @@ dependencies = [
  "smallvec",
  "thiserror",
  "v8",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "clap",
+ "common",
+ "deno_core",
+ "deno_runtime",
+ "directories",
+ "futures-concurrency",
+ "gix",
+ "once_cell",
+ "regex",
+ "serde",
+ "sqlx",
+ "tantivy",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml 0.7.8",
+ "tracing",
+ "tracing-subscriber",
+ "utils",
+ "zbus",
 ]
 
 [[package]]
@@ -8710,6 +8772,14 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
+
+[[package]]
+name = "utils"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "uuid"
