@@ -1,5 +1,5 @@
 {
-  "name": "react",
+  "name": "placeholdername-react",
   "version": "1.0.0",
   "scripts": {
     "build": "rollup --config rollup.config.ts --configPlugin typescript"

@@ -2,62 +2,15 @@ import ReactReconciler, {HostConfig, OpaqueHandle} from "react-reconciler";
 import type React from 'react';
 import {DefaultEventPriority} from 'react-reconciler/constants';
 
-type Type = string;
-type Props = { children?: any } & { [key: string]: any };
+// @ts-expect-error does typescipt support such symbol declarations?
+const denoCore = Deno[Deno.internal].core;
+const InternalApi = denoCore.ops;
 
-type SuspenseInstance = never;
 type PublicInstance = Instance;
 type HostContext = any;
 type UpdatePayload = string[];
 type TimeoutHandle = any;
 type NoTimeout = -1;
-
-// @ts-expect-error "Deno[Deno.internal]" is not a public interface
-const denoCore = Deno[Deno.internal].core;
-// @ts-expect-error // TODO "Deno" does not have typings
-const denoInspect = Deno.inspect;
-
-const InternalApi: InternalApi = denoCore.ops;
-
-type Container = Instance
-type Instance = Promise<UiWidget>
-type TextInstance = Promise<UiWidget>
-type InstanceSync = UiWidget
-type TextInstanceSync = UiWidget
-type ChildSet = (InstanceSync | TextInstanceSync)[]
-
-declare interface UiWidget {
-}
-
-declare interface InternalApi {
-    op_react_get_container(): Container;
-
-    op_react_create_instance(type: Type, props: Props): Instance;
-
-    op_react_create_text_instance(text: string): TextInstance;
-
-    op_react_append_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
-
-    op_react_call_event_listener(instance: InstanceSync, eventName: string): void;
-
-    // mutation mode
-    op_react_remove_child(parent: InstanceSync, child: InstanceSync | TextInstanceSync): void;
-
-    op_react_insert_before(
-        parent: InstanceSync,
-        child: InstanceSync | TextInstanceSync | SuspenseInstance,
-        beforeChild: InstanceSync | TextInstanceSync | SuspenseInstance
-    ): void;
-
-    op_react_set_properties(instance: InstanceSync, properties: Props): void;
-
-    op_react_set_text(instance: InstanceSync, text: string): void;
-
-    // persistent mode
-    op_react_clone_instance(type: Type, properties: Props): Instance;
-
-    op_react_replace_container_children(container: InstanceSync, newChildren: ChildSet): void;
-}
 
 // TODO add on not used methods: throw new Error("NOT IMPLEMENTED")
 
@@ -370,7 +323,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
 
             return function _noop(...args: any[]) {
                 console.log('MethodTrace Stub:', propKey, ...args.map(function (arg) {
-                    return denoInspect(arg, {depth: 1});
+                    return Deno.inspect(arg, {depth: 1});
                 }));
             }
         }
@@ -378,7 +331,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
         if (typeof f === 'function') {
             return function _traced(this: any, ...args: any[]) {
                 console.log('MethodTrace:', propKey, ...args.map(function (arg) {
-                    return denoInspect(arg, {depth: 1});
+                    return Deno.inspect(arg, {depth: 1});
                 }));
 
                 return f.apply(this, args);

@@ -1,12 +1,12 @@
 {
-  "name": "plugin",
+  "name": "placeholdername-dev-plugin",
   "version": "1.0.0",
   "scripts": {
     "build": "placeholdername"
   },
   "devDependencies": {
     "@types/react": "^18.2.14",
-    "placeholdername-binary": "file:../../js/binary"
+    "placeholdername-binary": "*"
   },
   "dependencies": {
     "@types/lodash": "^4.14.196",

@@ -21,7 +21,7 @@ impl PluginId {
         let url = self.try_to_git_url()?;
 
         if url.scheme != Scheme::File {
-            return Err(anyhow!("plugin is expected to point to local file"))
+            return Err(anyhow!("plugin id is expected to point to local file"))
         }
 
         let plugin_dir: String = url.path.try_into()?;

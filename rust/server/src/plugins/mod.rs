@@ -131,7 +131,7 @@ impl ApplicationManager {
     pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
 
         if cfg!(feature = "dev") {
-            let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/../../test_data/plugin/dist").to_owned();
+            let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/../../js/dev_plugin/dist").to_owned();
 
             // ignore any error
             let _ = self.plugin_downloader.add_local_plugin(PluginId::from_string(plugin_id), true)

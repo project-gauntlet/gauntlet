@@ -1,0 +1,15 @@
+{
+  "name": "placeholdername",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --workspaces --if-present"
+  },
+  "workspaces": [
+    "binary",
+    "core",
+    "dev_plugin",
+    "react",
+    "react_renderer",
+    "typings"
+  ]
+}

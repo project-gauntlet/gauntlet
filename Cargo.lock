@@ -6897,7 +6897,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-stream",
- "clap",
  "common",
  "deno_core",
  "deno_runtime",

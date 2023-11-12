@@ -1,20 +1,8 @@
-import "plugin:renderer"
+import { FC } from "react";
 
-// @ts-expect-error "Deno[Deno.internal]" is not a public interface
+// @ts-expect-error does typescipt support such symbol declarations?
 const denoCore = Deno[Deno.internal].core;
-
-const InternalApi: InternalApi = denoCore.ops;
-
-type InstanceSync = UiWidget
-
-declare interface UiWidget {
-}
-
-// TODO move all InternalApi declares to one place
-// TODO import other submodules with types but without bundling
-declare interface InternalApi {
-    op_react_call_event_listener(instance: InstanceSync, eventName: string): void;
-}
+const InternalApi = denoCore.ops;
 
 const run_loop = async () => {
     while (true) {
@@ -28,7 +16,7 @@ const run_loop = async () => {
             }
             case "ViewCreated": {
                 console.log("ViewCreated")
-                const view = (await import(`plugin:view?${pluginEvent.viewName}`)).default;
+                const view: FC = (await import(`plugin:view?${pluginEvent.viewName}`)).default;
                 const { render } = await import("plugin:renderer");
 
                 render(pluginEvent.reconcilerMode, view)
