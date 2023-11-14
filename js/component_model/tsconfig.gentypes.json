@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "ES2022",
+    "esModuleInterop": true,
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "stripInternal": true,
+    "declaration": true,
+    "outDir": "./gendist",
+    "declarationDir": "./gentypes"
+  },
+  "lib": ["ES2020"],
+  "include": ["./gen"]
+}

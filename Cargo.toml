@@ -11,6 +11,7 @@ members = [
     "rust/common",
     "rust/utils",
     "rust/cli",
+    "rust/component_model",
 ]
 
 [dependencies]

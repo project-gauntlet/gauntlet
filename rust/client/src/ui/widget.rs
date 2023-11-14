@@ -12,11 +12,13 @@ pub struct BuiltInWidgetWrapper {
     inner: Arc<RwLock<BuiltInWidget>>,
 }
 
+// TODO component model
 impl BuiltInWidgetWrapper {
     pub fn widget(id: NativeUiWidgetId, widget_type: &str, _properties: HashMap<String, NativeUiPropertyValue>) -> Self {
         let widget = match widget_type.as_ref() {
-            "box" => BuiltInWidget::Container { children: vec![] },
-            "button1" => BuiltInWidget::Button(widget_type.to_owned()),
+            "placeholdername__box" => BuiltInWidget::Container { children: vec![] },
+            "placeholdername__button" => BuiltInWidget::Button(widget_type.to_owned()),
+            "placeholdername__text_inner" => BuiltInWidget::Button(widget_type.to_owned()),
             _ => panic!("widget_type {} not supported", widget_type)
         };
 

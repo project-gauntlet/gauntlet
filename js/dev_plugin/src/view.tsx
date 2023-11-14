@@ -1,34 +1,31 @@
-import {useState} from 'react';
+import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
+import { Box } from "placeholdername-component-model";
 
-declare global {
-    namespace JSX {
-        interface IntrinsicElements {
-            box: {}
-            button1: { onClick?: () => void, children: string }
-            // TODO remove default html IntrinsicElements
-        }
-    }
-}
-
-export default function View(): JSX.Element {
+export default function View(): ReactElement {
 
     const [count, setCount] = useState(0);
 
     return (
-        <box>
+        <Box test={1}>
             test
-            <box>
+            <Box.Text>
                 {count}
-            </box>
-            <box>You clicked {count} times</box>
-            <button1 onClick={() => {
+            </Box.Text>
+            <Box.Text>
+                You clicked
+                {count}
+                times
+            </Box.Text>
+            <Box.Button onClick={() => {
                 console.log("test " + upperCase("events") + count)
                 setCount(count + 1);
             }}>
                 Click me
-            </button1>
-        </box>
+            </Box.Button>
+            <Box.Text>Test</Box.Text>
+            <Box.Text>Test</Box.Text>
+        </Box>
     );
 };
 

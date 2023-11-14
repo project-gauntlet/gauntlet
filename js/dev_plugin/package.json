@@ -9,6 +9,7 @@
     "placeholdername-binary": "*"
   },
   "dependencies": {
+    "placeholdername-component-model": "*",
     "@types/lodash": "^4.14.196",
     "lodash": "^4.17.21"
   }

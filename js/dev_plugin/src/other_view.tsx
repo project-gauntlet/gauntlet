@@ -1,10 +1,12 @@
 import lowerCase from "lodash/lowerCase";
+import { Box } from "placeholdername-component-model";
+import { ReactElement } from "react";
 
-export default function View(): JSX.Element {
+export default function View(): ReactElement {
     return (
-        <box>
+        <Box test={1}>
             test {lowerCase("events")}
-        </box>
+        </Box>
     );
 };
 

@@ -423,6 +423,7 @@ fn op_react_create_instance<'a>(
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
+    // TODO component model
     println!("op_react_create_instance");
 
     let properties = convert_properties(scope, v8_properties);
@@ -589,6 +590,8 @@ fn op_react_clone_instance<'a>(
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
+
+    // TODO component model
 
     let properties = convert_properties(scope, v8_properties);
 
