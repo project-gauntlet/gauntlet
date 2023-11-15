@@ -295,21 +295,21 @@ async fn request_loop(
 
                     let response = NativeUiResponseData::GetContainer { container };
 
-                    responder.respond(response).unwrap()
+                    responder.respond(response)
                 }
                 NativeUiRequestData::CreateInstance { widget_type, properties } => {
                     let widget = client_context.create_instance(&plugin_id, &widget_type, properties);
 
                     let response = NativeUiResponseData::CreateInstance { widget };
 
-                    responder.respond(response).unwrap()
+                    responder.respond(response)
                 }
                 NativeUiRequestData::CreateTextInstance { text } => {
                     let widget = client_context.create_text_instance(&plugin_id, &text);
 
                     let response = NativeUiResponseData::CreateTextInstance { widget };
 
-                    responder.respond(response).unwrap()
+                    responder.respond(response)
                 }
                 NativeUiRequestData::AppendChild { parent, child } => {
                     client_context.append_child(&plugin_id, parent, child);
@@ -319,7 +319,7 @@ async fn request_loop(
 
                     let response = NativeUiResponseData::CloneInstance { widget };
 
-                    responder.respond(response).unwrap()
+                    responder.respond(response)
                 }
                 NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
                     client_context.replace_container_children(&plugin_id, container, new_children);

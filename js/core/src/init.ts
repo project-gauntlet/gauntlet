@@ -11,15 +11,22 @@ const run_loop = async () => {
         switch (pluginEvent.type) {
             case "ViewEvent": {
                 console.log("ViewEvent")
-                InternalApi.op_react_call_event_listener(pluginEvent.widget, pluginEvent.eventName)
+                try {
+                    InternalApi.op_react_call_event_listener(pluginEvent.widget, pluginEvent.eventName)
+                } catch (e) {
+                    console.error("Error occurred when receiving event to handle", e)
+                }
                 break;
             }
             case "ViewCreated": {
                 console.log("ViewCreated")
-                const view: FC = (await import(`plugin:view?${pluginEvent.viewName}`)).default;
-                const { render } = await import("plugin:renderer");
-
-                render(pluginEvent.reconcilerMode, view)
+                try {
+                    const view: FC = (await import(`plugin:view?${pluginEvent.viewName}`)).default;
+                    const { render } = await import("plugin:renderer");
+                    render(pluginEvent.reconcilerMode, view)
+                } catch (e) {
+                    console.error("Error occurred when rendering view", pluginEvent.viewName, e)
+                }
                 break;
             }
             case "ViewDestroyed": {

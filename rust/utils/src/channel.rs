@@ -40,7 +40,7 @@ pub struct RequestSender<Req, Res> {
     request_sender: mpsc::UnboundedSender<Payload<Req, Res>>,
 }
 
-impl<Req, Res> RequestSender<Req, Res> {
+impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
     fn new(
         request_sender: mpsc::UnboundedSender<Payload<Req, Res>>,
     ) -> Self {
@@ -99,13 +99,13 @@ impl<Req, Res> RequestReceiver<Req, Res> {
     }
 }
 
-impl<Res> Responder<Res> {
+impl<Res: std::fmt::Debug> Responder<Res> {
     fn new(response_sender: oneshot::Sender<Res>) -> Self {
         Self { response_sender }
     }
 
-    pub fn respond(self, response: Res) -> Result<(), RespondError<Res>> {
-        self.response_sender.send(response).map_err(RespondError)
+    pub fn respond(self, response: Res) {
+        self.response_sender.send(response).expect("the receiver was closed")
     }
 }
 
@@ -138,7 +138,7 @@ impl<T> From<ReceiveError> for RequestError<T> {
     }
 }
 
-pub fn channel<Req, Res>() -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {
+pub fn channel<Req: std::fmt::Debug, Res: std::fmt::Debug>() -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {
     let (sender, receiver) = mpsc::unbounded_channel::<Payload<Req, Res>>();
     let request_sender = RequestSender::new(sender);
     let request_receiver = RequestReceiver::new(receiver);

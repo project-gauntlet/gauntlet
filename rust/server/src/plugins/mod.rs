@@ -233,7 +233,8 @@ impl ApplicationManager {
 
             let local_set = tokio::task::LocalSet::new();
             local_set.block_on(&runtime, tokio::task::unconstrained(async move {
-                start_plugin_runtime(data).await
+                let result = start_plugin_runtime(data).await;
+                println!("runtime execution failed {:?}", result)
             }))
         };
 
