@@ -87,7 +87,7 @@ impl ApplicationManager {
 
     pub async fn set_plugin_state(&mut self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
         let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
-        let currently_enabled = self.is_plugin_enabled(&plugin_id).await;
+        let currently_enabled = self.is_plugin_enabled(&plugin_id).await?;
         println!("set_plugin_state {:?} {:?}", currently_enabled, set_enabled);
         match (currently_running, currently_enabled, set_enabled) {
             (false, false, true) => {
@@ -108,7 +108,7 @@ impl ApplicationManager {
             _ => {}
         }
 
-        self.reload_search_index().await;
+        self.reload_search_index().await?;
 
         Ok(())
     }
@@ -117,7 +117,7 @@ impl ApplicationManager {
         self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
             .await?;
 
-        self.reload_search_index().await;
+        self.reload_search_index().await?;
 
         Ok(())
     }
@@ -154,15 +154,14 @@ impl ApplicationManager {
             }
         }
 
-        self.reload_search_index().await;
+        self.reload_search_index().await?;
 
         Ok(())
     }
 
-    async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> bool {
+    async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> anyhow::Result<bool> {
         self.db_repository.is_plugin_enabled(&plugin_id.to_string())
             .await
-            .unwrap()
     }
 
     async fn start_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
@@ -194,12 +193,11 @@ impl ApplicationManager {
         self.send_command(data)
     }
 
-    async fn reload_search_index(&mut self) {
+    async fn reload_search_index(&mut self) -> anyhow::Result<()> {
         println!("reload_search_index");
 
         let search_items: Vec<_> = self.db_repository.list_plugins()
-            .await
-            .unwrap()
+            .await?
             .into_iter()
             .filter(|plugin| plugin.enabled)
             .flat_map(|plugin| {
@@ -218,7 +216,9 @@ impl ApplicationManager {
             })
             .collect();
 
-        self.search_index.reload(search_items).unwrap();
+        self.search_index.reload(search_items)?;
+
+        Ok(())
     }
 
     fn start_plugin_runtime(&mut self, data: PluginRuntimeData) {
@@ -242,6 +242,6 @@ impl ApplicationManager {
     }
 
     fn send_command(&self, command: PluginCommand) {
-        self.command_broadcaster.send(command).unwrap();
+        self.command_broadcaster.send(command).expect("all respective receivers were closed");
     }
 }

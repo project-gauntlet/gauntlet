@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use zbus::DBusError;
 
 use common::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiPropertyContainer, DBusUiWidget};
 use common::model::{EntrypointId, PluginId};
@@ -11,10 +12,9 @@ pub struct DbusServer {
 
 #[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
 impl DbusServer {
-    fn search(&self, text: &str) -> Vec<DBusSearchResult> {
-        self.search_index.create_handle()
-            .search(text)
-            .unwrap()
+    fn search(&self, text: &str) -> Result<Vec<DBusSearchResult>> {
+        let result = self.search_index.create_handle()
+            .search(text)?
             .into_iter()
             .map(|item| {
                 DBusSearchResult {
@@ -24,7 +24,9 @@ impl DbusServer {
                     plugin_id: item.plugin_id,
                 }
             })
-            .collect()
+            .collect();
+
+        Ok(result)
     }
 }
 
@@ -44,30 +46,46 @@ impl DbusManagementServer {
         #[zbus(signal_context)]
         signal_context: zbus::SignalContext<'_>,
         plugin_id: &str
-    ) {
+    ) -> Result<()> {
         self.application_manager.new_remote_plugin(signal_context, PluginId::from_string(plugin_id))
             .await
-            .unwrap()
+            .map_err(|err| err.into())
     }
 
-    async fn plugins(&self) -> Vec<DBusPlugin> {
+    async fn plugins(&self) -> Result<Vec<DBusPlugin>> {
         self.application_manager.plugins()
             .await
-            .unwrap()
+            .map_err(|err| err.into())
     }
 
-    async fn set_plugin_state(&mut self, plugin_id: &str, enabled: bool) {
+    async fn set_plugin_state(&mut self, plugin_id: &str, enabled: bool) -> Result<()> {
         println!("set_plugin_state {:?} {:?}", plugin_id, enabled);
         self.application_manager.set_plugin_state(PluginId::from_string(plugin_id), enabled)
             .await
-            .unwrap()
+            .map_err(|err| err.into())
     }
 
-    async fn set_entrypoint_state(&mut self, plugin_id: &str, entrypoint_id: &str, enabled: bool) {
+    async fn set_entrypoint_state(&mut self, plugin_id: &str, entrypoint_id: &str, enabled: bool) -> Result<()> {
         println!("set_entrypoint_state {:?} {:?}", plugin_id, enabled);
         self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::new(entrypoint_id), enabled)
             .await
-            .unwrap()
+            .map_err(|err| err.into())
+    }
+}
+
+type Result<T> = core::result::Result<T, ServerError>;
+
+#[derive(DBusError, Debug)]
+#[dbus_error(prefix = "org.placeholdername.PlaceHolderName.ServerError")]
+enum ServerError {
+    #[dbus_error(zbus_error)]
+    ZBus(zbus::Error),
+    ServerError(String),
+}
+
+impl From<anyhow::Error> for ServerError {
+    fn from(result: anyhow::Error) -> Self {
+        ServerError::ServerError(result.to_string())
     }
 }
 

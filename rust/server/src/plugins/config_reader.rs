@@ -18,7 +18,7 @@ impl ConfigReader {
     }
 
     pub async fn reload_config(&self) -> anyhow::Result<()> {
-        let config = self.read_config();
+        let config = self.read_config()?;
 
         for plugin in config.plugins {
             let exists = self.repository.does_plugin_exist(&plugin.id).await?;
@@ -36,13 +36,13 @@ impl ConfigReader {
         Ok(())
     }
 
-    fn read_config(&self) -> ApplicationConfig {
+    fn read_config(&self) -> anyhow::Result<ApplicationConfig> {
         let config_file = self.dirs.config_file();
         let config_file_context = config_file.display().to_string();
-        let config_content = std::fs::read_to_string(config_file).context(config_file_context).unwrap();
-        let config: ApplicationConfig = toml::from_str(&config_content).unwrap();
+        let config_content = std::fs::read_to_string(config_file).context(config_file_context)?;
+        let config: ApplicationConfig = toml::from_str(&config_content)?;
 
-        config
+        Ok(config)
     }
 }
 

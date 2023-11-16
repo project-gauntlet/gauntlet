@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 use std::thread;
 
@@ -28,26 +29,19 @@ impl PluginLoader {
     ) -> anyhow::Result<()> {
         let data_db_repository = self.db_repository.clone();
         let signal_context = signal_context.to_owned();
+        let handle = tokio::runtime::Handle::current();
+
         thread::spawn(move || {
-            let temp_dir = tempfile::tempdir()
-                .unwrap();
+            handle.block_on(async move {
+                let temp_dir = tempfile::tempdir()?;
 
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-
-            runtime.block_on(async move {
-                let plugin_dir = PluginLoader::download(temp_dir.path(), plugin_id.clone())
-                    .unwrap();
+                let plugin_dir = PluginLoader::download(temp_dir.path(), plugin_id.clone())?;
 
                 let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
-                    .await
-                    .unwrap();
+                    .await?;
 
                 DbusManagementServer::remote_plugin_download_finished_signal(&signal_context, &plugin_id.to_string())
-                    .await
-                    .unwrap();
+                    .await?;
 
                 data_db_repository.save_plugin(SavePlugin {
                     id: plugin_data.id,
@@ -55,8 +49,10 @@ impl PluginLoader {
                     code: plugin_data.code,
                     entrypoints: plugin_data.entrypoints,
                     from_config: false,
-                }).await.unwrap();
-            });
+                }).await?;
+
+                anyhow::Ok(())
+            }).unwrap();
         });
 
         Ok(())
@@ -66,8 +62,7 @@ impl PluginLoader {
         let plugin_dir = plugin_id.try_to_path()?;
 
         let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
-            .await
-            .unwrap();
+            .await?;
 
         if overwrite {
             self.db_repository.remove_plugin(&plugin_data.id).await?
@@ -137,20 +132,28 @@ impl PluginLoader {
         let js_files = std::fs::read_dir(js_dir).context(js_dir_context)?;
 
         let js: HashMap<_, _> = js_files.into_iter()
-            .map(|dist_path| dist_path.unwrap().path())
+            .collect::<std::io::Result<Vec<DirEntry>>>()?
+            .into_iter()
+            .map(|dist_path| dist_path.path())
             .filter(|dist_path| dist_path.extension() == Some(OsStr::new("js")))
             .map(|dist_path| {
-                let js_content = std::fs::read_to_string(&dist_path).unwrap();
-                let id = dist_path.file_stem().unwrap().to_str().unwrap().to_owned();
+                let js_content = std::fs::read_to_string(&dist_path)?;
+                let id = dist_path.file_stem()
+                    .expect("file returned from read_dir doesn't have filename?")
+                    .to_str()
+                    .ok_or(anyhow!("filename is not a valid utf-8"))?
+                    .to_owned();
 
-                (id, js_content)
+                Ok((id, js_content))
             })
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
             .collect();
 
         let config_path = plugin_dir.join("placeholdername.toml");
         let config_path_context = config_path.display().to_string();
         let config_content = std::fs::read_to_string(config_path).context(config_path_context)?;
-        let config: PluginConfig = toml::from_str(&config_content).unwrap();
+        let config: PluginConfig = toml::from_str(&config_content)?;
 
         let plugin_name = config.metadata.name;
 
