@@ -18,7 +18,7 @@ use common::model::PluginId;
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
 use crate::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData, to_dbus};
-use utils::channel::{channel, RequestSender};
+use utils::channel::{channel, RequestSender as UtilRequestSender};
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -232,7 +232,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()>
             extensions: vec![react_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 EventReceiver::new(Box::pin(event_stream)),
-                RequestSender1::new(tx),
+                RequestSender::new(tx),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -357,7 +357,7 @@ deno_core::extension!(
     options = {
         event_listeners: EventHandlers,
         event_receiver: EventReceiver,
-        request_sender: RequestSender1,
+        request_sender: RequestSender,
     },
     state = |state, options| {
         state.put(options.event_listeners);
@@ -660,7 +660,7 @@ fn op_react_clone_instance<'a>(
 async fn make_request_receive(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     let request_sender = {
         state.borrow()
-            .borrow::<RequestSender1>()
+            .borrow::<RequestSender>()
             .clone()
     };
 
@@ -670,7 +670,7 @@ async fn make_request_receive(state: &Rc<RefCell<OpState>>, data: JsUiRequestDat
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<()> {
     let request_sender = {
         state.borrow()
-            .borrow::<RequestSender1>()
+            .borrow::<RequestSender>()
             .clone()
     };
 
@@ -747,12 +747,12 @@ fn assign_event_listeners(
 
 
 #[derive(Clone)]
-pub struct RequestSender1 {
-    channel: RequestSender<JsUiRequestData, anyhow::Result<JsUiResponseData>>,
+pub struct RequestSender {
+    channel: UtilRequestSender<JsUiRequestData, anyhow::Result<JsUiResponseData>>,
 }
 
-impl RequestSender1 {
-    fn new(channel: RequestSender<JsUiRequestData, anyhow::Result<JsUiResponseData>>) -> Self {
+impl RequestSender {
+    fn new(channel: UtilRequestSender<JsUiRequestData, anyhow::Result<JsUiResponseData>>) -> Self {
         Self { channel }
     }
 }
