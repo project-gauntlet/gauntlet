@@ -9,7 +9,7 @@ pub(in crate) mod model;
 mod dirs;
 
 pub fn start_server() {
-    let runtime = tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap();

@@ -224,15 +224,12 @@ impl ApplicationManager {
     fn start_plugin_runtime(&mut self, data: PluginRuntimeData) {
         let run_status_guard = self.run_status_holder.start_block(data.id.clone());
 
-        let handle = move || {
-            let _run_status_guard = run_status_guard;
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
+        let handle = tokio::runtime::Handle::current();
 
-            let local_set = tokio::task::LocalSet::new();
-            local_set.block_on(&runtime, tokio::task::unconstrained(async move {
+        let thread_fn = move || {
+            let _run_status_guard = run_status_guard;
+
+            handle.block_on(tokio::task::unconstrained(async move {
                 let result = start_plugin_runtime(data).await;
                 println!("runtime execution failed {:?}", result)
             }))
@@ -240,7 +237,7 @@ impl ApplicationManager {
 
         std::thread::Builder::new()
             .name("plugin-js-thread".into())
-            .spawn(handle)
+            .spawn(thread_fn)
             .expect("failed to spawn plugin js thread");
     }
 

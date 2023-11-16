@@ -7,6 +7,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::futures::{FutureExt, Stream, StreamExt};
+use deno_core::futures::executor::block_on;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
@@ -369,10 +370,10 @@ deno_core::extension!(
 
 
 #[op]
-async fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
+fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
     println!("op_react_get_container");
 
-    let container = match make_request_receive(&state, JsUiRequestData::GetContainer).await? {
+    let container = match make_request_receive(&state, JsUiRequestData::GetContainer)? {
         JsUiResponseData::GetContainer { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -383,7 +384,7 @@ async fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<J
 }
 
 #[op]
-async fn op_react_append_child(
+fn op_react_append_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
@@ -395,7 +396,7 @@ async fn op_react_append_child(
         child,
     };
 
-    match make_request_receive(&state, data).await? {
+    match make_request_receive(&state, data)? {
         JsUiResponseData::Nothing => {
             println!("op_react_append_child end");
             Ok(())
@@ -405,7 +406,7 @@ async fn op_react_append_child(
 }
 
 #[op]
-async fn op_react_remove_child(
+fn op_react_remove_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
@@ -417,7 +418,7 @@ async fn op_react_remove_child(
         child: child.into(),
     };
 
-    match make_request_receive(&state, data).await? {
+    match make_request_receive(&state, data)? {
         JsUiResponseData::Nothing => {
             println!("op_react_remove_child end");
             Ok(())
@@ -427,7 +428,7 @@ async fn op_react_remove_child(
 }
 
 #[op]
-async fn op_react_insert_before(
+fn op_react_insert_before(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
@@ -441,7 +442,7 @@ async fn op_react_insert_before(
         before_child,
     };
 
-    match make_request_receive(&state, data).await? {
+    match make_request_receive(&state, data)? {
         JsUiResponseData::Nothing => {
             println!("op_react_insert_before end");
             Ok(())
@@ -456,7 +457,7 @@ fn op_react_create_instance<'a>(
     state: Rc<RefCell<OpState>>,
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
+) -> anyhow::Result<JsUiWidget> {
     // TODO component model
     println!("op_react_create_instance");
 
@@ -475,20 +476,18 @@ fn op_react_create_instance<'a>(
 
     println!("op_react_create_instance end");
 
-    Ok(async move {
-        let widget = match make_request_receive(&state, data).await? {
-            JsUiResponseData::CreateInstance { widget } => widget,
-            value @ _ => panic!("unsupported response type {:?}", value),
-        };
+    let widget = match make_request_receive(&state, data)? {
+        JsUiResponseData::CreateInstance { widget } => widget,
+        value @ _ => panic!("unsupported response type {:?}", value),
+    };
 
-        assign_event_listeners(&state, &widget, &conversion_properties);
+    assign_event_listeners(&state, &widget, &conversion_properties);
 
-        Ok(widget.into())
-    })
+    Ok(widget.into())
 }
 
 #[op]
-async fn op_react_create_text_instance(
+fn op_react_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
 ) -> anyhow::Result<JsUiWidget> {
@@ -496,7 +495,7 @@ async fn op_react_create_text_instance(
 
     let data = JsUiRequestData::CreateTextInstance { text };
 
-    let widget = match make_request_receive(&state, data).await? {
+    let widget = match make_request_receive(&state, data)? {
         JsUiResponseData::CreateTextInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -512,7 +511,7 @@ fn op_react_set_properties<'a>(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<impl Future<Output=anyhow::Result<()>> + 'static> {
+) -> anyhow::Result<()> {
     println!("op_react_set_properties");
 
     let properties = convert_properties(scope, v8_properties)?;
@@ -530,12 +529,12 @@ fn op_react_set_properties<'a>(
 
     println!("op_react_set_properties end");
 
-    Ok(async move {
-        match make_request_receive(&state, data).await? {
-            JsUiResponseData::Nothing => Ok(()),
-            value @ _ => panic!("unsupported response type {:?}", value),
-        }
-    })
+    match make_request_receive(&state, data)? {
+        JsUiResponseData::Nothing => {
+            Ok(())
+        },
+        value @ _ => panic!("unsupported response type {:?}", value),
+    }
 }
 
 #[op]
@@ -579,7 +578,7 @@ fn op_react_call_event_listener(
 }
 
 #[op]
-async fn op_react_set_text(
+fn op_react_set_text(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     text: String,
@@ -593,14 +592,14 @@ async fn op_react_set_text(
 
     println!("op_react_set_text end");
 
-    match make_request_receive(&state, data).await? {
+    match make_request_receive(&state, data)? {
         JsUiResponseData::Nothing => Ok(()),
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }
 
 #[op]
-async fn op_react_replace_container_children(
+fn op_react_replace_container_children(
     state: Rc<RefCell<OpState>>,
     container: JsUiWidget,
     new_children: Vec<JsUiWidget>,
@@ -614,7 +613,7 @@ async fn op_react_replace_container_children(
 
     println!("op_react_replace_container_children end");
 
-    match make_request_receive(&state, data).await? {
+    match make_request_receive(&state, data)? {
         JsUiResponseData::Nothing => Ok(()),
         value @ _ => panic!("unsupported response type {:?}", value),
     }
@@ -626,7 +625,7 @@ fn op_react_clone_instance<'a>(
     state: Rc<RefCell<OpState>>,
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
+) -> anyhow::Result<JsUiWidget> {
 
     // TODO component model
 
@@ -643,28 +642,30 @@ fn op_react_clone_instance<'a>(
         properties,
     };
 
+    let widget = match make_request_receive(&state, data)? {
+        JsUiResponseData::CloneInstance { widget } => widget,
+        value @ _ => panic!("unsupported response type {:?}", value),
+    };
+
+    assign_event_listeners(&state, &widget, &conversion_properties);
+
     println!("op_react_clone_instance end");
 
-    Ok(async move {
-        let widget = match make_request_receive(&state, data).await? {
-            JsUiResponseData::CloneInstance { widget } => widget,
-            value @ _ => panic!("unsupported response type {:?}", value),
-        };
-
-        assign_event_listeners(&state, &widget, &conversion_properties);
-
-        Ok(widget.into())
-    })
+    Ok(widget.into())
 }
 
-async fn make_request_receive(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
+fn make_request_receive(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     let request_sender = {
         state.borrow()
             .borrow::<RequestSender>()
             .clone()
     };
 
-    request_sender.channel.send_receive(data).await?
+    tokio::task::block_in_place(move || {
+        block_on(async {
+            request_sender.channel.send_receive(data).await?
+        })
+    })
 }
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<()> {
