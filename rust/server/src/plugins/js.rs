@@ -7,7 +7,6 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::futures::{FutureExt, Stream, StreamExt};
-use deno_core::futures::executor::block_on;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::worker::MainWorker;
@@ -19,7 +18,6 @@ use common::model::PluginId;
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
 use crate::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData, to_dbus};
-use utils::channel::{channel, RequestSender as UtilRequestSender};
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -117,103 +115,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()>
 
     let event_stream = (view_event_signal, view_created_signal, command_stream).merge();
 
-    let (tx, mut rx) = channel::<JsUiRequestData, anyhow::Result<JsUiResponseData>>();
-
     let plugin_id = data.id.clone();
-    tokio::spawn(tokio::task::unconstrained(async move {
-        let plugin_id = plugin_id.to_string();
-        println!("starting request handler loop");
-
-        while let Ok((request_data, responder)) = rx.recv().await {
-            match request_data {
-                JsUiRequestData::GetContainer => {
-                    let container = client_proxy.get_container(&plugin_id) // TODO add timeout handling
-                        .await
-                        .map(|container| JsUiResponseData::GetContainer { container: container.into() })
-                        .map_err(|err| err.into());
-
-                    responder.respond(container)
-                }
-                JsUiRequestData::CreateInstance { widget_type, properties } => {
-                    let widget = client_proxy.create_instance(&plugin_id, &widget_type, to_dbus(properties))
-                        .await
-                        .map(|widget| JsUiResponseData::CreateInstance { widget: widget.into() })
-                        .map_err(|err| err.into());
-
-                    responder.respond(widget)
-                }
-                JsUiRequestData::CreateTextInstance { text } => {
-                    let widget = client_proxy.create_text_instance(&plugin_id, &text)
-                        .await
-                        .map(|widget| JsUiResponseData::CreateTextInstance { widget: widget.into() })
-                        .map_err(|err| err.into());
-
-                    responder.respond(widget)
-                }
-                JsUiRequestData::AppendChild { parent, child } => {
-                    let nothing = client_proxy.append_child(&plugin_id, parent.into(), child.into())
-                        .await
-                        .map(|_| JsUiResponseData::Nothing)
-                        .map_err(|err| err.into());
-
-                    responder.respond(nothing)
-                }
-                JsUiRequestData::RemoveChild { parent, child } => {
-                    let nothing = client_proxy.remove_child(&plugin_id, parent.into(), child.into())
-                        .await
-                        .map(|_| JsUiResponseData::Nothing)
-                        .map_err(|err| err.into());
-
-                    responder.respond(nothing)
-                }
-                JsUiRequestData::InsertBefore { parent, child, before_child } => {
-                    let nothing = client_proxy.insert_before(&plugin_id, parent.into(), child.into(), before_child.into())
-                        .await
-                        .map(|_| JsUiResponseData::Nothing)
-                        .map_err(|err| err.into());
-
-                    responder.respond(nothing)
-                }
-                JsUiRequestData::SetProperties { widget, properties } => {
-                    let nothing = client_proxy.set_properties(&plugin_id, widget.into(), to_dbus(properties))
-                        .await
-                        .map(|_| JsUiResponseData::Nothing)
-                        .map_err(|err| err.into());
-
-                    responder.respond(nothing)
-                }
-                JsUiRequestData::SetText { widget, text } => {
-                    let nothing = client_proxy.set_text(&plugin_id, widget.into(), &text)
-                        .await
-                        .map(|_| JsUiResponseData::Nothing)
-                        .map_err(|err| err.into());
-
-                    responder.respond(nothing)
-                }
-                JsUiRequestData::CloneInstance { widget_type, properties } => {
-                    let widget = client_proxy.clone_instance(&plugin_id, &widget_type, to_dbus(properties))
-                        .await
-                        .map(|widget| JsUiResponseData::CloneInstance { widget: widget.into() })
-                        .map_err(|err| err.into());
-
-                    responder.respond(widget)
-                }
-                JsUiRequestData::ReplaceContainerChildren { container, new_children } => {
-                    let new_children = new_children.into_iter()
-                        .map(|child| child.into())
-                        .collect();
-
-                    let nothing = client_proxy.replace_container_children(&plugin_id, container.into(), new_children)
-                        .await
-                        .map(|_| JsUiResponseData::Nothing)
-                        .map_err(|err| err.into());
-
-                    responder.respond(nothing)
-                }
-            }
-        }
-        println!("stopped request handler loop");
-    }));
 
     // let _inspector_server = Arc::new(
     //     InspectorServer::new(
@@ -233,7 +135,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()>
             extensions: vec![react_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 EventReceiver::new(Box::pin(event_stream)),
-                RequestSender::new(tx),
+                PluginData::new(plugin_id),
+                DbusClient::new(client_proxy),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -358,22 +261,24 @@ deno_core::extension!(
     options = {
         event_listeners: EventHandlers,
         event_receiver: EventReceiver,
-        request_sender: RequestSender,
+        plugin_data: PluginData,
+        dbus_client: DbusClient,
     },
     state = |state, options| {
         state.put(options.event_listeners);
         state.put(options.event_receiver);
-        state.put(options.request_sender);
+        state.put(options.plugin_data);
+        state.put(options.dbus_client);
     },
 );
 
 
 
 #[op]
-fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
+async fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
     println!("op_react_get_container");
 
-    let container = match make_request_receive(&state, JsUiRequestData::GetContainer)? {
+    let container = match make_request(&state, JsUiRequestData::GetContainer).await? {
         JsUiResponseData::GetContainer { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -384,7 +289,7 @@ fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWid
 }
 
 #[op]
-fn op_react_append_child(
+async fn op_react_append_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
@@ -396,7 +301,7 @@ fn op_react_append_child(
         child,
     };
 
-    match make_request_receive(&state, data)? {
+    match make_request(&state, data).await? {
         JsUiResponseData::Nothing => {
             println!("op_react_append_child end");
             Ok(())
@@ -406,7 +311,7 @@ fn op_react_append_child(
 }
 
 #[op]
-fn op_react_remove_child(
+async fn op_react_remove_child(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
@@ -418,7 +323,7 @@ fn op_react_remove_child(
         child: child.into(),
     };
 
-    match make_request_receive(&state, data)? {
+    match make_request(&state, data).await? {
         JsUiResponseData::Nothing => {
             println!("op_react_remove_child end");
             Ok(())
@@ -428,7 +333,7 @@ fn op_react_remove_child(
 }
 
 #[op]
-fn op_react_insert_before(
+async fn op_react_insert_before(
     state: Rc<RefCell<OpState>>,
     parent: JsUiWidget,
     child: JsUiWidget,
@@ -442,7 +347,7 @@ fn op_react_insert_before(
         before_child,
     };
 
-    match make_request_receive(&state, data)? {
+    match make_request(&state, data).await? {
         JsUiResponseData::Nothing => {
             println!("op_react_insert_before end");
             Ok(())
@@ -457,7 +362,7 @@ fn op_react_create_instance<'a>(
     state: Rc<RefCell<OpState>>,
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<JsUiWidget> {
+) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
     // TODO component model
     println!("op_react_create_instance");
 
@@ -476,18 +381,20 @@ fn op_react_create_instance<'a>(
 
     println!("op_react_create_instance end");
 
-    let widget = match make_request_receive(&state, data)? {
-        JsUiResponseData::CreateInstance { widget } => widget,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
+    Ok(async move {
+        let widget = match make_request(&state, data).await? {
+            JsUiResponseData::CreateInstance { widget } => widget,
+            value @ _ => panic!("unsupported response type {:?}", value),
+        };
 
-    assign_event_listeners(&state, &widget, &conversion_properties);
+        assign_event_listeners(&state, &widget, &conversion_properties);
 
-    Ok(widget.into())
+        Ok(widget.into())
+    })
 }
 
 #[op]
-fn op_react_create_text_instance(
+async fn op_react_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
 ) -> anyhow::Result<JsUiWidget> {
@@ -495,7 +402,7 @@ fn op_react_create_text_instance(
 
     let data = JsUiRequestData::CreateTextInstance { text };
 
-    let widget = match make_request_receive(&state, data)? {
+    let widget = match make_request(&state, data).await? {
         JsUiResponseData::CreateTextInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -511,7 +418,7 @@ fn op_react_set_properties<'a>(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<impl Future<Output=anyhow::Result<()>> + 'static> {
     println!("op_react_set_properties");
 
     let properties = convert_properties(scope, v8_properties)?;
@@ -529,12 +436,14 @@ fn op_react_set_properties<'a>(
 
     println!("op_react_set_properties end");
 
-    match make_request_receive(&state, data)? {
-        JsUiResponseData::Nothing => {
-            Ok(())
-        },
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+    Ok(async move {
+        match make_request(&state, data).await? {
+            JsUiResponseData::Nothing => {
+                Ok(())
+            },
+            value @ _ => panic!("unsupported response type {:?}", value),
+        }
+    })
 }
 
 #[op]
@@ -578,7 +487,7 @@ fn op_react_call_event_listener(
 }
 
 #[op]
-fn op_react_set_text(
+async fn op_react_set_text(
     state: Rc<RefCell<OpState>>,
     widget: JsUiWidget,
     text: String,
@@ -592,14 +501,14 @@ fn op_react_set_text(
 
     println!("op_react_set_text end");
 
-    match make_request_receive(&state, data)? {
+    match make_request(&state, data).await? {
         JsUiResponseData::Nothing => Ok(()),
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }
 
 #[op]
-fn op_react_replace_container_children(
+async fn op_react_replace_container_children(
     state: Rc<RefCell<OpState>>,
     container: JsUiWidget,
     new_children: Vec<JsUiWidget>,
@@ -613,7 +522,7 @@ fn op_react_replace_container_children(
 
     println!("op_react_replace_container_children end");
 
-    match make_request_receive(&state, data)? {
+    match make_request(&state, data).await? {
         JsUiResponseData::Nothing => Ok(()),
         value @ _ => panic!("unsupported response type {:?}", value),
     }
@@ -625,7 +534,7 @@ fn op_react_clone_instance<'a>(
     state: Rc<RefCell<OpState>>,
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<JsUiWidget> {
+) -> anyhow::Result<impl Future<Output=anyhow::Result<JsUiWidget>> + 'static> {
 
     // TODO component model
 
@@ -642,42 +551,123 @@ fn op_react_clone_instance<'a>(
         properties,
     };
 
-    let widget = match make_request_receive(&state, data)? {
-        JsUiResponseData::CloneInstance { widget } => widget,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
+    Ok(async move {
+        let widget = match make_request(&state, data).await? {
+            JsUiResponseData::CloneInstance { widget } => widget,
+            value @ _ => panic!("unsupported response type {:?}", value),
+        };
 
-    assign_event_listeners(&state, &widget, &conversion_properties);
+        assign_event_listeners(&state, &widget, &conversion_properties);
 
-    println!("op_react_clone_instance end");
+        println!("op_react_clone_instance end");
 
-    Ok(widget.into())
-}
-
-fn make_request_receive(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
-    let request_sender = {
-        state.borrow()
-            .borrow::<RequestSender>()
-            .clone()
-    };
-
-    tokio::task::block_in_place(move || {
-        block_on(async {
-            request_sender.channel.send_receive(data).await?
-        })
+        Ok(widget.into())
     })
 }
 
-fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<()> {
-    let request_sender = {
-        state.borrow()
-            .borrow::<RequestSender>()
-            .clone()
+async fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
+    let (plugin_id, dbus_client) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let dbus_client = state
+            .borrow::<DbusClient>()
+            .client()
+            .clone();
+
+        (plugin_id, dbus_client)
     };
 
-    let _ = request_sender.channel.send(data)?;
+    match data {
+        JsUiRequestData::GetContainer => {
+            let container = dbus_client.get_container(&plugin_id.to_string()) // TODO add timeout handling
+                .await
+                .map(|container| JsUiResponseData::GetContainer { container: container.into() })
+                .map_err(|err| err.into());
 
-    Ok(())
+            container
+        }
+        JsUiRequestData::CreateInstance { widget_type, properties } => {
+            let widget = dbus_client.create_instance(&plugin_id.to_string(), &widget_type, to_dbus(properties))
+                .await
+                .map(|widget| JsUiResponseData::CreateInstance { widget: widget.into() })
+                .map_err(|err| err.into());
+
+            widget
+        }
+        JsUiRequestData::CreateTextInstance { text } => {
+            let widget = dbus_client.create_text_instance(&plugin_id.to_string(), &text)
+                .await
+                .map(|widget| JsUiResponseData::CreateTextInstance { widget: widget.into() })
+                .map_err(|err| err.into());
+
+            widget
+        }
+        JsUiRequestData::AppendChild { parent, child } => {
+            let nothing = dbus_client.append_child(&plugin_id.to_string(), parent.into(), child.into())
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
+        JsUiRequestData::RemoveChild { parent, child } => {
+            let nothing = dbus_client.remove_child(&plugin_id.to_string(), parent.into(), child.into())
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
+        JsUiRequestData::InsertBefore { parent, child, before_child } => {
+            let nothing = dbus_client.insert_before(&plugin_id.to_string(), parent.into(), child.into(), before_child.into())
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
+        JsUiRequestData::SetProperties { widget, properties } => {
+            let nothing = dbus_client.set_properties(&plugin_id.to_string(), widget.into(), to_dbus(properties))
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
+        JsUiRequestData::SetText { widget, text } => {
+            let nothing = dbus_client.set_text(&plugin_id.to_string(), widget.into(), &text)
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
+        JsUiRequestData::CloneInstance { widget_type, properties } => {
+            let widget = dbus_client.clone_instance(&plugin_id.to_string(), &widget_type, to_dbus(properties))
+                .await
+                .map(|widget| JsUiResponseData::CloneInstance { widget: widget.into() })
+                .map_err(|err| err.into());
+
+            widget
+        }
+        JsUiRequestData::ReplaceContainerChildren { container, new_children } => {
+            let new_children = new_children.into_iter()
+                .map(|child| child.into())
+                .collect();
+
+            let nothing = dbus_client.replace_container_children(&plugin_id.to_string(), container.into(), new_children)
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -747,14 +737,31 @@ fn assign_event_listeners(
 }
 
 
-#[derive(Clone)]
-pub struct RequestSender {
-    channel: UtilRequestSender<JsUiRequestData, anyhow::Result<JsUiResponseData>>,
+pub struct PluginData {
+    plugin_id: PluginId,
 }
 
-impl RequestSender {
-    fn new(channel: UtilRequestSender<JsUiRequestData, anyhow::Result<JsUiResponseData>>) -> Self {
-        Self { channel }
+impl PluginData {
+    fn new(plugin_id: PluginId) -> Self {
+        Self { plugin_id }
+    }
+
+    fn plugin_id(&self) -> PluginId {
+        self.plugin_id.clone()
+    }
+}
+
+pub struct DbusClient {
+    proxy: DbusClientProxyProxy<'static>,
+}
+
+impl DbusClient {
+    fn new(proxy: DbusClientProxyProxy<'static>) -> Self {
+        Self { proxy }
+    }
+
+    fn client(&self) -> &DbusClientProxyProxy<'static> {
+        &self.proxy
     }
 }
 

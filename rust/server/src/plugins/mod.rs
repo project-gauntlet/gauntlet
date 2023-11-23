@@ -224,15 +224,18 @@ impl ApplicationManager {
     fn start_plugin_runtime(&mut self, data: PluginRuntimeData) {
         let run_status_guard = self.run_status_holder.start_block(data.id.clone());
 
-        let handle = tokio::runtime::Handle::current();
-
         let thread_fn = move || {
             let _run_status_guard = run_status_guard;
 
-            handle.block_on(tokio::task::unconstrained(async move {
-                let result = start_plugin_runtime(data).await;
-                println!("runtime execution failed {:?}", result)
-            }))
+            let result = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(tokio::task::unconstrained(async move {
+                    start_plugin_runtime(data).await
+                }));
+
+            println!("runtime execution failed {:?}", result)
         };
 
         std::thread::Builder::new()

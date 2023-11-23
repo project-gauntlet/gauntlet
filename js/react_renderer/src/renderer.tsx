@@ -52,7 +52,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     },
 
     appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
-        InternalApi.op_react_append_child(parentInstance, child)
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_react_append_child(resolvedParent, resolvedChild)
+            })
     },
 
     finalizeInitialChildren: (
@@ -128,12 +131,18 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     appendChild(parentInstance: Instance, child: Instance | TextInstance): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_append_child(parentInstance, child)
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_react_append_child(resolvedParent, resolvedChild)
+            })
     },
     appendChildToContainer(container: Container, child: Instance | TextInstance): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_append_child(container, child)
+        Promise.all([container, child])
+            .then(([resolvedContainer, resolvedChild]) => {
+                InternalApi.op_react_append_child(resolvedContainer, resolvedChild)
+            })
     },
 
     insertBefore(
@@ -143,7 +152,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_insert_before(parentInstance, child, beforeChild)
+        Promise.all([parentInstance, child, beforeChild])
+            .then(([resolvedParentInstance, resolvedChild, resolvedBeforeChild]) => {
+                InternalApi.op_react_insert_before(resolvedParentInstance, resolvedChild, resolvedBeforeChild)
+            })
     },
     insertInContainerBefore(
         container: Container,
@@ -152,7 +164,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_insert_before(container, child, beforeChild)
+        Promise.all([container, child, beforeChild])
+            .then(([resolvedContainer, resolvedChild, resolvedBeforeChild]) => {
+                InternalApi.op_react_insert_before(resolvedContainer, resolvedChild, resolvedBeforeChild)
+            })
     },
 
     removeChild(
@@ -161,7 +176,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_remove_child(parentInstance, child)
+        Promise.all([parentInstance, child])
+            .then(([resolvedParent, resolvedChild]) => {
+                InternalApi.op_react_remove_child(resolvedParent, resolvedChild)
+            })
     },
     removeChildFromContainer(
         container: Container,
@@ -169,7 +187,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_remove_child(container, child)
+        Promise.all([container, child])
+            .then(([resolvedContainer, resolvedChild]) => {
+                InternalApi.op_react_remove_child(resolvedContainer, resolvedChild)
+            })
     },
 
 
@@ -180,13 +201,13 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
             const props = Object.fromEntries(
                 updatePayload.map(propName => [propName, nextProps[propName]])
             );
-            InternalApi.op_react_set_properties(instance, props);
+            instance.then(value => InternalApi.op_react_set_properties(value, props));
         }
     },
     commitTextUpdate(textInstance: TextInstance, oldText: string, newText: string): void {
         assertMutationMode(options.mode);
 
-        InternalApi.op_react_set_text(textInstance, newText)
+        textInstance.then(value => InternalApi.op_react_set_text(value, newText))
     },
 
     hideInstance(instance: Instance): void {
@@ -247,8 +268,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
     replaceContainerChildren(container: Container, newChildren: ChildSet): void {
         assertPersistentMode(options.mode);
-
-        InternalApi.op_react_replace_container_children(container, newChildren)
+        Promise.all([container, ...newChildren])
+            .then(([resolvedContainer, ...resolvedChild]) => {
+                InternalApi.op_react_replace_container_children(resolvedContainer, resolvedChild)
+            })
     },
 
     cloneHiddenInstance(
