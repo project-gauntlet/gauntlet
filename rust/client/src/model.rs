@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyOneValue, DBusUiPropertyZeroValue, DBusUiWidget};
+use anyhow::anyhow;
+use zbus::zvariant::Value;
+
+use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValueType, DBusUiWidget};
 use common::model::{EntrypointId, PluginId};
 
 #[derive(Debug, Clone)]
@@ -53,34 +56,27 @@ pub enum NativeUiRequestData {
 
 pub type NativeUiWidgetId = u32;
 
-pub fn from_dbus(value: DBusUiPropertyContainer) -> HashMap<String, NativeUiPropertyValue> {
-    let properties_one: HashMap<_, _> = value.one
+pub fn from_dbus(value: DBusUiPropertyContainer) -> anyhow::Result<HashMap<String, NativeUiPropertyValue>> {
+    let result = value.properties
         .into_iter()
-        .map(|(key, value)| {
-            let value = match value {
-                DBusUiPropertyOneValue::String(value) => NativeUiPropertyValue::String(value),
-                DBusUiPropertyOneValue::Number(value) => NativeUiPropertyValue::Number(value),
-                DBusUiPropertyOneValue::Bool(value) => NativeUiPropertyValue::Bool(value),
+        .map(|(key, (value_type, value))| {
+            let value = match &(value_type, value.into()) {
+                (DBusUiPropertyValueType::String, Value::Str(value)) => NativeUiPropertyValue::String(value.to_string()),
+                (DBusUiPropertyValueType::Number, Value::F64(value)) => NativeUiPropertyValue::Number(*value),
+                (DBusUiPropertyValueType::Bool, Value::Bool(value)) => NativeUiPropertyValue::Bool(*value),
+                (DBusUiPropertyValueType::Function, _) => NativeUiPropertyValue::Function,
+                _ => {
+                    return Err(anyhow!("invalid type"))
+                }
             };
 
-            (key, value)
+            Ok((key, value))
         })
-        .collect();
-
-    let mut properties: HashMap<_, _> = value.zero
+        .collect::<anyhow::Result<Vec<_>>>()?
         .into_iter()
-        .map(|(key, value)| {
-            let value = match value {
-                DBusUiPropertyZeroValue::Function => NativeUiPropertyValue::Function,
-            };
+        .collect::<HashMap<_, _>>();
 
-            (key, value)
-        })
-        .collect();
-
-    properties.extend(properties_one);
-
-    properties
+    Ok(result)
 }
 
 #[derive(Debug, Clone)]

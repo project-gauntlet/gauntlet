@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use zbus::zvariant::Type;
+use zbus::zvariant::{OwnedValue, Type};
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DBusSearchResult {
@@ -48,24 +48,15 @@ pub struct DbusEventViewEvent {
 pub type DbusUiWidgetId = u32;
 pub type DbusUiEventName = String;
 
-
 #[derive(Debug, Serialize, Deserialize, Type)]
-// #[zvariant(signature = "({s(u)}{s(uv)})")] // TODO create issue, for better error reporting
 pub struct DBusUiPropertyContainer {
-    pub zero: HashMap<String, DBusUiPropertyZeroValue>,
-    pub one: HashMap<String, DBusUiPropertyOneValue>,
+    pub properties: HashMap<String, (DBusUiPropertyValueType, OwnedValue)>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-#[zvariant(signature = "(uv)")]
-pub enum DBusUiPropertyOneValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-#[zvariant(signature = "u")]
-pub enum DBusUiPropertyZeroValue {
+pub enum DBusUiPropertyValueType {
     Function,
+    String,
+    Number,
+    Bool,
 }

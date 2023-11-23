@@ -25,7 +25,7 @@ impl DbusClient {
     }
 
     async fn create_instance(&mut self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> DBusUiWidget {
-        let data = NativeUiRequestData::CreateInstance { widget_type: widget_type.to_owned(), properties: from_dbus(properties) };
+        let data = NativeUiRequestData::CreateInstance { widget_type: widget_type.to_owned(), properties: from_dbus(properties).unwrap() };
         let input = (PluginId::from_string(plugin_id), data);
 
         match self.context_tx.send_receive(input).await.unwrap() {
@@ -50,7 +50,7 @@ impl DbusClient {
     }
 
     async fn clone_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> DBusUiWidget {
-        let data = NativeUiRequestData::CloneInstance { widget_type: widget_type.to_owned(), properties: from_dbus(properties) };
+        let data = NativeUiRequestData::CloneInstance { widget_type: widget_type.to_owned(), properties: from_dbus(properties).unwrap() };
         let input = (PluginId::from_string(plugin_id), data);
 
         match self.context_tx.send_receive(input).await.unwrap() {

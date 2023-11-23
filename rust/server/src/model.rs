@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyOneValue, DBusUiPropertyZeroValue, DBusUiWidget};
+use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValueType, DBusUiWidget};
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -95,30 +96,18 @@ pub enum JsUiPropertyValue {
 }
 
 pub fn to_dbus(value: HashMap<String, JsUiPropertyValue>) -> DBusUiPropertyContainer {
-    let properties_one: HashMap<_, _> = value.iter()
+    let properties: HashMap<_, _> = value.iter()
         .filter_map(|(key, value)| {
             match value {
-                JsUiPropertyValue::Function => None,
-                JsUiPropertyValue::String(value) => Some((key.to_owned(), DBusUiPropertyOneValue::String(value.to_owned()))),
-                JsUiPropertyValue::Number(value) => Some((key.to_owned(), DBusUiPropertyOneValue::Number(value.to_owned()))),
-                JsUiPropertyValue::Bool(value) => Some((key.to_owned(), DBusUiPropertyOneValue::Bool(value.to_owned()))),
+                JsUiPropertyValue::Function => Some((key.to_owned(), (DBusUiPropertyValueType::Function, Value::U8(0).to_owned()))),
+                JsUiPropertyValue::String(value) => Some((key.to_owned(), (DBusUiPropertyValueType::String, Value::Str(value.into()).to_owned()))),
+                JsUiPropertyValue::Number(value) => Some((key.to_owned(), (DBusUiPropertyValueType::Number, Value::F64(value.to_owned()).to_owned()))),
+                JsUiPropertyValue::Bool(value) => Some((key.to_owned(), (DBusUiPropertyValueType::Bool, Value::Bool(value.to_owned()).to_owned()))),
             }
         })
         .collect();
 
-    let properties_zero: HashMap<_, _> = value.iter()
-        .filter_map(|(key, value)| {
-            match value {
-                JsUiPropertyValue::Function => Some((key.to_owned(), DBusUiPropertyZeroValue::Function)),
-                JsUiPropertyValue::String(_) => None,
-                JsUiPropertyValue::Number(_) => None,
-                JsUiPropertyValue::Bool(_) => None,
-            }
-        })
-        .collect();
-
-
-    DBusUiPropertyContainer { one: properties_one, zero: properties_zero }
+    DBusUiPropertyContainer { properties }
 }
 
 pub type JsUiWidgetId = u32;
