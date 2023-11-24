@@ -41,11 +41,11 @@ impl BuiltInWidgetWrapper {
     }
 
     fn get(&self) -> RwLockReadGuard<'_, BuiltInWidget> {
-        self.inner.read().unwrap()
+        self.inner.read().expect("lock is poisoned")
     }
 
     fn get_mut(&self) -> RwLockWriteGuard<'_, BuiltInWidget> {
-        self.inner.write().unwrap()
+        self.inner.write().expect("lock is poisoned")
     }
 
     pub fn render_widget<'a>(&self) -> Element<'a, BuiltInWidgetEvent> {

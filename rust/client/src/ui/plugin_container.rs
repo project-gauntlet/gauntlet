@@ -104,7 +104,7 @@ impl Component<BuiltInWidgetEvent, Renderer> for PluginContainer {
     }
 
     fn view(&self, _state: &Self::State) -> Element<Self::Event, Renderer> {
-        let client_context = self.client_context.read().unwrap();
+        let client_context = self.client_context.read().expect("lock is poisoned");
         let container = client_context.get_view_container(&self.plugin_id);
 
         if let Some(widget) = container.widget_map.get(&container.root_id) {

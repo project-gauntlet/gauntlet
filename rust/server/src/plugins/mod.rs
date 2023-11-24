@@ -230,7 +230,7 @@ impl ApplicationManager {
             let result = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .unwrap()
+                .expect("unable to start tokio runtime for plugin")
                 .block_on(tokio::task::unconstrained(async move {
                     start_plugin_runtime(data).await
                 }));

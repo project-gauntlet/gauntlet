@@ -1,5 +1,5 @@
-use anyhow::Context;
 use serde::Deserialize;
+use tracing::{error, info};
 
 use crate::dirs::Dirs;
 use crate::plugins::data_db_repository::{DataDbRepository, SavePendingPlugin};
@@ -18,7 +18,7 @@ impl ConfigReader {
     }
 
     pub async fn reload_config(&self) -> anyhow::Result<()> {
-        let config = self.read_config()?;
+        let config = self.read_config();
 
         for plugin in config.plugins {
             let exists = self.repository.does_plugin_exist(&plugin.id).await?;
@@ -36,17 +36,31 @@ impl ConfigReader {
         Ok(())
     }
 
-    fn read_config(&self) -> anyhow::Result<ApplicationConfig> {
+    fn read_config(&self) -> ApplicationConfig {
         let config_file = self.dirs.config_file();
-        let config_file_context = config_file.display().to_string();
-        let config_content = std::fs::read_to_string(config_file).context(config_file_context)?;
-        let config: ApplicationConfig = toml::from_str(&config_content)?;
+        let config_content = std::fs::read_to_string(config_file);
 
-        Ok(config)
+        match config_content {
+            Ok(config_content) => {
+                match toml::from_str(&config_content) {
+                    Ok(config) => config,
+                    Err(err) => {
+                        error!("Unable to parse config, error: {error}", error = err.message());
+
+                        ApplicationConfig::default()
+                    }
+                }
+            }
+            Err(_) => {
+                info!("No config found, using default configuration");
+
+                ApplicationConfig::default()
+            }
+        }
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct ApplicationConfig {
     // #[serde(default)]
     // configuration_mode: ConfigurationModeConfig,

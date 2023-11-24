@@ -10,27 +10,16 @@ pub struct ResponseReceiver<Res> {
 
 impl<Res> ResponseReceiver<Res> {
     pub(crate) fn new(response_receiver: oneshot::Receiver<Res>) -> Self {
-        println!("ResponseReceiver");
         Self {
             response_receiver: Some(response_receiver),
         }
     }
 
-    pub async fn recv(&mut self) -> Result<Res, ReceiveError> {
-        println!("recv");
-        match self.response_receiver.take() {
-            Some(response_receiver) => {
-                response_receiver.await.map_err(|_| {
-                    println!("RecvError 1");
-
-                    ReceiveError::RecvError
-                })
-            },
-            None => {
-                println!("RecvError 2");
-                Err(ReceiveError::RecvError)
-            },
-        }
+    pub async fn recv(&mut self) -> Res {
+        self.response_receiver.take()
+            .expect("recv was called second time")
+            .await
+            .expect("oneshot was dropped before sending")
     }
 }
 
@@ -49,20 +38,17 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
         }
     }
 
-    pub fn send(&self, request: Req) -> Result<ResponseReceiver<Res>, RequestError<Req>> {
+    pub fn send(&self, request: Req) -> ResponseReceiver<Res> {
         let (response_sender, response_receiver) = oneshot::channel::<Res>();
         let responder = Responder::new(response_sender);
         let payload = (request, responder);
-        self.request_sender
-            .send(payload)
-            .map_err(|payload| RequestError::SendError(payload.0.0))?;
-        let receiver = ResponseReceiver::new(response_receiver);
-        Ok(receiver)
+        self.request_sender.send(payload).expect("the other side is closed");
+        ResponseReceiver::new(response_receiver)
     }
 
-    pub async fn send_receive(&self, request: Req) -> Result<Res, RequestError<Req>> {
-        let mut receiver = self.send(request)?;
-        receiver.recv().await.map_err(|err| err.into())
+    pub async fn send_receive(&self, request: Req) -> Res {
+        let mut receiver = self.send(request);
+        receiver.recv().await
     }
 }
 
@@ -87,15 +73,10 @@ impl<Req, Res> RequestReceiver<Req, Res> {
         }
     }
 
-    pub async fn recv(&mut self) -> Result<Payload<Req, Res>, RequestError<Req>> {
-        match self.request_receiver.recv().await {
-            Some(payload) => Ok(payload),
-            None => {
-                println!("RecvError 3");
-
-                Err(RequestError::RecvError)
-            },
-        }
+    pub async fn recv(&mut self) -> Payload<Req, Res> {
+        self.request_receiver.recv()
+            .await
+            .expect("the other side of a channel was dropped")
     }
 }
 

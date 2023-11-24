@@ -9,14 +9,14 @@ pub(in crate) mod model;
 mod dirs;
 
 pub fn start_server() {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
+        .expect("unable to start server tokio runtime")
+        .block_on(async {
+            run_server().await
+        })
         .unwrap();
-
-    runtime.block_on(async {
-        run_server().await
-    }).unwrap();
 }
 
 async fn run_server() -> anyhow::Result<()> {

@@ -133,7 +133,7 @@ impl Application for AppModel {
                     entrypoint_id: entrypoint_id.clone(),
                 };
 
-                let mut client_context = self.client_context.write().unwrap();
+                let mut client_context = self.client_context.write().expect("lock is poisoned");
                 client_context.create_view_container(plugin_id.clone());
 
                 let dbus_client = self.dbus_client.clone();
@@ -157,7 +157,7 @@ impl Application for AppModel {
                 let dbus_server = self.dbus_server.clone();
 
                 Command::perform(async move {
-                    dbus_server.search(&prompt)
+                    let search_result = dbus_server.search(&prompt)
                         .await
                         .unwrap()
                         .into_iter()
@@ -167,7 +167,9 @@ impl Application for AppModel {
                             entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
                             entrypoint_name: search_result.entrypoint_name,
                         })
-                        .collect()
+                        .collect();
+
+                    search_result
                 }, AppMsg::SetSearchResults)
             },
             AppMsg::SetSearchResults(search_results) => {
@@ -285,9 +287,11 @@ async fn request_loop(
     mut sender: Sender<AppMsg>,
 ) {
     let mut request_rx = request_rx.write().await;
-    while let Ok(((plugin_id, request_data), responder)) = request_rx.recv().await {
+    loop {
+        let ((plugin_id, request_data), responder) = request_rx.recv().await;
+
         {
-            let mut client_context = client_context.write().unwrap();
+            let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
                 NativeUiRequestData::GetContainer => {

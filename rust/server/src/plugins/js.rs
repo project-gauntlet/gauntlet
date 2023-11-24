@@ -124,8 +124,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()>
     //     )
     // );
 
-    let plugin_core_url = "plugin:core".parse().unwrap();
-    let plugin_unused_url = "plugin:unused".parse().unwrap();
+    let plugin_core_url = "plugin:core".parse().expect("should be valid");
+    let plugin_unused_url = "plugin:unused".parse().expect("should be valid");
 
     let mut worker = MainWorker::bootstrap_from_options(
         plugin_unused_url,

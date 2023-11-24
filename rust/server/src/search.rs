@@ -28,10 +28,10 @@ impl SearchIndex {
             schema_builder.build()
         };
 
-        let entrypoint_name = schema.get_field("entrypoint_name").unwrap();
-        let entrypoint_id = schema.get_field("entrypoint_id").unwrap();
-        let plugin_name = schema.get_field("plugin_name").unwrap();
-        let plugin_id = schema.get_field("plugin_id").unwrap();
+        let entrypoint_name = schema.get_field("entrypoint_name").expect("entrypoint_name field should exist");
+        let entrypoint_id = schema.get_field("entrypoint_id").expect("entrypoint_id field should exist");
+        let plugin_name = schema.get_field("plugin_name").expect("plugin_name field should exist");
+        let plugin_id = schema.get_field("plugin_id").expect("plugin_id field should exist");
 
         let index = Index::create_in_ram(schema.clone());
 
@@ -227,7 +227,7 @@ impl QueryParser {
         let mut text_analyzer = self
             .tokenizer_manager
             .get("default")
-            .unwrap();
+            .expect("default tokenizer should exist");
 
         let mut terms: Vec<Term> = Vec::new();
         let mut token_stream = text_analyzer.token_stream(query);

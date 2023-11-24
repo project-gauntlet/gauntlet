@@ -15,7 +15,7 @@ impl RunStatusHolder {
     }
 
     pub fn start_block(&mut self, plugin_id: PluginId) -> RunStatusGuard {
-        let mut running_plugins = self.running_plugins.lock().unwrap();
+        let mut running_plugins = self.running_plugins.lock().expect("lock is poisoned");
         running_plugins.insert(plugin_id.clone());
         RunStatusGuard {
             running_plugins: self.running_plugins.clone(),
@@ -24,7 +24,7 @@ impl RunStatusHolder {
     }
 
     pub fn is_plugin_running(&self, plugin_id: &PluginId) -> bool {
-        let running_plugins = self.running_plugins.lock().unwrap();
+        let running_plugins = self.running_plugins.lock().expect("lock is poisoned");
         running_plugins.contains(plugin_id)
     }
 }
@@ -36,7 +36,7 @@ pub struct RunStatusGuard {
 
 impl Drop for RunStatusGuard {
     fn drop(&mut self) {
-        let mut running_plugins = self.running_plugins.lock().unwrap();
+        let mut running_plugins = self.running_plugins.lock().expect("lock is poisoned");
         running_plugins.remove(&self.id);
     }
 }
