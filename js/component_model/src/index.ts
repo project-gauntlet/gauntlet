@@ -39,6 +39,8 @@ type TypeFunction = {
     name: "function"
 }
 
+// TODO freeze objects
+
 function generate(componentModelPath: string, outFile: string) {
     const content = readFileSync(componentModelPath).toString();
     const model = JSON.parse(content) as Component[]
@@ -76,9 +78,23 @@ function makeComponents(model: Component[]): ts.SourceFile {
         )
     ];
 
-    // ts.factory.createJSDocComment("@internal"), // TODO
-
-    const declaration =
+    const internalDeclarations = [
+        ts.factory.createVariableStatement(
+            undefined,
+            ts.factory.createVariableDeclarationList(
+                [ts.factory.createVariableDeclaration(
+                    ts.factory.createIdentifier("internalType"),
+                    undefined,
+                    undefined,
+                    ts.factory.createCallExpression(
+                        ts.factory.createIdentifier("Symbol"),
+                        undefined,
+                        [ts.factory.createStringLiteral("PLACEHOLDERNAME:INTERNAL_TYPE")]
+                    )
+                )],
+                ts.NodeFlags.Const
+            )
+        ),
         ts.factory.createModuleDeclaration(
             [ts.factory.createToken(ts.SyntaxKind.DeclareKeyword)],
             ts.factory.createIdentifier("global"),
@@ -93,7 +109,7 @@ function makeComponents(model: Component[]): ts.SourceFile {
                     model.map(component => {
                         return ts.factory.createPropertySignature(
                             undefined,
-                            ts.factory.createIdentifier(`placeholdername__${component.internalName}`),
+                            ts.factory.createComputedPropertyName(ts.factory.createStringLiteral(`placeholdername:${component.internalName}`)),
                             undefined,
                             ts.factory.createTypeLiteralNode(component.props.map(property => {
                                 return ts.factory.createPropertySignature(
@@ -109,11 +125,14 @@ function makeComponents(model: Component[]): ts.SourceFile {
                 ts.NodeFlags.Namespace | ts.NodeFlags.ExportContext | ts.NodeFlags.ContextFlags
             )]),
             ts.NodeFlags.ExportContext | ts.NodeFlags.GlobalAugmentation | ts.NodeFlags.ContextFlags
-        );
+        )
+    ]
 
     // abuse the fact that there is no space between multiline comment and content
     // is three a better way to add @internal tag to 'declare global'?
-    ts.addSyntheticLeadingComment(declaration, ts.SyntaxKind.MultiLineCommentTrivia, "*@internal", true)
+    for (const internalDeclaration of internalDeclarations) {
+        ts.addSyntheticLeadingComment(internalDeclaration, ts.SyntaxKind.MultiLineCommentTrivia, "*@internal", true)
+    }
 
     const components = model.flatMap(component => {
 
@@ -189,7 +208,10 @@ function makeComponents(model: Component[]): ts.SourceFile {
                                 [
                                     ts.factory.createReturnStatement(
                                         ts.factory.createJsxSelfClosingElement(
-                                            ts.factory.createIdentifier(`placeholdername__${component.internalName}`),
+                                            ts.factory.createJsxNamespacedName(
+                                                ts.factory.createIdentifier("placeholdername"),
+                                                ts.factory.createIdentifier(component.internalName)
+                                            ),
                                             undefined,
                                             ts.factory.createJsxAttributes(component.props.map((prop) => (
                                                 ts.factory.createJsxAttribute(
@@ -213,6 +235,17 @@ function makeComponents(model: Component[]): ts.SourceFile {
                     ts.NodeFlags.Const
                 )
             ),
+            ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
+                ts.factory.createElementAccessExpression(
+                    ts.factory.createParenthesizedExpression(ts.factory.createAsExpression(
+                        ts.factory.createIdentifier(component.name),
+                        ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+                    )),
+                    ts.factory.createIdentifier("internalType")
+                ),
+                ts.factory.createToken(ts.SyntaxKind.EqualsToken),
+                ts.factory.createStringLiteral(component.internalName)
+            )),
             ...Object.entries(component.members).map(([key, value]) => {
                 return ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
                     ts.factory.createPropertyAccessExpression(
@@ -227,7 +260,7 @@ function makeComponents(model: Component[]): ts.SourceFile {
     });
 
     return ts.factory.createSourceFile(
-        [...imports, declaration, ...components],
+        [...imports, ...internalDeclarations, ...components],
         ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
         ts.NodeFlags.None
     )
