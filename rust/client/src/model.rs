@@ -87,6 +87,30 @@ pub enum NativeUiPropertyValue {
     Bool(bool),
 }
 
+impl NativeUiPropertyValue {
+    pub fn as_string(&self) -> Option<&str> {
+        if let NativeUiPropertyValue::String(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_number(&self) -> Option<&f64> {
+        if let NativeUiPropertyValue::Number(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let NativeUiPropertyValue::Bool(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NativeUiWidget {
     pub widget_id: NativeUiWidgetId,

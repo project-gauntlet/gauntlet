@@ -15,7 +15,7 @@ use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResu
 use crate::ui::plugin_container::{ClientContext, plugin_container};
 use crate::ui::search_list::search_list;
 use crate::ui::widget::BuiltInWidgetEvent;
-use common::dbus::{DbusEventViewCreated, DbusEventViewEvent};
+use common::dbus::DbusEventViewCreated;
 use common::model::{EntrypointId, PluginId};
 use utils::channel::{channel, RequestReceiver};
 
@@ -192,15 +192,9 @@ impl Application for AppModel {
             AppMsg::WidgetEvent { widget_event, plugin_id } => {
                 let dbus_client = self.dbus_client.clone();
                 Command::perform(async move {
-                    let event_view_event = DbusEventViewEvent {
-                        event_name: widget_event.event_name(),
-                        widget_id: widget_event.widget_id(),
-                    };
-
                     let signal_context = dbus_client.signal_context();
-                    DbusClient::view_event_signal(&signal_context, &plugin_id.to_string(), event_view_event)
-                        .await
-                        .unwrap();
+
+                    widget_event.handle(signal_context, plugin_id).await
                 }, |_| AppMsg::Noop)
             },
             AppMsg::Noop => Command::none(),

@@ -15,6 +15,7 @@ use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use common::model::PluginId;
+use component_model::{create_component_model, Component};
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
 use crate::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData, to_dbus};
@@ -43,6 +44,8 @@ pub enum PluginCommandData {
 pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()> {
     let conn = zbus::Connection::session().await?;
     let client_proxy = DbusClientProxyProxy::new(&conn).await?;
+
+    let component_model = create_component_model();
 
     let plugin_id = data.id.clone();
     let view_created_signal = client_proxy.receive_view_created_signal()
@@ -137,6 +140,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData) -> anyhow::Result<()>
                 EventReceiver::new(Box::pin(event_stream)),
                 PluginData::new(plugin_id),
                 DbusClient::new(client_proxy),
+                ComponentModel::new(component_model),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -263,12 +267,14 @@ deno_core::extension!(
         event_receiver: EventReceiver,
         plugin_data: PluginData,
         dbus_client: DbusClient,
+        component_model: ComponentModel,
     },
     state = |state, options| {
         state.put(options.event_listeners);
         state.put(options.event_receiver);
         state.put(options.plugin_data);
         state.put(options.dbus_client);
+        state.put(options.component_model);
     },
 );
 
@@ -765,6 +771,20 @@ impl DbusClient {
     }
 }
 
+pub struct ComponentModel {
+    components: HashMap<String, Component>,
+}
+
+impl ComponentModel {
+    fn new(components: Vec<Component>) -> Self {
+        Self { components: components.into_iter().map(|component| (component.internal_name().to_owned(), component)).collect() }
+    }
+
+    fn component(&self, internal_name: &str) -> Option<&Component> {
+        self.components.get(internal_name)
+    }
+}
+
 pub struct EventReceiver {
     event_stream: Rc<RefCell<Pin<Box<dyn Stream<Item=JsUiEvent>>>>>,
 }
@@ -780,32 +800,24 @@ impl EventReceiver {
 
 #[derive(Clone)]
 pub struct EventHandlers {
-    inner: Rc<RefCell<EventHandlersInner>>,
-}
-
-pub struct EventHandlersInner {
-    listeners: HashMap<JsUiWidgetId, HashMap<JsUiEventName, v8::Global<v8::Function>>>,
+    inner: Rc<RefCell<HashMap<JsUiWidgetId, HashMap<JsUiEventName, v8::Global<v8::Function>>>>>,
 }
 
 impl EventHandlers {
     fn new() -> EventHandlers {
         Self {
-            inner: Rc::new(RefCell::new(
-                EventHandlersInner {
-                    listeners: HashMap::new()
-                }
-            ))
+            inner: Rc::new(RefCell::new(HashMap::new()))
         }
     }
 
     fn add_listener(&mut self, widget: JsUiWidgetId, event_name: JsUiEventName, function: v8::Global<v8::Function>) {
         let mut inner = self.inner.borrow_mut();
-        inner.listeners.entry(widget).or_default().insert(event_name, function);
+        inner.entry(widget).or_default().insert(event_name, function);
     }
 
     fn call_listener_handler(&self, scope: &mut v8::HandleScope, widget: &JsUiWidgetId, event_name: &JsUiEventName) {
         let inner = self.inner.borrow();
-        let option_func = inner.listeners.get(widget)
+        let option_func = inner.get(widget)
             .map(|handlers| handlers.get(event_name))
             .flatten();
 

@@ -6907,6 +6907,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "common",
+ "component_model",
  "deno_core",
  "deno_runtime",
  "directories",

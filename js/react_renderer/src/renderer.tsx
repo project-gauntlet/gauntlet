@@ -97,6 +97,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     resetAfterCommit: (containerInfo: Container): void => {
     },
     preparePortalMount: (containerInfo: Container): void => {
+        throw new Error("React Portals are not supported")
     },
     scheduleTimeout(fn: (...args: unknown[]) => unknown, delay: number | undefined): TimeoutHandle {
         // TODO schedule timeout in tokio
@@ -106,7 +107,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         // TODO cancel timeout in tokio
     },
     noTimeout: -1,
-    isPrimaryRenderer: true, // we have single separate renderer per view
+    isPrimaryRenderer: true,
     getCurrentEventPriority: () => DefaultEventPriority,
     getInstanceFromNode(node: any): ReactReconciler.Fiber | null | undefined {
         return undefined;

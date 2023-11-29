@@ -1,31 +1,26 @@
-import { ReactElement, useState } from 'react';
+import { ReactElement } from 'react';
 import upperCase from "lodash/upperCase";
-import { Box } from "placeholdername-component-model";
+import { Detail } from "placeholdername-component-model";
 
 export default function View(): ReactElement {
 
-    const [count, setCount] = useState(0);
-
     return (
-        <Box test={1}>
-            test
-            <Box.Text>
-                {count}
-            </Box.Text>
-            <Box.Text>
-                You clicked
-                {count}
-                times
-            </Box.Text>
-            <Box.Button onClick={() => {
-                console.log("test " + upperCase("events") + count)
-                setCount(count + 1);
-            }}>
-                Click me
-            </Box.Button>
-            <Box.Text>Test</Box.Text>
-            <Box.Text>Test</Box.Text>
-        </Box>
+        <Detail>
+            <Detail.Content>
+                <Detail.Metadata.Separator/>
+                <Detail.Content.H1>Title</Detail.Content.H1>
+                <Detail.Content.Text>
+                    You clicked
+                    {true}
+                    {false}
+                    {1}
+                    {["test", false, undefined,["test3", 5], null, 3]}
+                    {undefined}
+                    {null}
+                    {upperCase("times")}
+                </Detail.Content.Text>
+            </Detail.Content>
+        </Detail>
     );
 };
 

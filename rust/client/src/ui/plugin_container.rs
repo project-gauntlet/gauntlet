@@ -57,7 +57,7 @@ impl PluginViewContainer {
 
     fn get_container(&mut self) -> NativeUiWidget {
         if let Entry::Vacant(value) = self.widget_map.entry(self.root_id) {
-            value.insert(BuiltInWidgetWrapper::empty_container(self.root_id));
+            value.insert(BuiltInWidgetWrapper::container(self.root_id));
         };
 
         NativeUiWidget {

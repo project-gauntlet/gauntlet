@@ -13,7 +13,7 @@ type Property = {
     optional: boolean
     type: Type
 }
-type Type = TypeString | TypeNumber | TypeBoolean | TypeReactNode | TypeArray | TypeOr | TypeFunction
+type Type = TypeString | TypeNumber | TypeBoolean | TypeStringComponent | TypeComponent | TypeArray | TypeOr | TypeFunction
 
 type TypeString = {
     name: "string"
@@ -24,8 +24,12 @@ type TypeNumber = {
 type TypeBoolean = {
     name: "boolean"
 }
-type TypeReactNode = {
-    name: "reactnode"
+type TypeComponent = {
+    name: "components"
+    components: string[]
+}
+type TypeStringComponent = {
+    name: "stringcomponent"
 }
 type TypeArray = {
     name: "array"
@@ -69,6 +73,16 @@ function makeComponents(model: Component[]): ts.SourceFile {
                     ts.factory.createImportSpecifier(
                         false,
                         undefined,
+                        ts.factory.createIdentifier("JSXElementConstructor")
+                    ),
+                    ts.factory.createImportSpecifier(
+                        false,
+                        undefined,
+                        ts.factory.createIdentifier("ReactElement")
+                    ),
+                    ts.factory.createImportSpecifier(
+                        false,
+                        undefined,
                         ts.factory.createIdentifier("ReactNode")
                     )
                 ])
@@ -77,6 +91,156 @@ function makeComponents(model: Component[]): ts.SourceFile {
             undefined
         )
     ];
+
+    const publicDeclarations = [
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("ElementParams"),
+            [ts.factory.createTypeParameterDeclaration(
+                undefined,
+                ts.factory.createIdentifier("Comp"),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("FC"),
+                    [ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)]
+                ),
+                undefined
+            )],
+            ts.factory.createConditionalTypeNode(
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Comp"),
+                    undefined
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("FC"),
+                    [ts.factory.createInferTypeNode(ts.factory.createTypeParameterDeclaration(
+                        undefined,
+                        ts.factory.createIdentifier("Params"),
+                        undefined,
+                        undefined
+                    ))]
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Params"),
+                    undefined
+                ),
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword)
+            )
+        ),
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("Element"),
+            [ts.factory.createTypeParameterDeclaration(
+                undefined,
+                ts.factory.createIdentifier("Comp"),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("FC"),
+                    [ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)]
+                ),
+                undefined
+            )],
+            ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier("ReactElement"),
+                [
+                    ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("ElementParams"),
+                        [ts.factory.createTypeReferenceNode(
+                            ts.factory.createIdentifier("Comp"),
+                            undefined
+                        )]
+                    ),
+                    ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("JSXElementConstructor"),
+                        [ts.factory.createTypeReferenceNode(
+                            ts.factory.createIdentifier("ElementParams"),
+                            [ts.factory.createTypeReferenceNode(
+                                ts.factory.createIdentifier("Comp"),
+                                undefined
+                            )]
+                        )]
+                    )
+                ]
+            )
+        ),
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("StringNode"),
+            undefined,
+            ts.factory.createUnionTypeNode([
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            ])
+        ),
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("EmptyNode"),
+            undefined,
+            ts.factory.createUnionTypeNode([
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword),
+                ts.factory.createLiteralTypeNode(ts.factory.createNull()),
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword)
+            ])
+        ),
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("Component"),
+            [ts.factory.createTypeParameterDeclaration(
+                undefined,
+                ts.factory.createIdentifier("Comp"),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("FC"),
+                    [ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)]
+                ),
+                undefined
+            )],
+            ts.factory.createUnionTypeNode([
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Element"),
+                    [ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("Comp"),
+                        undefined
+                    )]
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("EmptyNode"),
+                    undefined
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Iterable"),
+                    [ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("Component"),
+                        [ts.factory.createTypeReferenceNode(
+                            ts.factory.createIdentifier("Comp"),
+                            undefined
+                        )]
+                    )]
+                )
+            ])
+        ),
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("StringComponent"),
+            undefined,
+            ts.factory.createUnionTypeNode([
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("StringNode"),
+                    undefined
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("EmptyNode"),
+                    undefined
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Iterable"),
+                    [ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("StringComponent"),
+                        undefined
+                    )]
+                )
+            ])
+        )
+    ];
+
+
 
     const internalDeclarations = [
         ts.factory.createVariableStatement(
@@ -260,7 +424,7 @@ function makeComponents(model: Component[]): ts.SourceFile {
     });
 
     return ts.factory.createSourceFile(
-        [...imports, ...internalDeclarations, ...components],
+        [...imports, ...internalDeclarations, ...publicDeclarations, ...components],
         ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
         ts.NodeFlags.None
     )
@@ -268,8 +432,26 @@ function makeComponents(model: Component[]): ts.SourceFile {
 
 function makeType(type: Type): ts.TypeNode {
     switch (type.name) {
-        case "reactnode": {
-            return ts.factory.createTypeReferenceNode("ReactNode")
+        case "components": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier("Component"),
+                [
+                    ts.factory.createUnionTypeNode(
+                        type.components.map(value => (
+                            ts.factory.createTypeQueryNode(
+                                ts.factory.createIdentifier(value),
+                                undefined
+                            )
+                        ))
+                    )
+                ]
+            )
+        }
+        case "stringcomponent": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier("StringComponent"),
+                undefined
+            )
         }
         case "array": {
             return ts.factory.createArrayTypeNode(makeType(type.nested))
