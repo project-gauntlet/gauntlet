@@ -88,10 +88,10 @@ impl Application for AppModel {
         ));
 
         let (dbus_connection, dbus_server, dbus_client) = futures::executor::block_on(async {
-            let path = "/org/placeholdername/PlaceHolderName";
+            let path = "/dev/projectgauntlet/Client";
 
             let dbus_connection = zbus::ConnectionBuilder::session()?
-                .name("org.placeholdername.PlaceHolderName.Client")?
+                .name("dev.projectgauntlet.Gauntlet.Client")?
                 .serve_at(path, DbusClient { context_tx })?
                 .build()
                 .await?;

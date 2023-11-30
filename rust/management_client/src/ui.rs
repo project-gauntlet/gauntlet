@@ -107,7 +107,6 @@ impl Application for ManagementAppModel {
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let (dbus_connection, dbus_server) = futures::executor::block_on(async {
             let dbus_connection = zbus::ConnectionBuilder::session()?
-                .name("org.placeholdername.PlaceHolderName.ManagementClient")?
                 .build()
                 .await?;
 

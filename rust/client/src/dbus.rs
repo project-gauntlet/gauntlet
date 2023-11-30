@@ -8,7 +8,7 @@ pub struct DbusClient {
     pub(crate) context_tx: RequestSender<(PluginId, NativeUiRequestData), NativeUiResponseData>
 }
 
-#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName.Client")]
+#[zbus::dbus_interface(name = "dev.projectgauntlet.Client")]
 impl DbusClient {
     #[dbus_interface(signal)]
     pub async fn view_created_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventViewCreated) -> zbus::Result<()>;
@@ -80,7 +80,7 @@ impl DbusClient {
 type Result<T> = core::result::Result<T, ClientError>;
 
 #[derive(DBusError, Debug)]
-#[dbus_error(prefix = "org.placeholdername.PlaceHolderName.ClientError")]
+#[dbus_error(prefix = "dev.projectgauntlet.Client.Error")]
 enum ClientError {
     #[dbus_error(zbus_error)]
     ZBus(zbus::Error),
@@ -94,9 +94,9 @@ impl From<anyhow::Error> for ClientError {
 }
 
 #[zbus::dbus_proxy(
-    default_service = "org.placeholdername.PlaceHolderName",
-    default_path = "/org/placeholdername/PlaceHolderName",
-    interface = "org.placeholdername.PlaceHolderName",
+    default_service = "dev.projectgauntlet.Gauntlet",
+    default_path = "/dev/projectgauntlet/Server",
+    interface = "dev.projectgauntlet.Server",
 )]
 trait DbusServerProxy {
     async fn search(&self, text: &str) -> zbus::Result<Vec<DBusSearchResult>>;

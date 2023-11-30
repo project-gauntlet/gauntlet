@@ -29,9 +29,9 @@ async fn run_server() -> anyhow::Result<()> {
     let management_interface = DbusManagementServer { application_manager };
 
     let _conn = zbus::ConnectionBuilder::session()?
-        .name("org.placeholdername.PlaceHolderName")?
-        .serve_at("/org/placeholdername/PlaceHolderName", interface)?
-        .serve_at("/org/placeholdername/PlaceHolderName/Management", management_interface)?
+        .name("dev.projectgauntlet.Gauntlet")?
+        .serve_at("/dev/projectgauntlet/Server", interface)?
+        .serve_at("/dev/projectgauntlet/Server", management_interface)?
         .build()
         .await?;
 

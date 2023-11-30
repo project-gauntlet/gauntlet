@@ -1,9 +1,9 @@
 use common::dbus::DBusPlugin;
 
 #[zbus::dbus_proxy(
-    default_service = "org.placeholdername.PlaceHolderName",
-    default_path = "/org/placeholdername/PlaceHolderName/Management",
-    interface = "org.placeholdername.PlaceHolderName.Management",
+    default_service = "dev.projectgauntlet.Gauntlet",
+    default_path = "/dev/projectgauntlet/Server",
+    interface = "dev.projectgauntlet.Server.Management",
 )]
 trait DbusManagementServerProxy {
     #[dbus_proxy(signal)]

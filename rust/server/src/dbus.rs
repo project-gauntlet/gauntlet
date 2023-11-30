@@ -10,7 +10,7 @@ pub struct DbusServer {
     pub search_index: SearchIndex,
 }
 
-#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName")]
+#[zbus::dbus_interface(name = "dev.projectgauntlet.Server")]
 impl DbusServer {
     fn search(&self, text: &str) -> Result<Vec<DBusSearchResult>> {
         let result = self.search_index.create_handle()
@@ -35,7 +35,7 @@ pub struct DbusManagementServer {
     pub application_manager: ApplicationManager,
 }
 
-#[zbus::dbus_interface(name = "org.placeholdername.PlaceHolderName.Management")]
+#[zbus::dbus_interface(name = "dev.projectgauntlet.Server.Management")]
 impl DbusManagementServer {
 
     #[dbus_interface(signal)]
@@ -76,7 +76,7 @@ impl DbusManagementServer {
 type Result<T> = core::result::Result<T, ServerError>;
 
 #[derive(DBusError, Debug)]
-#[dbus_error(prefix = "org.placeholdername.PlaceHolderName.ServerError")]
+#[dbus_error(prefix = "dev.projectgauntlet.Server.Error")]
 enum ServerError {
     #[dbus_error(zbus_error)]
     ZBus(zbus::Error),
@@ -91,9 +91,9 @@ impl From<anyhow::Error> for ServerError {
 
 
 #[zbus::dbus_proxy(
-default_service = "org.placeholdername.PlaceHolderName.Client",
-default_path = "/org/placeholdername/PlaceHolderName",
-interface = "org.placeholdername.PlaceHolderName.Client",
+    default_service = "dev.projectgauntlet.Gauntlet.Client",
+    default_path = "/dev/projectgauntlet/Client",
+    interface = "dev.projectgauntlet.Client",
 )]
 trait DbusClientProxy {
     #[dbus_proxy(signal)]
