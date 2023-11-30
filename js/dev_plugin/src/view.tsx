@@ -1,6 +1,6 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
-import { Detail } from "placeholdername-component-model";
+import { Detail } from "gauntlet-component-model";
 
 export default function View(): ReactElement {
     const [count, setCount] = useState(0);

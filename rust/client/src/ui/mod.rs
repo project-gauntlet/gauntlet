@@ -122,7 +122,7 @@ impl Application for AppModel {
     }
 
     fn title(&self) -> String {
-        "test".to_owned()
+        "Gauntlet".to_owned()
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {

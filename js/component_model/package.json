@@ -1,5 +1,5 @@
 {
-  "name": "placeholdername-component-model",
+  "name": "gauntlet-component-model",
   "version": "1.0.0",
   "type": "module",
   "main": "./gendist/components.js",

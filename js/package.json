@@ -1,5 +1,5 @@
 {
-  "name": "placeholdername",
+  "name": "gauntlet",
   "private": true,
   "scripts": {
     "build": "npm run build --workspaces --if-present"

@@ -253,7 +253,7 @@ function makeComponents(model: Component[]): ts.SourceFile {
                     ts.factory.createCallExpression(
                         ts.factory.createIdentifier("Symbol"),
                         undefined,
-                        [ts.factory.createStringLiteral("PLACEHOLDERNAME:INTERNAL_TYPE")]
+                        [ts.factory.createStringLiteral("GAUNTLET:INTERNAL_TYPE")]
                     )
                 )],
                 ts.NodeFlags.Const
@@ -273,7 +273,7 @@ function makeComponents(model: Component[]): ts.SourceFile {
                     model.map(component => {
                         return ts.factory.createPropertySignature(
                             undefined,
-                            ts.factory.createComputedPropertyName(ts.factory.createStringLiteral(`placeholdername:${component.internalName}`)),
+                            ts.factory.createComputedPropertyName(ts.factory.createStringLiteral(`gauntlet:${component.internalName}`)),
                             undefined,
                             ts.factory.createTypeLiteralNode(component.props.map(property => {
                                 return ts.factory.createPropertySignature(
@@ -373,7 +373,7 @@ function makeComponents(model: Component[]): ts.SourceFile {
                                     ts.factory.createReturnStatement(
                                         ts.factory.createJsxSelfClosingElement(
                                             ts.factory.createJsxNamespacedName(
-                                                ts.factory.createIdentifier("placeholdername"),
+                                                ts.factory.createIdentifier("gauntlet"),
                                                 ts.factory.createIdentifier(component.internalName)
                                             ),
                                             undefined,

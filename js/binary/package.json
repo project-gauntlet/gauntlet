@@ -1,12 +1,12 @@
 {
-  "name": "placeholdername-binary",
+  "name": "gauntlet-binary",
   "version": "1.0.0",
   "scripts": {
     "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
   },
   "type": "module",
   "bin": {
-    "placeholdername": "./bin/main.js"
+    "gauntlet": "./bin/main.js"
   },
   "dependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",

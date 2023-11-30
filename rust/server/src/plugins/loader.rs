@@ -86,7 +86,7 @@ impl PluginLoader {
             .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(1.try_into().unwrap()))
             .configure_remote(|mut remote| {
                 remote.replace_refspecs(
-                    Some("+refs/heads/placeholdername/releases:refs/remotes/origin/placeholdername/releases"),
+                    Some("+refs/heads/gauntlet/releases:refs/remotes/origin/gauntlet/releases"),
                     gix::remote::Direction::Fetch,
                 )?;
 
@@ -150,7 +150,7 @@ impl PluginLoader {
             .into_iter()
             .collect();
 
-        let config_path = plugin_dir.join("placeholdername.toml");
+        let config_path = plugin_dir.join("gauntlet.toml");
         let config_path_context = config_path.display().to_string();
         let config_content = std::fs::read_to_string(config_path).context(config_path_context)?;
         let config: PluginConfig = toml::from_str(&config_content)?;

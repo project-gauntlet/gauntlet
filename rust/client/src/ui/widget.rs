@@ -20,53 +20,53 @@ pub struct BuiltInWidgetWrapper {
 impl BuiltInWidgetWrapper {
     pub fn widget(id: NativeUiWidgetId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> Self {
         let widget = match widget_type.as_ref() {
-            "placeholdername:textcontent" => BuiltInWidget::TextContent {
+            "gauntlet:textcontent" => BuiltInWidget::TextContent {
                 content: vec![]
             },
-            "placeholdername:link" => BuiltInWidget::Link {
+            "gauntlet:link" => BuiltInWidget::Link {
                 href: properties.get("href").map(|href| href.as_string()).unwrap().unwrap().to_owned(),
                 content: vec![],
             },
-            "placeholdername:tag" => BuiltInWidget::Tag {
+            "gauntlet:tag" => BuiltInWidget::Tag {
                 content: vec![]
             },
-            "placeholdername:metadata_item" => BuiltInWidget::MetadataItem {
+            "gauntlet:metadata_item" => BuiltInWidget::MetadataItem {
                 content: vec![]
             },
-            "placeholdername:separator" => BuiltInWidget::Separator,
-            "placeholdername:metadata" => BuiltInWidget::Metadata {
+            "gauntlet:separator" => BuiltInWidget::Separator,
+            "gauntlet:metadata" => BuiltInWidget::Metadata {
                 content: vec![]
             },
-            "placeholdername:image" => BuiltInWidget::Image,
-            "placeholdername:h1" => BuiltInWidget::H1 {
+            "gauntlet:image" => BuiltInWidget::Image,
+            "gauntlet:h1" => BuiltInWidget::H1 {
                 content: vec![]
             },
-            "placeholdername:h2" => BuiltInWidget::H2 {
+            "gauntlet:h2" => BuiltInWidget::H2 {
                 content: vec![]
             },
-            "placeholdername:h3" => BuiltInWidget::H3 {
+            "gauntlet:h3" => BuiltInWidget::H3 {
                 content: vec![]
             },
-            "placeholdername:h4" => BuiltInWidget::H4 {
+            "gauntlet:h4" => BuiltInWidget::H4 {
                 content: vec![]
             },
-            "placeholdername:h5" => BuiltInWidget::H5 {
+            "gauntlet:h5" => BuiltInWidget::H5 {
                 content: vec![]
             },
-            "placeholdername:h6" => BuiltInWidget::H6 {
+            "gauntlet:h6" => BuiltInWidget::H6 {
                 content: vec![]
             },
-            "placeholdername:horizontal_break" => BuiltInWidget::HorizontalBreak,
-            "placeholdername:code_block" => BuiltInWidget::CodeBlock {
+            "gauntlet:horizontal_break" => BuiltInWidget::HorizontalBreak,
+            "gauntlet:code_block" => BuiltInWidget::CodeBlock {
                 content: vec![]
             },
-            "placeholdername:code" => BuiltInWidget::Code {
+            "gauntlet:code" => BuiltInWidget::Code {
                 content: vec![]
             },
-            "placeholdername:content" => BuiltInWidget::Content {
+            "gauntlet:content" => BuiltInWidget::Content {
                 content: vec![]
             },
-            "placeholdername:detail" => BuiltInWidget::Detail {
+            "gauntlet:detail" => BuiltInWidget::Detail {
                 content: vec![]
             },
             _ => panic!("widget_type {} not supported", widget_type)

@@ -142,7 +142,7 @@ impl Application for ManagementAppModel {
     }
 
     fn title(&self) -> String {
-        "PlaceHolderName Settings".to_owned()
+        "Gauntlet Settings".to_owned()
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {

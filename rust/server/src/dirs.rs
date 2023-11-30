@@ -11,7 +11,7 @@ pub struct Dirs {
 impl Dirs {
     pub fn new() -> Self {
         Self {
-            inner: ProjectDirs::from("org", "placeholdername", "PlaceHolderName").unwrap()
+            inner: ProjectDirs::from("dev", "project-gauntlet", "Gauntlet").unwrap()
         }
     }
 

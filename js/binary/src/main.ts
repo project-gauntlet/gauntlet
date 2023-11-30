@@ -19,7 +19,7 @@ interface ConfigPluginEntrypoint {
     path: string
 }
 
-const text: string = readFileSync("./placeholdername.toml", "utf8");
+const text: string = readFileSync("./gauntlet.toml", "utf8");
 const config = parseToml(text) as Config;
 const mapInputs = config.entrypoints.map(entrypoint => [entrypoint.id, entrypoint.path] as const);
 const entries = new Map(mapInputs);
@@ -51,4 +51,4 @@ await rollupBuild.write({
     chunkFileNames: '[name].js'
 });
 
-writeFileSync("dist/placeholdername.toml", text)
+writeFileSync("dist/gauntlet.toml", text)
