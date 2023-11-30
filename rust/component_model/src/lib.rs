@@ -121,7 +121,8 @@ pub fn create_component_model() -> Vec<Component> {
         "tag",
         "Tag",
         vec![
-            property("children", true, Type::String)
+            property("children", true, Type::String),
+            property("onClick", true, Type::Function)
         ],
         &[]
     );

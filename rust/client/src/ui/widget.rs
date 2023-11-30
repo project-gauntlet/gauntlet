@@ -118,7 +118,11 @@ impl BuiltInWidgetWrapper {
                     .into()
             }
             BuiltInWidget::Tag { content } => {
-                row(render_children(content))
+                let content: Element<_> = row(render_children(content))
+                    .into();
+
+                button(content)
+                    .on_press(BuiltInWidgetEvent::TagClick { widget_id: self.id })
                     .into()
             }
             BuiltInWidget::MetadataItem { content } => {
@@ -391,7 +395,7 @@ pub enum BuiltInWidgetEvent {
     LinkClick {
         href: String
     },
-    ButtonClick {
+    TagClick {
         widget_id: NativeUiWidgetId
     },
 }
@@ -402,7 +406,7 @@ impl BuiltInWidgetEvent {
             BuiltInWidgetEvent::LinkClick { href } => {
                 todo!("href {:?}", href)
             }
-            BuiltInWidgetEvent::ButtonClick { widget_id } => {
+            BuiltInWidgetEvent::TagClick { widget_id } => {
                 let event_view_event = DbusEventViewEvent {
                     event_name: "onClick".to_owned(),
                     widget_id: widget_id.clone(),

@@ -1,8 +1,9 @@
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Detail } from "placeholdername-component-model";
 
 export default function View(): ReactElement {
+    const [count, setCount] = useState(0);
 
     return (
         <Detail>
@@ -13,13 +14,26 @@ export default function View(): ReactElement {
                     You clicked
                     {true}
                     {false}
-                    {1}
-                    {["test", false, undefined,["test3", 5], null, 3]}
+                    {count}
+                    {["test", false, undefined, ["test3", 5], null, 3]}
                     {undefined}
                     {null}
                     {upperCase("times")}
                 </Detail.Content.Text>
             </Detail.Content>
+            <Detail.Metadata>
+                <Detail.Metadata.Item>
+                    <Detail.Metadata.Item.Text>Test</Detail.Metadata.Item.Text>
+                    <Detail.Metadata.Item.Tag
+                        onClick={() => {
+                            console.log("test " + upperCase("events") + count)
+                            setCount(count + 1);
+                        }}
+                    >
+                        Tag
+                    </Detail.Metadata.Item.Tag>
+                </Detail.Metadata.Item>
+            </Detail.Metadata>
         </Detail>
     );
 };
