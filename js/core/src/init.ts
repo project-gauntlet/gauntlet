@@ -1,6 +1,6 @@
 import { FC } from "react";
 
-// @ts-expect-error does typescipt support such symbol declarations?
+// @ts-expect-error does typescript support such symbol declarations?
 const denoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 

@@ -1,23 +1,24 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use iced::{Application, Command, Element, Event, executor, futures, keyboard, Length, Padding, Renderer, Subscription, subscription};
-use iced::{Settings, window};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
-use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
+use iced::Settings;
+use iced::widget::{column, container, horizontal_rule, horizontal_space, scrollable, text_input};
 use iced::window::Position;
 use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};
+
+use common::dbus::DbusEventViewCreated;
+use common::model::{EntrypointId, PluginId};
+use utils::channel::{channel, RequestReceiver};
 
 use crate::dbus::{DbusClient, DbusServerProxyProxy};
 use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult};
 use crate::ui::plugin_container::{ClientContext, plugin_container};
 use crate::ui::search_list::search_list;
 use crate::ui::widget::BuiltInWidgetEvent;
-use common::dbus::DbusEventViewCreated;
-use common::model::{EntrypointId, PluginId};
-use utils::channel::{channel, RequestReceiver};
 
 mod plugin_container;
 mod search_list;
@@ -28,14 +29,15 @@ pub struct AppModel {
     dbus_connection: Connection,
     dbus_server: DbusServerProxyProxy<'static>,
     dbus_client: InterfaceRef<DbusClient>,
-    state: AppState,
-    prompt: Option<String>,
+    state: Vec<NavState>,
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
 }
 
-enum AppState {
-    SearchView,
+enum NavState {
+    SearchView {
+        prompt: Option<String>,
+    },
     PluginView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -53,7 +55,7 @@ pub enum AppMsg {
     IcedEvent(Event),
     WidgetEvent {
         plugin_id: PluginId,
-        widget_event: BuiltInWidgetEvent
+        widget_event: BuiltInWidgetEvent,
     },
     Noop,
 }
@@ -61,7 +63,7 @@ pub enum AppMsg {
 pub fn run() {
     AppModel::run(Settings {
         id: None,
-        window: window::Settings {
+        window: iced::window::Settings {
             size: (650, 400),
             position: Position::Centered,
             resizable: false,
@@ -80,11 +82,10 @@ impl Application for AppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-
         let (context_tx, request_rx) = channel::<(PluginId, NativeUiRequestData), NativeUiResponseData>();
 
         let client_context = Arc::new(StdRwLock::new(
-            ClientContext { containers: Default::default(), }
+            ClientContext { containers: Default::default() }
         ));
 
         let (dbus_connection, dbus_server, dbus_client) = futures::executor::block_on(async {
@@ -113,9 +114,8 @@ impl Application for AppModel {
                 dbus_server,
                 dbus_client,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
-                state: AppState::SearchView,
-                prompt: None,
-                search_results: vec![]
+                state: vec![NavState::SearchView { prompt: None }],
+                search_results: vec![],
             },
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
         )
@@ -128,10 +128,10 @@ impl Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             AppMsg::OpenView { plugin_id, entrypoint_id } => {
-                self.state = AppState::PluginView {
+                self.state.push(NavState::PluginView {
                     plugin_id: plugin_id.clone(),
                     entrypoint_id: entrypoint_id.clone(),
-                };
+                });
 
                 let mut client_context = self.client_context.write().expect("lock is poisoned");
                 client_context.create_view_container(plugin_id.clone());
@@ -151,27 +151,34 @@ impl Application for AppModel {
                         .unwrap();
                 }, |_| AppMsg::Noop)
             }
-            AppMsg::PromptChanged(prompt) => {
-                self.prompt.replace(prompt.clone());
+            AppMsg::PromptChanged(new_prompt) => {
+                match self.state.last_mut().expect("state is supposed to always have at least one item") {
+                    NavState::SearchView { prompt } => {
+                        prompt.replace(new_prompt.clone());
 
-                let dbus_server = self.dbus_server.clone();
+                        let dbus_server = self.dbus_server.clone();
 
-                Command::perform(async move {
-                    let search_result = dbus_server.search(&prompt)
-                        .await
-                        .unwrap()
-                        .into_iter()
-                        .map(|search_result| NativeUiSearchResult {
-                            plugin_id: PluginId::from_string(search_result.plugin_id),
-                            plugin_name: search_result.plugin_name,
-                            entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
-                            entrypoint_name: search_result.entrypoint_name,
-                        })
-                        .collect();
+                        Command::perform(async move {
+                            let search_result = dbus_server.search(&new_prompt)
+                                .await
+                                .unwrap()
+                                .into_iter()
+                                .map(|search_result| NativeUiSearchResult {
+                                    plugin_id: PluginId::from_string(search_result.plugin_id),
+                                    plugin_name: search_result.plugin_name,
+                                    entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
+                                    entrypoint_name: search_result.entrypoint_name,
+                                })
+                                .collect();
 
-                    search_result
-                }, AppMsg::SetSearchResults)
-            },
+                            search_result
+                        }, AppMsg::SetSearchResults)
+                    }
+                    _ => {
+                        Command::none()
+                    }
+                }
+            }
             AppMsg::SetSearchResults(search_results) => {
                 self.search_results = search_results;
                 Command::none()
@@ -182,6 +189,14 @@ impl Application for AppModel {
                         match key_code {
                             KeyCode::Up => iced::widget::focus_previous(),
                             KeyCode::Down => iced::widget::focus_next(),
+                            KeyCode::Escape => {
+                                if self.state.len() <= 1 {
+                                    iced::window::close()
+                                } else {
+                                    self.state.pop();
+                                    Command::none()
+                                }
+                            }
                             _ => Command::none()
                         }
                     }
@@ -196,7 +211,7 @@ impl Application for AppModel {
 
                     widget_event.handle(signal_context, plugin_id).await
                 }, |_| AppMsg::Noop)
-            },
+            }
             AppMsg::Noop => Command::none(),
         }
     }
@@ -204,9 +219,9 @@ impl Application for AppModel {
     fn view(&self) -> Element<'_, Self::Message, Renderer<Self::Theme>> {
         let client_context = self.client_context.clone();
 
-        match &self.state {
-            AppState::SearchView => {
-                let input: Element<_> = text_input("", self.prompt.as_ref().unwrap_or(&"".to_owned()))
+        match &self.state.last().expect("state is supposed to always have at least one item") {
+            NavState::SearchView { prompt } => {
+                let input: Element<_> = text_input("", prompt.as_ref().unwrap_or(&"".to_owned()))
                     .on_input(AppMsg::PromptChanged)
                     .width(Length::Fill)
                     .into();
@@ -216,7 +231,7 @@ impl Application for AppModel {
                 let search_list = search_list(search_results, |event| {
                     AppMsg::OpenView {
                         plugin_id: event.plugin_id,
-                        entrypoint_id: event.entrypoint_id
+                        entrypoint_id: event.entrypoint_id,
                     }
                 });
 
@@ -242,7 +257,7 @@ impl Application for AppModel {
                 // column.explain(Color::from_rgb(1f32, 0f32, 0f32))
                 column
             }
-            AppState::PluginView { plugin_id, entrypoint_id } => {
+            NavState::PluginView { plugin_id, entrypoint_id } => {
                 let container: Element<BuiltInWidgetEvent> = plugin_container(client_context, plugin_id.clone())
                     .into();
 
@@ -269,7 +284,7 @@ impl Application for AppModel {
                     request_loop(client_context, request_rx, sender).await;
 
                     panic!("request_rx was unexpectedly closed")
-                }
+                },
             )
         ])
     }
