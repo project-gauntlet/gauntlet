@@ -15,7 +15,7 @@ type NoTimeout = -1;
 // TODO add on not used methods: throw new Error("NOT IMPLEMENTED")
 
 export const createHostConfig = (options: { mode: "mutation" | "persistent" }): HostConfig<
-    Type,
+    ComponentType,
     Props,
     Container,
     Instance,
@@ -33,13 +33,17 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
      core items
     */
     createInstance: (
-        type: Type,
+        type: ComponentType,
         props: Props,
         rootContainer: Container,
         hostContext: HostContext,
         internalHandle: OpaqueHandle,
     ): Instance => {
-        return InternalApi.op_react_create_instance(type, props);
+        InternalApi.op_log_trace("renderer_js_common", `createInstance is called, type: ${type}, props: ${Deno.inspect(props)}, rootContainer: ${Deno.inspect(rootContainer)}`)
+        const instance = InternalApi.op_react_create_instance(type, props);
+        InternalApi.op_log_trace("renderer_js_common", `op_react_create_instance returned, widget: ${Deno.inspect(instance)}`)
+
+        return instance;
     },
 
     createTextInstance: (
@@ -48,41 +52,47 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         hostContext: HostContext,
         internalHandle: OpaqueHandle
     ): TextInstance => {
-        return InternalApi.op_react_create_text_instance(text);
+        InternalApi.op_log_trace("renderer_js_common", `createTextInstance is called, text: ${text}, rootContainer: ${Deno.inspect(rootContainer)}`)
+        const textInstance = InternalApi.op_react_create_text_instance(text);
+        InternalApi.op_log_trace("renderer_js_common", `op_react_create_text_instance returned, widget: ${Deno.inspect(textInstance)}`)
+
+        return textInstance;
     },
 
     appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
+        InternalApi.op_log_trace("renderer_js_common", `appendInitialChild is called, parentInstance: ${Deno.inspect(parentInstance)}, child: ${Deno.inspect(child)}`)
         InternalApi.op_react_append_child(parentInstance, child)
     },
 
     finalizeInitialChildren: (
         instance: Instance,
-        type: Type,
+        type: ComponentType,
         props: Props,
         rootContainer: Container,
         hostContext: HostContext
     ): boolean => {
-        // instance.then(value => InternalApi.op_react_set_properties(value, props));
+        InternalApi.op_log_trace("renderer_js_common", `finalizeInitialChildren is called, instance: ${Deno.inspect(instance)}, type: ${type}, props: ${Deno.inspect(props)}`)
         return false;
     },
 
     prepareUpdate: (
         instance: Instance,
-        type: Type,
+        type: ComponentType,
         oldProps: Props,
         newProps: Props,
         rootContainer: Container,
         hostContext: HostContext,
     ): UpdatePayload | null => {
+        InternalApi.op_log_trace("renderer_js_common", `prepareUpdate is called, instance: ${Deno.inspect(instance)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}`)
         return shallowDiff(oldProps, newProps);
     },
-    shouldSetTextContent: (type: Type, props: Props): boolean => {
+    shouldSetTextContent: (type: ComponentType, props: Props): boolean => {
         return false;
     },
     getRootHostContext: (rootContainer: Container): HostContext | null => {
         return null;
     },
-    getChildHostContext: (parentHostContext: HostContext, type: Type, rootContainer: Container): HostContext => {
+    getChildHostContext: (parentHostContext: HostContext, type: ComponentType, rootContainer: Container): HostContext => {
         return parentHostContext;
     },
     getPublicInstance: (instance: Instance | TextInstance): PublicInstance => {
@@ -128,11 +138,13 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
 
     appendChild(parentInstance: Instance, child: Instance | TextInstance): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `appendChild is called, parentInstance: ${Deno.inspect(parentInstance)}, child: ${Deno.inspect(child)}`)
 
         InternalApi.op_react_append_child(parentInstance, child)
     },
     appendChildToContainer(container: Container, child: Instance | TextInstance): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `appendChildToContainer is called, container: ${Deno.inspect(container)}, child: ${Deno.inspect(child)}`)
 
         InternalApi.op_react_append_child(container, child)
     },
@@ -143,6 +155,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         beforeChild: Instance | TextInstance | SuspenseInstance
     ): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `insertBefore is called, parentInstance: ${Deno.inspect(parentInstance)}, child: ${Deno.inspect(child)}, beforeChild: ${Deno.inspect(beforeChild)}`)
 
         InternalApi.op_react_insert_before(parentInstance, child, beforeChild)
     },
@@ -152,6 +165,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         beforeChild: Instance | TextInstance | SuspenseInstance
     ): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `insertInContainerBefore is called, container: ${Deno.inspect(container)}, child: ${Deno.inspect(child)}, beforeChild: ${Deno.inspect(beforeChild)}`)
 
         InternalApi.op_react_insert_before(container, child, beforeChild)
     },
@@ -161,6 +175,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         child: Instance | TextInstance | SuspenseInstance
     ): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `removeChild is called, parentInstance: ${Deno.inspect(parentInstance)}, child: ${Deno.inspect(child)}`)
 
         InternalApi.op_react_remove_child(parentInstance, child)
     },
@@ -169,13 +184,16 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         child: Instance | TextInstance | SuspenseInstance
     ): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `removeChildFromContainer is called, container: ${Deno.inspect(container)}, child: ${Deno.inspect(child)}`)
 
         InternalApi.op_react_remove_child(container, child)
     },
 
 
-    commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: Type, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
+    commitUpdate(instance: Instance, updatePayload: UpdatePayload, type: ComponentType, prevProps: Props, nextProps: Props, internalHandle: ReactReconciler.OpaqueHandle): void {
         assertMutationMode(options.mode);
+
+        InternalApi.op_log_trace("renderer_js_mutation", `commitUpdate is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, prevProps: ${Deno.inspect(prevProps)}, nextProps: ${Deno.inspect(nextProps)}`)
 
         if (updatePayload.length) {
             const props = Object.fromEntries(
@@ -186,6 +204,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     },
     commitTextUpdate(textInstance: TextInstance, oldText: string, newText: string): void {
         assertMutationMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_mutation", `commitTextUpdate is called, textInstance: ${Deno.inspect(textInstance)}, oldText: ${oldText}, newText: ${newText}`)
 
         InternalApi.op_react_set_text(textInstance, newText)
     },
@@ -208,6 +227,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     },
 
     clearContainer: (container: Container): void => {
+        InternalApi.op_log_trace("renderer_js_mutation", `clearContainer is called, container: ${Deno.inspect(container)}`)
     },
 
     /*
@@ -218,7 +238,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     cloneInstance(
         instance: Instance,
         updatePayload: UpdatePayload,
-        type: Type,
+        type: ComponentType,
         oldProps: Props,
         newProps: Props,
         internalInstanceHandle: OpaqueHandle,
@@ -227,41 +247,48 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): Instance {
         assertPersistentMode(options.mode);
 
-        return InternalApi.op_react_clone_instance(type, newProps);
+        InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance is called, type: ${type}, newProps: ${Deno.inspect(newProps)}`)
+        const cloned_instance = InternalApi.op_react_clone_instance(type, newProps);
+        InternalApi.op_log_trace("renderer_js_persistence", `op_react_clone_instance returned, widget: ${Deno.inspect(cloned_instance)}`)
+
+        return cloned_instance;
     },
 
     createContainerChildSet(container: Container): ChildSet {
         assertPersistentMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_persistence", `createContainerChildSet is called, container: ${Deno.inspect(container)}`)
 
         return []
     },
 
     appendChildToContainerChildSet(childSet: ChildSet, child: Instance | TextInstance): void {
         assertPersistentMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_persistence", `appendChildToContainerChildSet is called, childSet: ${Deno.inspect(childSet)}, child: ${Deno.inspect(child)}`)
 
         childSet.push(child);
     },
 
     finalizeContainerChildren(container: Container, newChildren: ChildSet): void {
         assertPersistentMode(options.mode);
+        InternalApi.op_log_trace("renderer_js_persistence", `finalizeContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
     },
 
     replaceContainerChildren(container: Container, newChildren: ChildSet): void {
         assertPersistentMode(options.mode);
-
+        InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
         InternalApi.op_react_replace_container_children(container, newChildren)
     },
 
     cloneHiddenInstance(
         instance: Instance,
-        type: Type,
+        type: ComponentType,
         props: Props,
         internalInstanceHandle: OpaqueHandle,
     ): Instance {
         throw new Error("NOT IMPLEMENTED")
     },
 
-    cloneHiddenTextInstance(instance: Instance, text: Type, internalInstanceHandle: OpaqueHandle): TextInstance {
+    cloneHiddenTextInstance(instance: Instance, text: ComponentType, internalInstanceHandle: OpaqueHandle): TextInstance {
         throw new Error("NOT IMPLEMENTED")
     },
 

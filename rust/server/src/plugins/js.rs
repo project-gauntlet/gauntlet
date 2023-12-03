@@ -131,7 +131,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 start_js_runtime(data.id, data.code, event_stream, client_proxy, component_model).await
             }));
 
-        println!("runtime execution failed {:?}", result)
+        tracing::error!(target = "plugin", "runtime execution failed {:?}", result)
     };
 
     std::thread::Builder::new()
@@ -165,7 +165,7 @@ async fn start_js_runtime(
         PermissionsContainer::allow_all(),
         WorkerOptions {
             module_loader: Rc::new(CustomModuleLoader::new(code)),
-            extensions: vec![react_ext::init_ops_and_esm(
+            extensions: vec![plugin_ext::init_ops_and_esm(
                 EventHandlers::new(),
                 EventReceiver::new(event_stream),
                 PluginData::new(plugin_id),
@@ -277,8 +277,14 @@ fn get_js_code(module_specifier: &ModuleSpecifier, js: &HashMap<String, String>)
 
 
 deno_core::extension!(
-    react_ext,
+    plugin_ext,
     ops = [
+        op_log_trace,
+        op_log_debug,
+        op_log_info,
+        op_log_warn,
+        op_log_error,
+        op_plugin_get_pending_event,
         op_react_get_container,
         op_react_create_instance,
         op_react_create_text_instance,
@@ -287,7 +293,6 @@ deno_core::extension!(
         op_react_remove_child,
         op_react_set_properties,
         op_react_set_text,
-        op_plugin_get_pending_event,
         op_react_call_event_listener,
         op_react_clone_instance,
         op_react_replace_container_children,
@@ -308,18 +313,62 @@ deno_core::extension!(
     },
 );
 
+#[op]
+fn op_log_trace(target: String, message: String) {
+    tracing::trace!(target = target, message)
+}
 
+#[op]
+fn op_log_debug(target: String, message: String) {
+    tracing::debug!(target = target, message)
+}
+
+#[op]
+fn op_log_info(target: String, message: String) {
+    tracing::info!(target = target, message)
+}
+
+#[op]
+fn op_log_warn(target: String, message: String) {
+    tracing::warn!(target = target, message)
+}
+
+#[op]
+fn op_log_error(target: String, message: String) {
+    tracing::error!(target = target, message)
+}
+
+#[op]
+async fn op_plugin_get_pending_event<'a>(
+    state: Rc<RefCell<OpState>>,
+) -> anyhow::Result<JsUiEvent> {
+    let event_stream = {
+        state.borrow()
+            .borrow::<EventReceiver>()
+            .event_stream
+            .clone()
+    };
+
+    let mut event_stream = event_stream.borrow_mut();
+    let event = event_stream.next()
+        .await
+        .ok_or_else(|| anyhow!("event stream was suddenly closed"))?;
+
+    tracing::trace!(target = "renderer_rs_common", "Received plugin event {:?}", event);
+
+    Ok(event)
+}
 
 #[op]
 fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
-    println!("op_react_get_container");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_container...");
 
     let container = match make_request(&state, JsUiRequestData::GetContainer)? {
         JsUiResponseData::GetContainer { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    println!("op_react_get_container end");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_container returned {:?}", container);
 
     Ok(container.into())
 }
@@ -330,7 +379,7 @@ fn op_react_append_child(
     parent: JsUiWidget,
     child: JsUiWidget,
 ) -> anyhow::Result<()> {
-    println!("op_react_append_child");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_append_child...");
 
     let data = JsUiRequestData::AppendChild {
         parent,
@@ -339,7 +388,7 @@ fn op_react_append_child(
 
     match make_request(&state, data)? {
         JsUiResponseData::Nothing => {
-            println!("op_react_append_child end");
+            tracing::trace!(target = "renderer_rs_common", "Calling op_react_append_child returned");
             Ok(())
         },
         value @ _ => panic!("unsupported response type {:?}", value),
@@ -352,7 +401,7 @@ fn op_react_remove_child(
     parent: JsUiWidget,
     child: JsUiWidget,
 ) -> anyhow::Result<()> {
-    println!("op_react_remove_child");
+    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_remove_child...");
 
     let data = JsUiRequestData::RemoveChild {
         parent: parent.into(),
@@ -361,7 +410,7 @@ fn op_react_remove_child(
 
     match make_request(&state, data)? {
         JsUiResponseData::Nothing => {
-            println!("op_react_remove_child end");
+            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_remove_child returned");
             Ok(())
         },
         value @ _ => panic!("unsupported response type {:?}", value),
@@ -375,7 +424,7 @@ fn op_react_insert_before(
     child: JsUiWidget,
     before_child: JsUiWidget,
 ) -> anyhow::Result<()> {
-    println!("op_react_insert_before");
+    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_insert_before...");
 
     let data = JsUiRequestData::InsertBefore {
         parent,
@@ -385,7 +434,7 @@ fn op_react_insert_before(
 
     match make_request(&state, data)? {
         JsUiResponseData::Nothing => {
-            println!("op_react_insert_before end");
+            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_insert_before returned");
             Ok(())
         },
         value @ _ => panic!("unsupported response type {:?}", value),
@@ -400,7 +449,7 @@ fn op_react_create_instance<'a>(
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<JsUiWidget> {
     // TODO component model
-    println!("op_react_create_instance");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_instance...");
 
     let properties = convert_properties(scope, v8_properties)?;
 
@@ -415,14 +464,14 @@ fn op_react_create_instance<'a>(
         properties,
     };
 
-    println!("op_react_create_instance end");
-
     let widget = match make_request(&state, data)? {
         JsUiResponseData::CreateInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
     assign_event_listeners(&state, &widget, &conversion_properties);
+
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_instance returned {:?}", widget);
 
     Ok(widget.into())
 }
@@ -432,7 +481,7 @@ fn op_react_create_text_instance(
     state: Rc<RefCell<OpState>>,
     text: String,
 ) -> anyhow::Result<JsUiWidget> {
-    println!("op_react_create_text_instance");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_text_instance...");
 
     let data = JsUiRequestData::CreateTextInstance { text };
 
@@ -441,7 +490,7 @@ fn op_react_create_text_instance(
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    println!("op_react_create_text_instance end");
+    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_create_text_instance returned {:?}", widget);
 
     Ok(widget.into())
 }
@@ -453,7 +502,7 @@ fn op_react_set_properties<'a>(
     widget: JsUiWidget,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<()> {
-    println!("op_react_set_properties");
+    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_properties...");
 
     let properties = convert_properties(scope, v8_properties)?;
 
@@ -468,34 +517,13 @@ fn op_react_set_properties<'a>(
         properties,
     };
 
-    println!("op_react_set_properties end");
-
     match make_request(&state, data)? {
         JsUiResponseData::Nothing => {
+            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_properties returned");
             Ok(())
         },
         value @ _ => panic!("unsupported response type {:?}", value),
     }
-}
-
-#[op]
-async fn op_plugin_get_pending_event<'a>(
-    state: Rc<RefCell<OpState>>,
-) -> anyhow::Result<JsUiEvent> {
-    let event_stream = {
-        state.borrow()
-            .borrow::<EventReceiver>()
-            .event_stream
-            .clone()
-    };
-
-    println!("op_plugin_get_pending_event");
-
-    let mut event_stream = event_stream.borrow_mut();
-    let event = event_stream.next()
-        .await
-        .ok_or_else(|| anyhow!("event stream was suddenly closed"))?;
-    Ok(event)
 }
 
 #[op(v8)]
@@ -505,7 +533,7 @@ fn op_react_call_event_listener(
     widget: JsUiWidget,
     event_name: String,
 ) {
-    println!("op_react_call_event_listener");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_call_event_listener...");
 
     let event_handlers = {
         state.borrow()
@@ -515,7 +543,7 @@ fn op_react_call_event_listener(
 
     event_handlers.call_listener_handler(scope, &widget.widget_id, &event_name);
 
-    println!("op_react_call_event_listener end");
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_call_event_listener returned");
 }
 
 #[op]
@@ -524,17 +552,18 @@ fn op_react_set_text(
     widget: JsUiWidget,
     text: String,
 ) -> anyhow::Result<()> {
-    println!("op_react_set_text");
+    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_text...");
 
     let data = JsUiRequestData::SetText {
         widget,
         text,
     };
 
-    println!("op_react_set_text end");
-
     match make_request(&state, data)? {
-        JsUiResponseData::Nothing => Ok(()),
+        JsUiResponseData::Nothing => {
+            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_text returned");
+            Ok(())
+        },
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }
@@ -545,17 +574,18 @@ fn op_react_replace_container_children(
     container: JsUiWidget,
     new_children: Vec<JsUiWidget>,
 ) -> anyhow::Result<()> {
-    println!("op_react_replace_container_children");
+    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children...");
 
     let data = JsUiRequestData::ReplaceContainerChildren {
         container,
         new_children,
     };
 
-    println!("op_react_replace_container_children end");
-
     match make_request(&state, data)? {
-        JsUiResponseData::Nothing => Ok(()),
+        JsUiResponseData::Nothing => {
+            tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children returned");
+            Ok(())
+        },
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }
@@ -567,6 +597,7 @@ fn op_react_clone_instance<'a>(
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<JsUiWidget> {
+    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance...");
 
     // TODO component model
 
@@ -590,7 +621,7 @@ fn op_react_clone_instance<'a>(
 
     assign_event_listeners(&state, &widget, &conversion_properties);
 
-    println!("op_react_clone_instance end");
+    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance returned");
 
     Ok(widget.into())
 }

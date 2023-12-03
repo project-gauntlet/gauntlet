@@ -5,7 +5,7 @@ use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
 use iced::Settings;
-use iced::widget::{column, container, horizontal_rule, horizontal_space, scrollable, text_input};
+use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::window::Position;
 use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};

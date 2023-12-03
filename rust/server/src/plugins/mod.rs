@@ -88,7 +88,6 @@ impl ApplicationManager {
     pub async fn set_plugin_state(&mut self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
         let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
         let currently_enabled = self.is_plugin_enabled(&plugin_id).await?;
-        println!("set_plugin_state {:?} {:?}", currently_enabled, set_enabled);
         match (currently_running, currently_enabled, set_enabled) {
             (false, false, true) => {
                 self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)
@@ -165,7 +164,7 @@ impl ApplicationManager {
     }
 
     async fn start_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
-        println!("plugin_id {:?}", plugin_id);
+        tracing::info!(target = "plugin", "Starting plugin with id: {:?}", plugin_id);
 
         let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())
             .await?;
@@ -183,7 +182,7 @@ impl ApplicationManager {
     }
 
     async fn stop_plugin(&mut self, plugin_id: PluginId) {
-        println!("stop_plugin {:?}", plugin_id);
+        tracing::info!(target = "plugin", "Stopping plugin with id: {:?}", plugin_id);
 
         let data = PluginCommand {
             id: plugin_id,
@@ -194,7 +193,7 @@ impl ApplicationManager {
     }
 
     async fn reload_search_index(&mut self) -> anyhow::Result<()> {
-        println!("reload_search_index");
+        tracing::info!(target = "plugin", "Reloading search index");
 
         let search_items: Vec<_> = self.db_repository.list_plugins()
             .await?

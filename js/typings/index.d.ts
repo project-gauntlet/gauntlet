@@ -41,7 +41,7 @@ declare type PluginCommand = {
 
 declare type UiWidget = {}
 
-declare type Type = string;
+declare type ComponentType = string;
 declare type Props = { children?: any } & { [key: string]: any };
 
 declare type Container = Instance
@@ -52,11 +52,17 @@ declare type ChildSet = (Instance | TextInstance)[]
 type SuspenseInstance = never;
 
 declare interface InternalApi {
+    op_log_trace(target: string, message: string): void;
+    op_log_debug(target: string, message: string): void;
+    op_log_info(target: string, message: string): void;
+    op_log_warn(target: string, message: string): void;
+    op_log_error(target: string, message: string): void;
+
     op_react_call_event_listener(instance: Instance, eventName: string): void;
 
     op_react_get_container(): Container;
 
-    op_react_create_instance(type: Type, props: Props): Instance;
+    op_react_create_instance(type: ComponentType, props: Props): Instance;
 
     op_react_create_text_instance(text: string): TextInstance;
 
@@ -78,7 +84,7 @@ declare interface InternalApi {
     op_react_set_text(instance: Instance, text: string): void;
 
     // persistent mode
-    op_react_clone_instance(type: Type, properties: Props): Instance;
+    op_react_clone_instance(type: ComponentType, properties: Props): Instance;
 
     op_react_replace_container_children(container: Instance, newChildren: ChildSet): void;
 }
