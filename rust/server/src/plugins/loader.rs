@@ -193,6 +193,7 @@ struct PluginConfig {
 struct PluginConfigEntrypoint {
     id: String,
     name: String,
+    #[allow(unused)] // used when building plugin
     path: String,
 }
 

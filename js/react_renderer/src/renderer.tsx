@@ -361,6 +361,7 @@ export function render(mode: "mutation" | "persistent", View: React.FC) {
         false,
         "custom",
         error => {
+            console.error("Recoverable error occurred when rendering view", error)
         },
         null
     );

@@ -6,11 +6,11 @@ const InternalApi = denoCore.ops;
 
 const run_loop = async () => {
     while (true) {
-        console.log("before op_plugin_get_pending_event")
+        InternalApi.op_log_trace("plugin_loop", "Waiting for next plugin event...")
         const pluginEvent = await denoCore.opAsync("op_plugin_get_pending_event");
+        InternalApi.op_log_trace("plugin_loop", `Received plugin event: ${Deno.inspect(pluginEvent)}`)
         switch (pluginEvent.type) {
             case "ViewEvent": {
-                console.log("ViewEvent")
                 try {
                     InternalApi.op_react_call_event_listener(pluginEvent.widget, pluginEvent.eventName)
                 } catch (e) {
@@ -19,7 +19,6 @@ const run_loop = async () => {
                 break;
             }
             case "ViewCreated": {
-                console.log("ViewCreated")
                 try {
                     const view: FC = (await import(`plugin:view?${pluginEvent.viewName}`)).default;
                     const { render } = await import("plugin:renderer");
@@ -30,13 +29,11 @@ const run_loop = async () => {
                 break;
             }
             case "ViewDestroyed": {
-                console.log("ViewDestroyed")
                 break;
             }
             case "PluginCommand": {
                 switch (pluginEvent.commandType) {
                     case "stop": {
-                        console.log("PluginCommand stop")
                         return;
                     }
                 }
