@@ -54,8 +54,12 @@ pub enum JsUiRequestData {
         text: String,
     },
     CloneInstance {
+        widget: JsUiWidget,
+        update_payload: Vec<String>,
         widget_type: String,
-        properties: HashMap<String, JsUiPropertyValue>,
+        old_props: HashMap<String, JsUiPropertyValue>,
+        new_props: HashMap<String, JsUiPropertyValue>,
+        keep_children: bool,
     },
     ReplaceContainerChildren {
         container: JsUiWidget,

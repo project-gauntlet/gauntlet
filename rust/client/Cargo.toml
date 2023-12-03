@@ -12,6 +12,6 @@ iced = { version = "0.10", features = ["tokio", "lazy", "advanced"] }
 iced_table = "0.1.0"
 iced_aw = { version = "0.7.0", default-features = false, features = ["icons"] }
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }
 utils = { path = "../utils" }

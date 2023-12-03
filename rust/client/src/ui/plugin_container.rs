@@ -40,7 +40,7 @@ impl Default for PluginViewContainer {
 }
 
 impl PluginViewContainer {
-    fn get_native_widget(&mut self, create_fn: impl FnOnce(NativeUiWidgetId) -> BuiltInWidgetWrapper) -> NativeUiWidget {
+    fn create_native_widget(&mut self, create_fn: impl FnOnce(NativeUiWidgetId) -> BuiltInWidgetWrapper) -> NativeUiWidget {
         let id = self.next_id;
         self.widget_map.insert(id, create_fn(id));
 
@@ -56,6 +56,7 @@ impl PluginViewContainer {
     }
 
     fn get_container(&mut self) -> NativeUiWidget {
+        tracing::trace!("get_container is called");
         if let Entry::Vacant(value) = self.widget_map.entry(self.root_id) {
             value.insert(BuiltInWidgetWrapper::container(self.root_id));
         };
@@ -66,14 +67,40 @@ impl PluginViewContainer {
     }
 
     fn create_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        self.get_native_widget(|id| BuiltInWidgetWrapper::widget(id, widget_type, properties))
+        tracing::trace!("create_instance is called. widget_type: {:?}, new_props: {:?}", widget_type, properties);
+        let widget = self.create_native_widget(|id| BuiltInWidgetWrapper::widget(id, widget_type, properties));
+        tracing::trace!("create_instance is returned. widget: {:?}", widget);
+        widget
     }
 
     fn create_text_instance(&mut self, text: &str) -> NativeUiWidget {
-        self.get_native_widget(|id| BuiltInWidgetWrapper::text(id, text))
+        tracing::trace!("create_text_instance is called. text: {:?}", text);
+        let widget = self.create_native_widget(|id| BuiltInWidgetWrapper::text(id, text));
+        tracing::trace!("create_text_instance is returned. widget: {:?}", widget);
+        widget
+    }
+
+    fn clone_instance(&mut self, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> NativeUiWidget {
+        tracing::trace!("clone_instance is called. widget: {:?}, widget_type: {:?}, new_props: {:?}, keep_children: {:?}", widget, widget_type, new_props, keep_children);
+
+        let widget = self.get_builtin_widget(widget);
+
+        let new_widget = self.create_native_widget(|id| BuiltInWidgetWrapper::widget(id, widget_type, new_props));
+
+        if keep_children {
+            let new_widget_builtin = self.get_builtin_widget(new_widget.clone());
+            if new_widget_builtin.can_have_children() {
+                new_widget_builtin.set_children(widget.get_children());
+            }
+        }
+
+        tracing::trace!("clone_instance is returned. widget: {:?}", widget);
+
+        new_widget
     }
 
     fn append_child(&mut self, parent: NativeUiWidget, child: NativeUiWidget) {
+        tracing::trace!("append_child is called. parent: {:?}, child: {:?}", parent, child);
         let parent = self.get_builtin_widget(parent);
         let child = self.get_builtin_widget(child);
 
@@ -81,6 +108,7 @@ impl PluginViewContainer {
     }
 
     fn replace_container_children(&mut self, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
+        tracing::trace!("replace_container_children is called. container: {:?}, new_children: {:?}", container, new_children);
         let container = self.get_builtin_widget(container);
 
         let children = new_children.into_iter()
@@ -153,8 +181,8 @@ impl ClientContext {
         self.get_view_container_mut(plugin_id).append_child(parent, child)
     }
 
-    pub fn clone_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_id).create_instance(widget_type, properties)
+    pub fn clone_instance(&mut self, plugin_id: &PluginId, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> NativeUiWidget {
+        self.get_view_container_mut(plugin_id).clone_instance(widget, widget_type, new_props, keep_children)
     }
 
     pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {

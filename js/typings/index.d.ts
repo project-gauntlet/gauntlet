@@ -48,6 +48,7 @@ declare type Container = Instance
 declare type Instance = UiWidget
 declare type TextInstance = UiWidget
 declare type ChildSet = (Instance | TextInstance)[]
+declare type UpdatePayload = string[];
 
 type SuspenseInstance = never;
 
@@ -84,7 +85,7 @@ declare interface InternalApi {
     op_react_set_text(instance: Instance, text: string): void;
 
     // persistent mode
-    op_react_clone_instance(type: ComponentType, properties: Props): Instance;
+    op_react_clone_instance(instance: Instance, updatePayload: UpdatePayload, type: ComponentType, oldProps: Props, newProps: Props, keepChildren: boolean): Instance;
 
     op_react_replace_container_children(container: Instance, newChildren: ChildSet): void;
 }

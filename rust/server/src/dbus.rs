@@ -116,7 +116,7 @@ trait DbusClientProxy {
 
     fn set_text(&self, plugin_id: &str, widget: DBusUiWidget, text: &str) -> zbus::Result<()>;
 
-    fn clone_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
+    fn clone_instance(&self, plugin_id: &str, widget: DBusUiWidget, update_payload: Vec<String>, widget_type: &str, old_props: DBusUiPropertyContainer, new_props: DBusUiPropertyContainer, keep_children: bool) -> zbus::Result<DBusUiWidget>;
 
     fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> zbus::Result<()>;
 }

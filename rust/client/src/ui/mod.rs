@@ -327,8 +327,13 @@ async fn request_loop(
                 NativeUiRequestData::AppendChild { parent, child } => {
                     client_context.append_child(&plugin_id, parent, child);
                 }
-                NativeUiRequestData::CloneInstance { widget_type, properties } => {
-                    let widget = client_context.clone_instance(&plugin_id, &widget_type, properties);
+                NativeUiRequestData::CloneInstance {
+                    widget,
+                    widget_type,
+                    new_props,
+                    keep_children
+                } => {
+                    let widget = client_context.clone_instance(&plugin_id, widget, &widget_type, new_props, keep_children);
 
                     let response = NativeUiResponseData::CloneInstance { widget };
 

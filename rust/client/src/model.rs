@@ -45,8 +45,10 @@ pub enum NativeUiRequestData {
         child: NativeUiWidget,
     },
     CloneInstance {
+        widget: NativeUiWidget,
         widget_type: String,
-        properties: HashMap<String, NativeUiPropertyValue>,
+        new_props: HashMap<String, NativeUiPropertyValue>,
+        keep_children: bool,
     },
     ReplaceContainerChildren {
         container: NativeUiWidget,

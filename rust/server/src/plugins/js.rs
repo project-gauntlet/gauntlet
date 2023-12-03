@@ -490,7 +490,7 @@ fn op_react_create_text_instance(
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_create_text_instance returned {:?}", widget);
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_text_instance returned {:?}", widget);
 
     Ok(widget.into())
 }
@@ -594,24 +594,36 @@ fn op_react_replace_container_children(
 fn op_react_clone_instance<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
+    instance: JsUiWidget,
+    update_payload: Vec<String>,
     widget_type: String,
-    v8_properties: HashMap<String, serde_v8::Value<'a>>,
+    old_props: HashMap<String, serde_v8::Value<'a>>,
+    new_props: HashMap<String, serde_v8::Value<'a>>,
+    keep_children: bool,
 ) -> anyhow::Result<JsUiWidget> {
     tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance...");
 
     // TODO component model
 
-    let properties = convert_properties(scope, v8_properties)?;
+    let old_props = convert_properties(scope, old_props)?;
+    let new_props = convert_properties(scope, new_props)?;
 
-    let conversion_properties = properties.clone();
+    let new_props_clone = new_props.clone();
 
-    let properties = properties.into_iter()
+    let old_props = old_props.into_iter()
+        .map(|(name, val)| (name, val.into()))
+        .collect();
+    let new_props = new_props.into_iter()
         .map(|(name, val)| (name, val.into()))
         .collect();
 
     let data = JsUiRequestData::CloneInstance {
+        widget: instance,
+        update_payload,
         widget_type,
-        properties,
+        old_props,
+        new_props,
+        keep_children,
     };
 
     let widget = match make_request(&state, data)? {
@@ -619,7 +631,7 @@ fn op_react_clone_instance<'a>(
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    assign_event_listeners(&state, &widget, &conversion_properties);
+    assign_event_listeners(&state, &widget, &new_props_clone);
 
     tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance returned");
 
@@ -714,8 +726,15 @@ async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyPro
 
             nothing
         }
-        JsUiRequestData::CloneInstance { widget_type, properties } => {
-            let widget = dbus_client.clone_instance(&plugin_id.to_string(), &widget_type, to_dbus(properties))
+        JsUiRequestData::CloneInstance {
+            widget,
+            update_payload,
+            widget_type,
+            old_props,
+            new_props,
+            keep_children
+        } => {
+            let widget = dbus_client.clone_instance(&plugin_id.to_string(), widget.into(), update_payload, &widget_type, to_dbus(old_props), to_dbus(new_props), keep_children)
                 .await
                 .map(|widget| JsUiResponseData::CloneInstance { widget: widget.into() })
                 .map_err(|err| err.into());

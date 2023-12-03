@@ -253,6 +253,100 @@ impl BuiltInWidgetWrapper {
         };
     }
 
+    pub fn can_have_children(&self) -> bool {
+        let mut container = self.get();
+        match *container {
+            BuiltInWidget::TextContent { .. } => true,
+            BuiltInWidget::Link { .. } => true,
+            BuiltInWidget::Tag { .. } => true,
+            BuiltInWidget::MetadataItem { .. } => true,
+            BuiltInWidget::Metadata { .. } => true,
+            BuiltInWidget::H1 { .. } => true,
+            BuiltInWidget::H2 { .. } => true,
+            BuiltInWidget::H3 { .. } => true,
+            BuiltInWidget::H4 { .. } => true,
+            BuiltInWidget::H5 { .. } => true,
+            BuiltInWidget::H6 { .. } => true,
+            BuiltInWidget::CodeBlock { .. } => true,
+            BuiltInWidget::Code { .. } => true,
+            BuiltInWidget::Content { .. } => true,
+            BuiltInWidget::Detail { .. } => true,
+            BuiltInWidget::Text(_) => false,
+            BuiltInWidget::Separator => false,
+            BuiltInWidget::Image => false,
+            BuiltInWidget::HorizontalBreak => false,
+            BuiltInWidget::Container { .. } => true,
+        }
+    }
+
+    pub fn get_children(&self) -> Vec<BuiltInWidgetWrapper> {
+        let mut container = self.get();
+        let children = match *container {
+            BuiltInWidget::TextContent { ref content } => {
+                content
+            }
+            BuiltInWidget::Link { ref content, .. } => {
+                content
+            }
+            BuiltInWidget::Tag { ref content } => {
+                content
+            }
+            BuiltInWidget::MetadataItem { ref content } => {
+                content
+            }
+            BuiltInWidget::Metadata { ref content } => {
+                content
+            }
+            BuiltInWidget::H1 { ref content } => {
+                content
+            }
+            BuiltInWidget::H2 { ref content } => {
+                content
+            }
+            BuiltInWidget::H3 { ref content } => {
+                content
+            }
+            BuiltInWidget::H4 { ref content } => {
+                content
+            }
+            BuiltInWidget::H5 { ref content } => {
+                content
+            }
+            BuiltInWidget::H6 { ref content } => {
+                content
+            }
+            BuiltInWidget::CodeBlock { ref content } => {
+                content
+            }
+            BuiltInWidget::Code { ref content } => {
+                content
+            }
+            BuiltInWidget::Content { ref content } => {
+                content
+            }
+            BuiltInWidget::Detail { ref content } => {
+                content
+            }
+            BuiltInWidget::Text(_) => {
+                panic!("text doesn't have children")
+            }
+            BuiltInWidget::Separator => {
+                panic!("separator doesn't have children")
+            }
+            BuiltInWidget::Image => {
+                panic!("image doesn't have children")
+            }
+            BuiltInWidget::HorizontalBreak => {
+                panic!("horizontal-break doesn't have children")
+            }
+            BuiltInWidget::Container { ref content } => {
+                content
+            }
+        };
+
+        children.iter().cloned().collect()
+    }
+
     pub fn set_children(&self, new_children: Vec<BuiltInWidgetWrapper>) {
         let mut container = self.get_mut();
         match *container {

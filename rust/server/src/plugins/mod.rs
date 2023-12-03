@@ -193,7 +193,7 @@ impl ApplicationManager {
     }
 
     async fn reload_search_index(&mut self) -> anyhow::Result<()> {
-        tracing::info!(target = "plugin", "Reloading search index");
+        tracing::info!("Reloading search index");
 
         let search_items: Vec<_> = self.db_repository.list_plugins()
             .await?

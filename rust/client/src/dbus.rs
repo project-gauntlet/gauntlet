@@ -56,8 +56,13 @@ impl DbusClient {
         Ok(())
     }
 
-    async fn clone_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> Result<DBusUiWidget> {
-        let data = NativeUiRequestData::CloneInstance { widget_type: widget_type.to_owned(), properties: from_dbus(properties)? };
+    async fn clone_instance(&self, plugin_id: &str, widget: DBusUiWidget, _update_payload: Vec<String>, widget_type: &str, _old_props: DBusUiPropertyContainer, new_props: DBusUiPropertyContainer, keep_children: bool) -> Result<DBusUiWidget> {
+        let data = NativeUiRequestData::CloneInstance {
+            widget: widget.into(),
+            widget_type: widget_type.to_owned(),
+            new_props: from_dbus(new_props)?,
+            keep_children,
+        };
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {

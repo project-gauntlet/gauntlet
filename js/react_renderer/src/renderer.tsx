@@ -8,7 +8,6 @@ const InternalApi = denoCore.ops;
 
 type PublicInstance = Instance;
 type HostContext = any;
-type UpdatePayload = string[];
 type TimeoutHandle = any;
 type NoTimeout = -1;
 
@@ -84,7 +83,9 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         hostContext: HostContext,
     ): UpdatePayload | null => {
         InternalApi.op_log_trace("renderer_js_common", `prepareUpdate is called, instance: ${Deno.inspect(instance)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}`)
-        return shallowDiff(oldProps, newProps);
+        const diff = shallowDiff(oldProps, newProps);
+        InternalApi.op_log_trace("renderer_js_common", `prepareUpdate shallowDiff returned: ${Deno.inspect(diff)}`)
+        return diff;
     },
     shouldSetTextContent: (type: ComponentType, props: Props): boolean => {
         return false;
@@ -107,11 +108,10 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         throw new Error("React Portals are not supported")
     },
     scheduleTimeout(fn: (...args: unknown[]) => unknown, delay: number | undefined): TimeoutHandle {
-        // TODO schedule timeout in tokio
-        return undefined;
+        return setTimeout(fn, delay);
     },
     cancelTimeout(id: TimeoutHandle): void {
-        // TODO cancel timeout in tokio
+        clearTimeout(id)
     },
     noTimeout: -1,
     isPrimaryRenderer: true,
@@ -120,13 +120,16 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         return undefined;
     },
     beforeActiveInstanceBlur: (): void => {
+        throw Error("UNUSED")
     },
     afterActiveInstanceBlur: (): void => {
+        throw Error("UNUSED")
     },
     prepareScopeUpdate: (scopeInstance: any, instance: any): void => {
+        throw Error("UNUSED")
     },
     getInstanceFromScope: (scopeInstance: any): null | Instance => {
-        return null;
+        throw Error("UNUSED")
     },
     detachDeletedInstance: (node: Instance): void => {
     },
@@ -210,19 +213,15 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     },
 
     hideInstance(instance: Instance): void {
-        // TODO suspend support
         throw new Error("NOT IMPLEMENTED")
     },
     hideTextInstance(textInstance: TextInstance): void {
-        // TODO suspend support
         throw new Error("NOT IMPLEMENTED")
     },
     unhideInstance(instance: Instance, props: Props): void {
-        // TODO suspend support
         throw new Error("NOT IMPLEMENTED")
     },
     unhideTextInstance(textInstance: TextInstance, text: string): void {
-        // TODO suspend support
         throw new Error("NOT IMPLEMENTED")
     },
 
@@ -241,14 +240,14 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         type: ComponentType,
         oldProps: Props,
         newProps: Props,
-        internalInstanceHandle: OpaqueHandle,
+        _internalInstanceHandle: OpaqueHandle,
         keepChildren: boolean,
         recyclableInstance: null | Instance,
     ): Instance {
         assertPersistentMode(options.mode);
 
-        InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance is called, type: ${type}, newProps: ${Deno.inspect(newProps)}`)
-        const cloned_instance = InternalApi.op_react_clone_instance(type, newProps);
+        InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}, keepChildren: ${keepChildren}, recyclableInstance: ${Deno.inspect(recyclableInstance)}`)
+        const cloned_instance = InternalApi.op_react_clone_instance(instance, updatePayload, type, oldProps, newProps, keepChildren);
         InternalApi.op_log_trace("renderer_js_persistence", `op_react_clone_instance returned, widget: ${Deno.inspect(cloned_instance)}`)
 
         return cloned_instance;
