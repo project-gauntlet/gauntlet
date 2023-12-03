@@ -1,5 +1,5 @@
 {
-  "name": "gauntlet-react",
+  "name": "@project-gauntlet/react",
   "version": "1.0.0",
   "scripts": {
     "build": "rollup --config rollup.config.ts --configPlugin typescript"

@@ -1,15 +1,15 @@
 {
-  "name": "gauntlet-dev-plugin",
+  "name": "@project-gauntlet/dev-plugin",
   "version": "1.0.0",
   "scripts": {
     "build": "gauntlet"
   },
   "devDependencies": {
     "@types/react": "^18.2.14",
-    "gauntlet-binary": "*"
+    "@project-gauntlet/binary": "*"
   },
   "dependencies": {
-    "gauntlet-component-model": "*",
+    "@project-gauntlet/api": "*",
     "@types/lodash": "^4.14.196",
     "lodash": "^4.17.21"
   }

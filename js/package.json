@@ -1,5 +1,5 @@
 {
-  "name": "gauntlet",
+  "name": "project-gauntlet",
   "private": true,
   "scripts": {
     "build": "npm run build --workspaces --if-present"
@@ -11,6 +11,6 @@
     "react",
     "react_renderer",
     "typings",
-    "component_model"
+    "api"
   ]
 }

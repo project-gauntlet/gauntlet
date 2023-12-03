@@ -1,6 +1,7 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
-import { Detail } from "gauntlet-component-model";
+import { Detail } from "@project-gauntlet/api/components";
+// import { useSomething } from "@project-gauntlet/api/hooks";
 
 export default function View(): ReactElement {
     const [count, setCount] = useState(0);

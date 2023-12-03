@@ -27,7 +27,7 @@ const inputs = Object.fromEntries(entries);
 
 const rollupBuild = await rollup({
     input: inputs,
-    external: ["react", "react/jsx-runtime"],
+    external: ["react", "react/jsx-runtime", "@project-gauntlet/api/components"],
     plugins: [
         nodeResolve(),
         commonjs(),

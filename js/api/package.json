@@ -1,16 +1,20 @@
 {
-  "name": "gauntlet-component-model",
+  "name": "@project-gauntlet/api",
   "version": "1.0.0",
   "type": "module",
-  "main": "./gendist/components.js",
-  "types": "./gentypes/components.d.ts",
+  "exports": {
+    "./components": {
+      "types": "./gentypes/components.d.ts",
+      "import": "./gendist/components.js"
+    }
+  },
   "scripts": {
     "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/component_model/component_model.json",
     "run-generator-source": "ts-node --esm src/index.ts",
     "run-generator-declarations": "tsc --project tsconfig.gentypes.json",
     "run-generator": "npm run run-generator-json && npm run run-generator-source && npm run run-generator-declarations"
   },
-  "dependencies": {
+  "devDependencies": {
     "@types/node": "^18.17.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
