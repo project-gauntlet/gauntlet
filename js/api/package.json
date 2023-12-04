@@ -10,7 +10,7 @@
   },
   "scripts": {
     "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/component_model/component_model.json",
-    "run-generator-source": "ts-node --esm src/index.ts",
+    "run-generator-source": "ts-node --esm generator/index.ts",
     "run-generator-declarations": "tsc --project tsconfig.gentypes.json",
     "run-generator": "npm run run-generator-json && npm run run-generator-source && npm run run-generator-declarations"
   },

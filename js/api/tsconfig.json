@@ -8,5 +8,5 @@
     "jsx": "react-jsx"
   },
   "lib": ["ES2020"],
-  "include": ["./src"]
+  "include": ["./generator"]
 }

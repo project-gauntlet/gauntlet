@@ -157,11 +157,11 @@ async fn start_js_runtime(
     //     )
     // );
 
-    let plugin_core_url = "plugin:core".parse().expect("should be valid");
-    let plugin_unused_url = "plugin:unused".parse().expect("should be valid");
+    let core_url = "gauntlet:core".parse().expect("should be valid");
+    let unused_url = "gauntlet:unused".parse().expect("should be valid");
 
     let mut worker = MainWorker::bootstrap_from_options(
-        plugin_unused_url,
+        unused_url,
         PermissionsContainer::allow_all(),
         WorkerOptions {
             module_loader: Rc::new(CustomModuleLoader::new(code)),
@@ -182,7 +182,7 @@ async fn start_js_runtime(
         },
     );
 
-    worker.execute_side_module(&plugin_core_url).await?;
+    worker.execute_side_module(&core_url).await?;
     worker.run_event_loop(false).await?;
 
     Ok(())
@@ -205,11 +205,12 @@ impl CustomModuleLoader {
     }
 }
 
-const MODULES: [(&str, &str); 4] = [
-    ("plugin:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/prod/init.js"))),
-    ("plugin:renderer", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
-    ("plugin:react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))), // TODO dev https://github.com/rollup/plugins/issues/1546
-    ("plugin:react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
+const MODULES: [(&str, &str); 5] = [
+    ("gauntlet:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/prod/init.js"))),
+    ("gauntlet:renderer", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
+    ("gauntlet:react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))), // TODO dev https://github.com/rollup/plugins/issues/1546
+    ("gauntlet:react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
+    ("gauntlet:api-components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/gendist/components.js"))),
 ];
 
 impl ModuleLoader for CustomModuleLoader {
@@ -219,8 +220,8 @@ impl ModuleLoader for CustomModuleLoader {
         referrer: &str,
         kind: ResolutionKind,
     ) -> Result<ModuleSpecifier, anyhow::Error> {
-        static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
-        static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^plugin:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
+        static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
+        static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
         static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>\w+)\.js$").expect("invalid regex"));
 
         if PLUGIN_VIEW_PATTERN.is_match(specifier) {
@@ -229,15 +230,16 @@ impl ModuleLoader for CustomModuleLoader {
 
         if PLUGIN_VIEW_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
             if let Some(captures) = PATH_PATTERN.captures(specifier) {
-                return Ok(format!("plugin:module?{}", &captures["js_module"]).parse()?);
+                return Ok(format!("gauntlet:module?{}", &captures["js_module"]).parse()?);
             }
         }
 
         let specifier = match (specifier, referrer) {
-            ("plugin:core", _) => "plugin:core",
-            ("plugin:renderer", _) => "plugin:renderer",
-            ("react", _) => "plugin:react",
-            ("react/jsx-runtime", _) => "plugin:react-jsx-runtime",
+            ("gauntlet:core", _) => "gauntlet:core",
+            ("gauntlet:renderer", _) => "gauntlet:renderer",
+            ("react", _) => "gauntlet:react",
+            ("react/jsx-runtime", _) => "gauntlet:react-jsx-runtime",
+            ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
             _ => {
                 return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
             }
@@ -255,7 +257,7 @@ impl ModuleLoader for CustomModuleLoader {
         let mut specifier = module_specifier.clone();
         specifier.set_query(None);
 
-        if &specifier == &"plugin:view".parse().unwrap() || &specifier == &"plugin:module".parse().unwrap() {
+        if &specifier == &"gauntlet:view".parse().unwrap() || &specifier == &"gauntlet:module".parse().unwrap() {
             let module = get_js_code(module_specifier, &self.code.js);
 
             return futures::future::ready(module).boxed_local();

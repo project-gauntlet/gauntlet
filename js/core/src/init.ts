@@ -20,8 +20,8 @@ const run_loop = async () => {
             }
             case "ViewCreated": {
                 try {
-                    const view: FC = (await import(`plugin:view?${pluginEvent.viewName}`)).default;
-                    const { render } = await import("plugin:renderer");
+                    const view: FC = (await import(`gauntlet:view?${pluginEvent.viewName}`)).default;
+                    const { render } = await import("gauntlet:renderer");
                     render(pluginEvent.reconcilerMode, view)
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.viewName, e)
