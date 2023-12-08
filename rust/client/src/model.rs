@@ -116,12 +116,14 @@ impl NativeUiPropertyValue {
 #[derive(Debug, Clone)]
 pub struct NativeUiWidget {
     pub widget_id: NativeUiWidgetId,
+    pub widget_type: String,
 }
 
 impl From<NativeUiWidget> for DBusUiWidget {
     fn from(value: NativeUiWidget) -> Self {
         Self {
-            widget_id: value.widget_id
+            widget_id: value.widget_id,
+            widget_type: value.widget_type
         }
     }
 }
@@ -129,7 +131,8 @@ impl From<NativeUiWidget> for DBusUiWidget {
 impl From<DBusUiWidget> for NativeUiWidget {
     fn from(value: DBusUiWidget) -> Self {
         Self {
-            widget_id: value.widget_id
+            widget_id: value.widget_id,
+            widget_type: value.widget_type
         }
     }
 }

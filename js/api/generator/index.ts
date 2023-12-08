@@ -13,7 +13,7 @@ type Property = {
     optional: boolean
     type: Type
 }
-type Type = TypeString | TypeNumber | TypeBoolean | TypeStringComponent | TypeComponent | TypeArray | TypeOr | TypeFunction
+type Type = TypeString | TypeNumber | TypeBoolean | TypeStringComponent | TypeComponent | TypeArray | TypeFunction
 
 type TypeString = {
     name: "string"
@@ -35,10 +35,6 @@ type TypeArray = {
     name: "array"
     nested: Type
 }
-type TypeOr = {
-    name: "or"
-    nested: Type[]
-}
 type TypeFunction = {
     name: "function"
 }
@@ -57,7 +53,9 @@ function generate(componentModelPath: string, outFile: string) {
     writeFileSync(outFile, result)
 }
 
-function makeComponents(model: Component[]): ts.SourceFile {
+function makeComponents(modelInput: Component[]): ts.SourceFile {
+    const model = modelInput.filter(component => component.internalName !== "container");
+
     const imports = [
         ts.factory.createImportDeclaration(
             undefined,
@@ -455,11 +453,6 @@ function makeType(type: Type): ts.TypeNode {
         }
         case "array": {
             return ts.factory.createArrayTypeNode(makeType(type.nested))
-        }
-        case "or": {
-            return ts.factory.createUnionTypeNode(
-                type.nested.map(value => makeType(value))
-            )
         }
         case "boolean": {
             return ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)

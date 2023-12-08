@@ -30,6 +30,7 @@ pub struct DBusEntrypoint {
 #[derive(Debug, Deserialize, Serialize, Type)]
 pub struct DBusUiWidget {
     pub widget_id: DbusUiWidgetId,
+    pub widget_type: String,
 }
 
 
@@ -42,7 +43,7 @@ pub struct DbusEventViewCreated {
 #[derive(Debug, Deserialize, Serialize, Type)]
 pub struct DbusEventViewEvent {
     pub event_name: DbusUiEventName,
-    pub widget_id: DbusUiWidgetId,
+    pub widget: DBusUiWidget,
 }
 
 pub type DbusUiWidgetId = u32;

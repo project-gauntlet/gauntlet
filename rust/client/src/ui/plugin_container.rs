@@ -8,7 +8,7 @@ use iced::widget::{Component, vertical_space};
 use iced::widget::component;
 
 use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
-use crate::ui::widget::{BuiltInWidgetEvent, BuiltInWidgetWrapper};
+use crate::ui::widget::{ComponentWidgetEvent, ComponentWidgetWrapper};
 use common::model::PluginId;
 
 pub struct PluginContainer {
@@ -26,7 +26,7 @@ pub fn plugin_container(client_context: Arc<RwLock<ClientContext>>, plugin_id: P
 pub struct PluginViewContainer {
     root_id: NativeUiWidgetId,
     next_id: NativeUiWidgetId,
-    widget_map: HashMap<NativeUiWidgetId, BuiltInWidgetWrapper>,
+    widget_map: HashMap<NativeUiWidgetId, ComponentWidgetWrapper>,
 }
 
 impl Default for PluginViewContainer {
@@ -40,42 +40,44 @@ impl Default for PluginViewContainer {
 }
 
 impl PluginViewContainer {
-    fn create_native_widget(&mut self, create_fn: impl FnOnce(NativeUiWidgetId) -> BuiltInWidgetWrapper) -> NativeUiWidget {
+    fn create_native_widget(&mut self, widget_type: &str, create_fn: impl FnOnce(NativeUiWidgetId) -> ComponentWidgetWrapper) -> NativeUiWidget {
         let id = self.next_id;
         self.widget_map.insert(id, create_fn(id));
 
         self.next_id += 1;
 
         NativeUiWidget {
-            widget_id: id
+            widget_id: id,
+            widget_type: widget_type.to_owned()
         }
     }
 
-    fn get_builtin_widget(&mut self, ui_widget: NativeUiWidget) -> BuiltInWidgetWrapper {
+    fn get_builtin_widget(&mut self, ui_widget: NativeUiWidget) -> ComponentWidgetWrapper {
         self.widget_map.get(&ui_widget.widget_id).unwrap().clone()
     }
 
     fn get_container(&mut self) -> NativeUiWidget {
         tracing::trace!("get_container is called");
         if let Entry::Vacant(value) = self.widget_map.entry(self.root_id) {
-            value.insert(BuiltInWidgetWrapper::container(self.root_id));
+            value.insert(ComponentWidgetWrapper::container(self.root_id));
         };
 
         NativeUiWidget {
-            widget_id: self.root_id
+            widget_id: self.root_id,
+            widget_type: "container".to_owned()
         }
     }
 
     fn create_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
         tracing::trace!("create_instance is called. widget_type: {:?}, new_props: {:?}", widget_type, properties);
-        let widget = self.create_native_widget(|id| BuiltInWidgetWrapper::widget(id, widget_type, properties));
+        let widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, properties));
         tracing::trace!("create_instance is returned. widget: {:?}", widget);
         widget
     }
 
     fn create_text_instance(&mut self, text: &str) -> NativeUiWidget {
         tracing::trace!("create_text_instance is called. text: {:?}", text);
-        let widget = self.create_native_widget(|id| BuiltInWidgetWrapper::text(id, text));
+        let widget = self.create_native_widget("text", |id| ComponentWidgetWrapper::text_part(id, text));
         tracing::trace!("create_text_instance is returned. widget: {:?}", widget);
         widget
     }
@@ -85,7 +87,7 @@ impl PluginViewContainer {
 
         let widget = self.get_builtin_widget(widget);
 
-        let new_widget = self.create_native_widget(|id| BuiltInWidgetWrapper::widget(id, widget_type, new_props));
+        let new_widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, new_props));
 
         if keep_children {
             let new_widget_builtin = self.get_builtin_widget(new_widget.clone());
@@ -119,15 +121,15 @@ impl PluginViewContainer {
     }
 }
 
-impl Component<BuiltInWidgetEvent, Renderer> for PluginContainer {
+impl Component<ComponentWidgetEvent, Renderer> for PluginContainer {
     type State = ();
-    type Event = BuiltInWidgetEvent;
+    type Event = ComponentWidgetEvent;
 
     fn update(
         &mut self,
         _state: &mut Self::State,
         event: Self::Event,
-    ) -> Option<BuiltInWidgetEvent> {
+    ) -> Option<ComponentWidgetEvent> {
         Some(event)
     }
 
@@ -143,7 +145,7 @@ impl Component<BuiltInWidgetEvent, Renderer> for PluginContainer {
     }
 }
 
-impl<'a> From<PluginContainer> for Element<'a, BuiltInWidgetEvent> {
+impl<'a> From<PluginContainer> for Element<'a, ComponentWidgetEvent> {
     fn from(container: PluginContainer) -> Self {
         component(container)
     }

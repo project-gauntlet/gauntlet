@@ -82,7 +82,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 } else {
                     Some(JsUiEvent::ViewEvent {
                         event_name: signal.event.event_name,
-                        widget: JsUiWidget { widget_id: signal.event.widget_id },
+                        widget: signal.event.widget.into(),
                     })
                 }
             }

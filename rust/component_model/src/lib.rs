@@ -41,6 +41,18 @@ impl Component {
     pub fn internal_name(&self) -> &str {
         &self.internal_name
     }
+
+    pub fn name(&self) -> &str {
+        &self.name.0
+    }
+
+    pub fn props(&self) -> &[Property] {
+        &self.props
+    }
+
+    pub fn members(&self) -> &HashMap<String, ComponentName> {
+        &self.members
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -48,12 +60,26 @@ pub struct Property {
     name: String,
     optional: bool,
     #[serde(rename = "type")]
-    property_type: Type
+    property_type: PropertyType
+}
+
+impl Property {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn optional(&self) -> bool {
+        self.optional
+    }
+
+    pub fn property_type(&self) -> &PropertyType {
+        &self.property_type
+    }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "name")]
-pub enum Type {
+pub enum PropertyType {
     #[serde(rename = "string")]
     String,
     #[serde(rename = "number")]
@@ -68,11 +94,7 @@ pub enum Type {
     StringComponent,
     #[serde(rename = "array")]
     Array {
-        nested: Box<Type>
-    },
-    #[serde(rename = "or")]
-    Or {
-        nested: Vec<Type>
+        nested: Box<PropertyType>
     },
     #[serde(rename = "function")]
     Function,
@@ -85,11 +107,36 @@ fn component(internal_name: impl ToString, name: impl ToString, properties: Vec<
         props: properties,
         members: children.into_iter()
             .map(|&(key, value)| (key.to_owned(), value.clone()))
-            .collect()
+            .collect(),
     }
 }
 
-fn property(name: impl Into<String>, optional: bool, property_type: Type) -> Property {
+fn container(children_components: &[&ComponentName]) -> Component {
+    Component {
+        internal_name: "container".to_string(),
+        name: ComponentName::new("Container"),
+        props: vec![
+            children(PropertyType::Components {
+                components: children_components.iter().map(|x| ComponentName::new(x.to_string())).collect()
+            })
+        ],
+        members: HashMap::new(),
+    }
+}
+
+fn children(property_type: PropertyType) -> Property {
+    match property_type {
+        PropertyType::Components { .. } => {}
+        PropertyType::StringComponent => {}
+        _ => {
+            panic!("{:?} property_type not supported as children", property_type)
+        }
+    }
+    property("children", true, property_type)
+}
+
+
+fn property(name: impl Into<String>, optional: bool, property_type: PropertyType) -> Property {
     Property {
         name: name.into(),
         optional,
@@ -98,11 +145,11 @@ fn property(name: impl Into<String>, optional: bool, property_type: Type) -> Pro
 }
 
 pub fn create_component_model() -> Vec<Component> {
-    let text_content_component = component(
-        "textcontent",
+    let text_component = component(
+        "text",
         "Text",
         vec![
-            property("children", true, Type::StringComponent)
+            children(PropertyType::StringComponent)
         ],
         &[],
     );
@@ -111,8 +158,8 @@ pub fn create_component_model() -> Vec<Component> {
         "link",
         "Link",
         vec![
-            property("href", false, Type::String),
-            property("children", false, Type::String)
+            property("href", false, PropertyType::String),
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -121,8 +168,8 @@ pub fn create_component_model() -> Vec<Component> {
         "tag",
         "Tag",
         vec![
-            property("children", true, Type::String),
-            property("onClick", true, Type::Function)
+            children(PropertyType::StringComponent),
+            property("onClick", true, PropertyType::Function)
         ],
         &[]
     );
@@ -131,16 +178,16 @@ pub fn create_component_model() -> Vec<Component> {
         "metadata_item",
         "MetadataItem",
         vec![
-            property("children", false, Type::Components {
+            children(PropertyType::Components {
                 components: vec![
-                    text_content_component.name.clone(),
+                    text_component.name.clone(),
                     link_component.name.clone(),
                     tag_component.name.clone(),
                 ]
             })
         ],
         &[
-            ("Text", &text_content_component.name),
+            ("Text", &text_component.name),
             ("Link", &link_component.name),
             ("Tag", &tag_component.name),
         ]
@@ -157,7 +204,7 @@ pub fn create_component_model() -> Vec<Component> {
         "metadata",
         "Metadata",
         vec![
-            property("children", false, Type::Components {
+            children(PropertyType::Components {
                 components: vec![
                     metadata_item_component.name.clone(),
                     separator_component.name.clone(),
@@ -183,7 +230,7 @@ pub fn create_component_model() -> Vec<Component> {
         "h1",
         "H1",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -192,7 +239,7 @@ pub fn create_component_model() -> Vec<Component> {
         "h2",
         "H2",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -201,7 +248,7 @@ pub fn create_component_model() -> Vec<Component> {
         "h3",
         "H3",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -210,7 +257,7 @@ pub fn create_component_model() -> Vec<Component> {
         "h4",
         "H4",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -219,7 +266,7 @@ pub fn create_component_model() -> Vec<Component> {
         "h5",
         "H5",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -228,7 +275,7 @@ pub fn create_component_model() -> Vec<Component> {
         "h6",
         "H6",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -236,9 +283,7 @@ pub fn create_component_model() -> Vec<Component> {
     let horizontal_break_component = component(
         "horizontal_break",
         "HorizontalBreak",
-        vec![
-            property("children", true, Type::String)
-        ],
+        vec![],
         &[]
     );
 
@@ -246,7 +291,7 @@ pub fn create_component_model() -> Vec<Component> {
         "code_block",
         "CodeBlock",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -255,7 +300,7 @@ pub fn create_component_model() -> Vec<Component> {
         "code",
         "Code",
         vec![
-            property("children", true, Type::String)
+            children(PropertyType::StringComponent)
         ],
         &[]
     );
@@ -264,9 +309,9 @@ pub fn create_component_model() -> Vec<Component> {
         "content",
         "Content",
         vec![
-            property("children", true, Type::Components {
+            children(PropertyType::Components {
                 components: vec![
-                    text_content_component.name.clone(),
+                    text_component.name.clone(),
                     link_component.name.clone(),
                     image_component.name.clone(),
                     h1_component.name.clone(),
@@ -282,7 +327,7 @@ pub fn create_component_model() -> Vec<Component> {
             })
         ],
         &[
-            ("Text", &text_content_component.name),
+            ("Text", &text_component.name),
             ("Link", &link_component.name),
             ("Image", &image_component.name),
             ("H1", &h1_component.name),
@@ -301,7 +346,7 @@ pub fn create_component_model() -> Vec<Component> {
         "detail",
         "Detail",
         vec![
-            property("children", true, Type::Components {
+            children(PropertyType::Components {
                 components: vec![
                     metadata_component.name.clone(),
                     content_component.name.clone(),
@@ -313,6 +358,10 @@ pub fn create_component_model() -> Vec<Component> {
             ("Content", &content_component.name)
         ]
     );
+
+    let container = container(&[
+        &detail_component.name,
+    ]);
 
     // Detail
     // Detail.Content
@@ -368,7 +417,7 @@ pub fn create_component_model() -> Vec<Component> {
     // Grid.Section
 
     vec![
-        text_content_component,
+        text_component,
         link_component,
 
         tag_component,
@@ -389,5 +438,7 @@ pub fn create_component_model() -> Vec<Component> {
         content_component,
 
         detail_component,
+
+        container,
     ]
 }

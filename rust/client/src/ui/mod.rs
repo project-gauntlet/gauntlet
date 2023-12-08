@@ -18,7 +18,7 @@ use crate::dbus::{DbusClient, DbusServerProxyProxy};
 use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult};
 use crate::ui::plugin_container::{ClientContext, plugin_container};
 use crate::ui::search_list::search_list;
-use crate::ui::widget::BuiltInWidgetEvent;
+use crate::ui::widget::ComponentWidgetEvent;
 
 mod plugin_container;
 mod search_list;
@@ -55,7 +55,7 @@ pub enum AppMsg {
     IcedEvent(Event),
     WidgetEvent {
         plugin_id: PluginId,
-        widget_event: BuiltInWidgetEvent,
+        widget_event: ComponentWidgetEvent,
     },
     Noop,
 }
@@ -258,7 +258,7 @@ impl Application for AppModel {
                 column
             }
             NavState::PluginView { plugin_id, entrypoint_id } => {
-                let container: Element<BuiltInWidgetEvent> = plugin_container(client_context, plugin_id.clone())
+                let container: Element<ComponentWidgetEvent> = plugin_container(client_context, plugin_id.clone())
                     .into();
 
                 container.map(|widget_event| AppMsg::WidgetEvent {

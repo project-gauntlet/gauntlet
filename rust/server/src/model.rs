@@ -121,12 +121,15 @@ pub type JsUiEventName = String;
 pub struct JsUiWidget {
     #[serde(rename = "widgetId")]
     pub widget_id: UiWidgetId,
+    #[serde(rename = "widgetType")]
+    pub widget_type: String,
 }
 
 impl From<JsUiWidget> for DBusUiWidget {
     fn from(value: JsUiWidget) -> Self {
         Self {
-            widget_id: value.widget_id
+            widget_id: value.widget_id,
+            widget_type: value.widget_type
         }
     }
 }
@@ -134,7 +137,8 @@ impl From<JsUiWidget> for DBusUiWidget {
 impl From<DBusUiWidget> for JsUiWidget {
     fn from(value: DBusUiWidget) -> Self {
         Self {
-            widget_id: value.widget_id
+            widget_id: value.widget_id,
+            widget_type: value.widget_type
         }
     }
 }

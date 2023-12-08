@@ -20,7 +20,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), NativeUiRequestData::GetContainer);
 
         match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::GetContainer { container } => Ok(DBusUiWidget { widget_id: container.widget_id }),
+            NativeUiResponseData::GetContainer { container } => Ok(container.into()),
             value @ _ => panic!("unsupported response type {:?}", value),
         }
     }
@@ -30,7 +30,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::CreateInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
+            NativeUiResponseData::CreateInstance { widget } => widget.into(),
             value @ _ => panic!("unsupported response type {:?}", value),
         };
 
@@ -42,7 +42,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::CreateTextInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
+            NativeUiResponseData::CreateTextInstance { widget } => widget.into(),
             value @ _ => panic!("unsupported response type {:?}", value),
         };
 
@@ -66,7 +66,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::CloneInstance { widget } => DBusUiWidget { widget_id: widget.widget_id },
+            NativeUiResponseData::CloneInstance { widget } => widget.into(),
             value @ _ => panic!("unsupported response type {:?}", value),
         };
 
