@@ -4,7 +4,7 @@ import typescript from '@rollup/plugin-typescript';
 import replace from "@rollup/plugin-replace";
 import { defineConfig, RollupOptions } from "rollup";
 
-const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOptions => {
+const config = (nodeEnv: string, outDir: string): RollupOptions => {
     return {
         input: [
             'src/renderer.tsx',
@@ -13,7 +13,7 @@ const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOpti
             {
                 dir: outDir,
                 format: 'esm',
-                sourcemap: sourceMap,
+                sourcemap: 'inline',
             }
         ],
         external: ["react", "react/jsx-runtime"],
@@ -40,6 +40,6 @@ const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOpti
 }
 
 export default defineConfig([
-    config("production", true, 'dist/prod'),
-    config("development",  true, 'dist/dev')
+    config("production", 'dist/prod'),
+    config("development", 'dist/dev')
 ])

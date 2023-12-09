@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import { defineConfig, RollupOptions } from "rollup";
 
-const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOptions => {
+const config = (outDir: string): RollupOptions => {
     return {
         input: [
             'src/init.ts',
@@ -12,7 +12,7 @@ const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOpti
             {
                 dir: outDir,
                 format: 'esm',
-                sourcemap: sourceMap,
+                sourcemap: 'inline',
             }
         ],
         plugins: [
@@ -26,6 +26,6 @@ const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOpti
 }
 
 export default defineConfig([
-    config("production", false, 'dist/prod'),
-    config("development",  true, 'dist/dev')
+    config('dist/prod'),
+    config('dist/dev')
 ])

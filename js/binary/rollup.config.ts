@@ -9,7 +9,7 @@ export default defineConfig({
         {
             dir: 'dist',
             format: 'esm',
-            sourcemap: true
+            sourcemap: 'inline'
         }
     ],
     plugins: [
