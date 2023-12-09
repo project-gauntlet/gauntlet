@@ -40,6 +40,6 @@ const config = (nodeEnv: string, sourceMap: boolean, outDir: string): RollupOpti
 }
 
 export default defineConfig([
-    config("production", false, 'dist/prod'),
+    config("production", true, 'dist/prod'),
     config("development",  true, 'dist/dev')
 ])
