@@ -205,15 +205,14 @@ impl CustomModuleLoader {
     }
 }
 
-const MODULES: [(&str, &str); 9] = [
-    ("gauntlet:core:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/prod/init.js"))),
+const MODULES: [(&str, &str); 8] = [
     ("gauntlet:renderer:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
-    ("gauntlet:react:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))),
-    ("gauntlet:react-jsx-runtime:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
-    ("gauntlet:core:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/dev/init.js"))),
     ("gauntlet:renderer:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/dev/renderer.js"))),
+    ("gauntlet:react:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))),
     ("gauntlet:react:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react.development.js"))),
+    ("gauntlet:react-jsx-runtime:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
     ("gauntlet:react-jsx-runtime:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react-jsx-runtime.development.js"))),
+    ("gauntlet:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
     ("gauntlet:api-components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/gendist/components.js"))),
 ];
 
@@ -239,7 +238,7 @@ impl ModuleLoader for CustomModuleLoader {
         }
 
         let specifier = match (specifier, referrer) {
-            ("gauntlet:core", _) => "gauntlet:core:dev",
+            ("gauntlet:core", _) => "gauntlet:core",
             ("gauntlet:renderer", _) => "gauntlet:renderer:dev",
             ("react", _) => "gauntlet:react:dev",
             ("react/jsx-runtime", _) => "gauntlet:react-jsx-runtime:dev",
