@@ -28,7 +28,14 @@ fn main() -> anyhow::Result<()> {
         if !props.is_empty() {
             output.push_str(" {\n");
             for prop in props {
-                output.push_str(&format!("        {}: {},\n", prop.name(), generate_type(prop.property_type())));
+                match prop.property_type() {
+                    PropertyType::String | PropertyType::Number | PropertyType::Boolean if prop.optional() => {
+                        output.push_str(&format!("        {}: {},\n", prop.name(), generate_optional_type(prop.property_type())));
+                    }
+                    _ => {
+                        output.push_str(&format!("        {}: {},\n", prop.name(), generate_type(prop.property_type())));
+                    }
+                }
             }
             output.push_str("    },\n");
         } else {
@@ -39,8 +46,8 @@ fn main() -> anyhow::Result<()> {
     output.push_str("}\n");
     output.push_str("\n");
 
-    output.push_str("fn create_component_widget(component_internal_name: &str) -> ComponentWidget {\n");
-    output.push_str("   match component_internal_name {\n");
+    output.push_str("fn create_component_widget(component_internal_name: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<ComponentWidget> {\n");
+    output.push_str("   let widget = match component_internal_name {\n");
 
     for component in &components {
         let name = component.name();
@@ -53,7 +60,35 @@ fn main() -> anyhow::Result<()> {
             output.push_str(&" {\n");
 
             for prop in props {
-                output.push_str(&format!("            {}: {},\n", prop.name(), generate_type_default_value(prop.property_type())));
+                match prop.property_type() {
+                    PropertyType::String => {
+                        if prop.optional() {
+                            output.push_str(&format!("            {}: parse_optional_string(&properties, \"{}\")?,\n", prop.name(), prop.name()));
+                        } else {
+                            output.push_str(&format!("            {}: parse_string(&properties, \"{}\")?,\n", prop.name(), prop.name()));
+                        }
+                    },
+                    PropertyType::Number => {
+                        if prop.optional() {
+                            output.push_str(&format!("            {}: parse_optional_number(&properties, \"{}\")?,\n", prop.name(), prop.name()));
+                        } else {
+                            output.push_str(&format!("            {}: parse_number(&properties, \"{}\")?,\n", prop.name(), prop.name()));
+                        }
+                    },
+                    PropertyType::Boolean => {
+                        if prop.optional() {
+                            output.push_str(&format!("            {}: parse_optional_boolean(&properties, \"{}\")?,\n", prop.name(), prop.name()));
+                        } else {
+                            output.push_str(&format!("            {}: parse_boolean(&properties, \"{}\")?,\n", prop.name(), prop.name()));
+                        }
+                    },
+                    PropertyType::Components { .. } | PropertyType::StringComponent { .. } | PropertyType::Array { .. } => {
+                        output.push_str(&format!("            {}: vec![],\n", prop.name()));
+                    },
+                    PropertyType::Function => {
+                        output.push_str(&format!("            {}: (),\n", prop.name()));
+                    }
+                };
             }
             output.push_str("        },\n");
         } else {
@@ -62,7 +97,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     output.push_str("        _ => panic!(\"component_internal_name {} not supported\", component_internal_name)\n");
-    output.push_str("   }\n");
+    output.push_str("    };\n");
+    output.push_str("    Ok(widget)\n");
     output.push_str("}\n");
     output.push_str("\n");
 
@@ -165,7 +201,7 @@ fn main() -> anyhow::Result<()> {
 
 
     output.push_str("fn get_component_widget_type(widget: &ComponentWidgetWrapper) -> String {\n");
-    output.push_str("    let mut widget = widget.get();\n");
+    output.push_str("    let widget = widget.get();\n");
     output.push_str("    match *widget {\n");
     output.push_str("        ComponentWidget::TextPart { .. } => panic!(\"cannot get type of text part\"),\n");
 
@@ -180,6 +216,48 @@ fn main() -> anyhow::Result<()> {
     output.push_str("}\n");
     output.push_str("\n");
 
+
+    output.push_str("fn parse_optional_string(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<String>> {\n");
+    output.push_str("    match properties.get(name) {\n");
+    output.push_str("        None => Ok(None),\n");
+    output.push_str("        Some(value) => Ok(Some(value.as_string().ok_or(anyhow::anyhow!(\"{} has to be a string\", name))?.to_owned())),\n");
+    output.push_str("    }\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
+    output.push_str("fn parse_string(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<String> {\n");
+    output.push_str("    Ok(properties.get(name).ok_or(anyhow::anyhow!(\"{} is required\", name))?.as_string().ok_or(anyhow::anyhow!(\"{} has to be a string\", name))?.to_owned())\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
+
+    output.push_str("fn parse_optional_number(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<f64>> {\n");
+    output.push_str("    match properties.get(name) {\n");
+    output.push_str("        None => Ok(None),\n");
+    output.push_str("        Some(value) => Ok(Some(value.as_number().ok_or(anyhow::anyhow!(\"{} has to be a number\", name))?.to_owned())),\n");
+    output.push_str("    }\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
+    output.push_str("fn parse_number(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<f64> {\n");
+    output.push_str("    Ok(properties.get(name).ok_or(anyhow::anyhow!(\"{} is required\", name))?.as_number().ok_or(anyhow::anyhow!(\"{} has to be a number\", name))?.to_owned())\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
+
+    output.push_str("fn parse_optional_boolean(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<bool>> {\n");
+    output.push_str("    match properties.get(name) {\n");
+    output.push_str("        None => Ok(None),\n");
+    output.push_str("        Some(value) => Ok(Some(value.as_bool().ok_or(anyhow::anyhow!(\"{} has to be a boolean\", name))?.to_owned())),\n");
+    output.push_str("    }\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
+    output.push_str("fn parse_boolean(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<bool> {\n");
+    output.push_str("    Ok(properties.get(name).ok_or(anyhow::anyhow!(\"{} is required\", name))?.as_bool().ok_or(anyhow::anyhow!(\"{} has to be a boolean\", name))?.to_owned())\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
     generate_file(&dest_path, &output)?;
 
     Ok(())
@@ -190,22 +268,14 @@ fn generate_file<P: AsRef<Path>>(path: P, text: &str) -> std::io::Result<()> {
     f.write_all(text.as_bytes())
 }
 
-fn generate_type_default_value(property_type: &PropertyType) -> String {
-    match property_type {
-        PropertyType::String => "\"\".to_owned()".to_owned(),
-        PropertyType::Number => "0".to_owned(),
-        PropertyType::Boolean => "false".to_owned(),
-        PropertyType::Components { .. } => "vec![]".to_owned(),
-        PropertyType::StringComponent => "vec![]".to_owned(),
-        PropertyType::Array { .. } => "vec![]".to_owned(),
-        PropertyType::Function => "()".to_string()
-    }
+fn generate_optional_type(property_type: &PropertyType) -> String {
+    format!("Option<{}>", generate_type(property_type))
 }
 
 fn generate_type(property_type: &PropertyType) -> String {
     match property_type {
         PropertyType::String => "String".to_owned(),
-        PropertyType::Number => "f32".to_owned(),
+        PropertyType::Number => "f64".to_owned(),
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Components { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
         PropertyType::StringComponent => "Vec<ComponentWidgetWrapper>".to_owned(),

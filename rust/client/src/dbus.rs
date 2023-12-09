@@ -30,7 +30,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::CreateInstance { widget } => widget.into(),
+            NativeUiResponseData::CreateInstance { widget } => widget?.into(),
             value @ _ => panic!("unsupported response type {:?}", value),
         };
 
@@ -42,7 +42,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::CreateTextInstance { widget } => widget.into(),
+            NativeUiResponseData::CreateTextInstance { widget } => widget?.into(),
             value @ _ => panic!("unsupported response type {:?}", value),
         };
 
@@ -66,7 +66,7 @@ impl DbusClient {
         let input = (PluginId::from_string(plugin_id), data);
 
         let widget = match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::CloneInstance { widget } => widget.into(),
+            NativeUiResponseData::CloneInstance { widget } => widget?.into(),
             value @ _ => panic!("unsupported response type {:?}", value),
         };
 

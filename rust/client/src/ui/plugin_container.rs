@@ -7,9 +7,10 @@ use iced::Renderer;
 use iced::widget::{Component, vertical_space};
 use iced::widget::component;
 
+use common::model::PluginId;
+
 use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
 use crate::ui::widget::{ComponentWidgetEvent, ComponentWidgetWrapper};
-use common::model::PluginId;
 
 pub struct PluginContainer {
     client_context: Arc<RwLock<ClientContext>>,
@@ -40,16 +41,16 @@ impl Default for PluginViewContainer {
 }
 
 impl PluginViewContainer {
-    fn create_native_widget(&mut self, widget_type: &str, create_fn: impl FnOnce(NativeUiWidgetId) -> ComponentWidgetWrapper) -> NativeUiWidget {
+    fn create_native_widget(&mut self, widget_type: &str, create_fn: impl FnOnce(NativeUiWidgetId) -> anyhow::Result<ComponentWidgetWrapper>) -> anyhow::Result<NativeUiWidget> {
         let id = self.next_id;
-        self.widget_map.insert(id, create_fn(id));
+        self.widget_map.insert(id, create_fn(id)?);
 
         self.next_id += 1;
 
-        NativeUiWidget {
+        Ok(NativeUiWidget {
             widget_id: id,
-            widget_type: widget_type.to_owned()
-        }
+            widget_type: widget_type.to_owned(),
+        })
     }
 
     fn get_builtin_widget(&mut self, ui_widget: NativeUiWidget) -> ComponentWidgetWrapper {
@@ -68,26 +69,26 @@ impl PluginViewContainer {
         }
     }
 
-    fn create_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
+    fn create_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("create_instance is called. widget_type: {:?}, new_props: {:?}", widget_type, properties);
         let widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, properties));
         tracing::trace!("create_instance is returned. widget: {:?}", widget);
         widget
     }
 
-    fn create_text_instance(&mut self, text: &str) -> NativeUiWidget {
+    fn create_text_instance(&mut self, text: &str) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("create_text_instance is called. text: {:?}", text);
         let widget = self.create_native_widget("text", |id| ComponentWidgetWrapper::text_part(id, text));
         tracing::trace!("create_text_instance is returned. widget: {:?}", widget);
         widget
     }
 
-    fn clone_instance(&mut self, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> NativeUiWidget {
+    fn clone_instance(&mut self, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("clone_instance is called. widget: {:?}, widget_type: {:?}, new_props: {:?}, keep_children: {:?}", widget, widget_type, new_props, keep_children);
 
         let widget = self.get_builtin_widget(widget);
 
-        let new_widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, new_props));
+        let new_widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, new_props))?;
 
         if keep_children {
             let new_widget_builtin = self.get_builtin_widget(new_widget.clone());
@@ -98,7 +99,7 @@ impl PluginViewContainer {
 
         tracing::trace!("clone_instance is returned. widget: {:?}", widget);
 
-        new_widget
+        Ok(new_widget)
     }
 
     fn append_child(&mut self, parent: NativeUiWidget, child: NativeUiWidget) {
@@ -171,11 +172,11 @@ impl ClientContext {
         self.get_view_container_mut(plugin_id).get_container()
     }
 
-    pub fn create_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> NativeUiWidget {
+    pub fn create_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<NativeUiWidget> {
         self.get_view_container_mut(plugin_id).create_instance(widget_type, properties)
     }
 
-    pub fn create_text_instance(&mut self, plugin_id: &PluginId, text: &str) -> NativeUiWidget {
+    pub fn create_text_instance(&mut self, plugin_id: &PluginId, text: &str) -> anyhow::Result<NativeUiWidget> {
         self.get_view_container_mut(plugin_id).create_text_instance(text)
     }
 
@@ -183,7 +184,7 @@ impl ClientContext {
         self.get_view_container_mut(plugin_id).append_child(parent, child)
     }
 
-    pub fn clone_instance(&mut self, plugin_id: &PluginId, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> NativeUiWidget {
+    pub fn clone_instance(&mut self, plugin_id: &PluginId, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> anyhow::Result<NativeUiWidget> {
         self.get_view_container_mut(plugin_id).clone_instance(widget, widget_type, new_props, keep_children)
     }
 

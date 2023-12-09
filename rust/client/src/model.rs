@@ -14,23 +14,23 @@ pub struct NativeUiSearchResult {
     pub entrypoint_name: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NativeUiResponseData {
     GetContainer {
         container: NativeUiWidget
     },
     CreateInstance {
-        widget: NativeUiWidget
+        widget: anyhow::Result<NativeUiWidget>
     },
     CreateTextInstance {
-        widget: NativeUiWidget
+        widget: anyhow::Result<NativeUiWidget>
     },
     CloneInstance {
-        widget: NativeUiWidget
+        widget: anyhow::Result<NativeUiWidget>
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NativeUiRequestData {
     GetContainer,
     CreateInstance {

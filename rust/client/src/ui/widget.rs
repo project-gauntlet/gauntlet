@@ -21,16 +21,16 @@ pub struct ComponentWidgetWrapper {
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
 
 impl ComponentWidgetWrapper {
-    pub fn widget(id: NativeUiWidgetId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> Self {
-        ComponentWidgetWrapper::new(id, create_component_widget(widget_type))
+    pub fn widget(id: NativeUiWidgetId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<Self> {
+        Ok(ComponentWidgetWrapper::new(id, create_component_widget(widget_type, properties)?))
     }
 
     pub fn container(id: NativeUiWidgetId) -> Self {
         ComponentWidgetWrapper::new(id, ComponentWidget::Container { children: vec![] })
     }
 
-    pub fn text_part(id: NativeUiWidgetId, text: &str) -> Self {
-        ComponentWidgetWrapper::new(id, ComponentWidget::TextPart(text.to_owned()))
+    pub fn text_part(id: NativeUiWidgetId, text: &str) -> anyhow::Result<Self> {
+        Ok(ComponentWidgetWrapper::new(id, ComponentWidget::TextPart(text.to_owned())))
     }
 
     fn new(id: NativeUiWidgetId, widget: ComponentWidget) -> Self {
@@ -67,7 +67,7 @@ impl ComponentWidgetWrapper {
                     .on_press(ComponentWidgetEvent::LinkClick { href: href.to_owned() })
                     .into()
             }
-            ComponentWidget::Tag { children, onClick: _ } => {
+            ComponentWidget::Tag { children, onClick: _, color: _ } => {
                 let content: Element<_> = row(render_children(children))
                     .into();
 

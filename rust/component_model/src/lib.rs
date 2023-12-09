@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use serde::{Serialize, Serializer};
@@ -12,9 +13,9 @@ impl ComponentName {
     }
 }
 
-impl ToString for ComponentName {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl Display for ComponentName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.to_string())
     }
 }
 
@@ -169,6 +170,7 @@ pub fn create_component_model() -> Vec<Component> {
         "Tag",
         vec![
             children(PropertyType::StringComponent),
+            property("color", true, PropertyType::String),
             property("onClick", true, PropertyType::Function)
         ],
         &[]
