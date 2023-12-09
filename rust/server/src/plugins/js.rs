@@ -205,11 +205,15 @@ impl CustomModuleLoader {
     }
 }
 
-const MODULES: [(&str, &str); 5] = [
-    ("gauntlet:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/prod/init.js"))),
-    ("gauntlet:renderer", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
-    ("gauntlet:react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))), // TODO dev https://github.com/rollup/plugins/issues/1546
-    ("gauntlet:react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
+const MODULES: [(&str, &str); 9] = [
+    ("gauntlet:core:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/prod/init.js"))),
+    ("gauntlet:renderer:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
+    ("gauntlet:react:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))),
+    ("gauntlet:react-jsx-runtime:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
+    ("gauntlet:core:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/dev/init.js"))),
+    ("gauntlet:renderer:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/dev/renderer.js"))),
+    ("gauntlet:react:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react.development.js"))),
+    ("gauntlet:react-jsx-runtime:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react-jsx-runtime.development.js"))),
     ("gauntlet:api-components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/gendist/components.js"))),
 ];
 
@@ -235,10 +239,10 @@ impl ModuleLoader for CustomModuleLoader {
         }
 
         let specifier = match (specifier, referrer) {
-            ("gauntlet:core", _) => "gauntlet:core",
-            ("gauntlet:renderer", _) => "gauntlet:renderer",
-            ("react", _) => "gauntlet:react",
-            ("react/jsx-runtime", _) => "gauntlet:react-jsx-runtime",
+            ("gauntlet:core", _) => "gauntlet:core:dev",
+            ("gauntlet:renderer", _) => "gauntlet:renderer:dev",
+            ("react", _) => "gauntlet:react:dev",
+            ("react/jsx-runtime", _) => "gauntlet:react-jsx-runtime:dev",
             ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
             _ => {
                 return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
