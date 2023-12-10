@@ -114,7 +114,7 @@ fn main() -> anyhow::Result<()> {
     output.push_str("\n");
 
 
-    output.push_str("fn append_component_widget_child(parent: &ComponentWidgetWrapper, child: ComponentWidgetWrapper) {\n");
+    output.push_str("fn append_component_widget_child(parent: &ComponentWidgetWrapper, child: ComponentWidgetWrapper) -> anyhow::Result<()> {\n");
     output.push_str("    let mut parent = parent.get_mut();\n");
     output.push_str("    match *parent {\n");
     output.push_str("        ComponentWidget::TextPart { .. } => panic!(\"text part cannot be a parent\"),\n");
@@ -126,16 +126,33 @@ fn main() -> anyhow::Result<()> {
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref mut children, .. }} => {{\n", name));
+            output.push_str("            match get_component_widget_type_internal(&child) {\n");
+
+            match component.children() {
+                Children::Members { members } => {
+                    for member in members {
+                        output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", member.component_internal_name()));
+                    }
+                }
+                Children::String => {
+                    output.push_str(&format!("                (\"gauntlet:___text_part___\", _) => (),\n"));
+                }
+                Children::None => {}
+            }
+
+            output.push_str(&format!("                (_, name) => Err(anyhow::anyhow!(\"{} cannot have {{}} child\", name))?\n", name));
+            output.push_str("            };\n");
             output.push_str("            children.push(child)\n");
             output.push_str("        }\n");
         } else {
             output.push_str(&format!("        ComponentWidget::{} {{ .. }} => {{\n", name));
-            output.push_str(&format!("            panic!(\"{} cannot be a parent\")\n", internal_name));
+            output.push_str(&format!("            Err(anyhow::anyhow!(\"{} cannot have children\"))?\n", name));
             output.push_str("        }\n");
         }
     }
 
-    output.push_str("    }\n");
+    output.push_str("    };\n");
+    output.push_str("    Ok(())\n");
     output.push_str("}\n");
     output.push_str("\n");
 
@@ -158,7 +175,7 @@ fn main() -> anyhow::Result<()> {
     output.push_str("\n");
 
 
-    output.push_str("fn get_component_widget_children(widget: &ComponentWidgetWrapper) -> Vec<ComponentWidgetWrapper> {\n");
+    output.push_str("fn get_component_widget_children(widget: &ComponentWidgetWrapper) -> anyhow::Result<Vec<ComponentWidgetWrapper>> {\n");
     output.push_str("    let widget = widget.get();\n");
     output.push_str("    let children = match *widget {\n");
     output.push_str("        ComponentWidget::TextPart { .. } => panic!(\"text part cannot have children\"),\n");
@@ -174,18 +191,18 @@ fn main() -> anyhow::Result<()> {
             output.push_str("        }\n");
         } else {
             output.push_str(&format!("        ComponentWidget::{} {{ .. }} => {{\n", name));
-            output.push_str(&format!("            panic!(\"{} cannot have children\")\n", internal_name));
+            output.push_str(&format!("            Err(anyhow::anyhow!(\"{} cannot have children\"))?\n", name));
             output.push_str("        }\n");
         }
     }
 
     output.push_str("    };\n");
-    output.push_str("    children.iter().cloned().collect()\n");
+    output.push_str("    Ok(children.iter().cloned().collect())\n");
     output.push_str("}\n");
     output.push_str("\n");
 
 
-    output.push_str("fn set_component_widget_children(widget: &ComponentWidgetWrapper, new_children: Vec<ComponentWidgetWrapper>) {\n");
+    output.push_str("fn set_component_widget_children(widget: &ComponentWidgetWrapper, new_children: Vec<ComponentWidgetWrapper>) -> anyhow::Result<()> {\n");
     output.push_str("    let mut widget = widget.get_mut();\n");
     output.push_str("    match *widget {\n");
     output.push_str("        ComponentWidget::TextPart { .. } => panic!(\"text part cannot have children\"),\n");
@@ -197,16 +214,35 @@ fn main() -> anyhow::Result<()> {
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref mut children, .. }} => {{\n", name));
+            output.push_str("            for new_child in &new_children {\n");
+            output.push_str("                match get_component_widget_type_internal(new_child) {\n");
+
+            match component.children() {
+                Children::Members { members } => {
+                    for member in members {
+                        output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", member.component_internal_name()));
+                    }
+                }
+                Children::String => {
+                    output.push_str(&format!("                    (\"gauntlet:___text_part___\", _) => (),\n"));
+                }
+                Children::None => {}
+            }
+
+            output.push_str(&format!("                    (_, name) => Err(anyhow::anyhow!(\"{} cannot have {{}} child\", name))?\n", name));
+            output.push_str("                };\n");
+            output.push_str("            }\n");
             output.push_str("            *children = new_children\n");
             output.push_str("        }\n");
         } else {
             output.push_str(&format!("        ComponentWidget::{} {{ .. }} => {{\n", name));
-            output.push_str(&format!("            panic!(\"{} cannot have children\")\n", internal_name));
+            output.push_str(&format!("            Err(anyhow::anyhow!(\"{} cannot have children\"))?\n", internal_name));
             output.push_str("        }\n");
         }
     }
 
-    output.push_str("    }\n");
+    output.push_str("    };\n");
+    output.push_str("    Ok(())\n");
     output.push_str("}\n");
     output.push_str("\n");
 
@@ -224,6 +260,23 @@ fn main() -> anyhow::Result<()> {
     }
 
     output.push_str("    }.to_owned()\n");
+    output.push_str("}\n");
+    output.push_str("\n");
+
+
+    output.push_str("fn get_component_widget_type_internal(widget: &ComponentWidgetWrapper) -> (&str, &str) {\n");
+    output.push_str("    let widget = widget.get();\n");
+    output.push_str("    match *widget {\n");
+    output.push_str("        ComponentWidget::TextPart { .. } => (\"gauntlet:___text_part___\", \"TextPart\"),\n");
+
+    for component in &components {
+        let name = component.name();
+        let internal_name = component.internal_name();
+
+        output.push_str(&format!("        ComponentWidget::{} {{ .. }} => (\"gauntlet:{}\", \"{}\"),\n", name, internal_name, name));
+    }
+
+    output.push_str("    }\n");
     output.push_str("}\n");
     output.push_str("\n");
 

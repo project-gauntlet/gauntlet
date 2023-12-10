@@ -111,8 +111,22 @@ pub enum Children {
 pub struct ChildrenMember {
     #[serde(rename = "memberName")]
     member_name: String,
+    #[serde(rename = "componentInternalName")]
+    component_internal_name: String,
     #[serde(rename = "componentName")]
     component_name: ComponentName,
+}
+
+impl ChildrenMember {
+    pub fn member_name(&self) -> &str {
+        &self.member_name
+    }
+    pub fn component_internal_name(&self) -> &str {
+        &self.component_internal_name
+    }
+    pub fn component_name(&self) -> &ComponentName {
+        &self.component_name
+    }
 }
 
 
@@ -133,6 +147,7 @@ fn children_none() -> Children {
 fn member(member_name: impl ToString, component: &Component) -> ChildrenMember {
     ChildrenMember {
         member_name: member_name.to_string(),
+        component_internal_name: component.internal_name.clone(),
         component_name: component.name.clone()
     }
 }

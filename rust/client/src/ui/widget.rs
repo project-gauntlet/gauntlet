@@ -137,19 +137,15 @@ impl ComponentWidgetWrapper {
         }
     }
 
-    pub fn append_child(&self, child: ComponentWidgetWrapper) {
-        append_component_widget_child(&self, child);
+    pub fn append_child(&self, child: ComponentWidgetWrapper) -> anyhow::Result<()> {
+        append_component_widget_child(&self, child)
     }
 
-    pub fn can_have_children(&self) -> bool {
-        can_component_widget_have_children(&self)
-    }
-
-    pub fn get_children(&self) -> Vec<ComponentWidgetWrapper> {
+    pub fn get_children(&self) -> anyhow::Result<Vec<ComponentWidgetWrapper>> {
         get_component_widget_children(&self)
     }
 
-    pub fn set_children(&self, new_children: Vec<ComponentWidgetWrapper>) {
+    pub fn set_children(&self, new_children: Vec<ComponentWidgetWrapper>) -> anyhow::Result<()> {
         set_component_widget_children(&self, new_children)
     }
 

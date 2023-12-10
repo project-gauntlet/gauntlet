@@ -65,7 +65,7 @@ impl PluginViewContainer {
 
         NativeUiWidget {
             widget_id: self.root_id,
-            widget_type: "___root___".to_owned()
+            widget_type: "gauntlet:___root___".to_owned()
         }
     }
 
@@ -78,7 +78,7 @@ impl PluginViewContainer {
 
     fn create_text_instance(&mut self, text: &str) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("create_text_instance is called. text: {:?}", text);
-        let widget = self.create_native_widget("text", |id| ComponentWidgetWrapper::text_part(id, text));
+        let widget = self.create_native_widget("gauntlet:___text_part___", |id| ComponentWidgetWrapper::text_part(id, text));
         tracing::trace!("create_text_instance is returned. widget: {:?}", widget);
         widget
     }
@@ -92,9 +92,7 @@ impl PluginViewContainer {
 
         if keep_children {
             let new_widget_builtin = self.get_builtin_widget(new_widget.clone());
-            if new_widget_builtin.can_have_children() {
-                new_widget_builtin.set_children(widget.get_children());
-            }
+            new_widget_builtin.set_children(widget.get_children()?)?;
         }
 
         tracing::trace!("clone_instance is returned. widget: {:?}", widget);
@@ -102,15 +100,15 @@ impl PluginViewContainer {
         Ok(new_widget)
     }
 
-    fn append_child(&mut self, parent: NativeUiWidget, child: NativeUiWidget) {
+    fn append_child(&mut self, parent: NativeUiWidget, child: NativeUiWidget) -> anyhow::Result<()> {
         tracing::trace!("append_child is called. parent: {:?}, child: {:?}", parent, child);
         let parent = self.get_builtin_widget(parent);
         let child = self.get_builtin_widget(child);
 
-        parent.append_child(child);
+        parent.append_child(child)
     }
 
-    fn replace_container_children(&mut self, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
+    fn replace_container_children(&mut self, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) -> anyhow::Result<()> {
         tracing::trace!("replace_container_children is called. container: {:?}, new_children: {:?}", container, new_children);
         let container = self.get_builtin_widget(container);
 
@@ -118,7 +116,7 @@ impl PluginViewContainer {
             .map(|child| self.get_builtin_widget(child))
             .collect();
 
-        container.set_children(children);
+        container.set_children(children)
     }
 }
 
@@ -180,7 +178,7 @@ impl ClientContext {
         self.get_view_container_mut(plugin_id).create_text_instance(text)
     }
 
-    pub fn append_child(&mut self, plugin_id: &PluginId, parent: NativeUiWidget, child: NativeUiWidget) {
+    pub fn append_child(&mut self, plugin_id: &PluginId, parent: NativeUiWidget, child: NativeUiWidget) -> anyhow::Result<()> {
         self.get_view_container_mut(plugin_id).append_child(parent, child)
     }
 
@@ -188,7 +186,7 @@ impl ClientContext {
         self.get_view_container_mut(plugin_id).clone_instance(widget, widget_type, new_props, keep_children)
     }
 
-    pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
+    pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) -> anyhow::Result<()> {
         self.get_view_container_mut(plugin_id).replace_container_children(container, new_children)
     }
 }

@@ -28,6 +28,12 @@ pub enum NativeUiResponseData {
     CloneInstance {
         widget: anyhow::Result<NativeUiWidget>
     },
+    AppendChild {
+        result: anyhow::Result<()>
+    },
+    ReplaceContainerChildren {
+        result: anyhow::Result<()>
+    },
 }
 
 #[derive(Debug)]

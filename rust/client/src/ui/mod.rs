@@ -325,7 +325,11 @@ async fn request_loop(
                     responder.respond(response)
                 }
                 NativeUiRequestData::AppendChild { parent, child } => {
-                    client_context.append_child(&plugin_id, parent, child);
+                    let result = client_context.append_child(&plugin_id, parent, child);
+
+                    let response = NativeUiResponseData::AppendChild { result };
+
+                    responder.respond(response)
                 }
                 NativeUiRequestData::CloneInstance {
                     widget,
@@ -340,7 +344,11 @@ async fn request_loop(
                     responder.respond(response)
                 }
                 NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
-                    client_context.replace_container_children(&plugin_id, container, new_children);
+                    let result = client_context.replace_container_children(&plugin_id, container, new_children);
+
+                    let response = NativeUiResponseData::AppendChild { result };
+
+                    responder.respond(response)
                 }
             }
         }

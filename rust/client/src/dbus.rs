@@ -49,9 +49,14 @@ impl DbusClient {
         Ok(widget)
     }
 
-    fn append_child(&mut self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget) -> Result<()> {
+    async fn append_child(&mut self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget) -> Result<()> {
         let data = NativeUiRequestData::AppendChild { parent: parent.into(), child: child.into() };
-        self.context_tx.send((PluginId::from_string(plugin_id), data));
+        let input = (PluginId::from_string(plugin_id), data);
+
+        match self.context_tx.send_receive(input).await {
+            NativeUiResponseData::AppendChild { result } => result?,
+            value @ _ => panic!("unsupported response type {:?}", value),
+        };
 
         Ok(())
     }
@@ -73,10 +78,15 @@ impl DbusClient {
         Ok(widget)
     }
 
-    fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> Result<()> {
+    async fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> Result<()> {
         let new_children = new_children.into_iter().map(|child| child.into()).collect();
         let data = NativeUiRequestData::ReplaceContainerChildren { container: container.into(), new_children };
-        self.context_tx.send((PluginId::from_string(plugin_id), data));
+        let data = (PluginId::from_string(plugin_id), data);
+
+        match self.context_tx.send_receive(data).await {
+            NativeUiResponseData::ReplaceContainerChildren { result } => result?,
+            value @ _ => panic!("unsupported response type {:?}", value),
+        };
 
         Ok(())
     }
