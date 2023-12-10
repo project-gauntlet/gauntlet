@@ -15,7 +15,7 @@ use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use common::model::PluginId;
-use component_model::{create_component_model, Component};
+use component_model::{create_component_model, Component, PropertyType, Children};
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
 use crate::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData, to_dbus};
@@ -386,6 +386,8 @@ fn op_react_append_child(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs_common", "Calling op_react_append_child...");
 
+    validate_child(&state, &parent.widget_type, &child.widget_type)?;
+
     let data = JsUiRequestData::AppendChild {
         parent,
         child,
@@ -431,6 +433,8 @@ fn op_react_insert_before(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_insert_before...");
 
+    validate_child(&state, &parent.widget_type, &child.widget_type)?;
+
     let data = JsUiRequestData::InsertBefore {
         parent,
         child,
@@ -453,10 +457,11 @@ fn op_react_create_instance<'a>(
     widget_type: String,
     v8_properties: HashMap<String, serde_v8::Value<'a>>,
 ) -> anyhow::Result<JsUiWidget> {
-    // TODO component model
     tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_instance...");
 
     let properties = convert_properties(scope, v8_properties)?;
+
+    validate_properties(&state, &widget_type, &properties)?;
 
     let conversion_properties = properties.clone();
 
@@ -510,6 +515,8 @@ fn op_react_set_properties<'a>(
     tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_properties...");
 
     let properties = convert_properties(scope, v8_properties)?;
+
+    validate_properties(&state, &widget.widget_type, &properties)?;
 
     assign_event_listeners(&state, &widget, &properties);
 
@@ -581,6 +588,10 @@ fn op_react_replace_container_children(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children...");
 
+    for new_child in new_children {
+        validate_child(&state, &container.widget_type, &new_child.widget_type)?
+    }
+
     let data = JsUiRequestData::ReplaceContainerChildren {
         container,
         new_children,
@@ -608,10 +619,10 @@ fn op_react_clone_instance<'a>(
 ) -> anyhow::Result<JsUiWidget> {
     tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance...");
 
-    // TODO component model
-
     let old_props = convert_properties(scope, old_props)?;
     let new_props = convert_properties(scope, new_props)?;
+
+    validate_properties(&state, &instance.widget_type, &new_props)?;
 
     let new_props_clone = new_props.clone();
 
@@ -663,6 +674,78 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
     block_on(async {
         make_request_async(plugin_id, dbus_client, data).await
     })
+}
+
+fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, ConversionPropertyValue>) -> anyhow::Result<()> {
+    let state = state.borrow();
+    let component_model = state.borrow::<ComponentModel>();
+
+    let component = component_model.components.get(internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", internal_name))?;
+
+    for comp_prop in component.props() {
+        match properties.get(comp_prop.name()) {
+            None => {
+                if !comp_prop.optional() {
+                    Err(anyhow::anyhow!("property {} is required on {} component", comp_prop.name(), component.name()))?
+                }
+            }
+            Some(prop_value) => {
+                match prop_value {
+                    ConversionPropertyValue::Function(_) => {
+                        if !matches!(comp_prop.property_type(), PropertyType::Function) {
+                            Err(anyhow::anyhow!("property {} on {} component has to be a function", comp_prop.name(), component.name()))?
+                        }
+                    }
+                    ConversionPropertyValue::String(_) => {
+                        if !matches!(comp_prop.property_type(), PropertyType::String) {
+                            Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name(), component.name()))?
+                        }
+                    }
+                    ConversionPropertyValue::Number(_) => {
+                        if !matches!(comp_prop.property_type(), PropertyType::Number) {
+                            Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name(), component.name()))?
+                        }
+                    }
+                    ConversionPropertyValue::Bool(_) => {
+                        if !matches!(comp_prop.property_type(), PropertyType::Boolean) {
+                            Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name(), component.name()))?
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, child_internal_name: &str) -> anyhow::Result<()> {
+    // let state = state.borrow();
+    // let component_model = state.borrow::<ComponentModel>();
+    //
+    // let components = &component_model.components;
+    // let parent_component = components.get(parent_internal_name).ok_or(anyhow::anyhow!("invalid parent component internal name: {}", parent_internal_name))?;
+    //
+    // match parent_component.children() {
+    //     Children::Members { members } => {
+    //         let child_component = components.get(child_internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", child_internal_name))?;
+    //         for member in members {
+    //             if member.component_internal_name() == child_internal_name {
+    //
+    //             }
+    //         }
+    //     }
+    //     Children::String => {
+    //         if child_internal_name != "gauntlet:text_part" {
+    //             Err(anyhow::anyhow!("{} component can only have text child", parent_component.name()))?
+    //         }
+    //     }
+    //     Children::None => {
+    //         Err(anyhow::anyhow!("{} component cannot have children", parent_component.name()))?
+    //     }
+    // }
+
+    Ok(())
 }
 
 async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyProxy<'_>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
@@ -804,7 +887,7 @@ fn convert_properties(
                 Err(anyhow!("{:?}: {:?}", name, val.type_of(scope).to_rust_string_lossy(scope)))
             }
         })
-        .collect::<Result<Vec<(_, _)>, anyhow::Error>>()?;
+        .collect::<anyhow::Result<Vec<(_, _)>>>()?;
 
     Ok(vec.into_iter().collect())
 }
@@ -863,10 +946,6 @@ pub struct ComponentModel {
 impl ComponentModel {
     fn new(components: Vec<Component>) -> Self {
         Self { components: components.into_iter().map(|component| (component.internal_name().to_owned(), component)).collect() }
-    }
-
-    fn component(&self, internal_name: &str) -> Option<&Component> {
-        self.components.get(internal_name)
     }
 }
 

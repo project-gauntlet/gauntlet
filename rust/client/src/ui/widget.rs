@@ -150,9 +150,10 @@ impl ComponentWidgetWrapper {
     }
 
     fn as_native_widget(&self) -> NativeUiWidget {
+        let (internal_name, _) = get_component_widget_type(&self);
         NativeUiWidget {
             widget_id: self.id,
-            widget_type: get_component_widget_type(&self)
+            widget_type: internal_name.to_owned()
         }
     }
 }

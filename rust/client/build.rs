@@ -121,12 +121,11 @@ fn main() -> anyhow::Result<()> {
 
     for component in &components {
         let name = component.name();
-        let internal_name = component.internal_name();
         let has_children = !matches!(component.children(), Children::None);
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref mut children, .. }} => {{\n", name));
-            output.push_str("            match get_component_widget_type_internal(&child) {\n");
+            output.push_str("            match get_component_widget_type(&child) {\n");
 
             match component.children() {
                 Children::Members { members } => {
@@ -135,7 +134,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 Children::String => {
-                    output.push_str(&format!("                (\"gauntlet:___text_part___\", _) => (),\n"));
+                    output.push_str(&format!("                (\"gauntlet:text_part\", _) => (),\n"));
                 }
                 Children::None => {}
             }
@@ -182,7 +181,6 @@ fn main() -> anyhow::Result<()> {
 
     for component in &components {
         let name = component.name();
-        let internal_name = component.internal_name();
         let has_children = !matches!(component.children(), Children::None);
 
         if has_children {
@@ -209,13 +207,12 @@ fn main() -> anyhow::Result<()> {
 
     for component in &components {
         let name = component.name();
-        let internal_name = component.internal_name();
         let has_children = !matches!(component.children(), Children::None);
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref mut children, .. }} => {{\n", name));
             output.push_str("            for new_child in &new_children {\n");
-            output.push_str("                match get_component_widget_type_internal(new_child) {\n");
+            output.push_str("                match get_component_widget_type(new_child) {\n");
 
             match component.children() {
                 Children::Members { members } => {
@@ -224,7 +221,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 Children::String => {
-                    output.push_str(&format!("                    (\"gauntlet:___text_part___\", _) => (),\n"));
+                    output.push_str(&format!("                    (\"gauntlet:text_part\", _) => (),\n"));
                 }
                 Children::None => {}
             }
@@ -236,7 +233,7 @@ fn main() -> anyhow::Result<()> {
             output.push_str("        }\n");
         } else {
             output.push_str(&format!("        ComponentWidget::{} {{ .. }} => {{\n", name));
-            output.push_str(&format!("            Err(anyhow::anyhow!(\"{} cannot have children\"))?\n", internal_name));
+            output.push_str(&format!("            Err(anyhow::anyhow!(\"{} cannot have children\"))?\n", name));
             output.push_str("        }\n");
         }
     }
@@ -247,27 +244,10 @@ fn main() -> anyhow::Result<()> {
     output.push_str("\n");
 
 
-    output.push_str("fn get_component_widget_type(widget: &ComponentWidgetWrapper) -> String {\n");
+    output.push_str("fn get_component_widget_type(widget: &ComponentWidgetWrapper) -> (&str, &str) {\n");
     output.push_str("    let widget = widget.get();\n");
     output.push_str("    match *widget {\n");
-    output.push_str("        ComponentWidget::TextPart { .. } => panic!(\"cannot get type of text part\"),\n");
-
-    for component in &components {
-        let name = component.name();
-        let internal_name = component.internal_name();
-
-        output.push_str(&format!("        ComponentWidget::{} {{ .. }} => \"gauntlet:{}\",\n", name, internal_name));
-    }
-
-    output.push_str("    }.to_owned()\n");
-    output.push_str("}\n");
-    output.push_str("\n");
-
-
-    output.push_str("fn get_component_widget_type_internal(widget: &ComponentWidgetWrapper) -> (&str, &str) {\n");
-    output.push_str("    let widget = widget.get();\n");
-    output.push_str("    match *widget {\n");
-    output.push_str("        ComponentWidget::TextPart { .. } => (\"gauntlet:___text_part___\", \"TextPart\"),\n");
+    output.push_str("        ComponentWidget::TextPart { .. } => (\"gauntlet:text_part\", \"TextPart\"),\n");
 
     for component in &components {
         let name = component.name();

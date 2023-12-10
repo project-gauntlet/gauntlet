@@ -78,7 +78,7 @@ impl PluginViewContainer {
 
     fn create_text_instance(&mut self, text: &str) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("create_text_instance is called. text: {:?}", text);
-        let widget = self.create_native_widget("gauntlet:___text_part___", |id| ComponentWidgetWrapper::text_part(id, text));
+        let widget = self.create_native_widget("gauntlet:text_part", |id| ComponentWidgetWrapper::text_part(id, text));
         tracing::trace!("create_text_instance is returned. widget: {:?}", widget);
         widget
     }
