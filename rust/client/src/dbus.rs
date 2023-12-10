@@ -16,11 +16,11 @@ impl DbusClient {
     #[dbus_interface(signal)]
     pub async fn view_event_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    async fn get_container(&mut self, plugin_id: &str) -> Result<DBusUiWidget> {
-        let input = (PluginId::from_string(plugin_id), NativeUiRequestData::GetContainer);
+    async fn get_root(&mut self, plugin_id: &str) -> Result<DBusUiWidget> {
+        let input = (PluginId::from_string(plugin_id), NativeUiRequestData::GetRoot);
 
         match self.context_tx.send_receive(input).await {
-            NativeUiResponseData::GetContainer { container } => Ok(container.into()),
+            NativeUiResponseData::GetRoot { container } => Ok(container.into()),
             value @ _ => panic!("unsupported response type {:?}", value),
         }
     }

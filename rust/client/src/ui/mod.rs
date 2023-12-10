@@ -303,10 +303,10 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::GetContainer => {
-                    let container = client_context.get_container(&plugin_id);
+                NativeUiRequestData::GetRoot => {
+                    let container = client_context.get_root(&plugin_id);
 
-                    let response = NativeUiResponseData::GetContainer { container };
+                    let response = NativeUiResponseData::GetRoot { container };
 
                     responder.respond(response)
                 }

@@ -100,7 +100,7 @@ trait DbusClientProxy {
     #[dbus_proxy(signal)]
     fn view_event_signal(&self, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    fn get_container(&self, plugin_id: &str) -> zbus::Result<DBusUiWidget>;
+    fn get_root(&self, plugin_id: &str) -> zbus::Result<DBusUiWidget>;
 
     fn create_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
 

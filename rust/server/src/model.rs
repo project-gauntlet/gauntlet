@@ -7,7 +7,7 @@ use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValueType, DBusUiWidge
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
-    GetContainer {
+    GetRoot {
         container: JsUiWidget
     },
     CreateInstance {
@@ -24,7 +24,7 @@ pub enum JsUiResponseData {
 
 #[derive(Debug)]
 pub enum JsUiRequestData {
-    GetContainer,
+    GetRoot,
     CreateInstance {
         widget_type: String,
         properties: HashMap<String, JsUiPropertyValue>,

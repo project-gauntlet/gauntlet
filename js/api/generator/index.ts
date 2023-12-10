@@ -5,41 +5,50 @@ type Component = {
     internalName: string,
     name: string,
     props: Property[],
-    members: Record<string, string>,
+    children: Children,
 }
 
 type Property = {
     name: string
     optional: boolean
-    type: Type
+    type: PropertyType
 }
-type Type = TypeString | TypeNumber | TypeBoolean | TypeStringComponent | TypeComponent | TypeArray | TypeFunction
+type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeFunction
+type Children = ChildrenMembers | ChildrenString | ChildrenNone
+
+type ChildrenMembers = {
+    type: "members",
+    members: ChildrenMember[]
+}
+type ChildrenString = {
+    type: "string"
+}
+type ChildrenNone = {
+    type: "none"
+}
+
+type ChildrenMember = {
+    memberName: string,
+    componentName: string,
+}
+
 
 type TypeString = {
-    name: "string"
+    type: "string"
 }
 type TypeNumber = {
-    name: "number"
+    type: "number"
 }
 type TypeBoolean = {
-    name: "boolean"
-}
-type TypeComponent = {
-    name: "components"
-    components: string[]
-}
-type TypeStringComponent = {
-    name: "stringcomponent"
+    type: "boolean"
 }
 type TypeArray = {
-    name: "array"
-    nested: Type
+    type: "array"
+    nested: PropertyType
 }
 type TypeFunction = {
-    name: "function"
+    type: "function"
 }
-
-// TODO freeze objects
 
 function generate(componentModelPath: string, outFile: string) {
     const content = readFileSync(componentModelPath).toString();
@@ -54,7 +63,7 @@ function generate(componentModelPath: string, outFile: string) {
 }
 
 function makeComponents(modelInput: Component[]): ts.SourceFile {
-    const model = modelInput.filter(component => component.internalName !== "container");
+    const model = modelInput.filter(component => component.internalName !== "___root___");
 
     const imports = [
         ts.factory.createImportDeclaration(
@@ -241,22 +250,6 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
 
     const internalDeclarations = [
-        ts.factory.createVariableStatement(
-            undefined,
-            ts.factory.createVariableDeclarationList(
-                [ts.factory.createVariableDeclaration(
-                    ts.factory.createIdentifier("internalType"),
-                    undefined,
-                    undefined,
-                    ts.factory.createCallExpression(
-                        ts.factory.createIdentifier("Symbol"),
-                        undefined,
-                        [ts.factory.createStringLiteral("GAUNTLET:INTERNAL_TYPE")]
-                    )
-                )],
-                ts.NodeFlags.Const
-            )
-        ),
         ts.factory.createModuleDeclaration(
             [ts.factory.createToken(ts.SyntaxKind.DeclareKeyword)],
             ts.factory.createIdentifier("global"),
@@ -273,14 +266,9 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                             undefined,
                             ts.factory.createComputedPropertyName(ts.factory.createStringLiteral(`gauntlet:${component.internalName}`)),
                             undefined,
-                            ts.factory.createTypeLiteralNode(component.props.map(property => {
-                                return ts.factory.createPropertySignature(
-                                    undefined,
-                                    ts.factory.createIdentifier(property.name),
-                                    !property.optional ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
-                                    makeType(property.type)
-                                )
-                            }))
+                            ts.factory.createTypeLiteralNode(
+                                makePropertyTypes(component)
+                            )
                         )
                     })
                 )]),
@@ -298,48 +286,121 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
     const components = model.flatMap(component => {
 
+        const properties = component.props.map((prop) => (
+            ts.factory.createJsxAttribute(
+                ts.factory.createIdentifier(prop.name),
+                ts.factory.createJsxExpression(
+                    undefined,
+                    ts.factory.createPropertyAccessExpression(
+                        ts.factory.createIdentifier("props"),
+                        ts.factory.createIdentifier(prop.name)
+                    )
+                )
+            )
+        ));
+
+        if (component.children.type != "none") {
+            properties.unshift(ts.factory.createJsxAttribute(
+                ts.factory.createIdentifier("children"),
+                ts.factory.createJsxExpression(
+                    undefined,
+                    ts.factory.createPropertyAccessExpression(
+                        ts.factory.createIdentifier("props"),
+                        ts.factory.createIdentifier("children")
+                    )
+                )
+            ))
+        }
+
         const componentFCType = ts.factory.createTypeReferenceNode(
             ts.factory.createIdentifier("FC"),
-            [ts.factory.createTypeReferenceNode(
-                ts.factory.createIdentifier(`${component.name}Props`),
-                undefined
-            )]
+            properties.length === 0 ? [] : [
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier(`${component.name}Props`),
+                    undefined
+                )
+            ]
         )
 
-        const componentType = Object.entries(component.members).length == 0
-            ? componentFCType
-            : ts.factory.createIntersectionTypeNode([
+        let componentType: ts.TypeReferenceNode | ts.IntersectionTypeNode;
+        if (component.children.type == "members") {
+            componentType = ts.factory.createIntersectionTypeNode([
                 componentFCType,
                 ts.factory.createTypeLiteralNode(
-                    Object.entries(component.members).map(([key, value]) => {
+                    component.children.members.map(member => {
                         return ts.factory.createPropertySignature(
                             undefined,
-                            ts.factory.createIdentifier(key),
+                            ts.factory.createIdentifier(member.memberName),
                             undefined,
                             ts.factory.createTypeQueryNode(
-                                ts.factory.createIdentifier(value),
+                                ts.factory.createIdentifier(member.componentName),
                                 undefined
                             )
                         );
                     })
                 )
-            ])
+            ]);
+        } else {
+            componentType = componentFCType;
+        }
 
-        return [
+
+        let memberAssignments: ts.Statement[];
+        switch (component.children.type) {
+            case "members": {
+                memberAssignments = component.children.members.map(member => {
+                    return ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier(component.name),
+                            ts.factory.createIdentifier(member.memberName)
+                        ),
+                        ts.factory.createToken(ts.SyntaxKind.EqualsToken),
+                        ts.factory.createIdentifier(member.componentName)
+                    ))
+                });
+                break;
+            }
+            case "string": {
+                memberAssignments = [];
+                break;
+            }
+            case "none": {
+                memberAssignments = [];
+                break;
+            }
+            default: {
+                throw new Error("unreachable")
+            }
+        }
+
+        const interfaceProps = makePropertyTypes(component);
+
+        const interfaceDeclaration: ts.InterfaceDeclaration[] = interfaceProps.length === 0 ? [] : [
             ts.factory.createInterfaceDeclaration(
                 [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
                 ts.factory.createIdentifier(`${component.name}Props`),
                 undefined,
                 undefined,
-                component.props.map(property => {
-                    return ts.factory.createPropertySignature(
-                        undefined,
-                        ts.factory.createIdentifier(property.name),
-                        !property.optional ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
-                        makeType(property.type)
-                    );
-                })
-            ),
+                interfaceProps
+            )
+        ];
+
+        const propsParameter = properties.length === 0 ? [] : [
+            ts.factory.createParameterDeclaration(
+                undefined,
+                undefined,
+                ts.factory.createIdentifier("props"),
+                undefined,
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier(`${component.name}Props`),
+                    undefined
+                ),
+                undefined
+            )
+        ];
+
+        return [
+            ...interfaceDeclaration,
             ts.factory.createVariableStatement(
                 [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
                 ts.factory.createVariableDeclarationList(
@@ -350,17 +411,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                         ts.factory.createArrowFunction(
                             undefined,
                             undefined,
-                            [ts.factory.createParameterDeclaration(
-                                undefined,
-                                undefined,
-                                ts.factory.createIdentifier("props"),
-                                undefined,
-                                ts.factory.createTypeReferenceNode(
-                                    ts.factory.createIdentifier(`${component.name}Props`),
-                                    undefined
-                                ),
-                                undefined
-                            )],
+                            propsParameter,
                             ts.factory.createTypeReferenceNode(
                                 ts.factory.createIdentifier("ReactNode"),
                                 undefined
@@ -375,18 +426,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                                                 ts.factory.createIdentifier(component.internalName)
                                             ),
                                             undefined,
-                                            ts.factory.createJsxAttributes(component.props.map((prop) => (
-                                                ts.factory.createJsxAttribute(
-                                                    ts.factory.createIdentifier(prop.name),
-                                                    ts.factory.createJsxExpression(
-                                                        undefined,
-                                                        ts.factory.createPropertyAccessExpression(
-                                                            ts.factory.createIdentifier("props"),
-                                                            ts.factory.createIdentifier(prop.name)
-                                                        )
-                                                    )
-                                                )
-                                            )))
+                                            ts.factory.createJsxAttributes(properties)
                                         )
                                     )
                                 ],
@@ -397,27 +437,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                     ts.NodeFlags.Const
                 )
             ),
-            ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
-                ts.factory.createElementAccessExpression(
-                    ts.factory.createParenthesizedExpression(ts.factory.createAsExpression(
-                        ts.factory.createIdentifier(component.name),
-                        ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
-                    )),
-                    ts.factory.createIdentifier("internalType")
-                ),
-                ts.factory.createToken(ts.SyntaxKind.EqualsToken),
-                ts.factory.createStringLiteral(component.internalName)
-            )),
-            ...Object.entries(component.members).map(([key, value]) => {
-                return ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
-                    ts.factory.createPropertyAccessExpression(
-                        ts.factory.createIdentifier(component.name),
-                        ts.factory.createIdentifier(key)
-                    ),
-                    ts.factory.createToken(ts.SyntaxKind.EqualsToken),
-                    ts.factory.createIdentifier(value)
-                ))
-            })
+            ...memberAssignments
         ]
     });
 
@@ -428,16 +448,39 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
     )
 }
 
-function makeType(type: Type): ts.TypeNode {
-    switch (type.name) {
-        case "components": {
+function makePropertyTypes(component: Component): ts.TypeElement[] {
+    const props = component.props.map(property => {
+        return ts.factory.createPropertySignature(
+            undefined,
+            ts.factory.createIdentifier(property.name),
+            !property.optional ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+            makeType(property.type)
+        )
+    });
+
+    if (component.children.type != "none") {
+        props.unshift(ts.factory.createPropertySignature(
+            undefined,
+            ts.factory.createIdentifier("children"),
+            ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+            makeChildrenType(component.children)
+        ))
+    }
+
+    return props
+}
+
+
+function makeChildrenType(type: Children): ts.TypeNode {
+    switch (type.type) {
+        case "members": {
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier("Component"),
                 [
                     ts.factory.createUnionTypeNode(
-                        type.components.map(value => (
+                        type.members.map(value => (
                             ts.factory.createTypeQueryNode(
-                                ts.factory.createIdentifier(value),
+                                ts.factory.createIdentifier(value.componentName),
                                 undefined
                             )
                         ))
@@ -445,12 +488,21 @@ function makeType(type: Type): ts.TypeNode {
                 ]
             )
         }
-        case "stringcomponent": {
+        case "string": {
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier("StringComponent"),
                 undefined
             )
         }
+        case "none": {
+            throw new Error("Cannot construct none children")
+        }
+    }
+}
+
+
+function makeType(type: PropertyType): ts.TypeNode {
+    switch (type.type) {
         case "array": {
             return ts.factory.createArrayTypeNode(makeType(type.nested))
         }

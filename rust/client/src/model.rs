@@ -16,7 +16,7 @@ pub struct NativeUiSearchResult {
 
 #[derive(Debug)]
 pub enum NativeUiResponseData {
-    GetContainer {
+    GetRoot {
         container: NativeUiWidget
     },
     CreateInstance {
@@ -32,7 +32,7 @@ pub enum NativeUiResponseData {
 
 #[derive(Debug)]
 pub enum NativeUiRequestData {
-    GetContainer,
+    GetRoot,
     CreateInstance {
         widget_type: String,
         properties: HashMap<String, NativeUiPropertyValue>,

@@ -44,7 +44,7 @@ declare type UiWidget = {}
 declare type ComponentType = string;
 declare type Props = { children?: any } & { [key: string]: any };
 
-declare type Container = Instance
+declare type Root = Instance
 declare type Instance = UiWidget
 declare type TextInstance = UiWidget
 declare type ChildSet = (Instance | TextInstance)[]
@@ -61,7 +61,7 @@ declare interface InternalApi {
 
     op_react_call_event_listener(instance: Instance, eventName: string): void;
 
-    op_react_get_container(): Container;
+    op_react_get_root(): Root;
 
     op_react_create_instance(type: ComponentType, props: Props): Instance;
 

@@ -290,7 +290,7 @@ deno_core::extension!(
         op_log_warn,
         op_log_error,
         op_plugin_get_pending_event,
-        op_react_get_container,
+        op_react_get_root,
         op_react_create_instance,
         op_react_create_text_instance,
         op_react_append_child,
@@ -365,15 +365,15 @@ async fn op_plugin_get_pending_event<'a>(
 }
 
 #[op]
-fn op_react_get_container(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_container...");
+fn op_react_get_root(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_root...");
 
-    let container = match make_request(&state, JsUiRequestData::GetContainer)? {
-        JsUiResponseData::GetContainer { container } => container,
+    let container = match make_request(&state, JsUiRequestData::GetRoot)? {
+        JsUiResponseData::GetRoot { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
 
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_container returned {:?}", container);
+    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_root returned {:?}", container);
 
     Ok(container.into())
 }
@@ -667,13 +667,13 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
 
 async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyProxy<'_>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::GetContainer => {
-            let container = dbus_client.get_container(&plugin_id.to_string()) // TODO add timeout handling
+        JsUiRequestData::GetRoot => {
+            let root = dbus_client.get_root(&plugin_id.to_string()) // TODO add timeout handling
                 .await
-                .map(|container| JsUiResponseData::GetContainer { container: container.into() })
+                .map(|container| JsUiResponseData::GetRoot { container: container.into() })
                 .map_err(|err| err.into());
 
-            container
+            root
         }
         JsUiRequestData::CreateInstance { widget_type, properties } => {
             let widget = dbus_client.create_instance(&plugin_id.to_string(), &widget_type, to_dbus(properties))

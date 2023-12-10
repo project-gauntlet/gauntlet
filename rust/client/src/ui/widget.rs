@@ -25,8 +25,8 @@ impl ComponentWidgetWrapper {
         Ok(ComponentWidgetWrapper::new(id, create_component_widget(widget_type, properties)?))
     }
 
-    pub fn container(id: NativeUiWidgetId) -> Self {
-        ComponentWidgetWrapper::new(id, ComponentWidget::Container { children: vec![] })
+    pub fn root(id: NativeUiWidgetId) -> Self {
+        ComponentWidgetWrapper::new(id, ComponentWidget::Root { children: vec![] })
     }
 
     pub fn text_part(id: NativeUiWidgetId, text: &str) -> anyhow::Result<Self> {
@@ -130,7 +130,7 @@ impl ComponentWidgetWrapper {
                 row(render_children(children))
                     .into()
             }
-            ComponentWidget::Container { children } => {
+            ComponentWidget::Root { children } => {
                 row(render_children(children))
                     .into()
             }

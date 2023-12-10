@@ -57,15 +57,15 @@ impl PluginViewContainer {
         self.widget_map.get(&ui_widget.widget_id).unwrap().clone()
     }
 
-    fn get_container(&mut self) -> NativeUiWidget {
-        tracing::trace!("get_container is called");
+    fn get_root(&mut self) -> NativeUiWidget {
+        tracing::trace!("get_root is called");
         if let Entry::Vacant(value) = self.widget_map.entry(self.root_id) {
-            value.insert(ComponentWidgetWrapper::container(self.root_id));
+            value.insert(ComponentWidgetWrapper::root(self.root_id));
         };
 
         NativeUiWidget {
             widget_id: self.root_id,
-            widget_type: "container".to_owned()
+            widget_type: "___root___".to_owned()
         }
     }
 
@@ -168,8 +168,8 @@ impl ClientContext {
         self.containers.get_mut(plugin_id).unwrap()
     }
 
-    pub fn get_container(&mut self, plugin_id: &PluginId) -> NativeUiWidget {
-        self.get_view_container_mut(plugin_id).get_container()
+    pub fn get_root(&mut self, plugin_id: &PluginId) -> NativeUiWidget {
+        self.get_view_container_mut(plugin_id).get_root()
     }
 
     pub fn create_instance(&mut self, plugin_id: &PluginId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<NativeUiWidget> {

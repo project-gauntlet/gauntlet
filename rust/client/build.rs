@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use component_model::{create_component_model, PropertyType};
+use component_model::{Children, create_component_model, PropertyType};
 
 fn main() -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR")?;
@@ -24,9 +24,15 @@ fn main() -> anyhow::Result<()> {
         output.push_str(&format!("    {}", name));
 
         let props = component.props();
+        let has_children = !matches!(component.children(), Children::None);
 
-        if !props.is_empty() {
+        if !props.is_empty() || has_children {
             output.push_str(" {\n");
+
+            if has_children {
+                output.push_str(&format!("        children: {},\n", generate_children_type(&component.children())));
+            }
+
             for prop in props {
                 match prop.property_type() {
                     PropertyType::String | PropertyType::Number | PropertyType::Boolean if prop.optional() => {
@@ -55,9 +61,14 @@ fn main() -> anyhow::Result<()> {
         output.push_str(&format!("        \"gauntlet:{}\" => ComponentWidget::{}", internal_name, name));
 
         let props = component.props();
+        let has_children = !matches!(component.children(), Children::None);
 
-        if !props.is_empty() {
+        if !props.is_empty() || has_children {
             output.push_str(&" {\n");
+
+            if has_children {
+                output.push_str("            children: vec![],\n");
+            }
 
             for prop in props {
                 match prop.property_type() {
@@ -82,7 +93,7 @@ fn main() -> anyhow::Result<()> {
                             output.push_str(&format!("            {}: parse_boolean(&properties, \"{}\")?,\n", prop.name(), prop.name()));
                         }
                     },
-                    PropertyType::Components { .. } | PropertyType::StringComponent { .. } | PropertyType::Array { .. } => {
+                    PropertyType::Array { .. } => {
                         output.push_str(&format!("            {}: vec![],\n", prop.name()));
                     },
                     PropertyType::Function => {
@@ -111,7 +122,7 @@ fn main() -> anyhow::Result<()> {
     for component in &components {
         let name = component.name();
         let internal_name = component.internal_name();
-        let has_children = component.props().iter().find(|prop| prop.name() == "children").is_some();
+        let has_children = !matches!(component.children(), Children::None);
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref mut children, .. }} => {{\n", name));
@@ -136,7 +147,7 @@ fn main() -> anyhow::Result<()> {
 
     for component in &components {
         let name = component.name();
-        let has_children = component.props().iter().find(|prop| prop.name() == "children").is_some();
+        let has_children = !matches!(component.children(), Children::None);
         let has_children = if has_children { "true" } else { "false" };
 
         output.push_str(&format!("        ComponentWidget::{} {{ .. }} => {},\n", name, has_children));
@@ -155,7 +166,7 @@ fn main() -> anyhow::Result<()> {
     for component in &components {
         let name = component.name();
         let internal_name = component.internal_name();
-        let has_children = component.props().iter().find(|prop| prop.name() == "children").is_some();
+        let has_children = !matches!(component.children(), Children::None);
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref children, .. }} => {{\n", name));
@@ -182,7 +193,7 @@ fn main() -> anyhow::Result<()> {
     for component in &components {
         let name = component.name();
         let internal_name = component.internal_name();
-        let has_children = component.props().iter().find(|prop| prop.name() == "children").is_some();
+        let has_children = !matches!(component.children(), Children::None);
 
         if has_children {
             output.push_str(&format!("        ComponentWidget::{} {{ ref mut children, .. }} => {{\n", name));
@@ -272,13 +283,19 @@ fn generate_optional_type(property_type: &PropertyType) -> String {
     format!("Option<{}>", generate_type(property_type))
 }
 
+fn generate_children_type(children: &Children) -> String {
+    match children {
+        Children::Members { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
+        Children::String => "Vec<ComponentWidgetWrapper>".to_owned(),
+        Children::None => panic!("cannot create type for Children::None")
+    }
+}
+
 fn generate_type(property_type: &PropertyType) -> String {
     match property_type {
         PropertyType::String => "String".to_owned(),
         PropertyType::Number => "f64".to_owned(),
         PropertyType::Boolean => "bool".to_owned(),
-        PropertyType::Components { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
-        PropertyType::StringComponent => "Vec<ComponentWidgetWrapper>".to_owned(),
         PropertyType::Array { nested } => format!("Vec<{}>", generate_type(nested)),
         PropertyType::Function => "()".to_string()
     }
