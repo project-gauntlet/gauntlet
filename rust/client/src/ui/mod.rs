@@ -346,7 +346,7 @@ async fn request_loop(
                 NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
                     let result = client_context.replace_container_children(&plugin_id, container, new_children);
 
-                    let response = NativeUiResponseData::AppendChild { result };
+                    let response = NativeUiResponseData::ReplaceContainerChildren { result };
 
                     responder.respond(response)
                 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::pin::{Pin};
 use std::rc::Rc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::futures::executor::block_on;
@@ -368,7 +368,7 @@ async fn op_plugin_get_pending_event<'a>(
 fn op_react_get_root(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
     tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_root...");
 
-    let container = match make_request(&state, JsUiRequestData::GetRoot)? {
+    let container = match make_request(&state, JsUiRequestData::GetRoot).context("GetRoot frontend response")? {
         JsUiResponseData::GetRoot { container } => container,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -393,7 +393,7 @@ fn op_react_append_child(
         child,
     };
 
-    match make_request(&state, data)? {
+    match make_request(&state, data).context("AppendChild frontend response")? {
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_common", "Calling op_react_append_child returned");
             Ok(())
@@ -415,7 +415,7 @@ fn op_react_remove_child(
         child: child.into(),
     };
 
-    match make_request(&state, data)? {
+    match make_request(&state, data).context("RemoveChild frontend response")? {
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_remove_child returned");
             Ok(())
@@ -441,7 +441,7 @@ fn op_react_insert_before(
         before_child,
     };
 
-    match make_request(&state, data)? {
+    match make_request(&state, data).context("InsertBefore frontend response")? {
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_insert_before returned");
             Ok(())
@@ -474,7 +474,7 @@ fn op_react_create_instance<'a>(
         properties,
     };
 
-    let widget = match make_request(&state, data)? {
+    let widget = match make_request(&state, data).context("CreateInstance frontend response")? {
         JsUiResponseData::CreateInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -495,7 +495,7 @@ fn op_react_create_text_instance(
 
     let data = JsUiRequestData::CreateTextInstance { text };
 
-    let widget = match make_request(&state, data)? {
+    let widget = match make_request(&state, data).context("CreateTextInstance frontend response")? {
         JsUiResponseData::CreateTextInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -529,7 +529,7 @@ fn op_react_set_properties<'a>(
         properties,
     };
 
-    match make_request(&state, data)? {
+    match make_request(&state, data).context("SetProperties frontend response")? {
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_properties returned");
             Ok(())
@@ -571,7 +571,7 @@ fn op_react_set_text(
         text,
     };
 
-    match make_request(&state, data)? {
+    match make_request(&state, data).context("SetText frontend response")? {
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_text returned");
             Ok(())
@@ -597,7 +597,7 @@ fn op_react_replace_container_children(
         new_children,
     };
 
-    match make_request(&state, data)? {
+    match make_request(&state, data).context("ReplaceContainerChildren frontend response")? {
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children returned");
             Ok(())
@@ -642,7 +642,7 @@ fn op_react_clone_instance<'a>(
         keep_children,
     };
 
-    let widget = match make_request(&state, data)? {
+    let widget = match make_request(&state, data).context("CloneInstance frontend response")? {
         JsUiResponseData::CloneInstance { widget } => widget,
         value @ _ => panic!("unsupported response type {:?}", value),
     };
@@ -718,38 +718,69 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                 }
             }
         }
-        Component::Root { .. } => panic!("cannot validate root"),
-        Component::TextPart { .. } => panic!("cannot validate text_part")
+        Component::Root { .. } => Err(anyhow::anyhow!("properties of root cannot be validated, likely a bug"))?,
+        Component::TextPart { .. } => Err(anyhow::anyhow!("properties of text_part cannot be validated, likely a bug"))?,
     }
 
     Ok(())
 }
 
 fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, child_internal_name: &str) -> anyhow::Result<()> {
-    // let state = state.borrow();
-    // let component_model = state.borrow::<ComponentModel>();
-    //
-    // let components = &component_model.components;
-    // let parent_component = components.get(parent_internal_name).ok_or(anyhow::anyhow!("invalid parent component internal name: {}", parent_internal_name))?;
-    //
-    // match parent_component.children() {
-    //     Children::Members { members } => {
-    //         let child_component = components.get(child_internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", child_internal_name))?;
-    //         for member in members {
-    //             if member.component_internal_name() == child_internal_name {
-    //
-    //             }
-    //         }
-    //     }
-    //     Children::String => {
-    //         if child_internal_name != "gauntlet:text_part" {
-    //             Err(anyhow::anyhow!("{} component can only have text child", parent_component.name()))?
-    //         }
-    //     }
-    //     Children::None => {
-    //         Err(anyhow::anyhow!("{} component cannot have children", parent_component.name()))?
-    //     }
-    // }
+    let state = state.borrow();
+    let component_model = state.borrow::<ComponentModel>();
+
+    let components = &component_model.components;
+    let parent_component = components.get(parent_internal_name).ok_or(anyhow::anyhow!("invalid parent component internal name: {}", parent_internal_name))?;
+    let child_component = components.get(child_internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", child_internal_name))?;
+
+    match parent_component {
+        Component::Standard { name: parent_name, children: parent_children, .. } => {
+            match parent_children {
+                Children::Members { members } => {
+                    let allowed_members: HashMap<_, _> = members.iter()
+                        .map(|member| (&member.component_internal_name, member))
+                        .collect();
+
+                    match child_component {
+                        Component::Standard { internal_name, name, .. } => {
+                            match allowed_members.get(internal_name) {
+                                None => Err(anyhow::anyhow!("{} component not be a child of {}", name, parent_name))?,
+                                Some(_) => (),
+                            }
+                        }
+                        Component::Root { .. } => Err(anyhow::anyhow!("root component not be a child"))?,
+                        Component::TextPart { .. } => Err(anyhow::anyhow!("{} component can not have text child", parent_name))?
+                    }
+                }
+                Children::String { .. } => {
+                    match child_component {
+                        Component::TextPart { .. } => (),
+                        _ => Err(anyhow::anyhow!("{} component can only have text child", parent_name))?
+                    }
+                }
+                Children::None => {
+                    Err(anyhow::anyhow!("{} component cannot have children", parent_name))?
+                }
+            }
+        }
+        Component::Root { children, .. } => {
+            let allowed_children: HashMap<_, _> = children.iter()
+                .map(|member| (&member.component_internal_name, member))
+                .collect();
+
+            match child_component {
+                Component::Standard { internal_name, name, .. } => {
+                    match allowed_children.get(internal_name) {
+                        None => Err(anyhow::anyhow!("{} component not be a child of root", name))?,
+                        Some(..) => (),
+                    }
+                }
+                Component::Root { .. } => Err(anyhow::anyhow!("root component not be a child"))?,
+                Component::TextPart { .. } => Err(anyhow::anyhow!("root component can not have text child"))?
+            }
+        }
+        Component::TextPart { .. } => Err(anyhow::anyhow!("text part component can not have children"))?
+    }
 
     Ok(())
 }
@@ -890,7 +921,7 @@ fn convert_properties(
             } else if val.is_boolean() {
                 Ok((name, ConversionPropertyValue::Bool(val.boolean_value(scope))))
             } else {
-                Err(anyhow!("{:?}: {:?}", name, val.type_of(scope).to_rust_string_lossy(scope)))
+                Err(anyhow!("invalid type for property '{:?}' - {:?}", name, val.type_of(scope).to_rust_string_lossy(scope)))
             }
         })
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;
@@ -955,9 +986,9 @@ impl ComponentModel {
             components: components.into_iter()
                 .filter_map(|component| {
                     match &component {
-                        Component::Standard { internal_name, .. } => Some((internal_name.to_owned(), component)),
-                        Component::Root { .. } => None,
-                        Component::TextPart { .. } => None,
+                        Component::Standard { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
+                        Component::Root { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
+                        Component::TextPart { internal_name } => Some((format!("gauntlet:{}", internal_name), component)),
                     }
                 })
                 .collect()
