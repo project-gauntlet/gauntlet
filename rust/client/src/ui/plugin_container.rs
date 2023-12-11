@@ -92,7 +92,9 @@ impl PluginViewContainer {
 
         if keep_children {
             let new_widget_builtin = self.get_builtin_widget(new_widget.clone());
-            new_widget_builtin.set_children(widget.get_children()?)?;
+            if let Ok(children) = widget.get_children() {
+                new_widget_builtin.set_children(children).expect("should always succeed")
+            }
         }
 
         tracing::trace!("clone_instance is returned. widget: {:?}", widget);
