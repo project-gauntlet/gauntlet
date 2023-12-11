@@ -65,7 +65,7 @@ impl PluginViewContainer {
 
         NativeUiWidget {
             widget_id: self.root_id,
-            widget_type: "gauntlet:___root___".to_owned()
+            widget_type: "gauntlet:root".to_owned()
         }
     }
 

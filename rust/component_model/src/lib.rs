@@ -27,54 +27,36 @@ impl Serialize for ComponentName {
     }
 }
 
-
 #[derive(Debug, Serialize)]
-pub struct Component {
-    #[serde(rename = "internalName")]
-    internal_name: String,
-    name: ComponentName,
-    props: Vec<Property>,
-    children: Children,
-}
-
-impl Component {
-    pub fn internal_name(&self) -> &str {
-        &self.internal_name
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name.0
-    }
-
-    pub fn props(&self) -> &[Property] {
-        &self.props
-    }
-
-    pub fn children(&self) -> &Children {
-        &self.children
+#[serde(tag = "type")]
+pub enum Component {
+    #[serde(rename = "standard")]
+    Standard {
+        #[serde(rename = "internalName")]
+        internal_name: String,
+        name: ComponentName,
+        props: Vec<Property>,
+        children: Children,
+    },
+    #[serde(rename = "root")]
+    Root {
+        #[serde(rename = "internalName")]
+        internal_name: String,
+        children: Vec<RootChild>,
+    },
+    #[serde(rename = "text_part")]
+    TextPart {
+        #[serde(rename = "internalName")]
+        internal_name: String,
     }
 }
 
 #[derive(Debug, Serialize)]
 pub struct Property {
-    name: String,
-    optional: bool,
+    pub name: String,
+    pub optional: bool,
     #[serde(rename = "type")]
-    property_type: PropertyType
-}
-
-impl Property {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn optional(&self) -> bool {
-        self.optional
-    }
-
-    pub fn property_type(&self) -> &PropertyType {
-        &self.property_type
-    }
+    pub property_type: PropertyType
 }
 
 #[derive(Debug, Serialize)]
@@ -102,7 +84,9 @@ pub enum Children {
         members: Vec<ChildrenMember>,
     },
     #[serde(rename = "string")]
-    String,
+    String {
+        component_internal_name: String,
+    },
     #[serde(rename = "none")]
     None,
 }
@@ -110,25 +94,20 @@ pub enum Children {
 #[derive(Debug, Serialize)]
 pub struct ChildrenMember {
     #[serde(rename = "memberName")]
-    member_name: String,
+    pub member_name: String,
     #[serde(rename = "componentInternalName")]
-    component_internal_name: String,
+    pub component_internal_name: String,
     #[serde(rename = "componentName")]
-    component_name: ComponentName,
+    pub component_name: ComponentName,
 }
 
-impl ChildrenMember {
-    pub fn member_name(&self) -> &str {
-        &self.member_name
-    }
-    pub fn component_internal_name(&self) -> &str {
-        &self.component_internal_name
-    }
-    pub fn component_name(&self) -> &ComponentName {
-        &self.component_name
-    }
+#[derive(Debug, Serialize)]
+pub struct RootChild {
+    #[serde(rename = "componentInternalName")]
+    pub component_internal_name: String,
+    #[serde(rename = "componentName")]
+    pub component_name: ComponentName,
 }
-
 
 fn children_members(members: Vec<ChildrenMember>) -> Children {
     Children::Members {
@@ -137,7 +116,9 @@ fn children_members(members: Vec<ChildrenMember>) -> Children {
 }
 
 fn children_string() -> Children {
-    Children::String
+    Children::String {
+        component_internal_name: "text_part".to_owned()
+    }
 }
 
 fn children_none() -> Children {
@@ -145,15 +126,21 @@ fn children_none() -> Children {
 }
 
 fn member(member_name: impl ToString, component: &Component) -> ChildrenMember {
-    ChildrenMember {
-        member_name: member_name.to_string(),
-        component_internal_name: component.internal_name.clone(),
-        component_name: component.name.clone()
+    match component {
+        Component::Standard { internal_name, name, .. } => {
+            ChildrenMember {
+                member_name: member_name.to_string(),
+                component_internal_name: internal_name.to_owned(),
+                component_name: name.to_owned()
+            }
+        }
+        Component::Root { .. } => panic!("invalid component member"),
+        Component::TextPart { .. } => panic!("invalid component member"),
     }
 }
 
 fn component(internal_name: impl ToString, name: impl ToString, properties: Vec<Property>, children: Children) -> Component {
-    Component {
+    Component::Standard {
         internal_name: internal_name.to_string(),
         name: ComponentName::new(name),
         props: properties.into_iter().collect(),
@@ -161,14 +148,26 @@ fn component(internal_name: impl ToString, name: impl ToString, properties: Vec<
     }
 }
 
+fn text_part() -> Component {
+    Component::TextPart {
+        internal_name: "text_part".to_owned()
+    }
+}
+
 fn root(children: &[&Component]) -> Component {
-    Component {
-        internal_name: "___root___".to_string(),
-        name: ComponentName::new("Root"),
-        props: vec![],
-        children: Children::Members {
-            members: children.into_iter().map(|child| member("___", child)).collect(),
-        },
+    Component::Root {
+        internal_name: "root".to_owned(),
+        children: children.into_iter()
+            .map(|child| {
+                match child {
+                    Component::Standard { internal_name, name, .. } => {
+                        RootChild { component_name: name.to_owned(), component_internal_name: internal_name.to_owned() }
+                    }
+                    Component::Root { .. } => panic!("invalid root child"),
+                    Component::TextPart { .. } => panic!("invalid root child"),
+                }
+            })
+            .collect(),
     }
 }
 
@@ -337,6 +336,8 @@ pub fn create_component_model() -> Vec<Component> {
         ])
     );
 
+    let text_part = text_part();
+
     let root = root(&[&detail_component]);
 
     // Detail
@@ -393,6 +394,8 @@ pub fn create_component_model() -> Vec<Component> {
     // Grid.Section
 
     vec![
+        text_part,
+
         text_component,
         link_component,
 

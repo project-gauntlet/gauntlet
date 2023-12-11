@@ -1,11 +1,25 @@
 import ts from "typescript";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 
-type Component = {
+type Component = StandardComponent | RootComponent | TextPartComponent
+
+type StandardComponent = {
+    type: "standard",
     internalName: string,
     name: string,
     props: Property[],
     children: Children,
+}
+
+type RootComponent = {
+    type: "root",
+    internalName: string,
+    children: RootChild[],
+}
+
+type TextPartComponent = {
+    type: "text_part",
+    internalName: string,
 }
 
 type Property = {
@@ -22,6 +36,7 @@ type ChildrenMembers = {
 }
 type ChildrenString = {
     type: "string"
+    component_internal_name: string,
 }
 type ChildrenNone = {
     type: "none"
@@ -29,9 +44,14 @@ type ChildrenNone = {
 
 type ChildrenMember = {
     memberName: string,
+    componentInternalName: string,
     componentName: string,
 }
 
+type RootChild = {
+    componentInternalName: string,
+    componentName: string,
+}
 
 type TypeString = {
     type: "string"
@@ -63,7 +83,7 @@ function generate(componentModelPath: string, outFile: string) {
 }
 
 function makeComponents(modelInput: Component[]): ts.SourceFile {
-    const model = modelInput.filter(component => component.internalName !== "___root___");
+    const model = modelInput.filter((component): component is StandardComponent => component.type === "standard");
 
     const imports = [
         ts.factory.createImportDeclaration(
@@ -448,7 +468,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
     )
 }
 
-function makePropertyTypes(component: Component): ts.TypeElement[] {
+function makePropertyTypes(component: StandardComponent): ts.TypeElement[] {
     const props = component.props.map(property => {
         return ts.factory.createPropertySignature(
             undefined,

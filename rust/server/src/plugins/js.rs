@@ -588,7 +588,7 @@ fn op_react_replace_container_children(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children...");
 
-    for new_child in new_children {
+    for new_child in &new_children {
         validate_child(&state, &container.widget_type, &new_child.widget_type)?
     }
 
@@ -682,38 +682,44 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
 
     let component = component_model.components.get(internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", internal_name))?;
 
-    for comp_prop in component.props() {
-        match properties.get(comp_prop.name()) {
-            None => {
-                if !comp_prop.optional() {
-                    Err(anyhow::anyhow!("property {} is required on {} component", comp_prop.name(), component.name()))?
-                }
-            }
-            Some(prop_value) => {
-                match prop_value {
-                    ConversionPropertyValue::Function(_) => {
-                        if !matches!(comp_prop.property_type(), PropertyType::Function) {
-                            Err(anyhow::anyhow!("property {} on {} component has to be a function", comp_prop.name(), component.name()))?
+    match component {
+        Component::Standard { name, props, .. } => {
+            for comp_prop in props {
+                match properties.get(&comp_prop.name) {
+                    None => {
+                        if !comp_prop.optional {
+                            Err(anyhow::anyhow!("property {} is required on {} component", comp_prop.name, name))?
                         }
                     }
-                    ConversionPropertyValue::String(_) => {
-                        if !matches!(comp_prop.property_type(), PropertyType::String) {
-                            Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name(), component.name()))?
-                        }
-                    }
-                    ConversionPropertyValue::Number(_) => {
-                        if !matches!(comp_prop.property_type(), PropertyType::Number) {
-                            Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name(), component.name()))?
-                        }
-                    }
-                    ConversionPropertyValue::Bool(_) => {
-                        if !matches!(comp_prop.property_type(), PropertyType::Boolean) {
-                            Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name(), component.name()))?
+                    Some(prop_value) => {
+                        match prop_value {
+                            ConversionPropertyValue::Function(_) => {
+                                if !matches!(comp_prop.property_type, PropertyType::Function) {
+                                    Err(anyhow::anyhow!("property {} on {} component has to be a function", comp_prop.name, name))?
+                                }
+                            }
+                            ConversionPropertyValue::String(_) => {
+                                if !matches!(comp_prop.property_type, PropertyType::String) {
+                                    Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name, name))?
+                                }
+                            }
+                            ConversionPropertyValue::Number(_) => {
+                                if !matches!(comp_prop.property_type, PropertyType::Number) {
+                                    Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name, name))?
+                                }
+                            }
+                            ConversionPropertyValue::Bool(_) => {
+                                if !matches!(comp_prop.property_type, PropertyType::Boolean) {
+                                    Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name, name))?
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+        Component::Root { .. } => panic!("cannot validate root"),
+        Component::TextPart { .. } => panic!("cannot validate text_part")
     }
 
     Ok(())
@@ -945,7 +951,17 @@ pub struct ComponentModel {
 
 impl ComponentModel {
     fn new(components: Vec<Component>) -> Self {
-        Self { components: components.into_iter().map(|component| (component.internal_name().to_owned(), component)).collect() }
+        Self {
+            components: components.into_iter()
+                .filter_map(|component| {
+                    match &component {
+                        Component::Standard { internal_name, .. } => Some((internal_name.to_owned(), component)),
+                        Component::Root { .. } => None,
+                        Component::TextPart { .. } => None,
+                    }
+                })
+                .collect()
+        }
     }
 }
 
