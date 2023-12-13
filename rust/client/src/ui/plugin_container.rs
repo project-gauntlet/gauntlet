@@ -41,44 +41,50 @@ impl Default for PluginViewContainer {
 }
 
 impl PluginViewContainer {
-    fn create_native_widget(&mut self, widget_type: &str, create_fn: impl FnOnce(NativeUiWidgetId) -> anyhow::Result<ComponentWidgetWrapper>) -> anyhow::Result<NativeUiWidget> {
+    fn create_native_widget(&mut self, create_fn: impl FnOnce(NativeUiWidgetId) -> anyhow::Result<ComponentWidgetWrapper>) -> anyhow::Result<NativeUiWidget> {
         let id = self.next_id;
-        self.widget_map.insert(id, create_fn(id)?);
+        let widget = create_fn(id)?;
+        self.widget_map.insert(id, widget.clone());
 
         self.next_id += 1;
 
-        Ok(NativeUiWidget {
-            widget_id: id,
-            widget_type: widget_type.to_owned(),
-        })
+        Ok(widget.as_native_widget())
     }
 
-    fn get_builtin_widget(&mut self, ui_widget: NativeUiWidget) -> ComponentWidgetWrapper {
-        self.widget_map.get(&ui_widget.widget_id).unwrap().clone()
+    fn get_component_widget(&mut self, ui_widget: NativeUiWidget) -> anyhow::Result<ComponentWidgetWrapper> {
+        self.get_component_widget_by_id(ui_widget.widget_id)
+    }
+
+    fn get_component_widget_by_id(&mut self, widget_id: NativeUiWidgetId) -> anyhow::Result<ComponentWidgetWrapper> {
+        let wrapper = self.widget_map.get(&widget_id)
+            .ok_or(anyhow::anyhow!("widget with id {:?} doesn't exist", widget_id))?;
+
+        Ok(wrapper.clone())
     }
 
     fn get_root(&mut self) -> NativeUiWidget {
         tracing::trace!("get_root is called");
+
         if let Entry::Vacant(value) = self.widget_map.entry(self.root_id) {
             value.insert(ComponentWidgetWrapper::root(self.root_id));
         };
 
-        NativeUiWidget {
-            widget_id: self.root_id,
-            widget_type: "gauntlet:root".to_owned()
-        }
+        let widget = self.get_component_widget_by_id(self.root_id)
+            .expect("there should always be a root widget");
+
+        widget.as_native_widget()
     }
 
     fn create_instance(&mut self, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("create_instance is called. widget_type: {:?}, new_props: {:?}", widget_type, properties);
-        let widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, properties));
+        let widget = self.create_native_widget(|id| ComponentWidgetWrapper::widget(id, widget_type, properties));
         tracing::trace!("create_instance is returned. widget: {:?}", widget);
         widget
     }
 
     fn create_text_instance(&mut self, text: &str) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("create_text_instance is called. text: {:?}", text);
-        let widget = self.create_native_widget("gauntlet:text_part", |id| ComponentWidgetWrapper::text_part(id, text));
+        let widget = self.create_native_widget(|id| ComponentWidgetWrapper::text_part(id, text));
         tracing::trace!("create_text_instance is returned. widget: {:?}", widget);
         widget
     }
@@ -86,12 +92,12 @@ impl PluginViewContainer {
     fn clone_instance(&mut self, widget: NativeUiWidget, widget_type: &str, new_props: HashMap<String, NativeUiPropertyValue>, keep_children: bool) -> anyhow::Result<NativeUiWidget> {
         tracing::trace!("clone_instance is called. widget: {:?}, widget_type: {:?}, new_props: {:?}, keep_children: {:?}", widget, widget_type, new_props, keep_children);
 
-        let widget = self.get_builtin_widget(widget);
+        let widget = self.get_component_widget(widget)?;
 
-        let new_widget = self.create_native_widget(widget_type, |id| ComponentWidgetWrapper::widget(id, widget_type, new_props))?;
+        let new_widget = self.create_native_widget(|id| ComponentWidgetWrapper::widget(id, widget_type, new_props))?;
 
         if keep_children {
-            let new_widget_builtin = self.get_builtin_widget(new_widget.clone());
+            let new_widget_builtin = self.get_component_widget(new_widget.clone())?;
             if let Ok(children) = widget.get_children() {
                 new_widget_builtin.set_children(children).expect("should always succeed")
             }
@@ -104,19 +110,19 @@ impl PluginViewContainer {
 
     fn append_child(&mut self, parent: NativeUiWidget, child: NativeUiWidget) -> anyhow::Result<()> {
         tracing::trace!("append_child is called. parent: {:?}, child: {:?}", parent, child);
-        let parent = self.get_builtin_widget(parent);
-        let child = self.get_builtin_widget(child);
+        let parent = self.get_component_widget(parent)?;
+        let child = self.get_component_widget(child)?;
 
         parent.append_child(child)
     }
 
     fn replace_container_children(&mut self, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) -> anyhow::Result<()> {
         tracing::trace!("replace_container_children is called. container: {:?}, new_children: {:?}", container, new_children);
-        let container = self.get_builtin_widget(container);
+        let container = self.get_component_widget(container)?;
 
         let children = new_children.into_iter()
-            .map(|child| self.get_builtin_widget(child))
-            .collect();
+            .map(|child| self.get_component_widget(child))
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         container.set_children(children)
     }
