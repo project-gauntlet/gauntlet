@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Application, Command, Element, Event, executor, futures, keyboard, Length, Padding, Renderer, Subscription, subscription};
+use iced::{Application, Command, Event, executor, futures, keyboard, Length, Padding, Subscription, subscription};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
@@ -18,11 +18,13 @@ use crate::dbus::{DbusClient, DbusServerProxyProxy};
 use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult};
 use crate::ui::plugin_container::{ClientContext, plugin_container};
 use crate::ui::search_list::search_list;
+use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
 use crate::ui::widget::ComponentWidgetEvent;
 
 mod plugin_container;
 mod search_list;
 mod widget;
+mod theme;
 
 pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
@@ -60,25 +62,28 @@ pub enum AppMsg {
     Noop,
 }
 
+const WINDOW_WIDTH: u32 = 650;
+const WINDOW_HEIGHT: u32 = 400;
+
 pub fn run() {
     AppModel::run(Settings {
         id: None,
         window: iced::window::Settings {
-            size: (650, 400),
+            size: (WINDOW_WIDTH, WINDOW_HEIGHT),
             position: Position::Centered,
             resizable: false,
             decorations: false,
+            transparent: true,
             ..Default::default()
         },
         ..Default::default()
     }).unwrap();
 }
 
-
 impl Application for AppModel {
     type Executor = executor::Default;
     type Message = AppMsg;
-    type Theme = iced::Theme;
+    type Theme = GauntletTheme;
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
@@ -216,12 +221,12 @@ impl Application for AppModel {
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message, Renderer<Self::Theme>> {
+    fn view(&self) -> Element<'_, Self::Message> {
         let client_context = self.client_context.clone();
 
         match &self.state.last().expect("state is supposed to always have at least one item") {
             NavState::SearchView { prompt } => {
-                let input: Element<_> = text_input("", prompt.as_ref().unwrap_or(&"".to_owned()))
+                let input: Element<_> = text_input("Search...", prompt.as_ref().unwrap_or(&"".to_owned()))
                     .on_input(AppMsg::PromptChanged)
                     .width(Length::Fill)
                     .into();
@@ -254,19 +259,35 @@ impl Application for AppModel {
                 ])
                     .into();
 
-                // column.explain(Color::from_rgb(1f32, 0f32, 0f32))
-                column
-            }
-            NavState::PluginView { plugin_id, entrypoint_id } => {
-                let container: Element<ComponentWidgetEvent> = plugin_container(client_context, plugin_id.clone())
+                let element: Element<_> = container(column)
+                    .style(ContainerStyle::ApplicationBackground)
+                    .height(Length::Fixed(WINDOW_HEIGHT as f32))
+                    .width(Length::Fixed(WINDOW_WIDTH as f32))
                     .into();
 
-                container.map(|widget_event| AppMsg::WidgetEvent {
+                // element.explain(iced::color!(0xFF0000))
+                element
+            }
+            NavState::PluginView { plugin_id, entrypoint_id } => {
+                let container_element: Element<ComponentWidgetEvent> = plugin_container(client_context, plugin_id.clone())
+                    .into();
+
+                let container_element = container_element.map(|widget_event| AppMsg::WidgetEvent {
                     plugin_id: plugin_id.to_owned(),
                     widget_event,
-                })
+                });
+
+                container(container_element)
+                    .style(ContainerStyle::ApplicationBackground)
+                    .height(Length::Fixed(WINDOW_HEIGHT as f32))
+                    .width(Length::Fixed(WINDOW_WIDTH as f32))
+                    .into()
             }
         }
+    }
+
+    fn theme(&self) -> Self::Theme {
+        GauntletTheme::new()
     }
 
     fn subscription(&self) -> Subscription<AppMsg> {

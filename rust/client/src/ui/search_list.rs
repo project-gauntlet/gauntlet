@@ -1,16 +1,15 @@
-use iced::{Color, Padding};
-use iced::Element;
 use iced::Length;
-use iced::Renderer;
-use iced::theme::{Button, Text};
+use iced::Padding;
 use iced::widget::{column, Component, container};
 use iced::widget::button;
 use iced::widget::component;
 use iced::widget::row;
 use iced::widget::text;
 
-use crate::model::NativeUiSearchResult;
 use common::model::{EntrypointId, PluginId};
+
+use crate::model::NativeUiSearchResult;
+use crate::ui::theme::{ButtonStyle, Element, GauntletRenderer, TextStyle};
 
 pub struct SearchList<Message> {
     on_open_view: Box<dyn Fn(OpenViewEvent) -> Message>,
@@ -19,8 +18,8 @@ pub struct SearchList<Message> {
 
 pub fn search_list<Message>(
     search_results: Vec<NativeUiSearchResult>,
-    on_open_view: impl Fn(OpenViewEvent) -> Message + 'static) -> SearchList<Message>
-{
+    on_open_view: impl Fn(OpenViewEvent) -> Message + 'static
+) -> SearchList<Message> {
     SearchList::new(search_results, on_open_view)
 }
 
@@ -46,7 +45,7 @@ impl<Message> SearchList<Message> {
     }
 }
 
-impl<Message> Component<Message, Renderer> for SearchList<Message> {
+impl<Message> Component<Message, GauntletRenderer> for SearchList<Message> {
     type State = ();
     type Event = Event;
 
@@ -63,7 +62,7 @@ impl<Message> Component<Message, Renderer> for SearchList<Message> {
         }
     }
 
-    fn view(&self, _state: &Self::State) -> Element<Event, Renderer> {
+    fn view(&self, _state: &Self::State) -> Element<Event> {
         let items: Vec<Element<_>> = self.search_results
             .iter()
             .map(|search_result| {
@@ -74,7 +73,7 @@ impl<Message> Component<Message, Renderer> for SearchList<Message> {
                     .into();
 
                 let sub_text: Element<_> = text(&search_result.plugin_name)
-                    .style(Text::Color(Color::new(0.0, 0.0, 0.0, 0.7)))
+                    .style(TextStyle::Subtext)
                     .into();
                 let sub_text: Element<_> = container(sub_text)
                     .padding(Padding::new(3.0))
@@ -87,7 +86,7 @@ impl<Message> Component<Message, Renderer> for SearchList<Message> {
 
                 button(button_content)
                     .width(Length::Fill)
-                    .style(Button::Secondary)
+                    .style(ButtonStyle::EntrypointItem)
                     .on_press(Event::OpenView { entrypoint_id: search_result.entrypoint_id.clone(), plugin_id: search_result.plugin_id.clone() })
                     .padding(Padding::new(5.0))
                     .into()
@@ -98,7 +97,7 @@ impl<Message> Component<Message, Renderer> for SearchList<Message> {
     }
 }
 
-impl<'a, Message> From<SearchList<Message>> for Element<'a, Message, Renderer>
+impl<'a, Message> From<SearchList<Message>> for Element<'a, Message>
     where
         Message: 'a,
 {

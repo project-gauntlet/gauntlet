@@ -2,14 +2,14 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use iced::{Element, Length};
-use iced::Renderer;
+use iced::{Length};
 use iced::widget::{Component, vertical_space};
 use iced::widget::component;
 
 use common::model::PluginId;
 
 use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
+use crate::ui::theme::{Element, GauntletRenderer};
 use crate::ui::widget::{ComponentWidgetEvent, ComponentWidgetWrapper};
 
 pub struct PluginContainer {
@@ -128,7 +128,7 @@ impl PluginViewContainer {
     }
 }
 
-impl Component<ComponentWidgetEvent, Renderer> for PluginContainer {
+impl Component<ComponentWidgetEvent, GauntletRenderer> for PluginContainer {
     type State = ();
     type Event = ComponentWidgetEvent;
 
@@ -140,7 +140,7 @@ impl Component<ComponentWidgetEvent, Renderer> for PluginContainer {
         Some(event)
     }
 
-    fn view(&self, _state: &Self::State) -> Element<Self::Event, Renderer> {
+    fn view(&self, _state: &Self::State) -> Element<Self::Event> {
         let client_context = self.client_context.read().expect("lock is poisoned");
         let container = client_context.get_view_container(&self.plugin_id);
 

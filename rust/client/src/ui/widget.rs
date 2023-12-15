@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use iced::Element;
-use iced::theme::Button;
 use iced::widget::{button, column, row, text};
 use zbus::SignalContext;
 
@@ -11,6 +9,7 @@ use common::model::PluginId;
 
 use crate::dbus::DbusClient;
 use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
+use crate::ui::theme::{ButtonStyle, Element};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -63,7 +62,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 button(content)
-                    .style(Button::Text)
+                    .style(ButtonStyle::Link)
                     .on_press(ComponentWidgetEvent::LinkClick { href: href.to_owned() })
                     .into()
             }
@@ -127,7 +126,12 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Detail { children } => {
-                row(render_children(children))
+                let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }))
+                    .unwrap();
+                let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }))
+                    .unwrap();
+
+                row(vec![content_element, metadata_element])
                     .into()
             }
             ComponentWidget::Root { children } => {
@@ -158,11 +162,37 @@ impl ComponentWidgetWrapper {
     }
 }
 
-pub fn render_children<'a>(
+fn render_children<'a>(
     content: &[ComponentWidgetWrapper]
 ) -> Vec<Element<'a, ComponentWidgetEvent>> {
     return content
         .into_iter()
+        .map(|child| child.render_widget())
+        .collect();
+}
+
+fn render_child_by_type<'a>(
+    content: &[ComponentWidgetWrapper],
+    predicate: impl Fn(&ComponentWidget) -> bool
+) -> anyhow::Result<Element<'a, ComponentWidgetEvent>> {
+    let vec: Vec<_> = content
+        .into_iter()
+        .filter(|child| predicate(&child.get()))
+        .collect();
+
+    match vec[..] {
+        [] => Err(anyhow::anyhow!("no child matching predicate found")),
+        [single] => Ok(single.render_widget()),
+        [_, _, ..] => Err(anyhow::anyhow!("more than 1 child matching predicate found")),
+    }
+}
+
+fn render_children_by_type<'a>(
+    content: &[ComponentWidgetWrapper], predicate: impl Fn(&ComponentWidget) -> bool
+) -> Vec<Element<'a, ComponentWidgetEvent>> {
+    return content
+        .into_iter()
+        .filter(|child| predicate(&child.get()))
         .map(|child| child.render_widget())
         .collect();
 }
