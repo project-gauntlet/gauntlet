@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use iced::Font;
+use iced::font::Weight;
 use iced::widget::{button, column, row, text};
 use zbus::SignalContext;
 
@@ -18,6 +20,17 @@ pub struct ComponentWidgetWrapper {
 }
 
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
+
+#[derive(Clone, Copy)]
+pub enum ComponentRenderContext {
+    None,
+    H1,
+    H2,
+    H3,
+    H4,
+    H5,
+    H6,
+}
 
 impl ComponentWidgetWrapper {
     pub fn widget(id: NativeUiWidgetId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<Self> {
@@ -47,18 +60,39 @@ impl ComponentWidgetWrapper {
         self.inner.write().expect("lock is poisoned")
     }
 
-    pub fn render_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
+    pub fn render_widget<'a>(&self, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
         let widget = self.get();
         match &*widget {
             ComponentWidget::TextPart(text_content) => {
-                text(text_content).into()
+                let size = match context {
+                    ComponentRenderContext::None => None,
+                    ComponentRenderContext::H1 => Some(34),
+                    ComponentRenderContext::H2 => Some(30),
+                    ComponentRenderContext::H3 => Some(24),
+                    ComponentRenderContext::H4 => Some(20),
+                    ComponentRenderContext::H5 => Some(18),
+                    ComponentRenderContext::H6 => Some(16),
+                };
+
+                let mut text = text(text_content);
+
+                if let Some(size) = size {
+                    text = text
+                        .size(size)
+                        .font(Font {
+                            weight: Weight::Bold,
+                            ..Font::DEFAULT
+                        })
+                }
+
+                text.into()
             }
             ComponentWidget::Text { children } => {
-                row(render_children(children))
+                row(render_children(children, context))
                     .into()
             }
             ComponentWidget::Link { children, href } => {
-                let content: Element<_> = row(render_children(children))
+                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
                     .into();
 
                 button(content)
@@ -67,7 +101,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Tag { children, onClick: _, color: _ } => {
-                let content: Element<_> = row(render_children(children))
+                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
                     .into();
 
                 button(content)
@@ -75,41 +109,41 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::MetadataItem { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::None))
                     .into()
             }
             ComponentWidget::Separator => {
                 text("Separator").into()
             }
             ComponentWidget::Metadata { children } => {
-                column(render_children(children))
+                column(render_children(children, ComponentRenderContext::None))
                     .into()
             }
             ComponentWidget::Image => {
                 text("Image").into()
             }
             ComponentWidget::H1 { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::H1))
                     .into()
             }
             ComponentWidget::H2 { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::H2))
                     .into()
             }
             ComponentWidget::H3 { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::H3))
                     .into()
             }
             ComponentWidget::H4 { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::H4))
                     .into()
             }
             ComponentWidget::H5 { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::H5))
                     .into()
             }
             ComponentWidget::H6 { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::H6))
                     .into()
             }
             ComponentWidget::HorizontalBreak => {
@@ -122,20 +156,20 @@ impl ComponentWidgetWrapper {
                 text("Code").into()
             }
             ComponentWidget::Content { children } => {
-                column(render_children(children))
+                column(render_children(children, ComponentRenderContext::None))
                     .into()
             }
             ComponentWidget::Detail { children } => {
-                let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }))
+                let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }), ComponentRenderContext::None)
                     .unwrap();
-                let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }))
+                let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
                     .unwrap();
 
                 row(vec![content_element, metadata_element])
                     .into()
             }
             ComponentWidget::Root { children } => {
-                row(render_children(children))
+                row(render_children(children, ComponentRenderContext::None))
                     .into()
             }
         }
@@ -163,17 +197,19 @@ impl ComponentWidgetWrapper {
 }
 
 fn render_children<'a>(
-    content: &[ComponentWidgetWrapper]
+    content: &[ComponentWidgetWrapper],
+    context: ComponentRenderContext
 ) -> Vec<Element<'a, ComponentWidgetEvent>> {
     return content
         .into_iter()
-        .map(|child| child.render_widget())
+        .map(|child| child.render_widget(context))
         .collect();
 }
 
 fn render_child_by_type<'a>(
     content: &[ComponentWidgetWrapper],
-    predicate: impl Fn(&ComponentWidget) -> bool
+    predicate: impl Fn(&ComponentWidget) -> bool,
+    context: ComponentRenderContext
 ) -> anyhow::Result<Element<'a, ComponentWidgetEvent>> {
     let vec: Vec<_> = content
         .into_iter()
@@ -182,18 +218,19 @@ fn render_child_by_type<'a>(
 
     match vec[..] {
         [] => Err(anyhow::anyhow!("no child matching predicate found")),
-        [single] => Ok(single.render_widget()),
+        [single] => Ok(single.render_widget(context)),
         [_, _, ..] => Err(anyhow::anyhow!("more than 1 child matching predicate found")),
     }
 }
 
 fn render_children_by_type<'a>(
-    content: &[ComponentWidgetWrapper], predicate: impl Fn(&ComponentWidget) -> bool
+    content: &[ComponentWidgetWrapper], predicate: impl Fn(&ComponentWidget) -> bool,
+    context: ComponentRenderContext
 ) -> Vec<Element<'a, ComponentWidgetEvent>> {
     return content
         .into_iter()
         .filter(|child| predicate(&child.get()))
-        .map(|child| child.render_widget())
+        .map(|child| child.render_widget(context))
         .collect();
 }
 

@@ -10,7 +10,7 @@ use common::model::PluginId;
 
 use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
 use crate::ui::theme::{Element, GauntletRenderer};
-use crate::ui::widget::{ComponentWidgetEvent, ComponentWidgetWrapper};
+use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent, ComponentWidgetWrapper};
 
 pub struct PluginContainer {
     client_context: Arc<RwLock<ClientContext>>,
@@ -145,7 +145,7 @@ impl Component<ComponentWidgetEvent, GauntletRenderer> for PluginContainer {
         let container = client_context.get_view_container(&self.plugin_id);
 
         if let Some(widget) = container.widget_map.get(&container.root_id) {
-            widget.render_widget()
+            widget.render_widget(ComponentRenderContext::None)
         } else {
             vertical_space(Length::Fill).into()
         }
