@@ -292,7 +292,7 @@ impl button::StyleSheet for GauntletTheme {
                 text_color: palette.secondary.base.text,
                 ..appearance
             },
-            _ => self.hovered(style)
+            _ => self.active(style)
         }
     }
 }
