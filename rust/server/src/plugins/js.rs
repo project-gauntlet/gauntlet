@@ -225,7 +225,7 @@ impl ModuleLoader for CustomModuleLoader {
     ) -> Result<ModuleSpecifier, anyhow::Error> {
         static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
         static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
-        static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>\w+)\.js$").expect("invalid regex"));
+        static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>[a-zA-Z0-9_-]+)\.js$").expect("invalid regex"));
 
         if PLUGIN_VIEW_PATTERN.is_match(specifier) {
             return Ok(specifier.parse()?);
