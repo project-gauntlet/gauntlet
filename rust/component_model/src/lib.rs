@@ -336,21 +336,22 @@ pub fn create_component_model() -> Vec<Component> {
         children_string()
     );
 
-    let code_component = component(
-        "code",
-        "Code",
-        vec![],
-        children_string()
-    );
+    // let code_component = component(
+    //     "code",
+    //     "Code",
+    //     vec![],
+    //     children_string()
+    // );
 
     let paragraph_component = component(
         "paragraph",
         "Paragraph",
         vec![],
-        children_string_or_members(vec![
-            member("Link", &link_component),
-            member("Code", &code_component),
-        ]),
+        children_string()
+        // children_string_or_members(vec![
+        //     member("Link", &link_component),
+        //     member("Code", &code_component),
+        // ]),
     );
 
     let content_component = component(
@@ -369,7 +370,7 @@ pub fn create_component_model() -> Vec<Component> {
             member("H6", &h6_component),
             member("HorizontalBreak", &horizontal_break_component),
             member("CodeBlock", &code_block_component),
-            member("Code", &code_component),
+            // member("Code", &code_component),
         ])
     );
 
@@ -464,7 +465,7 @@ pub fn create_component_model() -> Vec<Component> {
         h6_component,
         horizontal_break_component,
         code_block_component,
-        code_component,
+        // code_component,
         paragraph_component,
         content_component,
 

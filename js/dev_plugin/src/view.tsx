@@ -15,7 +15,6 @@ export default function View(): ReactElement {
                 <Detail.Content.H4>H4 Title</Detail.Content.H4>
                 <Detail.Content.H5>H5 Title</Detail.Content.H5>
                 <Detail.Content.H6>H6 Title</Detail.Content.H6>
-                <Detail.Content.Code>Code code Code</Detail.Content.Code>
                 <Detail.Content.Image/>
                 <Detail.Content.Link href={"https://google.com/"}>Google Link</Detail.Content.Link>
                 <Detail.Content.CodeBlock>Code block Test</Detail.Content.CodeBlock>
@@ -31,13 +30,6 @@ export default function View(): ReactElement {
                     {upperCase("times")}
                 </Detail.Content.Paragraph>
                 <Detail.Content.H4>Another H4 Title</Detail.Content.H4>
-                <Detail.Content.Paragraph>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
-                    et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-                    aliquip <Detail.Content.Code> ex ea commodo consequat. </Detail.Content.Code> Duis aute irure dolor in reprehenderit in voluptate velit esse
-                    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-                    culpa qui officia deserunt mollit anim id est laborum.
-                </Detail.Content.Paragraph>
                 <Detail.Content.Paragraph>
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
                     et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut

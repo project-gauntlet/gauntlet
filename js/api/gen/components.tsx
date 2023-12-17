@@ -55,14 +55,11 @@ declare global {
             ["gauntlet:code_block"]: {
                 children?: StringComponent;
             };
-            ["gauntlet:code"]: {
+            ["gauntlet:paragraph"]: {
                 children?: StringComponent;
             };
-            ["gauntlet:paragraph"]: {
-                children?: StringOrElementComponent<typeof Link | typeof Code>;
-            };
             ["gauntlet:content"]: {
-                children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock | typeof Code>;
+                children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
             };
             ["gauntlet:detail"]: {
                 children?: ElementComponent<typeof Metadata | typeof Content>;
@@ -191,25 +188,14 @@ export interface CodeBlockProps {
 export const CodeBlock: FC<CodeBlockProps> = (props: CodeBlockProps): ReactNode => {
     return <gauntlet:code_block children={props.children}/>;
 };
-export interface CodeProps {
+export interface ParagraphProps {
     children?: StringComponent;
 }
-export const Code: FC<CodeProps> = (props: CodeProps): ReactNode => {
-    return <gauntlet:code children={props.children}/>;
-};
-export interface ParagraphProps {
-    children?: StringOrElementComponent<typeof Link | typeof Code>;
-}
-export const Paragraph: FC<ParagraphProps> & {
-    Link: typeof Link;
-    Code: typeof Code;
-} = (props: ParagraphProps): ReactNode => {
+export const Paragraph: FC<ParagraphProps> = (props: ParagraphProps): ReactNode => {
     return <gauntlet:paragraph children={props.children}/>;
 };
-Paragraph.Link = Link;
-Paragraph.Code = Code;
 export interface ContentProps {
-    children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock | typeof Code>;
+    children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
 }
 export const Content: FC<ContentProps> & {
     Paragraph: typeof Paragraph;
@@ -223,7 +209,6 @@ export const Content: FC<ContentProps> & {
     H6: typeof H6;
     HorizontalBreak: typeof HorizontalBreak;
     CodeBlock: typeof CodeBlock;
-    Code: typeof Code;
 } = (props: ContentProps): ReactNode => {
     return <gauntlet:content children={props.children}/>;
 };
@@ -238,7 +223,6 @@ Content.H5 = H5;
 Content.H6 = H6;
 Content.HorizontalBreak = HorizontalBreak;
 Content.CodeBlock = CodeBlock;
-Content.Code = Code;
 export interface DetailProps {
     children?: ElementComponent<typeof Metadata | typeof Content>;
 }

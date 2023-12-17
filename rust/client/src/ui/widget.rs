@@ -228,21 +228,20 @@ impl ComponentWidgetWrapper {
                     .style(ContainerStyle::Code)
                     .into()
             }
-            ComponentWidget::Code { children } => {
-                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
-                    .padding(Padding::from([3.0, 5.0]))
-                    .into();
-
-                container(content)
-                    .style(ContainerStyle::Code)
-                    .into()
-            }
+            // ComponentWidget::Code { children } => {
+            //     let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
+            //         .padding(Padding::from([3.0, 5.0]))
+            //         .into();
+            //
+            //     container(content)
+            //         .style(ContainerStyle::Code)
+            //         .into()
+            // }
             ComponentWidget::Content { children } => {
                 let content: Element<_> = column(render_children(children, ComponentRenderContext::None))
                     .into();
 
                 scrollable(content)
-                    // .direction(Direction::Both { horizontal: Properties::default(), vertical: Properties::default() })
                     .width(Length::Fill)
                     .into()
             }
