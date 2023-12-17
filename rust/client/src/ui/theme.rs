@@ -167,7 +167,8 @@ impl scrollable::StyleSheet for GauntletTheme {
 pub enum ContainerStyle {
     #[default]
     Transparent,
-    ApplicationBackground,
+    Background,
+    Code,
 }
 
 impl container::StyleSheet for GauntletTheme {
@@ -176,13 +177,24 @@ impl container::StyleSheet for GauntletTheme {
     fn appearance(&self, style: &Self::Style) -> container::Appearance {
         match style {
             ContainerStyle::Transparent => Default::default(),
-            ContainerStyle::ApplicationBackground => {
+            ContainerStyle::Background => {
                 let palette = self.extended_palette();
 
                 container::Appearance {
                     text_color: None,
                     background: Some(palette.background.base.color.into()),
                     border_radius: 10.0.into(),
+                    border_width: 1.0,
+                    border_color: palette.background.weak.color,
+                }
+            }
+            ContainerStyle::Code => {
+                let palette = self.extended_palette();
+
+                container::Appearance {
+                    text_color: None,
+                    background: Some(palette.background.weak.color.into()),
+                    border_radius: 4.0.into(),
                     border_width: 1.0,
                     border_color: palette.background.weak.color,
                 }
@@ -267,7 +279,7 @@ impl button::StyleSheet for GauntletTheme {
             ButtonStyle::Positive => from_pair(palette.success.base),
             ButtonStyle::Destructive => from_pair(palette.danger.base),
             ButtonStyle::Link => button::Appearance {
-                text_color: palette.background.base.text,
+                text_color: palette.background.weak.text,
                 ..appearance
             },
             ButtonStyle::EntrypointItem => button::Appearance {

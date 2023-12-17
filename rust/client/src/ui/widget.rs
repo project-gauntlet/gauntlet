@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use iced::Font;
+use iced::{Font, Length, Padding};
 use iced::font::Weight;
-use iced::widget::{button, column, row, text};
+use iced::widget::{button, column, container, horizontal_rule, row, scrollable, text, tooltip, vertical_rule};
+use iced::widget::tooltip::Position;
 use zbus::SignalContext;
 
 use common::dbus::DbusEventViewEvent;
@@ -11,7 +12,7 @@ use common::model::PluginId;
 
 use crate::dbus::DbusClient;
 use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
-use crate::ui::theme::{ButtonStyle, Element};
+use crate::ui::theme::{ButtonStyle, ContainerStyle, Element};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -87,37 +88,100 @@ impl ComponentWidgetWrapper {
 
                 text.into()
             }
-            ComponentWidget::Text { children } => {
-                row(render_children(children, context))
+            ComponentWidget::MetadataTag { children, onClick: _ } => {
+                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                let tag: Element<_> = button(content)
+                    .on_press(ComponentWidgetEvent::TagClick { widget: self.as_native_widget() })
+                    .into();
+
+                container(tag)
+                    .padding(Padding::new(5.0))
+                    .into()
+            }
+            ComponentWidget::MetadataTags { label,  children } => {
+                let value = row(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                render_metadata_item(label, value)
+                    .into()
+            }
+            ComponentWidget::MetadataLink { label, children, href } => {
+                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                let link: Element<_> = button(content)
+                    .style(ButtonStyle::Link)
+                    .on_press(ComponentWidgetEvent::LinkClick { href: href.to_owned() })
+                    .into();
+
+                let content: Element<_> = if href.is_empty() {
+                    link
+                } else {
+                    tooltip(link, href, Position::Top)
+                        .style(ContainerStyle::Background)
+                        .into()
+                };
+
+                render_metadata_item(label, content)
+                    .into()
+            }
+            ComponentWidget::MetadataValue { label, children} => {
+                let value = row(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                render_metadata_item(label, value)
+                    .into()
+            }
+            ComponentWidget::MetadataIcon { label, icon} => {
+                let value = text(icon).into();
+
+                render_metadata_item(label, value)
+                    .into()
+            }
+            ComponentWidget::MetadataSeparator => {
+                let separator: Element<_> = horizontal_rule(1)
+                    .into();
+
+                container(separator)
+                    .width(Length::Fill)
+                    .padding(Padding::from([10.0, 0.0]))
+                    .into()
+            }
+            ComponentWidget::Metadata { children } => {
+                let metadata: Element<_> = column(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                scrollable(metadata)
+                    .width(Length::Fill)
+                    .into()
+            }
+            ComponentWidget::Paragraph { children } => {
+                let paragraph: Element<_> = row(render_children(children, context))
+                    .into();
+
+                container(paragraph)
+                    .width(Length::Fill)
+                    .padding(Padding::new(5.0))
                     .into()
             }
             ComponentWidget::Link { children, href } => {
                 let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
                     .into();
 
-                button(content)
+                let content: Element<_> = button(content)
                     .style(ButtonStyle::Link)
                     .on_press(ComponentWidgetEvent::LinkClick { href: href.to_owned() })
-                    .into()
-            }
-            ComponentWidget::Tag { children, onClick: _, color: _ } => {
-                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
                     .into();
 
-                button(content)
-                    .on_press(ComponentWidgetEvent::TagClick { widget: self.as_native_widget() })
-                    .into()
-            }
-            ComponentWidget::MetadataItem { children } => {
-                row(render_children(children, ComponentRenderContext::None))
-                    .into()
-            }
-            ComponentWidget::Separator => {
-                text("Separator").into()
-            }
-            ComponentWidget::Metadata { children } => {
-                column(render_children(children, ComponentRenderContext::None))
-                    .into()
+                if href.is_empty() {
+                    content
+                } else {
+                    tooltip(content, href, Position::Top)
+                        .style(ContainerStyle::Background)
+                        .into()
+                }
             }
             ComponentWidget::Image => {
                 text("Image").into()
@@ -147,25 +211,67 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::HorizontalBreak => {
-                text("HorizontalBreak").into()
+                let separator: Element<_> = horizontal_rule(1).into();
+
+                container(separator)
+                    .width(Length::Fill)
+                    .padding(Padding::from([10.0, 0.0]))
+                    .into()
             }
             ComponentWidget::CodeBlock { children } => {
-                text("CodeBlock").into()
+                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
+                    .padding(Padding::from([3.0, 5.0]))
+                    .into();
+
+                container(content)
+                    .width(Length::Fill)
+                    .style(ContainerStyle::Code)
+                    .into()
             }
             ComponentWidget::Code { children } => {
-                text("Code").into()
+                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
+                    .padding(Padding::from([3.0, 5.0]))
+                    .into();
+
+                container(content)
+                    .style(ContainerStyle::Code)
+                    .into()
             }
             ComponentWidget::Content { children } => {
-                column(render_children(children, ComponentRenderContext::None))
+                let content: Element<_> = column(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                scrollable(content)
+                    // .direction(Direction::Both { horizontal: Properties::default(), vertical: Properties::default() })
+                    .width(Length::Fill)
                     .into()
             }
             ComponentWidget::Detail { children } => {
                 let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }), ComponentRenderContext::None)
                     .unwrap();
+
+                let metadata_element = container(metadata_element)
+                    .width(Length::FillPortion(2))
+                    .padding(Padding::new(5.0))
+                    .into();
+
                 let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
                     .unwrap();
 
-                row(vec![content_element, metadata_element])
+                let content_element = container(content_element)
+                    .width(Length::FillPortion(3))
+                    .padding(Padding::new(5.0))
+                    .into();
+
+                let separator = vertical_rule(1)
+                    .into();
+
+                let content: Element<_> = row(vec![content_element, separator, metadata_element])
+                    .into();
+
+                container(content)
+                    .width(Length::Fill)
+                    .padding(Padding::new(10.0))
                     .into()
             }
             ComponentWidget::Root { children } => {
@@ -194,6 +300,24 @@ impl ComponentWidgetWrapper {
             widget_type: internal_name.to_owned()
         }
     }
+}
+
+fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
+    let bold_font = Font {
+        weight: Weight::Bold,
+        ..Font::DEFAULT
+    };
+
+    let label: Element<_> = text(label)
+        .font(bold_font)
+        .into();
+
+    let value = container(value)
+        .padding(Padding::new(5.0))
+        .into();
+
+    column(vec![label, value])
+        .into()
 }
 
 fn render_children<'a>(

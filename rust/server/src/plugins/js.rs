@@ -736,13 +736,29 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
     match parent_component {
         Component::Standard { name: parent_name, children: parent_children, .. } => {
             match parent_children {
-                Children::Members { members } => {
-                    let allowed_members: HashMap<_, _> = members.iter()
-                        .map(|member| (&member.component_internal_name, member))
-                        .collect();
-
+                Children::StringOrMembers { members, .. } => {
                     match child_component {
                         Component::Standard { internal_name, name, .. } => {
+                            let allowed_members: HashMap<_, _> = members.iter()
+                                .map(|member| (&member.component_internal_name, member))
+                                .collect();
+
+                            match allowed_members.get(internal_name) {
+                                None => Err(anyhow::anyhow!("{} component not be a child of {}", name, parent_name))?,
+                                Some(_) => (),
+                            }
+                        }
+                        Component::Root { .. } => Err(anyhow::anyhow!("root component not be a child"))?,
+                        Component::TextPart { .. } => ()
+                    }
+                }
+                Children::Members { members } => {
+                    match child_component {
+                        Component::Standard { internal_name, name, .. } => {
+                            let allowed_members: HashMap<_, _> = members.iter()
+                                .map(|member| (&member.component_internal_name, member))
+                                .collect();
+
                             match allowed_members.get(internal_name) {
                                 None => Err(anyhow::anyhow!("{} component not be a child of {}", name, parent_name))?,
                                 Some(_) => (),

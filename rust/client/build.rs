@@ -28,6 +28,7 @@ fn main() -> anyhow::Result<()> {
 
                     if has_children {
                         let string = match children {
+                            Children::StringOrMembers { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
                             Children::Members { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
                             Children::String { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
                             Children::None => panic!("cannot create type for Children::None")
@@ -144,6 +145,12 @@ fn main() -> anyhow::Result<()> {
                     output.push_str("            match get_component_widget_type(&child) {\n");
 
                     match children {
+                        Children::StringOrMembers { members, component_internal_name } => {
+                            output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", component_internal_name));
+                            for member in members {
+                                output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
+                            }
+                        }
                         Children::Members { members } => {
                             for member in members {
                                 output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
@@ -245,6 +252,12 @@ fn main() -> anyhow::Result<()> {
                     output.push_str("                match get_component_widget_type(new_child) {\n");
 
                     match children {
+                        Children::StringOrMembers { members, component_internal_name } => {
+                            output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", component_internal_name));
+                            for member in members {
+                                output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
+                            }
+                        }
                         Children::Members { members } => {
                             for member in members {
                                 output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));

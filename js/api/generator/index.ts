@@ -28,10 +28,15 @@ type Property = {
     type: PropertyType
 }
 type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeFunction
-type Children = ChildrenMembers | ChildrenString | ChildrenNone
+type Children = ChildrenMembers | ChildrenString | ChildrenNone | ChildrenStringOrMembers
 
 type ChildrenMembers = {
     type: "members",
+    members: ChildrenMember[]
+}
+type ChildrenStringOrMembers = {
+    type: "string_or_members",
+    component_internal_name: string,
     members: ChildrenMember[]
 }
 type ChildrenString = {
@@ -209,7 +214,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
         ),
         ts.factory.createTypeAliasDeclaration(
             [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
-            ts.factory.createIdentifier("Component"),
+            ts.factory.createIdentifier("ElementComponent"),
             [ts.factory.createTypeParameterDeclaration(
                 undefined,
                 ts.factory.createIdentifier("Comp"),
@@ -234,7 +239,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                 ts.factory.createTypeReferenceNode(
                     ts.factory.createIdentifier("Iterable"),
                     [ts.factory.createTypeReferenceNode(
-                        ts.factory.createIdentifier("Component"),
+                        ts.factory.createIdentifier("ElementComponent"),
                         [ts.factory.createTypeReferenceNode(
                             ts.factory.createIdentifier("Comp"),
                             undefined
@@ -261,6 +266,46 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                     [ts.factory.createTypeReferenceNode(
                         ts.factory.createIdentifier("StringComponent"),
                         undefined
+                    )]
+                )
+            ])
+        ),
+        ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("StringOrElementComponent"),
+            [ts.factory.createTypeParameterDeclaration(
+                undefined,
+                ts.factory.createIdentifier("Comp"),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("FC"),
+                    [ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)]
+                ),
+                undefined
+            )],
+            ts.factory.createUnionTypeNode([
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("StringNode"),
+                    undefined
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("EmptyNode"),
+                    undefined
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Element"),
+                    [ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("Comp"),
+                        undefined
+                    )]
+                ),
+                ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("Iterable"),
+                    [ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("StringOrElementComponent"),
+                        [ts.factory.createTypeReferenceNode(
+                            ts.factory.createIdentifier("Comp"),
+                            undefined
+                        )]
                     )]
                 )
             ])
@@ -343,7 +388,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
         )
 
         let componentType: ts.TypeReferenceNode | ts.IntersectionTypeNode;
-        if (component.children.type == "members") {
+        if (component.children.type == "members" || component.children.type == "string_or_members") {
             componentType = ts.factory.createIntersectionTypeNode([
                 componentFCType,
                 ts.factory.createTypeLiteralNode(
@@ -367,6 +412,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
         let memberAssignments: ts.Statement[];
         switch (component.children.type) {
+            case "string_or_members":
             case "members": {
                 memberAssignments = component.children.members.map(member => {
                     return ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
@@ -495,7 +541,22 @@ function makeChildrenType(type: Children): ts.TypeNode {
     switch (type.type) {
         case "members": {
             return ts.factory.createTypeReferenceNode(
-                ts.factory.createIdentifier("Component"),
+                ts.factory.createIdentifier("ElementComponent"),
+                [
+                    ts.factory.createUnionTypeNode(
+                        type.members.map(value => (
+                            ts.factory.createTypeQueryNode(
+                                ts.factory.createIdentifier(value.componentName),
+                                undefined
+                            )
+                        ))
+                    )
+                ]
+            )
+        }
+        case "string_or_members": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier("StringOrElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
                         type.members.map(value => (

@@ -15,13 +15,13 @@ export default function View(): ReactElement {
                 <Detail.Content.H4>H4 Title</Detail.Content.H4>
                 <Detail.Content.H5>H5 Title</Detail.Content.H5>
                 <Detail.Content.H6>H6 Title</Detail.Content.H6>
-                <Detail.Content.Code></Detail.Content.Code>
-                <Detail.Content.Image></Detail.Content.Image>
-                <Detail.Content.Link href={""}>s</Detail.Content.Link>
-                <Detail.Content.CodeBlock></Detail.Content.CodeBlock>
+                <Detail.Content.Code>Code code Code</Detail.Content.Code>
+                <Detail.Content.Image/>
+                <Detail.Content.Link href={"https://google.com/"}>Google Link</Detail.Content.Link>
+                <Detail.Content.CodeBlock>Code block Test</Detail.Content.CodeBlock>
                 <Detail.Content.HorizontalBreak/>
-                <Detail.Content.Text>
-                    You clicked
+                <Detail.Content.Paragraph>
+                    You clicked {count} times
                     {true}
                     {false}
                     {count}
@@ -29,26 +29,58 @@ export default function View(): ReactElement {
                     {undefined}
                     {null}
                     {upperCase("times")}
-                </Detail.Content.Text>
+                </Detail.Content.Paragraph>
+                <Detail.Content.H4>Another H4 Title</Detail.Content.H4>
+                <Detail.Content.Paragraph>
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
+                    et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+                    aliquip <Detail.Content.Code> ex ea commodo consequat. </Detail.Content.Code> Duis aute irure dolor in reprehenderit in voluptate velit esse
+                    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+                    culpa qui officia deserunt mollit anim id est laborum.
+                </Detail.Content.Paragraph>
+                <Detail.Content.Paragraph>
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
+                    et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+                    aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
+                    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+                    culpa qui officia deserunt mollit anim id est laborum.
+                </Detail.Content.Paragraph>
             </Detail.Content>
             <Detail.Metadata>
-                <Detail.Metadata.Item>
-                    <Detail.Metadata.Item.Text>Test item text</Detail.Metadata.Item.Text>
-                    <Detail.Metadata.Item.Tag
+                <Detail.Metadata.Tags label="Tags 1">
+                    <Detail.Metadata.Tags.Tag
                         onClick={() => {
                             console.log("test " + upperCase("events") + count)
                             setCount(count + 1);
                         }}
                     >
                         Tag
-                    </Detail.Metadata.Item.Tag>
-                </Detail.Metadata.Item>
+                    </Detail.Metadata.Tags.Tag>
+                    <Detail.Metadata.Tags.Tag>
+                        Another Tag
+                    </Detail.Metadata.Tags.Tag>
+                </Detail.Metadata.Tags>
                 <Detail.Metadata.Separator/>
-                <Detail.Metadata.Item>
-                    <Detail.Metadata.Item.Text>Test metadata 1</Detail.Metadata.Item.Text>
-                    <Detail.Metadata.Item.Link href={""}>Test Link</Detail.Metadata.Item.Link>
-                    <Detail.Metadata.Item.Text>Test metadata 2</Detail.Metadata.Item.Text>
-                </Detail.Metadata.Item>
+                <Detail.Metadata.Link label="Test 2" href={""}>
+                    Link text
+                </Detail.Metadata.Link>
+                <Detail.Metadata.Value label="Label 3">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+                    eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+                    nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute
+                    irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
+                    anim id est laborum.
+                </Detail.Metadata.Value>
+                <Detail.Metadata.Icon label="Label 4" icon="icon"/>
+                <Detail.Metadata.Value label="Label 5">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+                    eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+                    nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute
+                    irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
+                    anim id est laborum.
+                </Detail.Metadata.Value>
             </Detail.Metadata>
         </Detail>
     );

@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Application, Command, Event, executor, futures, keyboard, Length, Padding, Subscription, subscription};
+use iced::{Application, Command, Event, executor, futures, keyboard, Length, Padding, Size, Subscription, subscription};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
@@ -64,6 +64,8 @@ pub enum AppMsg {
 
 const WINDOW_WIDTH: u32 = 650;
 const WINDOW_HEIGHT: u32 = 400;
+const SUB_VIEW_WINDOW_WIDTH: u32 = 850;
+const SUB_VIEW_WINDOW_HEIGHT: u32 = 500;
 
 pub fn run() {
     AppModel::run(Settings {
@@ -143,7 +145,7 @@ impl Application for AppModel {
 
                 let dbus_client = self.dbus_client.clone();
 
-                Command::perform(async move {
+                let open_view = Command::perform(async move {
                     let event_view_created = DbusEventViewCreated {
                         reconciler_mode: "persistent".to_owned(),
                         view_name: entrypoint_id.to_string(), // TODO what was view_name supposed to be?
@@ -154,7 +156,12 @@ impl Application for AppModel {
                     DbusClient::view_created_signal(signal_context, &plugin_id.to_string(), event_view_created)
                         .await
                         .unwrap();
-                }, |_| AppMsg::Noop)
+                }, |_| AppMsg::Noop);
+
+                Command::batch([
+                    iced::window::resize(Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                    open_view
+                ])
             }
             AppMsg::PromptChanged(new_prompt) => {
                 match self.state.last_mut().expect("state is supposed to always have at least one item") {
@@ -197,6 +204,9 @@ impl Application for AppModel {
                             KeyCode::Escape => {
                                 if self.state.len() <= 1 {
                                     iced::window::close()
+                                } else if self.state.len() == 2 {
+                                    self.state.pop();
+                                    iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
                                 } else {
                                     self.state.pop();
                                     Command::none()
@@ -260,7 +270,7 @@ impl Application for AppModel {
                     .into();
 
                 let element: Element<_> = container(column)
-                    .style(ContainerStyle::ApplicationBackground)
+                    .style(ContainerStyle::Background)
                     .height(Length::Fixed(WINDOW_HEIGHT as f32))
                     .width(Length::Fixed(WINDOW_WIDTH as f32))
                     .into();
@@ -277,11 +287,14 @@ impl Application for AppModel {
                     widget_event,
                 });
 
-                container(container_element)
-                    .style(ContainerStyle::ApplicationBackground)
-                    .height(Length::Fixed(WINDOW_HEIGHT as f32))
-                    .width(Length::Fixed(WINDOW_WIDTH as f32))
-                    .into()
+                let element: Element<_> = container(container_element)
+                    .style(ContainerStyle::Background)
+                    .height(Length::Fixed(SUB_VIEW_WINDOW_HEIGHT as f32))
+                    .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH as f32))
+                    .into();
+
+                // element.explain(iced::color!(0xFF0000))
+                element
             }
         }
     }
