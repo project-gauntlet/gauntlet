@@ -20,8 +20,8 @@ impl Display for ComponentName {
 
 impl Serialize for ComponentName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         serializer.serialize_str(&self.0)
     }
@@ -48,7 +48,7 @@ pub enum Component {
     TextPart {
         #[serde(rename = "internalName")]
         internal_name: String,
-    }
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -56,7 +56,7 @@ pub struct Property {
     pub name: String,
     pub optional: bool,
     #[serde(rename = "type")]
-    pub property_type: PropertyType
+    pub property_type: PropertyType,
 }
 
 #[derive(Debug, Serialize)]
@@ -114,16 +114,20 @@ pub struct RootChild {
     pub component_name: ComponentName,
 }
 
-fn children_string_or_members(members: Vec<ChildrenMember>) -> Children {
+fn children_string_or_members<I>(members: I) -> Children
+    where I: IntoIterator<Item=ChildrenMember>
+{
     Children::StringOrMembers {
         component_internal_name: "text_part".to_owned(),
-        members,
+        members: members.into_iter().collect(),
     }
 }
 
-fn children_members(members: Vec<ChildrenMember>) -> Children {
+fn children_members<I>(members: I) -> Children
+    where I: IntoIterator<Item=ChildrenMember>
+{
     Children::Members {
-        members,
+        members: members.into_iter().collect(),
     }
 }
 
@@ -143,7 +147,7 @@ fn member(member_name: impl ToString, component: &Component) -> ChildrenMember {
             ChildrenMember {
                 member_name: member_name.to_string(),
                 component_internal_name: internal_name.to_owned(),
-                component_name: name.to_owned()
+                component_name: name.to_owned(),
             }
         }
         Component::Root { .. } => panic!("invalid component member"),
@@ -151,12 +155,15 @@ fn member(member_name: impl ToString, component: &Component) -> ChildrenMember {
     }
 }
 
-fn component(internal_name: impl ToString, name: impl ToString, properties: Vec<Property>, children: Children) -> Component {
+
+fn component<I>(internal_name: impl ToString, name: impl ToString, properties: I, children: Children) -> Component
+    where I: IntoIterator<Item=Property>
+{
     Component::Standard {
         internal_name: internal_name.to_string(),
         name: ComponentName::new(name),
         props: properties.into_iter().collect(),
-        children
+        children,
     }
 }
 
@@ -195,160 +202,160 @@ pub fn create_component_model() -> Vec<Component> {
     let metadata_link_component = component(
         "metadata_link",
         "MetadataLink",
-        vec![
+        [
             property("label", false, PropertyType::String),
             property("href", false, PropertyType::String),
         ],
-        children_string()
+        children_string(),
     );
 
     let metadata_tag_item_component = component(
         "metadata_tag_item",
         "MetadataTagItem",
-        vec![
+        [
             // property("color", true, PropertyType::String),
             property("onClick", true, PropertyType::Function)
         ],
-        children_string()
+        children_string(),
     );
 
     let metadata_tag_list_component = component(
         "metadata_tag_list",
         "MetadataTagList",
-        vec![
+        [
             property("label", false, PropertyType::String)
         ],
-        children_members(vec![
+        children_members([
             member("Item", &metadata_tag_item_component),
-        ])
+        ]),
     );
 
     let metadata_separator_component = component(
         "metadata_separator",
         "MetadataSeparator",
-        vec![],
-        children_none()
+        [],
+        children_none(),
     );
 
     let metadata_icon_component = component(
         "metadata_icon",
         "MetadataIcon",
-        vec![
+        [
             property("icon", false, PropertyType::String),
             property("label", false, PropertyType::String),
         ],
-        children_none()
+        children_none(),
     );
 
     let metadata_value_component = component(
         "metadata_value",
         "MetadataValue",
-        vec![
+        [
             property("label", false, PropertyType::String),
         ],
-        children_string()
+        children_string(),
     );
 
     let metadata_component = component(
         "metadata",
         "Metadata",
-        vec![],
-        children_members(vec![
+        [],
+        children_members([
             member("TagList", &metadata_tag_list_component),
             member("Link", &metadata_link_component),
             member("Value", &metadata_value_component),
             member("Icon", &metadata_icon_component),
             member("Separator", &metadata_separator_component),
-        ])
+        ]),
     );
 
     let link_component = component(
         "link",
         "Link",
-        vec![
+        [
             property("href", false, PropertyType::String),
         ],
-        children_string()
+        children_string(),
     );
 
     let image_component = component(
         "image",
         "Image",
-        vec![
+        [
             // property("href", true, Type::String)
         ],
-        children_none()
+        children_none(),
     );
 
     let h1_component = component(
         "h1",
         "H1",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     let h2_component = component(
         "h2",
         "H2",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     let h3_component = component(
         "h3",
         "H3",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     let h4_component = component(
         "h4",
         "H4",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     let h5_component = component(
         "h5",
         "H5",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     let h6_component = component(
         "h6",
         "H6",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     let horizontal_break_component = component(
         "horizontal_break",
         "HorizontalBreak",
-        vec![],
-        children_none()
+        [],
+        children_none(),
     );
 
     let code_block_component = component(
         "code_block",
         "CodeBlock",
-        vec![],
-        children_string()
+        [],
+        children_string(),
     );
 
     // let code_component = component(
     //     "code",
     //     "Code",
-    //     vec![],
+    //     [],
     //     children_string()
     // );
 
     let paragraph_component = component(
         "paragraph",
         "Paragraph",
-        vec![],
-        children_string()
-        // children_string_or_members(vec![
+        [],
+        children_string(),
+        // children_string_or_members([
         //     member("Link", &link_component),
         //     member("Code", &code_component),
         // ]),
@@ -357,8 +364,8 @@ pub fn create_component_model() -> Vec<Component> {
     let content_component = component(
         "content",
         "Content",
-        vec![],
-        children_members(vec![
+        [],
+        children_members([
             member("Paragraph", &paragraph_component),
             member("Link", &link_component),
             member("Image", &image_component),
@@ -371,17 +378,17 @@ pub fn create_component_model() -> Vec<Component> {
             member("HorizontalBreak", &horizontal_break_component),
             member("CodeBlock", &code_block_component),
             // member("Code", &code_component),
-        ])
+        ]),
     );
 
     let detail_component = component(
         "detail",
         "Detail",
-        vec![],
-        children_members(vec![
+        [],
+        children_members([
             member("Metadata", &metadata_component),
-            member("Content", &content_component)
-        ])
+            member("Content", &content_component),
+        ]),
     );
 
     let text_part = text_part();
@@ -447,7 +454,6 @@ pub fn create_component_model() -> Vec<Component> {
 
     vec![
         text_part,
-
         metadata_link_component,
         metadata_tag_item_component,
         metadata_tag_list_component,
@@ -468,7 +474,6 @@ pub fn create_component_model() -> Vec<Component> {
         // code_component,
         paragraph_component,
         content_component,
-
         detail_component,
         root,
     ]
