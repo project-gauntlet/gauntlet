@@ -39,19 +39,19 @@ export default function View(): ReactElement {
                 </Detail.Content.Paragraph>
             </Detail.Content>
             <Detail.Metadata>
-                <Detail.Metadata.Tags label="Tags 1">
-                    <Detail.Metadata.Tags.Tag
+                <Detail.Metadata.TagList label="Tags 1">
+                    <Detail.Metadata.TagList.Item
                         onClick={() => {
                             console.log("test " + upperCase("events") + count)
                             setCount(count + 1);
                         }}
                     >
                         Tag
-                    </Detail.Metadata.Tags.Tag>
-                    <Detail.Metadata.Tags.Tag>
+                    </Detail.Metadata.TagList.Item>
+                    <Detail.Metadata.TagList.Item>
                         Another Tag
-                    </Detail.Metadata.Tags.Tag>
-                </Detail.Metadata.Tags>
+                    </Detail.Metadata.TagList.Item>
+                </Detail.Metadata.TagList>
                 <Detail.Metadata.Separator/>
                 <Detail.Metadata.Link label="Test 2" href={""}>
                     Link text

@@ -202,9 +202,9 @@ pub fn create_component_model() -> Vec<Component> {
         children_string()
     );
 
-    let metadata_tag_component = component(
-        "metadata_tag",
-        "MetadataTag",
+    let metadata_tag_item_component = component(
+        "metadata_tag_item",
+        "MetadataTagItem",
         vec![
             // property("color", true, PropertyType::String),
             property("onClick", true, PropertyType::Function)
@@ -212,14 +212,14 @@ pub fn create_component_model() -> Vec<Component> {
         children_string()
     );
 
-    let metadata_tags_component = component(
-        "metadata_tags",
-        "MetadataTags",
+    let metadata_tag_list_component = component(
+        "metadata_tag_list",
+        "MetadataTagList",
         vec![
             property("label", false, PropertyType::String)
         ],
         children_members(vec![
-            member("Tag", &metadata_tag_component),
+            member("Item", &metadata_tag_item_component),
         ])
     );
 
@@ -254,7 +254,7 @@ pub fn create_component_model() -> Vec<Component> {
         "Metadata",
         vec![],
         children_members(vec![
-            member("Tags", &metadata_tags_component),
+            member("TagList", &metadata_tag_list_component),
             member("Link", &metadata_link_component),
             member("Value", &metadata_value_component),
             member("Icon", &metadata_icon_component),
@@ -400,8 +400,8 @@ pub fn create_component_model() -> Vec<Component> {
     // Detail.Content.HorizontalBreak
     // Detail.Content.CodeBlock
     // Detail.Metadata
-    // Detail.Metadata.Tags
-    // Detail.Metadata.Tags.Tag
+    // Detail.Metadata.TagList
+    // Detail.Metadata.TagList.Item
     // Detail.Metadata.Separator
     // Detail.Metadata.Link
     // Detail.Metadata.Value
@@ -449,8 +449,8 @@ pub fn create_component_model() -> Vec<Component> {
         text_part,
 
         metadata_link_component,
-        metadata_tag_component,
-        metadata_tags_component,
+        metadata_tag_item_component,
+        metadata_tag_list_component,
         metadata_separator_component,
         metadata_value_component,
         metadata_icon_component,

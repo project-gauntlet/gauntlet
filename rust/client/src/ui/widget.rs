@@ -88,7 +88,7 @@ impl ComponentWidgetWrapper {
 
                 text.into()
             }
-            ComponentWidget::MetadataTag { children, onClick: _ } => {
+            ComponentWidget::MetadataTagItem { children, onClick: _ } => {
                 let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
                     .into();
 
@@ -100,7 +100,7 @@ impl ComponentWidgetWrapper {
                     .padding(Padding::new(5.0))
                     .into()
             }
-            ComponentWidget::MetadataTags { label,  children } => {
+            ComponentWidget::MetadataTagList { label,  children } => {
                 let value = row(render_children(children, ComponentRenderContext::None))
                     .into();
 

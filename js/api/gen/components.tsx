@@ -8,12 +8,12 @@ declare global {
                 label: string;
                 href: string;
             };
-            ["gauntlet:metadata_tag"]: {
+            ["gauntlet:metadata_tag_item"]: {
                 children?: StringComponent;
                 onClick?: () => void;
             };
-            ["gauntlet:metadata_tags"]: {
-                children?: ElementComponent<typeof MetadataTag>;
+            ["gauntlet:metadata_tag_list"]: {
+                children?: ElementComponent<typeof MetadataTagItem>;
                 label: string;
             };
             ["gauntlet:metadata_separator"]: {};
@@ -26,7 +26,7 @@ declare global {
                 label: string;
             };
             ["gauntlet:metadata"]: {
-                children?: ElementComponent<typeof MetadataTags | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
+                children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
             };
             ["gauntlet:link"]: {
                 children?: StringComponent;
@@ -82,23 +82,23 @@ export interface MetadataLinkProps {
 export const MetadataLink: FC<MetadataLinkProps> = (props: MetadataLinkProps): ReactNode => {
     return <gauntlet:metadata_link children={props.children} label={props.label} href={props.href}/>;
 };
-export interface MetadataTagProps {
+export interface MetadataTagItemProps {
     children?: StringComponent;
     onClick?: () => void;
 }
-export const MetadataTag: FC<MetadataTagProps> = (props: MetadataTagProps): ReactNode => {
-    return <gauntlet:metadata_tag children={props.children} onClick={props.onClick}/>;
+export const MetadataTagItem: FC<MetadataTagItemProps> = (props: MetadataTagItemProps): ReactNode => {
+    return <gauntlet:metadata_tag_item children={props.children} onClick={props.onClick}/>;
 };
-export interface MetadataTagsProps {
-    children?: ElementComponent<typeof MetadataTag>;
+export interface MetadataTagListProps {
+    children?: ElementComponent<typeof MetadataTagItem>;
     label: string;
 }
-export const MetadataTags: FC<MetadataTagsProps> & {
-    Tag: typeof MetadataTag;
-} = (props: MetadataTagsProps): ReactNode => {
-    return <gauntlet:metadata_tags children={props.children} label={props.label}/>;
+export const MetadataTagList: FC<MetadataTagListProps> & {
+    Item: typeof MetadataTagItem;
+} = (props: MetadataTagListProps): ReactNode => {
+    return <gauntlet:metadata_tag_list children={props.children} label={props.label}/>;
 };
-MetadataTags.Tag = MetadataTag;
+MetadataTagList.Item = MetadataTagItem;
 export const MetadataSeparator: FC = (): ReactNode => {
     return <gauntlet:metadata_separator />;
 };
@@ -117,10 +117,10 @@ export const MetadataIcon: FC<MetadataIconProps> = (props: MetadataIconProps): R
     return <gauntlet:metadata_icon icon={props.icon} label={props.label}/>;
 };
 export interface MetadataProps {
-    children?: ElementComponent<typeof MetadataTags | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
+    children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
 }
 export const Metadata: FC<MetadataProps> & {
-    Tags: typeof MetadataTags;
+    TagList: typeof MetadataTagList;
     Link: typeof MetadataLink;
     Value: typeof MetadataValue;
     Icon: typeof MetadataIcon;
@@ -128,7 +128,7 @@ export const Metadata: FC<MetadataProps> & {
 } = (props: MetadataProps): ReactNode => {
     return <gauntlet:metadata children={props.children}/>;
 };
-Metadata.Tags = MetadataTags;
+Metadata.TagList = MetadataTagList;
 Metadata.Link = MetadataLink;
 Metadata.Value = MetadataValue;
 Metadata.Icon = MetadataIcon;
