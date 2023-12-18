@@ -8,9 +8,8 @@ tokio = "1.28.1"
 zbus = { version = "3.14.1", default-features = false, features = ["tokio"] }
 anyhow = "1"
 thiserror = "1"
-iced = { version = "0.10", features = ["tokio", "lazy", "advanced"] }
-iced_table = "0.1.0"
-iced_aw = { version = "0.7.0", default-features = false, features = ["icons"] }
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "dd249a1d11c68b8fee1828d58bae158946ee2ebd", features = ["tokio", "lazy", "advanced"] }
+iced_aw = { git = "https://github.com/iced-rs/iced_aw.git", rev = "75a85315a2a68a76e6dbab199eb9ef33be01e7ed", default-features = false, features = ["icons"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }

@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Application, Command, Event, executor, futures, keyboard, Length, Padding, Size, Subscription, subscription};
+use iced::{Application, Command, Event, event, executor, futures, keyboard, Length, Padding, Size, Subscription, subscription};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
@@ -62,16 +62,16 @@ pub enum AppMsg {
     Noop,
 }
 
-const WINDOW_WIDTH: u32 = 650;
-const WINDOW_HEIGHT: u32 = 400;
-const SUB_VIEW_WINDOW_WIDTH: u32 = 850;
-const SUB_VIEW_WINDOW_HEIGHT: u32 = 500;
+const WINDOW_WIDTH: f32 = 650.0;
+const WINDOW_HEIGHT: f32 = 400.0;
+const SUB_VIEW_WINDOW_WIDTH: f32 = 850.0;
+const SUB_VIEW_WINDOW_HEIGHT: f32 = 500.0;
 
 pub fn run() {
     AppModel::run(Settings {
         id: None,
         window: iced::window::Settings {
-            size: (WINDOW_WIDTH, WINDOW_HEIGHT),
+            size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
             position: Position::Centered,
             resizable: false,
             decorations: false,
@@ -159,7 +159,7 @@ impl Application for AppModel {
                 }, |_| AppMsg::Noop);
 
                 Command::batch([
-                    iced::window::resize(Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                    iced::window::resize(iced::window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
                     open_view
                 ])
             }
@@ -203,10 +203,10 @@ impl Application for AppModel {
                             KeyCode::Down => iced::widget::focus_next(),
                             KeyCode::Escape => {
                                 if self.state.len() <= 1 {
-                                    iced::window::close()
+                                    iced::window::close(iced::window::Id::MAIN)
                                 } else if self.state.len() == 2 {
                                     self.state.pop();
-                                    iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+                                    iced::window::resize(iced::window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
                                 } else {
                                     self.state.pop();
                                     Command::none()
@@ -271,8 +271,8 @@ impl Application for AppModel {
 
                 let element: Element<_> = container(column)
                     .style(ContainerStyle::Background)
-                    .height(Length::Fixed(WINDOW_HEIGHT as f32))
-                    .width(Length::Fixed(WINDOW_WIDTH as f32))
+                    .height(Length::Fixed(WINDOW_HEIGHT))
+                    .width(Length::Fixed(WINDOW_WIDTH))
                     .into();
 
                 // element.explain(iced::color!(0xFF0000))
@@ -310,7 +310,7 @@ impl Application for AppModel {
         struct RequestLoop;
 
         Subscription::batch([
-            subscription::events().map(AppMsg::IcedEvent),
+            event::listen().map(AppMsg::IcedEvent),
             subscription::channel(
                 std::any::TypeId::of::<RequestLoop>(),
                 100,
