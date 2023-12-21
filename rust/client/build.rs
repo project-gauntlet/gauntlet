@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
     output.push_str("}\n");
     output.push_str("\n");
 
-    output.push_str("fn create_component_widget(component_internal_name: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<ComponentWidget> {\n");
+    output.push_str("fn create_component_widget(component_internal_name: &str, properties: HashMap<String, NativeUiPropertyValue>, children: Vec<ComponentWidgetWrapper>) -> anyhow::Result<ComponentWidget> {\n");
     output.push_str("   let widget = match component_internal_name {\n");
 
     for component in &components {
@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
                     output.push_str(&" {\n");
 
                     if has_children {
-                        output.push_str("            children: vec![],\n");
+                        output.push_str("            children,\n");
                     }
 
                     for prop in props {

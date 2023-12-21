@@ -3,11 +3,11 @@ declare namespace Deno {
     function inspect(value: unknown, options?: InspectOptions): string
 }
 
-declare interface InspectOptions {
+interface InspectOptions {
     depth: number
 }
 
-declare interface Deno {
+interface Deno {
     [Deno.internal]: {
         core: {
             opAsync: (op: string) => Promise<PluginEvent>
@@ -16,43 +16,54 @@ declare interface Deno {
     };
 }
 
-declare type PluginEvent = ViewEvent | ViewCreated | ViewDestroyed | PluginCommand
+type PluginEvent = ViewEvent | ViewCreated | ViewDestroyed | PluginCommand
 
-declare type ViewEvent = {
+type ViewEvent = {
     type: "ViewEvent"
     eventName: string
     widget: Instance
 }
 
-declare type ViewCreated = {
+type ViewCreated = {
     type: "ViewCreated"
     reconcilerMode: string
     viewName: string
 }
 
-declare type ViewDestroyed = {
+type ViewDestroyed = {
     type: "ViewDestroyed"
 }
 
-declare type PluginCommand = {
+type PluginCommand = {
     type: "PluginCommand"
     commandType: "stop"
 }
 
-declare type UiWidget = {}
+type UiWidget = UiWidgetBase & {
+    hostContext: RootContext
+}
+type RootUiWidget = UiWidgetBase & RootContext
 
-declare type ComponentType = string;
-declare type Props = { children?: any } & { [key: string]: any };
+type UiWidgetBase = {
+    widgetId: number,
+    widgetType: string,
+    widgetProperties: Props,
+    widgetChildren: UiWidget[],
+}
 
-declare type Root = Instance
-declare type Instance = UiWidget
-declare type TextInstance = UiWidget
-declare type ChildSet = (Instance | TextInstance)[]
-declare type UpdatePayload = string[];
+type ComponentType = string;
+type Props = { [key: string]: any };
+type PropsWithChildren = { children?: UiWidget[] } & Props;
+
+type RootContext = { nextId: number }
+type Instance = UiWidget
+type TextInstance = UiWidget
+type ChildSet = (Instance | TextInstance)[]
+type UpdatePayload = string[];
 
 type SuspenseInstance = never;
 
-declare interface InternalApi {
+interface InternalApi {
     op_log_trace(target: string, message: string): void;
     op_log_debug(target: string, message: string): void;
     op_log_info(target: string, message: string): void;
@@ -61,31 +72,7 @@ declare interface InternalApi {
 
     op_react_call_event_listener(instance: Instance, eventName: string): void;
 
-    op_react_get_root(): Root;
-
-    op_react_create_instance(type: ComponentType, props: Props): Instance;
-
-    op_react_create_text_instance(text: string): TextInstance;
-
-    op_react_append_child(parent: Instance, child: Instance | TextInstance): void;
-
-    op_react_call_event_listener(instance: Instance, eventName: string): void;
-
-    // mutation mode
-    op_react_remove_child(parent: Instance, child: Instance | TextInstance): void;
-
-    op_react_insert_before(
-        parent: Instance,
-        child: Instance | TextInstance | SuspenseInstance,
-        beforeChild: Instance | TextInstance | SuspenseInstance
-    ): void;
-
-    op_react_set_properties(instance: Instance, properties: Props): void;
-
-    op_react_set_text(instance: Instance, text: string): void;
-
-    // persistent mode
-    op_react_clone_instance(instance: Instance, updatePayload: UpdatePayload, type: ComponentType, oldProps: Props, newProps: Props, keepChildren: boolean): Instance;
+    op_react_clone_instance(instance: Instance, updatePayload: UpdatePayload, type: ComponentType, oldProps: PropsWithChildren, newProps: PropsWithChildren, keepChildren: boolean): Instance;
 
     op_react_replace_container_children(container: Instance, newChildren: ChildSet): void;
 }

@@ -11,7 +11,7 @@ use common::dbus::DbusEventViewEvent;
 use common::model::PluginId;
 
 use crate::dbus::DbusClient;
-use crate::model::{NativeUiPropertyValue, NativeUiWidget, NativeUiWidgetId};
+use crate::model::{NativeUiPropertyValue, NativeUiWidgetId};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element};
 
 #[derive(Clone, Debug)]
@@ -34,16 +34,32 @@ pub enum ComponentRenderContext {
 }
 
 impl ComponentWidgetWrapper {
-    pub fn widget(id: NativeUiWidgetId, widget_type: &str, properties: HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<Self> {
-        Ok(ComponentWidgetWrapper::new(id, create_component_widget(widget_type, properties)?))
+    pub fn widget(
+        id: NativeUiWidgetId,
+        widget_type: impl Into<String>,
+        properties: HashMap<String, NativeUiPropertyValue>,
+        children: Vec<ComponentWidgetWrapper>
+    ) -> anyhow::Result<Self> {
+        let widget_type = widget_type.into();
+
+
+        // TODO autogenerate this one as well / move into component model
+        let widget = if widget_type == "gauntlet:text_part" {
+            let value = properties.get("value")
+                .ok_or(anyhow::anyhow!("value is required on gauntlet:text_part"))?
+                .as_string()
+                .ok_or(anyhow::anyhow!("value on gauntlet:text_part is required to be string"))?;
+
+            ComponentWidgetWrapper::new(id, ComponentWidget::TextPart(value.to_owned()))
+        } else {
+            ComponentWidgetWrapper::new(id, create_component_widget(&widget_type, properties, children)?)
+        };
+
+        Ok(widget)
     }
 
     pub fn root(id: NativeUiWidgetId) -> Self {
         ComponentWidgetWrapper::new(id, ComponentWidget::Root { children: vec![] })
-    }
-
-    pub fn text_part(id: NativeUiWidgetId, text: &str) -> anyhow::Result<Self> {
-        Ok(ComponentWidgetWrapper::new(id, ComponentWidget::TextPart(text.to_owned())))
     }
 
     fn new(id: NativeUiWidgetId, widget: ComponentWidget) -> Self {
@@ -51,6 +67,20 @@ impl ComponentWidgetWrapper {
             id,
             inner: Arc::new(RwLock::new(widget)),
         }
+    }
+
+    pub fn find_child_with_id(&self, widget_id: NativeUiWidgetId) -> Option<ComponentWidgetWrapper> {
+        // not the most performant solution but works for now?
+
+        if self.id == widget_id {
+            return Some(self.clone())
+        }
+
+        self.get_children()
+            .unwrap_or(vec![])
+            .iter()
+            .find_map(|child| child.find_child_with_id(widget_id))
+            .map(|widget| widget.clone())
     }
 
     fn get(&self) -> RwLockReadGuard<'_, ComponentWidget> {
@@ -93,7 +123,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 let tag: Element<_> = button(content)
-                    .on_press(ComponentWidgetEvent::TagClick { widget: self.as_native_widget() })
+                    .on_press(ComponentWidgetEvent::TagClick { widget_id: self.id })
                     .into();
 
                 container(tag)
@@ -280,24 +310,12 @@ impl ComponentWidgetWrapper {
         }
     }
 
-    pub fn append_child(&self, child: ComponentWidgetWrapper) -> anyhow::Result<()> {
-        append_component_widget_child(&self, child)
-    }
-
     pub fn get_children(&self) -> anyhow::Result<Vec<ComponentWidgetWrapper>> {
         get_component_widget_children(&self)
     }
 
     pub fn set_children(&self, new_children: Vec<ComponentWidgetWrapper>) -> anyhow::Result<()> {
         set_component_widget_children(&self, new_children)
-    }
-
-    pub fn as_native_widget(&self) -> NativeUiWidget {
-        let (internal_name, _) = get_component_widget_type(&self);
-        NativeUiWidget {
-            widget_id: self.id,
-            widget_type: internal_name.to_owned()
-        }
     }
 }
 
@@ -364,7 +382,7 @@ pub enum ComponentWidgetEvent {
         href: String
     },
     TagClick {
-        widget: NativeUiWidget
+        widget_id: NativeUiWidgetId
     },
 }
 
@@ -374,10 +392,10 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::LinkClick { href } => {
                 todo!("href {:?}", href)
             }
-            ComponentWidgetEvent::TagClick { widget } => {
+            ComponentWidgetEvent::TagClick { widget_id } => {
                 let event_view_event = DbusEventViewEvent {
                     event_name: "onClick".to_owned(),
-                    widget: widget.into(),
+                    widget_id,
                 };
 
                 DbusClient::view_event_signal(signal_context, &plugin_id.to_string(), event_view_event)

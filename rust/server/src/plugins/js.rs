@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::pin::{Pin};
+use std::pin::Pin;
 use std::rc::Rc;
 
 use anyhow::{anyhow, Context};
@@ -14,11 +14,12 @@ use deno_runtime::worker::WorkerOptions;
 use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
+
 use common::model::PluginId;
-use component_model::{create_component_model, Component, PropertyType, Children};
+use component_model::{Children, Component, create_component_model, PropertyType};
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
-use crate::model::{JsUiEvent, JsUiEventName, JsUiPropertyValue, JsUiWidget, JsUiWidgetId, JsUiRequestData, JsUiResponseData, to_dbus};
+use crate::model::{IntermediatePropertyValue, IntermediateUiWidget, JsUiEvent, JsUiEventName, JsUiRequestData, JsUiResponseData, JsUiWidget, JsUiWidgetId};
 use crate::plugins::run_status::RunStatusGuard;
 
 pub struct PluginRuntimeData {
@@ -82,7 +83,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 } else {
                     Some(JsUiEvent::ViewEvent {
                         event_name: signal.event.event_name,
-                        widget: signal.event.widget.into(),
+                        widget_id: signal.event.widget_id,
                     })
                 }
             }
@@ -290,16 +291,7 @@ deno_core::extension!(
         op_log_warn,
         op_log_error,
         op_plugin_get_pending_event,
-        op_react_get_root,
-        op_react_create_instance,
-        op_react_create_text_instance,
-        op_react_append_child,
-        op_react_insert_before,
-        op_react_remove_child,
-        op_react_set_properties,
-        op_react_set_text,
         op_react_call_event_listener,
-        op_react_clone_instance,
         op_react_replace_container_children,
     ],
     options = {
@@ -364,180 +356,6 @@ async fn op_plugin_get_pending_event<'a>(
     Ok(event)
 }
 
-#[op]
-fn op_react_get_root(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiWidget> {
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_root...");
-
-    let container = match make_request(&state, JsUiRequestData::GetRoot).context("GetRoot frontend response")? {
-        JsUiResponseData::GetRoot { container } => container,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
-
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_get_root returned {:?}", container);
-
-    Ok(container.into())
-}
-
-#[op]
-fn op_react_append_child(
-    state: Rc<RefCell<OpState>>,
-    parent: JsUiWidget,
-    child: JsUiWidget,
-) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_append_child...");
-
-    validate_child(&state, &parent.widget_type, &child.widget_type)?;
-
-    let data = JsUiRequestData::AppendChild {
-        parent,
-        child,
-    };
-
-    match make_request(&state, data).context("AppendChild frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_common", "Calling op_react_append_child returned");
-            Ok(())
-        },
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
-}
-
-#[op]
-fn op_react_remove_child(
-    state: Rc<RefCell<OpState>>,
-    parent: JsUiWidget,
-    child: JsUiWidget,
-) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_remove_child...");
-
-    let data = JsUiRequestData::RemoveChild {
-        parent: parent.into(),
-        child: child.into(),
-    };
-
-    match make_request(&state, data).context("RemoveChild frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_remove_child returned");
-            Ok(())
-        },
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
-}
-
-#[op]
-fn op_react_insert_before(
-    state: Rc<RefCell<OpState>>,
-    parent: JsUiWidget,
-    child: JsUiWidget,
-    before_child: JsUiWidget,
-) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_insert_before...");
-
-    validate_child(&state, &parent.widget_type, &child.widget_type)?;
-
-    let data = JsUiRequestData::InsertBefore {
-        parent,
-        child,
-        before_child,
-    };
-
-    match make_request(&state, data).context("InsertBefore frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_insert_before returned");
-            Ok(())
-        },
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
-}
-
-#[op(v8)]
-fn op_react_create_instance<'a>(
-    scope: &mut v8::HandleScope,
-    state: Rc<RefCell<OpState>>,
-    widget_type: String,
-    v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<JsUiWidget> {
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_instance...");
-
-    let properties = convert_properties(scope, v8_properties)?;
-
-    validate_properties(&state, &widget_type, &properties)?;
-
-    let conversion_properties = properties.clone();
-
-    let properties = properties.into_iter()
-        .map(|(name, val)| (name, val.into()))
-        .collect();
-
-    let data = JsUiRequestData::CreateInstance {
-        widget_type,
-        properties,
-    };
-
-    let widget = match make_request(&state, data).context("CreateInstance frontend response")? {
-        JsUiResponseData::CreateInstance { widget } => widget,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
-
-    assign_event_listeners(&state, &widget, &conversion_properties);
-
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_instance returned {:?}", widget);
-
-    Ok(widget.into())
-}
-
-#[op]
-fn op_react_create_text_instance(
-    state: Rc<RefCell<OpState>>,
-    text: String,
-) -> anyhow::Result<JsUiWidget> {
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_text_instance...");
-
-    let data = JsUiRequestData::CreateTextInstance { text };
-
-    let widget = match make_request(&state, data).context("CreateTextInstance frontend response")? {
-        JsUiResponseData::CreateTextInstance { widget } => widget,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
-
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_create_text_instance returned {:?}", widget);
-
-    Ok(widget.into())
-}
-
-#[op(v8)]
-fn op_react_set_properties<'a>(
-    scope: &mut v8::HandleScope,
-    state: Rc<RefCell<OpState>>,
-    widget: JsUiWidget,
-    v8_properties: HashMap<String, serde_v8::Value<'a>>,
-) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_properties...");
-
-    let properties = convert_properties(scope, v8_properties)?;
-
-    validate_properties(&state, &widget.widget_type, &properties)?;
-
-    assign_event_listeners(&state, &widget, &properties);
-
-    let properties = properties.into_iter()
-        .map(|(name, val)| (name, val.into()))
-        .collect();
-
-    let data = JsUiRequestData::SetProperties {
-        widget,
-        properties,
-    };
-
-    match make_request(&state, data).context("SetProperties frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_properties returned");
-            Ok(())
-        },
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
-}
-
 #[op(v8)]
 fn op_react_call_event_listener(
     scope: &mut v8::HandleScope,
@@ -558,30 +376,9 @@ fn op_react_call_event_listener(
     tracing::trace!(target = "renderer_rs_common", "Calling op_react_call_event_listener returned");
 }
 
-#[op]
-fn op_react_set_text(
-    state: Rc<RefCell<OpState>>,
-    widget: JsUiWidget,
-    text: String,
-) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_text...");
-
-    let data = JsUiRequestData::SetText {
-        widget,
-        text,
-    };
-
-    match make_request(&state, data).context("SetText frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_mutation", "Calling op_react_set_text returned");
-            Ok(())
-        },
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
-}
-
-#[op]
+#[op(v8)]
 fn op_react_replace_container_children(
+    scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
     container: JsUiWidget,
     new_children: Vec<JsUiWidget>,
@@ -592,8 +389,12 @@ fn op_react_replace_container_children(
         validate_child(&state, &container.widget_type, &new_child.widget_type)?
     }
 
+    let new_children = new_children.into_iter()
+        .map(|child| from_js_to_intermediate_widget(scope, child))
+        .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
+
     let data = JsUiRequestData::ReplaceContainerChildren {
-        container,
+        container: from_js_to_intermediate_widget(scope, container)?,
         new_children,
     };
 
@@ -604,54 +405,6 @@ fn op_react_replace_container_children(
         },
         value @ _ => panic!("unsupported response type {:?}", value),
     }
-}
-
-#[op(v8)]
-fn op_react_clone_instance<'a>(
-    scope: &mut v8::HandleScope,
-    state: Rc<RefCell<OpState>>,
-    instance: JsUiWidget,
-    update_payload: Vec<String>,
-    widget_type: String,
-    old_props: HashMap<String, serde_v8::Value<'a>>,
-    new_props: HashMap<String, serde_v8::Value<'a>>,
-    keep_children: bool,
-) -> anyhow::Result<JsUiWidget> {
-    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance...");
-
-    let old_props = convert_properties(scope, old_props)?;
-    let new_props = convert_properties(scope, new_props)?;
-
-    validate_properties(&state, &instance.widget_type, &new_props)?;
-
-    let new_props_clone = new_props.clone();
-
-    let old_props = old_props.into_iter()
-        .map(|(name, val)| (name, val.into()))
-        .collect();
-    let new_props = new_props.into_iter()
-        .map(|(name, val)| (name, val.into()))
-        .collect();
-
-    let data = JsUiRequestData::CloneInstance {
-        widget: instance,
-        update_payload,
-        widget_type,
-        old_props,
-        new_props,
-        keep_children,
-    };
-
-    let widget = match make_request(&state, data).context("CloneInstance frontend response")? {
-        JsUiResponseData::CloneInstance { widget } => widget,
-        value @ _ => panic!("unsupported response type {:?}", value),
-    };
-
-    assign_event_listeners(&state, &widget, &new_props_clone);
-
-    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_clone_instance returned");
-
-    Ok(widget.into())
 }
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
@@ -676,7 +429,7 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
     })
 }
 
-fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, ConversionPropertyValue>) -> anyhow::Result<()> {
+fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, IntermediatePropertyValue>) -> anyhow::Result<()> {
     let state = state.borrow();
     let component_model = state.borrow::<ComponentModel>();
 
@@ -693,22 +446,22 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                     }
                     Some(prop_value) => {
                         match prop_value {
-                            ConversionPropertyValue::Function(_) => {
+                            IntermediatePropertyValue::Function(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Function) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a function", comp_prop.name, name))?
                                 }
                             }
-                            ConversionPropertyValue::String(_) => {
+                            IntermediatePropertyValue::String(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::String) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name, name))?
                                 }
                             }
-                            ConversionPropertyValue::Number(_) => {
+                            IntermediatePropertyValue::Number(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Number) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name, name))?
                                 }
                             }
-                            ConversionPropertyValue::Bool(_) => {
+                            IntermediatePropertyValue::Bool(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Boolean) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name, name))?
                                 }
@@ -803,85 +556,6 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
 
 async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyProxy<'_>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::GetRoot => {
-            let root = dbus_client.get_root(&plugin_id.to_string()) // TODO add timeout handling
-                .await
-                .map(|container| JsUiResponseData::GetRoot { container: container.into() })
-                .map_err(|err| err.into());
-
-            root
-        }
-        JsUiRequestData::CreateInstance { widget_type, properties } => {
-            let widget = dbus_client.create_instance(&plugin_id.to_string(), &widget_type, to_dbus(properties))
-                .await
-                .map(|widget| JsUiResponseData::CreateInstance { widget: widget.into() })
-                .map_err(|err| err.into());
-
-            widget
-        }
-        JsUiRequestData::CreateTextInstance { text } => {
-            let widget = dbus_client.create_text_instance(&plugin_id.to_string(), &text)
-                .await
-                .map(|widget| JsUiResponseData::CreateTextInstance { widget: widget.into() })
-                .map_err(|err| err.into());
-
-            widget
-        }
-        JsUiRequestData::AppendChild { parent, child } => {
-            let nothing = dbus_client.append_child(&plugin_id.to_string(), parent.into(), child.into())
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
-        }
-        JsUiRequestData::RemoveChild { parent, child } => {
-            let nothing = dbus_client.remove_child(&plugin_id.to_string(), parent.into(), child.into())
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
-        }
-        JsUiRequestData::InsertBefore { parent, child, before_child } => {
-            let nothing = dbus_client.insert_before(&plugin_id.to_string(), parent.into(), child.into(), before_child.into())
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
-        }
-        JsUiRequestData::SetProperties { widget, properties } => {
-            let nothing = dbus_client.set_properties(&plugin_id.to_string(), widget.into(), to_dbus(properties))
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
-        }
-        JsUiRequestData::SetText { widget, text } => {
-            let nothing = dbus_client.set_text(&plugin_id.to_string(), widget.into(), &text)
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
-        }
-        JsUiRequestData::CloneInstance {
-            widget,
-            update_payload,
-            widget_type,
-            old_props,
-            new_props,
-            keep_children
-        } => {
-            let widget = dbus_client.clone_instance(&plugin_id.to_string(), widget.into(), update_payload, &widget_type, to_dbus(old_props), to_dbus(new_props), keep_children)
-                .await
-                .map(|widget| JsUiResponseData::CloneInstance { widget: widget.into() })
-                .map_err(|err| err.into());
-
-            widget
-        }
         JsUiRequestData::ReplaceContainerChildren { container, new_children } => {
             let new_children = new_children.into_iter()
                 .map(|child| child.into())
@@ -897,30 +571,23 @@ async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyPro
     }
 }
 
-#[derive(Clone)]
-pub enum ConversionPropertyValue {
-    Function(v8::Global<v8::Function>),
-    String(String),
-    Number(f64),
-    Bool(bool),
+fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget) -> anyhow::Result<IntermediateUiWidget> {
+    let children = ui_widget.widget_children.into_iter()
+        .map(|child| from_js_to_intermediate_widget(scope, child))
+        .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
+
+    Ok(IntermediateUiWidget {
+        widget_id: ui_widget.widget_id,
+        widget_type: ui_widget.widget_type,
+        widget_properties: from_js_to_intermediate_properties(scope, ui_widget.widget_properties)?,
+        widget_children: children,
+    })
 }
 
-impl From<ConversionPropertyValue> for JsUiPropertyValue {
-    fn from(value: ConversionPropertyValue) -> Self {
-        match value {
-            ConversionPropertyValue::Function(_) => JsUiPropertyValue::Function,
-            ConversionPropertyValue::String(value) => JsUiPropertyValue::String(value),
-            ConversionPropertyValue::Number(value) => JsUiPropertyValue::Number(value),
-            ConversionPropertyValue::Bool(value) => JsUiPropertyValue::Bool(value),
-        }
-    }
-}
-
-
-fn convert_properties(
+fn from_js_to_intermediate_properties(
     scope: &mut v8::HandleScope,
     v8_properties: HashMap<String, serde_v8::Value>,
-) -> anyhow::Result<HashMap<String, ConversionPropertyValue>> {
+) -> anyhow::Result<HashMap<String, IntermediatePropertyValue>> {
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
         .map(|(name, value)| {
@@ -929,13 +596,13 @@ fn convert_properties(
                 let fn_value: v8::Local<v8::Function> = val.try_into()?;
                 let global_fn = v8::Global::new(scope, fn_value);
 
-                Ok((name, ConversionPropertyValue::Function(global_fn)))
+                Ok((name, IntermediatePropertyValue::Function(global_fn)))
             } else if val.is_string() {
-                Ok((name, ConversionPropertyValue::String(val.to_rust_string_lossy(scope))))
+                Ok((name, IntermediatePropertyValue::String(val.to_rust_string_lossy(scope))))
             } else if val.is_number() {
-                Ok((name, ConversionPropertyValue::Number(val.number_value(scope).expect("expected number"))))
+                Ok((name, IntermediatePropertyValue::Number(val.number_value(scope).expect("expected number"))))
             } else if val.is_boolean() {
-                Ok((name, ConversionPropertyValue::Bool(val.boolean_value(scope))))
+                Ok((name, IntermediatePropertyValue::Bool(val.boolean_value(scope))))
             } else {
                 Err(anyhow!("invalid type for property '{:?}' - {:?}", name, val.type_of(scope).to_rust_string_lossy(scope)))
             }
@@ -948,14 +615,14 @@ fn convert_properties(
 fn assign_event_listeners(
     state: &Rc<RefCell<OpState>>,
     widget: &JsUiWidget,
-    properties: &HashMap<String, ConversionPropertyValue>
+    properties: &HashMap<String, IntermediatePropertyValue>
 ) {
     let mut state_ref = state.borrow_mut();
     let event_listeners = state_ref.borrow_mut::<EventHandlers>();
 
     for (name, value) in properties {
         match value {
-            ConversionPropertyValue::Function(global_fn) => {
+            IntermediatePropertyValue::Function(global_fn) => {
                 event_listeners.add_listener(widget.widget_id, name.clone(), global_fn.clone());
             }
             _ => {}

@@ -16,46 +16,11 @@ pub struct NativeUiSearchResult {
 
 #[derive(Debug)]
 pub enum NativeUiResponseData {
-    GetRoot {
-        container: NativeUiWidget
-    },
-    CreateInstance {
-        widget: anyhow::Result<NativeUiWidget>
-    },
-    CreateTextInstance {
-        widget: anyhow::Result<NativeUiWidget>
-    },
-    CloneInstance {
-        widget: anyhow::Result<NativeUiWidget>
-    },
-    AppendChild {
-        result: anyhow::Result<()>
-    },
-    ReplaceContainerChildren {
-        result: anyhow::Result<()>
-    },
+    ReplaceContainerChildren,
 }
 
 #[derive(Debug)]
 pub enum NativeUiRequestData {
-    GetRoot,
-    CreateInstance {
-        widget_type: String,
-        properties: HashMap<String, NativeUiPropertyValue>,
-    },
-    CreateTextInstance {
-        text: String,
-    },
-    AppendChild {
-        parent: NativeUiWidget,
-        child: NativeUiWidget,
-    },
-    CloneInstance {
-        widget: NativeUiWidget,
-        widget_type: String,
-        new_props: HashMap<String, NativeUiPropertyValue>,
-        keep_children: bool,
-    },
     ReplaceContainerChildren {
         container: NativeUiWidget,
         new_children: Vec<NativeUiWidget>,
@@ -65,7 +30,7 @@ pub enum NativeUiRequestData {
 pub type NativeUiWidgetId = u32;
 
 pub fn from_dbus(value: DBusUiPropertyContainer) -> anyhow::Result<HashMap<String, NativeUiPropertyValue>> {
-    let result = value.properties
+    let result = value.0
         .into_iter()
         .map(|(key, (value_type, value))| {
             let value = match &(value_type, value.into()) {
@@ -123,22 +88,23 @@ impl NativeUiPropertyValue {
 pub struct NativeUiWidget {
     pub widget_id: NativeUiWidgetId,
     pub widget_type: String,
+    pub widget_properties: HashMap<String, NativeUiPropertyValue>,
+    pub widget_children: Vec<NativeUiWidget>,
 }
 
-impl From<NativeUiWidget> for DBusUiWidget {
-    fn from(value: NativeUiWidget) -> Self {
-        Self {
-            widget_id: value.widget_id,
-            widget_type: value.widget_type
-        }
-    }
-}
+impl TryFrom<DBusUiWidget> for NativeUiWidget {
+    type Error = anyhow::Error;
 
-impl From<DBusUiWidget> for NativeUiWidget {
-    fn from(value: DBusUiWidget) -> Self {
-        Self {
+    fn try_from(value: DBusUiWidget) -> anyhow::Result<Self> {
+        let children = value.widget_children.into_iter()
+            .map(|child| child.try_into())
+            .collect::<anyhow::Result<Vec<NativeUiWidget>>>()?;
+
+        Ok(Self {
             widget_id: value.widget_id,
-            widget_type: value.widget_type
-        }
+            widget_type: value.widget_type,
+            widget_properties: from_dbus(value.widget_properties)?,
+            widget_children: children,
+        })
     }
 }

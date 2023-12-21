@@ -337,50 +337,10 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::GetRoot => {
-                    let container = client_context.get_root(&plugin_id);
-
-                    let response = NativeUiResponseData::GetRoot { container };
-
-                    responder.respond(response)
-                }
-                NativeUiRequestData::CreateInstance { widget_type, properties } => {
-                    let widget = client_context.create_instance(&plugin_id, &widget_type, properties);
-
-                    let response = NativeUiResponseData::CreateInstance { widget };
-
-                    responder.respond(response)
-                }
-                NativeUiRequestData::CreateTextInstance { text } => {
-                    let widget = client_context.create_text_instance(&plugin_id, &text);
-
-                    let response = NativeUiResponseData::CreateTextInstance { widget };
-
-                    responder.respond(response)
-                }
-                NativeUiRequestData::AppendChild { parent, child } => {
-                    let result = client_context.append_child(&plugin_id, parent, child);
-
-                    let response = NativeUiResponseData::AppendChild { result };
-
-                    responder.respond(response)
-                }
-                NativeUiRequestData::CloneInstance {
-                    widget,
-                    widget_type,
-                    new_props,
-                    keep_children
-                } => {
-                    let widget = client_context.clone_instance(&plugin_id, widget, &widget_type, new_props, keep_children);
-
-                    let response = NativeUiResponseData::CloneInstance { widget };
-
-                    responder.respond(response)
-                }
                 NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
-                    let result = client_context.replace_container_children(&plugin_id, container, new_children);
+                    client_context.replace_container_children(&plugin_id, container, new_children);
 
-                    let response = NativeUiResponseData::ReplaceContainerChildren { result };
+                    let response = NativeUiResponseData::ReplaceContainerChildren;
 
                     responder.respond(response)
                 }

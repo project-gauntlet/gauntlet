@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use zbus::DBusError;
 
-use common::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiPropertyContainer, DBusUiWidget};
+use common::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget};
 use common::model::{EntrypointId, PluginId};
 use crate::plugins::ApplicationManager;
 use crate::search::SearchIndex;
@@ -99,24 +99,6 @@ trait DbusClientProxy {
 
     #[dbus_proxy(signal)]
     fn view_event_signal(&self, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
-
-    fn get_root(&self, plugin_id: &str) -> zbus::Result<DBusUiWidget>;
-
-    fn create_instance(&self, plugin_id: &str, widget_type: &str, properties: DBusUiPropertyContainer) -> zbus::Result<DBusUiWidget>;
-
-    fn create_text_instance(&self, plugin_id: &str, text: &str) -> zbus::Result<DBusUiWidget>;
-
-    fn append_child(&self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
-
-    fn remove_child(&self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget) -> zbus::Result<()>;
-
-    fn insert_before(&self, plugin_id: &str, parent: DBusUiWidget, child: DBusUiWidget, before_child: DBusUiWidget) -> zbus::Result<()>;
-
-    fn set_properties(&self, plugin_id: &str, widget: DBusUiWidget, properties: DBusUiPropertyContainer) -> zbus::Result<()>;
-
-    fn set_text(&self, plugin_id: &str, widget: DBusUiWidget, text: &str) -> zbus::Result<()>;
-
-    fn clone_instance(&self, plugin_id: &str, widget: DBusUiWidget, update_payload: Vec<String>, widget_type: &str, old_props: DBusUiPropertyContainer, new_props: DBusUiPropertyContainer, keep_children: bool) -> zbus::Result<DBusUiWidget>;
 
     fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> zbus::Result<()>;
 }

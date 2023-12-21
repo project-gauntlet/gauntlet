@@ -150,7 +150,7 @@ impl Application for ManagementAppModel {
                 scrollable::scroll_to(self.header.clone(), offset)
             }
             ManagementAppMsg::FontLoaded(result) => {
-                result.unwrap();
+                result.expect("unable to load font");
                 Command::none()
             }
             ManagementAppMsg::ToggleShowEntrypoints { plugin_id } => {
