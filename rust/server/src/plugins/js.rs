@@ -19,7 +19,7 @@ use common::model::PluginId;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
-use crate::model::{IntermediatePropertyValue, IntermediateUiWidget, JsUiEvent, JsUiEventName, JsUiRequestData, JsUiResponseData, JsUiWidget, JsUiWidgetId};
+use crate::model::{IntermediatePropertyValue, IntermediateUiWidget, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget};
 use crate::plugins::run_status::RunStatusGuard;
 
 pub struct PluginRuntimeData {
@@ -167,7 +167,6 @@ async fn start_js_runtime(
         WorkerOptions {
             module_loader: Rc::new(CustomModuleLoader::new(code)),
             extensions: vec![plugin_ext::init_ops_and_esm(
-                EventHandlers::new(),
                 EventReceiver::new(event_stream),
                 PluginData::new(plugin_id),
                 DbusClient::new(client_proxy),
@@ -291,18 +290,15 @@ deno_core::extension!(
         op_log_warn,
         op_log_error,
         op_plugin_get_pending_event,
-        op_react_call_event_listener,
         op_react_replace_container_children,
     ],
     options = {
-        event_listeners: EventHandlers,
         event_receiver: EventReceiver,
         plugin_data: PluginData,
         dbus_client: DbusClient,
         component_model: ComponentModel,
     },
     state = |state, options| {
-        state.put(options.event_listeners);
         state.put(options.event_receiver);
         state.put(options.plugin_data);
         state.put(options.dbus_client);
@@ -354,26 +350,6 @@ async fn op_plugin_get_pending_event<'a>(
     tracing::trace!(target = "renderer_rs_common", "Received plugin event {:?}", event);
 
     Ok(event)
-}
-
-#[op(v8)]
-fn op_react_call_event_listener(
-    scope: &mut v8::HandleScope,
-    state: Rc<RefCell<OpState>>,
-    widget: JsUiWidget,
-    event_name: String,
-) {
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_call_event_listener...");
-
-    let event_handlers = {
-        state.borrow()
-            .borrow::<EventHandlers>()
-            .clone()
-    };
-
-    event_handlers.call_listener_handler(scope, &widget.widget_id, &event_name);
-
-    tracing::trace!(target = "renderer_rs_common", "Calling op_react_call_event_listener returned");
 }
 
 #[op(v8)]
@@ -612,25 +588,6 @@ fn from_js_to_intermediate_properties(
     Ok(vec.into_iter().collect())
 }
 
-fn assign_event_listeners(
-    state: &Rc<RefCell<OpState>>,
-    widget: &JsUiWidget,
-    properties: &HashMap<String, IntermediatePropertyValue>
-) {
-    let mut state_ref = state.borrow_mut();
-    let event_listeners = state_ref.borrow_mut::<EventHandlers>();
-
-    for (name, value) in properties {
-        match value {
-            IntermediatePropertyValue::Function(global_fn) => {
-                event_listeners.add_listener(widget.widget_id, name.clone(), global_fn.clone());
-            }
-            _ => {}
-        }
-    }
-}
-
-
 pub struct PluginData {
     plugin_id: PluginId,
 }
@@ -690,35 +647,3 @@ impl EventReceiver {
         }
     }
 }
-
-
-#[derive(Clone)]
-pub struct EventHandlers {
-    inner: Rc<RefCell<HashMap<JsUiWidgetId, HashMap<JsUiEventName, v8::Global<v8::Function>>>>>,
-}
-
-impl EventHandlers {
-    fn new() -> EventHandlers {
-        Self {
-            inner: Rc::new(RefCell::new(HashMap::new()))
-        }
-    }
-
-    fn add_listener(&mut self, widget: JsUiWidgetId, event_name: JsUiEventName, function: v8::Global<v8::Function>) {
-        let mut inner = self.inner.borrow_mut();
-        inner.entry(widget).or_default().insert(event_name, function);
-    }
-
-    fn call_listener_handler(&self, scope: &mut v8::HandleScope, widget: &JsUiWidgetId, event_name: &JsUiEventName) {
-        let inner = self.inner.borrow();
-        let option_func = inner.get(widget)
-            .map(|handlers| handlers.get(event_name))
-            .flatten();
-
-        if let Some(func) = option_func {
-            let local_fn = v8::Local::new(scope, func);
-            scope.enqueue_microtask(local_fn); // TODO call straight away instead of enqueue?
-        };
-    }
-}
-

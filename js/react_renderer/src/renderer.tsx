@@ -13,11 +13,16 @@ type NoTimeout = -1;
 
 
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props = {}, children: UiWidget[] = []): Instance {
+    const props = Object.fromEntries(
+        Object.entries(properties)
+            .filter(([key, _]) => key !== "children")
+    );
+
     const nextId = hostContext.nextId;
     const instance: Instance = {
         widgetId: nextId,
         widgetType: type,
-        widgetProperties: properties,
+        widgetProperties: props,
         widgetChildren: children,
         hostContext
     };
@@ -52,7 +57,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): Instance => {
         InternalApi.op_log_trace("renderer_js_common", `createInstance is called, type: ${type}, props: ${Deno.inspect(props)}, rootContainer: ${Deno.inspect(rootContainer)}`)
         const instance = createWidget(hostContext, type, props)
-        InternalApi.op_log_trace("renderer_js_common", `op_react_create_instance returned, widget: ${Deno.inspect(instance)}`)
+        InternalApi.op_log_trace("renderer_js_common", `createInstance returned, widget: ${Deno.inspect(instance)}`)
 
         return instance;
     },
@@ -65,7 +70,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     ): TextInstance => {
         InternalApi.op_log_trace("renderer_js_common", `createTextInstance is called, text: ${text}, rootContainer: ${Deno.inspect(rootContainer)}`)
         const textInstance = createWidget(hostContext, "gauntlet:text_part", { value: text })
-        InternalApi.op_log_trace("renderer_js_common", `op_react_create_text_instance returned, widget: ${Deno.inspect(textInstance)}`)
+        InternalApi.op_log_trace("renderer_js_common", `createTextInstance returned, widget: ${Deno.inspect(textInstance)}`)
 
         return textInstance;
     },
@@ -103,8 +108,8 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     shouldSetTextContent: (_type: ComponentType, _props: PropsWithChildren): boolean => {
         return false;
     },
-    getRootHostContext: (rootContainer: RootUiWidget): HostContext | null => {
-        return rootContainer;
+    getRootHostContext: (_rootContainer: RootUiWidget): HostContext | null => {
+        return { nextId: 0 };
     },
     getChildHostContext: (parentHostContext: HostContext, _type: ComponentType, _rootContainer: RootUiWidget): HostContext => {
         return parentHostContext;
@@ -189,10 +194,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
             }
         }
 
-        // TODO assign_event_listeners
-        // assign_event_listeners(&state, &widget, &new_props_clone);
-
-        InternalApi.op_log_trace("renderer_js_persistence", `op_react_clone_instance returned, widget: ${Deno.inspect(clonedInstance)}`)
+        InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance returned, widget: ${Deno.inspect(clonedInstance)}`)
 
         return clonedInstance;
     },
@@ -219,6 +221,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
         assertPersistentMode(options.mode);
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
+        container.widgetChildren = newChildren
         InternalApi.op_react_replace_container_children(container, newChildren)
     },
 
@@ -286,7 +289,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
-export function render(mode: "mutation" | "persistent", View: React.FC) {
+export function render(mode: "mutation" | "persistent", View: React.FC): RootUiWidget {
     if (mode === "mutation") {
         // TODO reimplement but for specific frontend, it seems it is not feasible to do generic implementation
         throw new Error("NOT IMPLEMENTED")
@@ -297,19 +300,20 @@ export function render(mode: "mutation" | "persistent", View: React.FC) {
     // const reconciler = ReactReconciler(createTracedHostConfig(hostConfig));
     const reconciler = ReactReconciler(hostConfig);
 
+    const container: RootUiWidget = {
+        widgetId: 0,
+        widgetType: "gauntlet:root",
+        widgetProperties: {},
+        widgetChildren: [],
+    };
+
     const root = reconciler.createContainer(
-        {
-            widgetId: 0,
-            widgetType: "gauntlet:root",
-            widgetProperties: {},
-            widgetChildren: [],
-            nextId: 1
-        },
+        container,
         0,
         null,
         false,
         false,
-        "custom",
+        "",
         error => {
             console.error("Recoverable error occurred when rendering view", error)
         },
@@ -322,4 +326,6 @@ export function render(mode: "mutation" | "persistent", View: React.FC) {
         null,
         null
     );
+
+    return container
 }

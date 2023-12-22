@@ -10,7 +10,7 @@ interface InspectOptions {
 interface Deno {
     [Deno.internal]: {
         core: {
-            opAsync: (op: string) => Promise<PluginEvent>
+            opAsync: (op: "op_plugin_get_pending_event") => Promise<PluginEvent>
             ops: InternalApi
         }
     };
@@ -21,7 +21,7 @@ type PluginEvent = ViewEvent | ViewCreated | ViewDestroyed | PluginCommand
 type ViewEvent = {
     type: "ViewEvent"
     eventName: string
-    widget: Instance
+    widgetId: number
 }
 
 type ViewCreated = {
@@ -42,7 +42,7 @@ type PluginCommand = {
 type UiWidget = UiWidgetBase & {
     hostContext: RootContext
 }
-type RootUiWidget = UiWidgetBase & RootContext
+type RootUiWidget = UiWidgetBase
 
 type UiWidgetBase = {
     widgetId: number,
@@ -69,10 +69,6 @@ interface InternalApi {
     op_log_info(target: string, message: string): void;
     op_log_warn(target: string, message: string): void;
     op_log_error(target: string, message: string): void;
-
-    op_react_call_event_listener(instance: Instance, eventName: string): void;
-
-    op_react_clone_instance(instance: Instance, updatePayload: UpdatePayload, type: ComponentType, oldProps: PropsWithChildren, newProps: PropsWithChildren, keepChildren: boolean): Instance;
 
     op_react_replace_container_children(container: Instance, newChildren: ChildSet): void;
 }

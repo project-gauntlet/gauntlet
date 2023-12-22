@@ -32,6 +32,7 @@ pub enum JsUiEvent {
     },
     ViewDestroyed,
     ViewEvent {
+        #[serde(rename = "widgetId")]
         widget_id: UiWidgetId,
         #[serde(rename = "eventName")]
         event_name: String,
@@ -41,9 +42,6 @@ pub enum JsUiEvent {
         command_type: String,
     }
 }
-
-pub type JsUiWidgetId = u32;
-pub type JsUiEventName = String;
 
 #[derive(Deserialize, Serialize)]
 pub struct JsUiWidget<'a> {

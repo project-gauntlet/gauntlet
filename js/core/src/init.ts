@@ -4,7 +4,50 @@ import { FC } from "react";
 const denoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
-const run_loop = async () => {
+let latestRootUiWidget: RootUiWidget | undefined = undefined
+
+function findWidgetWithId(widget: UiWidgetBase, widgetId: number): UiWidgetBase | undefined {
+    // TODO not the most performant solution but works for now?
+
+    if (widget.widgetId === widgetId) {
+        return widget
+    }
+
+    for (let widgetChild of widget.widgetChildren) {
+        const widgetWithId = findWidgetWithId(widgetChild, widgetId);
+        if (widgetWithId) {
+            return widgetWithId
+        }
+    }
+
+    return undefined;
+}
+
+function handleEvent(event: ViewEvent) {
+    InternalApi.op_log_trace("plugin_event_handler", `Beginning handleEvent with root widget: ${Deno.inspect(latestRootUiWidget)}`)
+
+    if (latestRootUiWidget) {
+        const widgetWithId = findWidgetWithId(latestRootUiWidget, event.widgetId);
+        InternalApi.op_log_trace("plugin_event_handler", `Widget with id ${event.widgetId} is ${Deno.inspect(widgetWithId)}`)
+
+        if (widgetWithId) {
+            const property = widgetWithId.widgetProperties[event.eventName];
+
+            InternalApi.op_log_trace("plugin_event_handler", `Event handler with name ${event.eventName} is ${Deno.inspect(property)}`)
+
+            if (property) {
+                if (typeof property === "function") {
+                    property()
+                } else {
+                    throw new Error(`Event property has type ${typeof property}, but should be function`)
+                }
+            }
+        }
+    }
+}
+
+
+async function runLoop() {
     while (true) {
         InternalApi.op_log_trace("plugin_loop", "Waiting for next plugin event...")
         const pluginEvent = await denoCore.opAsync("op_plugin_get_pending_event");
@@ -12,7 +55,7 @@ const run_loop = async () => {
         switch (pluginEvent.type) {
             case "ViewEvent": {
                 try {
-                    InternalApi.op_react_call_event_listener(pluginEvent.widget, pluginEvent.eventName)
+                    handleEvent(pluginEvent)
                 } catch (e) {
                     console.error("Error occurred when receiving event to handle", e)
                 }
@@ -21,8 +64,8 @@ const run_loop = async () => {
             case "ViewCreated": {
                 try {
                     const view: FC = (await import(`gauntlet:view?${pluginEvent.viewName}`)).default;
-                    const { render } = await import("gauntlet:renderer");
-                    render(pluginEvent.reconcilerMode, view)
+                    const {render} = await import("gauntlet:renderer");
+                    latestRootUiWidget = render(pluginEvent.reconcilerMode, view);
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.viewName, e)
                 }
@@ -43,5 +86,5 @@ const run_loop = async () => {
 }
 
 (async () => {
-    await run_loop()
+    await runLoop()
 })();
