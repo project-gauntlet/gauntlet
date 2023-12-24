@@ -221,10 +221,16 @@ impl Application for AppModel {
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event, plugin_id } => {
                 let dbus_client = self.dbus_client.clone();
+                let client_context = self.client_context.clone();
+
                 Command::perform(async move {
                     let signal_context = dbus_client.signal_context();
+                    let future = {
+                        let client_context = client_context.read().expect("lock is poisoned");
+                        client_context.handle_event(signal_context, &plugin_id, widget_event)
+                    };
 
-                    widget_event.handle(signal_context, plugin_id).await
+                    future.await;
                 }, |_| AppMsg::Noop)
             }
             AppMsg::Noop => Command::none(),

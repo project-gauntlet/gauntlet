@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{Arc, RwLock};
 
 use iced::widget::Component;
 use iced::widget::component;
+use zbus::SignalContext;
 
 use common::model::PluginId;
 
@@ -57,6 +59,14 @@ impl PluginViewContainer {
             .set_children(children)
             .expect("unable to set children");
     }
+
+    fn handle_event<'a, 'b>(&'a self, signal_context: &'b SignalContext<'_>, plugin_id: PluginId, event: ComponentWidgetEvent<>) -> impl Future<Output=()> + 'b + Send {
+        let widget = self.root_widget
+            .find_child_with_id(event.widget_id())
+            .expect("created event for non existing widget?");
+
+        event.handle(signal_context, plugin_id, widget)
+    }
 }
 
 impl Component<ComponentWidgetEvent, GauntletRenderer> for PluginContainer {
@@ -104,5 +114,9 @@ impl ClientContext {
 
     pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
         self.get_view_container_mut(plugin_id).replace_container_children(container, new_children)
+    }
+
+    pub fn handle_event<'a>(&self, signal_context: &'a SignalContext<'_>, plugin_id: &'a PluginId, event: ComponentWidgetEvent) -> impl Future<Output=()> + 'a + Send {
+        self.get_view_container(plugin_id).handle_event(signal_context, plugin_id.clone(), event)
     }
 }

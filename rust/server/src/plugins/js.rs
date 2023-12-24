@@ -19,7 +19,7 @@ use common::model::PluginId;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
 use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
-use crate::model::{IntermediatePropertyValue, IntermediateUiWidget, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget};
+use crate::model::{from_dbus_to_intermediate_value, IntermediatePropertyValue, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget};
 use crate::plugins::run_status::RunStatusGuard;
 
 pub struct PluginRuntimeData {
@@ -57,11 +57,10 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             async move {
                 let signal = signal.args().unwrap();
 
-                // TODO add logging here that we received signal
                 if PluginId::from_string(signal.plugin_id) != plugin_id {
                     None
                 } else {
-                    Some(JsUiEvent::ViewCreated {
+                    Some(IntermediateUiEvent::ViewCreated {
                         reconciler_mode: signal.event.reconciler_mode,
                         view_name: signal.event.view_name,
                     })
@@ -77,14 +76,25 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             async move {
                 let signal = signal.args().unwrap();
 
-                // TODO add logging here that we received signal
                 if PluginId::from_string(signal.plugin_id) != plugin_id {
                     None
                 } else {
-                    Some(JsUiEvent::ViewEvent {
-                        event_name: signal.event.event_name,
-                        widget_id: signal.event.widget_id,
-                    })
+                    let event_arguments = signal.event.event_arguments.into_iter()
+                        .map(|arg| from_dbus_to_intermediate_value(arg))
+                        .collect::<anyhow::Result<Vec<_>>>();
+
+                    match event_arguments {
+                        Ok(event_arguments) => Some(IntermediateUiEvent::ViewEvent {
+                            widget_id: signal.event.widget_id,
+                            event_name: signal.event.event_name,
+                            event_arguments,
+                        }),
+                        Err(err) => {
+                            tracing::error!(target = "dbus", "error occurred when accepting event from client {:?}", err);
+                            None
+                        }
+                    }
+
                 }
             }
         });
@@ -103,13 +113,12 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             async move {
                 let id = command.id;
 
-                // TODO add logging here that we received signal
                 if id != plugin_id {
                     None
                 } else {
                     match command.data {
                         PluginCommandData::Stop => {
-                            Some(JsUiEvent::PluginCommand {
+                            Some(IntermediateUiEvent::PluginCommand {
                                 command_type: "stop".to_string(),
                             })
                         }
@@ -146,7 +155,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 async fn start_js_runtime(
     plugin_id: PluginId,
     code: PluginCode,
-    event_stream: Pin<Box<dyn Stream<Item=JsUiEvent>>>,
+    event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
     client_proxy: DbusClientProxyProxy<'static>,
     component_model: Vec<Component>
 ) -> anyhow::Result<()> {
@@ -332,9 +341,7 @@ fn op_log_error(target: String, message: String) {
 }
 
 #[op]
-async fn op_plugin_get_pending_event<'a>(
-    state: Rc<RefCell<OpState>>,
-) -> anyhow::Result<JsUiEvent> {
+async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiEvent> {
     let event_stream = {
         state.borrow()
             .borrow::<EventReceiver>()
@@ -349,7 +356,7 @@ async fn op_plugin_get_pending_event<'a>(
 
     tracing::trace!(target = "renderer_rs_common", "Received plugin event {:?}", event);
 
-    Ok(event)
+    Ok(from_intermediate_to_js_event(event))
 }
 
 #[op(v8)]
@@ -422,11 +429,6 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                     }
                     Some(prop_value) => {
                         match prop_value {
-                            IntermediatePropertyValue::Function(_) => {
-                                if !matches!(comp_prop.property_type, PropertyType::Function) {
-                                    Err(anyhow::anyhow!("property {} on {} component has to be a function", comp_prop.name, name))?
-                                }
-                            }
                             IntermediatePropertyValue::String(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::String) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name, name))?
@@ -440,6 +442,11 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                             IntermediatePropertyValue::Bool(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Boolean) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name, name))?
+                                }
+                            }
+                            IntermediatePropertyValue::Undefined => {
+                                if !comp_prop.optional {
+                                    Err(anyhow::anyhow!("property {} on {} component has to be optional", comp_prop.name, name))?
                                 }
                             }
                         }
@@ -547,6 +554,34 @@ async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyPro
     }
 }
 
+fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
+    match event {
+        IntermediateUiEvent::ViewCreated { reconciler_mode, view_name } => JsUiEvent::ViewCreated {
+            reconciler_mode,
+            view_name,
+        },
+        IntermediateUiEvent::ViewEvent { widget_id, event_name, event_arguments } => {
+            let event_arguments = event_arguments.into_iter()
+                .map(|arg| match arg {
+                    IntermediatePropertyValue::String(value) => JsPropertyValue::String { value },
+                    IntermediatePropertyValue::Number(value) => JsPropertyValue::Number { value },
+                    IntermediatePropertyValue::Bool(value) => JsPropertyValue::Bool { value },
+                    IntermediatePropertyValue::Undefined => JsPropertyValue::Undefined,
+                })
+                .collect();
+
+            JsUiEvent::ViewEvent {
+                widget_id,
+                event_name,
+                event_arguments,
+            }
+        }
+        IntermediateUiEvent::PluginCommand { command_type } => JsUiEvent::PluginCommand {
+            command_type
+        }
+    }
+}
+
 fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget) -> anyhow::Result<IntermediateUiWidget> {
     let children = ui_widget.widget_children.into_iter()
         .map(|child| from_js_to_intermediate_widget(scope, child))
@@ -566,14 +601,10 @@ fn from_js_to_intermediate_properties(
 ) -> anyhow::Result<HashMap<String, IntermediatePropertyValue>> {
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
+        .filter(|(_, value)| !value.v8_value.is_function())
         .map(|(name, value)| {
             let val = value.v8_value;
-            if val.is_function() {
-                let fn_value: v8::Local<v8::Function> = val.try_into()?;
-                let global_fn = v8::Global::new(scope, fn_value);
-
-                Ok((name, IntermediatePropertyValue::Function(global_fn)))
-            } else if val.is_string() {
+            if val.is_string() {
                 Ok((name, IntermediatePropertyValue::String(val.to_rust_string_lossy(scope))))
             } else if val.is_number() {
                 Ok((name, IntermediatePropertyValue::Number(val.number_value(scope).expect("expected number"))))
@@ -628,7 +659,7 @@ impl ComponentModel {
                     match &component {
                         Component::Standard { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
                         Component::Root { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
-                        Component::TextPart { internal_name } => Some((format!("gauntlet:{}", internal_name), component)),
+                        Component::TextPart { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
                     }
                 })
                 .collect()
@@ -637,11 +668,11 @@ impl ComponentModel {
 }
 
 pub struct EventReceiver {
-    event_stream: Rc<RefCell<Pin<Box<dyn Stream<Item=JsUiEvent>>>>>,
+    event_stream: Rc<RefCell<Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>>>,
 }
 
 impl EventReceiver {
-    fn new(event_stream: Pin<Box<dyn Stream<Item=JsUiEvent>>>) -> EventReceiver {
+    fn new(event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>) -> EventReceiver {
         Self {
             event_stream: Rc::new(RefCell::new(event_stream)),
         }

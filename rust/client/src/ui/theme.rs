@@ -1,6 +1,8 @@
-use iced::{application, Color, Renderer, Theme};
+use iced::{application, Background, Color, overlay, Renderer, Theme};
 use iced::theme::{Palette, palette};
-use iced::widget::{button, container, rule, scrollable, text, text_input};
+use iced::widget::{button, checkbox, container, pick_list, rule, scrollable, text, text_input};
+use iced_aw::date_picker::Appearance;
+use iced_aw::style::date_picker;
 
 pub type GauntletRenderer = Renderer<GauntletTheme>;
 
@@ -244,6 +246,152 @@ impl text::StyleSheet for GauntletTheme {
         }
     }
 }
+
+impl date_picker::StyleSheet for GauntletTheme {
+    type Style = ();
+
+    fn active(&self, _: &Self::Style) -> Appearance {
+        let palette = self.extended_palette();
+        let foreground = self.palette();
+
+        Appearance {
+            background: palette.background.base.color.into(),
+            border_radius: 15.0,
+            border_width: 1.0,
+            border_color: foreground.text,
+            text_color: foreground.text,
+            text_attenuated_color: Color {
+                a: foreground.text.a * 0.5,
+                ..foreground.text
+            },
+            day_background: palette.background.base.color.into(),
+        }
+    }
+
+    fn selected(&self, style: &Self::Style) -> Appearance {
+        let palette = self.extended_palette();
+
+        Appearance {
+            day_background: palette.primary.strong.color.into(),
+            text_color: palette.primary.strong.text,
+            ..self.active(style)
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style) -> Appearance {
+        let palette = self.extended_palette();
+
+        Appearance {
+            day_background: palette.primary.weak.color.into(),
+            text_color: palette.primary.weak.text,
+            ..self.active(style)
+        }
+    }
+
+    fn focused(&self, style: &Self::Style) -> Appearance {
+        Appearance {
+            border_color: Color::from_rgb(0.5, 0.5, 0.5),
+            ..self.active(style)
+        }
+    }
+}
+
+impl checkbox::StyleSheet for GauntletTheme {
+    type Style = ();
+
+    fn active(&self, _: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+        let palette = self.extended_palette();
+
+        checkbox_appearance(
+            palette.primary.strong.text,
+            palette.background.base,
+            palette.primary.strong,
+            is_checked,
+        )
+    }
+
+    fn hovered(&self, _: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+        let palette = self.extended_palette();
+
+        checkbox_appearance(
+            palette.primary.strong.text,
+            palette.background.weak,
+            palette.primary.base,
+            is_checked,
+        )
+    }
+}
+
+fn checkbox_appearance(
+    icon_color: Color,
+    base: palette::Pair,
+    accent: palette::Pair,
+    is_checked: bool,
+) -> checkbox::Appearance {
+    checkbox::Appearance {
+        background: Background::Color(if is_checked {
+            accent.color
+        } else {
+            base.color
+        }),
+        icon_color,
+        border_radius: 2.0.into(),
+        border_width: 1.0,
+        border_color: accent.color,
+        text_color: None,
+    }
+}
+
+impl pick_list::StyleSheet for GauntletTheme {
+    type Style = ();
+
+    fn active(&self, _: &Self::Style) -> pick_list::Appearance {
+        let palette = self.extended_palette();
+
+        pick_list::Appearance {
+            text_color: palette.background.weak.text,
+            background: palette.background.weak.color.into(),
+            placeholder_color: palette.background.strong.color,
+            handle_color: palette.background.weak.text,
+            border_radius: 2.0.into(),
+            border_width: 1.0,
+            border_color: palette.background.strong.color,
+        }
+    }
+
+    fn hovered(&self, _: &Self::Style) -> pick_list::Appearance {
+        let palette = self.extended_palette();
+
+        pick_list::Appearance {
+            text_color: palette.background.weak.text,
+            background: palette.background.weak.color.into(),
+            placeholder_color: palette.background.strong.color,
+            handle_color: palette.background.weak.text,
+            border_radius: 2.0.into(),
+            border_width: 1.0,
+            border_color: palette.primary.strong.color,
+        }
+    }
+}
+
+impl overlay::menu::StyleSheet for GauntletTheme {
+    type Style = ();
+
+    fn appearance(&self, _: &Self::Style) -> overlay::menu::Appearance {
+        let palette = self.extended_palette();
+
+        overlay::menu::Appearance {
+            text_color: palette.background.weak.text,
+            background: palette.background.weak.color.into(),
+            border_width: 1.0,
+            border_radius: 0.0.into(),
+            border_color: palette.background.strong.color,
+            selected_text_color: palette.primary.strong.text,
+            selected_background: palette.primary.strong.color.into(),
+        }
+    }
+}
+
 
 #[derive(Default)]
 pub enum ButtonStyle {

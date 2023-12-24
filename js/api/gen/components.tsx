@@ -64,6 +64,18 @@ declare global {
             ["gauntlet:detail"]: {
                 children?: ElementComponent<typeof Metadata | typeof Content>;
             };
+            ["gauntlet:text_field"]: {};
+            ["gauntlet:password_field"]: {};
+            ["gauntlet:checkbox"]: {};
+            ["gauntlet:date_picker"]: {
+                value?: string;
+                onChange?: (value: string | undefined) => void;
+            };
+            ["gauntlet:select"]: {};
+            ["gauntlet:separator"]: {};
+            ["gauntlet:form"]: {
+                children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+            };
         }
     }
 }
@@ -234,3 +246,44 @@ export const Detail: FC<DetailProps> & {
 };
 Detail.Metadata = Metadata;
 Detail.Content = Content;
+export const TextField: FC = (): ReactNode => {
+    return <gauntlet:text_field />;
+};
+export const PasswordField: FC = (): ReactNode => {
+    return <gauntlet:password_field />;
+};
+export const Checkbox: FC = (): ReactNode => {
+    return <gauntlet:checkbox />;
+};
+export interface DatePickerProps {
+    value?: string;
+    onChange?: (value: string | undefined) => void;
+}
+export const DatePicker: FC<DatePickerProps> = (props: DatePickerProps): ReactNode => {
+    return <gauntlet:date_picker value={props.value} onChange={props.onChange}/>;
+};
+export const Select: FC = (): ReactNode => {
+    return <gauntlet:select />;
+};
+export const Separator: FC = (): ReactNode => {
+    return <gauntlet:separator />;
+};
+export interface FormProps {
+    children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+}
+export const Form: FC<FormProps> & {
+    TextField: typeof TextField;
+    PasswordField: typeof PasswordField;
+    Checkbox: typeof Checkbox;
+    DatePicker: typeof DatePicker;
+    Select: typeof Select;
+    Separator: typeof Separator;
+} = (props: FormProps): ReactNode => {
+    return <gauntlet:form children={props.children}/>;
+};
+Form.TextField = TextField;
+Form.PasswordField = PasswordField;
+Form.Checkbox = Checkbox;
+Form.DatePicker = DatePicker;
+Form.Select = Select;
+Form.Separator = Separator;

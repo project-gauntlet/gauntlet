@@ -48,6 +48,7 @@ pub enum Component {
     TextPart {
         #[serde(rename = "internalName")]
         internal_name: String,
+        props: Vec<Property>,
     },
 }
 
@@ -73,7 +74,9 @@ pub enum PropertyType {
         nested: Box<PropertyType>
     },
     #[serde(rename = "function")]
-    Function,
+    Function {
+        arguments: Vec<Property>
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -169,7 +172,8 @@ fn component<I>(internal_name: impl ToString, name: impl ToString, properties: I
 
 fn text_part() -> Component {
     Component::TextPart {
-        internal_name: "text_part".to_owned()
+        internal_name: "text_part".to_owned(),
+        props: vec![property("value", false, PropertyType::String)]
     }
 }
 
@@ -189,6 +193,17 @@ fn root(children: &[&Component]) -> Component {
             .collect(),
     }
 }
+
+fn event<I>(name: impl Into<String>, arguments: I) -> Property
+    where I: IntoIterator<Item=Property>
+{
+    Property {
+        name: name.into(),
+        optional: true,
+        property_type: PropertyType::Function { arguments: arguments.into_iter().collect() },
+    }
+}
+
 
 fn property(name: impl Into<String>, optional: bool, property_type: PropertyType) -> Property {
     Property {
@@ -214,7 +229,7 @@ pub fn create_component_model() -> Vec<Component> {
         "MetadataTagItem",
         [
             // property("color", true, PropertyType::String),
-            property("onClick", true, PropertyType::Function)
+            event("onClick", [])
         ],
         children_string(),
     );
@@ -391,9 +406,86 @@ pub fn create_component_model() -> Vec<Component> {
         ]),
     );
 
+
+    let text_field_component = component(
+        "text_field",
+        "TextField",
+        [],
+        children_none(),
+    );
+
+    let password_field_component = component(
+        "password_field",
+        "PasswordField",
+        [],
+        children_none(),
+    );
+
+    // let text_area_component = component(
+    //     "text_area",
+    //     "TextArea",
+    //     [],
+    //     children_none(),
+    // );
+
+    let checkbox_component = component(
+        "checkbox",
+        "Checkbox",
+        [],
+        children_none(),
+    );
+
+    let date_picker_component = component(
+        "date_picker",
+        "DatePicker",
+        [
+            property("value", true, PropertyType::String),
+            event("onChange", [property("value", true, PropertyType::String)])
+        ],
+        children_none(),
+    );
+
+    let select_component = component(
+        "select",
+        "Select",
+        [],
+        children_none(),
+    );
+
+    // let multi_select_component = component(
+    //     "multi_select",
+    //     "MultiSelect",
+    //     [],
+    //     children_none(),
+    // );
+
+    let separator_component = component(
+        "separator",
+        "Separator",
+        [],
+        children_none(),
+    );
+
+    let form_component = component(
+        "form",
+        "Form",
+        [],
+        children_members([
+            member("TextField", &text_field_component),
+            member("PasswordField", &password_field_component),
+            // member("TextArea", &text_area_component),
+            member("Checkbox", &checkbox_component),
+            member("DatePicker", &date_picker_component),
+            member("Select", &select_component),
+            // member("MultiSelect", &multi_select_component),
+            member("Separator", &separator_component),
+        ]),
+    );
+
+
     let text_part = text_part();
 
-    let root = root(&[&detail_component]);
+    let root = root(&[&detail_component, &form_component]);
 
     // Detail
     // Detail.Content
@@ -454,6 +546,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     vec![
         text_part,
+
         metadata_link_component,
         metadata_tag_item_component,
         metadata_tag_list_component,
@@ -461,6 +554,7 @@ pub fn create_component_model() -> Vec<Component> {
         metadata_value_component,
         metadata_icon_component,
         metadata_component,
+
         link_component,
         image_component,
         h1_component,
@@ -474,7 +568,19 @@ pub fn create_component_model() -> Vec<Component> {
         // code_component,
         paragraph_component,
         content_component,
+
         detail_component,
+
+        text_field_component,
+        password_field_component,
+        // text_area_component,
+        checkbox_component,
+        date_picker_component,
+        select_component,
+        // multi_select_component,
+        separator_component,
+        form_component,
+
         root,
     ]
 }

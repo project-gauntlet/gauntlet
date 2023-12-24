@@ -24,22 +24,43 @@ function findWidgetWithId(widget: UiWidgetBase, widgetId: number): UiWidgetBase 
 }
 
 function handleEvent(event: ViewEvent) {
-    InternalApi.op_log_trace("plugin_event_handler", `Beginning handleEvent with root widget: ${Deno.inspect(latestRootUiWidget)}`)
-
+    InternalApi.op_log_trace("plugin_event_handler", `Handling view event: ${Deno.inspect(event)}`);
+    InternalApi.op_log_trace("plugin_event_handler", `Root widget: ${Deno.inspect(latestRootUiWidget)}`);
     if (latestRootUiWidget) {
         const widgetWithId = findWidgetWithId(latestRootUiWidget, event.widgetId);
-        InternalApi.op_log_trace("plugin_event_handler", `Widget with id ${event.widgetId} is ${Deno.inspect(widgetWithId)}`)
+        InternalApi.op_log_trace("plugin_event_handler", `Found widget with id ${event.widgetId}: ${Deno.inspect(widgetWithId)}`)
 
         if (widgetWithId) {
             const property = widgetWithId.widgetProperties[event.eventName];
 
-            InternalApi.op_log_trace("plugin_event_handler", `Event handler with name ${event.eventName} is ${Deno.inspect(property)}`)
+            InternalApi.op_log_trace("plugin_event_handler", `Found event handler with name ${event.eventName}: ${Deno.inspect(property)}`)
 
             if (property) {
                 if (typeof property === "function") {
-                    property()
+
+                    const eventArgs = event.eventArguments
+                        .map(arg => {
+                            switch (arg.type) {
+                                case "Undefined": {
+                                    return undefined
+                                }
+                                case "String": {
+                                    return arg.value
+                                }
+                                case "Number": {
+                                    return arg.value
+                                }
+                                case "Bool": {
+                                    return arg.value
+                                }
+                            }
+                        });
+
+                    InternalApi.op_log_trace("plugin_event_handler", `Calling handler with arguments ${Deno.inspect(eventArgs)}`)
+
+                    property(...eventArgs);
                 } else {
-                    throw new Error(`Event property has type ${typeof property}, but should be function`)
+                    throw new Error(`Event handler has type ${typeof property}, but should be function`)
                 }
             }
         }

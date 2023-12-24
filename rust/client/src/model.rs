@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValueType, DBusUiWidget};
+use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget};
 use common::model::{EntrypointId, PluginId};
 
 #[derive(Debug, Clone)]
@@ -32,12 +32,11 @@ pub type NativeUiWidgetId = u32;
 pub fn from_dbus(value: DBusUiPropertyContainer) -> anyhow::Result<HashMap<String, NativeUiPropertyValue>> {
     let result = value.0
         .into_iter()
-        .map(|(key, (value_type, value))| {
+        .map(|(key, DBusUiPropertyValue(value_type, value))| {
             let value = match &(value_type, value.into()) {
                 (DBusUiPropertyValueType::String, Value::Str(value)) => NativeUiPropertyValue::String(value.to_string()),
-                (DBusUiPropertyValueType::Number, Value::F64(value)) => NativeUiPropertyValue::Number(*value),
-                (DBusUiPropertyValueType::Bool, Value::Bool(value)) => NativeUiPropertyValue::Bool(*value),
-                (DBusUiPropertyValueType::Function, _) => NativeUiPropertyValue::Function,
+                (DBusUiPropertyValueType::Number, Value::F64(value)) => NativeUiPropertyValue::Number(value.to_owned()),
+                (DBusUiPropertyValueType::Bool, Value::Bool(value)) => NativeUiPropertyValue::Bool(value.to_owned()),
                 _ => {
                     return Err(anyhow!("invalid type"))
                 }
@@ -54,7 +53,6 @@ pub fn from_dbus(value: DBusUiPropertyContainer) -> anyhow::Result<HashMap<Strin
 
 #[derive(Debug, Clone)]
 pub enum NativeUiPropertyValue {
-    Function,
     String(String),
     Number(f64),
     Bool(bool),

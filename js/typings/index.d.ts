@@ -20,8 +20,9 @@ type PluginEvent = ViewEvent | ViewCreated | ViewDestroyed | PluginCommand
 
 type ViewEvent = {
     type: "ViewEvent"
-    eventName: string
     widgetId: number
+    eventName: string
+    eventArguments: PropertyValue[]
 }
 
 type ViewCreated = {
@@ -38,6 +39,12 @@ type PluginCommand = {
     type: "PluginCommand"
     commandType: "stop"
 }
+
+type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined
+type PropertyValueString = { type: "String", value: string }
+type PropertyValueNumber = { type: "Number", value: number }
+type PropertyValueBool = { type: "Bool", value: boolean }
+type PropertyValueUndefined = { type: "Undefined" }
 
 type UiWidget = UiWidgetBase & {
     hostContext: RootContext

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use deno_core::{serde_v8, v8};
+use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
 use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValueType, DBusUiWidget};
+use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget, value_bool_to_dbus, value_number_to_dbus, value_string_to_dbus};
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -21,7 +21,7 @@ pub enum JsUiRequestData {
 
 pub type UiWidgetId = u32;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum JsUiEvent {
     ViewCreated {
@@ -36,11 +36,29 @@ pub enum JsUiEvent {
         widget_id: UiWidgetId,
         #[serde(rename = "eventName")]
         event_name: String,
+        #[serde(rename = "eventArguments")]
+        event_arguments: Vec<JsPropertyValue>,
     },
     PluginCommand {
         #[serde(rename = "commandType")]
         command_type: String,
     }
+}
+
+// FIXME this could have been serde_v8::AnyValue but it doesn't support undefined, make a pr?
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum JsPropertyValue {
+    String {
+        value: String
+    },
+    Number {
+        value: f64
+    },
+    Bool {
+        value: bool
+    },
+    Undefined,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -56,6 +74,22 @@ pub struct JsUiWidget<'a> {
 }
 
 #[derive(Debug)]
+pub enum IntermediateUiEvent {
+    ViewCreated {
+        reconciler_mode: String,
+        view_name: String
+    },
+    ViewEvent {
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<IntermediatePropertyValue>,
+    },
+    PluginCommand {
+        command_type: String,
+    }
+}
+
+#[derive(Debug)]
 pub struct IntermediateUiWidget {
     pub widget_id: UiWidgetId,
     pub widget_type: String,
@@ -63,12 +97,12 @@ pub struct IntermediateUiWidget {
     pub widget_children: Vec<IntermediateUiWidget>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum IntermediatePropertyValue {
-    Function(v8::Global<v8::Function>),
     String(String),
     Number(f64),
     Bool(bool),
+    Undefined,
 }
 
 
@@ -87,14 +121,39 @@ impl From<IntermediateUiWidget> for DBusUiWidget {
     }
 }
 
+pub fn from_dbus_to_intermediate_value(value: DBusUiPropertyValue) -> anyhow::Result<IntermediatePropertyValue> {
+    match value {
+        DBusUiPropertyValue(DBusUiPropertyValueType::Undefined, _) => Ok(IntermediatePropertyValue::Undefined),
+        DBusUiPropertyValue(DBusUiPropertyValueType::String, value) => {
+            match value.into() {
+                Value::Str(value) => Ok(IntermediatePropertyValue::String(value.to_string())),
+                value @ _ => Err(anyhow::anyhow!("invalid dbus value {:?}, string expected", value))
+            }
+        }
+        DBusUiPropertyValue(DBusUiPropertyValueType::Number, value) => {
+            match value.into() {
+                Value::F64(value) => Ok(IntermediatePropertyValue::Number(value)),
+                value @ _ => Err(anyhow::anyhow!("invalid dbus value {:?}, number expected", value))
+            }
+        }
+        DBusUiPropertyValue(DBusUiPropertyValueType::Bool, value) => {
+            match value.into() {
+                Value::Bool(value) => Ok(IntermediatePropertyValue::Bool(value)),
+                value @ _ => Err(anyhow::anyhow!("invalid dbus value {:?}, bool expected", value))
+            }
+        }
+    }
+}
+
+
 fn from_intermediate_to_dbus_properties(value: HashMap<String, IntermediatePropertyValue>) -> DBusUiPropertyContainer {
     let properties: HashMap<_, _> = value.iter()
         .filter_map(|(key, value)| {
             match value {
-                IntermediatePropertyValue::Function(_) => Some((key.to_owned(), (DBusUiPropertyValueType::Function, Value::U8(0).to_owned()))),
-                IntermediatePropertyValue::String(value) => Some((key.to_owned(), (DBusUiPropertyValueType::String, Value::Str(value.into()).to_owned()))),
-                IntermediatePropertyValue::Number(value) => Some((key.to_owned(), (DBusUiPropertyValueType::Number, Value::F64(value.to_owned()).to_owned()))),
-                IntermediatePropertyValue::Bool(value) => Some((key.to_owned(), (DBusUiPropertyValueType::Bool, Value::Bool(value.to_owned()).to_owned()))),
+                IntermediatePropertyValue::String(value) => Some((key.to_owned(), value_string_to_dbus(value.to_owned()))),
+                IntermediatePropertyValue::Number(value) => Some((key.to_owned(), value_number_to_dbus(value.to_owned()))),
+                IntermediatePropertyValue::Bool(value) => Some((key.to_owned(), value_bool_to_dbus(value.to_owned()))),
+                IntermediatePropertyValue::Undefined => None
             }
         })
         .collect();

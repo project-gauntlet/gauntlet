@@ -3,7 +3,7 @@ import upperCase from "lodash/upperCase";
 import { Detail } from "@project-gauntlet/api/components";
 // import { useSomething } from "@project-gauntlet/api/hooks";
 
-export default function View(): ReactElement {
+export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
 
     return (

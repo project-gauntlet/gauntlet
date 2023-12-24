@@ -73,6 +73,7 @@ type TypeArray = {
 }
 type TypeFunction = {
     type: "function"
+    arguments: Property[]
 }
 
 function generate(componentModelPath: string, outFile: string) {
@@ -597,9 +598,20 @@ function makeType(type: PropertyType): ts.TypeNode {
             return ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
         }
         case "function": {
+            const params = type.arguments.map(arg => {
+                return ts.factory.createParameterDeclaration(
+                    undefined,
+                    undefined,
+                    ts.factory.createIdentifier(arg.name),
+                    undefined,
+                    !arg.optional ? makeType(arg.type) : ts.factory.createUnionTypeNode([makeType(arg.type), ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword)]),
+                    undefined
+                )
+            });
+
             return ts.factory.createFunctionTypeNode(
                 undefined,
-                [],
+                params,
                 ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
             )
         }

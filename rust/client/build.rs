@@ -2,8 +2,9 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use convert_case::{Case, Casing};
 
-use component_model::{Children, Component, create_component_model, PropertyType};
+use component_model::{Children, Component, create_component_model, Property, PropertyType};
 
 fn main() -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR")?;
@@ -39,6 +40,9 @@ fn main() -> anyhow::Result<()> {
 
                     for prop in props {
                         match prop.property_type {
+                            PropertyType::Function { .. } => {
+                                // client doesn't need to have functions in properties
+                            }
                             PropertyType::String | PropertyType::Number | PropertyType::Boolean if prop.optional => {
                                 output.push_str(&format!("        {}: {},\n", prop.name, generate_optional_type(&prop.property_type)));
                             }
@@ -58,7 +62,9 @@ fn main() -> anyhow::Result<()> {
                 output.push_str("    },\n");
             }
             Component::TextPart { .. } => {
-                output.push_str("    TextPart(String),\n");
+                output.push_str("    TextPart {\n");
+                output.push_str("        value: String,\n");
+                output.push_str("    },\n");
             }
         }
     }
@@ -109,8 +115,8 @@ fn main() -> anyhow::Result<()> {
                             PropertyType::Array { .. } => {
                                 output.push_str(&format!("            {}: vec![],\n", prop.name));
                             },
-                            PropertyType::Function => {
-                                output.push_str(&format!("            {}: (),\n", prop.name));
+                            PropertyType::Function { .. } => {
+                                // client doesn't need to have functions in properties
                             }
                         };
                     }
@@ -120,7 +126,15 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             Component::Root { .. } => {}
-            Component::TextPart { .. } => {}
+            Component::TextPart { internal_name, props } => {
+                let name = match &props[..] {
+                    [Property { property_type: PropertyType::String, optional: false, name }] => name,
+                    _ => panic!("text_part should have single string not optional prop")
+                };
+                output.push_str(&format!("        \"gauntlet:{}\" => ComponentWidget::TextPart {{\n", internal_name));
+                output.push_str(&format!("            {}: parse_string(&properties, \"{}\")?,\n", name, name));
+                output.push_str("        },\n");
+            }
         }
     }
 
@@ -132,8 +146,8 @@ fn main() -> anyhow::Result<()> {
 
 
     output.push_str("fn append_component_widget_child(parent: &ComponentWidgetWrapper, child: ComponentWidgetWrapper) -> anyhow::Result<()> {\n");
-    output.push_str("    let mut parent = parent.get_mut();\n");
-    output.push_str("    match *parent {\n");
+    output.push_str("    let (ref mut parent, _) = &mut *parent.get_mut();\n");
+    output.push_str("    match parent {\n");
 
     for component in &components {
         match component {
@@ -201,8 +215,8 @@ fn main() -> anyhow::Result<()> {
 
 
     output.push_str("fn get_component_widget_children(widget: &ComponentWidgetWrapper) -> anyhow::Result<Vec<ComponentWidgetWrapper>> {\n");
-    output.push_str("    let widget = widget.get();\n");
-    output.push_str("    let children = match *widget {\n");
+    output.push_str("    let (widget, _) = &*widget.get();\n");
+    output.push_str("    let children = match widget {\n");
 
     for component in &components {
         match component {
@@ -238,8 +252,8 @@ fn main() -> anyhow::Result<()> {
 
 
     output.push_str("fn set_component_widget_children(widget: &ComponentWidgetWrapper, new_children: Vec<ComponentWidgetWrapper>) -> anyhow::Result<()> {\n");
-    output.push_str("    let mut widget = widget.get_mut();\n");
-    output.push_str("    match *widget {\n");
+    output.push_str("    let (ref mut widget, _) = &mut *widget.get_mut();\n");
+    output.push_str("    match widget {\n");
 
     for component in &components {
         match component {
@@ -310,8 +324,8 @@ fn main() -> anyhow::Result<()> {
 
 
     output.push_str("fn get_component_widget_type(widget: &ComponentWidgetWrapper) -> (&str, &str) {\n");
-    output.push_str("    let widget = widget.get();\n");
-    output.push_str("    match *widget {\n");
+    output.push_str("    let (widget, _) = &*widget.get();\n");
+    output.push_str("    match widget {\n");
 
     for component in &components {
         match component {
@@ -321,7 +335,7 @@ fn main() -> anyhow::Result<()> {
             Component::Root { internal_name, .. } => {
                 output.push_str(&format!("        ComponentWidget::Root {{ .. }} => (\"gauntlet:{}\", \"Root\"),\n", internal_name));
             }
-            Component::TextPart { internal_name } => {
+            Component::TextPart { internal_name, .. } => {
                 output.push_str(&format!("        ComponentWidget::TextPart {{ .. }} => (\"gauntlet:{}\", \"TextPart\"),\n", internal_name));
             }
         }
@@ -331,47 +345,57 @@ fn main() -> anyhow::Result<()> {
     output.push_str("}\n");
     output.push_str("\n");
 
+    for component in &components {
+        match component {
+            Component::Standard { name, props, .. } => {
+                for prop in props {
+                    let PropertyType::Function { arguments } = &prop.property_type else {
+                        continue
+                    };
 
-    output.push_str("fn parse_optional_string(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<String>> {\n");
-    output.push_str("    match properties.get(name) {\n");
-    output.push_str("        None => Ok(None),\n");
-    output.push_str("        Some(value) => Ok(Some(value.as_string().ok_or(anyhow::anyhow!(\"{} has to be a string\", name))?.to_owned())),\n");
-    output.push_str("    }\n");
-    output.push_str("}\n");
-    output.push_str("\n");
+                    output.push_str(&format!("async fn send_{}_{}_dbus_event(\n", name.to_string().to_case(Case::Snake), prop.name.to_case(Case::Snake)));
+                    output.push_str("    signal_context: &SignalContext<'_>,\n");
+                    output.push_str("    plugin_id: PluginId,\n");
+                    output.push_str("    widget_id: NativeUiWidgetId,\n");
 
-    output.push_str("fn parse_string(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<String> {\n");
-    output.push_str("    Ok(properties.get(name).ok_or(anyhow::anyhow!(\"{} is required\", name))?.as_string().ok_or(anyhow::anyhow!(\"{} has to be a string\", name))?.to_owned())\n");
-    output.push_str("}\n");
-    output.push_str("\n");
+                    for arg in arguments {
+                        let arg_type = if arg.optional {
+                            generate_optional_type(&arg.property_type)
+                        } else {
+                            generate_type(&arg.property_type)
+                        };
+                        output.push_str(&format!("    {}: {}\n", arg.name, arg_type));
+                    }
 
+                    output.push_str(") {\n");
+                    output.push_str("    let event = common::dbus::DbusEventViewEvent {\n");
+                    output.push_str("        widget_id,\n");
+                    output.push_str(&format!("        event_name: \"{}\".to_owned(),\n", prop.name));
+                    output.push_str("        event_arguments: vec![\n",);
 
-    output.push_str("fn parse_optional_number(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<f64>> {\n");
-    output.push_str("    match properties.get(name) {\n");
-    output.push_str("        None => Ok(None),\n");
-    output.push_str("        Some(value) => Ok(Some(value.as_number().ok_or(anyhow::anyhow!(\"{} has to be a number\", name))?.to_owned())),\n");
-    output.push_str("    }\n");
-    output.push_str("}\n");
-    output.push_str("\n");
+                    for arg in arguments {
+                        match arg.property_type {
+                            PropertyType::String if arg.optional => {
+                                output.push_str(&format!("            {}.map(|{}| common::dbus::value_string_to_dbus({}.to_string())).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                            }
+                            _ => {
+                                panic!("not yet supported")
+                            }
+                        }
+                    }
 
-    output.push_str("fn parse_number(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<f64> {\n");
-    output.push_str("    Ok(properties.get(name).ok_or(anyhow::anyhow!(\"{} is required\", name))?.as_number().ok_or(anyhow::anyhow!(\"{} has to be a number\", name))?.to_owned())\n");
-    output.push_str("}\n");
-    output.push_str("\n");
-
-
-    output.push_str("fn parse_optional_boolean(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<bool>> {\n");
-    output.push_str("    match properties.get(name) {\n");
-    output.push_str("        None => Ok(None),\n");
-    output.push_str("        Some(value) => Ok(Some(value.as_bool().ok_or(anyhow::anyhow!(\"{} has to be a boolean\", name))?.to_owned())),\n");
-    output.push_str("    }\n");
-    output.push_str("}\n");
-    output.push_str("\n");
-
-    output.push_str("fn parse_boolean(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<bool> {\n");
-    output.push_str("    Ok(properties.get(name).ok_or(anyhow::anyhow!(\"{} is required\", name))?.as_bool().ok_or(anyhow::anyhow!(\"{} has to be a boolean\", name))?.to_owned())\n");
-    output.push_str("}\n");
-    output.push_str("\n");
+                    output.push_str("        ]\n");
+                    output.push_str("    };\n");
+                    output.push_str("    crate::dbus::DbusClient::view_event_signal(signal_context, &plugin_id.to_string(), event)\n");
+                    output.push_str("        .await\n");
+                    output.push_str("        .unwrap();\n");
+                    output.push_str("}\n");
+                    output.push_str("\n");
+                }
+            }
+            _ => {}
+        }
+    }
 
     generate_file(&dest_path, &output)?;
 
@@ -393,6 +417,6 @@ fn generate_type(property_type: &PropertyType) -> String {
         PropertyType::Number => "f64".to_owned(),
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Array { nested } => format!("Vec<{}>", generate_type(nested)),
-        PropertyType::Function => "()".to_string()
+        PropertyType::Function { .. } => panic!("client doesn't need to know about function types"),
     }
 }
