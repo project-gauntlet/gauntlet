@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use iced::{Font, Length, Padding};
@@ -25,20 +26,20 @@ include!(concat!(env!("OUT_DIR"), "/components.rs"));
 #[derive(Clone, Debug)]
 pub enum ComponentWidgetState {
     TextField {
-        value: String
+        state_value: String
     },
     PasswordField {
-        value: String
+        state_value: String
     },
     Checkbox {
-        value: bool
+        state_value: bool
     },
     DatePicker {
-        value: Date,
         show_picker: bool,
+        state_value: Date,
     },
     Select {
-        value: Option<String>
+        state_value: Option<String>
     },
     None
 }
@@ -46,14 +47,14 @@ pub enum ComponentWidgetState {
 impl ComponentWidgetState {
     fn create(component_widget: &ComponentWidget) -> Self {
         match component_widget {
-            ComponentWidget::TextField { .. } => ComponentWidgetState::TextField {
-                value: Default::default()
+            ComponentWidget::TextField { value } => ComponentWidgetState::TextField {
+                state_value: value.to_owned().unwrap_or("".to_owned())
             },
-            ComponentWidget::PasswordField { .. } => ComponentWidgetState::PasswordField {
-                value: Default::default()
+            ComponentWidget::PasswordField { value } => ComponentWidgetState::PasswordField {
+                state_value: value.to_owned().unwrap_or("".to_owned())
             },
-            ComponentWidget::Checkbox { .. } => ComponentWidgetState::Checkbox {
-                value: Default::default()
+            ComponentWidget::Checkbox { value } => ComponentWidgetState::Checkbox {
+                state_value: value.to_owned().unwrap_or(false)
             },
             ComponentWidget::DatePicker { value } => {
                 let value = value
@@ -64,12 +65,12 @@ impl ComponentWidgetState {
                     .unwrap_or(Date::today());
 
                 ComponentWidgetState::DatePicker {
-                    value,
+                    state_value: value,
                     show_picker: false,
                 }
             },
             ComponentWidget::Select { .. } => ComponentWidgetState::Select {
-                value: Default::default()
+                state_value: Default::default()
             },
             _ => ComponentWidgetState::None
         }
@@ -352,26 +353,36 @@ impl ComponentWidgetWrapper {
                 row(render_children(children, ComponentRenderContext::None))
                     .into()
             }
-            ComponentWidget::TextField => {
-                text_input("", "")
-                    .into()
-            }
-            ComponentWidget::PasswordField => {
-                text_input("", "")
-                    .password()
-                    .into()
-            }
-            ComponentWidget::Checkbox => {
-                let ComponentWidgetState::Checkbox { value } = state else {
-                    panic!("unexpected state kind")
+            ComponentWidget::TextField { .. } => {
+                let ComponentWidgetState::TextField { state_value } = state else {
+                    panic!("unexpected state kind {:?}", state)
                 };
 
-                checkbox("checkbox label", value.to_owned(), move|value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
+                text_input("", state_value)
+                    .on_input(move |value| ComponentWidgetEvent::OnChangeTextField { widget_id, value })
                     .into()
             }
-            ComponentWidget::DatePicker { value: _ } => {
-                let ComponentWidgetState::DatePicker { value, show_picker } = state else {
-                    panic!("unexpected state kind")
+            ComponentWidget::PasswordField { .. } => {
+                let ComponentWidgetState::PasswordField { state_value } = state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
+                text_input("", state_value)
+                    .password()
+                    .on_input(move |value| ComponentWidgetEvent::OnChangePasswordField { widget_id, value })
+                    .into()
+            }
+            ComponentWidget::Checkbox { .. } => {
+                let ComponentWidgetState::Checkbox { state_value } = state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
+                checkbox("checkbox label", state_value.to_owned(), move|value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
+                    .into()
+            }
+            ComponentWidget::DatePicker { .. } => {
+                let ComponentWidgetState::DatePicker { state_value, show_picker } = state else {
+                    panic!("unexpected state kind {:?}", state)
                 };
 
                 let button = button(text("Set Date"))
@@ -379,7 +390,7 @@ impl ComponentWidgetWrapper {
 
                 date_picker(
                     show_picker.to_owned(),
-                    value.to_owned(),
+                    state_value.to_owned(),
                     button,
                     ComponentWidgetEvent::CancelDatePicker { widget_id },
                     move |date| {
@@ -391,13 +402,13 @@ impl ComponentWidgetWrapper {
                 ).into()
             }
             ComponentWidget::Select => {
-                let ComponentWidgetState::Select { value } = state else {
-                    panic!("unexpected state kind")
+                let ComponentWidgetState::Select { state_value } = state else {
+                    panic!("unexpected state kind {:?}", state)
                 };
 
                 pick_list(
                     vec![],
-                    value.to_owned(),
+                    state_value.to_owned(),
                     move |value| ComponentWidgetEvent::SelectPickList { widget_id, value }
                 ).into()
             }
@@ -496,6 +507,14 @@ pub enum ComponentWidgetEvent {
     ToggleDatePicker {
         widget_id: NativeUiWidgetId,
     },
+    OnChangeTextField {
+        widget_id: NativeUiWidgetId,
+        value: String
+    },
+    OnChangePasswordField {
+        widget_id: NativeUiWidgetId,
+        value: String
+    },
     SubmitDatePicker {
         widget_id: NativeUiWidgetId,
         value: String
@@ -523,26 +542,26 @@ impl ComponentWidgetEvent {
                 send_metadata_tag_item_on_click_dbus_event(signal_context, plugin_id, widget_id).await
             }
             ComponentWidgetEvent::ToggleDatePicker { .. } => {
-                let (_, ref mut state) = &mut *widget.get_mut();
-                let ComponentWidgetState::DatePicker { show_picker, .. } = state else {
-                    panic!("unexpected state kind")
+                let (widget, ref mut state) = &mut *widget.get_mut();
+                let ComponentWidgetState::DatePicker { state_value: _, show_picker } = state else {
+                    panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                 };
 
                 *show_picker = !*show_picker
             }
             ComponentWidgetEvent::CancelDatePicker { .. } => {
-                let (_, ref mut state) = &mut *widget.get_mut();
-                let ComponentWidgetState::DatePicker { show_picker, .. } = state else {
-                    panic!("unexpected state kind")
+                let (widget, ref mut state) = &mut *widget.get_mut();
+                let ComponentWidgetState::DatePicker { state_value: _, show_picker } = state else {
+                    panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                 };
 
                 *show_picker = false
             }
             ComponentWidgetEvent::SubmitDatePicker { widget_id, value } => {
                 {
-                    let (_, ref mut state) = &mut *widget.get_mut();
-                    let ComponentWidgetState::DatePicker { show_picker, .. } = state else {
-                        panic!("unexpected state kind")
+                    let (widget, ref mut state) = &mut *widget.get_mut();
+                    let ComponentWidgetState::DatePicker { state_value, show_picker,  } = state else {
+                        panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                     };
 
                     *show_picker = false;
@@ -550,8 +569,43 @@ impl ComponentWidgetEvent {
 
                 send_date_picker_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
             }
-            ComponentWidgetEvent::ToggleCheckbox { .. } => {}
+            ComponentWidgetEvent::ToggleCheckbox { widget_id, value } => {
+                {
+                    let (widget, ref mut state) = &mut *widget.get_mut();
+                    let ComponentWidgetState::Checkbox { state_value } = state else {
+                        panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+                    };
+
+                    *state_value = !*state_value;
+                }
+
+                send_checkbox_on_change_dbus_event(signal_context, plugin_id, widget_id, value).await
+            }
             ComponentWidgetEvent::SelectPickList { .. } => {}
+            ComponentWidgetEvent::OnChangeTextField { value, widget_id } => {
+                {
+                    let (widget, ref mut state) = &mut *widget.get_mut();
+                    let ComponentWidgetState::TextField { state_value } = state else {
+                        panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+                    };
+
+                    *state_value = value.clone();
+                }
+
+                send_text_field_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+            }
+            ComponentWidgetEvent::OnChangePasswordField { widget_id, value } => {
+                {
+                    let (widget, ref mut state) = &mut *widget.get_mut();
+                    let ComponentWidgetState::PasswordField { state_value } = state else {
+                        panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+                    };
+
+                    *state_value = value.clone();
+                }
+
+                send_password_field_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+            }
         }
     }
 
@@ -564,6 +618,8 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::CancelDatePicker { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleCheckbox { widget_id, .. } => widget_id,
             ComponentWidgetEvent::SelectPickList { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::OnChangeTextField { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
         }.to_owned()
     }
 }

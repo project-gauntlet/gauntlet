@@ -109,7 +109,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         return false;
     },
     getRootHostContext: (_rootContainer: RootUiWidget): HostContext | null => {
-        return { nextId: 0 };
+        return { nextId: 1 };
     },
     getChildHostContext: (parentHostContext: HostContext, _type: ComponentType, _rootContainer: RootUiWidget): HostContext => {
         return parentHostContext;

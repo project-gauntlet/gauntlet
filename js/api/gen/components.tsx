@@ -64,9 +64,18 @@ declare global {
             ["gauntlet:detail"]: {
                 children?: ElementComponent<typeof Metadata | typeof Content>;
             };
-            ["gauntlet:text_field"]: {};
-            ["gauntlet:password_field"]: {};
-            ["gauntlet:checkbox"]: {};
+            ["gauntlet:text_field"]: {
+                value?: string;
+                onChange?: (value: string | undefined) => void;
+            };
+            ["gauntlet:password_field"]: {
+                value?: string;
+                onChange?: (value: string | undefined) => void;
+            };
+            ["gauntlet:checkbox"]: {
+                value?: boolean;
+                onChange?: (value: boolean) => void;
+            };
             ["gauntlet:date_picker"]: {
                 value?: string;
                 onChange?: (value: string | undefined) => void;
@@ -246,14 +255,26 @@ export const Detail: FC<DetailProps> & {
 };
 Detail.Metadata = Metadata;
 Detail.Content = Content;
-export const TextField: FC = (): ReactNode => {
-    return <gauntlet:text_field />;
+export interface TextFieldProps {
+    value?: string;
+    onChange?: (value: string | undefined) => void;
+}
+export const TextField: FC<TextFieldProps> = (props: TextFieldProps): ReactNode => {
+    return <gauntlet:text_field value={props.value} onChange={props.onChange}/>;
 };
-export const PasswordField: FC = (): ReactNode => {
-    return <gauntlet:password_field />;
+export interface PasswordFieldProps {
+    value?: string;
+    onChange?: (value: string | undefined) => void;
+}
+export const PasswordField: FC<PasswordFieldProps> = (props: PasswordFieldProps): ReactNode => {
+    return <gauntlet:password_field value={props.value} onChange={props.onChange}/>;
 };
-export const Checkbox: FC = (): ReactNode => {
-    return <gauntlet:checkbox />;
+export interface CheckboxProps {
+    value?: boolean;
+    onChange?: (value: boolean) => void;
+}
+export const Checkbox: FC<CheckboxProps> = (props: CheckboxProps): ReactNode => {
+    return <gauntlet:checkbox value={props.value} onChange={props.onChange}/>;
 };
 export interface DatePickerProps {
     value?: string;

@@ -375,8 +375,26 @@ fn main() -> anyhow::Result<()> {
 
                     for arg in arguments {
                         match arg.property_type {
-                            PropertyType::String if arg.optional => {
-                                output.push_str(&format!("            {}.map(|{}| common::dbus::value_string_to_dbus({}.to_string())).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                            PropertyType::String => {
+                                if arg.optional {
+                                    output.push_str(&format!("            {}.map(|{}| common::dbus::value_string_to_dbus({})).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                                } else {
+                                    output.push_str(&format!("            common::dbus::value_string_to_dbus({}),\n", arg.name));
+                                }
+                            }
+                            PropertyType::Number => {
+                                if arg.optional {
+                                    output.push_str(&format!("            {}.map(|{}| common::dbus::value_number_to_dbus({})).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                                } else {
+                                    output.push_str(&format!("            common::dbus::value_number_to_dbus({}),\n", arg.name));
+                                }
+                            }
+                            PropertyType::Boolean => {
+                                if arg.optional {
+                                    output.push_str(&format!("            {}.map(|{}| common::dbus::value_bool_to_dbus({})).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                                } else {
+                                    output.push_str(&format!("            common::dbus::value_bool_to_dbus({}),\n", arg.name));
+                                }
                             }
                             _ => {
                                 panic!("not yet supported")

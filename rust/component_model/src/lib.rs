@@ -410,14 +410,20 @@ pub fn create_component_model() -> Vec<Component> {
     let text_field_component = component(
         "text_field",
         "TextField",
-        [],
+        [
+            property("value", true, PropertyType::String),
+            event("onChange", [property("value", true, PropertyType::String)])
+        ],
         children_none(),
     );
 
     let password_field_component = component(
         "password_field",
         "PasswordField",
-        [],
+        [
+            property("value", true, PropertyType::String),
+            event("onChange", [property("value", true, PropertyType::String)])
+        ],
         children_none(),
     );
 
@@ -431,7 +437,10 @@ pub fn create_component_model() -> Vec<Component> {
     let checkbox_component = component(
         "checkbox",
         "Checkbox",
-        [],
+        [
+            property("value", true, PropertyType::Boolean),
+            event("onChange", [property("value", false, PropertyType::Boolean)])
+        ],
         children_none(),
     );
 
