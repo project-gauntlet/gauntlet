@@ -374,11 +374,6 @@ impl ComponentWidgetWrapper {
                     panic!("unexpected state kind")
                 };
 
-                // Date::from_ymd(value.year, value.month, value.day)
-                //     .unwrap()
-
-
-
                 let button = button(text("Set Date"))
                     .on_press(ComponentWidgetEvent::ToggleDatePicker { widget_id });
 

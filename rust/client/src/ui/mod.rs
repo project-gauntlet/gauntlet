@@ -1,12 +1,13 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Application, Command, Event, executor, futures, keyboard, Length, Padding, Size, Subscription, subscription};
+use iced::{Application, Command, Event, executor, font, futures, keyboard, Length, Padding, Size, Subscription, subscription};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
 use iced::Settings;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::window::Position;
+use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};
 
@@ -60,6 +61,7 @@ pub enum AppMsg {
         widget_event: ComponentWidgetEvent,
     },
     Noop,
+    FontLoaded(Result<(), font::Error>),
 }
 
 const WINDOW_WIDTH: u32 = 650;
@@ -124,7 +126,10 @@ impl Application for AppModel {
                 state: vec![NavState::SearchView { prompt: None }],
                 search_results: vec![],
             },
-            Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
+            Command::batch([
+                Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
+                font::load(icons::ICON_FONT_BYTES).map(AppMsg::FontLoaded),
+            ])
         )
     }
 
@@ -234,6 +239,10 @@ impl Application for AppModel {
                 }, |_| AppMsg::Noop)
             }
             AppMsg::Noop => Command::none(),
+            AppMsg::FontLoaded(result) => {
+                result.expect("unable to load font");
+                Command::none()
+            }
         }
     }
 

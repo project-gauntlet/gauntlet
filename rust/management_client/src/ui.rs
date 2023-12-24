@@ -432,7 +432,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                     Row::Plugin { plugin } => {
                         let icon = if plugin.show_entrypoints { icons::Icon::CaretDown } else { icons::Icon::CaretRight };
 
-                        let icon: Element<_> = text(format!("{}", icon))
+                        let icon: Element<_> = text(icon)
                             .font(icons::ICON_FONT)
                             .into();
 
