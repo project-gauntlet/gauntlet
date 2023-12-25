@@ -459,36 +459,36 @@ impl ComponentWidgetWrapper {
                     .map(|child| {
                         let (widget, _) = &*child.get();
 
-                        let label = match widget {
-                            ComponentWidget::TextField { label, .. } => label.clone(),
-                            ComponentWidget::PasswordField { label, .. } => label.clone(),
-                            ComponentWidget::Checkbox { label, .. } => label.clone(),
-                            ComponentWidget::DatePicker { label, .. } => label.clone(),
-                            ComponentWidget::Select { label, .. } => label.clone(),
-                            _ => None
-                        };
-
-                        let before_or_label: Element<_> = match label {
-                            None => {
-                                horizontal_space(Length::FillPortion(2))
-                                    .into()
-                            }
-                            Some(label) => {
-                                let label: Element<_> = text(label)
-                                    .horizontal_alignment(Horizontal::Right)
-                                    .width(Length::Fill)
-                                    .into();
-
-                                container(label)
-                                    .width(Length::FillPortion(2))
-                                    .padding(Padding::from([0.0, 10.0]))
-                                    .into()
-                            }
-                        };
-
                         match widget {
                             ComponentWidget::Separator => child.render_widget(context),
                             _ => {
+                                let label = match widget {
+                                    ComponentWidget::TextField { label, .. } => label.clone(),
+                                    ComponentWidget::PasswordField { label, .. } => label.clone(),
+                                    ComponentWidget::Checkbox { label, .. } => label.clone(),
+                                    ComponentWidget::DatePicker { label, .. } => label.clone(),
+                                    ComponentWidget::Select { label, .. } => label.clone(),
+                                    _ => None
+                                };
+
+                                let before_or_label: Element<_> = match label {
+                                    None => {
+                                        horizontal_space(Length::FillPortion(2))
+                                            .into()
+                                    }
+                                    Some(label) => {
+                                        let label: Element<_> = text(label)
+                                            .horizontal_alignment(Horizontal::Right)
+                                            .width(Length::Fill)
+                                            .into();
+
+                                        container(label)
+                                            .width(Length::FillPortion(2))
+                                            .padding(Padding::from([0.0, 10.0]))
+                                            .into()
+                                    }
+                                };
+
                                 let form_input = container(child.render_widget(context))
                                     .width(Length::FillPortion(3))
                                     .into();
