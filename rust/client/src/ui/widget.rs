@@ -486,22 +486,27 @@ impl ComponentWidgetWrapper {
                             }
                         };
 
-                        let form_input = container(child.render_widget(context))
-                            .width(Length::FillPortion(3))
-                            .into();
+                        match widget {
+                            ComponentWidget::Separator => child.render_widget(context),
+                            _ => {
+                                let form_input = container(child.render_widget(context))
+                                    .width(Length::FillPortion(3))
+                                    .into();
 
-                        let after = horizontal_space(Length::FillPortion(2))
-                            .into();
+                                let after = horizontal_space(Length::FillPortion(2))
+                                    .into();
 
-                        let content = vec![
-                            before_or_label,
-                            form_input,
-                            after,
-                        ];
+                                let content = vec![
+                                    before_or_label,
+                                    form_input,
+                                    after,
+                                ];
 
-                        row(content)
-                            .padding(Padding::new(10.0))
-                            .into()
+                                row(content)
+                                    .padding(Padding::new(10.0))
+                                    .into()
+                            }
+                        }
                     })
                     .collect();
 
