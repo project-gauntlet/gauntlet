@@ -484,7 +484,7 @@ impl ComponentWidgetWrapper {
 
                                         container(label)
                                             .width(Length::FillPortion(2))
-                                            .padding(Padding::from([0.0, 10.0]))
+                                            .padding(Padding::from([5.0, 10.0]))
                                             .into()
                                     }
                                 };
