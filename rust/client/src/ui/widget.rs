@@ -388,7 +388,7 @@ impl ComponentWidgetWrapper {
                     panic!("unexpected state kind {:?}", state)
                 };
 
-                let button = button(text("Set Date"))
+                let button = button(text(state_value.to_string()))
                     .on_press(ComponentWidgetEvent::ToggleDatePicker { widget_id });
 
                 date_picker(
