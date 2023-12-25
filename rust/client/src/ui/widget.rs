@@ -58,7 +58,7 @@ impl ComponentWidgetState {
             },
             ComponentWidget::DatePicker { value } => {
                 let value = value
-                    .clone()
+                    .to_owned()
                     .map(|value| parse_date(&value))
                     .flatten()
                     .map(|(year, month, day)| Date::from_ymd(year, month, day))
@@ -69,8 +69,8 @@ impl ComponentWidgetState {
                     show_picker: false,
                 }
             },
-            ComponentWidget::Select { .. } => ComponentWidgetState::Select {
-                state_value: Default::default()
+            ComponentWidget::Select { value, .. } => ComponentWidgetState::Select {
+                state_value: value.to_owned()
             },
             _ => ComponentWidgetState::None
         }
@@ -401,15 +401,50 @@ impl ComponentWidgetWrapper {
                     }
                 ).into()
             }
-            ComponentWidget::Select => {
+            ComponentWidget::SelectItem { .. } => {
+                panic!("parent select component takes care of rendering")
+            }
+            ComponentWidget::Select { children, .. } => {
+                let items: Vec<_> = children.iter()
+                    .map(|child| {
+                        let (widget, _) = &*child.get();
+
+                        let ComponentWidget::SelectItem { children, value } = widget else {
+                            panic!("unexpected widget kind {:?}", widget)
+                        };
+
+                        let label = children.iter()
+                            .map(|child| {
+                                let (widget, _) = &*child.get();
+                                let ComponentWidget::TextPart { value } = widget else {
+                                    panic!("unexpected widget kind {:?}", widget)
+                                };
+
+                                value.to_owned()
+                            })
+                            .collect::<Vec<_>>()
+                            .join("");
+
+                        SelectItem {
+                            value: value.to_owned(),
+                            label
+                        }
+                    })
+                    .collect();
+
                 let ComponentWidgetState::Select { state_value } = state else {
                     panic!("unexpected state kind {:?}", state)
                 };
 
+                let state_value = state_value.clone()
+                    .map(|value| items.iter().find(|item| item.value == value))
+                    .flatten()
+                    .map(|value| value.clone());
+
                 pick_list(
-                    vec![],
-                    state_value.to_owned(),
-                    move |value| ComponentWidgetEvent::SelectPickList { widget_id, value }
+                    items,
+                    state_value,
+                    move |item| ComponentWidgetEvent::SelectPickList { widget_id, value: item.value }
                 ).into()
             }
             ComponentWidget::Separator => {
@@ -431,6 +466,19 @@ impl ComponentWidgetWrapper {
         set_component_widget_children(&self, new_children)
     }
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SelectItem {
+    value: String,
+    label: String
+}
+
+impl Display for SelectItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label)
+    }
+}
+
 
 fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
     let bold_font = Font {
@@ -581,8 +629,19 @@ impl ComponentWidgetEvent {
 
                 send_checkbox_on_change_dbus_event(signal_context, plugin_id, widget_id, value).await
             }
-            ComponentWidgetEvent::SelectPickList { .. } => {}
-            ComponentWidgetEvent::OnChangeTextField { value, widget_id } => {
+            ComponentWidgetEvent::SelectPickList { widget_id, value } => {
+                {
+                    let (widget, ref mut state) = &mut *widget.get_mut();
+                    let ComponentWidgetState::Select { state_value } = state else {
+                        panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+                    };
+
+                    *state_value = Some(value.clone());
+                }
+
+                send_select_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+            }
+            ComponentWidgetEvent::OnChangeTextField { widget_id, value } => {
                 {
                     let (widget, ref mut state) = &mut *widget.get_mut();
                     let ComponentWidgetState::TextField { state_value } = state else {

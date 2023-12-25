@@ -454,11 +454,25 @@ pub fn create_component_model() -> Vec<Component> {
         children_none(),
     );
 
+    let select_item_component = component(
+        "select_item",
+        "SelectItem",
+        [
+            property("value", false, PropertyType::String),
+        ],
+        children_string(),
+    );
+
     let select_component = component(
         "select",
         "Select",
-        [],
-        children_none(),
+        [
+            property("value", true, PropertyType::String),
+            event("onChange", [property("value", true, PropertyType::String)])
+        ],
+        children_members([
+            member("Item", &select_item_component)
+        ]),
     );
 
     // let multi_select_component = component(
@@ -585,6 +599,7 @@ pub fn create_component_model() -> Vec<Component> {
         // text_area_component,
         checkbox_component,
         date_picker_component,
+        select_item_component,
         select_component,
         // multi_select_component,
         separator_component,

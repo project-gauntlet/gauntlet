@@ -80,7 +80,15 @@ declare global {
                 value?: string;
                 onChange?: (value: string | undefined) => void;
             };
-            ["gauntlet:select"]: {};
+            ["gauntlet:select_item"]: {
+                children?: StringComponent;
+                value: string;
+            };
+            ["gauntlet:select"]: {
+                children?: ElementComponent<typeof SelectItem>;
+                value?: string;
+                onChange?: (value: string | undefined) => void;
+            };
             ["gauntlet:separator"]: {};
             ["gauntlet:form"]: {
                 children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
@@ -283,9 +291,24 @@ export interface DatePickerProps {
 export const DatePicker: FC<DatePickerProps> = (props: DatePickerProps): ReactNode => {
     return <gauntlet:date_picker value={props.value} onChange={props.onChange}/>;
 };
-export const Select: FC = (): ReactNode => {
-    return <gauntlet:select />;
+export interface SelectItemProps {
+    children?: StringComponent;
+    value: string;
+}
+export const SelectItem: FC<SelectItemProps> = (props: SelectItemProps): ReactNode => {
+    return <gauntlet:select_item children={props.children} value={props.value}/>;
 };
+export interface SelectProps {
+    children?: ElementComponent<typeof SelectItem>;
+    value?: string;
+    onChange?: (value: string | undefined) => void;
+}
+export const Select: FC<SelectProps> & {
+    Item: typeof SelectItem;
+} = (props: SelectProps): ReactNode => {
+    return <gauntlet:select children={props.children} value={props.value} onChange={props.onChange}/>;
+};
+Select.Item = SelectItem;
 export const Separator: FC = (): ReactNode => {
     return <gauntlet:separator />;
 };
