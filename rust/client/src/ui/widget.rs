@@ -3,8 +3,9 @@ use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use iced::{Font, Length, Padding};
+use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule};
 use iced::widget::tooltip::Position;
 use iced_aw::date_picker::Date;
 use iced_aw::helpers::date_picker;
@@ -13,7 +14,7 @@ use zbus::SignalContext;
 use common::model::PluginId;
 
 use crate::model::{NativeUiPropertyValue, NativeUiWidgetId};
-use crate::ui::theme::{ButtonStyle, ContainerStyle, Element};
+use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -47,16 +48,16 @@ pub enum ComponentWidgetState {
 impl ComponentWidgetState {
     fn create(component_widget: &ComponentWidget) -> Self {
         match component_widget {
-            ComponentWidget::TextField { value } => ComponentWidgetState::TextField {
+            ComponentWidget::TextField { value, .. } => ComponentWidgetState::TextField {
                 state_value: value.to_owned().unwrap_or("".to_owned())
             },
-            ComponentWidget::PasswordField { value } => ComponentWidgetState::PasswordField {
+            ComponentWidget::PasswordField { value, .. } => ComponentWidgetState::PasswordField {
                 state_value: value.to_owned().unwrap_or("".to_owned())
             },
-            ComponentWidget::Checkbox { value } => ComponentWidgetState::Checkbox {
+            ComponentWidget::Checkbox { value, .. } => ComponentWidgetState::Checkbox {
                 state_value: value.to_owned().unwrap_or(false)
             },
-            ComponentWidget::DatePicker { value } => {
+            ComponentWidget::DatePicker { value, .. } => {
                 let value = value
                     .to_owned()
                     .map(|value| parse_date(&value))
@@ -360,6 +361,7 @@ impl ComponentWidgetWrapper {
 
                 text_input("", state_value)
                     .on_input(move |value| ComponentWidgetEvent::OnChangeTextField { widget_id, value })
+                    .style(TextInputStyle::Form)
                     .into()
             }
             ComponentWidget::PasswordField { .. } => {
@@ -370,6 +372,7 @@ impl ComponentWidgetWrapper {
                 text_input("", state_value)
                     .password()
                     .on_input(move |value| ComponentWidgetEvent::OnChangePasswordField { widget_id, value })
+                    .style(TextInputStyle::Form)
                     .into()
             }
             ComponentWidget::Checkbox { .. } => {
@@ -377,7 +380,7 @@ impl ComponentWidgetWrapper {
                     panic!("unexpected state kind {:?}", state)
                 };
 
-                checkbox("checkbox label", state_value.to_owned(), move|value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
+                checkbox("", state_value.to_owned(), move|value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
                     .into()
             }
             ComponentWidget::DatePicker { .. } => {
@@ -452,7 +455,65 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Form { children } => {
-                column(render_children(children, ComponentRenderContext::None))
+                let items: Vec<Element<_>> = children.iter()
+                    .map(|child| {
+                        let (widget, _) = &*child.get();
+
+                        let label = match widget {
+                            ComponentWidget::TextField { label, .. } => label.clone(),
+                            ComponentWidget::PasswordField { label, .. } => label.clone(),
+                            ComponentWidget::Checkbox { label, .. } => label.clone(),
+                            ComponentWidget::DatePicker { label, .. } => label.clone(),
+                            ComponentWidget::Select { label, .. } => label.clone(),
+                            _ => None
+                        };
+
+                        let before_or_label: Element<_> = match label {
+                            None => {
+                                horizontal_space(Length::FillPortion(2))
+                                    .into()
+                            }
+                            Some(label) => {
+                                let label: Element<_> = text(label)
+                                    .horizontal_alignment(Horizontal::Right)
+                                    .width(Length::Fill)
+                                    .into();
+
+                                container(label)
+                                    .width(Length::FillPortion(2))
+                                    .padding(Padding::from([0.0, 10.0]))
+                                    .into()
+                            }
+                        };
+
+                        let form_input = container(child.render_widget(context))
+                            .width(Length::FillPortion(3))
+                            .into();
+
+                        let after = horizontal_space(Length::FillPortion(2))
+                            .into();
+
+                        let content = vec![
+                            before_or_label,
+                            form_input,
+                            after,
+                        ];
+
+                        row(content)
+                            .padding(Padding::new(10.0))
+                            .into()
+                    })
+                    .collect();
+
+                let content: Element<_> = column(items)
+                    .into();
+
+                let scrollable_content: Element<_> = scrollable(content)
+                    .width(Length::Fill)
+                    .into();
+
+                container(scrollable_content)
+                    .padding(Padding::new(10.0))
                     .into()
             }
         }

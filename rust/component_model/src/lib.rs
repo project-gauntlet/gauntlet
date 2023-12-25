@@ -411,6 +411,7 @@ pub fn create_component_model() -> Vec<Component> {
         "text_field",
         "TextField",
         [
+            property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
             event("onChange", [property("value", true, PropertyType::String)])
         ],
@@ -421,6 +422,7 @@ pub fn create_component_model() -> Vec<Component> {
         "password_field",
         "PasswordField",
         [
+            property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
             event("onChange", [property("value", true, PropertyType::String)])
         ],
@@ -438,6 +440,7 @@ pub fn create_component_model() -> Vec<Component> {
         "checkbox",
         "Checkbox",
         [
+            property("label", true, PropertyType::String),
             property("value", true, PropertyType::Boolean),
             event("onChange", [property("value", false, PropertyType::Boolean)])
         ],
@@ -448,6 +451,7 @@ pub fn create_component_model() -> Vec<Component> {
         "date_picker",
         "DatePicker",
         [
+            property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
             event("onChange", [property("value", true, PropertyType::String)])
         ],
@@ -467,6 +471,7 @@ pub fn create_component_model() -> Vec<Component> {
         "select",
         "Select",
         [
+            property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
             event("onChange", [property("value", true, PropertyType::String)])
         ],

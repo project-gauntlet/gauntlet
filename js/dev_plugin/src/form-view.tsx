@@ -12,21 +12,25 @@ export default function DetailView(): ReactElement {
         <Form>
             {/* uncontrolled */}
             <Form.TextField
+                label={"Text Field"}
                 onChange={value => {
                     console.log(`uncontrolled value: ${value}`)
                 }}
             />
             <Form.PasswordField
+                label={"Password Field"}
                 onChange={value => {
                     console.log(`uncontrolled value: ${value}`)
                 }}
             />
             <Form.Checkbox
+                label={"My checkbox"}
                 onChange={value => {
                     console.log(`uncontrolled value: ${value}`)
                 }}
             />
             <Form.Select
+                label={"Selecting..."}
                 onChange={value => {
                     console.log(`uncontrolled value: ${value}`)
                 }}
@@ -37,6 +41,7 @@ export default function DetailView(): ReactElement {
                 <Form.Select.Item value={"select_item_4"}>Select Item 4</Form.Select.Item>
             </Form.Select>
             <Form.DatePicker
+                label={"What is your birthday?"}
                 onChange={value => {
                     console.log(`uncontrolled value: ${value}`)
                 }}

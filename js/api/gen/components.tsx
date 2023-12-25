@@ -65,18 +65,22 @@ declare global {
                 children?: ElementComponent<typeof Metadata | typeof Content>;
             };
             ["gauntlet:text_field"]: {
+                label?: string;
                 value?: string;
                 onChange?: (value: string | undefined) => void;
             };
             ["gauntlet:password_field"]: {
+                label?: string;
                 value?: string;
                 onChange?: (value: string | undefined) => void;
             };
             ["gauntlet:checkbox"]: {
+                label?: string;
                 value?: boolean;
                 onChange?: (value: boolean) => void;
             };
             ["gauntlet:date_picker"]: {
+                label?: string;
                 value?: string;
                 onChange?: (value: string | undefined) => void;
             };
@@ -86,6 +90,7 @@ declare global {
             };
             ["gauntlet:select"]: {
                 children?: ElementComponent<typeof SelectItem>;
+                label?: string;
                 value?: string;
                 onChange?: (value: string | undefined) => void;
             };
@@ -264,32 +269,36 @@ export const Detail: FC<DetailProps> & {
 Detail.Metadata = Metadata;
 Detail.Content = Content;
 export interface TextFieldProps {
+    label?: string;
     value?: string;
     onChange?: (value: string | undefined) => void;
 }
 export const TextField: FC<TextFieldProps> = (props: TextFieldProps): ReactNode => {
-    return <gauntlet:text_field value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:text_field label={props.label} value={props.value} onChange={props.onChange}/>;
 };
 export interface PasswordFieldProps {
+    label?: string;
     value?: string;
     onChange?: (value: string | undefined) => void;
 }
 export const PasswordField: FC<PasswordFieldProps> = (props: PasswordFieldProps): ReactNode => {
-    return <gauntlet:password_field value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:password_field label={props.label} value={props.value} onChange={props.onChange}/>;
 };
 export interface CheckboxProps {
+    label?: string;
     value?: boolean;
     onChange?: (value: boolean) => void;
 }
 export const Checkbox: FC<CheckboxProps> = (props: CheckboxProps): ReactNode => {
-    return <gauntlet:checkbox value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:checkbox label={props.label} value={props.value} onChange={props.onChange}/>;
 };
 export interface DatePickerProps {
+    label?: string;
     value?: string;
     onChange?: (value: string | undefined) => void;
 }
 export const DatePicker: FC<DatePickerProps> = (props: DatePickerProps): ReactNode => {
-    return <gauntlet:date_picker value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:date_picker label={props.label} value={props.value} onChange={props.onChange}/>;
 };
 export interface SelectItemProps {
     children?: StringComponent;
@@ -300,13 +309,14 @@ export const SelectItem: FC<SelectItemProps> = (props: SelectItemProps): ReactNo
 };
 export interface SelectProps {
     children?: ElementComponent<typeof SelectItem>;
+    label?: string;
     value?: string;
     onChange?: (value: string | undefined) => void;
 }
 export const Select: FC<SelectProps> & {
     Item: typeof SelectItem;
 } = (props: SelectProps): ReactNode => {
-    return <gauntlet:select children={props.children} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:select children={props.children} label={props.label} value={props.value} onChange={props.onChange}/>;
 };
 Select.Item = SelectItem;
 export const Separator: FC = (): ReactNode => {

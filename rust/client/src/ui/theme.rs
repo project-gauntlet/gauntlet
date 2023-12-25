@@ -48,29 +48,46 @@ impl application::StyleSheet for GauntletTheme {
     }
 }
 
-impl text_input::StyleSheet for GauntletTheme {
-    type Style = ();
+#[derive(Default)]
+pub enum TextInputStyle {
+    #[default]
+    Transparent,
+    Form,
+}
 
-    fn active(&self, _: &Self::Style) -> text_input::Appearance {
+impl text_input::StyleSheet for GauntletTheme {
+    type Style = TextInputStyle;
+
+    fn active(&self, style: &Self::Style) -> text_input::Appearance {
         let palette = self.extended_palette();
+
+        let border_color = match style {
+            TextInputStyle::Transparent => Color::TRANSPARENT,
+            TextInputStyle::Form => palette.background.weak.color
+        };
 
         text_input::Appearance {
             background: palette.background.base.color.into(),
             border_radius: 2.0.into(),
             border_width: 1.0,
-            border_color: Color::TRANSPARENT,
+            border_color,
             icon_color: palette.background.weak.text,
         }
     }
 
-    fn focused(&self, _: &Self::Style) -> text_input::Appearance {
+    fn focused(&self, style: &Self::Style) -> text_input::Appearance {
         let palette = self.extended_palette();
+
+        let border_color = match style {
+            TextInputStyle::Transparent => Color::TRANSPARENT,
+            TextInputStyle::Form => palette.background.weak.color
+        };
 
         text_input::Appearance {
             background: palette.background.base.color.into(),
             border_radius: 2.0.into(),
             border_width: 1.0,
-            border_color: Color::TRANSPARENT,
+            border_color,
             icon_color: palette.background.weak.text,
         }
     }
@@ -87,8 +104,8 @@ impl text_input::StyleSheet for GauntletTheme {
         palette.background.base.text
     }
 
-    fn disabled_color(&self, _: &Self::Style) -> Color {
-        self.placeholder_color(&())
+    fn disabled_color(&self, style: &Self::Style) -> Color {
+        self.placeholder_color(style)
     }
 
     fn selection_color(&self, _: &Self::Style) -> Color {
