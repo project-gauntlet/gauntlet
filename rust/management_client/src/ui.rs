@@ -44,7 +44,7 @@ enum ManagementAppMsg {
     },
     SelectItem(SelectedItem),
     EnabledToggleItem(EnabledItem),
-    RemotePluginNew {
+    NewPlugin {
         plugin_id: PluginId,
     },
     RemotePluginDownloadFinished {
@@ -188,7 +188,7 @@ impl Application for ManagementAppModel {
                     }
                 }
             }
-            ManagementAppMsg::RemotePluginNew { plugin_id } => {
+            ManagementAppMsg::NewPlugin { plugin_id } => {
                 let dbus_server = self.dbus_server.clone();
 
                 let exists = self.running_downloads.insert(plugin_id.clone());
@@ -197,7 +197,7 @@ impl Application for ManagementAppModel {
                 }
 
                 Command::perform(async move {
-                    dbus_server.new_remote_plugin(&plugin_id.to_string()).await.unwrap()
+                    dbus_server.download_and_add_plugin(&plugin_id.to_string()).await.unwrap()
                 }, |_| ManagementAppMsg::Noop)
             }
             ManagementAppMsg::RemotePluginDownloadFinished { plugin_id } => {
@@ -293,7 +293,7 @@ impl Application for ManagementAppModel {
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
                     .on_input(|value| ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: value }))
-                    .on_submit(ManagementAppMsg::RemotePluginNew { plugin_id: PluginId::from_string(repository_url) })
+                    .on_submit(ManagementAppMsg::NewPlugin { plugin_id: PluginId::from_string(repository_url) })
                     .into();
 
                 let content: Element<_> = column(vec![

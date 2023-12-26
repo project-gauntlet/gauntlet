@@ -6,6 +6,10 @@ import { Detail } from "@project-gauntlet/api/components";
 export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
 
+    // @ts-ignore
+    const PORT = Deno.env.get("RUST_LOG");
+    console.log("RUST_LOG:", PORT);
+
     return (
         <Detail>
             <Detail.Content>

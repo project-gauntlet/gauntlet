@@ -41,13 +41,13 @@ impl DbusManagementServer {
     #[dbus_interface(signal)]
     pub async fn remote_plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str) -> zbus::Result<()>;
 
-    async fn new_remote_plugin(
+    async fn download_and_add_plugin(
         &mut self,
         #[zbus(signal_context)]
         signal_context: zbus::SignalContext<'_>,
         plugin_id: &str
     ) -> Result<()> {
-        self.application_manager.new_remote_plugin(signal_context, PluginId::from_string(plugin_id))
+        self.application_manager.download_and_add_plugin(signal_context, PluginId::from_string(plugin_id))
             .await
             .map_err(|err| err.into())
     }

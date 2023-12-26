@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use common::model::PluginId;
 use crate::dbus::DbusManagementServer;
-use crate::plugins::data_db_repository::{Code, DataDbRepository, SavePlugin, SavePluginEntrypoint};
+use crate::plugins::data_db_repository::{Code, DataDbRepository, SavePlugin, SavePluginEntrypoint, PluginPermissions};
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
@@ -22,7 +22,7 @@ impl PluginLoader {
         }
     }
 
-    pub async fn add_remote_plugin(
+    pub async fn download_and_add_plugin(
         &self,
         signal_context: zbus::SignalContext<'_>,
         plugin_id: PluginId
@@ -48,11 +48,12 @@ impl PluginLoader {
                     name: plugin_data.name,
                     code: plugin_data.code,
                     entrypoints: plugin_data.entrypoints,
+                    permissions: plugin_data.permissions,
                     from_config: false,
                 }).await?;
 
                 anyhow::Ok(())
-            }).unwrap();
+            }).expect("error when downloading and adding plugin");
         });
 
         Ok(())
@@ -73,6 +74,7 @@ impl PluginLoader {
             name: plugin_data.name,
             code: plugin_data.code,
             entrypoints: plugin_data.entrypoints,
+            permissions: plugin_data.permissions,
             from_config: false,
         }).await?;
 
@@ -165,6 +167,17 @@ impl PluginLoader {
             })
             .collect();
 
+        let permissions = PluginPermissions {
+            environment: config.permissions.environment,
+            high_resolution_time: config.permissions.high_resolution_time,
+            network: config.permissions.network,
+            ffi: config.permissions.ffi,
+            fs_read_access: config.permissions.fs_read_access,
+            fs_write_access: config.permissions.fs_write_access,
+            run_subprocess: config.permissions.run_subprocess,
+            system: config.permissions.system,
+        };
+
         Ok(PluginDirData {
             id: plugin_id.to_string(),
             name: plugin_name,
@@ -172,6 +185,7 @@ impl PluginLoader {
                 js
             },
             entrypoints,
+            permissions
         })
     }
 }
@@ -181,12 +195,15 @@ struct PluginDirData {
     pub name: String,
     pub code: Code,
     pub entrypoints: Vec<SavePluginEntrypoint>,
+    pub permissions: PluginPermissions,
 }
 
 #[derive(Debug, Deserialize)]
 struct PluginConfig {
     metadata: PluginConfigMetadata,
     entrypoints: Vec<PluginConfigEntrypoint>,
+    #[serde(default)]
+    permissions: PluginConfigPermissions,
 }
 
 #[derive(Debug, Deserialize)]
@@ -200,4 +217,24 @@ struct PluginConfigEntrypoint {
 #[derive(Debug, Deserialize)]
 struct PluginConfigMetadata {
     name: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct PluginConfigPermissions {
+    #[serde(default)]
+    environment: Vec<String>,
+    #[serde(default)]
+    high_resolution_time: bool,
+    #[serde(default)]
+    network: Vec<String>,
+    #[serde(default)]
+    ffi: Vec<PathBuf>,
+    #[serde(default)]
+    fs_read_access: Vec<PathBuf>,
+    #[serde(default)]
+    fs_write_access: Vec<PathBuf>,
+    #[serde(default)]
+    run_subprocess: Vec<String>,
+    #[serde(default)]
+    system: Vec<String>,
 }

@@ -10,3 +10,6 @@ path='src/detail-view.tsx'
 id='form-view'
 name='Form view'
 path='src/form-view.tsx'
+
+[permissions]
+environment=["RUST_LOG"]

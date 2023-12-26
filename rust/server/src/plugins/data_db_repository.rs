@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Context;
 use deno_core::error::AnyError;
@@ -34,6 +35,8 @@ pub struct GetPlugin {
     pub enabled: bool,
     #[sqlx(json)]
     pub code: Code,
+    #[sqlx(json)]
+    pub permissions: PluginPermissions,
     pub from_config: bool,
 }
 
@@ -60,12 +63,25 @@ pub struct SavePlugin {
     pub name: String,
     pub code: Code,
     pub entrypoints: Vec<SavePluginEntrypoint>,
+    pub permissions: PluginPermissions,
     pub from_config: bool,
 }
 
 pub struct SavePluginEntrypoint {
     pub id: String,
     pub name: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct PluginPermissions {
+    pub environment: Vec<String>,
+    pub high_resolution_time: bool,
+    pub network: Vec<String>,
+    pub ffi: Vec<PathBuf>,
+    pub fs_read_access: Vec<PathBuf>,
+    pub fs_write_access: Vec<PathBuf>,
+    pub run_subprocess: Vec<String>,
+    pub system: Vec<String>,
 }
 
 pub struct SavePendingPlugin {
@@ -227,11 +243,12 @@ impl DataDbRepository {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, false)")
+        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, false)")
             .bind(&plugin.id)
             .bind(plugin.name)
             .bind(true)
             .bind(Json(plugin.code))
+            .bind(Json(plugin.permissions))
             .execute(&mut *tx)
             .await?;
 

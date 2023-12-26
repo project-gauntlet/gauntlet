@@ -2,8 +2,8 @@ use common::dbus::{DBusEntrypoint, DBusPlugin};
 use common::model::{EntrypointId, PluginId};
 use crate::dirs::Dirs;
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::js::{PluginCode, PluginCommand, PluginCommandData, PluginRuntimeData, start_plugin_runtime};
+use crate::plugins::data_db_repository::{DataDbRepository};
+use crate::plugins::js::{PluginCode, PluginCommand, PluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::search::{SearchIndex, SearchItem};
@@ -43,12 +43,12 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn new_remote_plugin(
+    pub async fn download_and_add_plugin(
         &mut self,
         signal_context: zbus::SignalContext<'_>,
         plugin_id: PluginId
     ) -> anyhow::Result<()> {
-        self.plugin_downloader.add_remote_plugin(signal_context, plugin_id).await
+        self.plugin_downloader.download_and_add_plugin(signal_context, plugin_id).await
     }
 
     pub async fn new_local_plugin(
@@ -173,6 +173,16 @@ impl ApplicationManager {
         let data = PluginRuntimeData {
             id: plugin_id,
             code: PluginCode { js: plugin.code.js },
+            permissions: PluginPermissions {
+                environment: plugin.permissions.environment,
+                high_resolution_time: plugin.permissions.high_resolution_time,
+                network: plugin.permissions.network,
+                ffi: plugin.permissions.ffi,
+                fs_read_access: plugin.permissions.fs_read_access,
+                fs_write_access: plugin.permissions.fs_write_access,
+                run_subprocess: plugin.permissions.run_subprocess,
+                system: plugin.permissions.system
+            },
             command_receiver: receiver,
         };
 

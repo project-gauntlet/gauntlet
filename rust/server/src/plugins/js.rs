@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -8,7 +9,7 @@ use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFut
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::futures::executor::block_on;
 use deno_runtime::deno_core::ModuleSpecifier;
-use deno_runtime::permissions::PermissionsContainer;
+use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use futures_concurrency::stream::Merge;
@@ -25,11 +26,23 @@ use crate::plugins::run_status::RunStatusGuard;
 pub struct PluginRuntimeData {
     pub id: PluginId,
     pub code: PluginCode,
+    pub permissions: PluginPermissions,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
 }
 
 pub struct PluginCode {
     pub js: HashMap<String, String>,
+}
+
+pub struct PluginPermissions {
+    pub environment: Vec<String>,
+    pub high_resolution_time: bool,
+    pub network: Vec<String>,
+    pub ffi: Vec<PathBuf>,
+    pub fs_read_access: Vec<PathBuf>,
+    pub fs_write_access: Vec<PathBuf>,
+    pub run_subprocess: Vec<String>,
+    pub system: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -94,7 +107,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                             None
                         }
                     }
-
                 }
             }
         });
@@ -138,7 +150,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             .build()
             .expect("unable to start tokio runtime for plugin")
             .block_on(tokio::task::unconstrained(async move {
-                start_js_runtime(data.id, data.code, event_stream, client_proxy, component_model).await
+                start_js_runtime(data.id, data.code, data.permissions, event_stream, client_proxy, component_model).await
             }));
 
         tracing::error!(target = "plugin", "runtime execution failed {:?}", result)
@@ -155,10 +167,30 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 async fn start_js_runtime(
     plugin_id: PluginId,
     code: PluginCode,
+    permissions: PluginPermissions,
     event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
     client_proxy: DbusClientProxyProxy<'static>,
-    component_model: Vec<Component>
+    component_model: Vec<Component>,
 ) -> anyhow::Result<()> {
+    let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
+        allow_env: if permissions.environment.is_empty() { None } else { Some(permissions.environment) },
+        deny_env: None,
+        allow_hrtime: permissions.high_resolution_time,
+        deny_hrtime: false,
+        allow_net: if permissions.network.is_empty() { None } else { Some(permissions.network) },
+        deny_net: None,
+        allow_ffi: if permissions.ffi.is_empty() { None } else { Some(permissions.ffi) },
+        deny_ffi: None,
+        allow_read: if permissions.fs_read_access.is_empty() { None } else { Some(permissions.fs_read_access) },
+        deny_read: None,
+        allow_run: if permissions.run_subprocess.is_empty() { None } else { Some(permissions.run_subprocess) },
+        deny_run: None,
+        allow_sys: if permissions.system.is_empty() { None } else { Some(permissions.system) },
+        deny_sys: None,
+        allow_write: if permissions.fs_write_access.is_empty() { None } else { Some(permissions.fs_write_access) },
+        deny_write: None,
+        prompt: false,
+    })?);
 
     // let _inspector_server = Arc::new(
     //     InspectorServer::new(
@@ -172,7 +204,7 @@ async fn start_js_runtime(
 
     let mut worker = MainWorker::bootstrap_from_options(
         unused_url,
-        PermissionsContainer::allow_all(),
+        permissions_container,
         WorkerOptions {
             module_loader: Rc::new(CustomModuleLoader::new(code)),
             extensions: vec![plugin_ext::init_ops_and_esm(
@@ -385,7 +417,7 @@ fn op_react_replace_container_children(
         JsUiResponseData::Nothing => {
             tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children returned");
             Ok(())
-        },
+        }
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }

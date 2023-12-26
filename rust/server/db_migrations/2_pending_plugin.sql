@@ -1,6 +1,0 @@
-CREATE TABLE pending_plugin
-(
-    id TEXT NOT NULL PRIMARY KEY
-);
-
-ALTER TABLE plugin ADD COLUMN from_config BOOLEAN NOT NULL DEFAULT FALSE
