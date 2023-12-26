@@ -1,15 +1,18 @@
 [metadata]
 name='Interesting Plugin Name'
 
-[[entrypoints]]
+[[entrypoint]]
 id='detail-view'
 name='Detail view'
 path='src/detail-view.tsx'
 
-[[entrypoints]]
+[[entrypoint]]
 id='form-view'
 name='Form view'
 path='src/form-view.tsx'
+
+[[supported_system]]
+os='linux'
 
 [permissions]
 environment=["RUST_LOG"]

@@ -133,8 +133,12 @@ impl ApplicationManager {
             let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/../../js/dev_plugin/dist").to_owned();
 
             // ignore any error
-            let _ = self.plugin_downloader.add_local_plugin(PluginId::from_string(plugin_id), true)
+            let result = self.plugin_downloader.add_local_plugin(PluginId::from_string(plugin_id), true)
                 .await;
+
+            if let Err(err) = result {
+                tracing::error!("error loading dev plugin: {}", err);
+            }
         }
 
         self.reload_config().await?;

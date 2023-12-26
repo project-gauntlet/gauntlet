@@ -8,8 +8,9 @@ use anyhow::{anyhow, Context};
 use serde::Deserialize;
 
 use common::model::PluginId;
+
 use crate::dbus::DbusManagementServer;
-use crate::plugins::data_db_repository::{Code, DataDbRepository, SavePlugin, SavePluginEntrypoint, PluginPermissions};
+use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, SavePlugin, SavePluginEntrypoint};
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
@@ -157,9 +158,11 @@ impl PluginLoader {
         let config_content = std::fs::read_to_string(config_path).context(config_path_context)?;
         let config: PluginConfig = toml::from_str(&config_content)?;
 
+        tracing::debug!("Plugin config read: {:?}", config);
+
         let plugin_name = config.metadata.name;
 
-        let entrypoints: Vec<_> = config.entrypoints
+        let entrypoints: Vec<_> = config.entrypoint
             .into_iter()
             .map(|entrypoint| SavePluginEntrypoint {
                 id: entrypoint.id,
@@ -201,7 +204,9 @@ struct PluginDirData {
 #[derive(Debug, Deserialize)]
 struct PluginConfig {
     metadata: PluginConfigMetadata,
-    entrypoints: Vec<PluginConfigEntrypoint>,
+    entrypoint: Vec<PluginConfigEntrypoint>,
+    #[serde(default)]
+    supported_system: Vec<PluginConfigSupportedSystem>,
     #[serde(default)]
     permissions: PluginConfigPermissions,
 }
@@ -212,6 +217,13 @@ struct PluginConfigEntrypoint {
     name: String,
     #[allow(unused)] // used when building plugin
     path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "os")]
+pub enum PluginConfigSupportedSystem {
+    #[serde(rename = "linux")]
+    Linux,
 }
 
 #[derive(Debug, Deserialize)]
