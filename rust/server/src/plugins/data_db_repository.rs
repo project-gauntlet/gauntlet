@@ -51,6 +51,8 @@ pub struct GetPluginEntrypoint {
     pub plugin_id: String,
     pub name: String,
     pub enabled: bool,
+    #[sqlx(rename = "type")]
+    pub entrypoint_type: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -70,6 +72,7 @@ pub struct SavePlugin {
 pub struct SavePluginEntrypoint {
     pub id: String,
     pub name: String,
+    pub entrypoint_type: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -254,11 +257,12 @@ impl DataDbRepository {
 
         for entrypoint in plugin.entrypoints {
             // language=SQLite
-            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4)")
+            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5)")
                 .bind(entrypoint.id)
                 .bind(&plugin.id)
                 .bind(entrypoint.name)
                 .bind(true)
+                .bind(entrypoint.entrypoint_type)
                 .execute(&mut *tx)
                 .await?;
         }

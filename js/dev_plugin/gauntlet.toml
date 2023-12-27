@@ -1,18 +1,27 @@
-[metadata]
-name='Interesting Plugin Name'
+[gauntlet]
+name = 'Interesting Plugin Name'
 
 [[entrypoint]]
-id='detail-view'
-name='Detail view'
-path='src/detail-view.tsx'
+id = 'detail-view'
+name = 'Detail view'
+path = 'src/detail-view.tsx'
+type = 'view'
 
 [[entrypoint]]
-id='form-view'
-name='Form view'
-path='src/form-view.tsx'
+id = 'form-view'
+name = 'Form view'
+path = 'src/form-view.tsx'
+type = 'view'
+
+[[entrypoint]]
+id = 'command-a'
+name = 'Command A'
+path = 'src/command-a.ts'
+type = 'command'
 
 [[supported_system]]
-os='linux'
+os = 'linux'
 
 [permissions]
-environment=["RUST_LOG"]
+environment = ["RUST_LOG"]
+system=["systemMemoryInfo"]

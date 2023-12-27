@@ -1,8 +1,11 @@
 use std::fmt::Debug;
+
 use zbus::DBusError;
 
-use common::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget};
+use common::dbus::{DBusEntrypointType, DbusEventOpenView, DbusEventRunCommand, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget};
 use common::model::{EntrypointId, PluginId};
+
+use crate::model::PluginEntrypointType;
 use crate::plugins::ApplicationManager;
 use crate::search::SearchIndex;
 
@@ -18,6 +21,10 @@ impl DbusServer {
             .into_iter()
             .map(|item| {
                 DBusSearchResult {
+                    entrypoint_type: match item.entrypoint_type {
+                        PluginEntrypointType::Command => DBusEntrypointType::Command,
+                        PluginEntrypointType::View => DBusEntrypointType::View,
+                    },
                     entrypoint_name: item.entrypoint_name,
                     entrypoint_id: item.entrypoint_id,
                     plugin_name: item.plugin_name,
@@ -37,7 +44,6 @@ pub struct DbusManagementServer {
 
 #[zbus::dbus_interface(name = "dev.projectgauntlet.Server.Management")]
 impl DbusManagementServer {
-
     #[dbus_interface(signal)]
     pub async fn remote_plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str) -> zbus::Result<()>;
 
@@ -45,7 +51,7 @@ impl DbusManagementServer {
         &mut self,
         #[zbus(signal_context)]
         signal_context: zbus::SignalContext<'_>,
-        plugin_id: &str
+        plugin_id: &str,
     ) -> Result<()> {
         self.application_manager.download_and_add_plugin(signal_context, PluginId::from_string(plugin_id))
             .await
@@ -89,13 +95,16 @@ impl From<anyhow::Error> for ServerError {
 
 
 #[zbus::dbus_proxy(
-    default_service = "dev.projectgauntlet.Gauntlet.Client",
-    default_path = "/dev/projectgauntlet/Client",
-    interface = "dev.projectgauntlet.Client",
+default_service = "dev.projectgauntlet.Gauntlet.Client",
+default_path = "/dev/projectgauntlet/Client",
+interface = "dev.projectgauntlet.Client",
 )]
 trait DbusClientProxy {
     #[dbus_proxy(signal)]
-    fn view_created_signal(&self, plugin_id: &str, event: DbusEventViewCreated) -> zbus::Result<()>;
+    fn open_view_signal(&self, plugin_id: &str, event: DbusEventOpenView) -> zbus::Result<()>;
+
+    #[dbus_proxy(signal)]
+    fn run_command_signal(&self, plugin_id: &str, event: DbusEventRunCommand) -> zbus::Result<()>;
 
     #[dbus_proxy(signal)]
     fn view_event_signal(&self, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;

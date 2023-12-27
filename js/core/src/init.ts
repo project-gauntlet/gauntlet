@@ -82,17 +82,22 @@ async function runLoop() {
                 }
                 break;
             }
-            case "ViewCreated": {
+            case "OpenView": {
                 try {
-                    const view: FC = (await import(`gauntlet:view?${pluginEvent.viewName}`)).default;
+                    const view: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
                     const {render} = await import("gauntlet:renderer");
-                    latestRootUiWidget = render(pluginEvent.reconcilerMode, view);
+                    latestRootUiWidget = render(pluginEvent.frontend, view);
                 } catch (e) {
-                    console.error("Error occurred when rendering view", pluginEvent.viewName, e)
+                    console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
                 }
                 break;
             }
-            case "ViewDestroyed": {
+            case "RunCommand": {
+                try {
+                    await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)
+                } catch (e) {
+                    console.error("Error occurred when running a command", pluginEvent.entrypointId, e)
+                }
                 break;
             }
             case "PluginCommand": {

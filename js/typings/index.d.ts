@@ -11,7 +11,7 @@ interface Deno {
     };
 }
 
-type PluginEvent = ViewEvent | ViewCreated | ViewDestroyed | PluginCommand
+type PluginEvent = ViewEvent | RunCommand | OpenView | PluginCommand
 
 type ViewEvent = {
     type: "ViewEvent"
@@ -20,14 +20,14 @@ type ViewEvent = {
     eventArguments: PropertyValue[]
 }
 
-type ViewCreated = {
-    type: "ViewCreated"
-    reconcilerMode: string
-    viewName: string
+type OpenView = {
+    type: "OpenView"
+    frontend: string
+    entrypointId: string
 }
-
-type ViewDestroyed = {
-    type: "ViewDestroyed"
+type RunCommand = {
+    type: "RunCommand"
+    entrypointId: string
 }
 
 type PluginCommand = {

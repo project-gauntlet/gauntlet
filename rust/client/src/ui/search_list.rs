@@ -8,19 +8,21 @@ use iced::widget::text;
 
 use common::model::{EntrypointId, PluginId};
 
-use crate::model::NativeUiSearchResult;
+use crate::model::{NativeUiSearchResult, SearchResultEntrypointType};
 use crate::ui::theme::{ButtonStyle, Element, GauntletRenderer, TextStyle};
 
 pub struct SearchList<Message> {
     on_open_view: Box<dyn Fn(OpenViewEvent) -> Message>,
+    on_run_command: Box<dyn Fn(RunCommandEvent) -> Message>,
     search_results: Vec<NativeUiSearchResult>,
 }
 
 pub fn search_list<Message>(
     search_results: Vec<NativeUiSearchResult>,
-    on_open_view: impl Fn(OpenViewEvent) -> Message + 'static
+    on_open_view: impl Fn(OpenViewEvent) -> Message + 'static,
+    on_run_command: impl Fn(RunCommandEvent) -> Message + 'static
 ) -> SearchList<Message> {
-    SearchList::new(search_results, on_open_view)
+    SearchList::new(search_results, on_open_view, on_run_command)
 }
 
 pub struct OpenViewEvent {
@@ -28,8 +30,17 @@ pub struct OpenViewEvent {
     pub entrypoint_id: EntrypointId,
 }
 
+pub struct RunCommandEvent {
+    pub plugin_id: PluginId,
+    pub entrypoint_id: EntrypointId,
+}
+
 #[derive(Debug, Clone)]
 pub enum Event {
+    RunCommand {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    },
     OpenView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -37,10 +48,15 @@ pub enum Event {
 }
 
 impl<Message> SearchList<Message> {
-    pub fn new(search_results: Vec<NativeUiSearchResult>, on_open_view: impl Fn(OpenViewEvent) -> Message + 'static) -> Self {
+    pub fn new(
+        search_results: Vec<NativeUiSearchResult>,
+        on_open_view: impl Fn(OpenViewEvent) -> Message + 'static,
+        on_run_command: impl Fn(RunCommandEvent) -> Message + 'static
+    ) -> Self {
         Self {
             search_results,
             on_open_view: Box::new(on_open_view),
+            on_run_command: Box::new(on_run_command),
         }
     }
 }
@@ -58,6 +74,10 @@ impl<Message> Component<Message, GauntletRenderer> for SearchList<Message> {
             Event::OpenView { plugin_id, entrypoint_id } => {
                 let event = OpenViewEvent { plugin_id, entrypoint_id, };
                 Some((self.on_open_view)(event))
+            }
+            Event::RunCommand { plugin_id, entrypoint_id } => {
+                let event = RunCommandEvent { plugin_id, entrypoint_id, };
+                Some((self.on_run_command)(event))
             }
         }
     }
@@ -84,10 +104,21 @@ impl<Message> Component<Message, GauntletRenderer> for SearchList<Message> {
                     sub_text,
                 ]).into();
 
+                let event = match search_result.entrypoint_type {
+                    SearchResultEntrypointType::Command => Event::RunCommand {
+                        entrypoint_id: search_result.entrypoint_id.clone(),
+                        plugin_id: search_result.plugin_id.clone()
+                    },
+                    SearchResultEntrypointType::View => Event::OpenView {
+                        entrypoint_id: search_result.entrypoint_id.clone(),
+                        plugin_id: search_result.plugin_id.clone()
+                    }
+                };
+
                 button(button_content)
                     .width(Length::Fill)
                     .style(ButtonStyle::EntrypointItem)
-                    .on_press(Event::OpenView { entrypoint_id: search_result.entrypoint_id.clone(), plugin_id: search_result.plugin_id.clone() })
+                    .on_press(event)
                     .padding(Padding::new(5.0))
                     .into()
             })

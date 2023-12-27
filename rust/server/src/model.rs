@@ -24,13 +24,16 @@ pub type UiWidgetId = u32;
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum JsUiEvent {
-    ViewCreated {
-        #[serde(rename = "reconcilerMode")]
-        reconciler_mode: String,
-        #[serde(rename = "viewName")]
-        view_name: String
+    OpenView {
+        #[serde(rename = "frontend")]
+        frontend: String,
+        #[serde(rename = "entrypointId")]
+        entrypoint_id: String
     },
-    ViewDestroyed,
+    RunCommand {
+        #[serde(rename = "entrypointId")]
+        entrypoint_id: String
+    },
     ViewEvent {
         #[serde(rename = "widgetId")]
         widget_id: UiWidgetId,
@@ -75,9 +78,12 @@ pub struct JsUiWidget<'a> {
 
 #[derive(Debug)]
 pub enum IntermediateUiEvent {
-    ViewCreated {
-        reconciler_mode: String,
-        view_name: String
+    OpenView {
+        frontend: String,
+        entrypoint_id: String
+    },
+    RunCommand {
+        entrypoint_id: String
     },
     ViewEvent {
         widget_id: UiWidgetId,
@@ -159,4 +165,27 @@ fn from_intermediate_to_dbus_properties(value: HashMap<String, IntermediatePrope
         .collect();
 
     DBusUiPropertyContainer(properties)
+}
+
+#[derive(Debug, Clone)]
+pub enum PluginEntrypointType {
+    Command,
+    View,
+}
+
+pub fn entrypoint_to_str(value: PluginEntrypointType) -> &'static str {
+    match value {
+        PluginEntrypointType::Command => "command",
+        PluginEntrypointType::View => "view",
+    }
+}
+
+pub fn entrypoint_from_str(value: &str) -> PluginEntrypointType {
+    match value {
+        "command" => PluginEntrypointType::Command,
+        "view" => PluginEntrypointType::View,
+        _ => {
+            panic!("index contains illegal entrypoint_type: {}", value)
+        }
+    }
 }

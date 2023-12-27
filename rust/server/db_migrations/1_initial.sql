@@ -14,6 +14,7 @@ CREATE TABLE plugin_entrypoint
     plugin_id TEXT    NOT NULL REFERENCES plugin (id) ON DELETE CASCADE,
     name      TEXT    NOT NULL,
     enabled   BOOLEAN NOT NULL,
+    type      TEXT    NOT NULL,
     PRIMARY KEY (id, plugin_id)
 );
 

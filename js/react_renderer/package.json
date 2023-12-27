@@ -15,6 +15,7 @@
     "@types/react": "^18.2.35",
     "@types/react-reconciler": "^0.28.6",
     "@project-gauntlet/typings": "*",
+    "@project-gauntlet/deno": "*",
     "rollup": "^4.3.0",
     "tslib": "^2.6.2",
     "typescript": "^5.2.2"

@@ -12,6 +12,13 @@ pub struct NativeUiSearchResult {
     pub plugin_name: String,
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
+    pub entrypoint_type: SearchResultEntrypointType,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchResultEntrypointType {
+    Command,
+    View,
 }
 
 #[derive(Debug)]

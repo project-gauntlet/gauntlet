@@ -11,12 +11,12 @@ use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};
 
-use common::dbus::DbusEventViewCreated;
+use common::dbus::{DBusEntrypointType, DbusEventOpenView, DbusEventRunCommand};
 use common::model::{EntrypointId, PluginId};
 use utils::channel::{channel, RequestReceiver};
 
 use crate::dbus::{DbusClient, DbusServerProxyProxy};
-use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult};
+use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult, SearchResultEntrypointType};
 use crate::ui::plugin_container::{ClientContext, plugin_container};
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
@@ -50,6 +50,10 @@ enum NavState {
 #[derive(Debug, Clone)]
 pub enum AppMsg {
     OpenView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    },
+    RunCommand {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
@@ -151,14 +155,14 @@ impl Application for AppModel {
                 let dbus_client = self.dbus_client.clone();
 
                 let open_view = Command::perform(async move {
-                    let event_view_created = DbusEventViewCreated {
-                        reconciler_mode: "persistent".to_owned(),
-                        view_name: entrypoint_id.to_string(), // TODO what was view_name supposed to be?
+                    let event_open_view = DbusEventOpenView {
+                        frontend: "default".to_owned(),
+                        entrypoint_id: entrypoint_id.to_string(),
                     };
 
                     let signal_context = dbus_client.signal_context();
 
-                    DbusClient::view_created_signal(signal_context, &plugin_id.to_string(), event_view_created)
+                    DbusClient::open_view_signal(signal_context, &plugin_id.to_string(), event_open_view)
                         .await
                         .unwrap();
                 }, |_| AppMsg::Noop);
@@ -166,6 +170,26 @@ impl Application for AppModel {
                 Command::batch([
                     iced::window::resize(Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
                     open_view
+                ])
+            }
+            AppMsg::RunCommand { plugin_id,  entrypoint_id } => {
+                let dbus_client = self.dbus_client.clone();
+
+                let run_command = Command::perform(async move {
+                    let event_run_command = DbusEventRunCommand {
+                        entrypoint_id: entrypoint_id.to_string(),
+                    };
+
+                    let signal_context = dbus_client.signal_context();
+
+                    DbusClient::run_command_signal(signal_context, &plugin_id.to_string(), event_run_command)
+                        .await
+                        .unwrap();
+                }, |_| AppMsg::Noop);
+
+                Command::batch([
+                    run_command,
+                    iced::window::close(),
                 ])
             }
             AppMsg::PromptChanged(new_prompt) => {
@@ -185,6 +209,10 @@ impl Application for AppModel {
                                     plugin_name: search_result.plugin_name,
                                     entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
                                     entrypoint_name: search_result.entrypoint_name,
+                                    entrypoint_type: match search_result.entrypoint_type {
+                                        DBusEntrypointType::Command => SearchResultEntrypointType::Command,
+                                        DBusEntrypointType::View => SearchResultEntrypointType::View,
+                                    },
                                 })
                                 .collect();
 
@@ -258,12 +286,17 @@ impl Application for AppModel {
 
                 let search_results = self.search_results.iter().cloned().collect();
 
-                let search_list = search_list(search_results, |event| {
-                    AppMsg::OpenView {
+                let search_list = search_list(
+                    search_results,
+                    |event| AppMsg::OpenView {
                         plugin_id: event.plugin_id,
                         entrypoint_id: event.entrypoint_id,
-                    }
-                });
+                    },
+                    |event| AppMsg::RunCommand {
+                        plugin_id: event.plugin_id,
+                        entrypoint_id: event.entrypoint_id,
+                    },
+                );
 
                 let list: Element<_> = scrollable(search_list)
                     .width(Length::Fill)

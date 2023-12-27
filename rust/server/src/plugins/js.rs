@@ -19,7 +19,7 @@ use regex::Regex;
 use common::model::PluginId;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
-use crate::dbus::{DbusClientProxyProxy, ViewCreatedSignal, ViewEventSignal};
+use crate::dbus::{DbusClientProxyProxy, OpenViewSignal, RunCommandSignal, ViewEventSignal};
 use crate::model::{from_dbus_to_intermediate_value, IntermediatePropertyValue, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget};
 use crate::plugins::run_status::RunStatusGuard;
 
@@ -63,9 +63,9 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     let component_model = create_component_model();
 
     let plugin_id = data.id.clone();
-    let view_created_signal = client_proxy.receive_view_created_signal()
+    let run_command_signal = client_proxy.receive_run_command_signal()
         .await?
-        .filter_map(move |signal: ViewCreatedSignal| {
+        .filter_map(move |signal: RunCommandSignal| {
             let plugin_id = plugin_id.clone();
             async move {
                 let signal = signal.args().unwrap();
@@ -73,9 +73,27 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 if PluginId::from_string(signal.plugin_id) != plugin_id {
                     None
                 } else {
-                    Some(IntermediateUiEvent::ViewCreated {
-                        reconciler_mode: signal.event.reconciler_mode,
-                        view_name: signal.event.view_name,
+                    Some(IntermediateUiEvent::RunCommand {
+                        entrypoint_id: signal.event.entrypoint_id,
+                    })
+                }
+            }
+        });
+
+    let plugin_id = data.id.clone();
+    let open_view_signal = client_proxy.receive_open_view_signal()
+        .await?
+        .filter_map(move |signal: OpenViewSignal| {
+            let plugin_id = plugin_id.clone();
+            async move {
+                let signal = signal.args().unwrap();
+
+                if PluginId::from_string(signal.plugin_id) != plugin_id {
+                    None
+                } else {
+                    Some(IntermediateUiEvent::OpenView {
+                        frontend: signal.event.frontend,
+                        entrypoint_id: signal.event.entrypoint_id,
                     })
                 }
             }
@@ -139,7 +157,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             }
         });
 
-    let event_stream = (view_event_signal, view_created_signal, command_stream).merge();
+    let event_stream = (run_command_signal, view_event_signal, open_view_signal, command_stream).merge();
     let event_stream = Box::pin(event_stream);
 
     let thread_fn = move || {
@@ -264,15 +282,15 @@ impl ModuleLoader for CustomModuleLoader {
         referrer: &str,
         kind: ResolutionKind,
     ) -> Result<ModuleSpecifier, anyhow::Error> {
-        static PLUGIN_VIEW_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:view\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
+        static PLUGIN_ENTRYPOINT_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:entrypoint\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
         static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
         static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>[a-zA-Z0-9_-]+)\.js$").expect("invalid regex"));
 
-        if PLUGIN_VIEW_PATTERN.is_match(specifier) {
+        if PLUGIN_ENTRYPOINT_PATTERN.is_match(specifier) {
             return Ok(specifier.parse()?);
         }
 
-        if PLUGIN_VIEW_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
+        if PLUGIN_ENTRYPOINT_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
             if let Some(captures) = PATH_PATTERN.captures(specifier) {
                 return Ok(format!("gauntlet:module?{}", &captures["js_module"]).parse()?);
             }
@@ -301,7 +319,7 @@ impl ModuleLoader for CustomModuleLoader {
         let mut specifier = module_specifier.clone();
         specifier.set_query(None);
 
-        if &specifier == &"gauntlet:view".parse().unwrap() || &specifier == &"gauntlet:module".parse().unwrap() {
+        if &specifier == &"gauntlet:entrypoint".parse().unwrap() || &specifier == &"gauntlet:module".parse().unwrap() {
             let module = get_js_code(module_specifier, &self.code.js);
 
             return futures::future::ready(module).boxed_local();
@@ -312,9 +330,9 @@ impl ModuleLoader for CustomModuleLoader {
 }
 
 fn get_js_code(module_specifier: &ModuleSpecifier, js: &HashMap<String, String>) -> anyhow::Result<ModuleSource> {
-    let view_name = module_specifier.query().expect("invalid specifier, should be validated earlier");
+    let entrypoint_id = module_specifier.query().expect("invalid specifier, should be validated earlier");
 
-    let js = js.get(view_name).ok_or(anyhow!("no code provided for view: {:?}", view_name))?;
+    let js = js.get(entrypoint_id).ok_or(anyhow!("no code provided for view: {:?}", entrypoint_id))?;
 
     let module = ModuleSource::new(ModuleType::JavaScript, js.clone().into(), module_specifier);
 
@@ -588,9 +606,12 @@ async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyPro
 
 fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     match event {
-        IntermediateUiEvent::ViewCreated { reconciler_mode, view_name } => JsUiEvent::ViewCreated {
-            reconciler_mode,
-            view_name,
+        IntermediateUiEvent::OpenView { frontend, entrypoint_id } => JsUiEvent::OpenView {
+            frontend,
+            entrypoint_id,
+        },
+        IntermediateUiEvent::RunCommand { entrypoint_id } => JsUiEvent::RunCommand {
+            entrypoint_id
         },
         IntermediateUiEvent::ViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()

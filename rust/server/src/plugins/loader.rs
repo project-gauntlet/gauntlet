@@ -10,6 +10,7 @@ use serde::Deserialize;
 use common::model::PluginId;
 
 use crate::dbus::DbusManagementServer;
+use crate::model::{entrypoint_to_str, PluginEntrypointType};
 use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, SavePlugin, SavePluginEntrypoint};
 
 pub struct PluginLoader {
@@ -160,13 +161,17 @@ impl PluginLoader {
 
         tracing::debug!("Plugin config read: {:?}", config);
 
-        let plugin_name = config.metadata.name;
+        let plugin_name = config.gauntlet.name;
 
         let entrypoints: Vec<_> = config.entrypoint
             .into_iter()
             .map(|entrypoint| SavePluginEntrypoint {
                 id: entrypoint.id,
                 name: entrypoint.name,
+                entrypoint_type: entrypoint_to_str(match entrypoint.entrypoint_type {
+                    PluginConfigEntrypointTypes::Command => PluginEntrypointType::Command,
+                    PluginConfigEntrypointTypes::View => PluginEntrypointType::View,
+                }).to_owned()
             })
             .collect();
 
@@ -203,7 +208,7 @@ struct PluginDirData {
 
 #[derive(Debug, Deserialize)]
 struct PluginConfig {
-    metadata: PluginConfigMetadata,
+    gauntlet: PluginConfigMetadata,
     entrypoint: Vec<PluginConfigEntrypoint>,
     #[serde(default)]
     supported_system: Vec<PluginConfigSupportedSystem>,
@@ -217,6 +222,16 @@ struct PluginConfigEntrypoint {
     name: String,
     #[allow(unused)] // used when building plugin
     path: String,
+    #[serde(rename = "type")]
+    entrypoint_type: PluginConfigEntrypointTypes,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum PluginConfigEntrypointTypes {
+    #[serde(rename = "command")]
+    Command,
+    #[serde(rename = "view")]
+    View,
 }
 
 #[derive(Debug, Deserialize)]

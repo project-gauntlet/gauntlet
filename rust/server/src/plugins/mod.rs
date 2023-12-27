@@ -1,8 +1,10 @@
-use common::dbus::{DBusEntrypoint, DBusPlugin};
+use common::dbus::{DBusEntrypoint, DBusEntrypointType, DBusPlugin};
 use common::model::{EntrypointId, PluginId};
+
 use crate::dirs::Dirs;
+use crate::model::{entrypoint_from_str, PluginEntrypointType};
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::{DataDbRepository};
+use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::js::{PluginCode, PluginCommand, PluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
@@ -70,6 +72,10 @@ impl ApplicationManager {
                         enabled: entrypoint.enabled,
                         entrypoint_id: entrypoint.id,
                         entrypoint_name: entrypoint.name,
+                        entrypoint_type: match entrypoint_from_str(&entrypoint.entrypoint_type) {
+                            PluginEntrypointType::Command => DBusEntrypointType::Command,
+                            PluginEntrypointType::View => DBusEntrypointType::View,
+                        }
                     })
                     .collect();
 
@@ -219,6 +225,7 @@ impl ApplicationManager {
                     .filter(|entrypoint| entrypoint.enabled)
                     .map(|entrypoint| {
                         SearchItem {
+                            entrypoint_type: entrypoint_from_str(&entrypoint.entrypoint_type),
                             entrypoint_name: entrypoint.name.to_owned(),
                             entrypoint_id: entrypoint.id.to_string(),
                             plugin_name: plugin.name.to_owned(),

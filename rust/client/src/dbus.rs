@@ -1,6 +1,6 @@
 use zbus::DBusError;
 
-use common::dbus::{DbusEventViewCreated, DbusEventViewEvent, DBusSearchResult, DBusUiWidget};
+use common::dbus::{DbusEventOpenView, DbusEventRunCommand, DbusEventViewEvent, DBusSearchResult, DBusUiWidget};
 use common::model::PluginId;
 use utils::channel::RequestSender;
 
@@ -13,7 +13,10 @@ pub struct DbusClient {
 #[zbus::dbus_interface(name = "dev.projectgauntlet.Client")]
 impl DbusClient {
     #[dbus_interface(signal)]
-    pub async fn view_created_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventViewCreated) -> zbus::Result<()>;
+    pub async fn open_view_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventOpenView) -> zbus::Result<()>;
+
+    #[dbus_interface(signal)]
+    pub async fn run_command_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventRunCommand) -> zbus::Result<()>;
 
     #[dbus_interface(signal)]
     pub async fn view_event_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;

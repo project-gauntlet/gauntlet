@@ -10,6 +10,7 @@ pub struct DBusSearchResult {
     pub plugin_name: String,
     pub entrypoint_id: String,
     pub entrypoint_name: String,
+    pub entrypoint_type: DBusEntrypointType,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
@@ -25,6 +26,7 @@ pub struct DBusEntrypoint {
     pub entrypoint_id: String,
     pub entrypoint_name: String,
     pub enabled: bool,
+    pub entrypoint_type: DBusEntrypointType,
 }
 
 #[derive(Debug, DeserializeDict, SerializeDict, Type)]
@@ -36,11 +38,15 @@ pub struct DBusUiWidget {
     pub widget_children: Vec<DBusUiWidget>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Type)]
+pub struct DbusEventOpenView {
+    pub frontend: String,
+    pub entrypoint_id: String,
+}
 
 #[derive(Debug, Deserialize, Serialize, Type)]
-pub struct DbusEventViewCreated {
-    pub reconciler_mode: String,
-    pub view_name: String,
+pub struct DbusEventRunCommand {
+    pub entrypoint_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Type)]
@@ -48,6 +54,12 @@ pub struct DbusEventViewEvent {
     pub widget_id: DbusUiWidgetId,
     pub event_name: DbusUiEventName,
     pub event_arguments: Vec<DBusUiPropertyValue>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub enum DBusEntrypointType {
+    Command,
+    View,
 }
 
 pub type DbusUiWidgetId = u32;

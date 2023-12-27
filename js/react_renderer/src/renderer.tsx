@@ -30,7 +30,7 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
     return instance
 }
 
-export const createHostConfig = (options: { mode: "mutation" | "persistent" }): HostConfig<
+export const createHostConfig = (): HostConfig<
     ComponentType,
     PropsWithChildren,
     RootUiWidget,
@@ -159,7 +159,7 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     /*
      persistence items
     */
-    supportsPersistence: isPersistentMode(options.mode),
+    supportsPersistence: true,
 
     cloneInstance(
         instance: Instance,
@@ -171,8 +171,6 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
         keepChildren: boolean,
         recyclableInstance: null | Instance,
     ): Instance {
-        assertPersistentMode(options.mode);
-
         InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}, keepChildren: ${keepChildren}, recyclableInstance: ${Deno.inspect(recyclableInstance)}`)
 
         // TODO validate
@@ -200,26 +198,22 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     },
 
     createContainerChildSet(container: RootUiWidget): ChildSet {
-        assertPersistentMode(options.mode);
         InternalApi.op_log_trace("renderer_js_persistence", `createContainerChildSet is called, container: ${Deno.inspect(container)}`)
 
         return []
     },
 
     appendChildToContainerChildSet(childSet: ChildSet, child: Instance | TextInstance): void {
-        assertPersistentMode(options.mode);
         InternalApi.op_log_trace("renderer_js_persistence", `appendChildToContainerChildSet is called, childSet: ${Deno.inspect(childSet)}, child: ${Deno.inspect(child)}`)
 
         childSet.push(child);
     },
 
     finalizeContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
-        assertPersistentMode(options.mode);
         InternalApi.op_log_trace("renderer_js_persistence", `finalizeContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
     },
 
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
-        assertPersistentMode(options.mode);
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
         container.widgetChildren = newChildren
         InternalApi.op_react_replace_container_children(container, newChildren)
@@ -243,13 +237,6 @@ export const createHostConfig = (options: { mode: "mutation" | "persistent" }): 
     */
     supportsHydration: false
 });
-
-const isPersistentMode = (mode: "mutation" | "persistent") => mode === "persistent";
-const assertPersistentMode = (mode: "mutation" | "persistent") => {
-    if (!isPersistentMode(mode)) {
-        throw new Error("Wrong reconciler mode")
-    }
-}
 
 function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): string[] | null {
     const uniqueProps = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
@@ -289,13 +276,13 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
-export function render(mode: "mutation" | "persistent", View: React.FC): RootUiWidget {
-    if (mode === "mutation") {
-        // TODO reimplement but for specific frontend, it seems it is not feasible to do generic implementation
-        throw new Error("NOT IMPLEMENTED")
+export function render(frontend: string, View: React.FC): RootUiWidget {
+    // specific frontend are implemented separately, it seems it is not feasible to do generic implementation
+    if (frontend !== "default") {
+        throw new Error("NOT SUPPORTED")
     }
 
-    const hostConfig = createHostConfig({mode});
+    const hostConfig = createHostConfig();
 
     // const reconciler = ReactReconciler(createTracedHostConfig(hostConfig));
     const reconciler = ReactReconciler(hostConfig);

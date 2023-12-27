@@ -6,11 +6,11 @@
   },
   "devDependencies": {
     "@types/react": "^18.2.14",
+    "@project-gauntlet/deno": "*",
     "@project-gauntlet/binary": "*"
   },
   "dependencies": {
     "@project-gauntlet/api": "*",
-    "@project-gauntlet/deno": "*",
     "@types/lodash": "^4.14.196",
     "lodash": "^4.17.21"
   }

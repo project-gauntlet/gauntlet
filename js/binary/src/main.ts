@@ -7,13 +7,14 @@ import { parse as parseToml } from "toml";
 import { z } from "zod";
 
 const Config = z.strictObject({
-    metadata: z.strictObject({
+    gauntlet: z.strictObject({
         name: z.string()
     }),
     entrypoint: z.array(z.strictObject({
         id: z.string(),
         name: z.string(),
-        path: z.string()
+        path: z.string(),
+        type: z.enum(["command", "view"])
     })),
     permissions: z.strictObject({
         environment: z.array(z.string()).default([]),
