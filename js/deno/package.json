@@ -1,0 +1,18 @@
+{
+  "name": "@project-gauntlet/deno",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/lib.deno.d.ts"
+    }
+  },
+  "scripts": {
+    "run-generator-source": "ts-node --esm generator/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  }
+}

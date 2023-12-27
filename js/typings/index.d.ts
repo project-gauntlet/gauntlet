@@ -1,10 +1,5 @@
 declare namespace Deno {
     const internal: unique symbol;
-    function inspect(value: unknown, options?: InspectOptions): string
-}
-
-interface InspectOptions {
-    depth: number
 }
 
 interface Deno {

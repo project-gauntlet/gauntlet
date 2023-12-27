@@ -7,6 +7,7 @@
   "workspaces": [
     "binary",
     "core",
+    "deno",
     "dev_plugin",
     "react",
     "react_renderer",
