@@ -4,14 +4,15 @@
   "scripts": {
     "build": "gauntlet"
   },
-  "devDependencies": {
-    "@types/react": "^18.2.14",
-    "@project-gauntlet/deno": "*",
-    "@project-gauntlet/binary": "*"
-  },
   "dependencies": {
     "@project-gauntlet/api": "*",
     "@types/lodash": "^4.14.196",
     "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.14",
+    "@project-gauntlet/deno": "*",
+    "@project-gauntlet/binary": "*",
+    "typescript": "^5.2.2"
   }
 }
