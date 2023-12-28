@@ -24,4 +24,4 @@ os = 'linux'
 
 [permissions]
 environment = ["RUST_LOG"]
-system=["systemMemoryInfo"]
+system = ["systemMemoryInfo"]
