@@ -526,7 +526,7 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
                     match child_component {
                         Component::Standard { internal_name, name, .. } => {
                             let allowed_members: HashMap<_, _> = members.iter()
-                                .map(|member| (&member.component_internal_name, member))
+                                .map(|(_, member)| (&member.component_internal_name, member))
                                 .collect();
 
                             match allowed_members.get(internal_name) {
@@ -542,7 +542,7 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
                     match child_component {
                         Component::Standard { internal_name, name, .. } => {
                             let allowed_members: HashMap<_, _> = members.iter()
-                                .map(|member| (&member.component_internal_name, member))
+                                .map(|(_, member)| (&member.component_internal_name, member))
                                 .collect();
 
                             match allowed_members.get(internal_name) {

@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::sync::Arc;
 
+use indexmap::IndexMap;
 use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -42,7 +43,7 @@ pub enum Component {
     Root {
         #[serde(rename = "internalName")]
         internal_name: String,
-        children: Vec<RootChild>,
+        children: Vec<ComponentRef>,
     },
     #[serde(rename = "text_part")]
     TextPart {
@@ -84,33 +85,25 @@ pub enum PropertyType {
 pub enum Children {
     #[serde(rename = "string_or_members")]
     StringOrMembers {
-        members: Vec<ChildrenMember>,
-        component_internal_name: String,
+        members: IndexMap<String, ComponentRef>,
+        #[serde(rename = "textPartInternalName")]
+        text_part_internal_name: String,
     },
     #[serde(rename = "members")]
     Members {
-        members: Vec<ChildrenMember>,
+        members: IndexMap<String, ComponentRef>,
     },
     #[serde(rename = "string")]
     String {
-        component_internal_name: String,
+        #[serde(rename = "textPartInternalName")]
+        text_part_internal_name: String,
     },
     #[serde(rename = "none")]
     None,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ChildrenMember {
-    #[serde(rename = "memberName")]
-    pub member_name: String,
-    #[serde(rename = "componentInternalName")]
-    pub component_internal_name: String,
-    #[serde(rename = "componentName")]
-    pub component_name: ComponentName,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RootChild {
+pub struct ComponentRef {
     #[serde(rename = "componentInternalName")]
     pub component_internal_name: String,
     #[serde(rename = "componentName")]
@@ -118,16 +111,16 @@ pub struct RootChild {
 }
 
 fn children_string_or_members<I>(members: I) -> Children
-    where I: IntoIterator<Item=ChildrenMember>
+    where I: IntoIterator<Item=(String, ComponentRef)>
 {
     Children::StringOrMembers {
-        component_internal_name: "text_part".to_owned(),
+        text_part_internal_name: "text_part".to_owned(),
         members: members.into_iter().collect(),
     }
 }
 
 fn children_members<I>(members: I) -> Children
-    where I: IntoIterator<Item=ChildrenMember>
+    where I: IntoIterator<Item=(String, ComponentRef)>
 {
     Children::Members {
         members: members.into_iter().collect(),
@@ -136,7 +129,7 @@ fn children_members<I>(members: I) -> Children
 
 fn children_string() -> Children {
     Children::String {
-        component_internal_name: "text_part".to_owned()
+        text_part_internal_name: "text_part".to_owned()
     }
 }
 
@@ -144,14 +137,16 @@ fn children_none() -> Children {
     Children::None
 }
 
-fn member(member_name: impl ToString, component: &Component) -> ChildrenMember {
+fn member(member_name: impl ToString, component: &Component) -> (String, ComponentRef) {
     match component {
         Component::Standard { internal_name, name, .. } => {
-            ChildrenMember {
-                member_name: member_name.to_string(),
-                component_internal_name: internal_name.to_owned(),
-                component_name: name.to_owned(),
-            }
+            (
+                member_name.to_string(),
+                ComponentRef {
+                    component_internal_name: internal_name.to_owned(),
+                    component_name: name.to_owned(),
+                }
+            )
         }
         Component::Root { .. } => panic!("invalid component member"),
         Component::TextPart { .. } => panic!("invalid component member"),
@@ -184,7 +179,7 @@ fn root(children: &[&Component]) -> Component {
             .map(|child| {
                 match child {
                     Component::Standard { internal_name, name, .. } => {
-                        RootChild { component_name: name.to_owned(), component_internal_name: internal_name.to_owned() }
+                        ComponentRef { component_name: name.to_owned(), component_internal_name: internal_name.to_owned() }
                     }
                     Component::Root { .. } => panic!("invalid root child"),
                     Component::TextPart { .. } => panic!("invalid root child"),
@@ -194,12 +189,12 @@ fn root(children: &[&Component]) -> Component {
     }
 }
 
-fn event<I>(name: impl Into<String>, arguments: I) -> Property
+fn event<I>(name: impl Into<String>, optional: bool, arguments: I) -> Property
     where I: IntoIterator<Item=Property>
 {
     Property {
         name: name.into(),
-        optional: true,
+        optional,
         property_type: PropertyType::Function { arguments: arguments.into_iter().collect() },
     }
 }
@@ -229,7 +224,7 @@ pub fn create_component_model() -> Vec<Component> {
         "MetadataTagItem",
         [
             // property("color", true, PropertyType::String),
-            event("onClick", [])
+            event("onClick", true, [])
         ],
         children_string(),
     );
@@ -413,7 +408,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
-            event("onChange", [property("value", true, PropertyType::String)])
+            event("onChange", true, [property("value", true, PropertyType::String)])
         ],
         children_none(),
     );
@@ -424,7 +419,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
-            event("onChange", [property("value", true, PropertyType::String)])
+            event("onChange", true, [property("value", true, PropertyType::String)])
         ],
         children_none(),
     );
@@ -442,7 +437,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", true, PropertyType::String),
             property("value", true, PropertyType::Boolean),
-            event("onChange", [property("value", false, PropertyType::Boolean)])
+            event("onChange", true, [property("value", false, PropertyType::Boolean)])
         ],
         children_none(),
     );
@@ -453,7 +448,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
-            event("onChange", [property("value", true, PropertyType::String)])
+            event("onChange", true, [property("value", true, PropertyType::String)])
         ],
         children_none(),
     );
@@ -473,7 +468,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", true, PropertyType::String),
             property("value", true, PropertyType::String),
-            event("onChange", [property("value", true, PropertyType::String)])
+            event("onChange", true, [property("value", true, PropertyType::String)])
         ],
         children_members([
             member("Item", &select_item_component)

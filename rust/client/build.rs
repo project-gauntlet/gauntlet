@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
                     for prop in props {
                         match prop.property_type {
                             PropertyType::Function { .. } => {
-                                // client doesn't need to have functions in properties
+                                // client know about functions in properties
                             }
                             PropertyType::String | PropertyType::Number | PropertyType::Boolean if prop.optional => {
                                 output.push_str(&format!("        {}: {},\n", prop.name, generate_optional_type(&prop.property_type)));
@@ -116,7 +116,7 @@ fn main() -> anyhow::Result<()> {
                                 output.push_str(&format!("            {}: vec![],\n", prop.name));
                             },
                             PropertyType::Function { .. } => {
-                                // client doesn't need to have functions in properties
+                                // client know about functions in properties
                             }
                         };
                     }
@@ -159,19 +159,19 @@ fn main() -> anyhow::Result<()> {
                     output.push_str("            match get_component_widget_type(&child) {\n");
 
                     match children {
-                        Children::StringOrMembers { members, component_internal_name } => {
-                            output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", component_internal_name));
-                            for member in members {
+                        Children::StringOrMembers { members, text_part_internal_name } => {
+                            output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", text_part_internal_name));
+                            for (_, member) in members {
                                 output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
                             }
                         }
                         Children::Members { members } => {
-                            for member in members {
+                            for (_, member) in members {
                                 output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
                             }
                         }
-                        Children::String { component_internal_name } => {
-                            output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", component_internal_name));
+                        Children::String { text_part_internal_name } => {
+                            output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", text_part_internal_name));
                         }
                         Children::None => {}
                     }
@@ -266,19 +266,19 @@ fn main() -> anyhow::Result<()> {
                     output.push_str("                match get_component_widget_type(new_child) {\n");
 
                     match children {
-                        Children::StringOrMembers { members, component_internal_name } => {
-                            output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", component_internal_name));
-                            for member in members {
+                        Children::StringOrMembers { members, text_part_internal_name } => {
+                            output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", text_part_internal_name));
+                            for (_, member) in members {
                                 output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
                             }
                         }
                         Children::Members { members } => {
-                            for member in members {
+                            for (_, member) in members {
                                 output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
                             }
                         }
-                        Children::String { component_internal_name } => {
-                            output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", component_internal_name));
+                        Children::String { text_part_internal_name } => {
+                            output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", text_part_internal_name));
                         }
                         Children::None => {}
                     }
@@ -435,6 +435,6 @@ fn generate_type(property_type: &PropertyType) -> String {
         PropertyType::Number => "f64".to_owned(),
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Array { nested } => format!("Vec<{}>", generate_type(nested)),
-        PropertyType::Function { .. } => panic!("client doesn't need to know about function types"),
+        PropertyType::Function { .. } => panic!("client know about functions in properties"),
     }
 }

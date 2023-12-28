@@ -14,7 +14,7 @@ type StandardComponent = {
 type RootComponent = {
     type: "root",
     internalName: string,
-    children: RootChild[],
+    children: ComponentRef[],
 }
 
 type TextPartComponent = {
@@ -32,28 +32,22 @@ type Children = ChildrenMembers | ChildrenString | ChildrenNone | ChildrenString
 
 type ChildrenMembers = {
     type: "members",
-    members: ChildrenMember[]
+    members: Record<string, ComponentRef>
 }
 type ChildrenStringOrMembers = {
     type: "string_or_members",
-    component_internal_name: string,
-    members: ChildrenMember[]
+    textPartInternalName: string,
+    members: Record<string, ComponentRef>
 }
 type ChildrenString = {
     type: "string"
-    component_internal_name: string,
+    textPartInternalName: string,
 }
 type ChildrenNone = {
     type: "none"
 }
 
-type ChildrenMember = {
-    memberName: string,
-    componentInternalName: string,
-    componentName: string,
-}
-
-type RootChild = {
+type ComponentRef = {
     componentInternalName: string,
     componentName: string,
 }
@@ -393,10 +387,10 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
             componentType = ts.factory.createIntersectionTypeNode([
                 componentFCType,
                 ts.factory.createTypeLiteralNode(
-                    component.children.members.map(member => {
+                    Object.entries(component.children.members).map(([memberName, member]) => {
                         return ts.factory.createPropertySignature(
                             undefined,
-                            ts.factory.createIdentifier(member.memberName),
+                            ts.factory.createIdentifier(memberName),
                             undefined,
                             ts.factory.createTypeQueryNode(
                                 ts.factory.createIdentifier(member.componentName),
@@ -415,11 +409,11 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
         switch (component.children.type) {
             case "string_or_members":
             case "members": {
-                memberAssignments = component.children.members.map(member => {
+                memberAssignments = Object.entries(component.children.members).map(([memberName, member]) => {
                     return ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
                         ts.factory.createPropertyAccessExpression(
                             ts.factory.createIdentifier(component.name),
-                            ts.factory.createIdentifier(member.memberName)
+                            ts.factory.createIdentifier(memberName)
                         ),
                         ts.factory.createToken(ts.SyntaxKind.EqualsToken),
                         ts.factory.createIdentifier(member.componentName)
@@ -545,9 +539,9 @@ function makeChildrenType(type: Children): ts.TypeNode {
                 ts.factory.createIdentifier("ElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
-                        type.members.map(value => (
+                        Object.values(type.members).map(member => (
                             ts.factory.createTypeQueryNode(
-                                ts.factory.createIdentifier(value.componentName),
+                                ts.factory.createIdentifier(member.componentName),
                                 undefined
                             )
                         ))
@@ -560,9 +554,9 @@ function makeChildrenType(type: Children): ts.TypeNode {
                 ts.factory.createIdentifier("StringOrElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
-                        type.members.map(value => (
+                        Object.values(type.members).map(member => (
                             ts.factory.createTypeQueryNode(
-                                ts.factory.createIdentifier(value.componentName),
+                                ts.factory.createIdentifier(member.componentName),
                                 undefined
                             )
                         ))
