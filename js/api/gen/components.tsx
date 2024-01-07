@@ -3,6 +3,18 @@ import { FC, JSXElementConstructor, ReactElement, ReactNode } from "react";
 declare global {
     namespace JSX {
         interface IntrinsicElements {
+            ["gauntlet:action"]: {
+                title: string;
+                onAction: () => void;
+            };
+            ["gauntlet:action_panel_section"]: {
+                children?: ElementComponent<typeof Action>;
+                title?: string;
+            };
+            ["gauntlet:action_panel"]: {
+                children?: ElementComponent<typeof Action | typeof ActionPanelSection>;
+                title?: string;
+            };
             ["gauntlet:metadata_link"]: {
                 children?: StringComponent;
                 label: string;
@@ -62,7 +74,7 @@ declare global {
                 children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
             };
             ["gauntlet:detail"]: {
-                children?: ElementComponent<typeof Metadata | typeof Content>;
+                children?: ElementComponent<typeof ActionPanel | typeof Metadata | typeof Content>;
             };
             ["gauntlet:text_field"]: {
                 label?: string;
@@ -108,6 +120,35 @@ export type EmptyNode = boolean | null | undefined;
 export type ElementComponent<Comp extends FC<any>> = Element<Comp> | EmptyNode | Iterable<ElementComponent<Comp>>;
 export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>;
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
+export interface ActionProps {
+    title: string;
+    onAction: () => void;
+}
+export const Action: FC<ActionProps> = (props: ActionProps): ReactNode => {
+    return <gauntlet:action title={props.title} onAction={props.onAction}/>;
+};
+export interface ActionPanelSectionProps {
+    children?: ElementComponent<typeof Action>;
+    title?: string;
+}
+export const ActionPanelSection: FC<ActionPanelSectionProps> & {
+    Action: typeof Action;
+} = (props: ActionPanelSectionProps): ReactNode => {
+    return <gauntlet:action_panel_section children={props.children} title={props.title}/>;
+};
+ActionPanelSection.Action = Action;
+export interface ActionPanelProps {
+    children?: ElementComponent<typeof Action | typeof ActionPanelSection>;
+    title?: string;
+}
+export const ActionPanel: FC<ActionPanelProps> & {
+    Action: typeof Action;
+    Section: typeof ActionPanelSection;
+} = (props: ActionPanelProps): ReactNode => {
+    return <gauntlet:action_panel children={props.children} title={props.title}/>;
+};
+ActionPanel.Action = Action;
+ActionPanel.Section = ActionPanelSection;
 export interface MetadataLinkProps {
     children?: StringComponent;
     label: string;
@@ -259,12 +300,13 @@ Content.HorizontalBreak = HorizontalBreak;
 Content.CodeBlock = CodeBlock;
 export interface DetailProps {
     children?: ElementComponent<typeof Metadata | typeof Content>;
+    actions?: ElementComponent<typeof ActionPanel>;
 }
 export const Detail: FC<DetailProps> & {
     Metadata: typeof Metadata;
     Content: typeof Content;
 } = (props: DetailProps): ReactNode => {
-    return <gauntlet:detail children={props.children}/>;
+    return <gauntlet:detail children={[props.actions, props.children] as any}/>;
 };
 Detail.Metadata = Metadata;
 Detail.Content = Content;

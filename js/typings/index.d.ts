@@ -1,3 +1,6 @@
+
+// js runtime types
+
 declare namespace Deno {
     const internal: unique symbol;
 }
@@ -41,29 +44,17 @@ type PropertyValueNumber = { type: "Number", value: number }
 type PropertyValueBool = { type: "Bool", value: boolean }
 type PropertyValueUndefined = { type: "Undefined" }
 
-type UiWidget = UiWidgetBase & {
-    hostContext: RootContext
-}
-type RootUiWidget = UiWidgetBase
-
-type UiWidgetBase = {
+type UiWidget = {
     widgetId: number,
     widgetType: string,
     widgetProperties: Props,
     widgetChildren: UiWidget[],
 }
 
-type ComponentType = string;
 type Props = { [key: string]: any };
 type PropsWithChildren = { children?: UiWidget[] } & Props;
 
-type RootContext = { nextId: number }
-type Instance = UiWidget
-type TextInstance = UiWidget
-type ChildSet = (Instance | TextInstance)[]
-type UpdatePayload = string[];
-
-type SuspenseInstance = never;
+type ChildSet = UiWidget[]
 
 interface InternalApi {
     op_log_trace(target: string, message: string): void;
@@ -72,5 +63,83 @@ interface InternalApi {
     op_log_warn(target: string, message: string): void;
     op_log_error(target: string, message: string): void;
 
-    op_react_replace_container_children(container: Instance, newChildren: ChildSet): void;
+    op_component_model(): Record<string, Component>;
+
+    op_react_replace_container_children(container: UiWidget, newChildren: ChildSet): void;
+}
+
+// component model types
+
+type Component = StandardComponent | RootComponent | TextPartComponent
+
+type StandardComponent = {
+    type: "standard",
+    internalName: string,
+    name: string,
+    props: Property[],
+    children: Children,
+}
+
+type RootComponent = {
+    type: "root",
+    internalName: string,
+    children: ComponentRef[],
+}
+
+type TextPartComponent = {
+    type: "text_part",
+    internalName: string,
+}
+
+type Property = {
+    name: string
+    optional: boolean
+    type: PropertyType
+}
+type Children = ChildrenMembers | ChildrenString | ChildrenNone | ChildrenStringOrMembers
+
+type ChildrenMembers = {
+    type: "members",
+    members: Record<string, ComponentRef>
+}
+type ChildrenStringOrMembers = {
+    type: "string_or_members",
+    textPartInternalName: string,
+    members: Record<string, ComponentRef>
+}
+type ChildrenString = {
+    type: "string"
+    textPartInternalName: string,
+}
+type ChildrenNone = {
+    type: "none"
+}
+
+type ComponentRef = {
+    componentInternalName: string,
+    componentName: string,
+}
+
+type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeComponent | TypeFunction
+
+type TypeString = {
+    type: "string"
+}
+type TypeNumber = {
+    type: "number"
+}
+type TypeBoolean = {
+    type: "boolean"
+}
+type TypeArray = {
+    type: "array"
+    nested: PropertyType
+}
+type TypeComponent = {
+    type: "component"
+    reference: ComponentRef,
+}
+type TypeFunction = {
+    type: "function"
+    arguments: Property[]
 }

@@ -43,6 +43,9 @@ fn main() -> anyhow::Result<()> {
                             PropertyType::Function { .. } => {
                                 // client know about functions in properties
                             }
+                            PropertyType::Component { .. } => {
+                                // component properties are found in children array
+                            }
                             PropertyType::String | PropertyType::Number | PropertyType::Boolean if prop.optional => {
                                 output.push_str(&format!("        {}: {},\n", prop.name, generate_optional_type(&prop.property_type)));
                             }
@@ -117,6 +120,9 @@ fn main() -> anyhow::Result<()> {
                             },
                             PropertyType::Function { .. } => {
                                 // client know about functions in properties
+                            }
+                            PropertyType::Component { .. } => {
+                                // component properties are found in children array
                             }
                         };
                     }
@@ -436,5 +442,6 @@ fn generate_type(property_type: &PropertyType) -> String {
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Array { nested } => format!("Vec<{}>", generate_type(nested)),
         PropertyType::Function { .. } => panic!("client know about functions in properties"),
+        PropertyType::Component { .. } => panic!("component properties are found in children array")
     }
 }

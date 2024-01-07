@@ -1,74 +1,6 @@
 import ts from "typescript";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 
-type Component = StandardComponent | RootComponent | TextPartComponent
-
-type StandardComponent = {
-    type: "standard",
-    internalName: string,
-    name: string,
-    props: Property[],
-    children: Children,
-}
-
-type RootComponent = {
-    type: "root",
-    internalName: string,
-    children: ComponentRef[],
-}
-
-type TextPartComponent = {
-    type: "text_part",
-    internalName: string,
-}
-
-type Property = {
-    name: string
-    optional: boolean
-    type: PropertyType
-}
-type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeFunction
-type Children = ChildrenMembers | ChildrenString | ChildrenNone | ChildrenStringOrMembers
-
-type ChildrenMembers = {
-    type: "members",
-    members: Record<string, ComponentRef>
-}
-type ChildrenStringOrMembers = {
-    type: "string_or_members",
-    textPartInternalName: string,
-    members: Record<string, ComponentRef>
-}
-type ChildrenString = {
-    type: "string"
-    textPartInternalName: string,
-}
-type ChildrenNone = {
-    type: "none"
-}
-
-type ComponentRef = {
-    componentInternalName: string,
-    componentName: string,
-}
-
-type TypeString = {
-    type: "string"
-}
-type TypeNumber = {
-    type: "number"
-}
-type TypeBoolean = {
-    type: "boolean"
-}
-type TypeArray = {
-    type: "array"
-    nested: PropertyType
-}
-type TypeFunction = {
-    type: "function"
-    arguments: Property[]
-}
 
 function generate(componentModelPath: string, outFile: string) {
     const content = readFileSync(componentModelPath).toString();
@@ -327,7 +259,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                             ts.factory.createComputedPropertyName(ts.factory.createStringLiteral(`gauntlet:${component.internalName}`)),
                             undefined,
                             ts.factory.createTypeLiteralNode(
-                                makePropertyTypes(component)
+                                makePropertyTypes(component, true)
                             )
                         )
                     })
@@ -346,30 +278,64 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
     const components = model.flatMap(component => {
 
-        const properties = component.props.map((prop) => (
-            ts.factory.createJsxAttribute(
-                ts.factory.createIdentifier(prop.name),
-                ts.factory.createJsxExpression(
-                    undefined,
-                    ts.factory.createPropertyAccessExpression(
-                        ts.factory.createIdentifier("props"),
-                        ts.factory.createIdentifier(prop.name)
+        const properties = component.props
+            .map(prop => {
+                if (prop.type.type === "component") {
+                    return null
+                }
+
+                return ts.factory.createJsxAttribute(
+                    ts.factory.createIdentifier(prop.name),
+                    ts.factory.createJsxExpression(
+                        undefined,
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier("props"),
+                            ts.factory.createIdentifier(prop.name)
+                        )
                     )
                 )
-            )
-        ));
+            })
+            .filter((prop): prop is ts.JsxAttribute => prop != null);
 
         if (component.children.type != "none") {
-            properties.unshift(ts.factory.createJsxAttribute(
-                ts.factory.createIdentifier("children"),
-                ts.factory.createJsxExpression(
-                    undefined,
-                    ts.factory.createPropertyAccessExpression(
-                        ts.factory.createIdentifier("props"),
-                        ts.factory.createIdentifier("children")
+            const componentProps = component.props.filter(prop => prop.type.type === "component");
+            if (componentProps.length !== 0) {
+                properties.unshift(ts.factory.createJsxAttribute(
+                    ts.factory.createIdentifier("children"),
+                    ts.factory.createJsxExpression(
+                        undefined,
+                        ts.factory.createAsExpression(
+                            ts.factory.createArrayLiteralExpression(
+                                [
+                                    ...componentProps.map(prop => (
+                                        ts.factory.createPropertyAccessExpression(
+                                            ts.factory.createIdentifier("props"),
+                                            ts.factory.createIdentifier(prop.name)
+                                        )
+                                    )),
+                                    ts.factory.createPropertyAccessExpression(
+                                        ts.factory.createIdentifier("props"),
+                                        ts.factory.createIdentifier("children")
+                                    )
+                                ],
+                                false
+                            ),
+                            ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+                        )
                     )
-                )
-            ))
+                ))
+            } else {
+                properties.unshift(ts.factory.createJsxAttribute(
+                    ts.factory.createIdentifier("children"),
+                    ts.factory.createJsxExpression(
+                        undefined,
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier("props"),
+                            ts.factory.createIdentifier("children")
+                        )
+                    )
+                ))
+            }
         }
 
         const componentFCType = ts.factory.createTypeReferenceNode(
@@ -434,7 +400,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
             }
         }
 
-        const interfaceProps = makePropertyTypes(component);
+        const interfaceProps = makePropertyTypes(component, false);
 
         const interfaceDeclaration: ts.InterfaceDeclaration[] = interfaceProps.length === 0 ? [] : [
             ts.factory.createInterfaceDeclaration(
@@ -509,22 +475,29 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
     )
 }
 
-function makePropertyTypes(component: StandardComponent): ts.TypeElement[] {
-    const props = component.props.map(property => {
-        return ts.factory.createPropertySignature(
-            undefined,
-            ts.factory.createIdentifier(property.name),
-            !property.optional ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
-            makeType(property.type)
-        )
-    });
+function makePropertyTypes(component: StandardComponent, componentPropsInChildren: boolean): ts.TypeElement[] {
+    const props = component.props
+        .filter(property => property.type.type === "component" ? !componentPropsInChildren : true)
+        .map(property => {
+            return ts.factory.createPropertySignature(
+                undefined,
+                ts.factory.createIdentifier(property.name),
+                !property.optional ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+                makeType(property.type)
+            )
+        });
+
+    const additionalComponentRefs = component.props
+        .map(property => property.type)
+        .filter((type): type is TypeComponent => componentPropsInChildren && type.type === "component")
+        .map(type => type.reference)
 
     if (component.children.type != "none") {
         props.unshift(ts.factory.createPropertySignature(
             undefined,
             ts.factory.createIdentifier("children"),
             ts.factory.createToken(ts.SyntaxKind.QuestionToken),
-            makeChildrenType(component.children)
+            makeChildrenType(component.children, additionalComponentRefs)
         ))
     }
 
@@ -532,14 +505,14 @@ function makePropertyTypes(component: StandardComponent): ts.TypeElement[] {
 }
 
 
-function makeChildrenType(type: Children): ts.TypeNode {
+function makeChildrenType(type: Children, additionalComponentRefs: ComponentRef[]): ts.TypeNode {
     switch (type.type) {
         case "members": {
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier("ElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
-                        Object.values(type.members).map(member => (
+                        [...additionalComponentRefs, ...Object.values(type.members)].map(member => (
                             ts.factory.createTypeQueryNode(
                                 ts.factory.createIdentifier(member.componentName),
                                 undefined
@@ -554,7 +527,7 @@ function makeChildrenType(type: Children): ts.TypeNode {
                 ts.factory.createIdentifier("StringOrElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
-                        Object.values(type.members).map(member => (
+                        [...additionalComponentRefs, ...Object.values(type.members)].map(member => (
                             ts.factory.createTypeQueryNode(
                                 ts.factory.createIdentifier(member.componentName),
                                 undefined
@@ -607,6 +580,17 @@ function makeType(type: PropertyType): ts.TypeNode {
                 undefined,
                 params,
                 ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+            )
+        }
+        case "component": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier("ElementComponent"),
+                [
+                    ts.factory.createTypeQueryNode(
+                        ts.factory.createIdentifier(type.reference.componentName),
+                        undefined
+                    )
+                ]
             )
         }
         default: {

@@ -326,7 +326,7 @@ impl Application for AppModel {
                 // element.explain(iced::color!(0xFF0000))
                 element
             }
-            NavState::PluginView { plugin_id, entrypoint_id } => {
+            NavState::PluginView { plugin_id, entrypoint_id: _ } => {
                 let container_element: Element<ComponentWidgetEvent> = plugin_container(client_context, plugin_id.clone())
                     .into();
 

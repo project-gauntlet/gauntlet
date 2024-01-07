@@ -451,7 +451,7 @@ impl button::StyleSheet for GauntletTheme {
                 background: None,
                 text_color: palette.background.base.text,
                 ..appearance
-            }
+            },
         }
     }
 

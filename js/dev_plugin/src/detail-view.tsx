@@ -1,6 +1,6 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
-import { Detail } from "@project-gauntlet/api/components";
+import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
 // import { useSomething } from "@project-gauntlet/api/hooks";
 
 export default function DetailView(): ReactElement {
@@ -10,7 +10,39 @@ export default function DetailView(): ReactElement {
     console.log("RUST_LOG:", PORT);
 
     return (
-        <Detail>
+        <Detail
+            actions={
+                <ActionPanel title={"action panel"}>
+                    <Action
+                        title={"action 1"}
+                        onAction={() => {
+                            console.log("ActionTest 1")
+                        }}
+                    />
+                    <ActionPanel.Section title={"action panel section"}>
+                        <Action
+                            title={"action 2.1"}
+                            onAction={() => {
+                                console.log("ActionTest 2.1")
+                            }}
+                        />
+                        <Action
+                            title={"action 2.2"}
+                            onAction={() => {
+                                console.log("ActionTest 2.2")
+                            }}
+                        />
+                    </ActionPanel.Section>
+                    <ActionPanel.Section>
+                        <Action
+                            title={"action 3"}
+                            onAction={() => {
+                                console.log("ActionTest 3")
+                            }}
+                        />
+                    </ActionPanel.Section>
+                </ActionPanel>
+            }>
             <Detail.Content>
                 <Detail.Content.H1>H1 Title</Detail.Content.H1>
                 <Detail.Content.H2>H2 Title</Detail.Content.H2>

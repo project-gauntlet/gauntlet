@@ -1,15 +1,32 @@
-import ReactReconciler, {HostConfig, OpaqueHandle} from "react-reconciler";
+import ReactReconciler, { HostConfig, OpaqueHandle } from "react-reconciler";
 import type React from 'react';
-import {DefaultEventPriority} from 'react-reconciler/constants';
+import { DefaultEventPriority } from 'react-reconciler/constants';
 
 // @ts-expect-error does typescript support such symbol declarations?
 const denoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
+class HostContext {
+    constructor(public nextId: number, public componentModel: Record<string, Component>) {
+    }
+
+    [Symbol.for("Deno.customInspect")]() {
+        return `-- RootContext --`;
+    }
+}
+
+type Instance = UiWidget & {
+    hostContext: HostContext
+}
+
+type RootUiWidget = UiWidget
 type PublicInstance = Instance;
-type HostContext = RootContext;
+type TextInstance = Instance
 type TimeoutHandle = number;
 type NoTimeout = -1;
+type ComponentType = string;
+type UpdatePayload = string[];
+type SuspenseInstance = never;
 
 
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props = {}, children: UiWidget[] = []): Instance {
@@ -18,9 +35,8 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
             .filter(([key, _]) => key !== "children")
     );
 
-    const nextId = hostContext.nextId;
     const instance: Instance = {
-        widgetId: nextId,
+        widgetId: hostContext.nextId,
         widgetType: type,
         widgetProperties: props,
         widgetChildren: children,
@@ -109,7 +125,9 @@ export const createHostConfig = (): HostConfig<
         return false;
     },
     getRootHostContext: (_rootContainer: RootUiWidget): HostContext | null => {
-        return { nextId: 1 };
+        const componentModel = InternalApi.op_component_model();
+
+        return new HostContext(1, componentModel);
     },
     getChildHostContext: (parentHostContext: HostContext, _type: ComponentType, _rootContainer: RootUiWidget): HostContext => {
         return parentHostContext;

@@ -3,11 +3,14 @@ use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use iced::{Font, Length, Padding};
+use iced::advanced::Widget;
 use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, vertical_space};
 use iced::widget::tooltip::Position;
 use iced_aw::date_picker::Date;
+use iced_aw::floating_element;
+use iced_aw::floating_element::Offset;
 use iced_aw::helpers::date_picker;
 use zbus::SignalContext;
 
@@ -42,6 +45,9 @@ pub enum ComponentWidgetState {
     Select {
         state_value: Option<String>
     },
+    Detail {
+        show_action_panel: bool
+    },
     None
 }
 
@@ -72,6 +78,9 @@ impl ComponentWidgetState {
             },
             ComponentWidget::Select { value, .. } => ComponentWidgetState::Select {
                 state_value: value.to_owned()
+            },
+            ComponentWidget::Detail { .. } => ComponentWidgetState::Detail {
+                show_action_panel: false,
             },
             _ => ComponentWidgetState::None
         }
@@ -164,6 +173,77 @@ impl ComponentWidgetWrapper {
                 }
 
                 text.into()
+            }
+            ComponentWidget::Action { title } => {
+                button(text(title))
+                    .on_press(ComponentWidgetEvent::ActionClick { widget_id })
+                    .style(ButtonStyle::EntrypointItem)
+                    .width(Length::Fill)
+                    .into()
+            }
+            ComponentWidget::ActionPanelSection { children, .. } => {
+                column(render_children(children, ComponentRenderContext::None))
+                    .into()
+            }
+            ComponentWidget::ActionPanel { children, title } => {
+                let mut columns = vec![];
+                if let Some(title) = title {
+                    columns.push(
+                        text(title)
+                            .font(Font {
+                                weight: Weight::Bold,
+                                ..Font::DEFAULT
+                            })
+                            .into()
+                    )
+                }
+
+                let mut place_separator = false;
+
+                for child in children {
+                    let (widget, _) = &*child.get();
+
+                    match widget {
+                        ComponentWidget::Action { .. } => {
+                            if place_separator {
+                                let separator: Element<_> = horizontal_rule(1)
+                                    .into();
+                                columns.push(separator);
+
+                                place_separator = false;
+                            }
+
+                            columns.push(child.render_widget(ComponentRenderContext::None));
+                        }
+                        ComponentWidget::ActionPanelSection { .. } => {
+                            let separator: Element<_> = horizontal_rule(1)
+                                .into();
+                            columns.push(separator);
+
+                            columns.push(child.render_widget(ComponentRenderContext::None));
+
+                            place_separator = true;
+                        }
+                        _ => {
+                            panic!("unexpected widget kind {:?}", widget)
+                        }
+                    };
+
+                }
+
+                let actions: Element<_> = column(columns)
+                    .into();
+
+                let actions: Element<_> = scrollable(actions)
+                    .width(Length::Fill)
+                    .into();
+
+                container(actions)
+                    .padding(Padding::new(10.0))
+                    .style(ContainerStyle::Background)
+                    .height(Length::Fixed(200.0))
+                    .width(Length::Fixed(300.0))
+                    .into()
             }
             ComponentWidget::MetadataTagItem { children } => {
                 let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
@@ -323,12 +403,16 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Detail { children } => {
+                let ComponentWidgetState::Detail { show_action_panel } = *state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
                 let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }), ComponentRenderContext::None)
                     .unwrap();
 
                 let metadata_element = container(metadata_element)
                     .width(Length::FillPortion(2))
-                    .padding(Padding::new(5.0))
+                    .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
                     .into();
 
                 let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
@@ -336,7 +420,7 @@ impl ComponentWidgetWrapper {
 
                 let content_element = container(content_element)
                     .width(Length::FillPortion(3))
-                    .padding(Padding::new(5.0))
+                    .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
                     .into();
 
                 let separator = vertical_rule(1)
@@ -345,9 +429,41 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = row(vec![content_element, separator, metadata_element])
                     .into();
 
-                container(content)
+                let space = horizontal_space(Length::FillPortion(3))
+                    .into();
+
+                let action_panel_toggle: Element<_> = button(text("Alt + K"))
+                    .padding(Padding::from([0.0, 5.0]))
+                    .style(ButtonStyle::Secondary)
+                    .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
+                    .into();
+
+                let bottom_panel: Element<_> = row(vec![space, action_panel_toggle])
+                    .into();
+
+                let bottom_panel: Element<_> = container(bottom_panel)
+                    .padding(Padding::new(5.0))
                     .width(Length::Fill)
-                    .padding(Padding::new(10.0))
+                    .into();
+
+                let separator = horizontal_rule(1)
+                    .into();
+
+                let content: Element<_> = container(content)
+                    .width(Length::Fill)
+                    .height(Length::Fill) // TODO remove after https://github.com/iced-rs/iced/issues/2186 is resolved
+                    .padding(Padding::from([10.0, 10.0, 0.0, 10.0]))
+                    .into();
+
+                let content: Element<_> = column(vec![content, separator, bottom_panel])
+                    .into();
+
+                let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
+                    .unwrap();
+
+                floating_element(content, action_panel_element)
+                    .offset(Offset::from([5.0, 35.0]))
+                    .hide(!show_action_panel)
                     .into()
             }
             ComponentWidget::Root { children } => {
@@ -618,6 +734,9 @@ pub enum ComponentWidgetEvent {
     TagClick {
         widget_id: NativeUiWidgetId,
     },
+    ActionClick {
+        widget_id: NativeUiWidgetId,
+    },
     ToggleDatePicker {
         widget_id: NativeUiWidgetId,
     },
@@ -644,6 +763,9 @@ pub enum ComponentWidgetEvent {
         widget_id: NativeUiWidgetId,
         value: String
     },
+    ToggleActionPanel {
+        widget_id: NativeUiWidgetId,
+    },
 }
 
 impl ComponentWidgetEvent {
@@ -654,6 +776,9 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::TagClick { widget_id } => {
                 send_metadata_tag_item_on_click_dbus_event(signal_context, plugin_id, widget_id).await
+            }
+            ComponentWidgetEvent::ActionClick { widget_id } => {
+                send_action_on_action_dbus_event(signal_context, plugin_id, widget_id).await
             }
             ComponentWidgetEvent::ToggleDatePicker { .. } => {
                 let (widget, ref mut state) = &mut *widget.get_mut();
@@ -731,12 +856,21 @@ impl ComponentWidgetEvent {
 
                 send_password_field_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
             }
+            ComponentWidgetEvent::ToggleActionPanel { .. } => {
+                let (widget, ref mut state) = &mut *widget.get_mut();
+                let ComponentWidgetState::Detail { show_action_panel } = state else {
+                    panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+                };
+
+                *show_action_panel = !*show_action_panel;
+            }
         }
     }
 
     pub fn widget_id(&self) -> NativeUiWidgetId {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::ActionClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::TagClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleDatePicker { widget_id, .. } => widget_id,
             ComponentWidgetEvent::SubmitDatePicker { widget_id, .. } => widget_id,
@@ -745,6 +879,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::SelectPickList { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangeTextField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
         }.to_owned()
     }
 }

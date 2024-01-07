@@ -28,7 +28,7 @@ impl Serialize for ComponentName {
     }
 }
 
-#[derive(Debug, Serialize)]
+    #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum Component {
     #[serde(rename = "standard")]
@@ -53,7 +53,7 @@ pub enum Component {
     },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Property {
     pub name: String,
     pub optional: bool,
@@ -61,7 +61,7 @@ pub struct Property {
     pub property_type: PropertyType,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum PropertyType {
     #[serde(rename = "string")]
@@ -74,13 +74,17 @@ pub enum PropertyType {
     Array {
         nested: Box<PropertyType>
     },
+    #[serde(rename = "component")]
+    Component {
+        reference: ComponentRef,
+    },
     #[serde(rename = "function")]
     Function {
         arguments: Vec<Property>
     },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum Children {
     #[serde(rename = "string_or_members")]
@@ -102,7 +106,7 @@ pub enum Children {
     None,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ComponentRef {
     #[serde(rename = "componentInternalName")]
     pub component_internal_name: String,
@@ -165,6 +169,21 @@ fn component<I>(internal_name: impl ToString, name: impl ToString, properties: I
     }
 }
 
+fn component_ref(component: &Component) -> PropertyType {
+    match component {
+        Component::Standard { internal_name, name, .. } => {
+            PropertyType::Component {
+                reference: ComponentRef {
+                    component_internal_name: internal_name.to_owned(),
+                    component_name: name.to_owned(),
+                }
+            }
+        }
+        Component::Root { .. } => panic!("invalid component member"),
+        Component::TextPart { .. } => panic!("invalid component member"),
+    }
+}
+
 fn text_part() -> Component {
     Component::TextPart {
         internal_name: "text_part".to_owned(),
@@ -209,6 +228,43 @@ fn property(name: impl Into<String>, optional: bool, property_type: PropertyType
 }
 
 pub fn create_component_model() -> Vec<Component> {
+
+    let action_component = component(
+        "action",
+        "Action",
+        [
+            property("title", false, PropertyType::String),
+            event("onAction", false, [])
+        ],
+        children_none(),
+    );
+
+
+    let action_panel_section_component = component(
+        "action_panel_section",
+        "ActionPanelSection",
+        [
+            property("title", true, PropertyType::String),
+        ],
+        children_members([
+            member("Action", &action_component),
+        ]),
+    );
+
+
+    let action_panel_component = component(
+        "action_panel",
+        "ActionPanel",
+        [
+            property("title", true, PropertyType::String),
+        ],
+        children_members([
+            member("Action", &action_component),
+            member("Section", &action_panel_section_component),
+        ]),
+    );
+
+
     let metadata_link_component = component(
         "metadata_link",
         "MetadataLink",
@@ -394,7 +450,9 @@ pub fn create_component_model() -> Vec<Component> {
     let detail_component = component(
         "detail",
         "Detail",
-        [],
+        [
+            property("actions", true, component_ref(&action_panel_component))
+        ],
         children_members([
             member("Metadata", &metadata_component),
             member("Content", &content_component),
@@ -569,6 +627,10 @@ pub fn create_component_model() -> Vec<Component> {
 
     vec![
         text_part,
+
+        action_component,
+        action_panel_section_component,
+        action_panel_component,
 
         metadata_link_component,
         metadata_tag_item_component,

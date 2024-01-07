@@ -348,6 +348,7 @@ deno_core::extension!(
         op_log_info,
         op_log_warn,
         op_log_error,
+        op_component_model,
         op_plugin_get_pending_event,
         op_react_replace_container_children,
     ],
@@ -388,6 +389,14 @@ fn op_log_warn(target: String, message: String) {
 #[op]
 fn op_log_error(target: String, message: String) {
     tracing::error!(target = target, message)
+}
+
+#[op]
+fn op_component_model(state: Rc<RefCell<OpState>>) -> HashMap<String, Component> {
+    state.borrow()
+        .borrow::<ComponentModel>()
+        .components
+        .clone()
 }
 
 #[op]
