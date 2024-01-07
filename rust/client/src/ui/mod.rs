@@ -1,11 +1,13 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use iced::{Application, Command, Event, executor, font, futures, keyboard, Length, Padding, Size, Subscription, subscription};
+use iced::advanced::Widget;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
 use iced::Settings;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
+use iced::widget::text_input::focus;
 use iced::window::Position;
 use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
@@ -35,6 +37,7 @@ pub struct AppModel {
     state: Vec<NavState>,
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
+    search_field_id: text_input::Id,
 }
 
 enum NavState {
@@ -120,6 +123,8 @@ impl Application for AppModel {
             Ok::<(Connection, DbusServerProxyProxy<'_>, InterfaceRef<DbusClient>), anyhow::Error>((dbus_connection, dbus_server, dbus_client))
         }).unwrap();
 
+        let search_field_id = text_input::Id::unique();
+
         (
             AppModel {
                 client_context: client_context.clone(),
@@ -129,10 +134,12 @@ impl Application for AppModel {
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
                 state: vec![NavState::SearchView { prompt: None }],
                 search_results: vec![],
+                search_field_id: search_field_id.clone(),
             },
             Command::batch([
                 Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
                 font::load(icons::ICON_FONT_BYTES).map(AppMsg::FontLoaded),
+                focus(search_field_id)
             ])
         )
     }
@@ -240,6 +247,7 @@ impl Application for AppModel {
                                 } else if self.state.len() == 2 {
                                     self.state.pop();
                                     iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+                                    // TODO re-center the window
                                 } else {
                                     self.state.pop();
                                     Command::none()
@@ -281,6 +289,7 @@ impl Application for AppModel {
             NavState::SearchView { prompt } => {
                 let input: Element<_> = text_input("Search...", prompt.as_ref().unwrap_or(&"".to_owned()))
                     .on_input(AppMsg::PromptChanged)
+                    .id(self.search_field_id.clone())
                     .width(Length::Fill)
                     .into();
 
