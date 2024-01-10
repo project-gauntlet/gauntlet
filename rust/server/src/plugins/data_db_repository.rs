@@ -63,6 +63,7 @@ pub struct Code {
 pub struct SavePlugin {
     pub id: String,
     pub name: String,
+    pub enabled: bool,
     pub code: Code,
     pub entrypoints: Vec<SavePluginEntrypoint>,
     pub permissions: PluginPermissions,
@@ -246,10 +247,10 @@ impl DataDbRepository {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, false)")
+        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, false, ?5)")
             .bind(&plugin.id)
             .bind(plugin.name)
-            .bind(true)
+            .bind(plugin.enabled)
             .bind(Json(plugin.code))
             .bind(Json(plugin.permissions))
             .execute(&mut *tx)

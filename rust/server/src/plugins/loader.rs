@@ -48,6 +48,7 @@ impl PluginLoader {
                 data_db_repository.save_plugin(SavePlugin {
                     id: plugin_data.id,
                     name: plugin_data.name,
+                    enabled: false,
                     code: plugin_data.code,
                     entrypoints: plugin_data.entrypoints,
                     permissions: plugin_data.permissions,
@@ -74,6 +75,7 @@ impl PluginLoader {
         self.db_repository.save_plugin(SavePlugin {
             id: plugin_data.id,
             name: plugin_data.name,
+            enabled: true,
             code: plugin_data.code,
             entrypoints: plugin_data.entrypoints,
             permissions: plugin_data.permissions,

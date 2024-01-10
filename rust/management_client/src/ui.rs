@@ -1,13 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
 use futures::stream::StreamExt;
-use iced::{Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, subscription, theme, window};
-use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text, text_input};
+use iced::{Alignment, Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, subscription, theme, Theme, window};
+use iced::theme::Palette;
+use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text, text_input, vertical_rule};
 use iced_aw::graphics::icons;
 use iced_table::table;
 use zbus::Connection;
 
+use common::dbus::DBusEntrypointType;
 use common::model::{EntrypointId, PluginId};
+
 use crate::dbus::{DbusManagementServerProxyProxy, RemotePluginDownloadFinishedSignalStream};
 
 pub fn run() {
@@ -44,7 +47,7 @@ enum ManagementAppMsg {
     },
     SelectItem(SelectedItem),
     EnabledToggleItem(EnabledItem),
-    NewPlugin {
+    AddPlugin {
         plugin_id: PluginId,
     },
     RemotePluginDownloadFinished {
@@ -95,7 +98,14 @@ struct Plugin {
 struct Entrypoint {
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
+    entrypoint_type: EntrypointType,
     enabled: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum EntrypointType {
+    Command,
+    View,
 }
 
 impl Application for ManagementAppModel {
@@ -123,6 +133,7 @@ impl Application for ManagementAppModel {
                 columns: vec![
                     Column::new(ColumnKind::ShowEntrypointsToggle),
                     Column::new(ColumnKind::Name),
+                    Column::new(ColumnKind::Type),
                     Column::new(ColumnKind::EnableToggle),
                 ],
                 plugins: HashMap::new(),
@@ -188,7 +199,7 @@ impl Application for ManagementAppModel {
                     }
                 }
             }
-            ManagementAppMsg::NewPlugin { plugin_id } => {
+            ManagementAppMsg::AddPlugin { plugin_id } => {
                 let dbus_server = self.dbus_server.clone();
 
                 let exists = self.running_downloads.insert(plugin_id.clone());
@@ -258,11 +269,20 @@ impl Application for ManagementAppModel {
         let table: Element<_> = table(self.header.clone(), self.body.clone(), &self.columns, &rows, ManagementAppMsg::TableSyncHeader)
             .into();
 
+        let table: Element<_> = container(table)
+            .padding(Padding::new(5.0))
+            .into();
+
         let sidebar_content: Element<_> = match &self.selected_item {
             SelectedItem::None => {
-                container(text("Select item from the list"))
+                let text1: Element<_> = text("Select item from the list on the left").into();
+                let text2: Element<_> = text("or").into();
+                let text3: Element<_> = text("Click '+' to add new plugin").into();
+
+                let text_column = column(vec![text1, text2, text3]).align_items(Alignment::Center);
+
+                container(text_column)
                     .center_y()
-                    .center_x()
                     .height(Length::Fill)
                     .width(Length::Fill)
                     .into()
@@ -293,12 +313,13 @@ impl Application for ManagementAppModel {
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
                     .on_input(|value| ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: value }))
-                    .on_submit(ManagementAppMsg::NewPlugin { plugin_id: PluginId::from_string(repository_url) })
+                    .on_submit(ManagementAppMsg::AddPlugin { plugin_id: PluginId::from_string(repository_url) })
                     .into();
 
                 let content: Element<_> = column(vec![
                     url_input,
-                    text("Supported protocols: file, http(s), ssh").into(),
+                    text("Supported protocols:").into(),
+                    text("file, http(s), ssh").into(),
                 ]).into();
 
                 container(content)
@@ -310,18 +331,38 @@ impl Application for ManagementAppModel {
             }
         };
 
-        let new_plugin_button_text = text(icons::Icon::Plus)
-            .font(icons::ICON_FONT);
 
-        let new_plugin_button_text_container: Element<_> = container(new_plugin_button_text)
+        let plugin_url = if let SelectedItem::NewPlugin { repository_url } = &self.selected_item {
+            if !repository_url.is_empty() {
+                Some(repository_url)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let top_button_text = if plugin_url.is_some() {
+            text("Download plugin")
+        } else {
+            text(icons::Icon::Plus)
+                .font(icons::ICON_FONT)
+        };
+
+        let top_button_text_container: Element<_> = container(top_button_text)
             .width(Length::Fill)
             .center_y()
             .center_x()
             .into();
 
-        let new_plugin_button = button(new_plugin_button_text_container)
+        let top_button_action = match plugin_url {
+            Some(plugin_url) => ManagementAppMsg::AddPlugin { plugin_id: PluginId::from_string(plugin_url) },
+            None => ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: Default::default() })
+        };
+
+        let top_button = button(top_button_text_container)
             .width(Length::Fill)
-            .on_press(ManagementAppMsg::SelectItem(SelectedItem::NewPlugin { repository_url: Default::default() }))
+            .on_press(top_button_action)
             .into();
 
         let progress_bar_text: Element<_> = if self.running_downloads.is_empty() {
@@ -333,11 +374,14 @@ impl Application for ManagementAppModel {
                 .into()
         };
 
-        let sidebar: Element<_> = column(vec![new_plugin_button, sidebar_content, progress_bar_text])
+        let sidebar: Element<_> = column(vec![top_button, sidebar_content, progress_bar_text])
             .padding(Padding::new(4.0))
             .into();
 
-        let content: Element<_> = row(vec![table, sidebar])
+        let separator: Element<_> = vertical_rule(1)
+            .into();
+
+        let content: Element<_> = row(vec![table, separator, sidebar])
             .into();
 
         container(content)
@@ -367,6 +411,16 @@ impl Application for ManagementAppModel {
             subscription::run_with_id(std::any::TypeId::of::<DownloadFinishedStream>(), dbus_download_finished_stream)
         ])
     }
+
+    fn theme(&self) -> Self::Theme {
+        Theme::custom(Palette {
+            background: iced::color!(0x2C323A),
+            text: iced::color!(0xCAC2B6),
+            primary: iced::color!(0xC79F60),
+            success: iced::color!(0x659B5E),
+            danger: iced::color!(0x6C1B1B),
+        })
+    }
 }
 
 
@@ -383,6 +437,7 @@ enum Row<'a> {
 enum ColumnKind {
     ShowEntrypointsToggle,
     Name,
+    Type,
     EnableToggle,
 }
 
@@ -409,6 +464,11 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
             }
             ColumnKind::Name => {
                 container(text("Name"))
+                    .center_y()
+                    .into()
+            }
+            ColumnKind::Type => {
+                container(text("Type"))
                     .center_y()
                     .into()
             }
@@ -485,6 +545,40 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                     .width(Length::Fill)
                     .into()
             }
+            ColumnKind::Type => {
+                let content: Element<_> = match row_entry {
+                    Row::Plugin { .. } => {
+                        horizontal_space(Length::Fill)
+                            .into()
+                    }
+                    Row::Entrypoint { entrypoint, .. } => {
+                        let entrypoint_type = match entrypoint.entrypoint_type {
+                            EntrypointType::Command => "Command",
+                            EntrypointType::View => "View"
+                        };
+
+                        container(text(entrypoint_type))
+                            .center_y()
+                            .into()
+                    }
+                };
+
+                let msg = match &row_entry {
+                    Row::Plugin { plugin } => SelectedItem::Plugin {
+                        plugin_id: plugin.plugin_id.clone()
+                    },
+                    Row::Entrypoint { entrypoint, plugin } => SelectedItem::Entrypoint {
+                        plugin_id: plugin.plugin_id.clone(),
+                        entrypoint_id: entrypoint.entrypoint_id.clone(),
+                    }
+                };
+
+                button(content)
+                    .style(theme::Button::Text)
+                    .on_press(ManagementAppMsg::SelectItem(msg))
+                    .width(Length::Fill)
+                    .into()
+            }
             ColumnKind::EnableToggle => {
                 let (enabled, plugin_id, entrypoint_id) = match &row_entry {
                     Row::Plugin { plugin } => {
@@ -531,7 +625,8 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
     fn width(&self) -> f32 {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => 35.0,
-            ColumnKind::Name => 500.0,
+            ColumnKind::Name => 400.0,
+            ColumnKind::Type => 100.0,
             ColumnKind::EnableToggle => 75.0
         }
     }
@@ -555,6 +650,10 @@ async fn reload_plugins(dbus_server: DbusManagementServerProxyProxy<'static>) ->
                         enabled: entrypoint.enabled,
                         entrypoint_id: id.clone(),
                         entrypoint_name: entrypoint.entrypoint_name.clone(),
+                        entrypoint_type: match entrypoint.entrypoint_type {
+                            DBusEntrypointType::Command => EntrypointType::Command,
+                            DBusEntrypointType::View => EntrypointType::View
+                        }
                     };
                     (id, entrypoint)
                 })
