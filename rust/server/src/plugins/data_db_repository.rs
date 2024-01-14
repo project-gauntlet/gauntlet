@@ -247,12 +247,13 @@ impl DataDbRepository {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, false, ?5)")
+        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, ?6)")
             .bind(&plugin.id)
             .bind(plugin.name)
             .bind(plugin.enabled)
             .bind(Json(plugin.code))
             .bind(Json(plugin.permissions))
+            .bind(false)
             .execute(&mut *tx)
             .await?;
 
