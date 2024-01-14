@@ -432,7 +432,7 @@ impl ComponentWidgetWrapper {
                 let space = horizontal_space(Length::FillPortion(3))
                     .into();
 
-                let action_panel_toggle: Element<_> = button(text("Alt + K"))
+                let action_panel_toggle: Element<_> = button(text("Actions"))
                     .padding(Padding::from([0.0, 5.0]))
                     .style(ButtonStyle::Secondary)
                     .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
