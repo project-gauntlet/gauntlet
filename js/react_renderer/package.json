@@ -1,6 +1,6 @@
 {
   "name": "@project-gauntlet/react-renderer",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "scripts": {
     "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
   },

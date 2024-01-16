@@ -24,7 +24,7 @@ impl PluginLoader {
         }
     }
 
-    pub async fn download_and_add_plugin(
+    pub async fn download_and_save_plugin(
         &self,
         signal_context: zbus::SignalContext<'_>,
         plugin_id: PluginId
@@ -62,7 +62,8 @@ impl PluginLoader {
         Ok(())
     }
 
-    pub async fn add_local_plugin(&self, plugin_id: PluginId, overwrite: bool) -> anyhow::Result<()> {
+    pub async fn save_local_plugin(&self, path: &str, overwrite: bool) -> anyhow::Result<PluginId> {
+        let plugin_id = PluginId::from_string(format!("file://{path}"));
         let plugin_dir = plugin_id.try_to_path()?;
 
         let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
@@ -82,7 +83,7 @@ impl PluginLoader {
             from_config: false,
         }).await?;
 
-        Ok(())
+        Ok(plugin_id)
     }
 
     fn download(target_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PathBuf> {

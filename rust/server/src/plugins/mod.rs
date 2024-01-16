@@ -45,19 +45,25 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn download_and_add_plugin(
+    pub async fn download_and_save_plugin(
         &mut self,
         signal_context: zbus::SignalContext<'_>,
         plugin_id: PluginId
     ) -> anyhow::Result<()> {
-        self.plugin_downloader.download_and_add_plugin(signal_context, plugin_id).await
+        self.plugin_downloader.download_and_save_plugin(signal_context, plugin_id).await
     }
 
-    pub async fn new_local_plugin(
+    pub async fn save_local_plugin(
         &mut self,
-        plugin_id: PluginId,
+        path: &str,
     ) -> anyhow::Result<()> {
-        self.plugin_downloader.add_local_plugin(plugin_id, false).await
+        tracing::info!(target = "plugin", "Saving local plugin at path: {:?}", path);
+
+        let plugin_id = self.plugin_downloader.save_local_plugin(path, true).await?;
+
+        self.reload_plugin(plugin_id).await?;
+
+        Ok(())
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<DBusPlugin>> {
@@ -135,18 +141,6 @@ impl ApplicationManager {
 
     pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
 
-        if cfg!(feature = "dev") {
-            let plugin_id = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/../../js/dev_plugin/dist").to_owned();
-
-            // ignore any error
-            let result = self.plugin_downloader.add_local_plugin(PluginId::from_string(plugin_id), true)
-                .await;
-
-            if let Err(err) = result {
-                tracing::error!("error loading dev plugin: {}", err);
-            }
-        }
-
         self.reload_config().await?;
 
         for plugin in self.db_repository.list_plugins().await? {
@@ -162,6 +156,19 @@ impl ApplicationManager {
                 _ => {}
             }
         }
+
+        self.reload_search_index().await?;
+
+        Ok(())
+    }
+
+    async fn reload_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
+        let running = self.run_status_holder.is_plugin_running(&plugin_id);
+        if running {
+            self.stop_plugin(plugin_id.clone()).await;
+        }
+
+        self.start_plugin(plugin_id).await?;
 
         self.reload_search_index().await?;
 

@@ -47,13 +47,19 @@ impl DbusManagementServer {
     #[dbus_interface(signal)]
     pub async fn remote_plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str) -> zbus::Result<()>;
 
-    async fn download_and_add_plugin(
+    async fn download_and_save_plugin(
         &mut self,
         #[zbus(signal_context)]
         signal_context: zbus::SignalContext<'_>,
         plugin_id: &str,
     ) -> Result<()> {
-        self.application_manager.download_and_add_plugin(signal_context, PluginId::from_string(plugin_id))
+        self.application_manager.download_and_save_plugin(signal_context, PluginId::from_string(plugin_id))
+            .await
+            .map_err(|err| err.into())
+    }
+
+    async fn save_local_plugin(&mut self, path: &str) -> Result<()> {
+        self.application_manager.save_local_plugin(path)
             .await
             .map_err(|err| err.into())
     }

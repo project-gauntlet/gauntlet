@@ -2,6 +2,10 @@
   <configuration default="false" name="build-server-all" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="command" value="build --package server --bin server --features dev" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/rust/server" />
+    <envs>
+      <env name="RUST_LOG" value="server=INFO" />
+      <env name="_RUST_LOG" value="TRACE" />
+    </envs>
     <option name="emulateTerminal" value="false" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
@@ -9,10 +13,6 @@
     <option name="withSudo" value="false" />
     <option name="buildTarget" value="REMOTE" />
     <option name="backtrace" value="FULL" />
-    <envs>
-      <env name="RUST_LOG" value="server=TRACE" />
-      <env name="_RUST_LOG" value="TRACE" />
-    </envs>
     <option name="isRedirectInput" value="false" />
     <option name="redirectInputPath" value="" />
     <method v="2">

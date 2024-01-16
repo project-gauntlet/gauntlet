@@ -208,7 +208,7 @@ impl Application for ManagementAppModel {
                 }
 
                 Command::perform(async move {
-                    dbus_server.download_and_add_plugin(&plugin_id.to_string()).await.unwrap()
+                    dbus_server.download_and_save_plugin(&plugin_id.to_string()).await.unwrap()
                 }, |_| ManagementAppMsg::Noop)
             }
             ManagementAppMsg::RemotePluginDownloadFinished { plugin_id } => {

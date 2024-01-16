@@ -163,6 +163,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     let thread_fn = move || {
         let _run_status_guard = run_status_guard;
 
+        let result_plugin_id = data.id.clone();
         let result = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -171,7 +172,11 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 start_js_runtime(data.id, data.code, data.permissions, event_stream, client_proxy, component_model).await
             }));
 
-        tracing::error!(target = "plugin", "runtime execution failed {:?}", result)
+        if let Err(err) = result {
+            tracing::error!(target = "plugin", "plugin {:?} runtime failed {:?}", result_plugin_id, err)
+        } else {
+            tracing::info!(target = "plugin", "plugin {:?} runtime stopped", result_plugin_id)
+        }
     };
 
     std::thread::Builder::new()

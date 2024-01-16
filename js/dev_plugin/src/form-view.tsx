@@ -1,7 +1,7 @@
 import { ReactElement, useState } from 'react';
 import { Form } from "@project-gauntlet/api/components";
 
-export default function DetailView(): ReactElement {
+export default function FormView(): ReactElement {
 
     const [checked, setChecked] = useState(true);
     const [password, setPassword] = useState<string | undefined>("controlled password");
