@@ -8,6 +8,7 @@
     }
   },
   "scripts": {
+    "build": "npm run run-generator-source",
     "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js"
   },
   "devDependencies": {

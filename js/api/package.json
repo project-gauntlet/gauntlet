@@ -9,6 +9,7 @@
     }
   },
   "scripts": {
+    "build": "npm run run-generator",
     "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/api/component_model.json",
     "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js",
     "run-generator-declarations": "tsc --project tsconfig.gentypes.json",
