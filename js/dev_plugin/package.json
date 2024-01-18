@@ -13,7 +13,7 @@
   "devDependencies": {
     "@types/react": "^18.2.14",
     "@project-gauntlet/deno": "*",
-    "@project-gauntlet/binary": "*",
+    "@project-gauntlet/tools": "*",
     "typescript": "^5.2.2"
   }
 }

@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="build-binary" type="js.build_tools.npm">
-    <package-json value="$PROJECT_DIR$/js/binary/package.json" />
+  <configuration default="false" name="build-tools" type="js.build_tools.npm">
+    <package-json value="$PROJECT_DIR$/js/tools/package.json" />
     <command value="run" />
     <scripts>
       <script value="build" />

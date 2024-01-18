@@ -1,5 +1,5 @@
 {
-  "name": "@project-gauntlet/binary",
+  "name": "@project-gauntlet/tools",
   "version": "0.1.0",
   "scripts": {
     "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
