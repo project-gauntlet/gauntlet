@@ -47,8 +47,8 @@ const config = (nodeEnv: string, reactBundle: string, outDir: string): RollupOpt
 
     return {
         input: [
-            `node_modules/react/cjs/react.${reactBundle}`,
-            `node_modules/react/cjs/react-jsx-runtime.${reactBundle}`,
+            `../../node_modules/react/cjs/react.${reactBundle}`,
+            `../../node_modules/react/cjs/react-jsx-runtime.${reactBundle}`,
         ],
         output: {
             dir: outDir,
