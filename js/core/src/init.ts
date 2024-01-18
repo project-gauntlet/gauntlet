@@ -4,9 +4,9 @@ import { FC } from "react";
 const denoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
-let latestRootUiWidget: RootUiWidget | undefined = undefined
+let latestRootUiWidget: UiWidget | undefined = undefined
 
-function findWidgetWithId(widget: UiWidgetBase, widgetId: number): UiWidgetBase | undefined {
+function findWidgetWithId(widget: UiWidget, widgetId: number): UiWidget | undefined {
     // TODO not the most performant solution but works for now?
 
     if (widget.widgetId === widgetId) {
