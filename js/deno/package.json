@@ -8,11 +8,10 @@
     }
   },
   "scripts": {
-    "run-generator-source": "ts-node --esm generator/index.ts"
+    "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js"
   },
   "devDependencies": {
     "@types/node": "^18.17.1",
-    "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   }
 }

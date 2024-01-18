@@ -5,6 +5,7 @@
     "esModuleInterop": true,
     "target": "ES2022",
     "moduleResolution": "bundler",
+    "outDir": "./builddist"
   },
   "lib": ["ES2020"],
   "include": ["./generator"]

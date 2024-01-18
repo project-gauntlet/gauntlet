@@ -10,14 +10,13 @@
   },
   "scripts": {
     "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/api/component_model.json",
-    "run-generator-source": "ts-node --esm generator/index.ts",
+    "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js",
     "run-generator-declarations": "tsc --project tsconfig.gentypes.json",
     "run-generator": "npm run run-generator-json && npm run run-generator-source && npm run run-generator-declarations"
   },
   "devDependencies": {
     "@types/node": "^18.17.1",
     "@project-gauntlet/typings": "*",
-    "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   }
 }
