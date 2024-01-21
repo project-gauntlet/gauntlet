@@ -3,10 +3,10 @@ name: build
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   build:
@@ -22,12 +22,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - run: npm ci
 
       - run: npm run build --workspace @project-gauntlet/api
-      - run: npm run build --workspace @project-gauntlet/tools
       - run: npm run build --workspace @project-gauntlet/deno
       - run: npm run build --workspace @project-gauntlet/react
 
