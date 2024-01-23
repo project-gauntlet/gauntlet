@@ -870,7 +870,7 @@ checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "clap",
  "client",
@@ -882,7 +882,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "common",
@@ -1017,7 +1017,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "gix",
@@ -1027,7 +1027,7 @@ dependencies = [
 
 [[package]]
 name = "component_model"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "indexmap 2.1.0",
@@ -2879,7 +2879,7 @@ dependencies = [
 
 [[package]]
 name = "gauntlet"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "cli",
 ]
@@ -4836,7 +4836,7 @@ dependencies = [
 
 [[package]]
 name = "management_client"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -6918,7 +6918,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -8811,7 +8811,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "utils"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "thiserror",
  "tokio",

@@ -1,0 +1,22 @@
+{
+  "name": "@project-gauntlet/build",
+  "scripts": {
+    "build-this": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript",
+    "build-project": "npm run build-this && node dist/main.js build",
+    "publish-project": "npm run build-this && node dist/main.js publish"
+  },
+  "type": "module",
+  "dependencies": {
+    "commander": "^11.1.0",
+    "octokit": "^3.1.2",
+    "simple-git": "^3.22.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@types/node": "^18.17.1",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2"
+  }
+}

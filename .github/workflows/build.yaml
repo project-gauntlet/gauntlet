@@ -26,13 +26,4 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build --workspace @project-gauntlet/api
-      - run: npm run build --workspace @project-gauntlet/deno
-      - run: npm run build --workspace @project-gauntlet/react
-
-      - run: npm run build --workspace @project-gauntlet/react-renderer
-      - run: npm run build --workspace @project-gauntlet/core
-
-      - run: |
-          cargo check
-          cargo build --release
+      - run: npm run build-project --workspace @project-gauntlet/build

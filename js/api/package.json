@@ -1,6 +1,6 @@
 {
   "name": "@project-gauntlet/api",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "exports": {
     "./components": {
@@ -8,6 +8,15 @@
       "import": "./gendist/components.js"
     }
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/project-gauntlet/gauntlet.git",
+    "directory": "js/api"
+  },
+  "files": [
+    "gendist",
+    "gentypes"
+  ],
   "scripts": {
     "build": "npm run run-generator",
     "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/api/component_model.json",
@@ -19,5 +28,8 @@
     "@types/node": "^18.17.1",
     "@project-gauntlet/typings": "*",
     "typescript": "^5.2.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

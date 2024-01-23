@@ -1,6 +1,6 @@
 {
   "name": "@project-gauntlet/dev-plugin",
-  "version": "0.1.0",
+  "private": true,
   "scripts": {
     "build": "gauntlet build",
     "dev": "gauntlet dev"

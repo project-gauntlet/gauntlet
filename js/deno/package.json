@@ -1,12 +1,20 @@
 {
   "name": "@project-gauntlet/deno",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/lib.deno.d.ts"
     }
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/project-gauntlet/gauntlet.git",
+    "directory": "js/deno"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "npm run run-generator-source",
     "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js"
@@ -14,5 +22,8 @@
   "devDependencies": {
     "@types/node": "^18.17.1",
     "typescript": "^5.2.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

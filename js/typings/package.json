@@ -1,3 +1,4 @@
 {
-  "name": "@project-gauntlet/typings"
+  "name": "@project-gauntlet/typings",
+  "private": true
 }
