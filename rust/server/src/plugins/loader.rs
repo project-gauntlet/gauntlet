@@ -37,9 +37,9 @@ impl PluginLoader {
             handle.block_on(async move {
                 let temp_dir = tempfile::tempdir()?;
 
-                let plugin_dir = PluginLoader::download(temp_dir.path(), plugin_id.clone())?;
+                PluginLoader::download(temp_dir.path(), plugin_id.clone())?;
 
-                let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
+                let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
                     .await?;
 
                 DbusManagementServer::remote_plugin_download_finished_signal(&signal_context, &plugin_id.to_string())
@@ -66,7 +66,7 @@ impl PluginLoader {
         let plugin_id = PluginId::from_string(format!("file://{path}"));
         let plugin_dir = plugin_id.try_to_path()?;
 
-        let plugin_data = PluginLoader::read_plugin_dir(plugin_dir, plugin_id.clone())
+        let plugin_data = PluginLoader::read_plugin_dir(plugin_dir.as_path(), plugin_id.clone())
             .await?;
 
         if overwrite {
@@ -86,14 +86,14 @@ impl PluginLoader {
         Ok(plugin_id)
     }
 
-    fn download(target_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PathBuf> {
+    fn download(target_dir: &Path, plugin_id: PluginId) -> anyhow::Result<()> {
         let url = plugin_id.try_to_git_url()?;
 
         let mut prepare_fetch = gix::clone::PrepareFetch::new(url, &target_dir, gix::create::Kind::WithWorktree, Default::default(), Default::default())?
             .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(1.try_into().unwrap()))
             .configure_remote(|mut remote| {
                 remote.replace_refspecs(
-                    Some("+refs/heads/gauntlet/releases:refs/remotes/origin/gauntlet/releases"),
+                    Some("+refs/heads/gauntlet/release:refs/remotes/origin/gauntlet/release"),
                     gix::remote::Direction::Fetch,
                 )?;
 
@@ -110,29 +110,10 @@ impl PluginLoader {
             &gix::interrupt::IS_INTERRUPTED,
         )?;
 
-        let plugins_path = target_dir.join("plugins");
-
-        let mut latest_version = None;
-
-        for entry in std::fs::read_dir(plugins_path.clone())? {
-            let entry = entry?;
-            let version = entry.file_name()
-                .into_string()
-                .map_err(|os_str| anyhow!("\"{:?}\" is not a valid utf-8", os_str))?
-                .replace("v", "")
-                .parse::<u32>()?;
-
-            latest_version = latest_version.max(Some(version));
-        }
-
-        let latest_version = latest_version.ok_or_else(|| anyhow!("Repository contains no versions"))?;
-
-        let version_path = plugins_path.join(format!("v{}", latest_version));
-
-        Ok(version_path)
+        Ok(())
     }
 
-    async fn read_plugin_dir(plugin_dir: PathBuf, plugin_id: PluginId) -> anyhow::Result<PluginDirData> {
+    async fn read_plugin_dir(plugin_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PluginDirData> {
         let js_dir = plugin_dir.join("js");
 
         let js_dir_context = js_dir.display().to_string();
