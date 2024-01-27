@@ -22,7 +22,7 @@ impl Dirs {
 
     pub fn data_dir(&self) -> anyhow::Result<PathBuf> {
         let data_dir = if cfg!(feature = "dev") {
-            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../test_data/data")).to_owned()
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/data")).to_owned()
         } else {
             self.inner.data_dir().to_path_buf()
         };
@@ -39,7 +39,7 @@ impl Dirs {
 
     pub fn config_dir(&self) -> PathBuf {
         let config_dir = if cfg!(feature = "dev") {
-            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../test_data/config")).to_owned()
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/config")).to_owned()
         } else {
             self.inner.config_dir().to_path_buf()
         };
