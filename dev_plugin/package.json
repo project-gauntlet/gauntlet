@@ -6,14 +6,14 @@
     "dev": "gauntlet dev"
   },
   "dependencies": {
-    "@project-gauntlet/api": "*",
+    "@project-gauntlet/api": "file:../js/api",
     "@types/lodash": "^4.14.196",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@types/react": "^18.2.14",
-    "@project-gauntlet/deno": "*",
-    "@project-gauntlet/tools": "*",
+    "@project-gauntlet/deno": "file:../js/deno",
+    "@project-gauntlet/tools": "file:../../tools",
     "typescript": "^5.2.2"
   }
 }
