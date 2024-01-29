@@ -53,33 +53,58 @@ impl DbusManagementServer {
         signal_context: zbus::SignalContext<'_>,
         plugin_id: &str,
     ) -> Result<()> {
-        self.application_manager.download_and_save_plugin(signal_context, PluginId::from_string(plugin_id))
-            .await
-            .map_err(|err| err.into())
+        let result = self.application_manager.download_and_save_plugin(signal_context, PluginId::from_string(plugin_id))
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "dbus", "error occurred when handling 'download_and_save_plugin' request {:?}", err)
+        }
+
+        result.map_err(|err| err.into())
     }
 
     async fn save_local_plugin(&mut self, path: &str) -> Result<()> {
-        self.application_manager.save_local_plugin(path)
-            .await
-            .map_err(|err| err.into())
+        let result = self.application_manager.save_local_plugin(path)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "dbus", "error occurred when handling 'save_local_plugin' request {:?}", err)
+        }
+
+        result.map_err(|err| err.into())
     }
 
     async fn plugins(&self) -> Result<Vec<DBusPlugin>> {
-        self.application_manager.plugins()
-            .await
-            .map_err(|err| err.into())
+        let result = self.application_manager.plugins()
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "dbus", "error occurred when handling 'plugins' request {:?}", err)
+        }
+
+        result.map_err(|err| err.into())
     }
 
     async fn set_plugin_state(&mut self, plugin_id: &str, enabled: bool) -> Result<()> {
-        self.application_manager.set_plugin_state(PluginId::from_string(plugin_id), enabled)
-            .await
-            .map_err(|err| err.into())
+        let result = self.application_manager.set_plugin_state(PluginId::from_string(plugin_id), enabled)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "dbus", "error occurred when handling 'set_plugin_state' request {:?}", err)
+        }
+
+        result.map_err(|err| err.into())
     }
 
     async fn set_entrypoint_state(&mut self, plugin_id: &str, entrypoint_id: &str, enabled: bool) -> Result<()> {
-        self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::new(entrypoint_id), enabled)
-            .await
-            .map_err(|err| err.into())
+        let result = self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::new(entrypoint_id), enabled)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "dbus", "error occurred when handling 'set_entrypoint_state' request {:?}", err)
+        }
+
+        result.map_err(|err| err.into())
     }
 }
 
