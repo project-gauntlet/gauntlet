@@ -24,7 +24,7 @@ async fn run_server() -> anyhow::Result<()> {
     let mut application_manager = ApplicationManager::create(search_index.clone()).await?;
 
     if cfg!(feature = "dev") {
-        let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/dev_plugin/dist").to_owned();
+        let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin/dist").to_owned();
         let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
         let plugin_path = plugin_path.to_str().expect("valid utf8");
 
