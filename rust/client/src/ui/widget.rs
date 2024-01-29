@@ -408,38 +408,71 @@ impl ComponentWidgetWrapper {
                 };
 
                 let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }), ComponentRenderContext::None)
-                    .unwrap();
-
-                let metadata_element = container(metadata_element)
-                    .width(Length::FillPortion(2))
-                    .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-                    .into();
+                    .map(|metadata_element| {
+                        container(metadata_element)
+                            .width(Length::FillPortion(2))
+                            .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
+                            .into()
+                    })
+                    .ok();
 
                 let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
-                    .unwrap();
-
-                let content_element = container(content_element)
-                    .width(Length::FillPortion(3))
-                    .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-                    .into();
+                    .map(|content_element| {
+                        container(content_element)
+                            .width(Length::FillPortion(3))
+                            .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
+                            .into()
+                    })
+                    .ok();
 
                 let separator = vertical_rule(1)
                     .into();
 
-                let content: Element<_> = row(vec![content_element, separator, metadata_element])
-                    .into();
+                let content: Element<_> = match (content_element, metadata_element) {
+                    (Some(content_element), Some(metadata_element)) => {
+                        row(vec![content_element, separator, metadata_element])
+                            .into()
+                    }
+                    (Some(content_element), None) => {
+                        row(vec![content_element])
+                            .into()
+                    }
+                    (None, Some(metadata_element)) => {
+                        let content_element = vertical_space(Length::Fill)
+                            .into();
+
+                        row(vec![content_element, separator, metadata_element])
+                            .into()
+                    }
+                    (None, None) => {
+                        row(vec![])
+                            .into()
+                    }
+                };
 
                 let space = horizontal_space(Length::FillPortion(3))
                     .into();
 
-                let action_panel_toggle: Element<_> = button(text("Actions"))
-                    .padding(Padding::from([0.0, 5.0]))
-                    .style(ButtonStyle::Secondary)
-                    .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
-                    .into();
+                let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
+                    .ok();
 
-                let bottom_panel: Element<_> = row(vec![space, action_panel_toggle])
-                    .into();
+                let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
+                    let action_panel_toggle: Element<_> = button(text("Actions"))
+                        .padding(Padding::from([0.0, 5.0]))
+                        .style(ButtonStyle::Secondary)
+                        .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
+                        .into();
+
+                    let bottom_panel: Element<_> = row(vec![space, action_panel_toggle])
+                        .into();
+
+                    (!show_action_panel, action_panel_element, bottom_panel)
+                } else {
+                    let bottom_panel: Element<_> = row(vec![space])
+                        .into();
+
+                    (true, vertical_space(1).into(), bottom_panel)
+                };
 
                 let bottom_panel: Element<_> = container(bottom_panel)
                     .padding(Padding::new(5.0))
@@ -458,12 +491,9 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = column(vec![content, separator, bottom_panel])
                     .into();
 
-                let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
-                    .unwrap();
-
                 floating_element(content, action_panel_element)
                     .offset(Offset::from([5.0, 35.0]))
-                    .hide(!show_action_panel)
+                    .hide(hide_action_panel)
                     .into()
             }
             ComponentWidget::Root { children } => {
