@@ -11,7 +11,7 @@ use iced::widget::tooltip::Position;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element;
 use iced_aw::floating_element::Offset;
-use iced_aw::helpers::date_picker;
+use iced_aw::helpers::{date_picker, wrap_horizontal};
 use zbus::SignalContext;
 
 use common::model::PluginId;
@@ -258,7 +258,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::MetadataTagList { label,  children } => {
-                let value = row(render_children(children, ComponentRenderContext::None))
+                let value = wrap_horizontal(render_children(children, ComponentRenderContext::None))
                     .into();
 
                 render_metadata_item(label, value)

@@ -8,7 +8,7 @@ zbus = { version = "3.14.1", default-features = false, features = ["tokio"] }
 anyhow = "1"
 thiserror = "1"
 iced = { version = "0.10", features = ["tokio", "lazy", "advanced"] }
-iced_aw = { version = "0.7.0", default-features = false, features = ["icons", "date_picker", "floating_element"] }
+iced_aw = { version = "0.7.0", default-features = false, features = ["icons", "date_picker", "floating_element", "wrap"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }
