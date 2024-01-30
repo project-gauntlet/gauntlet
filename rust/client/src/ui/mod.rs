@@ -38,6 +38,7 @@ pub struct AppModel {
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
     search_field_id: text_input::Id,
+    waiting_for_next_unfocus: bool
 }
 
 enum NavState {
@@ -135,6 +136,7 @@ impl Application for AppModel {
                 state: vec![NavState::SearchView { prompt: None }],
                 search_results: vec![],
                 search_field_id: search_field_id.clone(),
+                waiting_for_next_unfocus: false,
             },
             Command::batch([
                 Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
@@ -246,6 +248,16 @@ impl Application for AppModel {
                         }
                     }
                     _ => Command::none()
+                }
+            }
+            AppMsg::IcedEvent(Event::Window(iced::window::Event::Unfocused)) => {
+                // for some reason Unfocused fires right at the application start
+                // and second time on actual window unfocus
+                if self.waiting_for_next_unfocus {
+                    iced::window::close()
+                } else {
+                    self.waiting_for_next_unfocus = true;
+                    Command::none()
                 }
             }
             AppMsg::IcedEvent(_) => Command::none(),
