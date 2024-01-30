@@ -241,18 +241,7 @@ impl Application for AppModel {
                         match key_code {
                             KeyCode::Up => iced::widget::focus_previous(),
                             KeyCode::Down => iced::widget::focus_next(),
-                            KeyCode::Escape => {
-                                if self.state.len() <= 1 {
-                                    iced::window::close()
-                                } else if self.state.len() == 2 {
-                                    self.state.pop();
-                                    iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
-                                    // TODO re-center the window
-                                } else {
-                                    self.state.pop();
-                                    Command::none()
-                                }
-                            }
+                            KeyCode::Escape => self.previous_view(),
                             _ => Command::none()
                         }
                     }
@@ -260,6 +249,7 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(_) => Command::none(),
+            AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
             AppMsg::WidgetEvent { widget_event, plugin_id } => {
                 let dbus_client = self.dbus_client.clone();
                 let client_context = self.client_context.clone();
@@ -380,6 +370,22 @@ impl Application for AppModel {
         ])
     }
 }
+
+impl AppModel {
+    fn previous_view(&mut self) -> Command<AppMsg> {
+        if self.state.len() <= 1 {
+            iced::window::close()
+        } else if self.state.len() == 2 {
+            self.state.pop();
+            iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+            // TODO re-center the window
+        } else {
+            self.state.pop();
+            Command::none()
+        }
+    }
+}
+
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,

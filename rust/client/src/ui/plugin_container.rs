@@ -60,7 +60,7 @@ impl PluginViewContainer {
             .expect("unable to set children");
     }
 
-    fn handle_event<'a, 'b>(&'a self, signal_context: &'b SignalContext<'_>, plugin_id: PluginId, event: ComponentWidgetEvent<>) -> impl Future<Output=()> + 'b + Send {
+    fn handle_event<'a, 'b>(&'a self, signal_context: &'b SignalContext<'_>, plugin_id: PluginId, event: ComponentWidgetEvent) -> impl Future<Output=()> + 'b + Send {
         let widget = self.root_widget
             .find_child_with_id(event.widget_id())
             .expect("created event for non existing widget?");

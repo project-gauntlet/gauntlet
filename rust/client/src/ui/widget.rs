@@ -11,6 +11,7 @@ use iced::widget::tooltip::Position;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element;
 use iced_aw::floating_element::Offset;
+use iced_aw::graphics::icons;
 use iced_aw::helpers::{date_picker, wrap_horizontal};
 use zbus::SignalContext;
 
@@ -474,12 +475,17 @@ impl ComponentWidgetWrapper {
                     (true, vertical_space(1).into(), bottom_panel)
                 };
 
+                let top_panel = create_top_panel();
+
                 let bottom_panel: Element<_> = container(bottom_panel)
                     .padding(Padding::new(5.0))
                     .width(Length::Fill)
                     .into();
 
-                let separator = horizontal_rule(1)
+                let top_separator = horizontal_rule(1)
+                    .into();
+
+                let bottom_separator = horizontal_rule(1)
                     .into();
 
                 let content: Element<_> = container(content)
@@ -488,7 +494,7 @@ impl ComponentWidgetWrapper {
                     .padding(Padding::from([10.0, 10.0, 0.0, 10.0]))
                     .into();
 
-                let content: Element<_> = column(vec![content, separator, bottom_panel])
+                let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
                     .into();
 
                 floating_element(content, action_panel_element)
@@ -663,8 +669,16 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .into();
 
-                container(scrollable_content)
+                let top_panel = create_top_panel();
+
+                let separator = horizontal_rule(1)
+                    .into();
+
+                let content = container(scrollable_content)
                     .padding(Padding::new(10.0))
+                    .into();
+
+                column(vec![top_panel, separator, content])
                     .into()
             }
         }
@@ -677,6 +691,30 @@ impl ComponentWidgetWrapper {
     pub fn set_children(&self, new_children: Vec<ComponentWidgetWrapper>) -> anyhow::Result<()> {
         set_component_widget_children(&self, new_children)
     }
+}
+
+fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
+    let icon = text(icons::Icon::ArrowLeft)
+        .font(icons::ICON_FONT);
+
+    let back_button: Element<_> = button(icon)
+        .padding(Padding::from([3.0, 5.0]))
+        .style(ButtonStyle::Secondary)
+        .on_press(ComponentWidgetEvent::PreviousView)
+        .into();
+
+    let space = horizontal_space(Length::FillPortion(3))
+        .into();
+
+    let top_panel: Element<_> = row(vec![back_button, space])
+        .into();
+
+    let top_panel: Element<_> = container(top_panel)
+        .padding(Padding::new(10.0))
+        .width(Length::Fill)
+        .into();
+
+    top_panel
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -796,6 +834,7 @@ pub enum ComponentWidgetEvent {
     ToggleActionPanel {
         widget_id: NativeUiWidgetId,
     },
+    PreviousView,
 }
 
 impl ComponentWidgetEvent {
@@ -894,6 +933,9 @@ impl ComponentWidgetEvent {
 
                 *show_action_panel = !*show_action_panel;
             }
+            ComponentWidgetEvent::PreviousView => {
+                panic!("handle event on PreviousView event is not supposed to be called")
+            }
         }
     }
 
@@ -910,6 +952,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::OnChangeTextField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
+            ComponentWidgetEvent::PreviousView => panic!("widget_id on PreviousView event is not supposed to be called"),
         }.to_owned()
     }
 }
