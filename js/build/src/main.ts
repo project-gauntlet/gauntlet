@@ -139,9 +139,9 @@ async function doPublish() {
     build(projectRoot, false)
 
     console.log("Publishing npm deno package...")
-    // execSync('npm publish', { stdio: "inherit", cwd: denoProjectPath })
+    execSync('npm publish', { stdio: "inherit", cwd: denoProjectPath })
     console.log("Publishing npm api package...")
-    // execSync('npm publish', { stdio: "inherit", cwd: apiProjectPath })
+    execSync('npm publish', { stdio: "inherit", cwd: apiProjectPath })
 
     console.log("Fetching architecture and target...")
     const rustcVv = execSync('rustc -Vv', { encoding: "utf-8" });
