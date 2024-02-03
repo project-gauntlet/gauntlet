@@ -207,43 +207,6 @@ frontend sends signals to server to see whether any re-renders are needed.
 
 Settings is also a GUI application that communicates with server via DBus using a simple request-response approach.
 
-<div hidden>
-https://www.planttext.com/
-
-```
-@startuml
-
-== Frontend: Start ==
-
-Frontend -> Server: list of views and commands request
-Server --> Frontend: list of views and commands response
-
-== Frontend: Initial View Render ==
-
-Frontend --> Server: open-view signal
-Server -> Frontend: render components request
-Frontend --> Server: render components response
-
-== Frontend: Command Execution ==
-
-Frontend --> Server: execute command signal
-
-== Frontend: View Update On Event ==
-
-Frontend --> Server: button click, key press in input component, etc
-Server -> Frontend: render components request
-Frontend --> Server: render components response
-
-== Settings ==
-
-Settings -> Server: request
-Server --> Settings: response
-
-@enduml
-```
-
-</div>
-
 ![](docs/architecture.png)
 
 Plugins (or rather its compiled state) are distributed via Git repository in `release` branch (similar to GitHub Pages).
