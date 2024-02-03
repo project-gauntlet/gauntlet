@@ -7,6 +7,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+## [1] - 2024-02-03
+
 ### Added
 
 - Initial release.
