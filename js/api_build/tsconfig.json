@@ -6,11 +6,9 @@
     "target": "ES2022",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "stripInternal": true,
-    "declaration": true,
-    "outDir": "./gendist",
-    "declarationDir": "./gentypes"
+    "types": ["@types/node", "@project-gauntlet/typings"],
+    "outDir": "./dist"
   },
   "lib": ["ES2020"],
-  "include": ["./gen"]
+  "include": ["./src"]
 }

@@ -4,10 +4,10 @@
   "type": "module",
   "exports": {
     "./components": {
-      "types": "./gentypes/components.d.ts"
+      "types": "./disttypes/gen/components.d.ts"
     },
     "./hooks": {
-      "types": "./hookstypes/hooks.d.ts"
+      "types": "./disttypes/hooks.d.ts"
     }
   },
   "repository": {
@@ -16,24 +16,14 @@
     "directory": "js/api"
   },
   "files": [
-    "gentypes",
-    "hookstypes"
+    "disttypes"
   ],
   "scripts": {
-    "build": "npm run run-generator && npm run build-api",
-    "build-api": "tsc --project tsconfig.hooks.json",
-    "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/api/component_model.json",
-    "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js",
-    "run-generator-declarations": "tsc --project tsconfig.gentypes.json",
-    "run-generator": "npm run run-generator-json && npm run run-generator-source && npm run run-generator-declarations"
-  },
-  "dependencies": {
-    "@project-gauntlet/typings": "*",
-    "@project-gauntlet/deno": "*"
+    "build": "tsc"
   },
   "devDependencies": {
-    "@types/node": "^18.17.1",
-    "typescript": "^5.2.2"
+    "@project-gauntlet/typings": "*",
+    "typescript": "^5.3.3"
   },
   "publishConfig": {
     "access": "public"

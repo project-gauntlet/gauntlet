@@ -6,9 +6,12 @@
     "target": "ES2022",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["@types/node", "@project-gauntlet/typings"],
-    "outDir": "./builddist"
+    "types": ["@project-gauntlet/typings"],
+    "stripInternal": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "declarationDir": "./disttypes"
   },
   "lib": ["ES2020"],
-  "include": ["./generator"]
+  "include": ["./src"]
 }

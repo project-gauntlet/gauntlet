@@ -25,6 +25,8 @@ program.command('build')
 await program.parseAsync(process.argv);
 
 function build(projectRoot: string, check: boolean) {
+    console.log("Building @project-gauntlet/api-build...")
+    execSync('npm run build --workspace @project-gauntlet/api-build', { stdio: "inherit", cwd: projectRoot});
     console.log("Building @project-gauntlet/api...")
     execSync('npm run build --workspace @project-gauntlet/api', { stdio: "inherit", cwd: projectRoot});
     console.log("Building @project-gauntlet/deno...")

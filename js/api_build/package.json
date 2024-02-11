@@ -1,0 +1,15 @@
+{
+  "name": "@project-gauntlet/api-build",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run generate-json && npm run build-generator && npm run run-generator",
+    "generate-json": "cd ../.. && cargo run --package component_model -- ./js/api_build/component_model.json",
+    "build-generator": "tsc",
+    "run-generator": "node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.1",
+    "typescript": "^5.3.3"
+  }
+}

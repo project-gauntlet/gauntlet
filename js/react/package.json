@@ -13,6 +13,6 @@
     "@rollup/plugin-typescript": "^11.1.5",
     "rollup": "^4.3.0",
     "tslib": "^2.6.2",
-    "typescript": "^5.2.2"
+    "typescript": "^5.3.3"
   }
 }

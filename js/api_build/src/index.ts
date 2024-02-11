@@ -600,7 +600,7 @@ function makeType(type: PropertyType): ts.TypeNode {
 
 }
 
-const genDir = "./gen";
+const genDir = "../api/src/gen";
 if (!existsSync(genDir)) {
     mkdirSync(genDir);
 }
