@@ -27,9 +27,12 @@
     "run-generator-declarations": "tsc --project tsconfig.gentypes.json",
     "run-generator": "npm run run-generator-json && npm run run-generator-source && npm run run-generator-declarations"
   },
+  "dependencies": {
+    "@project-gauntlet/typings": "*",
+    "@project-gauntlet/deno": "*"
+  },
   "devDependencies": {
     "@types/node": "^18.17.1",
-    "@project-gauntlet/typings": "*",
     "typescript": "^5.2.2"
   },
   "publishConfig": {
