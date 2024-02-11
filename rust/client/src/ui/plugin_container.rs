@@ -24,51 +24,6 @@ pub fn plugin_container(client_context: Arc<RwLock<ClientContext>>, plugin_id: P
     }
 }
 
-pub struct PluginViewContainer {
-    root_widget: ComponentWidgetWrapper,
-}
-
-impl Default for PluginViewContainer {
-    fn default() -> Self {
-        Self {
-            root_widget: ComponentWidgetWrapper::root(0),
-        }
-    }
-}
-
-impl PluginViewContainer {
-    fn create_component_widget(&mut self, ui_widget: NativeUiWidget) -> ComponentWidgetWrapper {
-        let children = ui_widget.widget_children
-            .into_iter()
-            .map(|ui_widget| self.create_component_widget(ui_widget))
-            .collect();
-
-        ComponentWidgetWrapper::widget(ui_widget.widget_id, &ui_widget.widget_type, ui_widget.widget_properties, children)
-            .expect("unable to create widget")
-    }
-
-    fn replace_container_children(&mut self, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
-        tracing::trace!("replace_container_children is called. container: {:?}, new_children: {:?}", container, new_children);
-
-        let children = new_children.into_iter()
-            .map(|child| self.create_component_widget(child))
-            .collect::<Vec<_>>();
-
-        self.root_widget.find_child_with_id(container.widget_id)
-            .unwrap_or_else(|| panic!("widget with id {:?} doesn't exist", container.widget_id))
-            .set_children(children)
-            .expect("unable to set children");
-    }
-
-    fn handle_event<'a, 'b>(&'a self, signal_context: &'b SignalContext<'_>, plugin_id: PluginId, event: ComponentWidgetEvent) -> impl Future<Output=()> + 'b + Send {
-        let widget = self.root_widget
-            .find_child_with_id(event.widget_id())
-            .expect("created event for non existing widget?");
-
-        event.handle(signal_context, plugin_id, widget)
-    }
-}
-
 impl Component<ComponentWidgetEvent, GauntletRenderer> for PluginContainer {
     type State = ();
     type Event = ComponentWidgetEvent;
@@ -96,13 +51,57 @@ impl<'a> From<PluginContainer> for Element<'a, ComponentWidgetEvent> {
     }
 }
 
+
+pub struct PluginViewContainer {
+    root_widget: ComponentWidgetWrapper,
+}
+
+impl PluginViewContainer {
+    fn new() -> Self {
+        Self {
+            root_widget: ComponentWidgetWrapper::root(0),
+        }
+    }
+
+    fn create_component_widget(&mut self, ui_widget: NativeUiWidget) -> ComponentWidgetWrapper {
+        let children = ui_widget.widget_children
+            .into_iter()
+            .map(|ui_widget| self.create_component_widget(ui_widget))
+            .collect();
+
+        ComponentWidgetWrapper::widget(ui_widget.widget_id, &ui_widget.widget_type, ui_widget.widget_properties, children)
+            .expect("unable to create widget")
+    }
+
+    fn replace_container_children(&mut self, container: NativeUiWidget) {
+        tracing::trace!("replace_container_children is called. container: {:?}", container);
+
+        let children = container.widget_children.into_iter()
+            .map(|child| self.create_component_widget(child))
+            .collect::<Vec<_>>();
+
+        self.root_widget.find_child_with_id(container.widget_id)
+            .unwrap_or_else(|| panic!("widget with id {:?} doesn't exist", container.widget_id))
+            .set_children(children)
+            .expect("unable to set children");
+    }
+
+    fn handle_event<'a, 'b>(&'a self, signal_context: &'b SignalContext<'_>, plugin_id: PluginId, event: ComponentWidgetEvent) -> impl Future<Output=()> + 'b + Send {
+        let widget = self.root_widget
+            .find_child_with_id(event.widget_id())
+            .expect("created event for non existing widget?");
+
+        event.handle(signal_context, plugin_id, widget)
+    }
+}
+
 pub struct ClientContext {
     pub containers: HashMap<PluginId, PluginViewContainer>,
 }
 
 impl ClientContext {
     pub fn create_view_container(&mut self, plugin_id: PluginId) {
-        self.containers.insert(plugin_id, PluginViewContainer::default());
+        self.containers.insert(plugin_id, PluginViewContainer::new());
     }
 
     pub fn get_view_container(&self, plugin_id: &PluginId) -> &PluginViewContainer {
@@ -112,8 +111,8 @@ impl ClientContext {
         self.containers.get_mut(plugin_id).unwrap()
     }
 
-    pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget, new_children: Vec<NativeUiWidget>) {
-        self.get_view_container_mut(plugin_id).replace_container_children(container, new_children)
+    pub fn replace_container_children(&mut self, plugin_id: &PluginId, container: NativeUiWidget) {
+        self.get_view_container_mut(plugin_id).replace_container_children(container)
     }
 
     pub fn handle_event<'a>(&self, signal_context: &'a SignalContext<'_>, plugin_id: &'a PluginId, event: ComponentWidgetEvent) -> impl Future<Output=()> + 'a + Send {

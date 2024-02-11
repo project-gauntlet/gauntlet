@@ -1,4 +1,6 @@
 component_model.json
 gentypes
 gendist
+hookstypes
+hooksdist
 builddist

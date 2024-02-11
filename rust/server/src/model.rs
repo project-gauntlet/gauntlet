@@ -14,8 +14,8 @@ pub enum JsUiResponseData {
 #[derive(Debug)]
 pub enum JsUiRequestData {
     ReplaceContainerChildren {
+        top_level_view: bool,
         container: IntermediateUiWidget,
-        new_children: Vec<IntermediateUiWidget>,
     },
 }
 

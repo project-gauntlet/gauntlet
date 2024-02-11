@@ -1,6 +1,6 @@
 use zbus::DBusError;
 
-use common::dbus::{DbusEventOpenView, DbusEventRunCommand, DbusEventViewEvent, DBusSearchResult, DBusUiWidget};
+use common::dbus::{DbusEventRenderView, DbusEventRunCommand, DbusEventViewEvent, DBusSearchResult, DBusUiWidget};
 use common::model::PluginId;
 use utils::channel::RequestSender;
 
@@ -13,7 +13,7 @@ pub struct DbusClient {
 #[zbus::dbus_interface(name = "dev.projectgauntlet.Client")]
 impl DbusClient {
     #[dbus_interface(signal)]
-    pub async fn open_view_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventOpenView) -> zbus::Result<()>;
+    pub async fn render_view_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventRenderView) -> zbus::Result<()>;
 
     #[dbus_interface(signal)]
     pub async fn run_command_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventRunCommand) -> zbus::Result<()>;
@@ -21,16 +21,11 @@ impl DbusClient {
     #[dbus_interface(signal)]
     pub async fn view_event_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    async fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> Result<()> {
-        let new_children = new_children.into_iter()
-            .map(|child| child.try_into())
-            .collect::<anyhow::Result<Vec<NativeUiWidget>>>()
-            .expect("unable to convert children widget into native");
-
+    async fn replace_container_children(&self, plugin_id: &str, top_level_view: bool, container: DBusUiWidget) -> Result<()> {
         let container = container.try_into()
             .expect("unable to convert widget into native");
 
-        let data = NativeUiRequestData::ReplaceContainerChildren { container, new_children };
+        let data = NativeUiRequestData::ReplaceContainerChildren { top_level_view, container };
         let data = (PluginId::from_string(plugin_id), data);
 
         match self.context_tx.send_receive(data).await {

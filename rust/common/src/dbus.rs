@@ -39,7 +39,7 @@ pub struct DBusUiWidget {
 }
 
 #[derive(Debug, Deserialize, Serialize, Type)]
-pub struct DbusEventOpenView {
+pub struct DbusEventRenderView {
     pub frontend: String,
     pub entrypoint_id: String,
 }

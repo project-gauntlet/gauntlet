@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use zbus::DBusError;
 
-use common::dbus::{DBusEntrypointType, DbusEventOpenView, DbusEventRunCommand, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget};
+use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget};
 use common::model::{EntrypointId, PluginId};
 
 use crate::model::PluginEntrypointType;
@@ -132,7 +132,7 @@ interface = "dev.projectgauntlet.Client",
 )]
 trait DbusClientProxy {
     #[dbus_proxy(signal)]
-    fn open_view_signal(&self, plugin_id: &str, event: DbusEventOpenView) -> zbus::Result<()>;
+    fn render_view_signal(&self, plugin_id: &str, event: DbusEventRenderView) -> zbus::Result<()>;
 
     #[dbus_proxy(signal)]
     fn run_command_signal(&self, plugin_id: &str, event: DbusEventRunCommand) -> zbus::Result<()>;
@@ -140,5 +140,5 @@ trait DbusClientProxy {
     #[dbus_proxy(signal)]
     fn view_event_signal(&self, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    fn replace_container_children(&self, plugin_id: &str, container: DBusUiWidget, new_children: Vec<DBusUiWidget>) -> zbus::Result<()>;
+    fn replace_container_children(&self, plugin_id: &str, top_level_view: bool, container: DBusUiWidget) -> zbus::Result<()>;
 }

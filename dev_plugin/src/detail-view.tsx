@@ -1,10 +1,38 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
-// import { useSomething } from "@project-gauntlet/api/hooks";
+import { useNavigation } from "@project-gauntlet/api/hooks";
+
+function TestView(props: { value: number }): ReactElement {
+    const { pop } = useNavigation();
+
+    return (
+        <Detail>
+            <Detail.Content>
+                <Detail.Content.Paragraph>
+                    Testing views: {props.value}
+                </Detail.Content.Paragraph>
+            </Detail.Content>
+            <Detail.Metadata>
+                <Detail.Metadata.TagList label={"test"}>
+                    <Detail.Metadata.TagList.Item
+                        onClick={() => {
+                            pop();
+                        }}
+                    >
+                        Pop
+                    </Detail.Metadata.TagList.Item>
+                </Detail.Metadata.TagList>
+            </Detail.Metadata>
+        </Detail>
+    )
+}
+
 
 export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
+
+    const { push } = useNavigation();
 
     const PORT = Deno.env.get("RUST_LOG");
     console.log("RUST_LOG:", PORT);
@@ -83,8 +111,10 @@ export default function DetailView(): ReactElement {
                     >
                         Tag
                     </Detail.Metadata.TagList.Item>
-                    <Detail.Metadata.TagList.Item>
-                        Another Tag
+                    <Detail.Metadata.TagList.Item onClick={() => {
+                        push(<TestView value={1}/>)
+                    }}>
+                        Push View
                     </Detail.Metadata.TagList.Item>
                 </Detail.Metadata.TagList>
                 <Detail.Metadata.Separator/>

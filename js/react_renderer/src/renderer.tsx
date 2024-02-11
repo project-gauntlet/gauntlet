@@ -1,9 +1,9 @@
 import ReactReconciler, { HostConfig, OpaqueHandle } from "react-reconciler";
-import type React from 'react';
+import { createContext, FC, ReactNode, useContext } from 'react';
 import { DefaultEventPriority } from 'react-reconciler/constants';
 
 // @ts-expect-error does typescript support such symbol declarations?
-const denoCore = Deno[Deno.internal].core;
+const denoCore: DenoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
 class HostContext {
@@ -27,7 +27,51 @@ type NoTimeout = -1;
 type ComponentType = string;
 type UpdatePayload = string[];
 type SuspenseInstance = never;
+type ChildSet = UiWidget[]
 
+class GauntletContextValue {
+    private navStack: ReactNode[] = []
+    root: UiWidget | undefined
+    rerenderFn: ((node: ReactNode) => void) | undefined
+
+    reset(root: UiWidget, View: FC, rerender: (node: ReactNode) => void) {
+        this.root = root
+        this.rerenderFn = rerender
+        this.navStack = []
+        this.navStack.push(<View/>)
+    }
+
+    isBottommostView() {
+        return this.navStack.length === 1
+    }
+
+    topmostView() {
+        return this.navStack[this.navStack.length - 1]
+    }
+
+    rerender = (component: ReactNode) => {
+        this.rerenderFn!!(component)
+    };
+
+    pushView = (component: ReactNode) => {
+        this.navStack.push(component)
+
+        this.rerender(component)
+    };
+
+    popView = () => {
+        this.navStack.pop();
+
+        this.rerender(this.topmostView())
+    };
+}
+
+const gauntletContextValue = new GauntletContextValue()
+const gauntletContext = createContext(gauntletContextValue);
+
+export function useGauntletContext() {
+    return useContext(gauntletContext);
+}
 
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props = {}, children: UiWidget[] = []): Instance {
     const props = Object.fromEntries(
@@ -234,7 +278,7 @@ export const createHostConfig = (): HostConfig<
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
         container.widgetChildren = newChildren
-        InternalApi.op_react_replace_container_children(container, newChildren)
+        InternalApi.op_react_replace_container_children(gauntletContextValue.isBottommostView(), container)
     },
 
     cloneHiddenInstance(
@@ -294,7 +338,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
-export function render(frontend: string, View: React.FC): RootUiWidget {
+export function renderTopmostView(frontend: string, view: FC): UiWidget {
     // specific frontend are implemented separately, it seems it is not feasible to do generic implementation
     if (frontend !== "default") {
         throw new Error("NOT SUPPORTED")
@@ -312,6 +356,15 @@ export function render(frontend: string, View: React.FC): RootUiWidget {
         widgetChildren: [],
     };
 
+    gauntletContextValue.reset(container, view, (node: ReactNode) => {
+        reconciler.updateContainer(
+            node,
+            root,
+            null,
+            null
+        );
+    })
+
     const root = reconciler.createContainer(
         container,
         0,
@@ -325,12 +378,7 @@ export function render(frontend: string, View: React.FC): RootUiWidget {
         null
     );
 
-    reconciler.updateContainer(
-        <View/>,
-        root,
-        null,
-        null
-    );
+    gauntletContextValue.rerender(gauntletContextValue.topmostView())
 
     return container
 }

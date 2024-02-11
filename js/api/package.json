@@ -4,8 +4,10 @@
   "type": "module",
   "exports": {
     "./components": {
-      "types": "./gentypes/components.d.ts",
-      "import": "./gendist/components.js"
+      "types": "./gentypes/components.d.ts"
+    },
+    "./hooks": {
+      "types": "./hookstypes/hooks.d.ts"
     }
   },
   "repository": {
@@ -14,11 +16,12 @@
     "directory": "js/api"
   },
   "files": [
-    "gendist",
-    "gentypes"
+    "gentypes",
+    "hookstypes"
   ],
   "scripts": {
-    "build": "npm run run-generator",
+    "build": "npm run run-generator && npm run build-api",
+    "build-api": "tsc --project tsconfig.hooks.json",
     "run-generator-json": "cd ../.. && cargo run --package component_model -- ./js/api/component_model.json",
     "run-generator-source": "tsc --project tsconfig.json && node builddist/index.js",
     "run-generator-declarations": "tsc --project tsconfig.gentypes.json",

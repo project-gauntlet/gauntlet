@@ -1,7 +1,7 @@
 import { FC } from "react";
 
 // @ts-expect-error does typescript support such symbol declarations?
-const denoCore = Deno[Deno.internal].core;
+const denoCore: DenoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
 let latestRootUiWidget: UiWidget | undefined = undefined
@@ -85,8 +85,8 @@ async function runLoop() {
             case "OpenView": {
                 try {
                     const view: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
-                    const {render} = await import("gauntlet:renderer");
-                    latestRootUiWidget = render(pluginEvent.frontend, view);
+                    const { renderTopmostView } = await import("gauntlet:renderer");
+                    latestRootUiWidget = renderTopmostView(pluginEvent.frontend, view);
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
                 }

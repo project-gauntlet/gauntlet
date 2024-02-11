@@ -13,7 +13,7 @@ use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};
 
-use common::dbus::{DBusEntrypointType, DbusEventOpenView, DbusEventRunCommand};
+use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand};
 use common::model::{EntrypointId, PluginId};
 use utils::channel::{channel, RequestReceiver};
 
@@ -34,21 +34,18 @@ pub struct AppModel {
     dbus_connection: Connection,
     dbus_server: DbusServerProxyProxy<'static>,
     dbus_client: InterfaceRef<DbusClient>,
-    state: Vec<NavState>,
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
     search_field_id: text_input::Id,
+    view_data: Option<ViewData>,
+    prompt: Option<String>,
     waiting_for_next_unfocus: bool
 }
 
-enum NavState {
-    SearchView {
-        prompt: Option<String>,
-    },
-    PluginView {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    },
+struct ViewData {
+    top_level_view: bool,
+    plugin_id: PluginId,
+    entrypoint_id: EntrypointId,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +60,7 @@ pub enum AppMsg {
     },
     PromptChanged(String),
     SetSearchResults(Vec<NativeUiSearchResult>),
+    SetTopLevelView(bool),
     IcedEvent(Event),
     WidgetEvent {
         plugin_id: PluginId,
@@ -133,9 +131,10 @@ impl Application for AppModel {
                 dbus_server,
                 dbus_client,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
-                state: vec![NavState::SearchView { prompt: None }],
                 search_results: vec![],
                 search_field_id: search_field_id.clone(),
+                prompt: None,
+                view_data: None,
                 waiting_for_next_unfocus: false,
             },
             Command::batch([
@@ -153,7 +152,8 @@ impl Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             AppMsg::OpenView { plugin_id, entrypoint_id } => {
-                self.state.push(NavState::PluginView {
+                self.view_data.replace(ViewData {
+                    top_level_view:  true,
                     plugin_id: plugin_id.clone(),
                     entrypoint_id: entrypoint_id.clone(),
                 });
@@ -161,81 +161,55 @@ impl Application for AppModel {
                 let mut client_context = self.client_context.write().expect("lock is poisoned");
                 client_context.create_view_container(plugin_id.clone());
 
-                let dbus_client = self.dbus_client.clone();
-
-                let open_view = Command::perform(async move {
-                    let event_open_view = DbusEventOpenView {
-                        frontend: "default".to_owned(),
-                        entrypoint_id: entrypoint_id.to_string(),
-                    };
-
-                    let signal_context = dbus_client.signal_context();
-
-                    DbusClient::open_view_signal(signal_context, &plugin_id.to_string(), event_open_view)
-                        .await
-                        .unwrap();
-                }, |_| AppMsg::Noop);
-
                 Command::batch([
+                    // TODO re-center the window
                     iced::window::resize(Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
-                    open_view
+                    self.open_view(plugin_id, entrypoint_id)
                 ])
             }
             AppMsg::RunCommand { plugin_id,  entrypoint_id } => {
-                let dbus_client = self.dbus_client.clone();
-
-                let run_command = Command::perform(async move {
-                    let event_run_command = DbusEventRunCommand {
-                        entrypoint_id: entrypoint_id.to_string(),
-                    };
-
-                    let signal_context = dbus_client.signal_context();
-
-                    DbusClient::run_command_signal(signal_context, &plugin_id.to_string(), event_run_command)
-                        .await
-                        .unwrap();
-                }, |_| AppMsg::Noop);
-
                 Command::batch([
-                    run_command,
+                    self.run_command(plugin_id, entrypoint_id),
                     iced::window::close(),
                 ])
             }
             AppMsg::PromptChanged(new_prompt) => {
-                match self.state.last_mut().expect("state is supposed to always have at least one item") {
-                    NavState::SearchView { prompt } => {
-                        prompt.replace(new_prompt.clone());
+                self.prompt.replace(new_prompt.clone());
 
-                        let dbus_server = self.dbus_server.clone();
+                let dbus_server = self.dbus_server.clone();
 
-                        Command::perform(async move {
-                            let search_result = dbus_server.search(&new_prompt)
-                                .await
-                                .unwrap()
-                                .into_iter()
-                                .map(|search_result| NativeUiSearchResult {
-                                    plugin_id: PluginId::from_string(search_result.plugin_id),
-                                    plugin_name: search_result.plugin_name,
-                                    entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
-                                    entrypoint_name: search_result.entrypoint_name,
-                                    entrypoint_type: match search_result.entrypoint_type {
-                                        DBusEntrypointType::Command => SearchResultEntrypointType::Command,
-                                        DBusEntrypointType::View => SearchResultEntrypointType::View,
-                                    },
-                                })
-                                .collect();
+                Command::perform(async move {
+                    let search_result = dbus_server.search(&new_prompt)
+                        .await
+                        .unwrap()
+                        .into_iter()
+                        .map(|search_result| NativeUiSearchResult {
+                            plugin_id: PluginId::from_string(search_result.plugin_id),
+                            plugin_name: search_result.plugin_name,
+                            entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
+                            entrypoint_name: search_result.entrypoint_name,
+                            entrypoint_type: match search_result.entrypoint_type {
+                                DBusEntrypointType::Command => SearchResultEntrypointType::Command,
+                                DBusEntrypointType::View => SearchResultEntrypointType::View,
+                            },
+                        })
+                        .collect();
 
-                            search_result
-                        }, AppMsg::SetSearchResults)
-                    }
-                    _ => {
-                        Command::none()
-                    }
-                }
+                    search_result
+                }, AppMsg::SetSearchResults)
             }
             AppMsg::SetSearchResults(search_results) => {
                 self.search_results = search_results;
                 Command::none()
+            }
+            AppMsg::SetTopLevelView(top_level_view) => {
+                match &mut self.view_data {
+                    None => Command::none(),
+                    Some(view_data) => {
+                        view_data.top_level_view = top_level_view;
+                        Command::none()
+                    }
+                }
             }
             AppMsg::IcedEvent(Event::Keyboard(event)) => {
                 match event {
@@ -287,9 +261,9 @@ impl Application for AppModel {
     fn view(&self) -> Element<'_, Self::Message> {
         let client_context = self.client_context.clone();
 
-        match &self.state.last().expect("state is supposed to always have at least one item") {
-            NavState::SearchView { prompt } => {
-                let input: Element<_> = text_input("Search...", prompt.as_ref().unwrap_or(&"".to_owned()))
+        match &self.view_data {
+            None => {
+                let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
                     .on_input(AppMsg::PromptChanged)
                     .id(self.search_field_id.clone())
                     .width(Length::Fill)
@@ -337,7 +311,7 @@ impl Application for AppModel {
                 // element.explain(iced::color!(0xFF0000))
                 element
             }
-            NavState::PluginView { plugin_id, entrypoint_id: _ } => {
+            Some(ViewData{ plugin_id, entrypoint_id: _, top_level_view: _ }) => {
                 let container_element: Element<ComponentWidgetEvent> = plugin_container(client_context, plugin_id.clone())
                     .into();
 
@@ -385,16 +359,54 @@ impl Application for AppModel {
 
 impl AppModel {
     fn previous_view(&mut self) -> Command<AppMsg> {
-        if self.state.len() <= 1 {
-            iced::window::close()
-        } else if self.state.len() == 2 {
-            self.state.pop();
-            iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
-            // TODO re-center the window
-        } else {
-            self.state.pop();
-            Command::none()
+        match &self.view_data {
+            None => {
+                iced::window::close()
+            }
+            Some(ViewData { top_level_view: true, .. }) => {
+                self.view_data.take();
+
+                // TODO re-center the window
+                iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+            }
+            Some(ViewData { top_level_view: false, plugin_id, entrypoint_id }) => {
+                self.open_view(plugin_id.clone(), entrypoint_id.clone())
+                // TODO re-center the window
+            }
         }
+    }
+
+    fn open_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
+        let dbus_client = self.dbus_client.clone();
+
+        Command::perform(async move {
+            let event_react_view = DbusEventRenderView {
+                frontend: "default".to_owned(),
+                entrypoint_id: entrypoint_id.to_string(),
+            };
+
+            let signal_context = dbus_client.signal_context();
+
+            DbusClient::render_view_signal(signal_context, &plugin_id.to_string(), event_react_view)
+                .await
+                .unwrap();
+        }, |_| AppMsg::Noop)
+    }
+
+    fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
+        let dbus_client = self.dbus_client.clone();
+
+        Command::perform(async move {
+            let event_run_command = DbusEventRunCommand {
+                entrypoint_id: entrypoint_id.to_string(),
+            };
+
+            let signal_context = dbus_client.signal_context();
+
+            DbusClient::run_command_signal(signal_context, &plugin_id.to_string(), event_run_command)
+                .await
+                .unwrap();
+        }, |_| AppMsg::Noop)
     }
 }
 
@@ -408,20 +420,22 @@ async fn request_loop(
     loop {
         let ((plugin_id, request_data), responder) = request_rx.recv().await;
 
+        let mut app_msg = AppMsg::Noop; // refresh ui
+
         {
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::ReplaceContainerChildren { container, new_children } => {
-                    client_context.replace_container_children(&plugin_id, container, new_children);
+                NativeUiRequestData::ReplaceContainerChildren { top_level_view, container } => {
+                    client_context.replace_container_children(&plugin_id, container);
 
-                    let response = NativeUiResponseData::ReplaceContainerChildren;
+                    app_msg = AppMsg::SetTopLevelView(top_level_view);
 
-                    responder.respond(response)
+                    responder.respond(NativeUiResponseData::ReplaceContainerChildren)
                 }
             }
         }
 
-        let _ = sender.send(AppMsg::Noop).await; // refresh ui
+        let _ = sender.send(app_msg).await;
     }
 }

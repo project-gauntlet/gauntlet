@@ -1,17 +1,9 @@
 
 // js runtime types
 
-declare namespace Deno {
-    const internal: unique symbol;
-}
-
-interface Deno {
-    [Deno.internal]: {
-        core: {
-            opAsync: (op: "op_plugin_get_pending_event") => Promise<PluginEvent>
-            ops: InternalApi
-        }
-    };
+interface DenoCore {
+    opAsync: (op: "op_plugin_get_pending_event") => Promise<PluginEvent>
+    ops: InternalApi
 }
 
 type PluginEvent = ViewEvent | RunCommand | OpenView | PluginCommand
@@ -54,8 +46,6 @@ type UiWidget = {
 type Props = { [key: string]: any };
 type PropsWithChildren = { children?: UiWidget[] } & Props;
 
-type ChildSet = UiWidget[]
-
 interface InternalApi {
     op_log_trace(target: string, message: string): void;
     op_log_debug(target: string, message: string): void;
@@ -65,7 +55,7 @@ interface InternalApi {
 
     op_component_model(): Record<string, Component>;
 
-    op_react_replace_container_children(container: UiWidget, newChildren: ChildSet): void;
+    op_react_replace_container_children(top_level_view: boolean, container: UiWidget): void;
 }
 
 // component model types

@@ -19,7 +19,7 @@ use regex::Regex;
 use common::model::PluginId;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
-use crate::dbus::{DbusClientProxyProxy, OpenViewSignal, RunCommandSignal, ViewEventSignal};
+use crate::dbus::{DbusClientProxyProxy, RenderViewSignal, RunCommandSignal, ViewEventSignal};
 use crate::model::{from_dbus_to_intermediate_value, IntermediatePropertyValue, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget};
 use crate::plugins::run_status::RunStatusGuard;
 
@@ -81,9 +81,9 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         });
 
     let plugin_id = data.id.clone();
-    let open_view_signal = client_proxy.receive_open_view_signal()
+    let render_view_signal = client_proxy.receive_render_view_signal()
         .await?
-        .filter_map(move |signal: OpenViewSignal| {
+        .filter_map(move |signal: RenderViewSignal| {
             let plugin_id = plugin_id.clone();
             async move {
                 let signal = signal.args().unwrap();
@@ -157,7 +157,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             }
         });
 
-    let event_stream = (run_command_signal, view_event_signal, open_view_signal, command_stream).merge();
+    let event_stream = (run_command_signal, view_event_signal, render_view_signal, command_stream).merge();
     let event_stream = Box::pin(event_stream);
 
     let thread_fn = move || {
@@ -269,7 +269,7 @@ impl CustomModuleLoader {
     }
 }
 
-const MODULES: [(&str, &str); 8] = [
+const MODULES: [(&str, &str); 9] = [
     ("gauntlet:renderer:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
     ("gauntlet:renderer:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/dev/renderer.js"))),
     ("gauntlet:react:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))),
@@ -278,6 +278,7 @@ const MODULES: [(&str, &str); 8] = [
     ("gauntlet:react-jsx-runtime:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react-jsx-runtime.development.js"))),
     ("gauntlet:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
     ("gauntlet:api-components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/gendist/components.js"))),
+    ("gauntlet:api-hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/hooksdist/hooks.js"))),
 ];
 
 impl ModuleLoader for CustomModuleLoader {
@@ -307,6 +308,7 @@ impl ModuleLoader for CustomModuleLoader {
             ("react", _) => "gauntlet:react:dev",
             ("react/jsx-runtime", _) => "gauntlet:react-jsx-runtime:dev",
             ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
+            ("@project-gauntlet/api/hooks", _) => "gauntlet:api-hooks",
             _ => {
                 return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
             }
@@ -427,22 +429,19 @@ async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Res
 fn op_react_replace_container_children(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
+    top_level_view: bool,
     container: JsUiWidget,
-    new_children: Vec<JsUiWidget>,
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children...");
 
-    for new_child in &new_children {
-        validate_child(&state, &container.widget_type, &new_child.widget_type)?
-    }
-
-    let new_children = new_children.into_iter()
-        .map(|child| from_js_to_intermediate_widget(scope, child))
-        .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
+    // TODO fix validation
+    // for new_child in &container.widget_children {
+    //     validate_child(&state, &container.widget_type, &new_child.widget_type)?
+    // }
 
     let data = JsUiRequestData::ReplaceContainerChildren {
+        top_level_view,
         container: from_js_to_intermediate_widget(scope, container)?,
-        new_children,
     };
 
     match make_request(&state, data).context("ReplaceContainerChildren frontend response")? {
@@ -603,12 +602,8 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
 
 async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyProxy<'_>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::ReplaceContainerChildren { container, new_children } => {
-            let new_children = new_children.into_iter()
-                .map(|child| child.into())
-                .collect();
-
-            let nothing = dbus_client.replace_container_children(&plugin_id.to_string(), container.into(), new_children)
+        JsUiRequestData::ReplaceContainerChildren { top_level_view, container } => {
+            let nothing = dbus_client.replace_container_children(&plugin_id.to_string(), top_level_view, container.into())
                 .await
                 .map(|_| JsUiResponseData::Nothing)
                 .map_err(|err| err.into());

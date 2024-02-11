@@ -29,8 +29,8 @@ pub enum NativeUiResponseData {
 #[derive(Debug)]
 pub enum NativeUiRequestData {
     ReplaceContainerChildren {
+        top_level_view: bool,
         container: NativeUiWidget,
-        new_children: Vec<NativeUiWidget>,
     },
 }
 
