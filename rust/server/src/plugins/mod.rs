@@ -5,7 +5,7 @@ use crate::dirs::Dirs;
 use crate::model::{entrypoint_from_str, PluginEntrypointType};
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::js::{PluginCode, PluginCommand, PluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
+use crate::plugins::js::{PluginCode, PluginCommand, OnePluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime, AllPluginCommandData};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::search::{SearchIndex, SearchItem};
@@ -81,6 +81,7 @@ impl ApplicationManager {
                         entrypoint_type: match entrypoint_from_str(&entrypoint.entrypoint_type) {
                             PluginEntrypointType::Command => DBusEntrypointType::Command,
                             PluginEntrypointType::View => DBusEntrypointType::View,
+                            PluginEntrypointType::InlineView => DBusEntrypointType::InlineView
                         }
                     })
                     .collect();
@@ -162,6 +163,14 @@ impl ApplicationManager {
         Ok(())
     }
 
+    pub fn handle_inline_view(&self, text: &str) {
+        self.send_command(PluginCommand::All {
+            data: AllPluginCommandData::OpenInlineView {
+                text: text.to_owned()
+            }
+        })
+    }
+
     async fn reload_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
         let running = self.run_status_holder.is_plugin_running(&plugin_id);
         if running {
@@ -183,13 +192,19 @@ impl ApplicationManager {
     async fn start_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Starting plugin with id: {:?}", plugin_id);
 
-        let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())
+        let plugin_id_str = plugin_id.to_string();
+
+        let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str)
+            .await?;
+
+        let inline_view_entrypoint_id = self.db_repository.get_inline_view_entrypoint_id_for_plugin(&plugin_id_str)
             .await?;
 
         let receiver = self.command_broadcaster.subscribe();
         let data = PluginRuntimeData {
             id: plugin_id,
             code: PluginCode { js: plugin.code.js },
+            inline_view_entrypoint_id,
             permissions: PluginPermissions {
                 environment: plugin.permissions.environment,
                 high_resolution_time: plugin.permissions.high_resolution_time,
@@ -211,9 +226,9 @@ impl ApplicationManager {
     async fn stop_plugin(&mut self, plugin_id: PluginId) {
         tracing::info!(target = "plugin", "Stopping plugin with id: {:?}", plugin_id);
 
-        let data = PluginCommand {
+        let data = PluginCommand::One {
             id: plugin_id,
-            data: PluginCommandData::Stop,
+            data: OnePluginCommandData::Stop,
         };
 
         self.send_command(data)

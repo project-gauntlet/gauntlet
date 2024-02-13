@@ -1,6 +1,6 @@
 declare module "gauntlet:renderer" {
-    import { FC } from "react";
+    import { ReactNode } from "react";
 
-    const renderTopmostView: (frontend: string, component: FC) => UiWidget;
-    export { renderTopmostView };
+    const render: (frontend: string, renderLocation: RenderLocation, component: ReactNode) => UiWidget;
+    export { render };
 }

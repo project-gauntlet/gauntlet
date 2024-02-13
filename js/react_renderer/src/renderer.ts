@@ -30,37 +30,41 @@ type SuspenseInstance = never;
 type ChildSet = UiWidget[]
 
 class GauntletContextValue {
-    private navStack: ReactNode[] = []
-    root: UiWidget | undefined
-    rerenderFn: ((node: ReactNode) => void) | undefined
+    private _navStack: ReactNode[] = []
+    private _renderLocation: RenderLocation | undefined
+    private _rerender: ((node: ReactNode) => void) | undefined
 
-    reset(root: UiWidget, View: FC, rerender: (node: ReactNode) => void) {
-        this.root = root
-        this.rerenderFn = rerender
-        this.navStack = []
-        this.navStack.push(<View/>)
+    reset(renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void) {
+        this._renderLocation = renderLocation
+        this._rerender = rerender
+        this._navStack = []
+        this._navStack.push(view)
+    }
+
+    renderLocation(): RenderLocation {
+        return this._renderLocation!!
     }
 
     isBottommostView() {
-        return this.navStack.length === 1
+        return this._navStack.length === 1
     }
 
     topmostView() {
-        return this.navStack[this.navStack.length - 1]
+        return this._navStack[this._navStack.length - 1]
     }
 
     rerender = (component: ReactNode) => {
-        this.rerenderFn!!(component)
+        this._rerender!!(component)
     };
 
     pushView = (component: ReactNode) => {
-        this.navStack.push(component)
+        this._navStack.push(component)
 
         this.rerender(component)
     };
 
     popView = () => {
-        this.navStack.pop();
+        this._navStack.pop();
 
         this.rerender(this.topmostView())
     };
@@ -278,7 +282,7 @@ export const createHostConfig = (): HostConfig<
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
         container.widgetChildren = newChildren
-        InternalApi.op_react_replace_container_children(gauntletContextValue.isBottommostView(), container)
+        InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), container)
     },
 
     cloneHiddenInstance(
@@ -338,7 +342,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
-export function renderTopmostView(frontend: string, view: FC): UiWidget {
+export function render(frontend: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
     // specific frontend are implemented separately, it seems it is not feasible to do generic implementation
     if (frontend !== "default") {
         throw new Error("NOT SUPPORTED")
@@ -356,7 +360,7 @@ export function renderTopmostView(frontend: string, view: FC): UiWidget {
         widgetChildren: [],
     };
 
-    gauntletContextValue.reset(container, view, (node: ReactNode) => {
+    gauntletContextValue.reset(renderLocation, view, (node: ReactNode) => {
         reconciler.updateContainer(
             node,
             root,

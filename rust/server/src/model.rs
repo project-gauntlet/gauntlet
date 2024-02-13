@@ -4,7 +4,7 @@ use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
 use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget, value_bool_to_dbus, value_number_to_dbus, value_string_to_dbus};
+use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget, RenderLocation, value_bool_to_dbus, value_number_to_dbus, value_string_to_dbus};
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -13,10 +13,12 @@ pub enum JsUiResponseData {
 
 #[derive(Debug)]
 pub enum JsUiRequestData {
-    ReplaceContainerChildren {
+    ReplaceView {
+        render_location: RenderLocation,
         top_level_view: bool,
         container: IntermediateUiWidget,
     },
+    ClearInlineView
 }
 
 pub type UiWidgetId = u32;
@@ -45,6 +47,10 @@ pub enum JsUiEvent {
     PluginCommand {
         #[serde(rename = "commandType")]
         command_type: String,
+    },
+    OpenInlineView {
+        #[serde(rename = "text")]
+        text: String,
     }
 }
 
@@ -92,6 +98,9 @@ pub enum IntermediateUiEvent {
     },
     PluginCommand {
         command_type: String,
+    },
+    OpenInlineView {
+        text: String,
     }
 }
 
@@ -171,12 +180,14 @@ fn from_intermediate_to_dbus_properties(value: HashMap<String, IntermediatePrope
 pub enum PluginEntrypointType {
     Command,
     View,
+    InlineView,
 }
 
 pub fn entrypoint_to_str(value: PluginEntrypointType) -> &'static str {
     match value {
         PluginEntrypointType::Command => "command",
         PluginEntrypointType::View => "view",
+        PluginEntrypointType::InlineView => "inline-view",
     }
 }
 
@@ -184,6 +195,7 @@ pub fn entrypoint_from_str(value: &str) -> PluginEntrypointType {
     match value {
         "command" => PluginEntrypointType::Command,
         "view" => PluginEntrypointType::View,
+        "inline-view" => PluginEntrypointType::InlineView,
         _ => {
             panic!("index contains illegal entrypoint_type: {}", value)
         }

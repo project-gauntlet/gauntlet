@@ -681,6 +681,49 @@ impl ComponentWidgetWrapper {
                 column(vec![top_panel, separator, content])
                     .into()
             }
+            ComponentWidget::InlineSeparator => {
+                vertical_rule(1)
+                    .into()
+            }
+            ComponentWidget::Inline { children } => {
+                let contents: Vec<_> = render_children_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
+                    .into_iter()
+                    .map(|content_element| {
+                        container(content_element)
+                            .width(Length::FillPortion(3))
+                            // .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
+                            .into()
+                    })
+                    .collect();
+
+                // let mut separators: Vec<_> = render_children_by_type(children, |widget| matches!(widget, ComponentWidget::InlineSeparator { .. }), ComponentRenderContext::None);
+
+                // let mut left = contents.len();
+
+                let contents: Vec<_> = contents.into_iter()
+                    .flat_map(|i| {
+                        // if left > 1 {
+                        //     left = left - 1;
+                        //     if separators.is_empty() {
+                        //         let separator = vertical_rule(1).into();
+                        //         vec![i, separator]
+                        //     } else {
+                        //         let separator = separators.remove(0);
+                        //         vec![i, separator]
+                        //     }
+                        // } else {
+                            vec![i]
+                        // }
+                    })
+                    .collect();
+
+                let content: Element<_> = row(contents)
+                    .into();
+
+                container(content)
+                    .padding(Padding::new(5.0))
+                    .into()
+            }
         }
     }
 

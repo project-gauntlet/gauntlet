@@ -3,9 +3,9 @@ use common::dbus::DBusPlugin;
 #[zbus::dbus_proxy(
     default_service = "dev.projectgauntlet.Gauntlet",
     default_path = "/dev/projectgauntlet/Server",
-    interface = "dev.projectgauntlet.Server.Management",
+    interface = "dev.projectgauntlet.Server",
 )]
-trait DbusManagementServerProxy {
+trait DbusServerProxy {
     #[dbus_proxy(signal)]
     fn remote_plugin_download_finished_signal(&self, plugin_id: &str) -> zbus::Result<()>;
 

@@ -1,4 +1,4 @@
-use crate::dbus::{DbusManagementServer, DbusServer};
+use crate::dbus::DbusServer;
 use crate::plugins::ApplicationManager;
 use crate::search::SearchIndex;
 
@@ -38,13 +38,11 @@ async fn run_server() -> anyhow::Result<()> {
 
     application_manager.reload_all_plugins().await?; // TODO do not return here ?
 
-    let interface = DbusServer { search_index };
-    let management_interface = DbusManagementServer { application_manager };
+    let interface = DbusServer { search_index, application_manager };
 
     let _conn = zbus::ConnectionBuilder::session()?
         .name("dev.projectgauntlet.Gauntlet")?
         .serve_at("/dev/projectgauntlet/Server", interface)?
-        .serve_at("/dev/projectgauntlet/Server", management_interface)?
         .build()
         .await?;
 

@@ -162,6 +162,17 @@ impl DataDbRepository {
         Ok(result)
     }
 
+    pub async fn get_inline_view_entrypoint_id_for_plugin(&self, plugin_id: &str) -> anyhow::Result<Option<String>> {
+        // language=SQLite
+        let entrypoint_id = sqlx::query_as::<_, (String, )>("SELECT id FROM plugin_entrypoint WHERE plugin_id = ?1 AND type = 'inline-view'")
+            .bind(plugin_id)
+            .fetch_optional(&self.pool)
+            .await?
+            .map(|result| result.0);
+
+        Ok(entrypoint_id)
+    }
+
     pub async fn list_pending_plugins(&self) -> anyhow::Result<Vec<GetPendingPlugin>> {
         // language=SQLite
         let plugins = sqlx::query_as::<_, GetPendingPlugin>("SELECT * FROM pending_plugin")

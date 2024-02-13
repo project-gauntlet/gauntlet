@@ -110,6 +110,10 @@ declare global {
             ["gauntlet:form"]: {
                 children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
             };
+            ["gauntlet:inline_separator"]: {};
+            ["gauntlet:inline"]: {
+                children?: ElementComponent<typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
+            };
         }
     }
 }
@@ -383,3 +387,21 @@ Form.Checkbox = Checkbox;
 Form.DatePicker = DatePicker;
 Form.Select = Select;
 Form.Separator = Separator;
+export const InlineSeparator: FC = (): ReactNode => {
+    return <gauntlet:inline_separator />;
+};
+export interface InlineProps {
+    children?: ElementComponent<typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
+}
+export const Inline: FC<InlineProps> & {
+    Left: typeof Content;
+    Separator: typeof InlineSeparator;
+    Right: typeof Content;
+    Center: typeof Content;
+} = (props: InlineProps): ReactNode => {
+    return <gauntlet:inline children={props.children}/>;
+};
+Inline.Left = Content;
+Inline.Separator = InlineSeparator;
+Inline.Right = Content;
+Inline.Center = Content;

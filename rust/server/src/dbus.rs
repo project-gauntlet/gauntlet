@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use zbus::DBusError;
 
-use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget};
+use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand, DbusEventViewEvent, DBusPlugin, DBusSearchResult, DBusUiWidget, RenderLocation};
 use common::model::{EntrypointId, PluginId};
 
 use crate::model::PluginEntrypointType;
@@ -11,6 +11,7 @@ use crate::search::SearchIndex;
 
 pub struct DbusServer {
     pub search_index: SearchIndex,
+    pub application_manager: ApplicationManager,
 }
 
 #[zbus::dbus_interface(name = "dev.projectgauntlet.Server")]
@@ -19,31 +20,30 @@ impl DbusServer {
         let result = self.search_index.create_handle()
             .search(text)?
             .into_iter()
-            .map(|item| {
-                DBusSearchResult {
-                    entrypoint_type: match item.entrypoint_type {
-                        PluginEntrypointType::Command => DBusEntrypointType::Command,
-                        PluginEntrypointType::View => DBusEntrypointType::View,
-                    },
+            .flat_map(|item| {
+                let entrypoint_type = match item.entrypoint_type {
+                    PluginEntrypointType::Command => DBusEntrypointType::Command,
+                    PluginEntrypointType::View => DBusEntrypointType::View,
+                    PluginEntrypointType::InlineView => {
+                        return None
+                    }
+                };
+
+                Some(DBusSearchResult {
+                    entrypoint_type,
                     entrypoint_name: item.entrypoint_name,
                     entrypoint_id: item.entrypoint_id,
                     plugin_name: item.plugin_name,
                     plugin_id: item.plugin_id,
-                }
+                })
             })
             .collect();
 
+        self.application_manager.handle_inline_view(text);
+
         Ok(result)
     }
-}
 
-
-pub struct DbusManagementServer {
-    pub application_manager: ApplicationManager,
-}
-
-#[zbus::dbus_interface(name = "dev.projectgauntlet.Server.Management")]
-impl DbusManagementServer {
     #[dbus_interface(signal)]
     pub async fn remote_plugin_download_finished_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str) -> zbus::Result<()>;
 
@@ -140,5 +140,7 @@ trait DbusClientProxy {
     #[dbus_proxy(signal)]
     fn view_event_signal(&self, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    fn replace_container_children(&self, plugin_id: &str, top_level_view: bool, container: DBusUiWidget) -> zbus::Result<()>;
+    fn replace_view(&self, plugin_id: &str, render_location: RenderLocation, top_level_view: bool, container: DBusUiWidget) -> zbus::Result<()>;
+
+    fn clear_inline_view(&self, plugin_id: &str) -> zbus::Result<()>;
 }

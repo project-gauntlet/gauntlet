@@ -5,7 +5,7 @@ import { defineConfig } from "rollup";
 
 export default defineConfig({
     input: [
-        'src/init.ts',
+        'src/init.tsx',
     ],
     output: [
         {
@@ -14,6 +14,7 @@ export default defineConfig({
             sourcemap: 'inline',
         }
     ],
+    external: ["react", "react/jsx-runtime"],
     plugins: [
         nodeResolve(),
         commonjs(),

@@ -7,7 +7,7 @@ import { defineConfig, RollupOptions } from "rollup";
 const config = (nodeEnv: string, outDir: string): RollupOptions => {
     return {
         input: [
-            'src/renderer.tsx',
+            'src/renderer.ts',
         ],
         output: [
             {

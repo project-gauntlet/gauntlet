@@ -1,10 +1,10 @@
 use zbus::DBusError;
 
-use common::dbus::{DbusEventRenderView, DbusEventRunCommand, DbusEventViewEvent, DBusSearchResult, DBusUiWidget};
+use common::dbus::{DbusEventRenderView, DbusEventRunCommand, DbusEventViewEvent, DBusSearchResult, DBusUiWidget, RenderLocation};
 use common::model::PluginId;
 use utils::channel::RequestSender;
 
-use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiWidget};
+use crate::model::{NativeUiRequestData, NativeUiResponseData};
 
 pub struct DbusClient {
     pub(crate) context_tx: RequestSender<(PluginId, NativeUiRequestData), NativeUiResponseData>
@@ -21,19 +21,31 @@ impl DbusClient {
     #[dbus_interface(signal)]
     pub async fn view_event_signal(signal_ctxt: &zbus::SignalContext<'_>, plugin_id: &str, event: DbusEventViewEvent) -> zbus::Result<()>;
 
-    async fn replace_container_children(&self, plugin_id: &str, top_level_view: bool, container: DBusUiWidget) -> Result<()> {
+    async fn replace_view(&self, plugin_id: &str, render_location: RenderLocation, top_level_view: bool, container: DBusUiWidget) -> Result<()> {
         let container = container.try_into()
             .expect("unable to convert widget into native");
 
-        let data = NativeUiRequestData::ReplaceContainerChildren { top_level_view, container };
+        let data = NativeUiRequestData::ReplaceView { render_location, top_level_view, container };
         let data = (PluginId::from_string(plugin_id), data);
 
         match self.context_tx.send_receive(data).await {
-            NativeUiResponseData::ReplaceContainerChildren => {},
+            NativeUiResponseData::Nothing => {}
         };
 
         Ok(())
     }
+
+    async fn clear_inline_view(&self, plugin_id: &str) -> Result<()> {
+        let data = NativeUiRequestData::ClearInlineView;
+        let data = (PluginId::from_string(plugin_id), data);
+
+        match self.context_tx.send_receive(data).await {
+            NativeUiResponseData::Nothing => {}
+        };
+
+        Ok(())
+    }
+
 }
 
 type Result<T> = core::result::Result<T, ClientError>;

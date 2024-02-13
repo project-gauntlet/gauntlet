@@ -15,6 +15,7 @@ use deno_runtime::worker::WorkerOptions;
 use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use common::dbus::RenderLocation;
 
 use common::model::PluginId;
 use component_model::{Children, Component, create_component_model, PropertyType};
@@ -26,6 +27,7 @@ use crate::plugins::run_status::RunStatusGuard;
 pub struct PluginRuntimeData {
     pub id: PluginId,
     pub code: PluginCode,
+    pub inline_view_entrypoint_id: Option<String>,
     pub permissions: PluginPermissions,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
 }
@@ -46,14 +48,26 @@ pub struct PluginPermissions {
 }
 
 #[derive(Clone, Debug)]
-pub struct PluginCommand {
-    pub id: PluginId,
-    pub data: PluginCommandData,
+pub enum PluginCommand {
+    One {
+        id: PluginId,
+        data: OnePluginCommandData,
+    },
+    All {
+        data: AllPluginCommandData,
+    }
 }
 
 #[derive(Clone, Debug)]
-pub enum PluginCommandData {
+pub enum OnePluginCommandData {
     Stop
+}
+
+#[derive(Clone, Debug)]
+pub enum AllPluginCommandData {
+    OpenInlineView {
+        text: String
+    }
 }
 
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
@@ -141,16 +155,25 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         .filter_map(move |command: PluginCommand| {
             let plugin_id = plugin_id.clone();
             async move {
-                let id = command.id;
-
-                if id != plugin_id {
-                    None
-                } else {
-                    match command.data {
-                        PluginCommandData::Stop => {
-                            Some(IntermediateUiEvent::PluginCommand {
-                                command_type: "stop".to_string(),
-                            })
+                match command {
+                    PluginCommand::One { id, data } => {
+                        if id != plugin_id {
+                            None
+                        } else {
+                            match data {
+                                OnePluginCommandData::Stop => {
+                                    Some(IntermediateUiEvent::PluginCommand {
+                                        command_type: "stop".to_string(),
+                                    })
+                                }
+                            }
+                        }
+                    }
+                    PluginCommand::All { data } => {
+                        match data {
+                            AllPluginCommandData::OpenInlineView { text } => {
+                                Some(IntermediateUiEvent::OpenInlineView { text })
+                            }
                         }
                     }
                 }
@@ -169,7 +192,15 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             .build()
             .expect("unable to start tokio runtime for plugin")
             .block_on(tokio::task::unconstrained(async move {
-                start_js_runtime(data.id, data.code, data.permissions, event_stream, client_proxy, component_model).await
+                start_js_runtime(
+                    data.id,
+                    data.code,
+                    data.permissions,
+                    data.inline_view_entrypoint_id,
+                    event_stream,
+                    client_proxy,
+                    component_model
+                ).await
             }));
 
         if let Err(err) = result {
@@ -191,6 +222,7 @@ async fn start_js_runtime(
     plugin_id: PluginId,
     code: PluginCode,
     permissions: PluginPermissions,
+    inline_view_entrypoint_id: Option<String>,
     event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
     client_proxy: DbusClientProxyProxy<'static>,
     component_model: Vec<Component>,
@@ -232,7 +264,7 @@ async fn start_js_runtime(
             module_loader: Rc::new(CustomModuleLoader::new(code)),
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
-                PluginData::new(plugin_id),
+                PluginData::new(plugin_id, inline_view_entrypoint_id),
                 DbusClient::new(client_proxy),
                 ComponentModel::new(component_model),
             )],
@@ -357,7 +389,9 @@ deno_core::extension!(
         op_log_error,
         op_component_model,
         op_plugin_get_pending_event,
-        op_react_replace_container_children,
+        op_react_replace_view,
+        op_inline_view_endpoint_id,
+        clear_inline_view,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -425,28 +459,51 @@ async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Res
     Ok(from_intermediate_to_js_event(event))
 }
 
+#[op]
+fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+    let data = JsUiRequestData::ClearInlineView;
+
+    match make_request(&state, data).context("ClearInlineView frontend response")? {
+        JsUiResponseData::Nothing => {
+            tracing::trace!(target = "renderer_rs_persistence", "Calling clear_inline_view returned");
+            Ok(())
+        }
+        value @ _ => panic!("unsupported response type {:?}", value),
+    }
+}
+
+#[op]
+fn op_inline_view_endpoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
+    state.borrow()
+        .borrow::<PluginData>()
+        .inline_view_entrypoint_id()
+        .clone()
+}
+
 #[op(v8)]
-fn op_react_replace_container_children(
+fn op_react_replace_view(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
+    render_location: RenderLocation,
     top_level_view: bool,
     container: JsUiWidget,
 ) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children...");
+    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_view...");
 
     // TODO fix validation
     // for new_child in &container.widget_children {
     //     validate_child(&state, &container.widget_type, &new_child.widget_type)?
     // }
 
-    let data = JsUiRequestData::ReplaceContainerChildren {
+    let data = JsUiRequestData::ReplaceView {
+        render_location,
         top_level_view,
         container: from_js_to_intermediate_widget(scope, container)?,
     };
 
-    match make_request(&state, data).context("ReplaceContainerChildren frontend response")? {
+    match make_request(&state, data).context("ReplaceView frontend response")? {
         JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_container_children returned");
+            tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_view returned");
             Ok(())
         }
         value @ _ => panic!("unsupported response type {:?}", value),
@@ -602,13 +659,22 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
 
 async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyProxy<'_>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::ReplaceContainerChildren { top_level_view, container } => {
-            let nothing = dbus_client.replace_container_children(&plugin_id.to_string(), top_level_view, container.into())
+        JsUiRequestData::ReplaceView { render_location, top_level_view, container } => {
+            let nothing = dbus_client.replace_view(&plugin_id.to_string(), render_location, top_level_view, container.into())
                 .await
                 .map(|_| JsUiResponseData::Nothing)
                 .map_err(|err| err.into());
 
             nothing
+        }
+        JsUiRequestData::ClearInlineView => {
+            let nothing = dbus_client.clear_inline_view(&plugin_id.to_string())
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+
         }
     }
 }
@@ -640,7 +706,8 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         }
         IntermediateUiEvent::PluginCommand { command_type } => JsUiEvent::PluginCommand {
             command_type
-        }
+        },
+        IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text }
     }
 }
 
@@ -683,15 +750,23 @@ fn from_js_to_intermediate_properties(
 
 pub struct PluginData {
     plugin_id: PluginId,
+    inline_view_entrypoint_id: Option<String>
 }
 
 impl PluginData {
-    fn new(plugin_id: PluginId) -> Self {
-        Self { plugin_id }
+    fn new(plugin_id: PluginId, inline_view_entrypoint_id: Option<String>) -> Self {
+        Self {
+            plugin_id,
+            inline_view_entrypoint_id
+        }
     }
 
     fn plugin_id(&self) -> PluginId {
         self.plugin_id.clone()
+    }
+
+    fn inline_view_entrypoint_id(&self) -> Option<String> {
+        self.inline_view_entrypoint_id.clone()
     }
 }
 

@@ -6,7 +6,8 @@ interface DenoCore {
     ops: InternalApi
 }
 
-type PluginEvent = ViewEvent | RunCommand | OpenView | PluginCommand
+type PluginEvent = ViewEvent | RunCommand | OpenView | PluginCommand | OpenInlineView
+type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
     type: "ViewEvent"
@@ -20,6 +21,7 @@ type OpenView = {
     frontend: string
     entrypointId: string
 }
+
 type RunCommand = {
     type: "RunCommand"
     entrypointId: string
@@ -28,6 +30,11 @@ type RunCommand = {
 type PluginCommand = {
     type: "PluginCommand"
     commandType: "stop"
+}
+
+type OpenInlineView = {
+    type: "OpenInlineView"
+    text: string
 }
 
 type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined
@@ -55,7 +62,10 @@ interface InternalApi {
 
     op_component_model(): Record<string, Component>;
 
-    op_react_replace_container_children(top_level_view: boolean, container: UiWidget): void;
+    op_inline_view_endpoint_id(): string | null;
+    clear_inline_view(): void;
+
+    op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, container: UiWidget): void;
 }
 
 // component model types

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, isValidElement, ReactNode } from "react";
 
 // @ts-expect-error does typescript support such symbol declarations?
 const denoCore: DenoCore = Deno[Deno.internal].core;
@@ -84,9 +84,9 @@ async function runLoop() {
             }
             case "OpenView": {
                 try {
-                    const view: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
-                    const { renderTopmostView } = await import("gauntlet:renderer");
-                    latestRootUiWidget = renderTopmostView(pluginEvent.frontend, view);
+                    const View: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
+                    const { render } = await import("gauntlet:renderer");
+                    latestRootUiWidget = render(pluginEvent.frontend, "View", <View/>);
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
                 }
@@ -97,6 +97,28 @@ async function runLoop() {
                     await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)
                 } catch (e) {
                     console.error("Error occurred when running a command", pluginEvent.entrypointId, e)
+                }
+                break;
+            }
+            case "OpenInlineView": {
+                const endpoint_id = InternalApi.op_inline_view_endpoint_id();
+
+                if (endpoint_id) {
+                    try {
+                        const View: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpoint_id}`)).default;
+                        const { render } = await import("gauntlet:renderer");
+                        const renderResult = <View text={pluginEvent.text}/>;
+
+                        if (isValidElement(renderResult)) {
+                            InternalApi.op_log_debug("plugin_loop", "Inline view function returned react component, rendering...")
+                            latestRootUiWidget = render("default", "InlineView", renderResult);
+                        } else {
+                            InternalApi.op_log_debug("plugin_loop", `Inline view function returned ${Deno.inspect(renderResult)}, closing view...`)
+                            InternalApi.clear_inline_view()
+                        }
+                    } catch (e) {
+                        console.error("Error occurred when rendering inline view", e)
+                    }
                 }
                 break;
             }

@@ -6,28 +6,33 @@ use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
 use iced::Settings;
-use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
+use iced::widget::{column, container, horizontal_rule, horizontal_space, scrollable, text_input};
 use iced::widget::text_input::focus;
 use iced::window::Position;
 use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
 use zbus::{Connection, InterfaceRef};
+use client_context::ClientContext;
 
-use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand};
+use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand, RenderLocation};
 use common::model::{EntrypointId, PluginId};
 use utils::channel::{channel, RequestReceiver};
 
 use crate::dbus::{DbusClient, DbusServerProxyProxy};
 use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult, SearchResultEntrypointType};
-use crate::ui::plugin_container::{ClientContext, plugin_container};
+use crate::ui::inline_view_container::inline_view_container;
+use crate::ui::view_container::view_container;
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
 use crate::ui::widget::ComponentWidgetEvent;
 
-mod plugin_container;
+mod view_container;
 mod search_list;
 mod widget;
 mod theme;
+mod client_context;
+mod widget_container;
+mod inline_view_container;
 
 pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
@@ -64,6 +69,7 @@ pub enum AppMsg {
     IcedEvent(Event),
     WidgetEvent {
         plugin_id: PluginId,
+        render_location: RenderLocation,
         widget_event: ComponentWidgetEvent,
     },
     Noop,
@@ -99,9 +105,7 @@ impl Application for AppModel {
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let (context_tx, request_rx) = channel::<(PluginId, NativeUiRequestData), NativeUiResponseData>();
 
-        let client_context = Arc::new(StdRwLock::new(
-            ClientContext { containers: Default::default() }
-        ));
+        let client_context = Arc::new(StdRwLock::new(ClientContext::new()));
 
         let (dbus_connection, dbus_server, dbus_client) = futures::executor::block_on(async {
             let path = "/dev/projectgauntlet/Client";
@@ -158,9 +162,6 @@ impl Application for AppModel {
                     entrypoint_id: entrypoint_id.clone(),
                 });
 
-                let mut client_context = self.client_context.write().expect("lock is poisoned");
-                client_context.create_view_container(plugin_id.clone());
-
                 Command::batch([
                     // TODO re-center the window
                     iced::window::resize(Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
@@ -183,15 +184,22 @@ impl Application for AppModel {
                         .await
                         .unwrap()
                         .into_iter()
-                        .map(|search_result| NativeUiSearchResult {
-                            plugin_id: PluginId::from_string(search_result.plugin_id),
-                            plugin_name: search_result.plugin_name,
-                            entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
-                            entrypoint_name: search_result.entrypoint_name,
-                            entrypoint_type: match search_result.entrypoint_type {
+                        .flat_map(|search_result| {
+                            let entrypoint_type = match search_result.entrypoint_type {
                                 DBusEntrypointType::Command => SearchResultEntrypointType::Command,
                                 DBusEntrypointType::View => SearchResultEntrypointType::View,
-                            },
+                                DBusEntrypointType::InlineView => {
+                                    return None
+                                },
+                            };
+
+                            Some(NativeUiSearchResult {
+                                plugin_id: PluginId::from_string(search_result.plugin_id),
+                                plugin_name: search_result.plugin_name,
+                                entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
+                                entrypoint_name: search_result.entrypoint_name,
+                                entrypoint_type,
+                            })
                         })
                         .collect();
 
@@ -236,7 +244,7 @@ impl Application for AppModel {
             }
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
-            AppMsg::WidgetEvent { widget_event, plugin_id } => {
+            AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
                 let dbus_client = self.dbus_client.clone();
                 let client_context = self.client_context.clone();
 
@@ -244,7 +252,7 @@ impl Application for AppModel {
                     let signal_context = dbus_client.signal_context();
                     let future = {
                         let client_context = client_context.read().expect("lock is poisoned");
-                        client_context.handle_event(signal_context, &plugin_id, widget_event)
+                        client_context.handle_event(signal_context, render_location, &plugin_id, widget_event)
                     };
 
                     future.await;
@@ -259,8 +267,6 @@ impl Application for AppModel {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let client_context = self.client_context.clone();
-
         match &self.view_data {
             None => {
                 let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
@@ -287,20 +293,40 @@ impl Application for AppModel {
                     .width(Length::Fill)
                     .into();
 
-                let column: Element<_> = column(vec![
-                    container(input)
-                        .width(Length::Fill)
-                        .padding(Padding::new(10.0))
-                        .into(),
-                    horizontal_rule(1)
-                        .into(),
-                    container(list)
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .padding(Padding::new(5.0))
-                        .into(),
-                ])
+                let list = container(list)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .padding(Padding::new(5.0))
                     .into();
+
+                let input = container(input)
+                    .width(Length::Fill)
+                    .padding(Padding::new(10.0))
+                    .into();
+
+                let separator = horizontal_rule(1)
+                    .into();
+
+                let inline_view_visible = {
+                    let client_context = self.client_context.read().expect("lock is poisoned");
+                    !client_context.get_all_inline_view_containers().is_empty()
+                };
+
+                let column: Element<_> = if inline_view_visible {
+                    column(vec![
+                        input,
+                        separator,
+                        inline_view_container(self.client_context.clone()).into(),
+                        horizontal_rule(1).into(),
+                        list,
+                    ]).into()
+                } else {
+                    column(vec![
+                        input,
+                        separator,
+                        list,
+                    ]).into()
+                };
 
                 let element: Element<_> = container(column)
                     .style(ContainerStyle::Background)
@@ -312,13 +338,8 @@ impl Application for AppModel {
                 element
             }
             Some(ViewData{ plugin_id, entrypoint_id: _, top_level_view: _ }) => {
-                let container_element: Element<ComponentWidgetEvent> = plugin_container(client_context, plugin_id.clone())
+                let container_element: Element<_> = view_container(self.client_context.clone(), plugin_id.to_owned())
                     .into();
-
-                let container_element = container_element.map(|widget_event| AppMsg::WidgetEvent {
-                    plugin_id: plugin_id.to_owned(),
-                    widget_event,
-                });
 
                 let element: Element<_> = container(container_element)
                     .style(ContainerStyle::Background)
@@ -426,12 +447,17 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::ReplaceContainerChildren { top_level_view, container } => {
-                    client_context.replace_container_children(&plugin_id, container);
+                NativeUiRequestData::ReplaceView { render_location, top_level_view, container } => {
+                    client_context.replace_view(render_location, container, &plugin_id);
 
                     app_msg = AppMsg::SetTopLevelView(top_level_view);
 
-                    responder.respond(NativeUiResponseData::ReplaceContainerChildren)
+                    responder.respond(NativeUiResponseData::Nothing)
+                }
+                NativeUiRequestData::ClearInlineView => {
+                    client_context.clear_inline_view(&plugin_id);
+
+                    responder.respond(NativeUiResponseData::Nothing)
                 }
             }
         }

@@ -60,6 +60,7 @@ pub struct DbusEventViewEvent {
 pub enum DBusEntrypointType {
     Command,
     View,
+    InlineView,
 }
 
 pub type DbusUiWidgetId = u32;
@@ -93,4 +94,10 @@ pub fn value_number_to_dbus(value: f64) -> DBusUiPropertyValue {
 
 pub fn value_bool_to_dbus(value: bool) -> DBusUiPropertyValue {
     DBusUiPropertyValue(DBusUiPropertyValueType::Bool, Value::Bool(value.into()).to_owned())
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, Type)]
+pub enum RenderLocation {
+    InlineView,
+    View
 }

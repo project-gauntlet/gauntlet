@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget};
+use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget, RenderLocation};
 use common::model::{EntrypointId, PluginId};
 
 #[derive(Debug, Clone)]
@@ -23,12 +23,14 @@ pub enum SearchResultEntrypointType {
 
 #[derive(Debug)]
 pub enum NativeUiResponseData {
-    ReplaceContainerChildren,
+    Nothing,
 }
 
 #[derive(Debug)]
 pub enum NativeUiRequestData {
-    ReplaceContainerChildren {
+    ClearInlineView,
+    ReplaceView {
+        render_location: RenderLocation,
         top_level_view: bool,
         container: NativeUiWidget,
     },

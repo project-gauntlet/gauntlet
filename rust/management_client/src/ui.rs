@@ -11,7 +11,7 @@ use zbus::Connection;
 use common::dbus::DBusEntrypointType;
 use common::model::{EntrypointId, PluginId};
 
-use crate::dbus::{DbusManagementServerProxyProxy, RemotePluginDownloadFinishedSignalStream};
+use crate::dbus::{DbusServerProxyProxy, RemotePluginDownloadFinishedSignalStream};
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -28,7 +28,7 @@ pub fn run() {
 
 struct ManagementAppModel {
     dbus_connection: Connection,
-    dbus_server: DbusManagementServerProxyProxy<'static>,
+    dbus_server: DbusServerProxyProxy<'static>,
     columns: Vec<Column>,
     plugins: HashMap<PluginId, Plugin>,
     selected_item: SelectedItem,
@@ -106,6 +106,7 @@ struct Entrypoint {
 pub enum EntrypointType {
     Command,
     View,
+    InlineView,
 }
 
 impl Application for ManagementAppModel {
@@ -120,9 +121,9 @@ impl Application for ManagementAppModel {
                 .build()
                 .await?;
 
-            let dbus_server = DbusManagementServerProxyProxy::new(&dbus_connection).await?;
+            let dbus_server = DbusServerProxyProxy::new(&dbus_connection).await?;
 
-            Ok::<(Connection, DbusManagementServerProxyProxy<'_>), anyhow::Error>((dbus_connection, dbus_server))
+            Ok::<(Connection, DbusServerProxyProxy<'_>), anyhow::Error>((dbus_connection, dbus_server))
         }).unwrap();
 
         let dbus_server_clone = dbus_server.clone();
@@ -554,7 +555,8 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                     Row::Entrypoint { entrypoint, .. } => {
                         let entrypoint_type = match entrypoint.entrypoint_type {
                             EntrypointType::Command => "Command",
-                            EntrypointType::View => "View"
+                            EntrypointType::View => "View",
+                            EntrypointType::InlineView => "Inline View"
                         };
 
                         container(text(entrypoint_type))
@@ -637,7 +639,7 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
 }
 
 
-async fn reload_plugins(dbus_server: DbusManagementServerProxyProxy<'static>) -> HashMap<PluginId, Plugin> {
+async fn reload_plugins(dbus_server: DbusServerProxyProxy<'static>) -> HashMap<PluginId, Plugin> {
     let plugins = dbus_server.plugins().await.unwrap();
 
     plugins.into_iter()
@@ -652,7 +654,8 @@ async fn reload_plugins(dbus_server: DbusManagementServerProxyProxy<'static>) ->
                         entrypoint_name: entrypoint.entrypoint_name.clone(),
                         entrypoint_type: match entrypoint.entrypoint_type {
                             DBusEntrypointType::Command => EntrypointType::Command,
-                            DBusEntrypointType::View => EntrypointType::View
+                            DBusEntrypointType::View => EntrypointType::View,
+                            DBusEntrypointType::InlineView => EntrypointType::InlineView
                         }
                     };
                     (id, entrypoint)

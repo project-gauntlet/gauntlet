@@ -563,10 +563,28 @@ pub fn create_component_model() -> Vec<Component> {
         ]),
     );
 
+    let inline_separator_component = component(
+        "inline_separator",
+        "InlineSeparator",
+        [],
+        children_none(),
+    );
+
+    let inline_component = component(
+        "inline",
+        "Inline",
+        [],
+        children_members([
+            member("Left", &content_component),
+            member("Separator", &inline_separator_component),
+            member("Right", &content_component),
+            member("Center", &content_component),
+        ]),
+    );
 
     let text_part = text_part();
 
-    let root = root(&[&detail_component, &form_component]);
+    let root = root(&[&detail_component, &form_component, &inline_component]);
 
     // Detail
     // Detail.Content
@@ -607,6 +625,12 @@ pub fn create_component_model() -> Vec<Component> {
     // Form.Separator
     // Form.FilePicker
     // Form.Description
+
+    // Inline
+    // Inline.Left
+    // Inline.Separator
+    // Inline.Right
+    // Inline.Center
 
     // List
     // List.Dropdown
@@ -666,6 +690,9 @@ pub fn create_component_model() -> Vec<Component> {
         // multi_select_component,
         separator_component,
         form_component,
+
+        inline_separator_component,
+        inline_component,
 
         root,
     ]

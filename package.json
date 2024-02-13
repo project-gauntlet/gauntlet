@@ -5,6 +5,13 @@
     "build": "npm run build --workspaces --if-present"
   },
   "workspaces": [
-    "js/*"
+    "js/typings",
+    "js/build",
+    "js/api_build",
+    "js/deno",
+    "js/api",
+    "js/react",
+    "js/core",
+    "js/react_renderer"
   ]
 }

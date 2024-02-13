@@ -8,8 +8,8 @@ use anyhow::{anyhow, Context};
 use serde::Deserialize;
 
 use common::model::PluginId;
+use crate::dbus::DbusServer;
 
-use crate::dbus::DbusManagementServer;
 use crate::model::{entrypoint_to_str, PluginEntrypointType};
 use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, SavePlugin, SavePluginEntrypoint};
 
@@ -42,7 +42,7 @@ impl PluginLoader {
                 let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
                     .await?;
 
-                DbusManagementServer::remote_plugin_download_finished_signal(&signal_context, &plugin_id.to_string())
+                DbusServer::remote_plugin_download_finished_signal(&signal_context, &plugin_id.to_string())
                     .await?;
 
                 data_db_repository.save_plugin(SavePlugin {
@@ -155,6 +155,7 @@ impl PluginLoader {
                 entrypoint_type: entrypoint_to_str(match entrypoint.entrypoint_type {
                     PluginConfigEntrypointTypes::Command => PluginEntrypointType::Command,
                     PluginConfigEntrypointTypes::View => PluginEntrypointType::View,
+                    PluginConfigEntrypointTypes::InlineView => PluginEntrypointType::InlineView
                 }).to_owned()
             })
             .collect();
@@ -216,6 +217,8 @@ pub enum PluginConfigEntrypointTypes {
     Command,
     #[serde(rename = "view")]
     View,
+    #[serde(rename = "inline-view")]
+    InlineView,
 }
 
 #[derive(Debug, Deserialize)]
