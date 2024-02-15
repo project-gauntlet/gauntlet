@@ -1,8 +1,8 @@
 import { Content, Inline } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
 
-export default function InlineView(props: { text: string }): ReactNode | undefined {
-    if (!props.text.startsWith("inline")) {
+export default function InlineView(text: string): ReactNode | undefined {
+    if (!text.startsWith("inline")) {
         return undefined
     }
 
@@ -10,7 +10,7 @@ export default function InlineView(props: { text: string }): ReactNode | undefin
         <Inline>
             <Inline.Left>
                 <Content.Paragraph>
-                    Testing inline view left {props.text}
+                    Testing inline view left {text}
                 </Content.Paragraph>
             </Inline.Left>
             <Inline.Separator/>

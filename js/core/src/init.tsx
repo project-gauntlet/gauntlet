@@ -105,9 +105,9 @@ async function runLoop() {
 
                 if (endpoint_id) {
                     try {
-                        const View: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpoint_id}`)).default;
+                        const handler: ( text: string ) => ReactNode | null = (await import(`gauntlet:entrypoint?${endpoint_id}`)).default;
                         const { render } = await import("gauntlet:renderer");
-                        const renderResult = <View text={pluginEvent.text}/>;
+                        const renderResult = handler(pluginEvent.text);
 
                         if (isValidElement(renderResult)) {
                             InternalApi.op_log_debug("plugin_loop", "Inline view function returned react component, rendering...")
