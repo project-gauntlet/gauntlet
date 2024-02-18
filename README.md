@@ -1,5 +1,7 @@
 # Gauntlet
 
+![Discord](https://discord.com/api/guilds/1205606511603359785/widget.png?style=shield)
+
 <img align="right" width="100" height="100" src="docs/logo.png">
 
 ~~Web-first~~ (not yet) ~~cross-platform~~ (not yet) application launcher with React-based plugins.
