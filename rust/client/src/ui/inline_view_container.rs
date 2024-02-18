@@ -7,7 +7,7 @@ use common::model::RenderLocation;
 
 use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;
-use crate::ui::theme::{Element, GauntletRenderer};
+use crate::ui::theme::{Element, GauntletTheme};
 use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent};
 
 pub struct InlineViewContainer {
@@ -32,7 +32,7 @@ pub enum InlineViewContainerEvent {
     }
 }
 
-impl Component<AppMsg, GauntletRenderer> for InlineViewContainer {
+impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
     type State = PluginContainerState;
     type Event = InlineViewContainerEvent;
 

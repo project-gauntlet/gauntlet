@@ -1,10 +1,11 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::time::Duration;
 
-use futures::stream::StreamExt;
-use iced::{Alignment, Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, theme, Theme, time, window};
+use iced::{Alignment, Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, Theme, time, window, color};
 use iced::theme::Palette;
-use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text, text_input, vertical_rule};
+use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, Space, text, text_input, vertical_rule};
 use iced_aw::graphics::icons;
 use iced_table::table;
 use tonic::Request;
@@ -13,16 +14,11 @@ use common::model::{EntrypointId, PluginId};
 use common::rpc::{BackendClient, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 
-// TODO
-// look at TODOes
-// try to remove most of rpc imports
-// remove cli package - later
-
 pub fn run() {
     ManagementAppModel::run(Settings {
         id: None,
         window: window::Settings {
-            size: (900, 600),
+            size: Size::new(900.0, 600.0),
             resizable: false,
             ..Default::default()
         },
@@ -34,7 +30,8 @@ pub fn run() {
 struct ManagementAppModel {
     backend_client: BackendClient,
     columns: Vec<Column>,
-    plugins: HashMap<PluginId, Plugin>,
+    rows: Vec<Row>,
+    plugins: Rc<RefCell<HashMap<PluginId, Plugin>>>,
     selected_item: SelectedItem,
     header: scrollable::Id,
     body: scrollable::Id,
@@ -134,14 +131,15 @@ impl Application for ManagementAppModel {
                     Column::new(ColumnKind::Type),
                     Column::new(ColumnKind::EnableToggle),
                 ],
-                plugins: HashMap::new(),
+                rows: vec![],
+                plugins: Rc::new(RefCell::new(HashMap::new())),
                 selected_item: SelectedItem::None,
                 header: scrollable::Id::unique(),
                 body: scrollable::Id::unique(),
                 running_downloads: HashSet::new(),
             },
             Command::batch([
-                font::load(icons::ICON_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
+                font::load(icons::BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
                 Command::perform(
                     reload_plugins(backend_client),
                     ManagementAppMsg::PluginsReloaded,
@@ -164,12 +162,60 @@ impl Application for ManagementAppModel {
                 Command::none()
             }
             ManagementAppMsg::ToggleShowEntrypoints { plugin_id } => {
-                let plugin = self.plugins.get_mut(&plugin_id).unwrap();
+                let mut plugins = self.plugins.borrow_mut();
+                let plugin = plugins.get_mut(&plugin_id).unwrap();
                 plugin.show_entrypoints = !plugin.show_entrypoints;
                 Command::none()
             }
             ManagementAppMsg::PluginsReloaded(plugins) => {
-                self.plugins = plugins;
+                let plugins = Rc::new(RefCell::new(plugins));
+                self.plugins = plugins.clone();
+
+                let plugin_refs = plugins.borrow();
+
+                let mut plugin_refs: Vec<_> = plugin_refs
+                    .iter()
+                    .map(|(_, plugin)| plugin)
+                    .collect();
+
+                plugin_refs.sort_by_key(|plugin| &plugin.plugin_name);
+
+                self.rows = plugin_refs
+                    .iter()
+                    .flat_map(|plugin| {
+                        let mut result = vec![];
+
+                        result.push(Row::Plugin {
+                            plugins: plugins.clone(),
+                            plugin_id: plugin.plugin_id.clone()
+                        });
+
+                        if plugin.show_entrypoints {
+                            let mut entrypoints: Vec<_> = plugin.entrypoints
+                                .iter()
+                                .map(|(_, entrypoint)| entrypoint)
+                                .collect();
+
+                            entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
+
+                            let mut entrypoints: Vec<_> = entrypoints
+                                .iter()
+                                .map(|entrypoint| {
+                                    Row::Entrypoint {
+                                        plugins: plugins.clone(),
+                                        plugin_id: plugin.plugin_id.clone(),
+                                        entrypoint_id: entrypoint.entrypoint_id.clone(),
+                                    }
+                                })
+                                .collect();
+
+                            result.append(&mut entrypoints);
+                        }
+
+                        result
+                    })
+                    .collect();
+
                 Command::none()
             }
             ManagementAppMsg::SelectItem(selected_item) => {
@@ -278,49 +324,8 @@ impl Application for ManagementAppModel {
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message, Renderer<Self::Theme>> {
-        let mut plugins: Vec<_> = self.plugins
-            .iter()
-            .map(|(_, plugin)| plugin)
-            .collect();
-
-        plugins.sort_by_key(|plugin| &plugin.plugin_name);
-
-        let rows: Vec<_> = plugins
-            .iter()
-            .flat_map(|plugin| {
-                let mut result = vec![];
-
-                result.push(Row::Plugin {
-                    plugin
-                });
-
-                if plugin.show_entrypoints {
-                    let mut entrypoints: Vec<_> = plugin.entrypoints
-                        .iter()
-                        .map(|(_, entrypoint)| entrypoint)
-                        .collect();
-
-                    entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
-
-                    let mut entrypoints: Vec<_> = entrypoints
-                        .iter()
-                        .map(|entrypoint| {
-                            Row::Entrypoint {
-                                plugin,
-                                entrypoint,
-                            }
-                        })
-                        .collect();
-
-                    result.append(&mut entrypoints);
-                }
-
-                result
-            })
-            .collect();
-
-        let table: Element<_> = table(self.header.clone(), self.body.clone(), &self.columns, &rows, ManagementAppMsg::TableSyncHeader)
+    fn view(&self) -> Element<'_, Self::Message, Self::Theme> {
+        let table: Element<_> = table(self.header.clone(), self.body.clone(), &self.columns, &self.rows, ManagementAppMsg::TableSyncHeader)
             .into();
 
         let table: Element<_> = container(table)
@@ -342,7 +347,8 @@ impl Application for ManagementAppModel {
                     .into()
             }
             SelectedItem::Plugin { plugin_id } => {
-                let plugin = self.plugins.get(plugin_id).unwrap();
+                let plugins = self.plugins.borrow();
+                let plugin = plugins.get(&plugin_id).unwrap();
 
                 let name = container(text(&plugin.plugin_name))
                     .padding(Padding::new(10.0))
@@ -353,7 +359,8 @@ impl Application for ManagementAppModel {
                 ]).into()
             }
             SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
-                let plugin = self.plugins.get(plugin_id).unwrap();
+                let plugins = self.plugins.borrow();
+                let plugin = plugins.get(&plugin_id).unwrap();
                 let entrypoint = plugin.entrypoints.get(entrypoint_id).unwrap();
 
                 let name = container(text(&entrypoint.entrypoint_name))
@@ -399,8 +406,8 @@ impl Application for ManagementAppModel {
         let top_button_text = if plugin_url.is_some() {
             text("Download plugin")
         } else {
-            text(icons::Icon::Plus)
-                .font(icons::ICON_FONT)
+            text(icons::BootstrapIcon::Plus)
+                .font(icons::BOOTSTRAP_FONT)
         };
 
         let top_button_text_container: Element<_> = container(top_button_text)
@@ -420,7 +427,7 @@ impl Application for ManagementAppModel {
             .into();
 
         let progress_bar_text: Element<_> = if self.running_downloads.is_empty() {
-            horizontal_space(Length::Fill)
+            horizontal_space()
                 .into()
         } else {
             let multiple = if self.running_downloads.len() > 1 { "s" } else { "" };
@@ -449,7 +456,7 @@ impl Application for ManagementAppModel {
     }
 
     fn theme(&self) -> Self::Theme {
-        Theme::custom(Palette {
+        Theme::custom("gauntlet".to_string(), Palette {
             background: iced::color!(0x2C323A),
             text: iced::color!(0xCAC2B6),
             primary: iced::color!(0xC79F60),
@@ -460,13 +467,15 @@ impl Application for ManagementAppModel {
 }
 
 
-enum Row<'a> {
+enum Row {
     Plugin {
-        plugin: &'a Plugin
+        plugins: Rc<RefCell<HashMap<PluginId, Plugin>>>,
+        plugin_id: PluginId
     },
     Entrypoint {
-        plugin: &'a Plugin,
-        entrypoint: &'a Entrypoint,
+        plugins: Rc<RefCell<HashMap<PluginId, Plugin>>>,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
     },
 }
 
@@ -489,13 +498,13 @@ impl Column {
     }
 }
 
-impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
-    type Row = Row<'b>;
+impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
+    type Row = Row;
 
-    fn header(&'b self, _col_index: usize) -> Element<'a, ManagementAppMsg> {
+    fn header(&'a self, _col_index: usize) -> Element<'a, ManagementAppMsg> {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => {
-                horizontal_space(Length::Fill)
+                horizontal_space()
                     .into()
             }
             ColumnKind::Name => {
@@ -517,19 +526,22 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
     }
 
     fn cell(
-        &'b self,
+        &'a self,
         _col_index: usize,
         _row_index: usize,
-        row_entry: &'b Self::Row,
+        row_entry: &'a Self::Row,
     ) -> Element<'a, ManagementAppMsg> {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => {
                 match row_entry {
-                    Row::Plugin { plugin } => {
-                        let icon = if plugin.show_entrypoints { icons::Icon::CaretDown } else { icons::Icon::CaretRight };
+                    Row::Plugin { plugins, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+
+                        let icon = if plugin.show_entrypoints { icons::BootstrapIcon::CaretDown } else { icons::BootstrapIcon::CaretRight };
 
                         let icon: Element<_> = text(icon)
-                            .font(icons::ICON_FONT)
+                            .font(icons::BOOTSTRAP_FONT)
                             .into();
 
                         button(icon)
@@ -538,24 +550,31 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                             .into()
                     }
                     Row::Entrypoint { .. } => {
-                        horizontal_space(Length::Fill)
+                        horizontal_space()
                             .into()
                     }
                 }
             }
             ColumnKind::Name => {
                 let content: Element<_> = match row_entry {
-                    Row::Plugin { plugin } => {
+                    Row::Plugin { plugins, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+
                         container(text(&plugin.plugin_name))
                             .center_y()
                             .into()
                     }
-                    Row::Entrypoint { entrypoint, .. } => {
+                    Row::Entrypoint { plugins, plugin_id, entrypoint_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+                        let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
+
                         let text: Element<_> = text(&entrypoint.entrypoint_name)
                             .into();
 
                         let text: Element<_> = row(vec![
-                            horizontal_space(Length::Fixed(30.0)).into(),
+                            Space::with_width(Length::Fixed(30.0)).into(),
                             text,
                         ]).into();
 
@@ -566,12 +585,23 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                 };
 
                 let msg = match &row_entry {
-                    Row::Plugin { plugin } => SelectedItem::Plugin {
-                        plugin_id: plugin.plugin_id.clone()
+                    Row::Plugin { plugins, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+
+                        SelectedItem::Plugin {
+                            plugin_id: plugin.plugin_id.clone()
+                        }
                     },
-                    Row::Entrypoint { entrypoint, plugin } => SelectedItem::Entrypoint {
-                        plugin_id: plugin.plugin_id.clone(),
-                        entrypoint_id: entrypoint.entrypoint_id.clone(),
+                    Row::Entrypoint { plugins, entrypoint_id, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+                        let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
+
+                        SelectedItem::Entrypoint {
+                            plugin_id: plugin.plugin_id.clone(),
+                            entrypoint_id: entrypoint.entrypoint_id.clone(),
+                        }
                     }
                 };
 
@@ -584,10 +614,14 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
             ColumnKind::Type => {
                 let content: Element<_> = match row_entry {
                     Row::Plugin { .. } => {
-                        horizontal_space(Length::Fill)
+                        horizontal_space()
                             .into()
                     }
-                    Row::Entrypoint { entrypoint, .. } => {
+                    Row::Entrypoint { plugins, plugin_id, entrypoint_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+                        let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
+
                         let entrypoint_type = match entrypoint.entrypoint_type {
                             EntrypointType::Command => "Command",
                             EntrypointType::View => "View",
@@ -601,12 +635,23 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
                 };
 
                 let msg = match &row_entry {
-                    Row::Plugin { plugin } => SelectedItem::Plugin {
-                        plugin_id: plugin.plugin_id.clone()
+                    Row::Plugin { plugins, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+
+                        SelectedItem::Plugin {
+                            plugin_id: plugin.plugin_id.clone()
+                        }
                     },
-                    Row::Entrypoint { entrypoint, plugin } => SelectedItem::Entrypoint {
-                        plugin_id: plugin.plugin_id.clone(),
-                        entrypoint_id: entrypoint.entrypoint_id.clone(),
+                    Row::Entrypoint { plugins, entrypoint_id, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+                        let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
+
+                        SelectedItem::Entrypoint {
+                            plugin_id: plugin.plugin_id.clone(),
+                            entrypoint_id: entrypoint.entrypoint_id.clone(),
+                        }
                     }
                 };
 
@@ -618,14 +663,21 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
             }
             ColumnKind::EnableToggle => {
                 let (enabled, plugin_id, entrypoint_id) = match &row_entry {
-                    Row::Plugin { plugin } => {
+                    Row::Plugin { plugins, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+
                         (
                             plugin.enabled,
                             plugin.plugin_id.clone(),
                             None
                         )
                     }
-                    Row::Entrypoint { entrypoint, plugin } => {
+                    Row::Entrypoint { plugins, entrypoint_id, plugin_id } => {
+                        let plugins = plugins.borrow();
+                        let plugin = plugins.get(&plugin_id).unwrap();
+                        let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
+
                         (
                             entrypoint.enabled,
                             plugin.plugin_id.clone(),
@@ -636,20 +688,22 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
 
 
                 // TODO disable if plugin is disabled but preserve current state https://github.com/iced-rs/iced/pull/2109
-                let checkbox: Element<_> = checkbox("", enabled, move |enabled| {
-                    let enabled_item = match &entrypoint_id {
-                        None => EnabledItem::Plugin {
-                            enabled,
-                            plugin_id: plugin_id.clone(),
-                        },
-                        Some(entrypoint_id) => EnabledItem::Entrypoint {
-                            enabled,
-                            plugin_id: plugin_id.clone(),
-                            entrypoint_id: entrypoint_id.clone(),
-                        }
-                    };
-                    ManagementAppMsg::EnabledToggleItem(enabled_item)
-                }).into();
+                let checkbox: Element<_> = checkbox("", enabled)
+                    .on_toggle(move |enabled| {
+                        let enabled_item = match &entrypoint_id {
+                            None => EnabledItem::Plugin {
+                                enabled,
+                                plugin_id: plugin_id.clone(),
+                            },
+                            Some(entrypoint_id) => EnabledItem::Entrypoint {
+                                enabled,
+                                plugin_id: plugin_id.clone(),
+                                entrypoint_id: entrypoint_id.clone(),
+                            }
+                        };
+                        ManagementAppMsg::EnabledToggleItem(enabled_item)
+                    })
+                    .into();
 
                 container(checkbox)
                     .width(Length::Fill)

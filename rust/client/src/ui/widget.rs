@@ -5,14 +5,13 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use iced::{Font, Length, Padding};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, vertical_space};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
 use iced::widget::tooltip::Position;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element;
 use iced_aw::floating_element::Offset;
 use iced_aw::graphics::icons;
 use iced_aw::helpers::{date_picker, wrap_horizontal};
-use common::rpc::RpcEventViewEvent;
 
 use common::model::PluginId;
 
@@ -276,6 +275,9 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = if href.is_empty() {
                     link
                 } else {
+                    let href: Element<_> = text(href)
+                        .into();
+
                     tooltip(link, href, Position::Top)
                         .style(ContainerStyle::Background)
                         .into()
@@ -335,6 +337,9 @@ impl ComponentWidgetWrapper {
                 if href.is_empty() {
                     content
                 } else {
+                    let href: Element<_> = text(href)
+                        .into();
+
                     tooltip(content, href, Position::Top)
                         .style(ContainerStyle::Background)
                         .into()
@@ -438,7 +443,7 @@ impl ComponentWidgetWrapper {
                             .into()
                     }
                     (None, Some(metadata_element)) => {
-                        let content_element = vertical_space(Length::Fill)
+                        let content_element = vertical_space()
                             .into();
 
                         row(vec![content_element, separator, metadata_element])
@@ -450,7 +455,7 @@ impl ComponentWidgetWrapper {
                     }
                 };
 
-                let space = horizontal_space(Length::FillPortion(3))
+                let space = Space::with_width(Length::FillPortion(3))
                     .into();
 
                 let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
@@ -471,7 +476,7 @@ impl ComponentWidgetWrapper {
                     let bottom_panel: Element<_> = row(vec![space])
                         .into();
 
-                    (true, vertical_space(1).into(), bottom_panel)
+                    (true, Space::with_height(1).into(), bottom_panel)
                 };
 
                 let top_panel = create_top_panel();
@@ -521,7 +526,7 @@ impl ComponentWidgetWrapper {
                 };
 
                 text_input("", state_value)
-                    .password()
+                    .secure(true)
                     .on_input(move |value| ComponentWidgetEvent::OnChangePasswordField { widget_id, value })
                     .style(TextInputStyle::Form)
                     .into()
@@ -531,7 +536,8 @@ impl ComponentWidgetWrapper {
                     panic!("unexpected state kind {:?}", state)
                 };
 
-                checkbox("", state_value.to_owned(), move|value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
+                checkbox("", state_value.to_owned())
+                    .on_toggle(move |value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
                     .into()
             }
             ComponentWidget::DatePicker { .. } => {
@@ -624,7 +630,7 @@ impl ComponentWidgetWrapper {
 
                                 let before_or_label: Element<_> = match label {
                                     None => {
-                                        horizontal_space(Length::FillPortion(2))
+                                        Space::with_width(Length::FillPortion(2))
                                             .into()
                                     }
                                     Some(label) => {
@@ -644,7 +650,7 @@ impl ComponentWidgetWrapper {
                                     .width(Length::FillPortion(3))
                                     .into();
 
-                                let after = horizontal_space(Length::FillPortion(2))
+                                let after = Space::with_width(Length::FillPortion(2))
                                     .into();
 
                                 let content = vec![
@@ -736,8 +742,8 @@ impl ComponentWidgetWrapper {
 }
 
 fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
-    let icon = text(icons::Icon::ArrowLeft)
-        .font(icons::ICON_FONT);
+    let icon = text(icons::BootstrapIcon::ArrowLeft)
+        .font(icons::BOOTSTRAP_FONT);
 
     let back_button: Element<_> = button(icon)
         .padding(Padding::from([3.0, 5.0]))
@@ -745,7 +751,7 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
         .on_press(ComponentWidgetEvent::PreviousView)
         .into();
 
-    let space = horizontal_space(Length::FillPortion(3))
+    let space = Space::with_width(Length::FillPortion(3))
         .into();
 
     let top_panel: Element<_> = row(vec![back_button, space])

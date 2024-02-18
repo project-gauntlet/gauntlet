@@ -1,9 +1,10 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Application, Command, Event, executor, font, futures, keyboard, Length, Padding, Size, Subscription, subscription};
+use iced::{Application, Command, Event, event, executor, font, futures, keyboard, Length, Padding, Size, Subscription, subscription, window};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
-use iced::keyboard::KeyCode;
+use iced::keyboard::Key;
+use iced::keyboard::key::Named;
 use iced::Settings;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
@@ -77,16 +78,16 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
 }
 
-const WINDOW_WIDTH: u32 = 650;
-const WINDOW_HEIGHT: u32 = 400;
-const SUB_VIEW_WINDOW_WIDTH: u32 = 850;
-const SUB_VIEW_WINDOW_HEIGHT: u32 = 500;
+const WINDOW_WIDTH: f32 = 650.0;
+const WINDOW_HEIGHT: f32 = 400.0;
+const SUB_VIEW_WINDOW_WIDTH: f32 = 850.0;
+const SUB_VIEW_WINDOW_HEIGHT: f32 = 500.0;
 
 pub fn run() {
     AppModel::run(Settings {
         id: None,
         window: iced::window::Settings {
-            size: (WINDOW_WIDTH, WINDOW_HEIGHT),
+            size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
             position: Position::Centered,
             resizable: false,
             decorations: false,
@@ -137,7 +138,7 @@ impl Application for AppModel {
             },
             Command::batch([
                 Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
-                font::load(icons::ICON_FONT_BYTES).map(AppMsg::FontLoaded),
+                font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
                 focus(search_field_id)
             ])
         )
@@ -158,14 +159,14 @@ impl Application for AppModel {
 
                 Command::batch([
                     // TODO re-center the window
-                    iced::window::resize(Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                    iced::window::resize(window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
                     self.open_view(plugin_id, entrypoint_id)
                 ])
             }
             AppMsg::RunCommand { plugin_id,  entrypoint_id } => {
                 Command::batch([
                     self.run_command(plugin_id, entrypoint_id),
-                    iced::window::close(),
+                    iced::window::close(window::Id::MAIN),
                 ])
             }
             AppMsg::PromptChanged(new_prompt) => {
@@ -225,18 +226,18 @@ impl Application for AppModel {
             }
             AppMsg::IcedEvent(Event::Keyboard(event)) => {
                 match event {
-                    keyboard::Event::KeyPressed { key_code, .. } => {
-                        match key_code {
-                            KeyCode::Up => iced::widget::focus_previous(),
-                            KeyCode::Down => iced::widget::focus_next(),
-                            KeyCode::Escape => self.previous_view(),
+                    keyboard::Event::KeyPressed { key, .. } => {
+                        match key {
+                            Key::Named(Named::ArrowUp) => iced::widget::focus_previous(),
+                            Key::Named(Named::ArrowDown) => iced::widget::focus_next(),
+                            Key::Named(Named::Escape) => self.previous_view(),
                             _ => Command::none()
                         }
                     }
                     _ => Command::none()
                 }
             }
-            AppMsg::IcedEvent(Event::Window(iced::window::Event::Unfocused)) => {
+            AppMsg::IcedEvent(Event::Window(_, iced::window::Event::Unfocused)) => {
                 // for some reason Unfocused fires right at the application start
                 // and second time on actual window unfocus
                 if self.waiting_for_next_unfocus {
@@ -394,7 +395,7 @@ impl Application for AppModel {
         struct RequestLoop;
 
         Subscription::batch([
-            subscription::events().map(AppMsg::IcedEvent),
+            event::listen().map(AppMsg::IcedEvent),
             subscription::channel(
                 std::any::TypeId::of::<RequestLoop>(),
                 100,
@@ -412,13 +413,13 @@ impl AppModel {
     fn previous_view(&mut self) -> Command<AppMsg> {
         match &self.view_data {
             None => {
-                iced::window::close()
+                iced::window::close(window::Id::MAIN)
             }
             Some(ViewData { top_level_view: true, .. }) => {
                 self.view_data.take();
 
                 // TODO re-center the window
-                iced::window::resize(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+                iced::window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
             }
             Some(ViewData { top_level_view: false, plugin_id, entrypoint_id }) => {
                 self.open_view(plugin_id.clone(), entrypoint_id.clone())

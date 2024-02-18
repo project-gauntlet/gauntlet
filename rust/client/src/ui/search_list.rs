@@ -9,7 +9,7 @@ use iced::widget::text;
 use common::model::{EntrypointId, PluginId};
 
 use crate::model::{NativeUiSearchResult, SearchResultEntrypointType};
-use crate::ui::theme::{ButtonStyle, Element, GauntletRenderer, TextStyle};
+use crate::ui::theme::{ButtonStyle, Element, GauntletTheme, TextStyle};
 
 pub struct SearchList<Message> {
     on_open_view: Box<dyn Fn(OpenViewEvent) -> Message>,
@@ -61,7 +61,7 @@ impl<Message> SearchList<Message> {
     }
 }
 
-impl<Message> Component<Message, GauntletRenderer> for SearchList<Message> {
+impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
     type State = ();
     type Event = Event;
 

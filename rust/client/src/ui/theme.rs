@@ -1,12 +1,10 @@
-use iced::{application, Background, Color, overlay, Renderer, Theme};
+use iced::{application, Background, Border, Color, color, overlay, Theme};
 use iced::theme::{Palette, palette};
 use iced::widget::{button, checkbox, container, pick_list, rule, scrollable, text, text_input};
 use iced_aw::date_picker::Appearance;
 use iced_aw::style::date_picker;
 
-pub type GauntletRenderer = Renderer<GauntletTheme>;
-
-pub type Element<'a, Message> = iced::Element<'a, Message, GauntletRenderer>;
+pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
 #[derive(Default)]
 pub struct GauntletTheme {
@@ -16,7 +14,7 @@ pub struct GauntletTheme {
 impl GauntletTheme {
     pub fn new() -> Self {
         Self {
-            theme: Theme::custom(Palette {
+            theme: Theme::custom("gauntlet".to_string(), Palette {
                 background: iced::color!(0x2C323A),
                 text: iced::color!(0xCAC2B6),
                 primary: iced::color!(0xC79F60),
@@ -68,9 +66,11 @@ impl text_input::StyleSheet for GauntletTheme {
 
         text_input::Appearance {
             background: palette.background.base.color.into(),
-            border_radius: 2.0.into(),
-            border_width: 1.0,
-            border_color,
+            border: Border {
+                radius: 2.0.into(),
+                width: 1.0,
+                color: border_color,
+            },
             icon_color: palette.background.weak.text,
         }
     }
@@ -85,9 +85,11 @@ impl text_input::StyleSheet for GauntletTheme {
 
         text_input::Appearance {
             background: palette.background.base.color.into(),
-            border_radius: 2.0.into(),
-            border_width: 1.0,
-            border_color,
+            border: Border {
+                radius: 2.0.into(),
+                width: 1.0,
+                color: border_color,
+            },
             icon_color: palette.background.weak.text,
         }
     }
@@ -119,9 +121,11 @@ impl text_input::StyleSheet for GauntletTheme {
 
         text_input::Appearance {
             background: palette.background.base.color.into(),
-            border_radius: 2.0.into(),
-            border_width: 1.0,
-            border_color: Color::TRANSPARENT,
+            border: Border {
+                radius: 2.0.into(),
+                width: 1.0,
+                color: Color::TRANSPARENT,
+            },
             icon_color: palette.background.weak.text,
         }
     }
@@ -131,9 +135,11 @@ impl text_input::StyleSheet for GauntletTheme {
 
         text_input::Appearance {
             background: palette.background.weak.color.into(),
-            border_radius: 2.0.into(),
-            border_width: 1.0,
-            border_color: Color::TRANSPARENT,
+            border: Border {
+                radius: 2.0.into(),
+                width: 1.0,
+                color: Color::TRANSPARENT,
+            },
             icon_color: palette.background.strong.color,
         }
     }
@@ -142,38 +148,55 @@ impl text_input::StyleSheet for GauntletTheme {
 impl scrollable::StyleSheet for GauntletTheme {
     type Style = ();
 
-    fn active(&self, _: &Self::Style) -> scrollable::Scrollbar {
+    fn active(&self, _: &Self::Style) -> scrollable::Appearance {
         let palette = self.extended_palette();
 
-        scrollable::Scrollbar {
-            background: Some(palette.background.weak.color.into()),
-            border_radius: 2.0.into(),
-            border_width: 0.0,
-            border_color: Color::TRANSPARENT,
-            scroller: scrollable::Scroller {
-                color: palette.background.strong.color,
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
+        scrollable::Appearance {
+            container: Default::default(),
+            scrollbar: scrollable::Scrollbar {
+                background: Some(palette.background.weak.color.into()),
+                border: Border {
+                    radius: 2.0.into(),
+                    width: 0.0,
+                    color: Color::TRANSPARENT,
+                },
+                scroller: scrollable::Scroller {
+                    color: palette.background.strong.color,
+                    border: Border {
+                        radius: 2.0.into(),
+                        width: 0.0,
+                        color: Color::TRANSPARENT,
+                    },
+                },
             },
+            gap: None,
         }
     }
 
-    fn hovered(&self, _: &Self::Style, is_mouse_over_scrollbar: bool) -> scrollable::Scrollbar {
+    fn hovered(&self, _: &Self::Style, is_mouse_over_scrollbar: bool) -> scrollable::Appearance {
         if is_mouse_over_scrollbar {
             let palette = self.extended_palette();
 
-            scrollable::Scrollbar {
-                background: Some(palette.background.weak.color.into()),
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-                scroller: scrollable::Scroller {
-                    color: palette.primary.strong.color,
-                    border_radius: 2.0.into(),
-                    border_width: 0.0,
-                    border_color: Color::TRANSPARENT,
-                },
+            scrollable::Appearance {
+                container: Default::default(),
+                scrollbar: scrollable::Scrollbar {
+                    background: Some(palette.background.weak.color.into()),
+                    border: Border {
+                        radius: 2.0.into(),
+                        width: 0.0,
+                        color: Color::TRANSPARENT,
+                    },
+                    scroller: scrollable::Scroller {
+                        color: palette.primary.strong.color,
+                        border: Border {
+                            radius: 2.0.into(),
+                            width: 0.0,
+                            color: Color::TRANSPARENT,
+                        },
+                    },
+                }
+                ,
+                gap: None,
             }
         } else {
             self.active(&())
@@ -202,9 +225,12 @@ impl container::StyleSheet for GauntletTheme {
                 container::Appearance {
                     text_color: None,
                     background: Some(palette.background.base.color.into()),
-                    border_radius: 10.0.into(),
-                    border_width: 1.0,
-                    border_color: palette.background.weak.color,
+                    border: Border {
+                        radius: 10.0.into(),
+                        width: 1.0,
+                        color: palette.background.weak.color,
+                    },
+                    shadow: Default::default(),
                 }
             }
             ContainerStyle::Code => {
@@ -213,9 +239,12 @@ impl container::StyleSheet for GauntletTheme {
                 container::Appearance {
                     text_color: None,
                     background: Some(palette.background.weak.color.into()),
-                    border_radius: 4.0.into(),
-                    border_width: 1.0,
-                    border_color: palette.background.weak.color,
+                    border: Border {
+                        radius: 4.0.into(),
+                        width: 1.0,
+                        color: palette.background.weak.color,
+                    },
+                    shadow: Default::default(),
                 }
             }
         }
@@ -337,6 +366,17 @@ impl checkbox::StyleSheet for GauntletTheme {
             is_checked,
         )
     }
+
+    fn disabled(&self, _: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+        let palette = self.extended_palette();
+
+        checkbox_appearance(
+            palette.primary.strong.text,
+            palette.background.weak,
+            palette.background.strong,
+            is_checked,
+        )
+    }
 }
 
 fn checkbox_appearance(
@@ -352,9 +392,11 @@ fn checkbox_appearance(
             base.color
         }),
         icon_color,
-        border_radius: 2.0.into(),
-        border_width: 1.0,
-        border_color: accent.color,
+        border: Border {
+            radius: 2.0.into(),
+            width: 1.0,
+            color: accent.color,
+        },
         text_color: None,
     }
 }
@@ -370,9 +412,11 @@ impl pick_list::StyleSheet for GauntletTheme {
             background: palette.background.weak.color.into(),
             placeholder_color: palette.background.strong.color,
             handle_color: palette.background.weak.text,
-            border_radius: 2.0.into(),
-            border_width: 1.0,
-            border_color: palette.background.strong.color,
+            border: Border {
+                radius: 2.0.into(),
+                width: 1.0,
+                color: palette.background.strong.color,
+            },
         }
     }
 
@@ -384,9 +428,11 @@ impl pick_list::StyleSheet for GauntletTheme {
             background: palette.background.weak.color.into(),
             placeholder_color: palette.background.strong.color,
             handle_color: palette.background.weak.text,
-            border_radius: 2.0.into(),
-            border_width: 1.0,
-            border_color: palette.primary.strong.color,
+            border: Border {
+                radius: 2.0.into(),
+                width: 1.0,
+                color: palette.primary.strong.color,
+            },
         }
     }
 }
@@ -400,9 +446,11 @@ impl overlay::menu::StyleSheet for GauntletTheme {
         overlay::menu::Appearance {
             text_color: palette.background.weak.text,
             background: palette.background.weak.color.into(),
-            border_width: 1.0,
-            border_radius: 0.0.into(),
-            border_color: palette.background.strong.color,
+            border: Border {
+                width: 1.0,
+                radius: 0.0.into(),
+                color: palette.background.strong.color,
+            },
             selected_text_color: palette.primary.strong.text,
             selected_background: palette.primary.strong.color.into(),
         }
@@ -428,8 +476,11 @@ impl button::StyleSheet for GauntletTheme {
         let palette = self.extended_palette();
 
         let appearance = button::Appearance {
-            border_radius: 2.0.into(),
-            ..button::Appearance::default()
+            border: Border {
+                radius: 2.0.into(),
+                ..Default::default()
+            },
+            ..Default::default()
         };
 
         let from_pair = |pair: palette::Pair| button::Appearance {
@@ -459,8 +510,11 @@ impl button::StyleSheet for GauntletTheme {
         let palette = self.extended_palette();
 
         let appearance = button::Appearance {
-            border_radius: 2.0.into(),
-            ..button::Appearance::default()
+            border: Border {
+                radius: 2.0.into(),
+                ..Default::default()
+            },
+            ..Default::default()
         };
 
         match style {

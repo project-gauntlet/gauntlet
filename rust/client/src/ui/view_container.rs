@@ -3,12 +3,11 @@ use std::sync::{Arc, RwLock};
 use iced::widget::Component;
 use iced::widget::component;
 
-use common::rpc::RpcRenderLocation;
 use common::model::{PluginId, RenderLocation};
 
 use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;
-use crate::ui::theme::{Element, GauntletRenderer};
+use crate::ui::theme::{Element, GauntletTheme};
 use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent};
 
 pub struct ViewContainer {
@@ -23,7 +22,7 @@ pub fn view_container(client_context: Arc<RwLock<ClientContext>>, plugin_id: Plu
     }
 }
 
-impl Component<AppMsg, GauntletRenderer> for ViewContainer {
+impl Component<AppMsg, GauntletTheme> for ViewContainer {
     type State = ();
     type Event = ComponentWidgetEvent;
 

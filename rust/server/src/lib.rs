@@ -38,7 +38,7 @@ async fn run_server() -> anyhow::Result<()> {
         }
     }
 
-    application_manager.reload_all_plugins().await?; // TODO do not return here ?
+    application_manager.reload_all_plugins().await?; // TODO do not fail here ?
 
     tokio::spawn(async {
         let addr = "127.0.0.1:42320".parse().unwrap();
