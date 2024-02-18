@@ -3,7 +3,6 @@ use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use iced::{Font, Length, Padding};
-use iced::advanced::Widget;
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, vertical_space};
@@ -13,11 +12,11 @@ use iced_aw::floating_element;
 use iced_aw::floating_element::Offset;
 use iced_aw::graphics::icons;
 use iced_aw::helpers::{date_picker, wrap_horizontal};
-use zbus::SignalContext;
+use common::rpc::RpcEventViewEvent;
 
 use common::model::PluginId;
 
-use crate::model::{NativeUiPropertyValue, NativeUiWidgetId};
+use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle};
 
 #[derive(Clone, Debug)]
@@ -881,16 +880,16 @@ pub enum ComponentWidgetEvent {
 }
 
 impl ComponentWidgetEvent {
-    pub async fn handle<'a>(self, signal_context: &SignalContext<'_>, plugin_id: PluginId, widget: ComponentWidgetWrapper) {
+    pub fn handle(self, plugin_id: PluginId, widget: ComponentWidgetWrapper) -> Option<NativeUiViewEvent> {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id: _, href } => {
-                todo!("href {:?}", href)
+                todo!("href {:?}", href);
             }
             ComponentWidgetEvent::TagClick { widget_id } => {
-                send_metadata_tag_item_on_click_dbus_event(signal_context, plugin_id, widget_id).await
+                Some(create_metadata_tag_item_on_click_event(widget_id))
             }
             ComponentWidgetEvent::ActionClick { widget_id } => {
-                send_action_on_action_dbus_event(signal_context, plugin_id, widget_id).await
+                Some(create_action_on_action_event(widget_id))
             }
             ComponentWidgetEvent::ToggleDatePicker { .. } => {
                 let (widget, ref mut state) = &mut *widget.get_mut();
@@ -898,7 +897,8 @@ impl ComponentWidgetEvent {
                     panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                 };
 
-                *show_picker = !*show_picker
+                *show_picker = !*show_picker;
+                None
             }
             ComponentWidgetEvent::CancelDatePicker { .. } => {
                 let (widget, ref mut state) = &mut *widget.get_mut();
@@ -906,7 +906,8 @@ impl ComponentWidgetEvent {
                     panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                 };
 
-                *show_picker = false
+                *show_picker = false;
+                None
             }
             ComponentWidgetEvent::SubmitDatePicker { widget_id, value } => {
                 {
@@ -918,7 +919,7 @@ impl ComponentWidgetEvent {
                     *show_picker = false;
                 }
 
-                send_date_picker_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+                Some(create_date_picker_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::ToggleCheckbox { widget_id, value } => {
                 {
@@ -930,7 +931,7 @@ impl ComponentWidgetEvent {
                     *state_value = !*state_value;
                 }
 
-                send_checkbox_on_change_dbus_event(signal_context, plugin_id, widget_id, value).await
+                Some(create_checkbox_on_change_event(widget_id, value))
             }
             ComponentWidgetEvent::SelectPickList { widget_id, value } => {
                 {
@@ -942,7 +943,7 @@ impl ComponentWidgetEvent {
                     *state_value = Some(value.clone());
                 }
 
-                send_select_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+                Some(create_select_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::OnChangeTextField { widget_id, value } => {
                 {
@@ -954,7 +955,7 @@ impl ComponentWidgetEvent {
                     *state_value = value.clone();
                 }
 
-                send_text_field_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+                Some(create_text_field_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::OnChangePasswordField { widget_id, value } => {
                 {
@@ -966,7 +967,7 @@ impl ComponentWidgetEvent {
                     *state_value = value.clone();
                 }
 
-                send_password_field_on_change_dbus_event(signal_context, plugin_id, widget_id, Some(value)).await
+                Some(create_password_field_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
                 let (widget, ref mut state) = &mut *widget.get_mut();
@@ -975,6 +976,7 @@ impl ComponentWidgetEvent {
                 };
 
                 *show_action_panel = !*show_action_panel;
+                None
             }
             ComponentWidgetEvent::PreviousView => {
                 panic!("handle event on PreviousView event is not supposed to be called")

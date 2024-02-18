@@ -14,7 +14,7 @@ impl RunStatusHolder {
         }
     }
 
-    pub fn start_block(&mut self, plugin_id: PluginId) -> RunStatusGuard {
+    pub fn start_block(&self, plugin_id: PluginId) -> RunStatusGuard {
         let mut running_plugins = self.running_plugins.lock().expect("lock is poisoned");
         running_plugins.insert(plugin_id.clone());
         RunStatusGuard {

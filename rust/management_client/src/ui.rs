@@ -1,17 +1,22 @@
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 use futures::stream::StreamExt;
-use iced::{Alignment, Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, subscription, theme, Theme, window};
+use iced::{Alignment, Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Subscription, theme, Theme, time, window};
 use iced::theme::Palette;
 use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, text, text_input, vertical_rule};
 use iced_aw::graphics::icons;
 use iced_table::table;
-use zbus::Connection;
+use tonic::Request;
 
-use common::dbus::DBusEntrypointType;
 use common::model::{EntrypointId, PluginId};
+use common::rpc::{BackendClient, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest};
+use common::rpc::rpc_backend_client::RpcBackendClient;
 
-use crate::dbus::{DbusServerProxyProxy, RemotePluginDownloadFinishedSignalStream};
+// TODO
+// look at TODOes
+// try to remove most of rpc imports
+// remove cli package - later
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -27,8 +32,7 @@ pub fn run() {
 
 
 struct ManagementAppModel {
-    dbus_connection: Connection,
-    dbus_server: DbusServerProxyProxy<'static>,
+    backend_client: BackendClient,
     columns: Vec<Column>,
     plugins: HashMap<PluginId, Plugin>,
     selected_item: SelectedItem,
@@ -50,8 +54,9 @@ enum ManagementAppMsg {
     AddPlugin {
         plugin_id: PluginId,
     },
-    RemotePluginDownloadFinished {
-        plugin_id: PluginId,
+    CheckDownloadStatus,
+    DownloadStatus {
+        plugins: Vec<PluginId>,
     },
     Noop
 }
@@ -116,21 +121,13 @@ impl Application for ManagementAppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let (dbus_connection, dbus_server) = futures::executor::block_on(async {
-            let dbus_connection = zbus::ConnectionBuilder::session()?
-                .build()
-                .await?;
-
-            let dbus_server = DbusServerProxyProxy::new(&dbus_connection).await?;
-
-            Ok::<(Connection, DbusServerProxyProxy<'_>), anyhow::Error>((dbus_connection, dbus_server))
+        let backend_client = futures::executor::block_on(async {
+            anyhow::Ok(RpcBackendClient::connect("http://127.0.0.1:42320").await?)
         }).unwrap();
 
-        let dbus_server_clone = dbus_server.clone();
         (
             ManagementAppModel {
-                dbus_connection,
-                dbus_server,
+                backend_client: backend_client.clone(),
                 columns: vec![
                     Column::new(ColumnKind::ShowEntrypointsToggle),
                     Column::new(ColumnKind::Name),
@@ -145,9 +142,10 @@ impl Application for ManagementAppModel {
             },
             Command::batch([
                 font::load(icons::ICON_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
-                Command::perform(async move {
-                    reload_plugins(dbus_server_clone).await
-                }, ManagementAppMsg::PluginsReloaded)
+                Command::perform(
+                    reload_plugins(backend_client),
+                    ManagementAppMsg::PluginsReloaded,
+                )
             ]),
         )
     }
@@ -181,43 +179,98 @@ impl Application for ManagementAppModel {
             ManagementAppMsg::EnabledToggleItem(item) => {
                 match item {
                     EnabledItem::Plugin { enabled, plugin_id } => {
-                        let dbus_server = self.dbus_server.clone();
+                        let mut backend_client = self.backend_client.clone();
 
-                        Command::perform(async move {
-                            dbus_server.set_plugin_state(&plugin_id.to_string(), enabled).await.unwrap();
+                        Command::perform(
+                            async move {
+                                let request = RpcSetPluginStateRequest {
+                                    plugin_id: plugin_id.to_string(),
+                                    enabled,
+                                };
 
-                            reload_plugins(dbus_server).await
-                        }, ManagementAppMsg::PluginsReloaded)
+                                backend_client.set_plugin_state(Request::new(request)).await.unwrap();
+
+                                reload_plugins(backend_client).await
+                            },
+                            ManagementAppMsg::PluginsReloaded,
+                        )
                     }
                     EnabledItem::Entrypoint { enabled, plugin_id, entrypoint_id } => {
-                        let dbus_server = self.dbus_server.clone();
+                        let mut backend_client = self.backend_client.clone();
 
-                        Command::perform(async move {
-                            dbus_server.set_entrypoint_state(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled).await.unwrap();
+                        Command::perform(
+                            async move {
+                                let request = RpcSetEntrypointStateRequest {
+                                    plugin_id: plugin_id.to_string(),
+                                    entrypoint_id: entrypoint_id.to_string(),
+                                    enabled,
+                                };
 
-                            reload_plugins(dbus_server).await
-                        }, ManagementAppMsg::PluginsReloaded)
+                                backend_client.set_entrypoint_state(Request::new(request)).await.unwrap();
+
+                                reload_plugins(backend_client).await
+                            },
+                            ManagementAppMsg::PluginsReloaded,
+                        )
                     }
                 }
             }
             ManagementAppMsg::AddPlugin { plugin_id } => {
-                let dbus_server = self.dbus_server.clone();
+                let mut backend_client = self.backend_client.clone();
 
                 let exists = self.running_downloads.insert(plugin_id.clone());
                 if !exists {
                     panic!("already downloading this plugins")
                 }
 
-                Command::perform(async move {
-                    dbus_server.download_and_save_plugin(&plugin_id.to_string()).await.unwrap()
-                }, |_| ManagementAppMsg::Noop)
+                Command::perform(
+                    async move {
+                        let request = RpcDownloadPluginRequest {
+                            plugin_id: plugin_id.to_string()
+                        };
+
+                        backend_client.download_plugin(Request::new(request)).await.unwrap()
+                    },
+                    |_| ManagementAppMsg::Noop,
+                )
             }
-            ManagementAppMsg::RemotePluginDownloadFinished { plugin_id } => {
-                self.running_downloads.remove(&plugin_id);
-                let dbus_server = self.dbus_server.clone();
-                Command::perform(async move {
-                    reload_plugins(dbus_server).await
-                }, ManagementAppMsg::PluginsReloaded)
+            ManagementAppMsg::DownloadStatus { plugins } => {
+                for plugin in plugins {
+                    self.running_downloads.remove(&plugin);
+                }
+                let backend_client = self.backend_client.clone();
+                Command::perform(
+                    reload_plugins(backend_client),
+                    ManagementAppMsg::PluginsReloaded,
+                )
+            }
+            ManagementAppMsg::CheckDownloadStatus => {
+                let mut backend_client = self.backend_client.clone();
+
+                Command::perform(
+                    async move {
+                        let plugins = backend_client.download_status(Request::new(RpcDownloadStatusRequest::default()))
+                            .await
+                            .unwrap()
+                            .into_inner()
+                            .status_per_plugin
+                            .into_iter()
+                            .filter_map(|(plugin_id, status)| {
+                                let status: RpcDownloadStatus = status.status.try_into()
+                                    .expect("download status failed");
+
+                                match status {
+                                    RpcDownloadStatus::InProgress => None,
+                                    RpcDownloadStatus::Done => Some(PluginId::from_string(plugin_id)),
+                                    RpcDownloadStatus::Failed => Some(PluginId::from_string(plugin_id))
+                                }
+                            })
+                            .collect::<Vec<_>>();
+
+                        ManagementAppMsg::DownloadStatus { plugins }
+                    },
+                    std::convert::identity,
+                )
             }
             ManagementAppMsg::Noop => {
                 Command::none()
@@ -391,26 +444,8 @@ impl Application for ManagementAppModel {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-
-        let (dbus_download_finished_stream, ) = futures::executor::block_on(async {
-            let download_finished_stream = self.dbus_server.receive_remote_plugin_download_finished_signal().await?;
-
-            Ok::<(RemotePluginDownloadFinishedSignalStream<'_>, ), anyhow::Error>((download_finished_stream, ))
-        }).unwrap();
-
-        let dbus_download_finished_stream = dbus_download_finished_stream
-            .map(|signal| {
-                let signal = signal.args().unwrap();
-                ManagementAppMsg::RemotePluginDownloadFinished {
-                    plugin_id: PluginId::from_string(signal.plugin_id),
-                }
-            });
-
-        struct DownloadFinishedStream;
-
-        Subscription::batch([
-            subscription::run_with_id(std::any::TypeId::of::<DownloadFinishedStream>(), dbus_download_finished_stream)
-        ])
+        time::every(Duration::from_millis(300))
+            .map(|_| ManagementAppMsg::CheckDownloadStatus)
     }
 
     fn theme(&self) -> Self::Theme {
@@ -639,24 +674,32 @@ impl<'a, 'b> table::Column<'a, 'b, ManagementAppMsg, Renderer> for Column {
 }
 
 
-async fn reload_plugins(dbus_server: DbusServerProxyProxy<'static>) -> HashMap<PluginId, Plugin> {
-    let plugins = dbus_server.plugins().await.unwrap();
-
-    plugins.into_iter()
+async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, Plugin> {
+    backend_client.plugins(Request::new(RpcPluginsRequest::default()))
+        .await
+        .unwrap()
+        .into_inner()
+        .plugins
+        .into_iter()
         .map(|plugin| {
             let entrypoints: HashMap<_, _> = plugin.entrypoints
                 .into_iter()
                 .map(|entrypoint| {
                     let id = EntrypointId::new(entrypoint.entrypoint_id);
+                    let entrypoint_type: RpcEntrypointType = entrypoint.entrypoint_type.try_into()
+                        .expect("download status failed");
+
+                    let entrypoint_type = match entrypoint_type {
+                        RpcEntrypointType::Command => EntrypointType::Command,
+                        RpcEntrypointType::View => EntrypointType::View,
+                        RpcEntrypointType::InlineView => EntrypointType::InlineView
+                    };
+
                     let entrypoint = Entrypoint {
                         enabled: entrypoint.enabled,
                         entrypoint_id: id.clone(),
                         entrypoint_name: entrypoint.entrypoint_name.clone(),
-                        entrypoint_type: match entrypoint.entrypoint_type {
-                            DBusEntrypointType::Command => EntrypointType::Command,
-                            DBusEntrypointType::View => EntrypointType::View,
-                            DBusEntrypointType::InlineView => EntrypointType::InlineView
-                        }
+                        entrypoint_type
                     };
                     (id, entrypoint)
                 })

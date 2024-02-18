@@ -1,11 +1,6 @@
-use std::future::Future;
+use common::model::{PluginId, RenderLocation};
 
-use zbus::SignalContext;
-
-use common::dbus::RenderLocation;
-use common::model::PluginId;
-
-use crate::model::NativeUiWidget;
+use crate::model::{NativeUiViewEvent, NativeUiWidget};
 use crate::ui::widget::ComponentWidgetEvent;
 use crate::ui::widget_container::PluginWidgetContainer;
 
@@ -65,16 +60,10 @@ impl ClientContext {
         }
     }
 
-    pub fn handle_event<'a>(
-        &self,
-        signal_context: &'a SignalContext<'_>,
-        render_location: RenderLocation,
-        plugin_id: &'a PluginId,
-        event: ComponentWidgetEvent
-    ) -> impl Future<Output=()> + 'a + Send {
+    pub fn handle_event(&self, render_location: RenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<NativeUiViewEvent> {
         match render_location {
-            RenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(signal_context, plugin_id.clone(), event),
-            RenderLocation::View => self.get_view_container().handle_event(signal_context, plugin_id.clone(), event)
+            RenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
+            RenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)
         }
     }
 }

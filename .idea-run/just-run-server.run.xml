@@ -3,8 +3,8 @@
     <option name="command" value="run --package server --bin server --features dev" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/rust/server" />
     <envs>
-      <env name="RUST_LOG" value="server=INFO" />
       <env name="_RUST_LOG" value="TRACE" />
+      <env name="RUST_LOG" value="server=INFO,jsonrpsee=TRACE,server::plugins::js=TRACE" />
     </envs>
     <option name="emulateTerminal" value="false" />
     <option name="channel" value="DEFAULT" />

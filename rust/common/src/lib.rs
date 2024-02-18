@@ -1,3 +1,3 @@
 pub mod model;
-pub mod dbus;
+pub mod rpc;
 

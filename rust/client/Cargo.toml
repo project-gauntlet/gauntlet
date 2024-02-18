@@ -4,7 +4,6 @@ edition = "2021"
 
 [dependencies]
 tokio = "1.28.1"
-zbus = { version = "3.14.1", default-features = false, features = ["tokio"] }
 anyhow = "1"
 thiserror = "1"
 iced = { version = "0.10", features = ["tokio", "lazy", "advanced"] }
@@ -13,6 +12,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }
 utils = { path = "../utils" }
+tonic = "0.11.0"
 
 [build-dependencies]
 component_model = { path = "../component_model" }

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget, RenderLocation};
-use common::model::{EntrypointId, PluginId};
+use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
+use common::rpc::{RpcUiPropertyValue, RpcUiWidget};
+use common::rpc::rpc_ui_property_value::Value;
 
 #[derive(Debug, Clone)]
 pub struct NativeUiSearchResult {
@@ -36,16 +36,24 @@ pub enum NativeUiRequestData {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct NativeUiViewEvent {
+    pub widget_id: NativeUiWidgetId,
+    pub event_name: String,
+    pub event_arguments: Vec<PropertyValue>,
+}
+
 pub type NativeUiWidgetId = u32;
 
-pub fn from_dbus(value: DBusUiPropertyContainer) -> anyhow::Result<HashMap<String, NativeUiPropertyValue>> {
-    let result = value.0
+pub fn from_rpc(value: HashMap<String, RpcUiPropertyValue>) -> anyhow::Result<HashMap<String, NativeUiPropertyValue>> {
+    let result = value
         .into_iter()
-        .map(|(key, DBusUiPropertyValue(value_type, value))| {
-            let value = match &(value_type, value.into()) {
-                (DBusUiPropertyValueType::String, Value::Str(value)) => NativeUiPropertyValue::String(value.to_string()),
-                (DBusUiPropertyValueType::Number, Value::F64(value)) => NativeUiPropertyValue::Number(value.to_owned()),
-                (DBusUiPropertyValueType::Bool, Value::Bool(value)) => NativeUiPropertyValue::Bool(value.to_owned()),
+        .map(|(key, value)| {
+            let value = value.value.ok_or(anyhow!("invalid property value"))?;
+            let value = match value {
+                Value::String(value) => NativeUiPropertyValue::String(value),
+                Value::Number(value) => NativeUiPropertyValue::Number(value),
+                Value::Bool(value) => NativeUiPropertyValue::Bool(value),
                 _ => {
                     return Err(anyhow!("invalid type"))
                 }
@@ -99,18 +107,22 @@ pub struct NativeUiWidget {
     pub widget_children: Vec<NativeUiWidget>,
 }
 
-impl TryFrom<DBusUiWidget> for NativeUiWidget {
+impl TryFrom<RpcUiWidget> for NativeUiWidget {
     type Error = anyhow::Error;
 
-    fn try_from(value: DBusUiWidget) -> anyhow::Result<Self> {
+    fn try_from(value: RpcUiWidget) -> anyhow::Result<Self> {
         let children = value.widget_children.into_iter()
             .map(|child| child.try_into())
             .collect::<anyhow::Result<Vec<NativeUiWidget>>>()?;
 
+        let widget_id = value.widget_id
+            .ok_or(anyhow!("invalid value widget_id"))?
+            .value;
+
         Ok(Self {
-            widget_id: value.widget_id,
+            widget_id,
             widget_type: value.widget_type,
-            widget_properties: from_dbus(value.widget_properties)?,
+            widget_properties: from_rpc(value.widget_properties)?,
             widget_children: children,
         })
     }

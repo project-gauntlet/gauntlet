@@ -1,8 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
@@ -12,16 +14,19 @@ use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
-use futures_concurrency::stream::Merge;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use common::dbus::RenderLocation;
+use tokio::net::TcpStream;
+use tonic::Request;
+use tonic::transport::Channel;
 
-use common::model::PluginId;
+use common::model::{PluginId, PropertyValue, RenderLocation};
+use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::rpc_frontend_client::RpcFrontendClient;
+use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
-use crate::dbus::{DbusClientProxyProxy, RenderViewSignal, RunCommandSignal, ViewEventSignal};
-use crate::model::{from_dbus_to_intermediate_value, IntermediatePropertyValue, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget};
+use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, UiWidgetId};
 use crate::plugins::run_status::RunStatusGuard;
 
 pub struct PluginRuntimeData {
@@ -60,7 +65,19 @@ pub enum PluginCommand {
 
 #[derive(Clone, Debug)]
 pub enum OnePluginCommandData {
-    Stop
+    Stop,
+    RenderView {
+        frontend: String,
+        entrypoint_id: String,
+    },
+    RunCommand {
+        entrypoint_id: String,
+    },
+    HandleEvent {
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<PropertyValue>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -70,78 +87,25 @@ pub enum AllPluginCommandData {
     }
 }
 
+async fn wait_for_port() {
+    loop {
+        let addr: SocketAddr = "127.0.0.1:42321".parse().unwrap();
+
+        if TcpStream::connect(addr).await.is_ok() {
+            return;
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
-    let conn = zbus::Connection::session().await?;
-    let client_proxy = DbusClientProxyProxy::new(&conn).await?;
+    wait_for_port().await;
+
+    let frontend_client = RpcFrontendClient::connect("http://127.0.0.1:42321").await?;
 
     let component_model = create_component_model();
-
-    let plugin_id = data.id.clone();
-    let run_command_signal = client_proxy.receive_run_command_signal()
-        .await?
-        .filter_map(move |signal: RunCommandSignal| {
-            let plugin_id = plugin_id.clone();
-            async move {
-                let signal = signal.args().unwrap();
-
-                if PluginId::from_string(signal.plugin_id) != plugin_id {
-                    None
-                } else {
-                    Some(IntermediateUiEvent::RunCommand {
-                        entrypoint_id: signal.event.entrypoint_id,
-                    })
-                }
-            }
-        });
-
-    let plugin_id = data.id.clone();
-    let render_view_signal = client_proxy.receive_render_view_signal()
-        .await?
-        .filter_map(move |signal: RenderViewSignal| {
-            let plugin_id = plugin_id.clone();
-            async move {
-                let signal = signal.args().unwrap();
-
-                if PluginId::from_string(signal.plugin_id) != plugin_id {
-                    None
-                } else {
-                    Some(IntermediateUiEvent::OpenView {
-                        frontend: signal.event.frontend,
-                        entrypoint_id: signal.event.entrypoint_id,
-                    })
-                }
-            }
-        });
-
-    let plugin_id = data.id.clone();
-    let view_event_signal = client_proxy.receive_view_event_signal()
-        .await?
-        .filter_map(move |signal: ViewEventSignal| {
-            let plugin_id = plugin_id.clone();
-            async move {
-                let signal = signal.args().unwrap();
-
-                if PluginId::from_string(signal.plugin_id) != plugin_id {
-                    None
-                } else {
-                    let event_arguments = signal.event.event_arguments.into_iter()
-                        .map(|arg| from_dbus_to_intermediate_value(arg))
-                        .collect::<anyhow::Result<Vec<_>>>();
-
-                    match event_arguments {
-                        Ok(event_arguments) => Some(IntermediateUiEvent::ViewEvent {
-                            widget_id: signal.event.widget_id,
-                            event_name: signal.event.event_name,
-                            event_arguments,
-                        }),
-                        Err(err) => {
-                            tracing::error!(target = "dbus", "error occurred when accepting event from client {:?}", err);
-                            None
-                        }
-                    }
-                }
-            }
-        });
 
     let mut command_receiver = data.command_receiver;
     let command_stream = async_stream::stream! {
@@ -151,36 +115,56 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     };
 
     let plugin_id = data.id.clone();
-    let command_stream = command_stream
+    let event_stream = command_stream
         .filter_map(move |command: PluginCommand| {
             let plugin_id = plugin_id.clone();
-            async move {
-                match command {
-                    PluginCommand::One { id, data } => {
-                        if id != plugin_id {
-                            None
-                        } else {
-                            match data {
-                                OnePluginCommandData::Stop => {
-                                    Some(IntermediateUiEvent::PluginCommand {
-                                        command_type: "stop".to_string(),
-                                    })
-                                }
-                            }
-                        }
-                    }
-                    PluginCommand::All { data } => {
+
+            let event = match command {
+                PluginCommand::One { id, data } => {
+                    if id != plugin_id {
+                        None
+                    } else {
                         match data {
-                            AllPluginCommandData::OpenInlineView { text } => {
-                                Some(IntermediateUiEvent::OpenInlineView { text })
+                            OnePluginCommandData::Stop => {
+                                Some(IntermediateUiEvent::PluginCommand {
+                                    command_type: "stop".to_string(),
+                                })
+                            }
+                            OnePluginCommandData::RenderView { frontend, entrypoint_id } => {
+                                Some(IntermediateUiEvent::OpenView {
+                                    frontend,
+                                    entrypoint_id,
+                                })
+                            }
+                            OnePluginCommandData::RunCommand { entrypoint_id } => {
+                                Some(IntermediateUiEvent::RunCommand {
+                                    entrypoint_id,
+                                })
+                            }
+                            OnePluginCommandData::HandleEvent { widget_id, event_name, event_arguments } => {
+                                Some(IntermediateUiEvent::ViewEvent {
+                                    widget_id,
+                                    event_name,
+                                    event_arguments,
+                                })
                             }
                         }
                     }
                 }
+                PluginCommand::All { data } => {
+                    match data {
+                        AllPluginCommandData::OpenInlineView { text } => {
+                            Some(IntermediateUiEvent::OpenInlineView { text })
+                        }
+                    }
+                }
+            };
+
+            async move {
+                event
             }
         });
 
-    let event_stream = (run_command_signal, view_event_signal, render_view_signal, command_stream).merge();
     let event_stream = Box::pin(event_stream);
 
     let thread_fn = move || {
@@ -198,7 +182,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.permissions,
                     data.inline_view_entrypoint_id,
                     event_stream,
-                    client_proxy,
+                    frontend_client,
                     component_model
                 ).await
             }));
@@ -224,7 +208,7 @@ async fn start_js_runtime(
     permissions: PluginPermissions,
     inline_view_entrypoint_id: Option<String>,
     event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
-    client_proxy: DbusClientProxyProxy<'static>,
+    frontend_client: FrontendClient,
     component_model: Vec<Component>,
 ) -> anyhow::Result<()> {
     let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
@@ -265,7 +249,7 @@ async fn start_js_runtime(
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
                 PluginData::new(plugin_id, inline_view_entrypoint_id),
-                DbusClient::new(client_proxy),
+                FrontendClientWrapper::new(frontend_client),
                 ComponentModel::new(component_model),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
@@ -396,13 +380,13 @@ deno_core::extension!(
     options = {
         event_receiver: EventReceiver,
         plugin_data: PluginData,
-        dbus_client: DbusClient,
+        frontend_client: FrontendClientWrapper,
         component_model: ComponentModel,
     },
     state = |state, options| {
         state.put(options.event_receiver);
         state.put(options.plugin_data);
-        state.put(options.dbus_client);
+        state.put(options.frontend_client);
         state.put(options.component_model);
     },
 );
@@ -454,7 +438,7 @@ async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Res
         .await
         .ok_or_else(|| anyhow!("event stream was suddenly closed"))?;
 
-    tracing::trace!(target = "renderer_rs_common", "Received plugin event {:?}", event);
+    tracing::trace!(target = "renderer_rs", "Received plugin event {:?}", event);
 
     Ok(from_intermediate_to_js_event(event))
 }
@@ -465,7 +449,7 @@ fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
 
     match make_request(&state, data).context("ClearInlineView frontend response")? {
         JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_persistence", "Calling clear_inline_view returned");
+            tracing::trace!(target = "renderer_rs", "Calling clear_inline_view returned");
             Ok(())
         }
         value @ _ => panic!("unsupported response type {:?}", value),
@@ -484,11 +468,11 @@ fn op_inline_view_endpoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
 fn op_react_replace_view(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    render_location: RenderLocation,
+    render_location: JsRenderLocation,
     top_level_view: bool,
     container: JsUiWidget,
 ) -> anyhow::Result<()> {
-    tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_view...");
+    tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
     // TODO fix validation
     // for new_child in &container.widget_children {
@@ -503,7 +487,7 @@ fn op_react_replace_view(
 
     match make_request(&state, data).context("ReplaceView frontend response")? {
         JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs_persistence", "Calling op_react_replace_view returned");
+            tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view returned");
             Ok(())
         }
         value @ _ => panic!("unsupported response type {:?}", value),
@@ -511,7 +495,7 @@ fn op_react_replace_view(
 }
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
-    let (plugin_id, dbus_client) = {
+    let (plugin_id, mut frontend_client) = {
         let state = state.borrow();
 
         let plugin_id = state
@@ -519,20 +503,20 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
             .plugin_id()
             .clone();
 
-        let dbus_client = state
-            .borrow::<DbusClient>()
+        let frontend_client = state
+            .borrow::<FrontendClientWrapper>()
             .client()
             .clone();
 
-        (plugin_id, dbus_client)
+        (plugin_id, frontend_client)
     };
 
     block_on(async {
-        make_request_async(plugin_id, dbus_client, data).await
+        make_request_async(plugin_id, &mut frontend_client, data).await
     })
 }
 
-fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, IntermediatePropertyValue>) -> anyhow::Result<()> {
+fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, PropertyValue>) -> anyhow::Result<()> {
     let state = state.borrow();
     let component_model = state.borrow::<ComponentModel>();
 
@@ -549,22 +533,22 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                     }
                     Some(prop_value) => {
                         match prop_value {
-                            IntermediatePropertyValue::String(_) => {
+                            PropertyValue::String(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::String) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name, name))?
                                 }
                             }
-                            IntermediatePropertyValue::Number(_) => {
+                            PropertyValue::Number(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Number) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name, name))?
                                 }
                             }
-                            IntermediatePropertyValue::Bool(_) => {
+                            PropertyValue::Bool(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Boolean) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name, name))?
                                 }
                             }
-                            IntermediatePropertyValue::Undefined => {
+                            PropertyValue::Undefined => {
                                 if !comp_prop.optional {
                                     Err(anyhow::anyhow!("property {} on {} component has to be optional", comp_prop.name, name))?
                                 }
@@ -657,10 +641,22 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
     Ok(())
 }
 
-async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyProxy<'_>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
+async fn make_request_async(plugin_id: PluginId, frontend_client: &mut FrontendClient, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
         JsUiRequestData::ReplaceView { render_location, top_level_view, container } => {
-            let nothing = dbus_client.replace_view(&plugin_id.to_string(), render_location, top_level_view, container.into())
+            let rpc_render_location = match render_location {
+                JsRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
+                JsRenderLocation::View => RpcRenderLocation::ViewLocation,
+            };
+
+            let request = Request::new(RpcReplaceViewRequest {
+                top_level_view,
+                plugin_id: plugin_id.to_string(),
+                render_location: rpc_render_location.into(),
+                container: Some(container.into())
+            });
+
+            let nothing = frontend_client.replace_view(request)
                 .await
                 .map(|_| JsUiResponseData::Nothing)
                 .map_err(|err| err.into());
@@ -668,13 +664,16 @@ async fn make_request_async(plugin_id: PluginId, dbus_client: DbusClientProxyPro
             nothing
         }
         JsUiRequestData::ClearInlineView => {
-            let nothing = dbus_client.clear_inline_view(&plugin_id.to_string())
+            let request = Request::new(RpcClearInlineViewRequest {
+                plugin_id: plugin_id.to_string()
+            });
+
+            let nothing = frontend_client.clear_inline_view(request)
                 .await
                 .map(|_| JsUiResponseData::Nothing)
                 .map_err(|err| err.into());
 
             nothing
-
         }
     }
 }
@@ -691,10 +690,10 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::ViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()
                 .map(|arg| match arg {
-                    IntermediatePropertyValue::String(value) => JsPropertyValue::String { value },
-                    IntermediatePropertyValue::Number(value) => JsPropertyValue::Number { value },
-                    IntermediatePropertyValue::Bool(value) => JsPropertyValue::Bool { value },
-                    IntermediatePropertyValue::Undefined => JsPropertyValue::Undefined,
+                    PropertyValue::String(value) => JsPropertyValue::String { value },
+                    PropertyValue::Number(value) => JsPropertyValue::Number { value },
+                    PropertyValue::Bool(value) => JsPropertyValue::Bool { value },
+                    PropertyValue::Undefined => JsPropertyValue::Undefined,
                 })
                 .collect();
 
@@ -727,18 +726,18 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
 fn from_js_to_intermediate_properties(
     scope: &mut v8::HandleScope,
     v8_properties: HashMap<String, serde_v8::Value>,
-) -> anyhow::Result<HashMap<String, IntermediatePropertyValue>> {
+) -> anyhow::Result<HashMap<String, PropertyValue>> {
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
         .filter(|(_, value)| !value.v8_value.is_function())
         .map(|(name, value)| {
             let val = value.v8_value;
             if val.is_string() {
-                Ok((name, IntermediatePropertyValue::String(val.to_rust_string_lossy(scope))))
+                Ok((name, PropertyValue::String(val.to_rust_string_lossy(scope))))
             } else if val.is_number() {
-                Ok((name, IntermediatePropertyValue::Number(val.number_value(scope).expect("expected number"))))
+                Ok((name, PropertyValue::Number(val.number_value(scope).expect("expected number"))))
             } else if val.is_boolean() {
-                Ok((name, IntermediatePropertyValue::Bool(val.boolean_value(scope))))
+                Ok((name, PropertyValue::Bool(val.boolean_value(scope))))
             } else {
                 Err(anyhow!("invalid type for property '{:?}' - {:?}", name, val.type_of(scope).to_rust_string_lossy(scope)))
             }
@@ -770,17 +769,17 @@ impl PluginData {
     }
 }
 
-pub struct DbusClient {
-    proxy: DbusClientProxyProxy<'static>,
+pub struct FrontendClientWrapper {
+    client: FrontendClient,
 }
 
-impl DbusClient {
-    fn new(proxy: DbusClientProxyProxy<'static>) -> Self {
-        Self { proxy }
+impl FrontendClientWrapper {
+    fn new(client: FrontendClient) -> Self {
+        Self { client }
     }
 
-    fn client(&self) -> &DbusClientProxyProxy<'static> {
-        &self.proxy
+    fn client(&self) -> &FrontendClient {
+        &self.client
     }
 }
 

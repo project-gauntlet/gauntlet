@@ -1,7 +1,6 @@
-use zbus::SignalContext;
 use common::model::PluginId;
-use std::future::Future;
-use crate::model::NativeUiWidget;
+
+use crate::model::{NativeUiViewEvent, NativeUiWidget};
 use crate::ui::theme::Element;
 use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent, ComponentWidgetWrapper};
 
@@ -43,11 +42,11 @@ impl PluginWidgetContainer {
             .expect("unable to set children");
     }
 
-    pub fn handle_event<'a, 'b>(&'a self, signal_context: &'b SignalContext<'_>, plugin_id: PluginId, event: ComponentWidgetEvent) -> impl Future<Output=()> + 'b + Send {
+    pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<NativeUiViewEvent> {
         let widget = self.root_widget
             .find_child_with_id(event.widget_id())
             .expect("created event for non existing widget?");
 
-        event.handle(signal_context, plugin_id, widget)
+        event.handle(plugin_id, widget)
     }
 }

@@ -2,6 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+
 use convert_case::{Case, Casing};
 
 use component_model::{Children, Component, create_component_model, Property, PropertyType};
@@ -359,9 +360,7 @@ fn main() -> anyhow::Result<()> {
                         continue
                     };
 
-                    output.push_str(&format!("async fn send_{}_{}_dbus_event(\n", name.to_string().to_case(Case::Snake), prop.name.to_case(Case::Snake)));
-                    output.push_str("    signal_context: &SignalContext<'_>,\n");
-                    output.push_str("    plugin_id: PluginId,\n");
+                    output.push_str(&format!("fn create_{}_{}_event(\n", name.to_string().to_case(Case::Snake), prop.name.to_case(Case::Snake)));
                     output.push_str("    widget_id: NativeUiWidgetId,\n");
 
                     for arg in arguments {
@@ -373,8 +372,8 @@ fn main() -> anyhow::Result<()> {
                         output.push_str(&format!("    {}: {}\n", arg.name, arg_type));
                     }
 
-                    output.push_str(") {\n");
-                    output.push_str("    let event = common::dbus::DbusEventViewEvent {\n");
+                    output.push_str(") -> crate::model::NativeUiViewEvent {\n");
+                    output.push_str("    crate::model::NativeUiViewEvent {\n");
                     output.push_str("        widget_id,\n");
                     output.push_str(&format!("        event_name: \"{}\".to_owned(),\n", prop.name));
                     output.push_str("        event_arguments: vec![\n",);
@@ -383,23 +382,23 @@ fn main() -> anyhow::Result<()> {
                         match arg.property_type {
                             PropertyType::String => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| common::dbus::value_string_to_dbus({})).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|{}| common::model::PropertyValue::String({})).unwrap_or_else(|| common::model::PropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            common::dbus::value_string_to_dbus({}),\n", arg.name));
+                                    output.push_str(&format!("            common::model::PropertyValue::String({}),\n", arg.name));
                                 }
                             }
                             PropertyType::Number => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| common::dbus::value_number_to_dbus({})).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|{}| common::model::PropertyValue::Number({})).unwrap_or_else(|| common::model::PropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            common::dbus::value_number_to_dbus({}),\n", arg.name));
+                                    output.push_str(&format!("            common::model::PropertyValue::Number({}),\n", arg.name));
                                 }
                             }
                             PropertyType::Boolean => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| common::dbus::value_bool_to_dbus({})).unwrap_or_else(|| common::dbus::value_undefined_to_dbus()),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|{}| common::model::PropertyValue::Bool({})).unwrap_or_else(|| common::model::PropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            common::dbus::value_bool_to_dbus({}),\n", arg.name));
+                                    output.push_str(&format!("            common::model::PropertyValue::Bool({}),\n", arg.name));
                                 }
                             }
                             _ => {
@@ -409,10 +408,7 @@ fn main() -> anyhow::Result<()> {
                     }
 
                     output.push_str("        ]\n");
-                    output.push_str("    };\n");
-                    output.push_str("    crate::dbus::DbusClient::view_event_signal(signal_context, &plugin_id.to_string(), event)\n");
-                    output.push_str("        .await\n");
-                    output.push_str("        .unwrap();\n");
+                    output.push_str("    }\n");
                     output.push_str("}\n");
                     output.push_str("\n");
                 }

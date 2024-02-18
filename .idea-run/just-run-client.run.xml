@@ -2,6 +2,10 @@
   <configuration default="false" name="just-run-client" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="command" value="run --package client --bin client" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+    <envs>
+      <env name="RUST_LOG" value="client=TRACE,jsonrpsee=TRACE" />
+      <env name="_RUST_LOG" value="TRACE" />
+    </envs>
     <option name="emulateTerminal" value="false" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
@@ -9,10 +13,6 @@
     <option name="withSudo" value="false" />
     <option name="buildTarget" value="REMOTE" />
     <option name="backtrace" value="FULL" />
-    <envs>
-      <env name="RUST_LOG" value="client=TRACE" />
-      <env name="_RUST_LOG" value="TRACE" />
-    </envs>
     <option name="isRedirectInput" value="false" />
     <option name="redirectInputPath" value="" />
     <method v="2">

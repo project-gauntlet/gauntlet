@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
-use zbus::zvariant::Value;
 
-use common::dbus::{DBusUiPropertyContainer, DBusUiPropertyValue, DBusUiPropertyValueType, DBusUiWidget, RenderLocation, value_bool_to_dbus, value_number_to_dbus, value_string_to_dbus};
+use common::model::PropertyValue;
+use common::rpc::{RpcUiPropertyValue, RpcUiWidget, RpcUiWidgetId};
+use common::rpc::rpc_ui_property_value::Value;
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -14,12 +15,19 @@ pub enum JsUiResponseData {
 #[derive(Debug)]
 pub enum JsUiRequestData {
     ReplaceView {
-        render_location: RenderLocation,
+        render_location: JsRenderLocation,
         top_level_view: bool,
         container: IntermediateUiWidget,
     },
     ClearInlineView
 }
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
+pub enum JsRenderLocation {
+    InlineView,
+    View
+}
+
 
 pub type UiWidgetId = u32;
 
@@ -94,7 +102,7 @@ pub enum IntermediateUiEvent {
     ViewEvent {
         widget_id: UiWidgetId,
         event_name: String,
-        event_arguments: Vec<IntermediatePropertyValue>,
+        event_arguments: Vec<PropertyValue>,
     },
     PluginCommand {
         command_type: String,
@@ -108,72 +116,52 @@ pub enum IntermediateUiEvent {
 pub struct IntermediateUiWidget {
     pub widget_id: UiWidgetId,
     pub widget_type: String,
-    pub widget_properties: HashMap<String, IntermediatePropertyValue>,
+    pub widget_properties: HashMap<String, PropertyValue>,
     pub widget_children: Vec<IntermediateUiWidget>,
 }
 
-#[derive(Debug)]
-pub enum IntermediatePropertyValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-    Undefined,
-}
-
-
-impl From<IntermediateUiWidget> for DBusUiWidget {
+impl From<IntermediateUiWidget> for RpcUiWidget {
     fn from(value: IntermediateUiWidget) -> Self {
         let children = value.widget_children.into_iter()
             .map(|child| child.into())
-            .collect::<Vec<DBusUiWidget>>();
+            .collect::<Vec<RpcUiWidget>>();
+
+        let widget_id = RpcUiWidgetId {
+            value: value.widget_id
+        };
 
         Self {
-            widget_id: value.widget_id,
+            widget_id: Some(widget_id),
             widget_type: value.widget_type,
-            widget_properties: from_intermediate_to_dbus_properties(value.widget_properties),
+            widget_properties: from_intermediate_to_rpc_properties(value.widget_properties),
             widget_children: children
         }
     }
 }
 
-pub fn from_dbus_to_intermediate_value(value: DBusUiPropertyValue) -> anyhow::Result<IntermediatePropertyValue> {
-    match value {
-        DBusUiPropertyValue(DBusUiPropertyValueType::Undefined, _) => Ok(IntermediatePropertyValue::Undefined),
-        DBusUiPropertyValue(DBusUiPropertyValueType::String, value) => {
-            match value.into() {
-                Value::Str(value) => Ok(IntermediatePropertyValue::String(value.to_string())),
-                value @ _ => Err(anyhow::anyhow!("invalid dbus value {:?}, string expected", value))
-            }
-        }
-        DBusUiPropertyValue(DBusUiPropertyValueType::Number, value) => {
-            match value.into() {
-                Value::F64(value) => Ok(IntermediatePropertyValue::Number(value)),
-                value @ _ => Err(anyhow::anyhow!("invalid dbus value {:?}, number expected", value))
-            }
-        }
-        DBusUiPropertyValue(DBusUiPropertyValueType::Bool, value) => {
-            match value.into() {
-                Value::Bool(value) => Ok(IntermediatePropertyValue::Bool(value)),
-                value @ _ => Err(anyhow::anyhow!("invalid dbus value {:?}, bool expected", value))
-            }
-        }
-    }
+pub fn from_rpc_to_intermediate_value(value: RpcUiPropertyValue) -> Option<PropertyValue> {
+    let value = match value.value? {
+        Value::Undefined(_) => PropertyValue::Undefined,
+        Value::String(value) => PropertyValue::String(value),
+        Value::Number(value) => PropertyValue::Number(value),
+        Value::Bool(value) => PropertyValue::Bool(value)
+    };
+
+    Some(value)
 }
 
 
-fn from_intermediate_to_dbus_properties(value: HashMap<String, IntermediatePropertyValue>) -> DBusUiPropertyContainer {
-    let properties: HashMap<_, _> = value.iter()
+fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) -> HashMap<String, RpcUiPropertyValue> {
+    value.into_iter()
         .filter_map(|(key, value)| {
             match value {
-                IntermediatePropertyValue::String(value) => Some((key.to_owned(), value_string_to_dbus(value.to_owned()))),
-                IntermediatePropertyValue::Number(value) => Some((key.to_owned(), value_number_to_dbus(value.to_owned()))),
-                IntermediatePropertyValue::Bool(value) => Some((key.to_owned(), value_bool_to_dbus(value.to_owned()))),
-                IntermediatePropertyValue::Undefined => None
+                PropertyValue::String(value) => Some((key, RpcUiPropertyValue { value: Some(Value::String(value)) })),
+                PropertyValue::Number(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Number(value)) })),
+                PropertyValue::Bool(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bool(value)) })),
+                PropertyValue::Undefined => None
             }
         })
-        .collect();
-
-    DBusUiPropertyContainer(properties)
+        .collect()
 }
 
 #[derive(Debug, Clone)]

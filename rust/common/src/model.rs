@@ -50,3 +50,26 @@ impl ToString for EntrypointId {
         self.0.to_string()
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum DownloadStatus {
+    InProgress,
+    Done,
+    Failed {
+        message: String
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum PropertyValue {
+    String(String),
+    Number(f64),
+    Bool(bool),
+    Undefined,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum RenderLocation {
+    InlineView,
+    View
+}

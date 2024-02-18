@@ -1,8 +1,10 @@
-use crate::dbus::DbusServer;
+use tonic::transport::Server;
+use common::rpc::rpc_backend_server::RpcBackendServer;
+use crate::rpc::RpcBackendServerImpl;
 use crate::plugins::ApplicationManager;
 use crate::search::SearchIndex;
 
-pub mod dbus;
+pub mod rpc;
 pub(in crate) mod search;
 pub(in crate) mod plugins;
 pub(in crate) mod model;
@@ -38,13 +40,20 @@ async fn run_server() -> anyhow::Result<()> {
 
     application_manager.reload_all_plugins().await?; // TODO do not return here ?
 
-    let interface = DbusServer { search_index, application_manager };
+    tokio::spawn(async {
+        let addr = "127.0.0.1:42320".parse().unwrap();
 
-    let _conn = zbus::ConnectionBuilder::session()?
-        .name("dev.projectgauntlet.Gauntlet")?
-        .serve_at("/dev/projectgauntlet/Server", interface)?
-        .build()
-        .await?;
+        Server::builder()
+            .add_service(RpcBackendServer::new(RpcBackendServerImpl { search_index, application_manager }))
+            .serve(addr)
+            .await
+            .expect("unable to start backend server");
+    });
+
+    std::process::Command::new(std::env::current_exe()?)
+        .args(["open"])
+        .spawn()
+        .expect("failed to execute client process");
 
     std::future::pending::<()>().await;
 

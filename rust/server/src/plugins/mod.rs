@@ -1,8 +1,9 @@
-use common::dbus::{DBusEntrypoint, DBusEntrypointType, DBusPlugin};
-use common::model::{EntrypointId, PluginId};
+use std::collections::HashMap;
+use common::rpc::{RpcEntrypoint, RpcEntrypointType, RpcPlugin};
+use common::model::{DownloadStatus, EntrypointId, PluginId, PropertyValue};
 
 use crate::dirs::Dirs;
-use crate::model::{entrypoint_from_str, PluginEntrypointType};
+use crate::model::{entrypoint_from_str, from_rpc_to_intermediate_value, PluginEntrypointType, UiWidgetId};
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::js::{PluginCode, PluginCommand, OnePluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime, AllPluginCommandData};
@@ -15,6 +16,7 @@ mod data_db_repository;
 mod config_reader;
 mod loader;
 mod run_status;
+mod download_status;
 
 pub struct ApplicationManager {
     config_reader: ConfigReader,
@@ -45,16 +47,16 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn download_and_save_plugin(
-        &mut self,
-        signal_context: zbus::SignalContext<'_>,
-        plugin_id: PluginId
-    ) -> anyhow::Result<()> {
-        self.plugin_downloader.download_and_save_plugin(signal_context, plugin_id).await
+    pub async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        self.plugin_downloader.download_plugin(plugin_id).await
+    }
+
+    pub fn download_status(&self) -> HashMap<String, DownloadStatus> {
+        self.plugin_downloader.download_status()
     }
 
     pub async fn save_local_plugin(
-        &mut self,
+        &self,
         path: &str,
     ) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Saving local plugin at path: {:?}", path);
@@ -66,7 +68,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn plugins(&self) -> anyhow::Result<Vec<DBusPlugin>> {
+    pub async fn plugins(&self) -> anyhow::Result<Vec<RpcPlugin>> {
         let plugins = self.db_repository.list_plugins().await?;
 
         let result = plugins
@@ -74,19 +76,19 @@ impl ApplicationManager {
             .map(|plugin| {
                 let entrypoints = plugin.entrypoints
                     .into_iter()
-                    .map(|entrypoint| DBusEntrypoint {
+                    .map(|entrypoint| RpcEntrypoint {
                         enabled: entrypoint.enabled,
                         entrypoint_id: entrypoint.id,
                         entrypoint_name: entrypoint.name,
                         entrypoint_type: match entrypoint_from_str(&entrypoint.entrypoint_type) {
-                            PluginEntrypointType::Command => DBusEntrypointType::Command,
-                            PluginEntrypointType::View => DBusEntrypointType::View,
-                            PluginEntrypointType::InlineView => DBusEntrypointType::InlineView
-                        }
+                            PluginEntrypointType::Command => RpcEntrypointType::Command,
+                            PluginEntrypointType::View => RpcEntrypointType::View,
+                            PluginEntrypointType::InlineView => RpcEntrypointType::InlineView
+                        }.into()
                     })
                     .collect();
 
-                DBusPlugin {
+                RpcPlugin {
                     plugin_id: plugin.id,
                     plugin_name: plugin.name,
                     enabled: plugin.enabled,
@@ -98,7 +100,7 @@ impl ApplicationManager {
         Ok(result)
     }
 
-    pub async fn set_plugin_state(&mut self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
+    pub async fn set_plugin_state(&self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
         let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
         let currently_enabled = self.is_plugin_enabled(&plugin_id).await?;
         match (currently_running, currently_enabled, set_enabled) {
@@ -125,7 +127,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn set_entrypoint_state(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> anyhow::Result<()> {
+    pub async fn set_entrypoint_state(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> anyhow::Result<()> {
         self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
             .await?;
 
@@ -171,7 +173,37 @@ impl ApplicationManager {
         })
     }
 
-    async fn reload_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub fn handle_run_command(&self, plugin_id: PluginId, entrypoint_id: String) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::RunCommand {
+                entrypoint_id,
+            }
+        })
+    }
+
+    pub fn handle_render_view(&self, plugin_id: PluginId, frontend: String, entrypoint_id: String) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::RenderView {
+                frontend,
+                entrypoint_id,
+            }
+        })
+    }
+
+    pub fn handle_view_event(&self, plugin_id: PluginId, widget_id: UiWidgetId, event_name: String, event_arguments: Vec<PropertyValue>) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::HandleEvent {
+                widget_id,
+                event_name,
+                event_arguments
+            }
+        })
+    }
+
+    async fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         let running = self.run_status_holder.is_plugin_running(&plugin_id);
         if running {
             self.stop_plugin(plugin_id.clone()).await;
@@ -189,7 +221,7 @@ impl ApplicationManager {
             .await
     }
 
-    async fn start_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
+    async fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Starting plugin with id: {:?}", plugin_id);
 
         let plugin_id_str = plugin_id.to_string();
@@ -223,7 +255,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    async fn stop_plugin(&mut self, plugin_id: PluginId) {
+    async fn stop_plugin(&self, plugin_id: PluginId) {
         tracing::info!(target = "plugin", "Stopping plugin with id: {:?}", plugin_id);
 
         let data = PluginCommand::One {
@@ -234,7 +266,7 @@ impl ApplicationManager {
         self.send_command(data)
     }
 
-    async fn reload_search_index(&mut self) -> anyhow::Result<()> {
+    async fn reload_search_index(&self) -> anyhow::Result<()> {
         tracing::info!("Reloading search index");
 
         let search_items: Vec<_> = self.db_repository.list_plugins()
@@ -263,11 +295,13 @@ impl ApplicationManager {
         Ok(())
     }
 
-    fn start_plugin_runtime(&mut self, data: PluginRuntimeData) {
+    fn start_plugin_runtime(&self, data: PluginRuntimeData) {
         let run_status_guard = self.run_status_holder.start_block(data.id.clone());
 
         tokio::spawn(async {
-            start_plugin_runtime(data, run_status_guard).await
+            start_plugin_runtime(data, run_status_guard)
+                .await
+                .expect("failed to start plugin runtime")
         });
     }
 

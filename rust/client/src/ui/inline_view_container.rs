@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use iced::widget::Component;
 use iced::widget::component;
 
-use common::dbus::RenderLocation;
+use common::model::RenderLocation;
 
 use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;

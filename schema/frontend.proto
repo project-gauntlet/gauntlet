@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+import "shared.proto";
+
+service RpcFrontend {
+  rpc ReplaceView (RpcReplaceViewRequest) returns (RpcReplaceViewResponse);
+  rpc ClearInlineView (RpcClearInlineViewRequest) returns (RpcClearInlineViewResponse);
+}
+
+message RpcReplaceViewRequest {
+  string plugin_id = 1;
+  RpcRenderLocation render_location = 2;
+  bool top_level_view = 3;
+  RpcUiWidget container = 4;
+}
+
+message RpcReplaceViewResponse {
+}
+
+message RpcClearInlineViewRequest {
+  string plugin_id = 1;
+}
+
+message RpcClearInlineViewResponse {
+}
+
+
+enum RpcRenderLocation {
+  INLINE_VIEW_LOCATION = 0;
+  VIEW_LOCATION = 1;
+}

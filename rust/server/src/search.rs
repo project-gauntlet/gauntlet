@@ -55,7 +55,7 @@ impl SearchIndex {
         })
     }
 
-    pub fn reload(&mut self, search_items: Vec<SearchItem>) -> tantivy::Result<()> {
+    pub fn reload(&self, search_items: Vec<SearchItem>) -> tantivy::Result<()> {
         let mut index_writer = self.index.writer(50_000_000)?;
 
         index_writer.delete_all_documents()?;

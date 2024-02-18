@@ -1,29 +1,32 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use iced::{Application, Command, Event, executor, font, futures, keyboard, Length, Padding, Size, Subscription, subscription};
-use iced::advanced::Widget;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::KeyCode;
 use iced::Settings;
-use iced::widget::{column, container, horizontal_rule, horizontal_space, scrollable, text_input};
+use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
 use iced::window::Position;
 use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
-use zbus::{Connection, InterfaceRef};
-use client_context::ClientContext;
+use tonic::Request;
+use tonic::transport::Server;
 
-use common::dbus::{DBusEntrypointType, DbusEventRenderView, DbusEventRunCommand, RenderLocation};
-use common::model::{EntrypointId, PluginId};
+use client_context::ClientContext;
+use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
+use common::rpc::{BackendClient, RpcEntrypointType, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcRequestRunCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::rpc_backend_client::RpcBackendClient;
+use common::rpc::rpc_frontend_server::RpcFrontendServer;
+use common::rpc::rpc_ui_property_value::Value;
 use utils::channel::{channel, RequestReceiver};
 
-use crate::dbus::{DbusClient, DbusServerProxyProxy};
 use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult, SearchResultEntrypointType};
+use crate::rpc::RpcFrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
-use crate::ui::view_container::view_container;
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
+use crate::ui::view_container::view_container;
 use crate::ui::widget::ComponentWidgetEvent;
 
 mod view_container;
@@ -36,15 +39,13 @@ mod inline_view_container;
 
 pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
-    dbus_connection: Connection,
-    dbus_server: DbusServerProxyProxy<'static>,
-    dbus_client: InterfaceRef<DbusClient>,
+    backend_client: BackendClient,
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
     search_field_id: text_input::Id,
     view_data: Option<ViewData>,
     prompt: Option<String>,
-    waiting_for_next_unfocus: bool
+    waiting_for_next_unfocus: bool,
 }
 
 struct ViewData {
@@ -107,23 +108,18 @@ impl Application for AppModel {
 
         let client_context = Arc::new(StdRwLock::new(ClientContext::new()));
 
-        let (dbus_connection, dbus_server, dbus_client) = futures::executor::block_on(async {
-            let path = "/dev/projectgauntlet/Client";
+        tokio::spawn(async {
+            let addr = "127.0.0.1:42321".parse().unwrap();
 
-            let dbus_connection = zbus::ConnectionBuilder::session()?
-                .name("dev.projectgauntlet.Gauntlet.Client")?
-                .serve_at(path, DbusClient { context_tx })?
-                .build()
-                .await?;
+            Server::builder()
+                .add_service(RpcFrontendServer::new(RpcFrontendServerImpl { context_tx }))
+                .serve(addr)
+                .await
+                .expect("frontend server didn't start");
+        });
 
-            let dbus_server = DbusServerProxyProxy::new(&dbus_connection).await?;
-
-            let dbus_client = dbus_connection
-                .object_server()
-                .interface::<_, DbusClient>(path)
-                .await?;
-
-            Ok::<(Connection, DbusServerProxyProxy<'_>, InterfaceRef<DbusClient>), anyhow::Error>((dbus_connection, dbus_server, dbus_client))
+        let backend_client = futures::executor::block_on(async {
+            anyhow::Ok(RpcBackendClient::connect("http://127.0.0.1:42320").await?)
         }).unwrap();
 
         let search_field_id = text_input::Id::unique();
@@ -131,9 +127,7 @@ impl Application for AppModel {
         (
             AppModel {
                 client_context: client_context.clone(),
-                dbus_connection,
-                dbus_server,
-                dbus_client,
+                backend_client,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
                 search_results: vec![],
                 search_field_id: search_field_id.clone(),
@@ -177,18 +171,28 @@ impl Application for AppModel {
             AppMsg::PromptChanged(new_prompt) => {
                 self.prompt.replace(new_prompt.clone());
 
-                let dbus_server = self.dbus_server.clone();
+                let mut backend_client = self.backend_client.clone();
 
                 Command::perform(async move {
-                    let search_result = dbus_server.search(&new_prompt)
+                    let request = RpcSearchRequest {
+                        text: new_prompt,
+                    };
+
+                    let search_result = backend_client.search(Request::new(request))
                         .await
                         .unwrap()
+                        .into_inner()
+                        .results
                         .into_iter()
                         .flat_map(|search_result| {
-                            let entrypoint_type = match search_result.entrypoint_type {
-                                DBusEntrypointType::Command => SearchResultEntrypointType::Command,
-                                DBusEntrypointType::View => SearchResultEntrypointType::View,
-                                DBusEntrypointType::InlineView => {
+                            let entrypoint_type = search_result.entrypoint_type
+                                .try_into()
+                                .unwrap();
+
+                            let entrypoint_type = match entrypoint_type {
+                                RpcEntrypointType::Command => SearchResultEntrypointType::Command,
+                                RpcEntrypointType::View => SearchResultEntrypointType::View,
+                                RpcEntrypointType::InlineView => {
                                     return None
                                 },
                             };
@@ -236,7 +240,8 @@ impl Application for AppModel {
                 // for some reason Unfocused fires right at the application start
                 // and second time on actual window unfocus
                 if self.waiting_for_next_unfocus {
-                    iced::window::close()
+                    // iced::window::close()
+                    Command::none()
                 } else {
                     self.waiting_for_next_unfocus = true;
                     Command::none()
@@ -245,17 +250,42 @@ impl Application for AppModel {
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
             AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
-                let dbus_client = self.dbus_client.clone();
+                let mut backend_client = self.backend_client.clone();
                 let client_context = self.client_context.clone();
 
                 Command::perform(async move {
-                    let signal_context = dbus_client.signal_context();
-                    let future = {
+                    let event = {
                         let client_context = client_context.read().expect("lock is poisoned");
-                        client_context.handle_event(signal_context, render_location, &plugin_id, widget_event)
+                        client_context.handle_event(render_location, &plugin_id, widget_event)
                     };
 
-                    future.await;
+                    if let Some(event) = event {
+                        let widget_id = RpcUiWidgetId { value: event.widget_id };
+                        let event_arguments = event.event_arguments
+                            .into_iter()
+                            .map(|value| match value {
+                                PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
+                                PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
+                                PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
+                                PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
+                            })
+                            .collect();
+
+                        let event = RpcEventViewEvent {
+                            widget_id: Some(widget_id),
+                            event_name: event.event_name,
+                            event_arguments,
+                        };
+
+                        let request = RpcSendViewEventRequest {
+                            plugin_id: plugin_id.to_string(),
+                            event: Some(event),
+                        };
+
+                        backend_client.send_view_event(Request::new(request))
+                            .await
+                            .unwrap();
+                    };
                 }, |_| AppMsg::Noop)
             }
             AppMsg::Noop => Command::none(),
@@ -398,33 +428,39 @@ impl AppModel {
     }
 
     fn open_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
-        let dbus_client = self.dbus_client.clone();
+        let mut backend_client = self.backend_client.clone();
 
         Command::perform(async move {
-            let event_react_view = DbusEventRenderView {
+            let event = RpcEventRenderView {
                 frontend: "default".to_owned(),
                 entrypoint_id: entrypoint_id.to_string(),
             };
 
-            let signal_context = dbus_client.signal_context();
+            let request = RpcRequestViewRenderRequest {
+                plugin_id: plugin_id.to_string(),
+                event: Some(event)
+            };
 
-            DbusClient::render_view_signal(signal_context, &plugin_id.to_string(), event_react_view)
+            backend_client.request_view_render(Request::new(request))
                 .await
                 .unwrap();
         }, |_| AppMsg::Noop)
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
-        let dbus_client = self.dbus_client.clone();
+        let mut backend_client = self.backend_client.clone();
 
         Command::perform(async move {
-            let event_run_command = DbusEventRunCommand {
+            let event = RpcEventRunCommand {
                 entrypoint_id: entrypoint_id.to_string(),
             };
 
-            let signal_context = dbus_client.signal_context();
+            let request = RpcRequestRunCommandRequest {
+                plugin_id: plugin_id.to_string(),
+                event: Some(event)
+            };
 
-            DbusClient::run_command_signal(signal_context, &plugin_id.to_string(), event_run_command)
+            backend_client.request_run_command(Request::new(request))
                 .await
                 .unwrap();
         }, |_| AppMsg::Noop)

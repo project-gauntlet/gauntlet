@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+import "shared.proto";
+
+service RpcBackend {
+  // search
+  rpc Search (RpcSearchRequest) returns (RpcSearchResponse);
+
+  // ui
+  rpc RequestViewRender (RpcRequestViewRenderRequest) returns (RpcRequestViewRenderResponse);
+
+  rpc RequestRunCommand (RpcRequestRunCommandRequest) returns (RpcRequestRunCommandResponse);
+
+  rpc SendViewEvent (RpcSendViewEventRequest) returns (RpcSendViewEventResponse);
+
+  // settings
+  rpc plugins (RpcPluginsRequest) returns (RpcPluginsResponse);
+
+  rpc SetPluginState(RpcSetPluginStateRequest) returns (RpcSetPluginStateResponse);
+
+  rpc SetEntrypointState (RpcSetEntrypointStateRequest) returns (RpcSetEntrypointStateResponse);
+
+  rpc DownloadPlugin (RpcDownloadPluginRequest) returns (RpcDownloadPluginResponse);
+
+  rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
+
+  // dev tools
+  rpc SaveLocalPlugin (RpcSaveLocalPluginRequest) returns (RpcSaveLocalPluginResponse);
+}
+
+message RpcSearchRequest {
+  string text = 1;
+}
+message RpcSearchResponse {
+  repeated RpcSearchResult results = 1;
+}
+
+message RpcRequestViewRenderRequest {
+  string plugin_id = 1;
+  RpcEventRenderView event = 2;
+}
+message RpcRequestViewRenderResponse {
+}
+
+message RpcRequestRunCommandRequest {
+  string plugin_id = 1;
+  RpcEventRunCommand event = 2;
+}
+message RpcRequestRunCommandResponse {
+}
+
+message RpcSendViewEventRequest {
+  string plugin_id = 1;
+  RpcEventViewEvent event = 2;
+}
+message RpcSendViewEventResponse {
+}
+
+message RpcPluginsRequest {
+}
+message RpcPluginsResponse {
+  repeated RpcPlugin plugins = 1;
+}
+
+message RpcSetPluginStateRequest {
+  string plugin_id = 1;
+  bool enabled = 2;
+}
+message RpcSetPluginStateResponse {
+}
+
+message RpcSetEntrypointStateRequest {
+  string plugin_id = 1;
+  string entrypoint_id = 2;
+  bool enabled = 3;
+}
+message RpcSetEntrypointStateResponse {
+}
+
+message RpcDownloadPluginRequest {
+  string plugin_id = 1;
+}
+message RpcDownloadPluginResponse {
+}
+
+message RpcSaveLocalPluginRequest {
+  string path = 1;
+}
+message RpcSaveLocalPluginResponse {
+}
+
+message RpcDownloadStatusRequest {
+}
+message RpcDownloadStatusResponse {
+  map<string, RpcDownloadStatusValue> status_per_plugin = 1;
+}
+
+message RpcSearchResult {
+  string plugin_id = 1;
+  string plugin_name = 2;
+  string entrypoint_id = 3;
+  string entrypoint_name = 4;
+  RpcEntrypointType entrypoint_type = 5;
+}
+
+enum RpcEntrypointType {
+  COMMAND = 0;
+  VIEW = 1;
+  INLINE_VIEW = 2;
+}
+
+message RpcPlugin {
+  string plugin_id = 1;
+  string plugin_name = 2;
+  bool enabled = 3;
+  repeated RpcEntrypoint entrypoints = 4;
+}
+
+message RpcEntrypoint {
+  string entrypoint_id = 1;
+  string entrypoint_name = 2;
+  bool enabled = 3;
+  RpcEntrypointType entrypoint_type = 4;
+}
+
+
+message RpcEventRenderView {
+  string frontend = 1;
+  string entrypoint_id = 2;
+}
+
+message RpcEventRunCommand {
+  string entrypoint_id = 1;
+}
+
+message RpcEventViewEvent {
+  RpcUiWidgetId widget_id = 1;
+  string event_name = 2;
+  repeated RpcUiPropertyValue event_arguments = 3;
+}
+
+enum RpcDownloadStatus {
+  InProgress = 0;
+  Done = 1;
+  Failed = 2;
+}
+
+message RpcDownloadStatusValue {
+  RpcDownloadStatus status = 1;
+  string message = 2;
+}
+

@@ -1,48 +1,50 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::thread;
 
 use anyhow::{anyhow, Context};
 use serde::Deserialize;
 
-use common::model::PluginId;
-use crate::dbus::DbusServer;
+use common::model::{DownloadStatus, PluginId};
 
 use crate::model::{entrypoint_to_str, PluginEntrypointType};
 use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, SavePlugin, SavePluginEntrypoint};
+use crate::plugins::download_status::DownloadStatusHolder;
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
+    download_status_holder: DownloadStatusHolder
 }
 
 impl PluginLoader {
     pub fn new(db_repository: DataDbRepository) -> Self {
         Self {
-            db_repository
+            db_repository,
+            download_status_holder: DownloadStatusHolder::new()
         }
     }
 
-    pub async fn download_and_save_plugin(
-        &self,
-        signal_context: zbus::SignalContext<'_>,
-        plugin_id: PluginId
-    ) -> anyhow::Result<()> {
+    pub fn download_status(&self) -> HashMap<String, DownloadStatus> {
+        self.download_status_holder.download_status()
+    }
+
+    pub async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        let download_status_guard = self.download_status_holder.download_started(plugin_id.clone());
+
         let data_db_repository = self.db_repository.clone();
-        let signal_context = signal_context.to_owned();
         let handle = tokio::runtime::Handle::current();
 
         thread::spawn(move || {
-            handle.block_on(async move {
+            let result = handle.block_on(async move {
                 let temp_dir = tempfile::tempdir()?;
 
                 PluginLoader::download(temp_dir.path(), plugin_id.clone())?;
 
                 let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
-                    .await?;
-
-                DbusServer::remote_plugin_download_finished_signal(&signal_context, &plugin_id.to_string())
                     .await?;
 
                 data_db_repository.save_plugin(SavePlugin {
@@ -56,7 +58,12 @@ impl PluginLoader {
                 }).await?;
 
                 anyhow::Ok(())
-            }).expect("error when downloading and adding plugin");
+            });
+
+            match result {
+                Ok(()) => download_status_guard.download_finished(),
+                Err(err) => download_status_guard.download_failed(err.to_string())
+            }
         });
 
         Ok(())
