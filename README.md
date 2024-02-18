@@ -1,6 +1,6 @@
 # Gauntlet
 
-![Discord](https://discord.com/api/guilds/1205606511603359785/widget.png?style=shield)
+[![Discord](https://discord.com/api/guilds/1205606511603359785/widget.png?style=shield)](https://discord.gg/gFTqYUkBrW)
 
 <img align="right" width="100" height="100" src="docs/logo.png">
 
