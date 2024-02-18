@@ -1,14 +1,14 @@
 use tonic::{Request, Response, Status};
 
 use common::model::{PluginId, RenderLocation};
-use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse};
+use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use utils::channel::RequestSender;
 
 use crate::model::{NativeUiRequestData, NativeUiResponseData};
 
 pub struct RpcFrontendServerImpl {
-    pub(crate) context_tx: RequestSender<(PluginId, NativeUiRequestData), NativeUiResponseData>
+    pub(crate) context_tx: RequestSender<NativeUiRequestData, NativeUiResponseData>
 }
 
 #[tonic::async_trait]
@@ -31,8 +31,12 @@ impl RpcFrontend for RpcFrontendServerImpl {
             RpcRenderLocation::ViewLocation => RenderLocation::View,
         };
 
-        let data = NativeUiRequestData::ReplaceView { render_location, top_level_view, container };
-        let data = (PluginId::from_string(plugin_id), data);
+        let data = NativeUiRequestData::ReplaceView {
+            plugin_id: PluginId::from_string(plugin_id),
+            render_location,
+            top_level_view,
+            container
+        };
 
         match self.context_tx.send_receive(data).await {
             NativeUiResponseData::Nothing => {}
@@ -45,14 +49,25 @@ impl RpcFrontend for RpcFrontendServerImpl {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
 
-        let data = NativeUiRequestData::ClearInlineView;
-        let data = (PluginId::from_string(plugin_id), data);
+        let data = NativeUiRequestData::ClearInlineView {
+            plugin_id: PluginId::from_string(plugin_id)
+        };
 
         match self.context_tx.send_receive(data).await {
             NativeUiResponseData::Nothing => {}
         };
 
         Ok(Response::new(RpcClearInlineViewResponse::default()))
+    }
+
+    async fn show_window(&self, _: Request<RpcShowWindowRequest>) -> Result<Response<RpcShowWindowResponse>, Status> {
+        let data = NativeUiRequestData::ShowWindow;
+
+        match self.context_tx.send_receive(data).await {
+            NativeUiResponseData::Nothing => {}
+        };
+
+        Ok(Response::new(RpcShowWindowResponse::default()))
     }
 }
 

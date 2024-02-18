@@ -6,8 +6,10 @@ edition = "2021"
 tokio = "1.28.1"
 anyhow = "1"
 thiserror = "1"
-iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced"] }
-iced_aw = { git = "https://github.com/iced-rs/iced_aw.git", rev = "687fe55689517c82d289af311bc6a17d9d08c01a", default-features = false, features = ["icons", "date_picker", "floating_element", "wrap"] }
+#iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced"] }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet", features = ["tokio", "lazy", "advanced", "multi-window"] }
+#iced_aw = { git = "https://github.com/iced-rs/iced_aw.git", rev = "687fe55689517c82d289af311bc6a17d9d08c01a", default-features = false, features = ["icons", "date_picker", "floating_element", "wrap"] }
+iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet", default-features = false, features = ["icons", "date_picker", "floating_element", "wrap"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }

@@ -5,6 +5,12 @@ import "shared.proto";
 service RpcFrontend {
   rpc ReplaceView (RpcReplaceViewRequest) returns (RpcReplaceViewResponse);
   rpc ClearInlineView (RpcClearInlineViewRequest) returns (RpcClearInlineViewResponse);
+  rpc ShowWindow (RpcShowWindowRequest) returns (RpcShowWindowResponse);
+}
+
+message RpcShowWindowRequest {
+}
+message RpcShowWindowResponse {
 }
 
 message RpcReplaceViewRequest {

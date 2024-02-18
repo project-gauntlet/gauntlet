@@ -28,8 +28,12 @@ pub enum NativeUiResponseData {
 
 #[derive(Debug)]
 pub enum NativeUiRequestData {
-    ClearInlineView,
+    ShowWindow,
+    ClearInlineView {
+        plugin_id: PluginId
+    },
     ReplaceView {
+        plugin_id: PluginId,
         render_location: RenderLocation,
         top_level_view: bool,
         container: NativeUiWidget,

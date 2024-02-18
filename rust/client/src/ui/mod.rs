@@ -1,11 +1,11 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Application, Command, Event, event, executor, font, futures, keyboard, Length, Padding, Size, Subscription, subscription, window};
+use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Settings, Size, Subscription, subscription, window};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
-use iced::Settings;
+use iced::multi_window::Application;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
 use iced::window::Position;
@@ -42,11 +42,10 @@ pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
     backend_client: BackendClient,
     search_results: Vec<NativeUiSearchResult>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<NativeUiRequestData, NativeUiResponseData>>>,
     search_field_id: text_input::Id,
     view_data: Option<ViewData>,
     prompt: Option<String>,
-    waiting_for_next_unfocus: bool,
 }
 
 struct ViewData {
@@ -76,6 +75,8 @@ pub enum AppMsg {
     },
     Noop,
     FontLoaded(Result<(), font::Error>),
+    ShowWindow,
+    HideWindow,
 }
 
 const WINDOW_WIDTH: f32 = 650.0;
@@ -83,17 +84,23 @@ const WINDOW_HEIGHT: f32 = 400.0;
 const SUB_VIEW_WINDOW_WIDTH: f32 = 850.0;
 const SUB_VIEW_WINDOW_HEIGHT: f32 = 500.0;
 
+
+fn window_settings() -> iced::window::Settings {
+    iced::window::Settings {
+        size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+        position: Position::Centered,
+        resizable: false,
+        decorations: false,
+        transparent: true,
+        allow_no_windows: true,
+        ..Default::default()
+    }
+}
+
 pub fn run() {
     AppModel::run(Settings {
         id: None,
-        window: iced::window::Settings {
-            size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-            position: Position::Centered,
-            resizable: false,
-            decorations: false,
-            transparent: true,
-            ..Default::default()
-        },
+        window: window_settings(),
         ..Default::default()
     }).unwrap();
 }
@@ -105,7 +112,7 @@ impl Application for AppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let (context_tx, request_rx) = channel::<(PluginId, NativeUiRequestData), NativeUiResponseData>();
+        let (context_tx, request_rx) = channel::<NativeUiRequestData, NativeUiResponseData>();
 
         let client_context = Arc::new(StdRwLock::new(ClientContext::new()));
 
@@ -123,28 +130,24 @@ impl Application for AppModel {
             anyhow::Ok(RpcBackendClient::connect("http://127.0.0.1:42320").await?)
         }).unwrap();
 
-        let search_field_id = text_input::Id::unique();
-
         (
             AppModel {
                 client_context: client_context.clone(),
                 backend_client,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
                 search_results: vec![],
-                search_field_id: search_field_id.clone(),
+                search_field_id: text_input::Id::unique(),
                 prompt: None,
                 view_data: None,
-                waiting_for_next_unfocus: false,
             },
             Command::batch([
-                Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
-                font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
-                focus(search_field_id)
-            ])
+                window::close(window::Id::MAIN),
+                font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)
+            ]),
         )
     }
 
-    fn title(&self) -> String {
+    fn title(&self, _: window::Id) -> String {
         "Gauntlet".to_owned()
     }
 
@@ -165,8 +168,8 @@ impl Application for AppModel {
             }
             AppMsg::RunCommand { plugin_id,  entrypoint_id } => {
                 Command::batch([
+                    self.hide_window(),
                     self.run_command(plugin_id, entrypoint_id),
-                    iced::window::close(window::Id::MAIN),
                 ])
             }
             AppMsg::PromptChanged(new_prompt) => {
@@ -238,15 +241,7 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(Event::Window(_, iced::window::Event::Unfocused)) => {
-                // for some reason Unfocused fires right at the application start
-                // and second time on actual window unfocus
-                if self.waiting_for_next_unfocus {
-                    // iced::window::close()
-                    Command::none()
-                } else {
-                    self.waiting_for_next_unfocus = true;
-                    Command::none()
-                }
+                self.hide_window()
             }
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
@@ -294,10 +289,12 @@ impl Application for AppModel {
                 result.expect("unable to load font");
                 Command::none()
             }
+            AppMsg::ShowWindow => self.show_window(),
+            AppMsg::HideWindow => self.hide_window(),
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message> {
+    fn view(&self, _: window::Id) -> Element<'_, Self::Message> {
         match &self.view_data {
             None => {
                 let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
@@ -384,7 +381,7 @@ impl Application for AppModel {
         }
     }
 
-    fn theme(&self) -> Self::Theme {
+    fn theme(&self, _: window::Id) -> Self::Theme {
         GauntletTheme::new()
     }
 
@@ -410,10 +407,26 @@ impl Application for AppModel {
 }
 
 impl AppModel {
+    fn hide_window(&mut self) -> Command<AppMsg> {
+        self.prompt = None;
+        self.view_data = None;
+        self.search_results = vec![];
+
+        window::close(window::Id::MAIN)
+    }
+
+    fn show_window(&mut self) -> Command<AppMsg> {
+        Command::batch([
+            window::spawn_main(window_settings()).1,
+            Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
+            focus(self.search_field_id.clone())
+        ])
+    }
+
     fn previous_view(&mut self) -> Command<AppMsg> {
         match &self.view_data {
             None => {
-                iced::window::close(window::Id::MAIN)
+                self.hide_window()
             }
             Some(ViewData { top_level_view: true, .. }) => {
                 self.view_data.take();
@@ -471,12 +484,12 @@ impl AppModel {
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<(PluginId, NativeUiRequestData), NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<NativeUiRequestData, NativeUiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
     let mut request_rx = request_rx.write().await;
     loop {
-        let ((plugin_id, request_data), responder) = request_rx.recv().await;
+        let (request_data, responder) = request_rx.recv().await;
 
         let mut app_msg = AppMsg::Noop; // refresh ui
 
@@ -484,15 +497,20 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::ReplaceView { render_location, top_level_view, container } => {
+                NativeUiRequestData::ReplaceView { plugin_id, render_location, top_level_view, container } => {
                     client_context.replace_view(render_location, container, &plugin_id);
 
                     app_msg = AppMsg::SetTopLevelView(top_level_view);
 
                     responder.respond(NativeUiResponseData::Nothing)
                 }
-                NativeUiRequestData::ClearInlineView => {
+                NativeUiRequestData::ClearInlineView { plugin_id } => {
                     client_context.clear_inline_view(&plugin_id);
+
+                    responder.respond(NativeUiResponseData::Nothing)
+                }
+                NativeUiRequestData::ShowWindow => {
+                    app_msg = AppMsg::ShowWindow;
 
                     responder.respond(NativeUiResponseData::Nothing)
                 }

@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use client::start_client;
+use client::open_window;
 use management_client::start_management_client;
 use server::start_server;
 
@@ -22,7 +22,7 @@ pub fn init() {
 
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Open => start_client(),
+        Commands::Open => open_window(),
         Commands::Server => start_server(),
         Commands::Management => start_management_client(),
     };

@@ -24,6 +24,7 @@ common = { path = "../common" }
 utils = { path = "../utils" }
 component_model = { path = "../component_model" }
 tonic = "0.11.0"
+client = { path = "../client" }
 
 [features]
 dev = []

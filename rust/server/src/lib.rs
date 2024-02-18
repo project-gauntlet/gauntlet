@@ -1,4 +1,5 @@
 use tonic::transport::Server;
+use client::start_client;
 use common::rpc::rpc_backend_server::RpcBackendServer;
 use crate::rpc::RpcBackendServerImpl;
 use crate::plugins::ApplicationManager;
@@ -10,15 +11,21 @@ pub(in crate) mod plugins;
 pub(in crate) mod model;
 mod dirs;
 
+const FRONTEND_ENV: &'static str = "GAUNTLET_INTERNAL_FRONTEND";
+
 pub fn start_server() {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("unable to start server tokio runtime")
-        .block_on(async {
-            run_server().await
-        })
-        .unwrap();
+    if std::env::var(FRONTEND_ENV).is_ok() {
+        start_client()
+    } else {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("unable to start server tokio runtime")
+            .block_on(async {
+                run_server().await
+            })
+            .unwrap();
+    }
 }
 
 async fn run_server() -> anyhow::Result<()> {
@@ -51,7 +58,8 @@ async fn run_server() -> anyhow::Result<()> {
     });
 
     std::process::Command::new(std::env::current_exe()?)
-        .args(["open"])
+        .args(["server"])
+        .env(FRONTEND_ENV, "")
         .spawn()
         .expect("failed to execute client process");
 
