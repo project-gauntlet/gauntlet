@@ -45,6 +45,14 @@ async fn run_server() -> anyhow::Result<()> {
         }
     }
 
+    if !cfg!(feature = "dev") {
+        std::process::Command::new(std::env::current_exe()?)
+            .args(["server"])
+            .env(FRONTEND_ENV, "")
+            .spawn()
+            .expect("failed to execute client process");
+    }
+
     application_manager.reload_all_plugins().await?; // TODO do not fail here ?
 
     tokio::spawn(async {
@@ -56,12 +64,6 @@ async fn run_server() -> anyhow::Result<()> {
             .await
             .expect("unable to start backend server");
     });
-
-    std::process::Command::new(std::env::current_exe()?)
-        .args(["server"])
-        .env(FRONTEND_ENV, "")
-        .spawn()
-        .expect("failed to execute client process");
 
     std::future::pending::<()>().await;
 
