@@ -112,6 +112,8 @@ impl Application for AppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        register_shortcut();
+
         let (context_tx, request_rx) = channel::<NativeUiRequestData, NativeUiResponseData>();
 
         let client_context = Arc::new(StdRwLock::new(ClientContext::new()));
@@ -390,8 +392,20 @@ impl Application for AppModel {
         let request_rx = self.request_rx.clone();
 
         struct RequestLoop;
+        struct GlobalShortcutListener;
 
         Subscription::batch([
+            subscription::channel(
+                std::any::TypeId::of::<GlobalShortcutListener>(),
+                10,
+                |sender| async move {
+                    listen_on_shortcut(sender);
+
+                    std::future::pending::<()>().await;
+
+                    unreachable!()
+                },
+            ),
             event::listen().map(AppMsg::IcedEvent),
             subscription::channel(
                 std::any::TypeId::of::<RequestLoop>(),
@@ -479,6 +493,27 @@ impl AppModel {
                 .unwrap();
         }, |_| AppMsg::Noop)
     }
+}
+
+fn register_shortcut() {
+    use global_hotkey::{GlobalHotKeyManager, hotkey::{HotKey, Modifiers, Code}};
+
+    let manager = GlobalHotKeyManager::new().unwrap();
+
+    manager.register(HotKey::new(Some(Modifiers::ALT | Modifiers::CONTROL), Code::Space))
+        .unwrap();
+}
+
+fn listen_on_shortcut(mut sender: Sender<AppMsg>) {
+    use global_hotkey::GlobalHotKeyEvent;
+
+    std::thread::spawn(move || {
+        let receiver = GlobalHotKeyEvent::receiver();
+
+        while let Ok(_) = receiver.recv() {
+            let _ = sender.send(AppMsg::ShowWindow);
+        }
+    });
 }
 
 

@@ -15,6 +15,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }
 utils = { path = "../utils" }
 tonic = "0.11.0"
+global-hotkey = "0.4.2"
 
 [build-dependencies]
 component_model = { path = "../component_model" }
