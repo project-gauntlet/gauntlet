@@ -46,6 +46,7 @@ pub struct AppModel {
     search_field_id: text_input::Id,
     view_data: Option<ViewData>,
     prompt: Option<String>,
+    waiting_for_next_unfocus: bool,
 }
 
 struct ViewData {
@@ -140,6 +141,7 @@ impl Application for AppModel {
                 search_field_id: text_input::Id::unique(),
                 prompt: None,
                 view_data: None,
+                waiting_for_next_unfocus: false,
             },
             Command::batch([
                 change_level(window::Id::MAIN, Level::AlwaysOnTop),
@@ -243,7 +245,19 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(Event::Window(_, iced::window::Event::Unfocused)) => {
-                self.hide_window()
+                if cfg!(target_os = "linux") {
+                    // for some reason Unfocused fires right at the application start or window unhide
+                    // and second time on actual window unfocus
+                    if self.waiting_for_next_unfocus {
+                        self.waiting_for_next_unfocus = false;
+                        self.hide_window()
+                    } else {
+                        self.waiting_for_next_unfocus = true;
+                        Command::none()
+                    }
+                } else {
+                    self.hide_window()
+                }
             }
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
