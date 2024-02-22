@@ -393,6 +393,14 @@ impl Application for AppModel {
         struct RequestLoop;
         struct GlobalShortcutListener;
 
+        let events_subscription = event::listen_with(|event, status| match status {
+            event::Status::Ignored => Some(AppMsg::IcedEvent(event)),
+            event::Status::Captured => match event {
+                Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Named(Named::Escape), .. }) => Some(AppMsg::IcedEvent(event)),
+                _ => None
+            }
+        });
+
         Subscription::batch([
             subscription::channel(
                 std::any::TypeId::of::<GlobalShortcutListener>(),
@@ -405,7 +413,7 @@ impl Application for AppModel {
                     unreachable!()
                 },
             ),
-            event::listen().map(AppMsg::IcedEvent),
+            events_subscription,
             subscription::channel(
                 std::any::TypeId::of::<RequestLoop>(),
                 100,
