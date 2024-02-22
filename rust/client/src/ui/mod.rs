@@ -8,7 +8,7 @@ use iced::keyboard::key::Named;
 use iced::multi_window::Application;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
-use iced::window::Position;
+use iced::window::{change_level, Level, Position};
 use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
 use tonic::Request;
@@ -142,6 +142,7 @@ impl Application for AppModel {
                 view_data: None,
             },
             Command::batch([
+                change_level(window::Id::MAIN, Level::AlwaysOnTop),
                 Command::perform(async {}, |_| AppMsg::ShowWindow),
                 font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)
             ]),
