@@ -245,18 +245,13 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(Event::Window(_, iced::window::Event::Unfocused)) => {
-                if cfg!(target_os = "linux") {
-                    // for some reason Unfocused fires right at the application start or window unhide
-                    // and second time on actual window unfocus
-                    if self.waiting_for_next_unfocus {
-                        self.waiting_for_next_unfocus = false;
-                        self.hide_window()
-                    } else {
-                        self.waiting_for_next_unfocus = true;
-                        Command::none()
-                    }
-                } else {
+                // for some reason (on both macos and linux) Unfocused fires right at the application start
+                // and second time on actual window unfocus
+                if self.waiting_for_next_unfocus {
                     self.hide_window()
+                } else {
+                    self.waiting_for_next_unfocus = true;
+                    Command::none()
                 }
             }
             AppMsg::IcedEvent(_) => Command::none(),
