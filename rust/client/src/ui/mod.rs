@@ -454,6 +454,7 @@ impl AppModel {
     fn show_window(&mut self) -> Command<AppMsg> {
         Command::batch([
             window::change_mode(window::Id::MAIN, window::Mode::Windowed),
+            window::gain_focus(window::Id::MAIN),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
         ])
