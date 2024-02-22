@@ -92,7 +92,6 @@ fn window_settings() -> iced::window::Settings {
         resizable: false,
         decorations: false,
         transparent: true,
-        allow_no_windows: true,
         ..Default::default()
     }
 }
@@ -143,7 +142,7 @@ impl Application for AppModel {
                 view_data: None,
             },
             Command::batch([
-                window::close(window::Id::MAIN),
+                Command::perform(async {}, |_| AppMsg::ShowWindow),
                 font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)
             ]),
         )
@@ -157,7 +156,7 @@ impl Application for AppModel {
         match message {
             AppMsg::OpenView { plugin_id, entrypoint_id } => {
                 self.view_data.replace(ViewData {
-                    top_level_view:  true,
+                    top_level_view: true,
                     plugin_id: plugin_id.clone(),
                     entrypoint_id: entrypoint_id.clone(),
                 });
@@ -168,7 +167,7 @@ impl Application for AppModel {
                     self.open_view(plugin_id, entrypoint_id)
                 ])
             }
-            AppMsg::RunCommand { plugin_id,  entrypoint_id } => {
+            AppMsg::RunCommand { plugin_id, entrypoint_id } => {
                 Command::batch([
                     self.hide_window(),
                     self.run_command(plugin_id, entrypoint_id),
@@ -199,8 +198,8 @@ impl Application for AppModel {
                                 RpcEntrypointType::Command => SearchResultEntrypointType::Command,
                                 RpcEntrypointType::View => SearchResultEntrypointType::View,
                                 RpcEntrypointType::InlineView => {
-                                    return None
-                                },
+                                    return None;
+                                }
                             };
 
                             Some(NativeUiSearchResult {
@@ -367,7 +366,7 @@ impl Application for AppModel {
                 // element.explain(iced::color!(0xFF0000))
                 element
             }
-            Some(ViewData{ plugin_id, entrypoint_id: _, top_level_view: _ }) => {
+            Some(ViewData { plugin_id, entrypoint_id: _, top_level_view: _ }) => {
                 let container_element: Element<_> = view_container(self.client_context.clone(), plugin_id.to_owned())
                     .into();
 
@@ -426,12 +425,12 @@ impl AppModel {
         self.view_data = None;
         self.search_results = vec![];
 
-        window::close(window::Id::MAIN)
+        window::change_mode(window::Id::MAIN, window::Mode::Hidden)
     }
 
     fn show_window(&mut self) -> Command<AppMsg> {
         Command::batch([
-            window::spawn_main(window_settings()).1,
+            window::change_mode(window::Id::MAIN, window::Mode::Windowed),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
         ])
@@ -466,7 +465,7 @@ impl AppModel {
 
             let request = RpcRequestViewRenderRequest {
                 plugin_id: plugin_id.to_string(),
-                event: Some(event)
+                event: Some(event),
             };
 
             backend_client.request_view_render(Request::new(request))
@@ -485,7 +484,7 @@ impl AppModel {
 
             let request = RpcRequestRunCommandRequest {
                 plugin_id: plugin_id.to_string(),
-                event: Some(event)
+                event: Some(event),
             };
 
             backend_client.request_run_command(Request::new(request))
@@ -496,7 +495,7 @@ impl AppModel {
 }
 
 fn register_shortcut() {
-    use global_hotkey::{GlobalHotKeyManager, hotkey::{HotKey, Modifiers, Code}};
+    use global_hotkey::{GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 
     let manager = GlobalHotKeyManager::new().unwrap();
 
