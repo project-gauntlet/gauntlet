@@ -713,9 +713,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.86"
+version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f9fa1897e4325be0d68d48df6aa1a71ac2ed4d27723887e7754192705350730"
+checksum = "3286b845d0fccbdd15af433f61c5970e711987036cb468f437ff6badd70f4e24"
 dependencies = [
  "libc",
 ]
@@ -3766,7 +3766,7 @@ checksum = "6a62d0338e4056db6a73221c2fb2e30619452f6ea9651bac4110f51b0f7a7581"
 dependencies = [
  "cosmic-text",
  "etagere",
- "lru 0.12.2",
+ "lru 0.12.3",
  "wgpu",
 ]
 
@@ -3943,9 +3943,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.3.6"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd5256b483761cd23699d0da46cc6fd2ee3be420bbe6d020ae4a091e70b7e9fd"
+checksum = "379dada1584ad501b383485dd706b8afb7a70fcbc7f4da7d780638a5a6124a60"
 
 [[package]]
 name = "hex"
@@ -4150,7 +4150,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -4174,7 +4174,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "bitflags 2.4.2",
  "glam",
@@ -4191,7 +4191,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "futures",
  "iced_core",
@@ -4204,7 +4204,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "bitflags 2.4.2",
  "bytemuck",
@@ -4224,7 +4224,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -4236,7 +4236,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -4247,7 +4247,7 @@ dependencies = [
 [[package]]
 name = "iced_style"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "iced_core",
  "once_cell",
@@ -4267,7 +4267,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -4283,7 +4283,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "bitflags 2.4.2",
  "bytemuck",
@@ -4300,7 +4300,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -4314,7 +4314,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.12.0"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#c76a9eb2ff08ac242ed27d7fb11f536c1cc4411a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#898924ed4700a1aafe44e66a5dffb3ac81926a0e"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -4856,9 +4856,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db2c024b41519440580066ba82aab04092b333e09066a5eb86c7c4890df31f22"
+checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
 dependencies = [
  "hashbrown 0.14.3",
 ]
@@ -5100,9 +5100,9 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
 name = "murmurhash32"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9380db4c04d219ac5c51d14996bbf2c2e9a15229771b53f8671eb6c83cf44df"
+checksum = "2195bf6aa996a481483b29d62a7663eed3fe39600c460e323f8ff41e90bdd89b"
 
 [[package]]
 name = "naga"
@@ -7226,12 +7226,12 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5fac59a5cb5dd637972e5fca70daf0523c9067fcdc4842f053dae04a18f8e9"
+checksum = "05ffd9c0a93b7543e062e759284fcf5f5e3b098501104bfbdde4d404db792871"
 dependencies = [
  "libc",
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

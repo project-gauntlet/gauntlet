@@ -8,7 +8,7 @@ use iced::keyboard::key::Named;
 use iced::multi_window::Application;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
-use iced::window::{change_level, Level, Position};
+use iced::window::{change_level, Level, Position, reposition};
 use iced_aw::graphics::icons;
 use tokio::sync::RwLock as TokioRwLock;
 use tonic::Request;
@@ -165,8 +165,8 @@ impl Application for AppModel {
                 });
 
                 Command::batch([
-                    // TODO re-center the window
-                    iced::window::resize(window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                    reposition(window::Id::MAIN, Position::Centered, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                    window::resize(window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
                     self.open_view(plugin_id, entrypoint_id)
                 ])
             }
@@ -463,12 +463,13 @@ impl AppModel {
             Some(ViewData { top_level_view: true, .. }) => {
                 self.view_data.take();
 
-                // TODO re-center the window
-                iced::window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+                Command::batch([
+                    reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+                    window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+                ])
             }
             Some(ViewData { top_level_view: false, plugin_id, entrypoint_id }) => {
                 self.open_view(plugin_id.clone(), entrypoint_id.clone())
-                // TODO re-center the window
             }
         }
     }
