@@ -1,4 +1,5 @@
 use std::sync::{Arc, RwLock as StdRwLock};
+use global_hotkey::{GlobalHotKeyManager, HotKeyState};
 
 use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Settings, Size, Subscription, subscription, window};
 use iced::futures::channel::mpsc::Sender;
@@ -10,6 +11,7 @@ use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, reposition};
 use iced_aw::graphics::icons;
+use tokio::runtime::Handle;
 use tokio::sync::RwLock as TokioRwLock;
 use tonic::Request;
 use tonic::transport::Server;
@@ -47,6 +49,7 @@ pub struct AppModel {
     view_data: Option<ViewData>,
     prompt: Option<String>,
     waiting_for_next_unfocus: bool,
+    global_hotkey_manager: GlobalHotKeyManager,
 }
 
 struct ViewData {
@@ -112,7 +115,7 @@ impl Application for AppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        register_shortcut();
+        let global_hotkey_manager = register_shortcut();
 
         let (context_tx, request_rx) = channel::<NativeUiRequestData, NativeUiResponseData>();
 
@@ -142,6 +145,7 @@ impl Application for AppModel {
                 prompt: None,
                 view_data: None,
                 waiting_for_next_unfocus: false,
+                global_hotkey_manager,
             },
             Command::batch([
                 change_level(window::Id::MAIN, Level::AlwaysOnTop),
@@ -514,25 +518,31 @@ impl AppModel {
     }
 }
 
-fn register_shortcut() {
+fn register_shortcut() -> GlobalHotKeyManager {
     use global_hotkey::{GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 
     let manager = GlobalHotKeyManager::new().unwrap();
 
-    manager.register(HotKey::new(Some(Modifiers::ALT | Modifiers::CONTROL), Code::Space))
+    manager.register(HotKey::new(Some(Modifiers::META), Code::Space))
         .unwrap();
+
+    manager
 }
 
 fn listen_on_shortcut(mut sender: Sender<AppMsg>) {
     use global_hotkey::GlobalHotKeyEvent;
 
-    std::thread::spawn(move || {
-        let receiver = GlobalHotKeyEvent::receiver();
+    let handle = Handle::current();
 
-        while let Ok(_) = receiver.recv() {
-            let _ = sender.send(AppMsg::ShowWindow);
+    GlobalHotKeyEvent::set_event_handler(Some(move |e: GlobalHotKeyEvent| {
+        let mut sender = sender.clone();
+        if let HotKeyState::Released = e.state() {
+            handle.spawn(async move {
+                sender.send(AppMsg::ShowWindow).await
+                    .unwrap();
+            });
         }
-    });
+    }));
 }
 
 
