@@ -65,6 +65,9 @@ interface InternalApi {
     op_inline_view_endpoint_id(): string | null;
     clear_inline_view(): void;
 
+    get_plugin_preferences(): Record<string, any>;
+    get_entrypoint_preferences(entrypointId: string): Record<string, any>;
+
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, container: UiWidget): void;
 }
 

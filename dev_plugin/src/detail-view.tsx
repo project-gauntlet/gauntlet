@@ -1,7 +1,16 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
-import { useNavigation } from "@project-gauntlet/api/hooks";
+import { useNavigation, useEntrypointPreferences, usePluginPreferences } from "@project-gauntlet/api/hooks";
+
+interface DetailViewEntrypointConfig {
+    testBool: boolean
+    testEnum: 'item' | 'item_2'
+    testListOfStrings: string[]
+    testListOfNumbers: number[]
+    testNum: number
+    testStr: string
+}
 
 function TestView(props: { value: number }): ReactElement {
     const { pop } = useNavigation();
@@ -10,7 +19,7 @@ function TestView(props: { value: number }): ReactElement {
         <Detail>
             <Detail.Content>
                 <Detail.Content.Paragraph>
-                    Testing views: {props.value}
+                    Nested view. Value from parent: {props.value}
                 </Detail.Content.Paragraph>
             </Detail.Content>
             <Detail.Metadata>
@@ -20,7 +29,7 @@ function TestView(props: { value: number }): ReactElement {
                             pop();
                         }}
                     >
-                        Pop
+                        Shit Go Back!
                     </Detail.Metadata.TagList.Item>
                 </Detail.Metadata.TagList>
             </Detail.Metadata>
@@ -33,6 +42,8 @@ export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
 
     const { push } = useNavigation();
+    const { testBool } = usePluginPreferences<{ testBool: boolean }>();
+    const entrypointPreferences = useEntrypointPreferences<DetailViewEntrypointConfig>();
 
     const PORT = Deno.env.get("RUST_LOG");
     console.log("RUST_LOG:", PORT);
@@ -84,17 +95,16 @@ export default function DetailView(): ReactElement {
                 <Detail.Content.HorizontalBreak/>
                 <Detail.Content.Paragraph>
                     You clicked {count} times
-                    {true}
-                    {false}
-                    {count}
-                    {["test", false, undefined, ["test3", 5], null, 3]}
-                    {undefined}
-                    {null}
-                    {upperCase("times")}
+                </Detail.Content.Paragraph>
+                <Detail.Content.Paragraph>
+                    Plugin config: {JSON.stringify(testBool)}
+                </Detail.Content.Paragraph>
+                <Detail.Content.Paragraph>
+                    Entrypoint config: {JSON.stringify(entrypointPreferences)}
                 </Detail.Content.Paragraph>
                 <Detail.Content.H4>Another H4 Title</Detail.Content.H4>
                 <Detail.Content.Paragraph>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
+                    Lorem ipsum {upperCase("dolor sit amet")}, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore
                     et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
                     aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
                     cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
@@ -114,7 +124,7 @@ export default function DetailView(): ReactElement {
                     <Detail.Metadata.TagList.Item onClick={() => {
                         push(<TestView value={1}/>)
                     }}>
-                        Push View
+                        Push New View
                     </Detail.Metadata.TagList.Item>
                 </Detail.Metadata.TagList>
                 <Detail.Metadata.Separator/>

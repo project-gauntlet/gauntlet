@@ -20,13 +20,14 @@ use tokio::net::TcpStream;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use common::model::{PluginId, PropertyValue, RenderLocation};
+use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
 use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_frontend_client::RpcFrontendClient;
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
-use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, UiWidgetId};
+use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
+use crate::plugins::data_db_repository::{DataDbRepository, GetPluginEntrypointPreferences, GetPluginPreferences, PluginPreference, PluginPreferenceUserData};
 use crate::plugins::run_status::RunStatusGuard;
 
 pub struct PluginRuntimeData {
@@ -35,6 +36,7 @@ pub struct PluginRuntimeData {
     pub inline_view_entrypoint_id: Option<String>,
     pub permissions: PluginPermissions,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
+    pub db_repository: DataDbRepository,
 }
 
 pub struct PluginCode {
@@ -183,7 +185,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.inline_view_entrypoint_id,
                     event_stream,
                     frontend_client,
-                    component_model
+                    component_model,
+                    data.db_repository,
                 ).await
             }));
 
@@ -210,6 +213,7 @@ async fn start_js_runtime(
     event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
     frontend_client: FrontendClient,
     component_model: Vec<Component>,
+    repository: DataDbRepository,
 ) -> anyhow::Result<()> {
     let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
         allow_env: if permissions.environment.is_empty() { None } else { Some(permissions.environment) },
@@ -251,6 +255,7 @@ async fn start_js_runtime(
                 PluginData::new(plugin_id, inline_view_entrypoint_id),
                 FrontendClientWrapper::new(frontend_client),
                 ComponentModel::new(component_model),
+                DbRepository::new(repository),
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -375,6 +380,8 @@ deno_core::extension!(
         op_plugin_get_pending_event,
         op_react_replace_view,
         op_inline_view_endpoint_id,
+        get_plugin_preferences,
+        get_entrypoint_preferences,
         clear_inline_view,
     ],
     options = {
@@ -382,12 +389,14 @@ deno_core::extension!(
         plugin_data: PluginData,
         frontend_client: FrontendClientWrapper,
         component_model: ComponentModel,
+        db_repository: DbRepository,
     },
     state = |state, options| {
         state.put(options.event_receiver);
         state.put(options.plugin_data);
         state.put(options.frontend_client);
         state.put(options.component_model);
+        state.put(options.db_repository);
     },
 );
 
@@ -462,6 +471,94 @@ fn op_inline_view_endpoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
         .borrow::<PluginData>()
         .inline_view_entrypoint_id()
         .clone()
+}
+
+#[op]
+fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DbRepository>()
+            .repository
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    block_on(async {
+        let GetPluginPreferences { preferences, preferences_user_data } = repository
+            .get_plugin_preferences(&plugin_id.to_string())
+            .await?;
+
+        Ok(preferences_to_js(preferences, preferences_user_data))
+    })
+}
+
+#[op]
+fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DbRepository>()
+            .repository
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    block_on(async {
+        let GetPluginEntrypointPreferences { preferences, preferences_user_data } = repository
+            .get_plugin_entrypoint_preferences(&plugin_id.to_string(), entrypoint_id)
+            .await?;
+
+        Ok(preferences_to_js(preferences, preferences_user_data))
+    })
+}
+
+fn preferences_to_js(
+    preferences: HashMap<String, PluginPreference>,
+    mut preferences_user_data: HashMap<String, PluginPreferenceUserData>
+) -> HashMap<String, PreferenceUserData> {
+    preferences.into_iter()
+        .map(|(name, preference)| {
+            let user_data = match preferences_user_data.remove(&name) {
+                None => {
+                    match preference {
+                        PluginPreference::Number { default, .. } => PreferenceUserData::Number(default),
+                        PluginPreference::String { default, ..  } => PreferenceUserData::String(default),
+                        PluginPreference::Enum { default, ..  } => PreferenceUserData::String(default),
+                        PluginPreference::Bool { default, ..  } => PreferenceUserData::Bool(default),
+                        PluginPreference::ListOfStrings { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
+                        PluginPreference::ListOfNumbers { default, ..  } => PreferenceUserData::ListOfNumbers(default.unwrap_or(vec![])),
+                        PluginPreference::ListOfEnums { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
+                    }
+                }
+                Some(user_data) => match user_data {
+                    PluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value),
+                    PluginPreferenceUserData::String { value } => PreferenceUserData::String(value),
+                    PluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value),
+                    PluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value),
+                    PluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
+                    PluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.unwrap_or(vec![])),
+                    PluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
+                }
+            };
+
+            (name, user_data)
+        })
+        .collect()
 }
 
 #[op(v8)]
@@ -811,6 +908,18 @@ impl EventReceiver {
     fn new(event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>) -> EventReceiver {
         Self {
             event_stream: Rc::new(RefCell::new(event_stream)),
+        }
+    }
+}
+
+pub struct DbRepository {
+    repository: DataDbRepository,
+}
+
+impl DbRepository {
+    fn new(repository: DataDbRepository) -> DbRepository {
+        Self {
+            repository,
         }
     }
 }

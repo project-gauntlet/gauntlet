@@ -7,8 +7,6 @@ const InternalApi = denoCore.ops;
 let latestRootUiWidget: UiWidget | undefined = undefined
 
 function findWidgetWithId(widget: UiWidget, widgetId: number): UiWidget | undefined {
-    // TODO not the most performant solution but works for now?
-
     if (widget.widgetId === widgetId) {
         return widget
     }
@@ -86,7 +84,7 @@ async function runLoop() {
                 try {
                     const View: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
                     const { render } = await import("gauntlet:renderer");
-                    latestRootUiWidget = render(pluginEvent.frontend, "View", <View/>);
+                    latestRootUiWidget = render(pluginEvent.frontend, pluginEvent.entrypointId, "View", <View/>);
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
                 }
@@ -111,7 +109,7 @@ async function runLoop() {
 
                         if (isValidElement(renderResult)) {
                             InternalApi.op_log_debug("plugin_loop", "Inline view function returned react component, rendering...")
-                            latestRootUiWidget = render("default", "InlineView", renderResult);
+                            latestRootUiWidget = render("default", endpoint_id, "InlineView", renderResult);
                         } else {
                             InternalApi.op_log_debug("plugin_loop", `Inline view function returned ${Deno.inspect(renderResult)}, closing view...`)
                             InternalApi.clear_inline_view()

@@ -189,3 +189,13 @@ pub fn entrypoint_from_str(value: &str) -> PluginEntrypointType {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum PreferenceUserData {
+    Number(Option<f64>),
+    String(Option<String>),
+    Bool(Option<bool>),
+    ListOfStrings(Vec<String>),
+    ListOfNumbers(Vec<f64>),
+}

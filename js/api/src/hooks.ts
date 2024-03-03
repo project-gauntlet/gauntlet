@@ -14,3 +14,15 @@ export function useNavigation(): { pop: () => void, push: (component: ReactNode)
         }
     }
 }
+
+export function usePluginPreferences<T extends Record<string, any>>(): T {
+    const { pluginPreferences }: { pluginPreferences: () => T } = useGauntletContext();
+
+    return pluginPreferences()
+}
+
+export function useEntrypointPreferences<T extends Record<string, any>>(): T {
+    const { entrypointPreferences }: { entrypointPreferences: () =>  T } = useGauntletContext();
+
+    return entrypointPreferences()
+}

@@ -1,11 +1,59 @@
 [gauntlet]
 name = 'Interesting Plugin Name'
 
+[[preferences]]
+name = 'testBool'
+type = 'bool'
+default = true
+description = "test bool description"
+
+
 [[entrypoint]]
 id = 'detail-view'
 name = 'Detail view'
 path = 'src/detail-view.tsx'
 type = 'view'
+
+
+[[entrypoint.preferences]]
+name = 'testBool'
+type = 'bool'
+default = true
+description = "test bool description"
+
+[[entrypoint.preferences]]
+name = 'testEnum'
+type = 'enum'
+default = 'item'
+enum_values = [{ label = 'Item', value = 'item'}, { label = 'Item 2', value = 'item_2'}]
+description = "test enum description"
+
+[[entrypoint.preferences]]
+name = 'testListOfStrings'
+type = 'list_of_strings'
+default = ['value', 'value 2']
+description = "test list of strings description"
+
+[[entrypoint.preferences]]
+name = 'testListOfNumbers'
+type = 'list_of_numbers'
+default = [3, 1]
+description = "test list of numbers description"
+
+[[entrypoint.preferences]]
+name = 'testNum'
+type = 'number'
+default = 2
+description = "test number description"
+
+[[entrypoint.preferences]]
+name = 'testStr'
+type = 'string'
+default = 'test_value'
+description = "test string description"
+
+
+
 
 [[entrypoint]]
 id = 'form-view'

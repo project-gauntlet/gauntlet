@@ -33,8 +33,10 @@ class GauntletContextValue {
     private _navStack: ReactNode[] = []
     private _renderLocation: RenderLocation | undefined
     private _rerender: ((node: ReactNode) => void) | undefined
+    private _entrypointId: string | undefined;
 
-    reset(renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void) {
+    reset(entrypointId: string, renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void) {
+        this._entrypointId = entrypointId
         this._renderLocation = renderLocation
         this._rerender = rerender
         this._navStack = []
@@ -68,6 +70,14 @@ class GauntletContextValue {
 
         this.rerender(this.topmostView())
     };
+
+    entrypointPreferences = () => {
+        return InternalApi.get_entrypoint_preferences(this._entrypointId!!)
+    }
+
+    pluginPreferences = () => {
+        return InternalApi.get_plugin_preferences()
+    }
 }
 
 const gauntletContextValue = new GauntletContextValue()
@@ -342,7 +352,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
-export function render(frontend: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
+export function render(frontend: string, entrypointId: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
     // specific frontend are implemented separately, it seems it is not feasible to do generic implementation
     if (frontend !== "default") {
         throw new Error("NOT SUPPORTED")
@@ -360,7 +370,7 @@ export function render(frontend: string, renderLocation: RenderLocation, view: R
         widgetChildren: [],
     };
 
-    gauntletContextValue.reset(renderLocation, view, (node: ReactNode) => {
+    gauntletContextValue.reset(entrypointId, renderLocation, view, (node: ReactNode) => {
         reconciler.updateContainer(
             node,
             root,

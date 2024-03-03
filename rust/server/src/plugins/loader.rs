@@ -7,12 +7,12 @@ use std::rc::Rc;
 use std::thread;
 
 use anyhow::{anyhow, Context};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use common::model::{DownloadStatus, PluginId};
 
 use crate::model::{entrypoint_to_str, PluginEntrypointType};
-use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, SavePlugin, SavePluginEntrypoint};
+use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, PluginPreference, PluginPreferenceUserData, SavePlugin, SavePluginEntrypoint};
 use crate::plugins::download_status::DownloadStatusHolder;
 
 pub struct PluginLoader {
@@ -55,6 +55,8 @@ impl PluginLoader {
                     entrypoints: plugin_data.entrypoints,
                     permissions: plugin_data.permissions,
                     from_config: false,
+                    preferences: plugin_data.preferences,
+                    preferences_user_data: HashMap::new(),
                 }).await?;
 
                 anyhow::Ok(())
@@ -77,6 +79,7 @@ impl PluginLoader {
             .await?;
 
         if overwrite {
+            // TODO instead of overwrite just update the code
             self.db_repository.remove_plugin(&plugin_data.id).await?
         }
 
@@ -88,6 +91,8 @@ impl PluginLoader {
             entrypoints: plugin_data.entrypoints,
             permissions: plugin_data.permissions,
             from_config: false,
+            preferences: plugin_data.preferences,
+            preferences_user_data: HashMap::new()
         }).await?;
 
         Ok(plugin_id)
@@ -145,37 +150,63 @@ impl PluginLoader {
             .into_iter()
             .collect();
 
-        let config_path = plugin_dir.join("gauntlet.toml");
-        let config_path_context = config_path.display().to_string();
-        let config_content = std::fs::read_to_string(config_path).context(config_path_context)?;
-        let config: PluginConfig = toml::from_str(&config_content)?;
+        let plugin_manifest_path = plugin_dir.join("gauntlet.toml");
+        let plugin_manifest_path_context = plugin_manifest_path.display().to_string();
+        let plugin_manifest_content = std::fs::read_to_string(plugin_manifest_path).context(plugin_manifest_path_context)?;
+        let plugin_manifest: PluginManifest = toml::from_str(&plugin_manifest_content)?;
 
-        tracing::debug!("Plugin config read: {:?}", config);
+        tracing::debug!("Plugin config read: {:?}", plugin_manifest);
 
-        let plugin_name = config.gauntlet.name;
+        let plugin_name = plugin_manifest.gauntlet.name;
 
-        let entrypoints: Vec<_> = config.entrypoint
+        let entrypoints: Vec<_> = plugin_manifest.entrypoint
             .into_iter()
             .map(|entrypoint| SavePluginEntrypoint {
                 id: entrypoint.id,
                 name: entrypoint.name,
                 entrypoint_type: entrypoint_to_str(match entrypoint.entrypoint_type {
-                    PluginConfigEntrypointTypes::Command => PluginEntrypointType::Command,
-                    PluginConfigEntrypointTypes::View => PluginEntrypointType::View,
-                    PluginConfigEntrypointTypes::InlineView => PluginEntrypointType::InlineView
-                }).to_owned()
+                    PluginManifestEntrypointTypes::Command => PluginEntrypointType::Command,
+                    PluginManifestEntrypointTypes::View => PluginEntrypointType::View,
+                    PluginManifestEntrypointTypes::InlineView => PluginEntrypointType::InlineView
+                }).to_owned(),
+                preferences: entrypoint.preferences
+                    .into_iter()
+                    .map(|preference| match preference {
+                        PluginManifestPreference::Number { name, default, description } => (name, PluginPreference::Number { default, description }),
+                        PluginManifestPreference::String { name, default, description } => (name, PluginPreference::String { default, description }),
+                        PluginManifestPreference::Enum { name, default, description, enum_values } => (name, PluginPreference::Enum { default, description, enum_values }),
+                        PluginManifestPreference::Bool { name, default, description } => (name, PluginPreference::Bool { default, description }),
+                        PluginManifestPreference::ListOfStrings { name, default, description } => (name, PluginPreference::ListOfStrings { default, description }),
+                        PluginManifestPreference::ListOfNumbers { name, default, description } => (name, PluginPreference::ListOfNumbers { default, description }),
+                        PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => (name, PluginPreference::ListOfEnums { default, description, enum_values }),
+                    })
+                    .collect(),
+                preferences_user_data: HashMap::new(),
+            })
+            .collect();
+
+        let plugin_preferences = plugin_manifest.preferences
+            .into_iter()
+            .map(|preference| match preference {
+                PluginManifestPreference::Number { name, default, description } => (name, PluginPreference::Number { default, description }),
+                PluginManifestPreference::String { name, default, description } => (name, PluginPreference::String { default, description }),
+                PluginManifestPreference::Enum { name, default, description, enum_values } => (name, PluginPreference::Enum { default, description, enum_values }),
+                PluginManifestPreference::Bool { name, default, description } => (name, PluginPreference::Bool { default, description }),
+                PluginManifestPreference::ListOfStrings { name, default, description } => (name, PluginPreference::ListOfStrings { default, description }),
+                PluginManifestPreference::ListOfNumbers { name, default, description } => (name, PluginPreference::ListOfNumbers { default, description }),
+                PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => (name, PluginPreference::ListOfEnums { default, description, enum_values }),
             })
             .collect();
 
         let permissions = PluginPermissions {
-            environment: config.permissions.environment,
-            high_resolution_time: config.permissions.high_resolution_time,
-            network: config.permissions.network,
-            ffi: config.permissions.ffi,
-            fs_read_access: config.permissions.fs_read_access,
-            fs_write_access: config.permissions.fs_write_access,
-            run_subprocess: config.permissions.run_subprocess,
-            system: config.permissions.system,
+            environment: plugin_manifest.permissions.environment,
+            high_resolution_time: plugin_manifest.permissions.high_resolution_time,
+            network: plugin_manifest.permissions.network,
+            ffi: plugin_manifest.permissions.ffi,
+            fs_read_access: plugin_manifest.permissions.fs_read_access,
+            fs_write_access: plugin_manifest.permissions.fs_write_access,
+            run_subprocess: plugin_manifest.permissions.run_subprocess,
+            system: plugin_manifest.permissions.system,
         };
 
         Ok(PluginDirData {
@@ -185,7 +216,9 @@ impl PluginLoader {
                 js
             },
             entrypoints,
-            permissions
+            permissions,
+            preferences: plugin_preferences,
+            preferences_user_data: HashMap::new()
         })
     }
 }
@@ -196,30 +229,91 @@ struct PluginDirData {
     pub code: Code,
     pub entrypoints: Vec<SavePluginEntrypoint>,
     pub permissions: PluginPermissions,
+    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 #[derive(Debug, Deserialize)]
-struct PluginConfig {
-    gauntlet: PluginConfigMetadata,
-    entrypoint: Vec<PluginConfigEntrypoint>,
+struct PluginManifest {
+    gauntlet: PluginManifestMetadata,
+    entrypoint: Vec<PluginManifestEntrypoint>,
     #[serde(default)]
-    supported_system: Vec<PluginConfigSupportedSystem>,
+    supported_system: Vec<PluginManifestSupportedSystem>,
     #[serde(default)]
-    permissions: PluginConfigPermissions,
+    permissions: PluginManifestPermissions,
+    #[serde(default)]
+    preferences: Vec<PluginManifestPreference>,
 }
 
 #[derive(Debug, Deserialize)]
-struct PluginConfigEntrypoint {
+struct PluginManifestEntrypoint {
     id: String,
     name: String,
     #[allow(unused)] // used when building plugin
     path: String,
     #[serde(rename = "type")]
-    entrypoint_type: PluginConfigEntrypointTypes,
+    entrypoint_type: PluginManifestEntrypointTypes,
+    #[serde(default)]
+    preferences: Vec<PluginManifestPreference>,
 }
 
 #[derive(Debug, Deserialize)]
-pub enum PluginConfigEntrypointTypes {
+#[serde(tag = "type")]
+enum PluginManifestPreference {
+    #[serde(rename = "number")]
+    Number {
+        name: String,
+        default: Option<f64>,
+        description: String,
+    },
+    #[serde(rename = "string")]
+    String {
+        name: String,
+        default: Option<String>,
+        description: String,
+    },
+    #[serde(rename = "enum")]
+    Enum {
+        name: String,
+        default: Option<String>,
+        description: String,
+        enum_values: Vec<EnumValue>,
+    },
+    #[serde(rename = "bool")]
+    Bool {
+        name: String,
+        default: Option<bool>,
+        description: String,
+    },
+    #[serde(rename = "list_of_strings")]
+    ListOfStrings {
+        name: String,
+        default: Option<Vec<String>>,
+        description: String,
+    },
+    #[serde(rename = "list_of_numbers")]
+    ListOfNumbers {
+        name: String,
+        default: Option<Vec<f64>>,
+        description: String,
+    },
+    #[serde(rename = "list_of_enums")]
+    ListOfEnums {
+        name: String,
+        default: Option<Vec<String>>,
+        enum_values: Vec<EnumValue>,
+        description: String,
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct EnumValue {
+    label: String,
+    value: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum PluginManifestEntrypointTypes {
     #[serde(rename = "command")]
     Command,
     #[serde(rename = "view")]
@@ -230,18 +324,18 @@ pub enum PluginConfigEntrypointTypes {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "os")]
-pub enum PluginConfigSupportedSystem {
+pub enum PluginManifestSupportedSystem {
     #[serde(rename = "linux")]
     Linux,
 }
 
 #[derive(Debug, Deserialize)]
-struct PluginConfigMetadata {
+struct PluginManifestMetadata {
     name: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub struct PluginConfigPermissions {
+pub struct PluginManifestPermissions {
     #[serde(default)]
     environment: Vec<String>,
     #[serde(default)]

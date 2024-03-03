@@ -12,6 +12,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 
 use crate::dirs::Dirs;
+use crate::plugins::loader::EnumValue;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -38,6 +39,10 @@ pub struct GetPlugin {
     #[sqlx(json)]
     pub permissions: PluginPermissions,
     pub from_config: bool,
+    #[sqlx(json)]
+    pub preferences: HashMap<String, PluginPreference>,
+    #[sqlx(json)]
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -53,11 +58,31 @@ pub struct GetPluginEntrypoint {
     pub enabled: bool,
     #[sqlx(rename = "type")]
     pub entrypoint_type: String,
+    #[sqlx(json)]
+    pub preferences: HashMap<String, PluginPreference>,
+    #[sqlx(json)]
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct Code {
     pub js: HashMap<String, String>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct GetPluginPreferences {
+    #[sqlx(json)]
+    pub preferences: HashMap<String, PluginPreference>,
+    #[sqlx(json)]
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct GetPluginEntrypointPreferences {
+    #[sqlx(json)]
+    pub preferences: HashMap<String, PluginPreference>,
+    #[sqlx(json)]
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 pub struct SavePlugin {
@@ -68,15 +93,19 @@ pub struct SavePlugin {
     pub entrypoints: Vec<SavePluginEntrypoint>,
     pub permissions: PluginPermissions,
     pub from_config: bool,
+    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 pub struct SavePluginEntrypoint {
     pub id: String,
     pub name: String,
     pub entrypoint_type: String,
+    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PluginPermissions {
     pub environment: Vec<String>,
     pub high_resolution_time: bool,
@@ -86,6 +115,81 @@ pub struct PluginPermissions {
     pub fs_write_access: Vec<PathBuf>,
     pub run_subprocess: Vec<String>,
     pub system: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum PluginPreferenceUserData {
+    #[serde(rename = "number")]
+    Number {
+        value: Option<f64>,
+    },
+    #[serde(rename = "string")]
+    String {
+        value: Option<String>,
+    },
+    #[serde(rename = "enum")]
+    Enum {
+        value: Option<String>,
+    },
+    #[serde(rename = "bool")]
+    Bool {
+        value: Option<bool>,
+    },
+    #[serde(rename = "list_of_strings")]
+    ListOfStrings {
+        value: Option<Vec<String>>,
+    },
+    #[serde(rename = "list_of_numbers")]
+    ListOfNumbers {
+        value: Option<Vec<f64>>,
+    },
+    #[serde(rename = "list_of_enums")]
+    ListOfEnums {
+        value: Option<Vec<String>>,
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum PluginPreference {
+    #[serde(rename = "number")]
+    Number {
+        default: Option<f64>,
+        description: String,
+    },
+    #[serde(rename = "string")]
+    String {
+        default: Option<String>,
+        description: String,
+    },
+    #[serde(rename = "enum")]
+    Enum {
+        default: Option<String>,
+        description: String,
+        enum_values: Vec<EnumValue>,
+    },
+    #[serde(rename = "bool")]
+    Bool {
+        default: Option<bool>,
+        description: String,
+    },
+    #[serde(rename = "list_of_strings")]
+    ListOfStrings {
+        default: Option<Vec<String>>,
+        description: String,
+    },
+    #[serde(rename = "list_of_numbers")]
+    ListOfNumbers {
+        default: Option<Vec<f64>>,
+        description: String,
+    },
+    #[serde(rename = "list_of_enums")]
+    ListOfEnums {
+        default: Option<Vec<String>>,
+        enum_values: Vec<EnumValue>,
+        description: String,
+    }
 }
 
 pub struct SavePendingPlugin {
@@ -212,6 +316,27 @@ impl DataDbRepository {
         Ok(result.enabled)
     }
 
+    pub async fn get_plugin_preferences(&self, plugin_id: &str) -> anyhow::Result<GetPluginPreferences> {
+        // language=SQLite
+        let result = sqlx::query_as::<_, GetPluginPreferences>("SELECT * FROM plugin WHERE id = ?1")
+            .bind(plugin_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn get_plugin_entrypoint_preferences(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<GetPluginEntrypointPreferences> {
+        // language=SQLite
+        let result = sqlx::query_as::<_, GetPluginEntrypointPreferences>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
+            .bind(entrypoint_id)
+            .bind(plugin_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(result)
+    }
+
     pub async fn set_plugin_enabled(&self, plugin_id: &str, enabled: bool) -> anyhow::Result<()> {
         // language=SQLite
         sqlx::query("UPDATE plugin SET enabled = ?1 WHERE id = ?2")
@@ -258,24 +383,28 @@ impl DataDbRepository {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, ?6)")
+        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
             .bind(&plugin.id)
             .bind(plugin.name)
             .bind(plugin.enabled)
             .bind(Json(plugin.code))
             .bind(Json(plugin.permissions))
             .bind(false)
+            .bind(Json(plugin.preferences))
+            .bind(Json(plugin.preferences_user_data))
             .execute(&mut *tx)
             .await?;
 
         for entrypoint in plugin.entrypoints {
             // language=SQLite
-            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5)")
+            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)")
                 .bind(entrypoint.id)
                 .bind(&plugin.id)
                 .bind(entrypoint.name)
                 .bind(true)
                 .bind(entrypoint.entrypoint_type)
+                .bind(Json(entrypoint.preferences))
+                .bind(Json(entrypoint.preferences_user_data))
                 .execute(&mut *tx)
                 .await?;
         }

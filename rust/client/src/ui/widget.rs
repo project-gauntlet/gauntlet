@@ -124,8 +124,6 @@ impl ComponentWidgetWrapper {
     }
 
     pub fn find_child_with_id(&self, widget_id: NativeUiWidgetId) -> Option<ComponentWidgetWrapper> {
-        // TODO not the most performant solution but works for now?
-
         if self.id == widget_id {
             return Some(self.clone())
         }

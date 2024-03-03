@@ -248,6 +248,7 @@ impl ApplicationManager {
                 system: plugin.permissions.system
             },
             command_receiver: receiver,
+            db_repository: self.db_repository.clone()
         };
 
         self.start_plugin_runtime(data);
