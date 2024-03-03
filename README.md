@@ -9,8 +9,7 @@
 > [!NOTE]
 > This is an MVP, expect bugs, missing features, incomplete ux, etc.
 >
-> If you want to help, please do, if not, check up on the project every once in a while to see the progress.
-> But at the moment it is not yet ready for daily usage.
+> At the moment, it is not yet ready for daily usage.
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
@@ -31,8 +30,7 @@
 - [Deno JavaScript Runtime](https://github.com/denoland/deno)
     - Deno allows us to sandbox JavaScript code for better security
     - Plugins are required to explicitly specify what permissions they need to work
-- Plugins are distributed as part of Git repository
-  - Use URL of Git repository to install plugin
+    - Node is still used to run tooling
 - Client-Server architecture
     - All plugins run on server and render UI to a separate client process
     - On Linux, DBus is used for inter-proces communication
@@ -100,8 +98,9 @@
     - You can configure plugin using [Plugin manifest](#plugin-manifest)
     - Documentation is, at the moment, basically non-existent but TypeScript declarations in `@project-gauntlet/api`
       and `@project-gauntlet/deno` should help
+    - See Dev Plugin for examples ![here](dev_plugin)
 - Push changes to GitHub
-- Run `publish` GitHub Actions workflow to [publish plugin to release branch]()
+- Run `publish` GitHub Actions workflow to publish plugin to release branch
 - Profit!
 
 ### Install plugin
@@ -257,6 +256,18 @@ Application and Dev Tools use temporary directories:
 
 Client and Setting applications have GUI and therefore use all the usual graphics-related stuff from Wayland or X11.
 For Wayland currently no special protocols are required, but it may change in the future.
+
+## Building Gauntlet
+You will need:
+- NodeJS v18
+- Rust
+- Protobuf Compiler
+
+To build run:
+```bash
+npm run build
+cargo build
+```
 
 ## Versioning
 
