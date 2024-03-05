@@ -14,7 +14,7 @@ service RpcBackend {
   rpc SendViewEvent (RpcSendViewEventRequest) returns (RpcSendViewEventResponse);
 
   // settings
-  rpc plugins (RpcPluginsRequest) returns (RpcPluginsResponse);
+  rpc Plugins (RpcPluginsRequest) returns (RpcPluginsResponse);
 
   rpc SetPluginState(RpcSetPluginStateRequest) returns (RpcSetPluginStateResponse);
 
@@ -114,6 +114,8 @@ message RpcPlugin {
   string plugin_name = 2;
   bool enabled = 3;
   repeated RpcEntrypoint entrypoints = 4;
+  map<string, RpcPluginPreference> preferences = 5;
+  map<string, RpcPluginPreferenceUserData> preferences_user_data = 6;
 }
 
 message RpcEntrypoint {
@@ -121,6 +123,8 @@ message RpcEntrypoint {
   string entrypoint_name = 2;
   bool enabled = 3;
   RpcEntrypointType entrypoint_type = 4;
+  map<string, RpcPluginPreference> preferences = 5;
+  map<string, RpcPluginPreferenceUserData> preferences_user_data = 6;
 }
 
 
@@ -150,3 +154,41 @@ message RpcDownloadStatusValue {
   string message = 2;
 }
 
+
+// protobuf is shit, hopefully somebody soon comes up with normal format using wasm wit or something
+message RpcPluginPreference {
+  RpcPluginPreferenceValueType type = 1;
+  RpcUiPropertyValue default = 2;
+  repeated RpcUiPropertyValue default_list = 3;
+  bool default_list_exists = 4;
+  string description = 5;
+  repeated RpcEnumValue enum_values = 6;
+}
+
+message RpcEnumValue {
+  string label = 1;
+  string  value = 2;
+}
+
+message RpcKeyValue {
+  string key = 1;
+  string value = 2;
+}
+
+message RpcPluginPreferenceUserData {
+  RpcPluginPreferenceValueType type = 1;
+  RpcUiPropertyValue value = 2;
+  repeated RpcUiPropertyValue value_list = 3;
+  bool value_list_exists = 4;
+}
+
+
+enum RpcPluginPreferenceValueType {
+  Number = 0;
+  String = 1;
+  Enum = 2;
+  Bool = 3;
+  ListOfStrings = 4;
+  ListOfNumbers = 5;
+  ListOfEnums = 6;
+}

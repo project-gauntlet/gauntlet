@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use common::rpc::{RpcEntrypoint, RpcEntrypointType, RpcPlugin};
+use common::rpc::{rpc_ui_property_value, RpcEntrypoint, RpcEntrypointType, RpcEnumValue, RpcPlugin, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue};
 use common::model::{DownloadStatus, EntrypointId, PluginId, PropertyValue};
 
 use crate::dirs::Dirs;
 use crate::model::{entrypoint_from_str, from_rpc_to_intermediate_value, PluginEntrypointType, UiWidgetId};
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::DataDbRepository;
+use crate::plugins::data_db_repository::{DataDbRepository, DbPluginPreference, DbPluginPreferenceUserData};
 use crate::plugins::js::{PluginCode, PluginCommand, OnePluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime, AllPluginCommandData};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
@@ -69,12 +69,12 @@ impl ApplicationManager {
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<RpcPlugin>> {
-        let plugins = self.db_repository.list_plugins().await?;
-
-        let result = plugins
+        let result = self.db_repository
+            .list_plugins_and_entrypoints()
+            .await?
             .into_iter()
-            .map(|plugin| {
-                let entrypoints = plugin.entrypoints
+            .map(|(plugin, entrypoints)| {
+                let entrypoints = entrypoints
                     .into_iter()
                     .map(|entrypoint| RpcEntrypoint {
                         enabled: entrypoint.enabled,
@@ -84,7 +84,13 @@ impl ApplicationManager {
                             PluginEntrypointType::Command => RpcEntrypointType::Command,
                             PluginEntrypointType::View => RpcEntrypointType::View,
                             PluginEntrypointType::InlineView => RpcEntrypointType::InlineView
-                        }.into()
+                        }.into(),
+                        preferences: entrypoint.preferences.into_iter()
+                            .map(|(key, value)| (key, plugin_preference_to_grpc(value)))
+                            .collect(),
+                        preferences_user_data: entrypoint.preferences_user_data.into_iter()
+                            .map(|(key, value)| (key, plugin_preference_user_data_to_grpc(value)))
+                            .collect(),
                     })
                     .collect();
 
@@ -93,6 +99,12 @@ impl ApplicationManager {
                     plugin_name: plugin.name,
                     enabled: plugin.enabled,
                     entrypoints,
+                    preferences: plugin.preferences.into_iter()
+                        .map(|(key, value)| (key, plugin_preference_to_grpc(value)))
+                        .collect(),
+                    preferences_user_data: plugin.preferences_user_data.into_iter()
+                        .map(|(key, value)| (key, plugin_preference_user_data_to_grpc(value)))
+                        .collect(),
                 }
             })
             .collect();
@@ -270,12 +282,12 @@ impl ApplicationManager {
     async fn reload_search_index(&self) -> anyhow::Result<()> {
         tracing::info!("Reloading search index");
 
-        let search_items: Vec<_> = self.db_repository.list_plugins()
+        let search_items: Vec<_> = self.db_repository.list_plugins_and_entrypoints()
             .await?
             .into_iter()
-            .filter(|plugin| plugin.enabled)
-            .flat_map(|plugin| {
-                plugin.entrypoints
+            .filter(|(plugin, _)| plugin.enabled)
+            .flat_map(|(plugin, entrypoints)| {
+                entrypoints
                     .into_iter()
                     .filter(|entrypoint| entrypoint.enabled)
                     .map(|entrypoint| {
@@ -308,5 +320,132 @@ impl ApplicationManager {
 
     fn send_command(&self, command: PluginCommand) {
         self.command_broadcaster.send(command).expect("all respective receivers were closed");
+    }
+}
+
+fn plugin_preference_to_grpc(value: DbPluginPreference) -> RpcPluginPreference {
+    match value {
+        DbPluginPreference::Number { default, description } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::Number.into(),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Number(value)) }),
+                description,
+                ..RpcPluginPreference::default()
+            }
+        }
+        DbPluginPreference::String { default, description } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::String.into(),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }),
+                description,
+                ..RpcPluginPreference::default()
+            }
+        }
+        DbPluginPreference::Enum { default, description, enum_values } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::Enum.into(),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }),
+                description,
+                enum_values: enum_values.into_iter()
+                    .map(|value| RpcEnumValue { label: value.label, value: value.value })
+                    .collect(),
+                ..RpcPluginPreference::default()
+            }
+        }
+        DbPluginPreference::Bool { default, description } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::Bool.into(),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Bool(value)) }),
+                description,
+                ..RpcPluginPreference::default()
+            }
+        }
+        DbPluginPreference::ListOfStrings { default, description } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::ListOfStrings.into(),
+                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }).collect()).unwrap_or(vec![]),
+                description,
+                ..RpcPluginPreference::default()
+            }
+        }
+        DbPluginPreference::ListOfNumbers { default, description } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::ListOfNumbers.into(),
+                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Number(value)) }).collect()).unwrap_or(vec![]),
+                description,
+                ..RpcPluginPreference::default()
+            }
+        }
+        DbPluginPreference::ListOfEnums { default, enum_values, description } => {
+            RpcPluginPreference {
+                r#type: RpcPluginPreferenceValueType::ListOfEnums.into(),
+                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }).collect()).unwrap_or(vec![]),
+                description,
+                enum_values: enum_values.into_iter()
+                    .map(|value| RpcEnumValue { label: value.label, value: value.value })
+                    .collect(),
+                ..RpcPluginPreference::default()
+            }
+        }
+    }
+}
+
+fn plugin_preference_user_data_to_grpc(value: DbPluginPreferenceUserData) -> RpcPluginPreferenceUserData {
+    match value {
+        DbPluginPreferenceUserData::Number { value } => {
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::Number.into(),
+                value: value.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Number(value)) }),
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
+        DbPluginPreferenceUserData::String { value } => {
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::String.into(),
+                value: value.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }),
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
+        DbPluginPreferenceUserData::Enum { value } => {
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::Enum.into(),
+                value: value.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }),
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
+        DbPluginPreferenceUserData::Bool { value } => {
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::Bool.into(),
+                value: value.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Bool(value)) }),
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
+        DbPluginPreferenceUserData::ListOfStrings { value } => {
+            let exists = value.is_some();
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::ListOfStrings.into(),
+                value_list: value.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }).collect()).unwrap_or(vec![]),
+                value_list_exists: exists,
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
+        DbPluginPreferenceUserData::ListOfNumbers { value } => {
+            let exists = value.is_some();
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::ListOfNumbers.into(),
+                value_list: value.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Number(value)) }).collect()).unwrap_or(vec![]),
+                value_list_exists: exists,
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
+        DbPluginPreferenceUserData::ListOfEnums { value } => {
+            let exists = value.is_some();
+            RpcPluginPreferenceUserData {
+                r#type: RpcPluginPreferenceValueType::ListOfEnums.into(),
+                value_list: value.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }).collect()).unwrap_or(vec![]),
+                value_list_exists: exists,
+                ..RpcPluginPreferenceUserData::default()
+            }
+        }
     }
 }

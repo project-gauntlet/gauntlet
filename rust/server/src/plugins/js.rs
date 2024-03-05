@@ -27,7 +27,7 @@ use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
 use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
-use crate::plugins::data_db_repository::{DataDbRepository, GetPluginEntrypointPreferences, GetPluginPreferences, PluginPreference, PluginPreferenceUserData};
+use crate::plugins::data_db_repository::{DataDbRepository, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::run_status::RunStatusGuard;
 
 pub struct PluginRuntimeData {
@@ -492,8 +492,8 @@ fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap
     };
 
     block_on(async {
-        let GetPluginPreferences { preferences, preferences_user_data } = repository
-            .get_plugin_preferences(&plugin_id.to_string())
+        let DbReadPlugin { preferences, preferences_user_data, .. } = repository
+            .get_plugin_by_id(&plugin_id.to_string())
             .await?;
 
         Ok(preferences_to_js(preferences, preferences_user_data))
@@ -519,8 +519,8 @@ fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) 
     };
 
     block_on(async {
-        let GetPluginEntrypointPreferences { preferences, preferences_user_data } = repository
-            .get_plugin_entrypoint_preferences(&plugin_id.to_string(), entrypoint_id)
+        let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = repository
+            .get_entrypoint_by_id(&plugin_id.to_string(), entrypoint_id)
             .await?;
 
         Ok(preferences_to_js(preferences, preferences_user_data))
@@ -528,31 +528,31 @@ fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) 
 }
 
 fn preferences_to_js(
-    preferences: HashMap<String, PluginPreference>,
-    mut preferences_user_data: HashMap<String, PluginPreferenceUserData>
+    preferences: HashMap<String, DbPluginPreference>,
+    mut preferences_user_data: HashMap<String, DbPluginPreferenceUserData>
 ) -> HashMap<String, PreferenceUserData> {
     preferences.into_iter()
         .map(|(name, preference)| {
             let user_data = match preferences_user_data.remove(&name) {
                 None => {
                     match preference {
-                        PluginPreference::Number { default, .. } => PreferenceUserData::Number(default),
-                        PluginPreference::String { default, ..  } => PreferenceUserData::String(default),
-                        PluginPreference::Enum { default, ..  } => PreferenceUserData::String(default),
-                        PluginPreference::Bool { default, ..  } => PreferenceUserData::Bool(default),
-                        PluginPreference::ListOfStrings { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
-                        PluginPreference::ListOfNumbers { default, ..  } => PreferenceUserData::ListOfNumbers(default.unwrap_or(vec![])),
-                        PluginPreference::ListOfEnums { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
+                        DbPluginPreference::Number { default, .. } => PreferenceUserData::Number(default),
+                        DbPluginPreference::String { default, ..  } => PreferenceUserData::String(default),
+                        DbPluginPreference::Enum { default, ..  } => PreferenceUserData::String(default),
+                        DbPluginPreference::Bool { default, ..  } => PreferenceUserData::Bool(default),
+                        DbPluginPreference::ListOfStrings { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
+                        DbPluginPreference::ListOfNumbers { default, ..  } => PreferenceUserData::ListOfNumbers(default.unwrap_or(vec![])),
+                        DbPluginPreference::ListOfEnums { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
                     }
                 }
                 Some(user_data) => match user_data {
-                    PluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value),
-                    PluginPreferenceUserData::String { value } => PreferenceUserData::String(value),
-                    PluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value),
-                    PluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value),
-                    PluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
-                    PluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.unwrap_or(vec![])),
-                    PluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
+                    DbPluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value),
+                    DbPluginPreferenceUserData::String { value } => PreferenceUserData::String(value),
+                    DbPluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value),
+                    DbPluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value),
+                    DbPluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
+                    DbPluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.unwrap_or(vec![])),
+                    DbPluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
                 }
             };
 

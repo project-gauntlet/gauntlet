@@ -12,7 +12,6 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 
 use crate::dirs::Dirs;
-use crate::plugins::loader::EnumValue;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -21,37 +20,24 @@ pub struct DataDbRepository {
     pool: Pool<Sqlite>,
 }
 
-pub struct GetListPlugin {
-    pub id: String,
-    pub name: String,
-    pub enabled: bool,
-    pub code: Code,
-    pub entrypoints: Vec<GetPluginEntrypoint>,
-}
-
 #[derive(sqlx::FromRow)]
-pub struct GetPlugin {
+pub struct DbReadPlugin {
     pub id: String,
     pub name: String,
     pub enabled: bool,
     #[sqlx(json)]
-    pub code: Code,
+    pub code: DbCode,
     #[sqlx(json)]
-    pub permissions: PluginPermissions,
+    pub permissions: DbPluginPermissions,
     pub from_config: bool,
     #[sqlx(json)]
-    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences: HashMap<String, DbPluginPreference>,
     #[sqlx(json)]
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
 #[derive(sqlx::FromRow)]
-pub struct GetPendingPlugin {
-    pub id: String,
-}
-
-#[derive(sqlx::FromRow)]
-pub struct GetPluginEntrypoint {
+pub struct DbReadPluginEntrypoint {
     pub id: String,
     pub plugin_id: String,
     pub name: String,
@@ -59,54 +45,38 @@ pub struct GetPluginEntrypoint {
     #[sqlx(rename = "type")]
     pub entrypoint_type: String,
     #[sqlx(json)]
-    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences: HashMap<String, DbPluginPreference>,
     #[sqlx(json)]
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct Code {
+pub struct DbCode {
     pub js: HashMap<String, String>,
 }
 
-#[derive(sqlx::FromRow)]
-pub struct GetPluginPreferences {
-    #[sqlx(json)]
-    pub preferences: HashMap<String, PluginPreference>,
-    #[sqlx(json)]
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
-}
-
-#[derive(sqlx::FromRow)]
-pub struct GetPluginEntrypointPreferences {
-    #[sqlx(json)]
-    pub preferences: HashMap<String, PluginPreference>,
-    #[sqlx(json)]
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
-}
-
-pub struct SavePlugin {
+pub struct DbWritePlugin {
     pub id: String,
     pub name: String,
     pub enabled: bool,
-    pub code: Code,
-    pub entrypoints: Vec<SavePluginEntrypoint>,
-    pub permissions: PluginPermissions,
+    pub code: DbCode,
+    pub entrypoints: Vec<DbWritePluginEntrypoint>,
+    pub permissions: DbPluginPermissions,
     pub from_config: bool,
-    pub preferences: HashMap<String, PluginPreference>,
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+    pub preferences: HashMap<String, DbPluginPreference>,
+    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
-pub struct SavePluginEntrypoint {
+pub struct DbWritePluginEntrypoint {
     pub id: String,
     pub name: String,
     pub entrypoint_type: String,
-    pub preferences: HashMap<String, PluginPreference>,
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+    pub preferences: HashMap<String, DbPluginPreference>,
+    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct PluginPermissions {
+pub struct DbPluginPermissions {
     pub environment: Vec<String>,
     pub high_resolution_time: bool,
     pub network: Vec<String>,
@@ -119,7 +89,7 @@ pub struct PluginPermissions {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
-pub enum PluginPreferenceUserData {
+pub enum DbPluginPreferenceUserData {
     #[serde(rename = "number")]
     Number {
         value: Option<f64>,
@@ -152,7 +122,7 @@ pub enum PluginPreferenceUserData {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
-pub enum PluginPreference {
+pub enum DbPluginPreference {
     #[serde(rename = "number")]
     Number {
         default: Option<f64>,
@@ -167,7 +137,7 @@ pub enum PluginPreference {
     Enum {
         default: Option<String>,
         description: String,
-        enum_values: Vec<EnumValue>,
+        enum_values: Vec<DbPreferenceEnumValue>,
     },
     #[serde(rename = "bool")]
     Bool {
@@ -187,20 +157,26 @@ pub enum PluginPreference {
     #[serde(rename = "list_of_enums")]
     ListOfEnums {
         default: Option<Vec<String>>,
-        enum_values: Vec<EnumValue>,
+        enum_values: Vec<DbPreferenceEnumValue>,
         description: String,
     }
 }
 
-pub struct SavePendingPlugin {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DbPreferenceEnumValue {
+    pub label: String,
+    pub value: String,
+}
+
+
+#[derive(sqlx::FromRow)]
+pub struct DbReadPendingPlugin {
     pub id: String,
 }
 
-#[derive(sqlx::FromRow)]
-struct PluginEnabled {
-    pub enabled: bool,
+pub struct DbWritePendingPlugin {
+    pub id: String,
 }
-
 
 impl DataDbRepository {
     pub async fn new(dirs: Dirs) -> anyhow::Result<Self> {
@@ -222,33 +198,34 @@ impl DataDbRepository {
         })
     }
 
-    pub async fn list_plugins(&self) -> anyhow::Result<Vec<GetListPlugin>> {
+    pub async fn list_plugins(&self) -> anyhow::Result<Vec<DbReadPlugin>> {
         // language=SQLite
-        let plugins = sqlx::query_as::<_, GetPlugin>("SELECT * FROM plugin")
+        let plugins = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin")
             .fetch_all(&self.pool)
             .await?;
+
+        Ok(plugins)
+    }
+
+    pub async fn list_plugins_and_entrypoints(&self) -> anyhow::Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>> {
+        // language=SQLite
+        let plugins = self.list_plugins().await?;
 
         let result = futures::stream::iter(plugins)
             .then(|plugin| async move {
                 let entrypoints = self.get_entrypoints_by_plugin_id(&plugin.id).await?;
 
-                Ok::<GetListPlugin, AnyError>(GetListPlugin {
-                    id: plugin.id,
-                    name: plugin.name,
-                    enabled: plugin.enabled,
-                    code: plugin.code,
-                    entrypoints,
-                })
+                Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), AnyError>((plugin, entrypoints))
             })
-            .try_collect::<Vec<GetListPlugin>>()
+            .try_collect::<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>>()
             .await?;
 
         Ok(result)
     }
 
-    pub async fn get_plugin_by_id(&self, plugin_id: &str) -> anyhow::Result<GetPlugin> {
+    pub async fn get_plugin_by_id(&self, plugin_id: &str) -> anyhow::Result<DbReadPlugin> {
         // language=SQLite
-        let result = sqlx::query_as::<_, GetPlugin>("SELECT * FROM plugin WHERE id = ?1")
+        let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
             .bind(plugin_id)
             .fetch_one(&self.pool)
             .await?;
@@ -256,11 +233,22 @@ impl DataDbRepository {
         Ok(result)
     }
 
-    pub async fn get_entrypoints_by_plugin_id(&self, plugin_id: &str) -> anyhow::Result<Vec<GetPluginEntrypoint>> {
+    pub async fn get_entrypoints_by_plugin_id(&self, plugin_id: &str) -> anyhow::Result<Vec<DbReadPluginEntrypoint>> {
         // language=SQLite
-        let result = sqlx::query_as::<_, GetPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE plugin_id = ?1")
+        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE plugin_id = ?1")
             .bind(plugin_id)
             .fetch_all(&self.pool)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn get_entrypoint_by_id(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<DbReadPluginEntrypoint> {
+        // language=SQLite
+        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
+            .bind(entrypoint_id)
+            .bind(plugin_id)
+            .fetch_one(&self.pool)
             .await?;
 
         Ok(result)
@@ -277,9 +265,9 @@ impl DataDbRepository {
         Ok(entrypoint_id)
     }
 
-    pub async fn list_pending_plugins(&self) -> anyhow::Result<Vec<GetPendingPlugin>> {
+    pub async fn list_pending_plugins(&self) -> anyhow::Result<Vec<DbReadPendingPlugin>> {
         // language=SQLite
-        let plugins = sqlx::query_as::<_, GetPendingPlugin>("SELECT * FROM pending_plugin")
+        let plugins = sqlx::query_as::<_, DbReadPendingPlugin>("SELECT * FROM pending_plugin")
             .fetch_all(&self.pool)
             .await?;
 
@@ -307,34 +295,18 @@ impl DataDbRepository {
     }
 
     pub async fn is_plugin_enabled(&self, plugin_id: &str) -> anyhow::Result<bool> {
+        #[derive(sqlx::FromRow)]
+        struct DbReadPluginEnabled {
+            pub enabled: bool,
+        }
+
         // language=SQLite
-        let result = sqlx::query_as::<_, PluginEnabled>("SELECT enabled FROM plugin WHERE id = ?1")
+        let result = sqlx::query_as::<_, DbReadPluginEnabled>("SELECT enabled FROM plugin WHERE id = ?1")
             .bind(plugin_id)
             .fetch_one(&self.pool)
             .await?;
 
         Ok(result.enabled)
-    }
-
-    pub async fn get_plugin_preferences(&self, plugin_id: &str) -> anyhow::Result<GetPluginPreferences> {
-        // language=SQLite
-        let result = sqlx::query_as::<_, GetPluginPreferences>("SELECT * FROM plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .fetch_one(&self.pool)
-            .await?;
-
-        Ok(result)
-    }
-
-    pub async fn get_plugin_entrypoint_preferences(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<GetPluginEntrypointPreferences> {
-        // language=SQLite
-        let result = sqlx::query_as::<_, GetPluginEntrypointPreferences>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
-            .bind(entrypoint_id)
-            .bind(plugin_id)
-            .fetch_one(&self.pool)
-            .await?;
-
-        Ok(result)
     }
 
     pub async fn set_plugin_enabled(&self, plugin_id: &str, enabled: bool) -> anyhow::Result<()> {
@@ -360,7 +332,7 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn save_pending_plugin(&self, plugin: SavePendingPlugin) -> anyhow::Result<()> {
+    pub async fn save_pending_plugin(&self, plugin: DbWritePendingPlugin) -> anyhow::Result<()> {
         // language=SQLite
         sqlx::query("INSERT INTO pending_plugin VALUES(?1)")
             .bind(&plugin.id)
@@ -379,7 +351,7 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn save_plugin(&self, plugin: SavePlugin) -> anyhow::Result<()> {
+    pub async fn save_plugin(&self, plugin: DbWritePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite

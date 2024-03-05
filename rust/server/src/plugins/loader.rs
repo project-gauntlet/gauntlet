@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use common::model::{DownloadStatus, PluginId};
 
 use crate::model::{entrypoint_to_str, PluginEntrypointType};
-use crate::plugins::data_db_repository::{Code, DataDbRepository, PluginPermissions, PluginPreference, PluginPreferenceUserData, SavePlugin, SavePluginEntrypoint};
+use crate::plugins::data_db_repository::{DbCode, DataDbRepository, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbWritePlugin, DbWritePluginEntrypoint, DbPreferenceEnumValue};
 use crate::plugins::download_status::DownloadStatusHolder;
 
 pub struct PluginLoader {
@@ -47,7 +47,7 @@ impl PluginLoader {
                 let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
                     .await?;
 
-                data_db_repository.save_plugin(SavePlugin {
+                data_db_repository.save_plugin(DbWritePlugin {
                     id: plugin_data.id,
                     name: plugin_data.name,
                     enabled: false,
@@ -83,7 +83,7 @@ impl PluginLoader {
             self.db_repository.remove_plugin(&plugin_data.id).await?
         }
 
-        self.db_repository.save_plugin(SavePlugin {
+        self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
             name: plugin_data.name,
             enabled: true,
@@ -125,7 +125,7 @@ impl PluginLoader {
         Ok(())
     }
 
-    async fn read_plugin_dir(plugin_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PluginDirData> {
+    async fn read_plugin_dir(plugin_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PluginDownloadData> {
         let js_dir = plugin_dir.join("js");
 
         let js_dir_context = js_dir.display().to_string();
@@ -161,7 +161,7 @@ impl PluginLoader {
 
         let entrypoints: Vec<_> = plugin_manifest.entrypoint
             .into_iter()
-            .map(|entrypoint| SavePluginEntrypoint {
+            .map(|entrypoint| DbWritePluginEntrypoint {
                 id: entrypoint.id,
                 name: entrypoint.name,
                 entrypoint_type: entrypoint_to_str(match entrypoint.entrypoint_type {
@@ -172,13 +172,25 @@ impl PluginLoader {
                 preferences: entrypoint.preferences
                     .into_iter()
                     .map(|preference| match preference {
-                        PluginManifestPreference::Number { name, default, description } => (name, PluginPreference::Number { default, description }),
-                        PluginManifestPreference::String { name, default, description } => (name, PluginPreference::String { default, description }),
-                        PluginManifestPreference::Enum { name, default, description, enum_values } => (name, PluginPreference::Enum { default, description, enum_values }),
-                        PluginManifestPreference::Bool { name, default, description } => (name, PluginPreference::Bool { default, description }),
-                        PluginManifestPreference::ListOfStrings { name, default, description } => (name, PluginPreference::ListOfStrings { default, description }),
-                        PluginManifestPreference::ListOfNumbers { name, default, description } => (name, PluginPreference::ListOfNumbers { default, description }),
-                        PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => (name, PluginPreference::ListOfEnums { default, description, enum_values }),
+                        PluginManifestPreference::Number { name, default, description } => (name, DbPluginPreference::Number { default, description }),
+                        PluginManifestPreference::String { name, default, description } => (name, DbPluginPreference::String { default, description }),
+                        PluginManifestPreference::Enum { name, default, description, enum_values } => {
+                            let enum_values = enum_values.into_iter()
+                                .map(|PluginManifestPreferenceEnumValue { label, value } | DbPreferenceEnumValue { label, value })
+                                .collect();
+
+                            (name, DbPluginPreference::Enum { default, description, enum_values })
+                        },
+                        PluginManifestPreference::Bool { name, default, description } => (name, DbPluginPreference::Bool { default, description }),
+                        PluginManifestPreference::ListOfStrings { name, default, description } => (name, DbPluginPreference::ListOfStrings { default, description }),
+                        PluginManifestPreference::ListOfNumbers { name, default, description } => (name, DbPluginPreference::ListOfNumbers { default, description }),
+                        PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => {
+                            let enum_values = enum_values.into_iter()
+                                .map(|PluginManifestPreferenceEnumValue { label, value } | DbPreferenceEnumValue { label, value })
+                                .collect();
+
+                            (name, DbPluginPreference::ListOfEnums { default, description, enum_values })
+                        },
                     })
                     .collect(),
                 preferences_user_data: HashMap::new(),
@@ -188,17 +200,29 @@ impl PluginLoader {
         let plugin_preferences = plugin_manifest.preferences
             .into_iter()
             .map(|preference| match preference {
-                PluginManifestPreference::Number { name, default, description } => (name, PluginPreference::Number { default, description }),
-                PluginManifestPreference::String { name, default, description } => (name, PluginPreference::String { default, description }),
-                PluginManifestPreference::Enum { name, default, description, enum_values } => (name, PluginPreference::Enum { default, description, enum_values }),
-                PluginManifestPreference::Bool { name, default, description } => (name, PluginPreference::Bool { default, description }),
-                PluginManifestPreference::ListOfStrings { name, default, description } => (name, PluginPreference::ListOfStrings { default, description }),
-                PluginManifestPreference::ListOfNumbers { name, default, description } => (name, PluginPreference::ListOfNumbers { default, description }),
-                PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => (name, PluginPreference::ListOfEnums { default, description, enum_values }),
+                PluginManifestPreference::Number { name, default, description } => (name, DbPluginPreference::Number { default, description }),
+                PluginManifestPreference::String { name, default, description } => (name, DbPluginPreference::String { default, description }),
+                PluginManifestPreference::Enum { name, default, description, enum_values } => {
+                    let enum_values = enum_values.into_iter()
+                        .map(|PluginManifestPreferenceEnumValue { label, value } | DbPreferenceEnumValue { label, value })
+                        .collect();
+
+                    (name, DbPluginPreference::Enum { default, description, enum_values })
+                },
+                PluginManifestPreference::Bool { name, default, description } => (name, DbPluginPreference::Bool { default, description }),
+                PluginManifestPreference::ListOfStrings { name, default, description } => (name, DbPluginPreference::ListOfStrings { default, description }),
+                PluginManifestPreference::ListOfNumbers { name, default, description } => (name, DbPluginPreference::ListOfNumbers { default, description }),
+                PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => {
+                    let enum_values = enum_values.into_iter()
+                        .map(|PluginManifestPreferenceEnumValue { label, value } | DbPreferenceEnumValue { label, value })
+                        .collect();
+
+                    (name, DbPluginPreference::ListOfEnums { default, description, enum_values })
+                },
             })
             .collect();
 
-        let permissions = PluginPermissions {
+        let permissions = DbPluginPermissions {
             environment: plugin_manifest.permissions.environment,
             high_resolution_time: plugin_manifest.permissions.high_resolution_time,
             network: plugin_manifest.permissions.network,
@@ -209,10 +233,10 @@ impl PluginLoader {
             system: plugin_manifest.permissions.system,
         };
 
-        Ok(PluginDirData {
+        Ok(PluginDownloadData {
             id: plugin_id.to_string(),
             name: plugin_name,
-            code: Code {
+            code: DbCode {
                 js
             },
             entrypoints,
@@ -223,14 +247,14 @@ impl PluginLoader {
     }
 }
 
-struct PluginDirData {
+struct PluginDownloadData {
     pub id: String,
     pub name: String,
-    pub code: Code,
-    pub entrypoints: Vec<SavePluginEntrypoint>,
-    pub permissions: PluginPermissions,
-    pub preferences: HashMap<String, PluginPreference>,
-    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+    pub code: DbCode,
+    pub entrypoints: Vec<DbWritePluginEntrypoint>,
+    pub permissions: DbPluginPermissions,
+    pub preferences: HashMap<String, DbPluginPreference>,
+    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -277,7 +301,7 @@ enum PluginManifestPreference {
         name: String,
         default: Option<String>,
         description: String,
-        enum_values: Vec<EnumValue>,
+        enum_values: Vec<PluginManifestPreferenceEnumValue>,
     },
     #[serde(rename = "bool")]
     Bool {
@@ -301,15 +325,15 @@ enum PluginManifestPreference {
     ListOfEnums {
         name: String,
         default: Option<Vec<String>>,
-        enum_values: Vec<EnumValue>,
+        enum_values: Vec<PluginManifestPreferenceEnumValue>,
         description: String,
     }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct EnumValue {
-    label: String,
-    value: String,
+pub struct PluginManifestPreferenceEnumValue {
+    pub label: String,
+    pub value: String,
 }
 
 #[derive(Debug, Deserialize)]

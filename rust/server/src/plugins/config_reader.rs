@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tracing::{error, info};
 
 use crate::dirs::Dirs;
-use crate::plugins::data_db_repository::{DataDbRepository, SavePendingPlugin};
+use crate::plugins::data_db_repository::{DataDbRepository, DbWritePendingPlugin};
 
 pub struct ConfigReader {
     dirs: Dirs,
@@ -25,7 +25,7 @@ impl ConfigReader {
             if !exists {
                 let pending = self.repository.is_plugin_pending(&plugin.id).await?;
                 if !pending {
-                    let pending_plugin = SavePendingPlugin {
+                    let pending_plugin = DbWritePendingPlugin {
                         id: plugin.id
                     };
                     self.repository.save_pending_plugin(pending_plugin).await?
@@ -62,7 +62,7 @@ impl ConfigReader {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ApplicationConfig {
-    // #[serde(default)]
+    // #[serde(default)] // TODO
     // configuration_mode: ConfigurationModeConfig,
     #[serde(default)]
     plugins: Vec<PluginEntryConfig>,

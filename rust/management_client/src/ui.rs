@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use iced::{Alignment, Application, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, Theme, time, window, color};
+use iced::{Alignment, Application, color, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, Theme, time, window};
 use iced::theme::Palette;
 use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, Space, text, text_input, vertical_rule};
 use iced_aw::graphics::icons;
@@ -11,8 +11,9 @@ use iced_table::table;
 use tonic::Request;
 
 use common::model::{EntrypointId, PluginId};
-use common::rpc::{BackendClient, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest};
+use common::rpc::{BackendClient, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointType, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest};
 use common::rpc::rpc_backend_client::RpcBackendClient;
+use common::rpc::rpc_ui_property_value::Value;
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -94,6 +95,8 @@ struct Plugin {
     show_entrypoints: bool,
     enabled: bool,
     entrypoints: HashMap<EntrypointId, Entrypoint>,
+    preferences: HashMap<String, PluginPreference>,
+    preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +105,8 @@ struct Entrypoint {
     entrypoint_name: String,
     entrypoint_type: EntrypointType,
     enabled: bool,
+    preferences: HashMap<String, PluginPreference>,
+    preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +115,72 @@ pub enum EntrypointType {
     View,
     InlineView,
 }
+
+#[derive(Debug, Clone)]
+pub enum PluginPreferenceUserData {
+    Number {
+        value: Option<f64>,
+    },
+    String {
+        value: Option<String>,
+    },
+    Enum {
+        value: Option<String>,
+    },
+    Bool {
+        value: Option<bool>,
+    },
+    ListOfStrings {
+        value: Option<Vec<String>>,
+    },
+    ListOfNumbers {
+        value: Option<Vec<f64>>,
+    },
+    ListOfEnums {
+        value: Option<Vec<String>>,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PluginPreference {
+    Number {
+        default: Option<f64>,
+        description: String,
+    },
+    String {
+        default: Option<String>,
+        description: String,
+    },
+    Enum {
+        default: Option<String>,
+        description: String,
+        enum_values: Vec<PreferenceEnumValue>,
+    },
+    Bool {
+        default: Option<bool>,
+        description: String,
+    },
+    ListOfStrings {
+        default: Option<Vec<String>>,
+        description: String,
+    },
+    ListOfNumbers {
+        default: Option<Vec<f64>>,
+        description: String,
+    },
+    ListOfEnums {
+        default: Option<Vec<String>>,
+        enum_values: Vec<PreferenceEnumValue>,
+        description: String,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PreferenceEnumValue {
+    pub label: String,
+    pub value: String,
+}
+
 
 impl Application for ManagementAppModel {
     type Executor = executor::Default;
@@ -753,7 +824,13 @@ async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, 
                         enabled: entrypoint.enabled,
                         entrypoint_id: id.clone(),
                         entrypoint_name: entrypoint.entrypoint_name.clone(),
-                        entrypoint_type
+                        entrypoint_type,
+                        preferences: entrypoint.preferences.into_iter()
+                            .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
+                            .collect(),
+                        preferences_user_data: entrypoint.preferences_user_data.into_iter()
+                            .map(|(key, value)| (key, plugin_preference_user_data_from_grpc(value)))
+                            .collect(),
                     };
                     (id, entrypoint)
                 })
@@ -766,9 +843,276 @@ async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, 
                 show_entrypoints: true,
                 enabled: plugin.enabled,
                 entrypoints,
-            };
+                preferences: plugin.preferences.into_iter()
+                    .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
+                    .collect(),
+                preferences_user_data: plugin.preferences_user_data.into_iter()
+                    .map(|(key, value)| (key, plugin_preference_user_data_from_grpc(value)))
+                    .collect(),};
 
             (id, plugin)
         })
         .collect()
+}
+
+
+fn plugin_preference_from_grpc(value: RpcPluginPreference) -> PluginPreference {
+    let value_type: RpcPluginPreferenceValueType = value.r#type.try_into().unwrap();
+    match value_type {
+        RpcPluginPreferenceValueType::Number => {
+            let default = value.default
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::Number(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreference::Number {
+                default,
+                description: value.description,
+            }
+        }
+        RpcPluginPreferenceValueType::String => {
+            let default = value.default
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::String(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreference::String {
+                default,
+                description: value.description,
+            }
+        }
+        RpcPluginPreferenceValueType::Enum => {
+            let default = value.default
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::String(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreference::Enum {
+                default,
+                description: value.description,
+                enum_values: value.enum_values.into_iter()
+                    .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
+                    .collect()
+            }
+        }
+        RpcPluginPreferenceValueType::Bool => {
+            let default = value.default
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::Bool(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreference::Bool {
+                default,
+                description: value.description,
+            }
+        }
+        RpcPluginPreferenceValueType::ListOfStrings => {
+            let default_list = match value.default_list_exists {
+                true => {
+                    let default_list = value.default_list
+                        .into_iter()
+                        .flat_map(|value| value.value.map(|value| {
+                            match value {
+                                Value::String(value) => value,
+                                _ => unreachable!()
+                            }
+                        }))
+                        .collect();
+
+                    Some(default_list)
+                },
+                false => None
+            };
+
+            PluginPreference::ListOfStrings {
+                default: default_list,
+                description: value.description,
+            }
+        }
+        RpcPluginPreferenceValueType::ListOfNumbers => {
+            let default_list = match value.default_list_exists {
+                true => {
+                    let default_list = value.default_list
+                        .into_iter()
+                        .flat_map(|value| value.value.map(|value| {
+                            match value {
+                                Value::Number(value) => value,
+                                _ => unreachable!()
+                            }
+                        }))
+                        .collect();
+
+                    Some(default_list)
+                },
+                false => None
+            };
+
+            PluginPreference::ListOfNumbers {
+                default: default_list,
+                description: value.description,
+            }
+        }
+        RpcPluginPreferenceValueType::ListOfEnums => {
+            let default_list = match value.default_list_exists {
+                true => {
+                    let default_list = value.default_list
+                        .into_iter()
+                        .flat_map(|value| value.value.map(|value| {
+                            match value {
+                                Value::String(value) => value,
+                                _ => unreachable!()
+                            }
+                        }))
+                        .collect();
+
+                    Some(default_list)
+                },
+                false => None
+            };
+
+            PluginPreference::ListOfEnums {
+                default: default_list,
+                enum_values: value.enum_values.into_iter()
+                    .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
+                    .collect(),
+                description: value.description,
+            }
+        }
+    }
+}
+
+fn plugin_preference_user_data_from_grpc(value: RpcPluginPreferenceUserData) -> PluginPreferenceUserData {
+    let value_type: RpcPluginPreferenceValueType = value.r#type.try_into().unwrap();
+    match value_type {
+        RpcPluginPreferenceValueType::Number => {
+            let value = value.value
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::Number(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreferenceUserData::Number {
+                value
+            }
+        }
+        RpcPluginPreferenceValueType::String => {
+            let value = value.value
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::String(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreferenceUserData::String {
+                value
+            }
+        }
+        RpcPluginPreferenceValueType::Enum => {
+            let value = value.value
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::String(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreferenceUserData::Enum {
+                value
+            }
+        }
+        RpcPluginPreferenceValueType::Bool => {
+            let value = value.value
+                .map(|value| {
+                    match value.value.unwrap() {
+                        Value::Bool(value) => value,
+                        _ => unreachable!()
+                    }
+                });
+
+            PluginPreferenceUserData::Bool {
+                value
+            }
+        }
+        RpcPluginPreferenceValueType::ListOfStrings => {
+            let value = match value.value_list_exists {
+                true => {
+                    let value_list = value.value_list
+                        .into_iter()
+                        .flat_map(|value| value.value.map(|value| {
+                            match value {
+                                Value::String(value) => value,
+                                _ => unreachable!()
+                            }
+                        }))
+                        .collect();
+
+                    Some(value_list)
+                },
+                false => None
+            };
+
+            PluginPreferenceUserData::ListOfStrings {
+                value
+            }
+        }
+        RpcPluginPreferenceValueType::ListOfNumbers => {
+            let value = match value.value_list_exists {
+                true => {
+                    let value_list = value.value_list
+                        .into_iter()
+                        .flat_map(|value| value.value.map(|value| {
+                            match value {
+                                Value::Number(value) => value,
+                                _ => unreachable!()
+                            }
+                        }))
+                        .collect();
+
+                    Some(value_list)
+                },
+                false => None
+            };
+
+            PluginPreferenceUserData::ListOfNumbers {
+                value
+            }
+        }
+        RpcPluginPreferenceValueType::ListOfEnums => {
+            let value = match value.value_list_exists {
+                true => {
+                    let value_list = value.value_list
+                        .into_iter()
+                        .flat_map(|value| value.value.map(|value| {
+                            match value {
+                                Value::String(value) => value,
+                                _ => unreachable!()
+                            }
+                        }))
+                        .collect();
+
+                    Some(value_list)
+                },
+                false => None
+            };
+
+            PluginPreferenceUserData::ListOfEnums {
+                value
+            }
+        }
+    }
 }
