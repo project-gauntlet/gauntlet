@@ -24,6 +24,7 @@ pub struct DataDbRepository {
 pub struct DbReadPlugin {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub enabled: bool,
     #[sqlx(json)]
     pub code: DbCode,
@@ -41,6 +42,7 @@ pub struct DbReadPluginEntrypoint {
     pub id: String,
     pub plugin_id: String,
     pub name: String,
+    pub description: String,
     pub enabled: bool,
     #[sqlx(rename = "type")]
     pub entrypoint_type: String,
@@ -58,6 +60,7 @@ pub struct DbCode {
 pub struct DbWritePlugin {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub enabled: bool,
     pub code: DbCode,
     pub entrypoints: Vec<DbWritePluginEntrypoint>,
@@ -70,6 +73,7 @@ pub struct DbWritePlugin {
 pub struct DbWritePluginEntrypoint {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub entrypoint_type: String,
     pub preferences: HashMap<String, DbPluginPreference>,
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
@@ -355,7 +359,7 @@ impl DataDbRepository {
         let mut tx = self.pool.begin().await?;
 
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")
             .bind(&plugin.id)
             .bind(plugin.name)
             .bind(plugin.enabled)
@@ -364,12 +368,13 @@ impl DataDbRepository {
             .bind(false)
             .bind(Json(plugin.preferences))
             .bind(Json(plugin.preferences_user_data))
+            .bind(plugin.description)
             .execute(&mut *tx)
             .await?;
 
         for entrypoint in plugin.entrypoints {
             // language=SQLite
-            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)")
+            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
                 .bind(entrypoint.id)
                 .bind(&plugin.id)
                 .bind(entrypoint.name)
@@ -377,6 +382,7 @@ impl DataDbRepository {
                 .bind(entrypoint.entrypoint_type)
                 .bind(Json(entrypoint.preferences))
                 .bind(Json(entrypoint.preferences_user_data))
+                .bind(entrypoint.description)
                 .execute(&mut *tx)
                 .await?;
         }

@@ -80,6 +80,7 @@ impl ApplicationManager {
                         enabled: entrypoint.enabled,
                         entrypoint_id: entrypoint.id,
                         entrypoint_name: entrypoint.name,
+                        entrypoint_description: entrypoint.description,
                         entrypoint_type: match entrypoint_from_str(&entrypoint.entrypoint_type) {
                             PluginEntrypointType::Command => RpcEntrypointType::Command,
                             PluginEntrypointType::View => RpcEntrypointType::View,
@@ -97,6 +98,7 @@ impl ApplicationManager {
                 RpcPlugin {
                     plugin_id: plugin.id,
                     plugin_name: plugin.name,
+                    plugin_description: plugin.description,
                     enabled: plugin.enabled,
                     entrypoints,
                     preferences: plugin.preferences.into_iter()

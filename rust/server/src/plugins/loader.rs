@@ -50,6 +50,7 @@ impl PluginLoader {
                 data_db_repository.save_plugin(DbWritePlugin {
                     id: plugin_data.id,
                     name: plugin_data.name,
+                    description: plugin_data.description,
                     enabled: false,
                     code: plugin_data.code,
                     entrypoints: plugin_data.entrypoints,
@@ -86,6 +87,7 @@ impl PluginLoader {
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
             name: plugin_data.name,
+            description: plugin_data.description,
             enabled: true,
             code: plugin_data.code,
             entrypoints: plugin_data.entrypoints,
@@ -158,12 +160,14 @@ impl PluginLoader {
         tracing::debug!("Plugin config read: {:?}", plugin_manifest);
 
         let plugin_name = plugin_manifest.gauntlet.name;
+        let plugin_description = plugin_manifest.gauntlet.description;
 
         let entrypoints: Vec<_> = plugin_manifest.entrypoint
             .into_iter()
             .map(|entrypoint| DbWritePluginEntrypoint {
                 id: entrypoint.id,
                 name: entrypoint.name,
+                description: entrypoint.description,
                 entrypoint_type: entrypoint_to_str(match entrypoint.entrypoint_type {
                     PluginManifestEntrypointTypes::Command => PluginEntrypointType::Command,
                     PluginManifestEntrypointTypes::View => PluginEntrypointType::View,
@@ -236,6 +240,7 @@ impl PluginLoader {
         Ok(PluginDownloadData {
             id: plugin_id.to_string(),
             name: plugin_name,
+            description: plugin_description,
             code: DbCode {
                 js
             },
@@ -250,6 +255,7 @@ impl PluginLoader {
 struct PluginDownloadData {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub code: DbCode,
     pub entrypoints: Vec<DbWritePluginEntrypoint>,
     pub permissions: DbPluginPermissions,
@@ -273,6 +279,7 @@ struct PluginManifest {
 struct PluginManifestEntrypoint {
     id: String,
     name: String,
+    description: String,
     #[allow(unused)] // used when building plugin
     path: String,
     #[serde(rename = "type")]
@@ -356,6 +363,7 @@ pub enum PluginManifestSupportedSystem {
 #[derive(Debug, Deserialize)]
 struct PluginManifestMetadata {
     name: String,
+    description: String,
 }
 
 #[derive(Debug, Deserialize, Default)]

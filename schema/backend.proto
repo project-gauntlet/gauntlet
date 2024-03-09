@@ -112,19 +112,21 @@ enum RpcEntrypointType {
 message RpcPlugin {
   string plugin_id = 1;
   string plugin_name = 2;
-  bool enabled = 3;
-  repeated RpcEntrypoint entrypoints = 4;
-  map<string, RpcPluginPreference> preferences = 5;
-  map<string, RpcPluginPreferenceUserData> preferences_user_data = 6;
+  string plugin_description = 3;
+  bool enabled = 4;
+  repeated RpcEntrypoint entrypoints = 5;
+  map<string, RpcPluginPreference> preferences = 6;
+  map<string, RpcPluginPreferenceUserData> preferences_user_data = 7;
 }
 
 message RpcEntrypoint {
   string entrypoint_id = 1;
   string entrypoint_name = 2;
-  bool enabled = 3;
-  RpcEntrypointType entrypoint_type = 4;
-  map<string, RpcPluginPreference> preferences = 5;
-  map<string, RpcPluginPreferenceUserData> preferences_user_data = 6;
+  string entrypoint_description = 3;
+  bool enabled = 4;
+  RpcEntrypointType entrypoint_type = 5;
+  map<string, RpcPluginPreference> preferences = 6;
+  map<string, RpcPluginPreferenceUserData> preferences_user_data = 7;
 }
 
 

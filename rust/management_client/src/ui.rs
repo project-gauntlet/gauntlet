@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use iced::{Alignment, Application, color, Command, Element, executor, font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, Theme, time, window};
+use iced::{Alignment, Application, color, Command, Element, executor, font, Font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, Theme, time, window};
+use iced::font::Weight;
 use iced::theme::Palette;
 use iced::widget::{button, checkbox, column, container, horizontal_space, row, scrollable, Space, text, text_input, vertical_rule};
 use iced_aw::graphics::icons;
@@ -92,6 +93,7 @@ enum EnabledItem {
 struct Plugin {
     plugin_id: PluginId,
     plugin_name: String,
+    plugin_description: String,
     show_entrypoints: bool,
     enabled: bool,
     entrypoints: HashMap<EntrypointId, Entrypoint>,
@@ -103,6 +105,7 @@ struct Plugin {
 struct Entrypoint {
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
+    entrypoint_description: String,
     entrypoint_type: EntrypointType,
     enabled: bool,
     preferences: HashMap<String, PluginPreference>,
@@ -433,8 +436,25 @@ impl Application for ManagementAppModel {
                     .padding(Padding::new(10.0))
                     .into();
 
-                column(vec![
+                let description_label: Element<_> = text("Description")
+                    .font(Font {
+                        weight: Weight::Bold,
+                        ..Font::DEFAULT
+                    })
+                    .into();
+
+                let description_label = container(description_label)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 10.0]))
+                    .into();
+
+                let description = container(text(&plugin.plugin_description))
+                    .padding(Padding::new(10.0))
+                    .into();
+
+                column([
                     name,
+                    description_label,
+                    description,
                 ]).into()
             }
             SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
@@ -446,8 +466,25 @@ impl Application for ManagementAppModel {
                     .padding(Padding::new(10.0))
                     .into();
 
-                column(vec![
+                let description_label: Element<_> = text("Description")
+                    .font(Font {
+                        weight: Weight::Bold,
+                        ..Font::DEFAULT
+                    })
+                    .into();
+
+                let description_label = container(description_label)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 10.0]))
+                    .into();
+
+                let description = container(text(&entrypoint.entrypoint_description))
+                    .padding(Padding::new(10.0))
+                    .into();
+
+                column([
                     name,
+                    description_label,
+                    description,
                 ]).into()
             }
             SelectedItem::NewPlugin { repository_url } => {
@@ -838,6 +875,7 @@ async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, 
                         enabled: entrypoint.enabled,
                         entrypoint_id: id.clone(),
                         entrypoint_name: entrypoint.entrypoint_name.clone(),
+                        entrypoint_description: entrypoint.entrypoint_description,
                         entrypoint_type,
                         preferences: entrypoint.preferences.into_iter()
                             .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
@@ -854,6 +892,7 @@ async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, 
             let plugin = Plugin {
                 plugin_id: id.clone(),
                 plugin_name: plugin.plugin_name,
+                plugin_description: plugin.plugin_description,
                 show_entrypoints: true,
                 enabled: plugin.enabled,
                 entrypoints,

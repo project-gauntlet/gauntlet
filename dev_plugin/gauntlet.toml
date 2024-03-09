@@ -1,5 +1,8 @@
 [gauntlet]
 name = 'Interesting Plugin Name'
+description = """
+A reasonably long plugin description that doesn't contain any usefull information
+"""
 
 [[preferences]]
 name = 'testBool'
@@ -13,6 +16,9 @@ id = 'detail-view'
 name = 'Detail view'
 path = 'src/detail-view.tsx'
 type = 'view'
+description = """
+A reasonably long detail description that tries to tell something usefull
+"""
 
 
 [[entrypoint.preferences]]
@@ -60,18 +66,21 @@ id = 'form-view'
 name = 'Form view'
 path = 'src/form-view.tsx'
 type = 'view'
+description = ''
 
 [[entrypoint]]
 id = 'inline-view'
 name = 'Inline view'
 path = 'src/inline-view.tsx'
 type = 'inline-view'
+description = ''
 
 [[entrypoint]]
 id = 'command-a'
 name = 'Command A'
 path = 'src/command-a.ts'
 type = 'command'
+description = ''
 
 [[supported_system]]
 os = 'linux'
