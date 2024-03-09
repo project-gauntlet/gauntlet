@@ -733,13 +733,14 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                     .into()
             }
             ColumnKind::EnableToggle => {
-                let (enabled, plugin_id, entrypoint_id) = match &row_entry {
+                let (enabled, show_checkbox, plugin_id, entrypoint_id) = match &row_entry {
                     Row::Plugin { plugins, plugin_id } => {
                         let plugins = plugins.borrow();
                         let plugin = plugins.get(&plugin_id).unwrap();
 
                         (
                             plugin.enabled,
+                            true,
                             plugin.plugin_id.clone(),
                             None
                         )
@@ -751,16 +752,15 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
 
                         (
                             entrypoint.enabled,
+                            plugin.enabled,
                             plugin.plugin_id.clone(),
                             Some(entrypoint.entrypoint_id.clone())
                         )
                     }
                 };
 
-
-                // TODO disable if plugin is disabled but preserve current state https://github.com/iced-rs/iced/pull/2109
-                let checkbox: Element<_> = checkbox("", enabled)
-                    .on_toggle(move |enabled| {
+                let on_toggle = if show_checkbox {
+                    Some(move |enabled| {
                         let enabled_item = match &entrypoint_id {
                             None => EnabledItem::Plugin {
                                 enabled,
@@ -774,6 +774,12 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                         };
                         ManagementAppMsg::EnabledToggleItem(enabled_item)
                     })
+                } else {
+                    None
+                };
+
+                let checkbox: Element<_> = checkbox("", enabled)
+                    .on_toggle_maybe(on_toggle)
                     .into();
 
                 container(checkbox)
