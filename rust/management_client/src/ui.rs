@@ -212,7 +212,9 @@ impl Application for ManagementAppModel {
             Command::batch([
                 font::load(icons::BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
                 Command::perform(
-                    reload_plugins(backend_client),
+                    async {
+                        reload_plugins(backend_client).await
+                    },
                     ManagementAppMsg::PluginsReloaded,
                 )
             ]),
@@ -357,37 +359,43 @@ impl Application for ManagementAppModel {
                 }
                 let backend_client = self.backend_client.clone();
                 Command::perform(
-                    reload_plugins(backend_client),
+                    async {
+                        reload_plugins(backend_client).await
+                    },
                     ManagementAppMsg::PluginsReloaded,
                 )
             }
             ManagementAppMsg::CheckDownloadStatus => {
-                let mut backend_client = self.backend_client.clone();
+                if self.running_downloads.is_empty() {
+                    Command::none()
+                } else {
+                    let mut backend_client = self.backend_client.clone();
 
-                Command::perform(
-                    async move {
-                        let plugins = backend_client.download_status(Request::new(RpcDownloadStatusRequest::default()))
-                            .await
-                            .unwrap()
-                            .into_inner()
-                            .status_per_plugin
-                            .into_iter()
-                            .filter_map(|(plugin_id, status)| {
-                                let status: RpcDownloadStatus = status.status.try_into()
-                                    .expect("download status failed");
+                    Command::perform(
+                        async move {
+                            let plugins = backend_client.download_status(Request::new(RpcDownloadStatusRequest::default()))
+                                .await
+                                .unwrap()
+                                .into_inner()
+                                .status_per_plugin
+                                .into_iter()
+                                .filter_map(|(plugin_id, status)| {
+                                    let status: RpcDownloadStatus = status.status.try_into()
+                                        .expect("download status failed");
 
-                                match status {
-                                    RpcDownloadStatus::InProgress => None,
-                                    RpcDownloadStatus::Done => Some(PluginId::from_string(plugin_id)),
-                                    RpcDownloadStatus::Failed => Some(PluginId::from_string(plugin_id))
-                                }
-                            })
-                            .collect::<Vec<_>>();
+                                    match status {
+                                        RpcDownloadStatus::InProgress => None,
+                                        RpcDownloadStatus::Done => Some(PluginId::from_string(plugin_id)),
+                                        RpcDownloadStatus::Failed => Some(PluginId::from_string(plugin_id))
+                                    }
+                                })
+                                .collect::<Vec<_>>();
 
-                        ManagementAppMsg::DownloadStatus { plugins }
-                    },
-                    std::convert::identity,
-                )
+                            ManagementAppMsg::DownloadStatus { plugins }
+                        },
+                        std::convert::identity,
+                    )
+                }
             }
             ManagementAppMsg::Noop => {
                 Command::none()
