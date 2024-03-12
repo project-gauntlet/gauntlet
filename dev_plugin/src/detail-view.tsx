@@ -13,7 +13,7 @@ interface DetailViewEntrypointConfig {
 }
 
 function TestView(props: { value: number }): ReactElement {
-    const { pop } = useNavigation();
+    const { popView } = useNavigation();
 
     return (
         <Detail>
@@ -26,7 +26,7 @@ function TestView(props: { value: number }): ReactElement {
                 <Detail.Metadata.TagList label={"test"}>
                     <Detail.Metadata.TagList.Item
                         onClick={() => {
-                            pop();
+                            popView();
                         }}
                     >
                         Shit Go Back!
@@ -41,7 +41,7 @@ function TestView(props: { value: number }): ReactElement {
 export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
 
-    const { push } = useNavigation();
+    const { pushView } = useNavigation();
     const { testBool } = usePluginPreferences<{ testBool: boolean }>();
     const entrypointPreferences = useEntrypointPreferences<DetailViewEntrypointConfig>();
 
@@ -122,7 +122,7 @@ export default function DetailView(): ReactElement {
                         Tag
                     </Detail.Metadata.TagList.Item>
                     <Detail.Metadata.TagList.Item onClick={() => {
-                        push(<TestView value={1}/>)
+                        pushView(<TestView value={1}/>)
                     }}>
                         Push New View
                     </Detail.Metadata.TagList.Item>
