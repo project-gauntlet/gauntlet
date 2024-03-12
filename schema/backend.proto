@@ -20,6 +20,8 @@ service RpcBackend {
 
   rpc SetEntrypointState (RpcSetEntrypointStateRequest) returns (RpcSetEntrypointStateResponse);
 
+  rpc SetPreferenceValue (RpcSetPreferenceValueRequest) returns (RpcSetPreferenceValueResponse);
+
   rpc DownloadPlugin (RpcDownloadPluginRequest) returns (RpcDownloadPluginResponse);
 
   rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
@@ -75,6 +77,15 @@ message RpcSetEntrypointStateRequest {
   bool enabled = 3;
 }
 message RpcSetEntrypointStateResponse {
+}
+
+message RpcSetPreferenceValueRequest {
+  string plugin_id = 1;
+  string entrypoint_id = 2;
+  string preference_name = 3;
+  RpcPluginPreferenceUserData preference_value = 4;
+}
+message RpcSetPreferenceValueResponse {
 }
 
 message RpcDownloadPluginRequest {

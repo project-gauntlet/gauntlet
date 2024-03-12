@@ -336,6 +336,45 @@ impl DataDbRepository {
         Ok(())
     }
 
+    pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, user_data_name: String, user_data_value: DbPluginPreferenceUserData) -> anyhow::Result<()> {
+        // should probably json_patch in database for atomic update,
+        // but that doesn't matter in this app
+
+        match entrypoint_id {
+            None => {
+                let mut user_data = self.get_plugin_by_id(&plugin_id)
+                    .await?
+                    .preferences_user_data;
+
+                user_data.insert(user_data_name, user_data_value);
+
+                // language=SQLite
+                sqlx::query("UPDATE plugin SET preferences_user_data = ?1 WHERE id = ?2")
+                    .bind(Json(user_data))
+                    .bind(&plugin_id)
+                    .execute(&self.pool)
+                    .await?;
+            }
+            Some(entrypoint_id) => {
+                let mut user_data = self.get_entrypoint_by_id(&plugin_id, &entrypoint_id)
+                    .await?
+                    .preferences_user_data;
+
+                user_data.insert(user_data_name, user_data_value);
+
+                // language=SQLite
+                sqlx::query("UPDATE plugin_entrypoint SET preferences_user_data = ?1 WHERE id = ?2 AND plugin_id = ?3")
+                    .bind(Json(user_data))
+                    .bind(&entrypoint_id)
+                    .bind(&plugin_id)
+                    .execute(&self.pool)
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn save_pending_plugin(&self, plugin: DbWritePendingPlugin) -> anyhow::Result<()> {
         // language=SQLite
         sqlx::query("INSERT INTO pending_plugin VALUES(?1)")

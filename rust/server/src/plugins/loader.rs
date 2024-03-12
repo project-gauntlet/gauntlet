@@ -186,14 +186,14 @@ impl PluginLoader {
                             (name, DbPluginPreference::Enum { default, description, enum_values })
                         },
                         PluginManifestPreference::Bool { name, default, description } => (name, DbPluginPreference::Bool { default, description }),
-                        PluginManifestPreference::ListOfStrings { name, default, description } => (name, DbPluginPreference::ListOfStrings { default, description }),
-                        PluginManifestPreference::ListOfNumbers { name, default, description } => (name, DbPluginPreference::ListOfNumbers { default, description }),
-                        PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => {
+                        PluginManifestPreference::ListOfStrings { name, description } => (name, DbPluginPreference::ListOfStrings { default: None, description }),
+                        PluginManifestPreference::ListOfNumbers { name, description } => (name, DbPluginPreference::ListOfNumbers { default: None, description }),
+                        PluginManifestPreference::ListOfEnums { name, description, enum_values } => {
                             let enum_values = enum_values.into_iter()
                                 .map(|PluginManifestPreferenceEnumValue { label, value } | DbPreferenceEnumValue { label, value })
                                 .collect();
 
-                            (name, DbPluginPreference::ListOfEnums { default, description, enum_values })
+                            (name, DbPluginPreference::ListOfEnums { default: None, description, enum_values })
                         },
                     })
                     .collect(),
@@ -214,14 +214,14 @@ impl PluginLoader {
                     (name, DbPluginPreference::Enum { default, description, enum_values })
                 },
                 PluginManifestPreference::Bool { name, default, description } => (name, DbPluginPreference::Bool { default, description }),
-                PluginManifestPreference::ListOfStrings { name, default, description } => (name, DbPluginPreference::ListOfStrings { default, description }),
-                PluginManifestPreference::ListOfNumbers { name, default, description } => (name, DbPluginPreference::ListOfNumbers { default, description }),
-                PluginManifestPreference::ListOfEnums { name, default, description, enum_values } => {
+                PluginManifestPreference::ListOfStrings { name, description } => (name, DbPluginPreference::ListOfStrings { default: None, description }),
+                PluginManifestPreference::ListOfNumbers { name, description } => (name, DbPluginPreference::ListOfNumbers { default: None, description }),
+                PluginManifestPreference::ListOfEnums { name, description, enum_values } => {
                     let enum_values = enum_values.into_iter()
                         .map(|PluginManifestPreferenceEnumValue { label, value } | DbPreferenceEnumValue { label, value })
                         .collect();
 
-                    (name, DbPluginPreference::ListOfEnums { default, description, enum_values })
+                    (name, DbPluginPreference::ListOfEnums { default: None, description, enum_values })
                 },
             })
             .collect();
@@ -319,19 +319,19 @@ enum PluginManifestPreference {
     #[serde(rename = "list_of_strings")]
     ListOfStrings {
         name: String,
-        default: Option<Vec<String>>,
+        // default: Option<Vec<String>>,
         description: String,
     },
     #[serde(rename = "list_of_numbers")]
     ListOfNumbers {
         name: String,
-        default: Option<Vec<f64>>,
+        // default: Option<Vec<f64>>,
         description: String,
     },
     #[serde(rename = "list_of_enums")]
     ListOfEnums {
         name: String,
-        default: Option<Vec<String>>,
+        // default: Option<Vec<String>>,
         enum_values: Vec<PluginManifestPreferenceEnumValue>,
         description: String,
     }

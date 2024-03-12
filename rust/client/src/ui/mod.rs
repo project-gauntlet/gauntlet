@@ -212,7 +212,7 @@ impl Application for AppModel {
                             Some(NativeUiSearchResult {
                                 plugin_id: PluginId::from_string(search_result.plugin_id),
                                 plugin_name: search_result.plugin_name,
-                                entrypoint_id: EntrypointId::new(search_result.entrypoint_id),
+                                entrypoint_id: EntrypointId::from_string(search_result.entrypoint_id),
                                 entrypoint_name: search_result.entrypoint_name,
                                 entrypoint_type,
                             })

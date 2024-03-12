@@ -37,14 +37,18 @@ description = "test enum description"
 [[entrypoint.preferences]]
 name = 'testListOfStrings'
 type = 'list_of_strings'
-default = ['value', 'value 2']
 description = "test list of strings description"
 
 [[entrypoint.preferences]]
 name = 'testListOfNumbers'
 type = 'list_of_numbers'
-default = [3, 1]
 description = "test list of numbers description"
+
+[[entrypoint.preferences]]
+name = 'testListOfEnums'
+type = 'list_of_enums'
+description = "test list of enums description"
+enum_values = [{ label = 'Item', value = 'item'}, { label = 'Item 2', value = 'item_2'}]
 
 [[entrypoint.preferences]]
 name = 'testNum'

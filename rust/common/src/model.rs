@@ -40,7 +40,7 @@ impl ToString for PluginId {
 pub struct EntrypointId(Arc<str>);
 
 impl EntrypointId {
-    pub fn new(entrypoint_id: impl ToString) -> Self {
+    pub fn from_string(entrypoint_id: impl ToString) -> Self {
         EntrypointId(entrypoint_id.to_string().into())
     }
 }

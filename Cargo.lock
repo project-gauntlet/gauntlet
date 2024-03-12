@@ -4168,6 +4168,7 @@ dependencies = [
  "cfg-if",
  "chrono",
  "iced",
+ "num-traits",
  "once_cell",
 ]
 

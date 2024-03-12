@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 
 use common::model::{DownloadStatus, EntrypointId, PluginId};
-use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointType, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse};
+use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointType, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use common::rpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 
 use crate::model::{from_rpc_to_intermediate_value, PluginEntrypointType};
@@ -122,7 +122,7 @@ impl RpcBackend for RpcBackendServerImpl {
         let entrypoint_id = request.entrypoint_id;
         let enabled = request.enabled;
 
-        let result = self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::new(entrypoint_id), enabled)
+        let result = self.application_manager.set_entrypoint_state(PluginId::from_string(plugin_id), EntrypointId::from_string(entrypoint_id), enabled)
             .await;
 
         if let Err(err) = &result {
@@ -132,6 +132,32 @@ impl RpcBackend for RpcBackendServerImpl {
         result.map_err(|err| Status::internal(err.to_string()))?;
 
         Ok(Response::new(RpcSetEntrypointStateResponse::default()))
+    }
+
+    async fn set_preference_value(&self, request: Request<RpcSetPreferenceValueRequest>) -> Result<Response<RpcSetPreferenceValueResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let plugin_id = PluginId::from_string(plugin_id);
+
+        let entrypoint_id = if request.entrypoint_id.is_empty() {
+            None
+        } else {
+            Some(EntrypointId::from_string(request.entrypoint_id))
+        };
+
+        let preference_name = request.preference_name;
+        let preference_value = request.preference_value.unwrap();
+
+        let result = self.application_manager.set_preference_value(plugin_id, entrypoint_id, preference_name, preference_value)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "rpc", "error occurred when handling 'set_preference_value' request {:?}", err)
+        }
+
+        result.map_err(|err| Status::internal(err.to_string()))?;
+
+        Ok(Response::new(RpcSetPreferenceValueResponse::default()))
     }
 
     async fn download_plugin(&self, request: Request<RpcDownloadPluginRequest>) -> Result<Response<RpcDownloadPluginResponse>, Status> {
