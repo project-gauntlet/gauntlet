@@ -1,4 +1,4 @@
-import { FC, isValidElement, ReactNode } from "react";
+import { FC } from "react";
 
 // @ts-expect-error does typescript support such symbol declarations?
 const denoCore: DenoCore = Deno[Deno.internal].core;
@@ -103,15 +103,13 @@ async function runLoop() {
 
                 if (endpoint_id) {
                     try {
-                        const handler: ( text: string ) => ReactNode | null = (await import(`gauntlet:entrypoint?${endpoint_id}`)).default;
+                        const Handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpoint_id}`)).default;
                         const { render } = await import("gauntlet:renderer");
-                        const renderResult = handler(pluginEvent.text);
 
-                        if (isValidElement(renderResult)) {
-                            InternalApi.op_log_debug("plugin_loop", "Inline view function returned react component, rendering...")
-                            latestRootUiWidget = render("default", endpoint_id, "InlineView", renderResult);
-                        } else {
-                            InternalApi.op_log_debug("plugin_loop", `Inline view function returned ${Deno.inspect(renderResult)}, closing view...`)
+                        latestRootUiWidget = render("default", endpoint_id, "InlineView", <Handler text={pluginEvent.text}/>);
+
+                        if (latestRootUiWidget.widgetChildren.length === 0) {
+                            InternalApi.op_log_debug("plugin_loop", `Inline view rendered no children, clearing inline view...`)
                             InternalApi.clear_inline_view()
                         }
                     } catch (e) {

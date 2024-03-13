@@ -1,7 +1,8 @@
 import { Content, Inline } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
 
-export default function InlineView(text: string): ReactNode | undefined {
+export default function InlineView(props: { text: string }): ReactNode | undefined {
+    const text = props.text;
     if (!text.startsWith("inline")) {
         return undefined
     }
