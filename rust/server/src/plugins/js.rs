@@ -290,7 +290,7 @@ impl CustomModuleLoader {
     }
 }
 
-const MODULES: [(&str, &str); 9] = [
+const MODULES: [(&str, &str); 10] = [
     ("gauntlet:renderer:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
     ("gauntlet:renderer:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/dev/renderer.js"))),
     ("gauntlet:react:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))),
@@ -300,6 +300,7 @@ const MODULES: [(&str, &str); 9] = [
     ("gauntlet:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
     ("gauntlet:api-components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/dist/gen/components.js"))),
     ("gauntlet:api-hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/dist/hooks.js"))),
+    ("gauntlet:api-helpers", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/dist/helpers.js"))),
 ];
 
 impl ModuleLoader for CustomModuleLoader {
@@ -330,6 +331,7 @@ impl ModuleLoader for CustomModuleLoader {
             ("react/jsx-runtime", _) => "gauntlet:react-jsx-runtime:dev",
             ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
             ("@project-gauntlet/api/hooks", _) => "gauntlet:api-hooks",
+            ("@project-gauntlet/api/helpers", _) => "gauntlet:api-helpers",
             _ => {
                 return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
             }
@@ -377,6 +379,8 @@ deno_core::extension!(
         op_log_warn,
         op_log_error,
         op_component_model,
+        asset_data,
+        asset_data_blocking,
         op_plugin_get_pending_event,
         op_react_replace_view,
         op_inline_view_endpoint_id,
@@ -432,6 +436,57 @@ fn op_component_model(state: Rc<RefCell<OpState>>) -> HashMap<String, Component>
         .components
         .clone()
 }
+
+#[op]
+async fn asset_data(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result<Vec<u8>> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DbRepository>()
+            .repository
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    tracing::trace!(target = "renderer_rs", "Fetching asset data {:?}", path);
+
+    repository.get_asset_data(&plugin_id.to_string(), &path).await
+}
+
+#[op]
+fn asset_data_blocking(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result<Vec<u8>> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DbRepository>()
+            .repository
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    tracing::trace!(target = "renderer_rs", "Fetching asset data blocking {:?}", path);
+
+    block_on(async {
+        let data = repository.get_asset_data(&plugin_id.to_string(), &path).await?;
+
+        Ok(data)
+    })
+}
+
 
 #[op]
 async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiEvent> {
@@ -650,6 +705,9 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                                     Err(anyhow::anyhow!("property {} on {} component has to be optional", comp_prop.name, name))?
                                 }
                             }
+                            PropertyValue::Bytes(_) => {
+                                todo!()
+                            }
                         }
                     }
                 }
@@ -791,6 +849,9 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                     PropertyValue::Number(value) => JsPropertyValue::Number { value },
                     PropertyValue::Bool(value) => JsPropertyValue::Bool { value },
                     PropertyValue::Undefined => JsPropertyValue::Undefined,
+                    PropertyValue::Bytes(_) => {
+                        todo!()
+                    }
                 })
                 .collect();
 
@@ -835,8 +896,10 @@ fn from_js_to_intermediate_properties(
                 Ok((name, PropertyValue::Number(val.number_value(scope).expect("expected number"))))
             } else if val.is_boolean() {
                 Ok((name, PropertyValue::Bool(val.boolean_value(scope))))
+            } else if val.is_array() {
+                Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, val)?)))
             } else {
-                Err(anyhow!("invalid type for property '{:?}' - {:?}", name, val.type_of(scope).to_rust_string_lossy(scope)))
+                Err(anyhow!("invalid type for property {:?} - {:?}", name, val.type_repr()))
             }
         })
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;

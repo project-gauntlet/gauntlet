@@ -58,6 +58,7 @@ pub fn from_rpc(value: HashMap<String, RpcUiPropertyValue>) -> anyhow::Result<Ha
                 Value::String(value) => NativeUiPropertyValue::String(value),
                 Value::Number(value) => NativeUiPropertyValue::Number(value),
                 Value::Bool(value) => NativeUiPropertyValue::Bool(value),
+                Value::Bytes(value) => NativeUiPropertyValue::Bytes(value),
                 _ => {
                     return Err(anyhow!("invalid type"))
                 }
@@ -77,6 +78,7 @@ pub enum NativeUiPropertyValue {
     String(String),
     Number(f64),
     Bool(bool),
+    Bytes(Vec<u8>),
 }
 
 impl NativeUiPropertyValue {
@@ -96,6 +98,13 @@ impl NativeUiPropertyValue {
     }
     pub fn as_bool(&self) -> Option<&bool> {
         if let NativeUiPropertyValue::Bool(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        if let NativeUiPropertyValue::Bytes(val) = self {
             Some(val)
         } else {
             None

@@ -64,6 +64,7 @@ pub struct DbWritePlugin {
     pub enabled: bool,
     pub code: DbCode,
     pub entrypoints: Vec<DbWritePluginEntrypoint>,
+    pub asset_data: Vec<DbWritePluginAssetData>,
     pub permissions: DbPluginPermissions,
     pub from_config: bool,
     pub preferences: HashMap<String, DbPluginPreference>,
@@ -78,6 +79,12 @@ pub struct DbWritePluginEntrypoint {
     pub preferences: HashMap<String, DbPluginPreference>,
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
+
+pub struct DbWritePluginAssetData {
+    pub path: String,
+    pub data: Vec<u8>
+}
+
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DbPluginPermissions {
@@ -313,6 +320,22 @@ impl DataDbRepository {
         Ok(result.enabled)
     }
 
+    pub async fn get_asset_data(&self, plugin_id: &str, path: &str) -> anyhow::Result<Vec<u8>> {
+        #[derive(sqlx::FromRow)]
+        struct DbReadPluginAssetData {
+            pub data: Vec<u8>,
+        }
+
+        // language=SQLite
+        let result = sqlx::query_as::<_, DbReadPluginAssetData>("SELECT data FROM plugin_asset_data WHERE plugin_id = ?1 and path = ?2")
+            .bind(plugin_id)
+            .bind(path)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(result.data)
+    }
+
     pub async fn set_plugin_enabled(&self, plugin_id: &str, enabled: bool) -> anyhow::Result<()> {
         // language=SQLite
         sqlx::query("UPDATE plugin SET enabled = ?1 WHERE id = ?2")
@@ -422,6 +445,16 @@ impl DataDbRepository {
                 .bind(Json(entrypoint.preferences))
                 .bind(Json(entrypoint.preferences_user_data))
                 .bind(entrypoint.description)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        for data in plugin.asset_data {
+            // language=SQLite
+            sqlx::query("INSERT INTO plugin_asset_data VALUES(?1, ?2, ?3)")
+                .bind(&plugin.id)
+                .bind(&data.path)
+                .bind(&data.data)
                 .execute(&mut *tx)
                 .await?;
         }

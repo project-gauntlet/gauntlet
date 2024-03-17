@@ -275,6 +275,7 @@ impl Application for AppModel {
                         let event_arguments = event.event_arguments
                             .into_iter()
                             .map(|value| match value {
+                                PropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
                                 PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
                                 PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
                                 PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },

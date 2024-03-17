@@ -44,7 +44,11 @@ declare global {
                 children?: StringComponent;
                 href: string;
             };
-            ["gauntlet:image"]: {};
+            ["gauntlet:image"]: {
+                source: {
+                    data: ArrayBuffer;
+                };
+            };
             ["gauntlet:h1"]: {
                 children?: StringComponent;
             };
@@ -219,8 +223,13 @@ export interface LinkProps {
 export const Link: FC<LinkProps> = (props: LinkProps): ReactNode => {
     return <gauntlet:link children={props.children} href={props.href}/>;
 };
-export const Image: FC = (): ReactNode => {
-    return <gauntlet:image />;
+export interface ImageProps {
+    source: {
+        data: ArrayBuffer;
+    };
+}
+export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
+    return <gauntlet:image source={props.source}/>;
 };
 export interface H1Props {
     children?: StringComponent;

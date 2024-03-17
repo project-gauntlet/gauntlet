@@ -8,6 +8,9 @@
     },
     "./hooks": {
       "types": "./disttypes/hooks.d.ts"
+    },
+    "./helpers": {
+      "types": "./disttypes/helpers.d.ts"
     }
   },
   "repository": {

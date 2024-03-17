@@ -593,6 +593,19 @@ function makeType(type: PropertyType): ts.TypeNode {
                 ]
             )
         }
+        case "image_source": {
+            return ts.factory.createTypeLiteralNode([
+                ts.factory.createPropertySignature(
+                    undefined,
+                    ts.factory.createIdentifier("data"),
+                    undefined,
+                    ts.factory.createTypeReferenceNode(
+                        ts.factory.createIdentifier("ArrayBuffer"),
+                        undefined
+                    )
+                )
+            ])
+        }
         default: {
             throw new Error(`unsupported type ${JSON.stringify(type)}`)
         }

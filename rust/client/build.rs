@@ -125,6 +125,13 @@ fn main() -> anyhow::Result<()> {
                             PropertyType::Component { .. } => {
                                 // component properties are found in children array
                             }
+                            PropertyType::ImageSource => {
+                                if prop.optional {
+                                    output.push_str(&format!("            {}: parse_bytes_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                } else {
+                                    output.push_str(&format!("            {}: parse_bytes(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                }
+                            }
                         };
                     }
                     output.push_str("        },\n");
@@ -438,6 +445,7 @@ fn generate_type(property_type: &PropertyType) -> String {
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Array { nested } => format!("Vec<{}>", generate_type(nested)),
         PropertyType::Function { .. } => panic!("client know about functions in properties"),
-        PropertyType::Component { .. } => panic!("component properties are found in children array")
+        PropertyType::Component { .. } => panic!("component properties are found in children array"),
+        PropertyType::ImageSource => "Vec<u8>".to_owned()
     }
 }

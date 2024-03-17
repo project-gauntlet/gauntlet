@@ -144,7 +144,8 @@ pub fn from_rpc_to_intermediate_value(value: RpcUiPropertyValue) -> Option<Prope
         Value::Undefined(_) => PropertyValue::Undefined,
         Value::String(value) => PropertyValue::String(value),
         Value::Number(value) => PropertyValue::Number(value),
-        Value::Bool(value) => PropertyValue::Bool(value)
+        Value::Bool(value) => PropertyValue::Bool(value),
+        Value::Bytes(value) => PropertyValue::Bytes(value)
     };
 
     Some(value)
@@ -158,6 +159,7 @@ fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) ->
                 PropertyValue::String(value) => Some((key, RpcUiPropertyValue { value: Some(Value::String(value)) })),
                 PropertyValue::Number(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Number(value)) })),
                 PropertyValue::Bool(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bool(value)) })),
+                PropertyValue::Bytes(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bytes(value)) })),
                 PropertyValue::Undefined => None
             }
         })

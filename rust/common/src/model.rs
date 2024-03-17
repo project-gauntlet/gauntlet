@@ -65,6 +65,7 @@ pub enum PropertyValue {
     String(String),
     Number(f64),
     Bool(bool),
+    Bytes(Vec<u8>),
     Undefined,
 }
 

@@ -25,6 +25,7 @@ utils = { path = "../utils" }
 component_model = { path = "../component_model" }
 tonic = "0.11.0"
 client = { path = "../client" }
+walkdir = "2.4.0"
 
 [features]
 dev = []

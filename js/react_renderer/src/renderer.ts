@@ -87,10 +87,37 @@ export function useGauntletContext() {
     return useContext(gauntletContext);
 }
 
-function createWidget(hostContext: HostContext, type: ComponentType, properties: Props = {}, children: UiWidget[] = []): Instance {
+export async function getAssetData(path: string): Promise<ArrayBuffer> {
+    const vecU8 = await InternalApi.asset_data(path);
+    return new Uint8Array(vecU8).buffer; // FIXME move array creation into rust if possible
+}
+
+export function getAssetDataSync(path: string): ArrayBuffer {
+    const vecU8 = InternalApi.asset_data_blocking(path);
+    return new Uint8Array(vecU8).buffer;
+}
+
+function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
+    const component = hostContext.componentModel[type];
+
     const props = Object.fromEntries(
         Object.entries(properties)
             .filter(([key, _]) => key !== "children")
+            .map(([key, value]) => {
+                if (component.type === "standard") {
+                    const prop = component.props.find(prop => prop.name === key)
+                    if (prop && prop.type.type === "image_source") {
+
+                        if (value.data !== undefined) {
+                            return [key, Array.from(new Uint8Array(value.data))]
+                        } else {
+                            throw new Error("'icon' or 'data' property should be provided on image source property")
+                        }
+                    }
+                }
+
+                return [key, value]
+            })
     );
 
     const instance: Instance = {

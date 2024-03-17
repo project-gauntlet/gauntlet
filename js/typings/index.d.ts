@@ -61,6 +61,8 @@ interface InternalApi {
     op_log_error(target: string, message: string): void;
 
     op_component_model(): Record<string, Component>;
+    asset_data(path: string): Promise<number[]>;
+    asset_data_blocking(path: string): number[];
 
     op_inline_view_endpoint_id(): string | null;
     clear_inline_view(): void;
@@ -123,7 +125,7 @@ type ComponentRef = {
     componentName: string,
 }
 
-type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeComponent | TypeFunction
+type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeComponent | TypeFunction | TypeImageSource
 
 type TypeString = {
     type: "string"
@@ -145,4 +147,7 @@ type TypeComponent = {
 type TypeFunction = {
     type: "function"
     arguments: Property[]
+}
+type TypeImageSource = {
+    type: "image_source"
 }

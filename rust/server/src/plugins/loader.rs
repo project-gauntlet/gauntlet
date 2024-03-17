@@ -7,13 +7,15 @@ use std::rc::Rc;
 use std::thread;
 
 use anyhow::{anyhow, Context};
+use walkdir::WalkDir;
 use serde::{Deserialize, Serialize};
 
 use common::model::{DownloadStatus, PluginId};
 
 use crate::model::{entrypoint_to_str, PluginEntrypointType};
-use crate::plugins::data_db_repository::{DbCode, DataDbRepository, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbWritePlugin, DbWritePluginEntrypoint, DbPreferenceEnumValue};
+use crate::plugins::data_db_repository::{DbCode, DataDbRepository, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbWritePlugin, DbWritePluginEntrypoint, DbPreferenceEnumValue, DbWritePluginAssetData};
 use crate::plugins::download_status::DownloadStatusHolder;
+use crate::plugins::js::asset_data;
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
@@ -54,6 +56,7 @@ impl PluginLoader {
                     enabled: false,
                     code: plugin_data.code,
                     entrypoints: plugin_data.entrypoints,
+                    asset_data: plugin_data.asset_data,
                     permissions: plugin_data.permissions,
                     from_config: false,
                     preferences: plugin_data.preferences,
@@ -77,10 +80,11 @@ impl PluginLoader {
         let plugin_dir = plugin_id.try_to_path()?;
 
         let plugin_data = PluginLoader::read_plugin_dir(plugin_dir.as_path(), plugin_id.clone())
-            .await?;
+            .await
+            .context("Unable to read plugin directory")?;
 
         if overwrite {
-            // TODO instead of overwrite just update the code
+            // TODO instead of overwrite just update the code and assets
             self.db_repository.remove_plugin(&plugin_data.id).await?
         }
 
@@ -91,6 +95,7 @@ impl PluginLoader {
             enabled: true,
             code: plugin_data.code,
             entrypoints: plugin_data.entrypoints,
+            asset_data: plugin_data.asset_data,
             permissions: plugin_data.permissions,
             from_config: false,
             preferences: plugin_data.preferences,
@@ -129,12 +134,14 @@ impl PluginLoader {
 
     async fn read_plugin_dir(plugin_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PluginDownloadData> {
         let js_dir = plugin_dir.join("js");
+        let assets = plugin_dir.join("assets");
 
         let js_dir_context = js_dir.display().to_string();
         let js_files = std::fs::read_dir(js_dir).context(js_dir_context)?;
 
         let js: HashMap<_, _> = js_files.into_iter()
-            .collect::<std::io::Result<Vec<DirEntry>>>()?
+            .collect::<std::io::Result<Vec<DirEntry>>>()
+            .context("Unable to get list of plugin js files")?
             .into_iter()
             .map(|dist_path| dist_path.path())
             .filter(|dist_path| dist_path.extension() == Some(OsStr::new("js")))
@@ -148,14 +155,45 @@ impl PluginLoader {
 
                 Ok((id, js_content))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?
+            .collect::<anyhow::Result<Vec<_>>>()
+            .context("Unable to read plugin js data")?
+            .into_iter()
+            .collect();
+
+        let asset_data = WalkDir::new(&assets)
+            .into_iter()
+            .collect::<walkdir::Result<Vec<walkdir::DirEntry>>>()
+            .context("Unable to get list of plugin asset data files")?
+            .into_iter()
+            .filter(|dir_entry| dir_entry.file_type().is_file())
+            .map(|path| {
+                let path = path.path();
+
+                let data = std::fs::read(path)
+                    .context(format!("Unable to read plugin asset file {:?}", path))?;
+
+                let path = path
+                    .strip_prefix(&assets)
+                    .expect("assets is a base of dist_path")
+                    .to_str()
+                    .ok_or(anyhow!("filename is not a valid utf-8"))?
+                    .to_owned();
+
+                Ok(DbWritePluginAssetData {
+                    path,
+                    data,
+                })
+            })
+            .collect::<anyhow::Result<Vec<_>>>()
+            .context("Unable to read plugin asset data")?
             .into_iter()
             .collect();
 
         let plugin_manifest_path = plugin_dir.join("gauntlet.toml");
         let plugin_manifest_path_context = plugin_manifest_path.display().to_string();
         let plugin_manifest_content = std::fs::read_to_string(plugin_manifest_path).context(plugin_manifest_path_context)?;
-        let plugin_manifest: PluginManifest = toml::from_str(&plugin_manifest_content)?;
+        let plugin_manifest: PluginManifest = toml::from_str(&plugin_manifest_content)
+            .context("Unable to read plugin manifest")?;
 
         tracing::debug!("Plugin config read: {:?}", plugin_manifest);
 
@@ -245,6 +283,7 @@ impl PluginLoader {
                 js
             },
             entrypoints,
+            asset_data,
             permissions,
             preferences: plugin_preferences,
             preferences_user_data: HashMap::new()
@@ -258,6 +297,7 @@ struct PluginDownloadData {
     pub description: String,
     pub code: DbCode,
     pub entrypoints: Vec<DbWritePluginEntrypoint>,
+    pub asset_data: Vec<DbWritePluginAssetData>,
     pub permissions: DbPluginPermissions,
     pub preferences: HashMap<String, DbPluginPreference>,
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,

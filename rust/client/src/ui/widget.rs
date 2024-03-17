@@ -5,7 +5,8 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use iced::{Font, Length, Padding};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
+use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element;
@@ -343,8 +344,9 @@ impl ComponentWidgetWrapper {
                         .into()
                 }
             }
-            ComponentWidget::Image => {
-                text("Image").into()
+            ComponentWidget::Image { source } => {
+                image(Handle::from_memory(source.clone())) // FIXME really expensive clone
+                    .into()
             }
             ComponentWidget::H1 { children } => {
                 row(render_children(children, ComponentRenderContext::H1))
@@ -1055,4 +1057,15 @@ pub fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
         }
         _ => None
     }
+}
+
+fn parse_bytes_optional(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
+    match properties.get(name) {
+        None => Ok(None),
+        Some(value) => Ok(Some(value.as_bytes().ok_or(anyhow::anyhow!("{} has to be a string", name))?.to_owned())),
+    }
+}
+
+fn parse_bytes(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Vec<u8>> {
+    parse_bytes_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }

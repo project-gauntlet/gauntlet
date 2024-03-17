@@ -82,6 +82,8 @@ pub enum PropertyType {
     Function {
         arguments: Vec<Property>
     },
+    #[serde(rename = "image_source")]
+    ImageSource,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -348,7 +350,7 @@ pub fn create_component_model() -> Vec<Component> {
         "image",
         "Image",
         [
-            // property("href", true, Type::String)
+            property("source", false, PropertyType::ImageSource)
         ],
         children_none(),
     );

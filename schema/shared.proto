@@ -13,10 +13,11 @@ message RpcUiWidgetId {
 
 message RpcUiPropertyValue {
   oneof value {
-    string string = 1;
-    double number = 2;
-    bool bool = 3;
-    int32 undefined = 4;
+    int32 undefined = 1;
+    string string = 2;
+    double number = 3;
+    bool bool = 4;
+    bytes bytes = 5;
   }
 }
 
