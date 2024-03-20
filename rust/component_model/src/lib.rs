@@ -436,7 +436,7 @@ pub fn create_component_model() -> Vec<Component> {
         children_members([
             member("Paragraph", &paragraph_component),
             member("Link", &link_component),
-            member("Image", &image_component),
+            member("Image", &image_component), // TODO color
             member("H1", &h1_component),
             member("H2", &h2_component),
             member("H3", &h3_component),
@@ -552,7 +552,9 @@ pub fn create_component_model() -> Vec<Component> {
     let form_component = component(
         "form",
         "Form",
-        [],
+        [
+            property("actions", true, component_ref(&action_panel_component)),
+        ],
         children_members([
             member("TextField", &text_field_component),
             member("PasswordField", &password_field_component),
@@ -584,9 +586,115 @@ pub fn create_component_model() -> Vec<Component> {
         ]),
     );
 
+    let empty_view_component = component(
+        "empty_view",
+        "EmptyView",
+        [
+            property("title", false, PropertyType::String),
+            property("description", true, PropertyType::String),
+            property("image", true, PropertyType::ImageSource),
+        ],
+        children_none(),
+    );
+
+    let list_item_component = component(
+        "list_item",
+        "ListItem",
+        [
+            property("id", false, PropertyType::String),
+            property("title", false, PropertyType::String),
+            property("subtitle", true, PropertyType::String),
+            property("icon", true, PropertyType::ImageSource),
+            // accessories
+        ],
+        children_none(),
+    );
+
+    let list_section_component = component(
+        "list_section",
+        "ListSection",
+        [
+            property("title", false, PropertyType::String),
+            property("subtitle", true, PropertyType::String),
+        ],
+        children_members([
+            member("Item", &list_item_component),
+        ]),
+    );
+
+    let list_component = component(
+        "list",
+        "List",
+        [
+            property("actions", true, component_ref(&action_panel_component)),
+            event("onSelectionChange", true, [property("id", true, PropertyType::String)]),
+        ],
+        children_members([
+            member("EmptyView", &empty_view_component),
+            member("Detail", &detail_component),
+            member("Item", &list_item_component),
+            member("Section", &list_section_component),
+        ]),
+    );
+
+    let grid_item_component = component(
+        "grid_item",
+        "GridItem",
+        [
+            property("id", false, PropertyType::String),
+            property("title", false, PropertyType::String),
+            property("subtitle", true, PropertyType::String),
+            // accessories
+        ],
+        children_members([
+            member("Content", &content_component),
+        ]),
+    );
+
+    let grid_section_component = component(
+        "grid_section",
+        "GridSection",
+        [
+            property("title", false, PropertyType::String),
+            property("subtitle", true, PropertyType::String),
+            property("aspectRatio", true, PropertyType::String),
+            property("columns", true, PropertyType::Number)
+            // fit
+            // inset
+        ],
+        children_members([
+            member("Item", &grid_item_component),
+        ]),
+    );
+
+    let grid_component = component(
+        "grid",
+        "Grid",
+        [
+            property("actions", true, component_ref(&action_panel_component)),
+            property("aspectRatio", true, PropertyType::String),
+            property("columns", true, PropertyType::Number), // TODO default
+            // fit
+            // inset
+            event("onSelectionChange", true, [property("id", true, PropertyType::String)]),
+        ],
+        children_members([
+            member("EmptyView", &empty_view_component),
+            member("Detail", &detail_component),
+            member("Item", &grid_item_component),
+            member("Section", &grid_section_component),
+        ]),
+    );
+
     let text_part = text_part();
 
-    let root = root(&[&detail_component, &form_component, &inline_component]);
+    let root = root(&[
+        &detail_component,
+        &form_component,
+        &inline_component,
+        &list_component,
+        &grid_component,
+    ]);
 
     // Detail
     // Detail.Content
@@ -695,6 +803,14 @@ pub fn create_component_model() -> Vec<Component> {
 
         inline_separator_component,
         inline_component,
+
+        empty_view_component,
+        list_item_component,
+        list_section_component,
+        list_component,
+        grid_item_component,
+        grid_section_component,
+        grid_component,
 
         root,
     ]

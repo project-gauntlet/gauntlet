@@ -112,11 +112,54 @@ declare global {
             };
             ["gauntlet:separator"]: {};
             ["gauntlet:form"]: {
-                children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+                children?: ElementComponent<typeof ActionPanel | typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
             };
             ["gauntlet:inline_separator"]: {};
             ["gauntlet:inline"]: {
                 children?: ElementComponent<typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
+            };
+            ["gauntlet:empty_view"]: {
+                title: string;
+                description?: string;
+                image?: {
+                    data: ArrayBuffer;
+                };
+            };
+            ["gauntlet:list_item"]: {
+                id: string;
+                title: string;
+                subtitle?: string;
+                icon?: {
+                    data: ArrayBuffer;
+                };
+            };
+            ["gauntlet:list_section"]: {
+                children?: ElementComponent<typeof ListItem>;
+                title: string;
+                subtitle?: string;
+            };
+            ["gauntlet:list"]: {
+                children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+                onSelectionChange?: (id: string | undefined) => void;
+            };
+            ["gauntlet:grid_item"]: {
+                children?: ElementComponent<typeof Content>;
+                id: string;
+                title: string;
+                subtitle?: string;
+            };
+            ["gauntlet:grid_section"]: {
+                children?: ElementComponent<typeof GridItem>;
+                title: string;
+                subtitle?: string;
+                aspectRatio?: string;
+                columns?: number;
+            };
+            ["gauntlet:grid"]: {
+                children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
+                aspectRatio?: string;
+                columns?: number;
+                onSelectionChange?: (id: string | undefined) => void;
             };
         }
     }
@@ -379,6 +422,7 @@ export const Separator: FC = (): ReactNode => {
 };
 export interface FormProps {
     children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+    actions?: ElementComponent<typeof ActionPanel>;
 }
 export const Form: FC<FormProps> & {
     TextField: typeof TextField;
@@ -388,7 +432,7 @@ export const Form: FC<FormProps> & {
     Select: typeof Select;
     Separator: typeof Separator;
 } = (props: FormProps): ReactNode => {
-    return <gauntlet:form children={props.children}/>;
+    return <gauntlet:form children={[props.actions, props.children] as any}/>;
 };
 Form.TextField = TextField;
 Form.PasswordField = PasswordField;
@@ -414,3 +458,96 @@ Inline.Left = Content;
 Inline.Separator = InlineSeparator;
 Inline.Right = Content;
 Inline.Center = Content;
+export interface EmptyViewProps {
+    title: string;
+    description?: string;
+    image?: {
+        data: ArrayBuffer;
+    };
+}
+export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
+    return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}/>;
+};
+export interface ListItemProps {
+    id: string;
+    title: string;
+    subtitle?: string;
+    icon?: {
+        data: ArrayBuffer;
+    };
+}
+export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
+    return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}/>;
+};
+export interface ListSectionProps {
+    children?: ElementComponent<typeof ListItem>;
+    title: string;
+    subtitle?: string;
+}
+export const ListSection: FC<ListSectionProps> & {
+    Item: typeof ListItem;
+} = (props: ListSectionProps): ReactNode => {
+    return <gauntlet:list_section children={props.children} title={props.title} subtitle={props.subtitle}/>;
+};
+ListSection.Item = ListItem;
+export interface ListProps {
+    children?: ElementComponent<typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+    actions?: ElementComponent<typeof ActionPanel>;
+    onSelectionChange?: (id: string | undefined) => void;
+}
+export const List: FC<ListProps> & {
+    EmptyView: typeof EmptyView;
+    Detail: typeof Detail;
+    Item: typeof ListItem;
+    Section: typeof ListSection;
+} = (props: ListProps): ReactNode => {
+    return <gauntlet:list children={[props.actions, props.children] as any} onSelectionChange={props.onSelectionChange}/>;
+};
+List.EmptyView = EmptyView;
+List.Detail = Detail;
+List.Item = ListItem;
+List.Section = ListSection;
+export interface GridItemProps {
+    children?: ElementComponent<typeof Content>;
+    id: string;
+    title: string;
+    subtitle?: string;
+}
+export const GridItem: FC<GridItemProps> & {
+    Content: typeof Content;
+} = (props: GridItemProps): ReactNode => {
+    return <gauntlet:grid_item children={props.children} id={props.id} title={props.title} subtitle={props.subtitle}/>;
+};
+GridItem.Content = Content;
+export interface GridSectionProps {
+    children?: ElementComponent<typeof GridItem>;
+    title: string;
+    subtitle?: string;
+    aspectRatio?: string;
+    columns?: number;
+}
+export const GridSection: FC<GridSectionProps> & {
+    Item: typeof GridItem;
+} = (props: GridSectionProps): ReactNode => {
+    return <gauntlet:grid_section children={props.children} title={props.title} subtitle={props.subtitle} aspectRatio={props.aspectRatio} columns={props.columns}/>;
+};
+GridSection.Item = GridItem;
+export interface GridProps {
+    children?: ElementComponent<typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
+    actions?: ElementComponent<typeof ActionPanel>;
+    aspectRatio?: string;
+    columns?: number;
+    onSelectionChange?: (id: string | undefined) => void;
+}
+export const Grid: FC<GridProps> & {
+    EmptyView: typeof EmptyView;
+    Detail: typeof Detail;
+    Item: typeof GridItem;
+    Section: typeof GridSection;
+} = (props: GridProps): ReactNode => {
+    return <gauntlet:grid children={[props.actions, props.children] as any} aspectRatio={props.aspectRatio} columns={props.columns} onSelectionChange={props.onSelectionChange}/>;
+};
+Grid.EmptyView = EmptyView;
+Grid.Detail = Detail;
+Grid.Item = GridItem;
+Grid.Section = GridSection;

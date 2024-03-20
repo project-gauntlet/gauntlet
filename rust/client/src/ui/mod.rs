@@ -374,8 +374,8 @@ impl Application for AppModel {
 
                 let element: Element<_> = container(column)
                     .style(ContainerStyle::Background)
-                    .height(Length::Fixed(WINDOW_HEIGHT as f32))
-                    .width(Length::Fixed(WINDOW_WIDTH as f32))
+                    .height(Length::Fixed(WINDOW_HEIGHT))
+                    .width(Length::Fixed(WINDOW_WIDTH))
                     .into();
 
                 // element.explain(iced::color!(0xFF0000))
@@ -520,7 +520,7 @@ impl AppModel {
 }
 
 fn register_shortcut() -> GlobalHotKeyManager {
-    use global_hotkey::{GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
+    use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 
     let manager = GlobalHotKeyManager::new().unwrap();
 

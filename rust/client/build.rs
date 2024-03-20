@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
                             PropertyType::Component { .. } => {
                                 // component properties are found in children array
                             }
-                            PropertyType::String | PropertyType::Number | PropertyType::Boolean if prop.optional => {
+                            PropertyType::String | PropertyType::Number | PropertyType::Boolean | PropertyType::ImageSource if prop.optional => {
                                 output.push_str(&format!("        {}: {},\n", prop.name, generate_optional_type(&prop.property_type)));
                             }
                             _ => {

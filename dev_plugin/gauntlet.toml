@@ -80,6 +80,20 @@ type = 'inline-view'
 description = ''
 
 [[entrypoint]]
+id = 'grid-view'
+name = 'Grid view'
+path = 'src/grid-view.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'list-view'
+name = 'List view'
+path = 'src/list-view.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
 id = 'command-a'
 name = 'Command A'
 path = 'src/command-a.ts'

@@ -845,6 +845,7 @@ dependencies = [
  "global-hotkey",
  "iced",
  "iced_aw",
+ "itertools 0.12.1",
  "thiserror",
  "tokio",
  "tonic",
@@ -4202,11 +4203,12 @@ dependencies = [
 [[package]]
 name = "iced_aw"
 version = "0.7.0"
-source = "git+https://github.com/project-gauntlet/iced_aw.git?branch=gauntlet#16efdcab6dd2fed359bb0b78f7f6c3a9acbbbaba"
+source = "git+https://github.com/project-gauntlet/iced_aw.git?branch=gauntlet#a7f9acf69a64df83af59642693ead7f5820cb2d5"
 dependencies = [
  "cfg-if",
  "chrono",
  "iced",
+ "itertools 0.11.0",
  "num-traits",
  "once_cell",
 ]

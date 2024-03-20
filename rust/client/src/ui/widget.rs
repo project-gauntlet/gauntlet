@@ -2,22 +2,23 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use iced::{Font, Length, Padding};
+use iced::{color, Font, Length, Padding};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
 use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
+use iced_aw::{floating_element, GridRow};
 use iced_aw::date_picker::Date;
-use iced_aw::floating_element;
 use iced_aw::floating_element::Offset;
 use iced_aw::graphics::icons;
-use iced_aw::helpers::{date_picker, wrap_horizontal};
+use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
+use itertools::Itertools;
 
 use common::model::PluginId;
 
 use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId};
-use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle};
+use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, GauntletTheme, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -46,6 +47,15 @@ pub enum ComponentWidgetState {
         state_value: Option<String>
     },
     Detail {
+        show_action_panel: bool
+    },
+    Form {
+        show_action_panel: bool
+    },
+    List {
+        show_action_panel: bool
+    },
+    Grid {
         show_action_panel: bool
     },
     None
@@ -82,6 +92,15 @@ impl ComponentWidgetState {
             ComponentWidget::Detail { .. } => ComponentWidgetState::Detail {
                 show_action_panel: false,
             },
+            ComponentWidget::Form { .. } => ComponentWidgetState::Form {
+                show_action_panel: false,
+            },
+            ComponentWidget::List { .. } => ComponentWidgetState::List {
+                show_action_panel: false,
+            },
+            ComponentWidget::Grid { .. } => ComponentWidgetState::Grid {
+                show_action_panel: false,
+            },
             _ => ComponentWidgetState::None
         }
     }
@@ -96,6 +115,12 @@ pub enum ComponentRenderContext {
     H4,
     H5,
     H6,
+    List {
+        widget_id: NativeUiWidgetId
+    },
+    Grid {
+        widget_id: NativeUiWidgetId
+    },
 }
 
 impl ComponentWidgetWrapper {
@@ -157,6 +182,8 @@ impl ComponentWidgetWrapper {
                     ComponentRenderContext::H4 => Some(20),
                     ComponentRenderContext::H5 => Some(18),
                     ComponentRenderContext::H6 => Some(16),
+                    ComponentRenderContext::List { .. } => panic!("not supposed to be passed to text part"),
+                    ComponentRenderContext::Grid { .. } => panic!("not supposed to be passed to text part"),
                 };
 
                 let mut text = text(value);
@@ -455,56 +482,7 @@ impl ComponentWidgetWrapper {
                     }
                 };
 
-                let space = Space::with_width(Length::FillPortion(3))
-                    .into();
-
-                let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
-                    .ok();
-
-                let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
-                    let action_panel_toggle: Element<_> = button(text("Actions"))
-                        .padding(Padding::from([0.0, 5.0]))
-                        .style(ButtonStyle::Secondary)
-                        .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
-                        .into();
-
-                    let bottom_panel: Element<_> = row(vec![space, action_panel_toggle])
-                        .into();
-
-                    (!show_action_panel, action_panel_element, bottom_panel)
-                } else {
-                    let bottom_panel: Element<_> = row(vec![space])
-                        .into();
-
-                    (true, Space::with_height(1).into(), bottom_panel)
-                };
-
-                let top_panel = create_top_panel();
-
-                let bottom_panel: Element<_> = container(bottom_panel)
-                    .padding(Padding::new(5.0))
-                    .width(Length::Fill)
-                    .into();
-
-                let top_separator = horizontal_rule(1)
-                    .into();
-
-                let bottom_separator = horizontal_rule(1)
-                    .into();
-
-                let content: Element<_> = container(content)
-                    .width(Length::Fill)
-                    .height(Length::Fill) // TODO remove after https://github.com/iced-rs/iced/issues/2186 is resolved
-                    .padding(Padding::from([10.0, 10.0, 0.0, 10.0]))
-                    .into();
-
-                let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
-                    .into();
-
-                floating_element(content, action_panel_element)
-                    .offset(Offset::from([5.0, 35.0]))
-                    .hide(hide_action_panel)
-                    .into()
+                render_root(show_action_panel, widget_id, children, content)
             }
             ComponentWidget::Root { children } => {
                 row(render_children(children, ComponentRenderContext::None))
@@ -612,6 +590,10 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Form { children } => {
+                let ComponentWidgetState::Form { show_action_panel } = *state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
                 let items: Vec<Element<_>> = children.iter()
                     .map(|child| {
                         let (widget, _) = &*child.get();
@@ -670,21 +652,11 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = column(items)
                     .into();
 
-                let scrollable_content: Element<_> = scrollable(content)
+                let content: Element<_> = scrollable(content)
                     .width(Length::Fill)
                     .into();
 
-                let top_panel = create_top_panel();
-
-                let separator = horizontal_rule(1)
-                    .into();
-
-                let content = container(scrollable_content)
-                    .padding(Padding::new(10.0))
-                    .into();
-
-                column(vec![top_panel, separator, content])
-                    .into()
+                render_root(show_action_panel, widget_id, children, content)
             }
             ComponentWidget::InlineSeparator => {
                 vertical_rule(1)
@@ -728,6 +700,202 @@ impl ComponentWidgetWrapper {
                 container(content)
                     .padding(Padding::new(5.0))
                     .into()
+            }
+            ComponentWidget::EmptyView { title, description, image } => {
+                let image: Option<Element<_>> = image.clone()  // FIXME really expensive clone
+                    .map(|image| iced::widget::image(Handle::from_memory(image)).into());
+
+                let title: Element<_> = text(title)
+                    .into();
+
+                let subtitle: Element<_> = match description {
+                    None => horizontal_space().into(),
+                    Some(subtitle) => text(subtitle).into(),
+                };
+
+                let mut content = vec![title, subtitle];
+                if let Some(icon) = image {
+                    content.insert(0, icon)
+                }
+
+                let content: Element<_> = column(content)
+                    .into();
+
+                container(content)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y()
+                    .into()
+            }
+            ComponentWidget::ListItem { id, title, subtitle, icon } => {
+                let icon: Option<Element<_>> = icon.clone()  // FIXME really expensive clone
+                    .map(|icon| image(Handle::from_memory(icon)).into());
+
+                let title: Element<_> = text(title)
+                    .into();
+                let title: Element<_> = container(title)
+                    .padding(Padding::new(3.0))
+                    .into();
+
+                let mut content = vec![title];
+
+                if let Some(icon) = icon {
+                    content.insert(0, icon)
+                }
+
+                if let Some(subtitle) = subtitle {
+                    let subtitle: Element<_> = text(subtitle)
+                        .style(TextStyle::Subtext)
+                        .into();
+                    let subtitle: Element<_> = container(subtitle)
+                        .padding(Padding::new(3.0))
+                        .into();
+
+                    content.push(subtitle)
+                }
+                let content: Element<_> = row(content)
+                    .into();
+
+                button(content)
+                    .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id: widget_id, item_id: id.to_owned() })
+                    .style(ButtonStyle::EntrypointItem)
+                    .width(Length::Fill)
+                    .padding(Padding::new(5.0))
+                    .into()
+            }
+            ComponentWidget::ListSection { children, title, subtitle } => {
+                let content = render_children(children, ComponentRenderContext::None);
+
+                let content = column(content)
+                    .into();
+
+                render_section(content, Some(title), subtitle)
+            }
+            ComponentWidget::List { children } => {
+                let ComponentWidgetState::List { show_action_panel } = *state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
+                let mut pending: Vec<ComponentWidgetWrapper> = vec![];
+                let mut items: Vec<Element<_>> = vec![];
+
+                for child in children {
+                    let (widget, _) = &*child.get();
+
+                    match widget {
+                        ComponentWidget::ListItem { .. } => {
+                            pending.push(child.clone())
+                        },
+                        ComponentWidget::ListSection { .. } => {
+                            if !pending.is_empty() {
+                                let content: Element<_> = column(render_children(&pending, ComponentRenderContext::List { widget_id }))
+                                    .into();
+
+                                let space: Element<_> = Space::with_width(50)
+                                    .into();
+
+                                let section = column([space, content])
+                                    .into();
+
+                                items.push(section);
+
+                                pending = vec![];
+                            }
+
+                            items.push(child.render_widget(ComponentRenderContext::List { widget_id }))
+                        },
+                        _ => panic!("unexpected widget kind {:?}", widget)
+                    }
+                }
+
+                let content: Element<_> = column(items)
+                    .width(Length::Fill)
+                    .into();
+
+                let content: Element<_> = scrollable(content)
+                    .width(Length::Fill)
+                    .into();
+
+                render_root(show_action_panel, widget_id, children, content)
+            }
+            ComponentWidget::GridItem { children, id, title, subtitle } => {
+                let content: Element<_> = column(render_children(children, ComponentRenderContext::None))
+                    .into();
+
+                let title: Element<_> = text(title)
+                    .into();
+
+                let subtitle: Option<Element<_>> = subtitle.as_ref()
+                    .map(|subtitle| text(subtitle).into());
+
+                let mut content = vec![content, title];
+                if let Some(subtitle) = subtitle {
+                    content.push(subtitle);
+                }
+
+                let content: Element<_> = column(content)
+                    .into();
+
+                button(content)
+                    .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id: widget_id, item_id: id.to_owned() })
+                    .style(ButtonStyle::EntrypointItem)
+                    .padding(Padding::new(5.0))
+                    // .width(Length::Fill)
+                    // .height(Length::Fill)
+                    .width(20)
+                    .height(20)
+                    .into()
+            }
+            ComponentWidget::GridSection { children, title, subtitle, aspectRatio: aspect_ratio, columns } => {
+                let content = render_grid(children, aspect_ratio.as_deref(), columns);
+
+                render_section(content, Some(title), subtitle)
+            }
+            ComponentWidget::Grid { children, aspectRatio: aspect_ratio, columns } => {
+                let ComponentWidgetState::Grid { show_action_panel } = *state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
+                let mut pending: Vec<ComponentWidgetWrapper> = vec![];
+                let mut items: Vec<Element<_>> = vec![];
+
+                for child in children {
+                    let (widget, _) = &*child.get();
+
+                    match widget {
+                        ComponentWidget::GridItem { .. } => {
+                            pending.push(child.clone())
+                        },
+                        ComponentWidget::GridSection { .. } => {
+                            if !pending.is_empty() {
+                                let content = render_grid(&pending, aspect_ratio.as_deref(), columns);
+
+                                let space = Space::with_height(30)
+                                    .into();
+
+                                let section = column([space, content])
+                                    .into();
+
+                                items.push(section);
+
+                                pending = vec![];
+                            }
+
+                            items.push(child.render_widget(context))
+                        },
+                        _ => panic!("unexpected widget kind {:?}", widget)
+                    }
+                }
+
+                let content: Element<_> = column(items)
+                    .into();
+
+                // let content: Element<_> = scrollable(content)
+                //     .width(Length::Fill)
+                //     .into();
+
+                render_root(show_action_panel, widget_id, children, content)
             }
         }
     }
@@ -793,6 +961,129 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
         .into();
 
     column(vec![label, value])
+        .into()
+}
+
+fn render_grid<'a>(children: &[ComponentWidgetWrapper], aspect_ratio: Option<&str>, columns: &Option<f64>) -> Element<'a, ComponentWidgetEvent> {
+    // let (width, height) = match aspect_ratio {
+    //     None => (1, 1),
+    //     Some("1") => (1, 1),
+    //     Some("3/2") => (3, 2),
+    //     Some("2/3") => (2, 3),
+    //     Some("4/3") => (4, 3),
+    //     Some("3/4") => (3, 4),
+    //     Some("16/9") => (16, 9),
+    //     Some("9/16") => (9, 16),
+    //     Some(value) => panic!("unsupported aspect_ratio {:?}", value)
+    // };
+
+    let rows: Vec<GridRow<_, GauntletTheme, iced::Renderer>> = render_children(children, ComponentRenderContext::None)
+        .into_iter()
+        .chunks(columns.map(|value| value.trunc() as usize).unwrap_or(5))
+        .into_iter()
+        .map(|row_items| grid_row(row_items.collect()).into())
+        .collect();
+
+    let grid: Element<_> = grid(rows)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .column_width(Length::Fill)
+        .row_height(30)
+        .into();
+
+    let grid = grid.explain(color!(0xFF0000));
+
+    grid
+}
+
+fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>) -> Element<'a, ComponentWidgetEvent> {
+    let mut title_content = vec![];
+
+    if let Some(title) = title {
+        let title: Element<_> = text(title)
+            .size(15)
+            .style(TextStyle::Subtext)
+            .into();
+
+        title_content.push(title)
+    }
+
+    if let Some(subtitle) = subtitle {
+        let subtitle: Element<_> = text(subtitle)
+            .size(15)
+            .style(TextStyle::Subtext)
+            .into();
+
+        title_content.push(subtitle)
+    }
+
+    if title_content.is_empty() {
+        let space: Element<_> = horizontal_space()
+            .height(40)
+            .into();
+
+        title_content.push(space)
+    }
+
+    let title_content = row(title_content)
+        .padding(Padding::from([5.0, 8.0])) // 5 + 3 to line up a section with items
+        .into();
+
+    column([title_content, content])
+        .into()
+}
+
+fn render_root<'a>(show_action_panel: bool, widget_id: NativeUiWidgetId, children: &[ComponentWidgetWrapper], content: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent>  {
+
+    let space = Space::with_width(Length::FillPortion(3))
+        .into();
+
+    let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
+        .ok();
+
+    let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
+        let action_panel_toggle: Element<_> = button(text("Actions"))
+            .padding(Padding::from([0.0, 5.0]))
+            .style(ButtonStyle::Secondary)
+            .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
+            .into();
+
+        let bottom_panel: Element<_> = row(vec![space, action_panel_toggle])
+            .into();
+
+        (!show_action_panel, action_panel_element, bottom_panel)
+    } else {
+        let bottom_panel: Element<_> = row(vec![space])
+            .into();
+
+        (true, Space::with_height(1).into(), bottom_panel)
+    };
+
+    let top_panel = create_top_panel();
+
+    let bottom_panel: Element<_> = container(bottom_panel)
+        .padding(Padding::new(5.0))
+        .width(Length::Fill)
+        .into();
+
+    let top_separator = horizontal_rule(1)
+        .into();
+
+    let bottom_separator = horizontal_rule(1)
+        .into();
+
+    let content: Element<_> = container(content)
+        .width(Length::Fill)
+        .height(Length::Fill) // TODO remove after https://github.com/iced-rs/iced/issues/2186 is resolved
+        .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
+        .into();
+
+    let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
+        .into();
+
+    floating_element(content, action_panel_element)
+        .offset(Offset::from([5.0, 35.0]))
+        .hide(hide_action_panel)
         .into()
 }
 
@@ -881,6 +1172,14 @@ pub enum ComponentWidgetEvent {
     },
     ToggleActionPanel {
         widget_id: NativeUiWidgetId,
+    },
+    SelectListItem {
+        list_widget_id: NativeUiWidgetId,
+        item_id: String,
+    },
+    SelectGridItem {
+        grid_widget_id: NativeUiWidgetId,
+        item_id: String,
     },
     PreviousView,
 }
@@ -977,12 +1276,24 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
                 let (widget, ref mut state) = &mut *widget.get_mut();
-                let ComponentWidgetState::Detail { show_action_panel } = state else {
-                    panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+
+                let show_action_panel = match state {
+                    ComponentWidgetState::Detail { show_action_panel } => show_action_panel,
+                    ComponentWidgetState::Form { show_action_panel } => show_action_panel,
+                    ComponentWidgetState::List { show_action_panel } => show_action_panel,
+                    ComponentWidgetState::Grid { show_action_panel } => show_action_panel,
+                    _ => panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                 };
 
                 *show_action_panel = !*show_action_panel;
+
                 None
+            }
+            ComponentWidgetEvent::SelectListItem { list_widget_id, item_id } => {
+                Some(create_list_on_selection_change_event(list_widget_id, Some(item_id)))
+            }
+            ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id } => {
+                Some(create_grid_on_selection_change_event(grid_widget_id, Some(item_id)))
             }
             ComponentWidgetEvent::PreviousView => {
                 panic!("handle event on PreviousView event is not supposed to be called")
@@ -1003,6 +1314,8 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::OnChangeTextField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
+            ComponentWidgetEvent::SelectListItem { list_widget_id, .. } => list_widget_id,
+            ComponentWidgetEvent::SelectGridItem { grid_widget_id, .. } => grid_widget_id,
             ComponentWidgetEvent::PreviousView => panic!("widget_id on PreviousView event is not supposed to be called"),
         }.to_owned()
     }

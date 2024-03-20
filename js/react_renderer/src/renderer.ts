@@ -104,10 +104,9 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
         Object.entries(properties)
             .filter(([key, _]) => key !== "children")
             .map(([key, value]) => {
-                if (component.type === "standard") {
+                if (component.type === "standard" && !!value) {
                     const prop = component.props.find(prop => prop.name === key)
                     if (prop && prop.type.type === "image_source") {
-
                         if (value.data !== undefined) {
                             return [key, Array.from(new Uint8Array(value.data))]
                         } else {
