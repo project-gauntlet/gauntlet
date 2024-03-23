@@ -44,6 +44,10 @@ pub enum JsUiEvent {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String
     },
+    RunGeneratedCommand {
+        #[serde(rename = "entrypointId")]
+        entrypoint_id: String
+    },
     ViewEvent {
         #[serde(rename = "widgetId")]
         widget_id: UiWidgetId,
@@ -59,7 +63,8 @@ pub enum JsUiEvent {
     OpenInlineView {
         #[serde(rename = "text")]
         text: String,
-    }
+    },
+    ReloadSearchIndex,
 }
 
 // FIXME this could have been serde_v8::AnyValue but it doesn't support undefined, make a pr?
@@ -99,6 +104,9 @@ pub enum IntermediateUiEvent {
     RunCommand {
         entrypoint_id: String
     },
+    RunGeneratedCommand {
+        entrypoint_id: String
+    },
     ViewEvent {
         widget_id: UiWidgetId,
         event_name: String,
@@ -109,7 +117,8 @@ pub enum IntermediateUiEvent {
     },
     OpenInlineView {
         text: String,
-    }
+    },
+    ReloadSearchIndex,
 }
 
 #[derive(Debug)]
@@ -164,32 +173,6 @@ fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) ->
             }
         })
         .collect()
-}
-
-#[derive(Debug, Clone)]
-pub enum PluginEntrypointType {
-    Command,
-    View,
-    InlineView,
-}
-
-pub fn entrypoint_to_str(value: PluginEntrypointType) -> &'static str {
-    match value {
-        PluginEntrypointType::Command => "command",
-        PluginEntrypointType::View => "view",
-        PluginEntrypointType::InlineView => "inline-view",
-    }
-}
-
-pub fn entrypoint_from_str(value: &str) -> PluginEntrypointType {
-    match value {
-        "command" => PluginEntrypointType::Command,
-        "view" => PluginEntrypointType::View,
-        "inline-view" => PluginEntrypointType::InlineView,
-        _ => {
-            panic!("index contains illegal entrypoint_type: {}", value)
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

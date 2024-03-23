@@ -1,14 +1,16 @@
+use std::sync::{Arc, Mutex};
 use tantivy::{doc, Index, IndexReader, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
-use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query};
+use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use crate::model::{entrypoint_from_str, entrypoint_to_str, PluginEntrypointType};
+use common::model::PluginId;
 
 #[derive(Clone)]
 pub struct SearchIndex {
     index: Index,
     index_reader: IndexReader,
+    index_writer_mutex: Arc<Mutex<()>>,
 
     entrypoint_type: Field,
     entrypoint_name: Field,
@@ -47,6 +49,7 @@ impl SearchIndex {
         Ok(Self {
             index,
             index_reader,
+            index_writer_mutex: Arc::new(Mutex::new(())),
             entrypoint_type,
             entrypoint_name,
             entrypoint_id,
@@ -55,20 +58,32 @@ impl SearchIndex {
         })
     }
 
-    pub fn reload(&self, search_items: Vec<SearchItem>) -> tantivy::Result<()> {
-        let mut index_writer = self.index.writer(50_000_000)?;
+    pub fn remove_for_plugin(&self, plugin_id: PluginId) -> tantivy::Result<()> {
+        let mut index_writer = self.index.writer(5_000_000)?;
 
-        index_writer.delete_all_documents()?;
+        index_writer.delete_term(Term::from_field_text(self.plugin_id, &plugin_id.to_string()));
+        index_writer.commit()?;
 
-        tracing::debug!("Reloading search index using following data: {:?}", search_items);
+        Ok(())
+    }
+
+    pub fn save_for_plugin(&self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>) -> tantivy::Result<()> {
+        tracing::debug!("Reloading search index for plugin {:?} {:?} using following data: {:?}", plugin_id, plugin_name, search_items);
+
+        // writer panics if another writer exists
+        let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
+
+        let mut index_writer = self.index.writer(3_000_000)?;
+
+        index_writer.delete_term(Term::from_field_text(self.plugin_id, &plugin_id.to_string()));
 
         for search_item in search_items {
             index_writer.add_document(doc!(
                 self.entrypoint_name => search_item.entrypoint_name,
-                self.entrypoint_type => entrypoint_to_str(search_item.entrypoint_type),
+                self.entrypoint_type => search_index_entrypoint_to_str(search_item.entrypoint_type),
                 self.entrypoint_id => search_item.entrypoint_id,
-                self.plugin_name => search_item.plugin_name,
-                self.plugin_id => search_item.plugin_id,
+                self.plugin_name => plugin_name.clone(),
+                self.plugin_id => plugin_id.to_string(),
             ))?;
         }
 
@@ -99,8 +114,15 @@ impl SearchIndex {
 }
 
 #[derive(Clone, Debug)]
-pub struct SearchItem {
-    pub entrypoint_type: PluginEntrypointType,
+pub struct SearchIndexItem {
+    pub entrypoint_type: SearchIndexPluginEntrypointType,
+    pub entrypoint_name: String,
+    pub entrypoint_id: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct SearchResultItem {
+    pub entrypoint_type: SearchIndexPluginEntrypointType,
     pub entrypoint_name: String,
     pub entrypoint_id: String,
     pub plugin_name: String,
@@ -119,12 +141,12 @@ pub struct SearchHandle {
 }
 
 impl SearchHandle {
-    pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchItem>> {
+    pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResultItem>> {
         let query = self.query_parser.create_query(query);
 
         let mut index = 0;
 
-        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<SearchItem>>> {
+        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<SearchResultItem>>> {
             let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20));
 
             index += 1;
@@ -148,7 +170,7 @@ impl SearchHandle {
         Ok(result.into_iter().flatten().collect::<Vec<_>>())
     }
 
-    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<SearchItem>> {
+    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<SearchResultItem>> {
         let get_str_field = |retrieved_doc: &Document, field: Field| -> String {
             retrieved_doc.get_first(field)
                 .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
@@ -163,8 +185,8 @@ impl SearchHandle {
                 let retrieved_doc = self.searcher.doc(doc_address)
                     .expect("index should contain just searched results");
 
-                SearchItem {
-                    entrypoint_type: entrypoint_from_str(&get_str_field(&retrieved_doc, self.entrypoint_type)),
+                SearchResultItem {
+                    entrypoint_type: search_index_entrypoint_from_str(&get_str_field(&retrieved_doc, self.entrypoint_type)),
                     entrypoint_name: get_str_field(&retrieved_doc, self.entrypoint_name),
                     entrypoint_id: get_str_field(&retrieved_doc, self.entrypoint_id),
                     plugin_name: get_str_field(&retrieved_doc, self.plugin_name),
@@ -246,5 +268,30 @@ impl QueryParser {
         });
 
         terms
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub enum SearchIndexPluginEntrypointType {
+    Command,
+    View,
+    GeneratedCommand,
+}
+
+fn search_index_entrypoint_to_str(value: SearchIndexPluginEntrypointType) -> &'static str {
+    match value {
+        SearchIndexPluginEntrypointType::Command => "command",
+        SearchIndexPluginEntrypointType::View => "view",
+        SearchIndexPluginEntrypointType::GeneratedCommand => "generated-command",
+    }
+}
+
+fn search_index_entrypoint_from_str(value: &str) -> SearchIndexPluginEntrypointType {
+    match value {
+        "command" => SearchIndexPluginEntrypointType::Command,
+        "view" => SearchIndexPluginEntrypointType::View,
+        "generated-command" => SearchIndexPluginEntrypointType::GeneratedCommand,
+        _ => panic!("index contains illegal entrypoint_type: {}", value)
     }
 }

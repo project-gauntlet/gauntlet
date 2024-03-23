@@ -14,7 +14,7 @@ use iced_table::table;
 use tonic::Request;
 
 use common::model::{EntrypointId, PluginId};
-use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointType, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest};
+use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_ui_property_value::Value;
 
@@ -124,6 +124,7 @@ pub enum EntrypointType {
     Command,
     View,
     InlineView,
+    CommandGenerator,
 }
 
 #[derive(Debug, Clone)]
@@ -829,7 +830,8 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                         let entrypoint_type = match entrypoint.entrypoint_type {
                             EntrypointType::Command => "Command",
                             EntrypointType::View => "View",
-                            EntrypointType::InlineView => "Inline View"
+                            EntrypointType::InlineView => "Inline View",
+                            EntrypointType::CommandGenerator => "Command Generator"
                         };
 
                         container(text(entrypoint_type))
@@ -1492,13 +1494,14 @@ async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, 
                 .into_iter()
                 .map(|entrypoint| {
                     let id = EntrypointId::from_string(entrypoint.entrypoint_id);
-                    let entrypoint_type: RpcEntrypointType = entrypoint.entrypoint_type.try_into()
+                    let entrypoint_type: RpcEntrypointTypeSettings = entrypoint.entrypoint_type.try_into()
                         .expect("download status failed");
 
                     let entrypoint_type = match entrypoint_type {
-                        RpcEntrypointType::Command => EntrypointType::Command,
-                        RpcEntrypointType::View => EntrypointType::View,
-                        RpcEntrypointType::InlineView => EntrypointType::InlineView
+                        RpcEntrypointTypeSettings::SCommand => EntrypointType::Command,
+                        RpcEntrypointTypeSettings::SView => EntrypointType::View,
+                        RpcEntrypointTypeSettings::SInlineView => EntrypointType::InlineView,
+                        RpcEntrypointTypeSettings::SCommandGenerator => EntrypointType::CommandGenerator
                     };
 
                     let entrypoint = Entrypoint {

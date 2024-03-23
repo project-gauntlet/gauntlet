@@ -7,13 +7,12 @@ use std::rc::Rc;
 use std::thread;
 
 use anyhow::{anyhow, Context};
-use walkdir::WalkDir;
 use serde::{Deserialize, Serialize};
+use walkdir::WalkDir;
 
 use common::model::{DownloadStatus, PluginId};
 
-use crate::model::{entrypoint_to_str, PluginEntrypointType};
-use crate::plugins::data_db_repository::{DbCode, DataDbRepository, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbWritePlugin, DbWritePluginEntrypoint, DbPreferenceEnumValue, DbWritePluginAssetData};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, DbCode, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
 use crate::plugins::download_status::DownloadStatusHolder;
 use crate::plugins::js::asset_data;
 
@@ -206,10 +205,11 @@ impl PluginLoader {
                 id: entrypoint.id,
                 name: entrypoint.name,
                 description: entrypoint.description,
-                entrypoint_type: entrypoint_to_str(match entrypoint.entrypoint_type {
-                    PluginManifestEntrypointTypes::Command => PluginEntrypointType::Command,
-                    PluginManifestEntrypointTypes::View => PluginEntrypointType::View,
-                    PluginManifestEntrypointTypes::InlineView => PluginEntrypointType::InlineView
+                entrypoint_type: db_entrypoint_to_str(match entrypoint.entrypoint_type {
+                    PluginManifestEntrypointTypes::Command => DbPluginEntrypointType::Command,
+                    PluginManifestEntrypointTypes::View => DbPluginEntrypointType::View,
+                    PluginManifestEntrypointTypes::InlineView => DbPluginEntrypointType::InlineView,
+                    PluginManifestEntrypointTypes::CommandGenerator => DbPluginEntrypointType::CommandGenerator,
                 }).to_owned(),
                 preferences: entrypoint.preferences
                     .into_iter()
@@ -391,6 +391,8 @@ pub enum PluginManifestEntrypointTypes {
     View,
     #[serde(rename = "inline-view")]
     InlineView,
+    #[serde(rename = "command-generator")]
+    CommandGenerator,
 }
 
 #[derive(Debug, Deserialize)]

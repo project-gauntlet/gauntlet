@@ -1,4 +1,6 @@
 import { FC } from "react";
+import { generatedCommandSearchIndex, runCommandGenerators, runGeneratedCommand } from "./command-generator";
+import { loadSearchIndex } from "./search-index";
 
 // @ts-expect-error does typescript support such symbol declarations?
 const denoCore: DenoCore = Deno[Deno.internal].core;
@@ -98,6 +100,14 @@ async function runLoop() {
                 }
                 break;
             }
+            case "RunGeneratedCommand": {
+                try {
+                    runGeneratedCommand(pluginEvent.entrypointId)
+                } catch (e) {
+                    console.error("Error occurred when running a generated command", pluginEvent.entrypointId, e)
+                }
+                break;
+            }
             case "OpenInlineView": {
                 const endpoint_id = InternalApi.op_inline_view_endpoint_id();
 
@@ -124,10 +134,19 @@ async function runLoop() {
                         return;
                     }
                 }
+                break;
+            }
+            case "ReloadSearchIndex": {
+                await loadSearchIndex();
+                break;
             }
         }
     }
 }
+
+await runCommandGenerators();
+
+await loadSearchIndex();
 
 (async () => {
     await runLoop()

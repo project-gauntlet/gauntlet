@@ -100,6 +100,13 @@ path = 'src/command-a.ts'
 type = 'command'
 description = ''
 
+[[entrypoint]]
+id = 'command-generator'
+name = 'Command generator'
+path = 'src/command-generator.ts'
+type = 'command-generator'
+description = ''
+
 [[supported_system]]
 os = 'linux'
 

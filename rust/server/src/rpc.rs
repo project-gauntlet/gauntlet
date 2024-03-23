@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 
 use common::model::{DownloadStatus, EntrypointId, PluginId};
-use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointType, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
+use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use common::rpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 
-use crate::model::{from_rpc_to_intermediate_value, PluginEntrypointType};
+use crate::model::from_rpc_to_intermediate_value;
 use crate::plugins::ApplicationManager;
-use crate::search::SearchIndex;
+use crate::search::{SearchIndex, SearchIndexPluginEntrypointType};
 
 pub struct RpcBackendServerImpl {
     pub search_index: SearchIndex,
@@ -25,22 +25,20 @@ impl RpcBackend for RpcBackendServerImpl {
             .search(&text)
             .map_err(|err| Status::internal(err.to_string()))?
             .into_iter()
-            .flat_map(|item| {
+            .map(|item| {
                 let entrypoint_type = match item.entrypoint_type {
-                    PluginEntrypointType::Command => RpcEntrypointType::Command,
-                    PluginEntrypointType::View => RpcEntrypointType::View,
-                    PluginEntrypointType::InlineView => {
-                        return None;
-                    }
+                    SearchIndexPluginEntrypointType::Command => RpcEntrypointTypeSearchResult::SrCommand,
+                    SearchIndexPluginEntrypointType::View => RpcEntrypointTypeSearchResult::SrView,
+                    SearchIndexPluginEntrypointType::GeneratedCommand => RpcEntrypointTypeSearchResult::SrGeneratedCommand,
                 };
 
-                Some(RpcSearchResult {
+                RpcSearchResult {
                     entrypoint_type: entrypoint_type.into(),
                     entrypoint_name: item.entrypoint_name,
                     entrypoint_id: item.entrypoint_id,
                     plugin_name: item.plugin_name,
                     plugin_id: item.plugin_id,
-                })
+                }
             })
             .collect();
 
@@ -69,6 +67,17 @@ impl RpcBackend for RpcBackendServerImpl {
         self.application_manager.handle_run_command(PluginId::from_string(plugin_id), entrypoint_id);
         Ok(Response::new(RpcRequestRunCommandResponse::default()))
     }
+
+    async fn request_run_generated_command(&self, request: Request<RpcRequestRunGeneratedCommandRequest>) -> Result<Response<RpcRequestRunGeneratedCommandResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let event = request.event.ok_or(Status::invalid_argument("event"))?;
+        let entrypoint_id = event.entrypoint_id;
+
+        self.application_manager.handle_run_generated_command(PluginId::from_string(plugin_id), entrypoint_id);
+        Ok(Response::new(RpcRequestRunGeneratedCommandResponse::default()))
+    }
+
 
     async fn send_view_event(&self, request: Request<RpcSendViewEventRequest>) -> Result<Response<RpcSendViewEventResponse>, Status> {
         let request = request.into_inner();

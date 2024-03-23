@@ -11,6 +11,8 @@ service RpcBackend {
 
   rpc RequestRunCommand (RpcRequestRunCommandRequest) returns (RpcRequestRunCommandResponse);
 
+  rpc RequestRunGeneratedCommand (RpcRequestRunGeneratedCommandRequest) returns (RpcRequestRunGeneratedCommandResponse);
+
   rpc SendViewEvent (RpcSendViewEventRequest) returns (RpcSendViewEventResponse);
 
   // settings
@@ -49,6 +51,13 @@ message RpcRequestRunCommandRequest {
   RpcEventRunCommand event = 2;
 }
 message RpcRequestRunCommandResponse {
+}
+
+message RpcRequestRunGeneratedCommandRequest {
+  string plugin_id = 1;
+  RpcEventRunGeneratedCommand event = 2;
+}
+message RpcRequestRunGeneratedCommandResponse {
 }
 
 message RpcSendViewEventRequest {
@@ -111,13 +120,20 @@ message RpcSearchResult {
   string plugin_name = 2;
   string entrypoint_id = 3;
   string entrypoint_name = 4;
-  RpcEntrypointType entrypoint_type = 5;
+  RpcEntrypointTypeSearchResult entrypoint_type = 5;
 }
 
-enum RpcEntrypointType {
-  COMMAND = 0;
-  VIEW = 1;
-  INLINE_VIEW = 2;
+enum RpcEntrypointTypeSearchResult {
+  SR_COMMAND = 0;
+  SR_VIEW = 1;
+  SR_GENERATED_COMMAND = 2;
+}
+
+enum RpcEntrypointTypeSettings {
+  S_COMMAND = 0;
+  S_VIEW = 1;
+  S_INLINE_VIEW = 2;
+  S_COMMAND_GENERATOR = 3;
 }
 
 message RpcPlugin {
@@ -135,7 +151,7 @@ message RpcEntrypoint {
   string entrypoint_name = 2;
   string entrypoint_description = 3;
   bool enabled = 4;
-  RpcEntrypointType entrypoint_type = 5;
+  RpcEntrypointTypeSettings entrypoint_type = 5;
   map<string, RpcPluginPreference> preferences = 6;
   map<string, RpcPluginPreferenceUserData> preferences_user_data = 7;
 }
@@ -147,6 +163,10 @@ message RpcEventRenderView {
 }
 
 message RpcEventRunCommand {
+  string entrypoint_id = 1;
+}
+
+message RpcEventRunGeneratedCommand {
   string entrypoint_id = 1;
 }
 

@@ -85,6 +85,13 @@ pub struct DbWritePluginAssetData {
     pub data: Vec<u8>
 }
 
+#[derive(Debug, Clone)]
+pub enum DbPluginEntrypointType {
+    Command,
+    View,
+    InlineView,
+    CommandGenerator,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DbPluginPermissions {
@@ -462,5 +469,25 @@ impl DataDbRepository {
         tx.commit().await?;
 
         Ok(())
+    }
+}
+
+
+pub fn db_entrypoint_to_str(value: DbPluginEntrypointType) -> &'static str {
+    match value {
+        DbPluginEntrypointType::Command => "command",
+        DbPluginEntrypointType::View => "view",
+        DbPluginEntrypointType::InlineView => "inline-view",
+        DbPluginEntrypointType::CommandGenerator => "command-generator"
+    }
+}
+
+pub fn db_entrypoint_from_str(value: &str) -> DbPluginEntrypointType {
+    match value {
+        "command" => DbPluginEntrypointType::Command,
+        "view" => DbPluginEntrypointType::View,
+        "inline-view" => DbPluginEntrypointType::InlineView,
+        "command-generator" => DbPluginEntrypointType::CommandGenerator,
+        _ => panic!("index contains illegal entrypoint_type: {}", value)
     }
 }

@@ -18,7 +18,7 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointType, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcRequestRunCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_frontend_server::RpcFrontendServer;
 use common::rpc::rpc_ui_property_value::Value;
@@ -65,6 +65,10 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
     },
     RunCommand {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    },
+    RunGeneratedCommandEvent {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
@@ -180,6 +184,12 @@ impl Application for AppModel {
                     self.run_command(plugin_id, entrypoint_id),
                 ])
             }
+            AppMsg::RunGeneratedCommandEvent { plugin_id, entrypoint_id } => {
+                Command::batch([
+                    self.hide_window(),
+                    self.run_generated_command(plugin_id, entrypoint_id),
+                ])
+            }
             AppMsg::PromptChanged(new_prompt) => {
                 self.prompt.replace(new_prompt.clone());
 
@@ -196,26 +206,24 @@ impl Application for AppModel {
                         .into_inner()
                         .results
                         .into_iter()
-                        .flat_map(|search_result| {
+                        .map(|search_result| {
                             let entrypoint_type = search_result.entrypoint_type
                                 .try_into()
                                 .unwrap();
 
                             let entrypoint_type = match entrypoint_type {
-                                RpcEntrypointType::Command => SearchResultEntrypointType::Command,
-                                RpcEntrypointType::View => SearchResultEntrypointType::View,
-                                RpcEntrypointType::InlineView => {
-                                    return None;
-                                }
+                                RpcEntrypointTypeSearchResult::SrCommand => SearchResultEntrypointType::Command,
+                                RpcEntrypointTypeSearchResult::SrView => SearchResultEntrypointType::View,
+                                RpcEntrypointTypeSearchResult::SrGeneratedCommand => SearchResultEntrypointType::GeneratedCommand,
                             };
 
-                            Some(NativeUiSearchResult {
+                            NativeUiSearchResult {
                                 plugin_id: PluginId::from_string(search_result.plugin_id),
                                 plugin_name: search_result.plugin_name,
                                 entrypoint_id: EntrypointId::from_string(search_result.entrypoint_id),
                                 entrypoint_name: search_result.entrypoint_name,
                                 entrypoint_type,
-                            })
+                            }
                         })
                         .collect();
 
@@ -328,6 +336,10 @@ impl Application for AppModel {
                         entrypoint_id: event.entrypoint_id,
                     },
                     |event| AppMsg::RunCommand {
+                        plugin_id: event.plugin_id,
+                        entrypoint_id: event.entrypoint_id,
+                    },
+                    |event| AppMsg::RunGeneratedCommandEvent {
                         plugin_id: event.plugin_id,
                         entrypoint_id: event.entrypoint_id,
                     },
@@ -513,6 +525,25 @@ impl AppModel {
             };
 
             backend_client.request_run_command(Request::new(request))
+                .await
+                .unwrap();
+        }, |_| AppMsg::Noop)
+    }
+
+    fn run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
+        let mut backend_client = self.backend_client.clone();
+
+        Command::perform(async move {
+            let event = RpcEventRunGeneratedCommand {
+                entrypoint_id: entrypoint_id.to_string(),
+            };
+
+            let request = RpcRequestRunGeneratedCommandRequest {
+                plugin_id: plugin_id.to_string(),
+                event: Some(event),
+            };
+
+            backend_client.request_run_generated_command(Request::new(request))
                 .await
                 .unwrap();
         }, |_| AppMsg::Noop)

@@ -6,7 +6,7 @@ interface DenoCore {
     ops: InternalApi
 }
 
-type PluginEvent = ViewEvent | RunCommand | OpenView | PluginCommand | OpenInlineView
+type PluginEvent = ViewEvent | RunCommand | RunGeneratedCommand | OpenView | PluginCommand | OpenInlineView | ReloadSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -27,6 +27,11 @@ type RunCommand = {
     entrypointId: string
 }
 
+type RunGeneratedCommand = {
+    type: "RunGeneratedCommand"
+    entrypointId: string
+}
+
 type PluginCommand = {
     type: "PluginCommand"
     commandType: "stop"
@@ -35,6 +40,10 @@ type PluginCommand = {
 type OpenInlineView = {
     type: "OpenInlineView"
     text: string
+}
+
+type ReloadSearchIndex = {
+    type: "ReloadSearchIndex"
 }
 
 type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined
@@ -53,6 +62,11 @@ type UiWidget = {
 type Props = { [key: string]: any };
 type PropsWithChildren = { children?: UiWidget[] } & Props;
 
+type AdditionalSearchItem = {
+    entrypoint_name: string,
+    entrypoint_id: string,
+}
+
 interface InternalApi {
     op_log_trace(target: string, message: string): void;
     op_log_debug(target: string, message: string): void;
@@ -67,8 +81,13 @@ interface InternalApi {
     op_inline_view_endpoint_id(): string | null;
     clear_inline_view(): void;
 
+    plugin_id(): string;
+
+    get_command_generator_entrypoint_ids(): Promise<string[]>
     get_plugin_preferences(): Record<string, any>;
     get_entrypoint_preferences(entrypointId: string): Record<string, any>;
+
+    load_search_index(searchItems: AdditionalSearchItem[]): Promise<void>;
 
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, container: UiWidget): void;
 }

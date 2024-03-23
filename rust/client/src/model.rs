@@ -19,6 +19,7 @@ pub struct NativeUiSearchResult {
 pub enum SearchResultEntrypointType {
     Command,
     View,
+    GeneratedCommand,
 }
 
 #[derive(Debug)]

@@ -28,7 +28,7 @@ impl Serialize for ComponentName {
     }
 }
 
-    #[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum Component {
     #[serde(rename = "standard")]

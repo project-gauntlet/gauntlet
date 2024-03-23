@@ -16,6 +16,7 @@ use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tonic::Request;
 use tonic::transport::Channel;
@@ -27,8 +28,9 @@ use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, PropertyType};
 
 use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
-use crate::plugins::data_db_repository::{DataDbRepository, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::run_status::RunStatusGuard;
+use crate::search::{SearchIndexItem, SearchIndex, SearchIndexPluginEntrypointType};
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -37,6 +39,7 @@ pub struct PluginRuntimeData {
     pub permissions: PluginPermissions,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
     pub db_repository: DataDbRepository,
+    pub search_index: SearchIndex
 }
 
 pub struct PluginCode {
@@ -75,11 +78,15 @@ pub enum OnePluginCommandData {
     RunCommand {
         entrypoint_id: String,
     },
+    RunGeneratedCommand {
+        entrypoint_id: String,
+    },
     HandleEvent {
         widget_id: UiWidgetId,
         event_name: String,
         event_arguments: Vec<PropertyValue>,
     },
+    ReloadSearchIndex,
 }
 
 #[derive(Clone, Debug)]
@@ -143,12 +150,20 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                     entrypoint_id,
                                 })
                             }
+                            OnePluginCommandData::RunGeneratedCommand { entrypoint_id } => {
+                                Some(IntermediateUiEvent::RunGeneratedCommand {
+                                    entrypoint_id,
+                                })
+                            }
                             OnePluginCommandData::HandleEvent { widget_id, event_name, event_arguments } => {
                                 Some(IntermediateUiEvent::ViewEvent {
                                     widget_id,
                                     event_name,
                                     event_arguments,
                                 })
+                            }
+                            OnePluginCommandData::ReloadSearchIndex => {
+                                Some(IntermediateUiEvent::ReloadSearchIndex)
                             }
                         }
                     }
@@ -187,6 +202,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     frontend_client,
                     component_model,
                     data.db_repository,
+                    data.search_index,
                 ).await
             }));
 
@@ -214,6 +230,7 @@ async fn start_js_runtime(
     frontend_client: FrontendClient,
     component_model: Vec<Component>,
     repository: DataDbRepository,
+    search_index: SearchIndex,
 ) -> anyhow::Result<()> {
     let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
         allow_env: if permissions.environment.is_empty() { None } else { Some(permissions.environment) },
@@ -253,9 +270,10 @@ async fn start_js_runtime(
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
                 PluginData::new(plugin_id, inline_view_entrypoint_id),
-                FrontendClientWrapper::new(frontend_client),
+                frontend_client,
                 ComponentModel::new(component_model),
-                DbRepository::new(repository),
+                repository,
+                search_index,
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -387,13 +405,17 @@ deno_core::extension!(
         get_plugin_preferences,
         get_entrypoint_preferences,
         clear_inline_view,
+        plugin_id,
+        load_search_index,
+        get_command_generator_entrypoint_ids,
     ],
     options = {
         event_receiver: EventReceiver,
         plugin_data: PluginData,
-        frontend_client: FrontendClientWrapper,
+        frontend_client: FrontendClient,
         component_model: ComponentModel,
-        db_repository: DbRepository,
+        db_repository: DataDbRepository,
+        search_index: SearchIndex,
     },
     state = |state, options| {
         state.put(options.event_receiver);
@@ -401,6 +423,7 @@ deno_core::extension!(
         state.put(options.frontend_client);
         state.put(options.component_model);
         state.put(options.db_repository);
+        state.put(options.search_index);
     },
 );
 
@@ -438,6 +461,15 @@ fn op_component_model(state: Rc<RefCell<OpState>>) -> HashMap<String, Component>
 }
 
 #[op]
+fn plugin_id(state: Rc<RefCell<OpState>>) -> String {
+    state.borrow()
+        .borrow::<PluginData>()
+        .plugin_id
+        .clone()
+        .to_string()
+}
+
+#[op]
 async fn asset_data(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result<Vec<u8>> {
     let (plugin_id, repository) = {
         let state = state.borrow();
@@ -448,8 +480,7 @@ async fn asset_data(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result
             .clone();
 
         let repository = state
-            .borrow::<DbRepository>()
-            .repository
+            .borrow::<DataDbRepository>()
             .clone();
 
         (plugin_id, repository)
@@ -471,8 +502,7 @@ fn asset_data_blocking(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Res
             .clone();
 
         let repository = state
-            .borrow::<DbRepository>()
-            .repository
+            .borrow::<DataDbRepository>()
             .clone();
 
         (plugin_id, repository)
@@ -539,8 +569,7 @@ fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap
             .clone();
 
         let repository = state
-            .borrow::<DbRepository>()
-            .repository
+            .borrow::<DataDbRepository>()
             .clone();
 
         (plugin_id, repository)
@@ -566,8 +595,7 @@ fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) 
             .clone();
 
         let repository = state
-            .borrow::<DbRepository>()
-            .repository
+            .borrow::<DataDbRepository>()
             .clone();
 
         (plugin_id, repository)
@@ -580,6 +608,109 @@ fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) 
 
         Ok(preferences_to_js(preferences, preferences_user_data))
     })
+}
+
+#[op]
+async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> anyhow::Result<Vec<String>> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DataDbRepository>()
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    let result = repository.get_entrypoints_by_plugin_id(&plugin_id.to_string()).await?
+        .into_iter()
+        .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::CommandGenerator))
+        .map(|entrypoint| entrypoint.id)
+        .collect::<Vec<_>>();
+
+    Ok(result)
+}
+
+#[op]
+async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>) -> anyhow::Result<()> {
+    let (plugin_id, repository, search_index) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DataDbRepository>()
+            .clone();
+
+        let search_index = state
+            .borrow::<SearchIndex>()
+            .clone();
+
+        (plugin_id, repository, search_index)
+    };
+
+    let DbReadPlugin { name, .. } = repository.get_plugin_by_id(&plugin_id.to_string()).await?;
+
+    let entrypoints = repository.get_entrypoints_by_plugin_id(&plugin_id.to_string()).await?;
+
+    let mut search_items = generated_commands.into_iter()
+        .map(|item| SearchIndexItem {
+            entrypoint_type: SearchIndexPluginEntrypointType::GeneratedCommand,
+            entrypoint_id: item.entrypoint_id,
+            entrypoint_name: item.entrypoint_name,
+        })
+        .collect::<Vec<_>>();
+
+    let mut other_search_items = entrypoints
+        .into_iter()
+        .filter(|entrypoint| entrypoint.enabled)
+        .filter_map(|entrypoint| {
+            let entrypoint_type = db_entrypoint_from_str(&entrypoint.entrypoint_type);
+
+            let entrypoint_name = entrypoint.name.to_owned();
+            let entrypoint_id = entrypoint.id.to_string();
+
+            match &entrypoint_type {
+                DbPluginEntrypointType::Command => {
+                    Some(SearchIndexItem {
+                        entrypoint_type: SearchIndexPluginEntrypointType::Command,
+                        entrypoint_name,
+                        entrypoint_id,
+                    })
+                },
+                DbPluginEntrypointType::View => {
+                    Some(SearchIndexItem {
+                        entrypoint_type: SearchIndexPluginEntrypointType::View,
+                        entrypoint_name,
+                        entrypoint_id,
+                    })
+                },
+                DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {
+                    None
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
+    search_items.append(&mut other_search_items);
+
+    search_index.save_for_plugin(plugin_id, name, search_items)?;
+
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct AdditionalSearchItem {
+    entrypoint_name: String,
+    entrypoint_id: String,
 }
 
 fn preferences_to_js(
@@ -656,8 +787,7 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
             .clone();
 
         let frontend_client = state
-            .borrow::<FrontendClientWrapper>()
-            .client()
+            .borrow::<FrontendClient>()
             .clone();
 
         (plugin_id, frontend_client)
@@ -842,6 +972,9 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::RunCommand { entrypoint_id } => JsUiEvent::RunCommand {
             entrypoint_id
         },
+        IntermediateUiEvent::RunGeneratedCommand { entrypoint_id } => JsUiEvent::RunGeneratedCommand {
+            entrypoint_id
+        },
         IntermediateUiEvent::ViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()
                 .map(|arg| match arg {
@@ -864,7 +997,8 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::PluginCommand { command_type } => JsUiEvent::PluginCommand {
             command_type
         },
-        IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text }
+        IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text },
+        IntermediateUiEvent::ReloadSearchIndex => JsUiEvent::ReloadSearchIndex,
     }
 }
 
@@ -929,20 +1063,6 @@ impl PluginData {
     }
 }
 
-pub struct FrontendClientWrapper {
-    client: FrontendClient,
-}
-
-impl FrontendClientWrapper {
-    fn new(client: FrontendClient) -> Self {
-        Self { client }
-    }
-
-    fn client(&self) -> &FrontendClient {
-        &self.client
-    }
-}
-
 pub struct ComponentModel {
     components: HashMap<String, Component>,
 }
@@ -971,18 +1091,6 @@ impl EventReceiver {
     fn new(event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>) -> EventReceiver {
         Self {
             event_stream: Rc::new(RefCell::new(event_stream)),
-        }
-    }
-}
-
-pub struct DbRepository {
-    repository: DataDbRepository,
-}
-
-impl DbRepository {
-    fn new(repository: DataDbRepository) -> DbRepository {
-        Self {
-            repository,
         }
     }
 }

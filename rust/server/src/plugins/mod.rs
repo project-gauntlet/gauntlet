@@ -1,15 +1,16 @@
 use std::collections::HashMap;
-use common::rpc::{plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, rpc_ui_property_value, RpcEntrypoint, RpcEntrypointType, RpcEnumValue, RpcNoProtoBufPluginPreferenceUserData, RpcPlugin, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue};
+
 use common::model::{DownloadStatus, EntrypointId, PluginId, PropertyValue};
+use common::rpc::{plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, rpc_ui_property_value, RpcEntrypoint, RpcEntrypointTypeSettings, RpcEnumValue, RpcNoProtoBufPluginPreferenceUserData, RpcPlugin, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue};
 
 use crate::dirs::Dirs;
-use crate::model::{entrypoint_from_str, from_rpc_to_intermediate_value, PluginEntrypointType, UiWidgetId};
+use crate::model::{from_rpc_to_intermediate_value, UiWidgetId};
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::{DataDbRepository, DbPluginPreference, DbPluginPreferenceUserData};
-use crate::plugins::js::{PluginCode, PluginCommand, OnePluginCommandData, PluginPermissions, PluginRuntimeData, start_plugin_runtime, AllPluginCommandData};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData};
+use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
-use crate::search::{SearchIndex, SearchItem};
+use crate::search::{SearchIndex, SearchIndexPluginEntrypointType, SearchResultItem};
 
 pub mod js;
 mod data_db_repository;
@@ -81,10 +82,11 @@ impl ApplicationManager {
                         entrypoint_id: entrypoint.id,
                         entrypoint_name: entrypoint.name,
                         entrypoint_description: entrypoint.description,
-                        entrypoint_type: match entrypoint_from_str(&entrypoint.entrypoint_type) {
-                            PluginEntrypointType::Command => RpcEntrypointType::Command,
-                            PluginEntrypointType::View => RpcEntrypointType::View,
-                            PluginEntrypointType::InlineView => RpcEntrypointType::InlineView
+                        entrypoint_type: match db_entrypoint_from_str(&entrypoint.entrypoint_type) {
+                            DbPluginEntrypointType::Command => RpcEntrypointTypeSettings::SCommand,
+                            DbPluginEntrypointType::View => RpcEntrypointTypeSettings::SView,
+                            DbPluginEntrypointType::InlineView => RpcEntrypointTypeSettings::SInlineView,
+                            DbPluginEntrypointType::CommandGenerator => RpcEntrypointTypeSettings::SCommandGenerator,
                         }.into(),
                         preferences: entrypoint.preferences.into_iter()
                             .map(|(key, value)| (key, plugin_preference_to_grpc(value)))
@@ -131,12 +133,11 @@ impl ApplicationManager {
                 self.db_repository.set_plugin_enabled(&plugin_id.to_string(), false)
                     .await?;
 
-                self.stop_plugin(plugin_id).await;
+                self.stop_plugin(plugin_id.clone()).await;
+                self.search_index.remove_for_plugin(plugin_id)?;
             }
             _ => {}
         }
-
-        self.reload_search_index().await?;
 
         Ok(())
     }
@@ -145,7 +146,7 @@ impl ApplicationManager {
         self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
             .await?;
 
-        self.reload_search_index().await?;
+        self.request_search_index_reload(plugin_id);
 
         Ok(())
     }
@@ -177,13 +178,12 @@ impl ApplicationManager {
                     self.start_plugin(plugin_id).await?;
                 }
                 (true, false) => {
-                    self.stop_plugin(plugin_id).await;
+                    self.stop_plugin(plugin_id.clone()).await;
+                    self.search_index.remove_for_plugin(plugin_id)?;
                 }
                 _ => {}
             }
         }
-
-        self.reload_search_index().await?;
 
         Ok(())
     }
@@ -200,6 +200,15 @@ impl ApplicationManager {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::RunCommand {
+                entrypoint_id,
+            }
+        })
+    }
+
+    pub fn handle_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: String) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::RunGeneratedCommand {
                 entrypoint_id,
             }
         })
@@ -226,6 +235,13 @@ impl ApplicationManager {
         })
     }
 
+    pub fn request_search_index_reload(&self, plugin_id: PluginId) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::ReloadSearchIndex
+        })
+    }
+
     async fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         let running = self.run_status_holder.is_plugin_running(&plugin_id);
         if running {
@@ -233,8 +249,6 @@ impl ApplicationManager {
         }
 
         self.start_plugin(plugin_id).await?;
-
-        self.reload_search_index().await?;
 
         Ok(())
     }
@@ -271,7 +285,8 @@ impl ApplicationManager {
                 system: plugin.permissions.system
             },
             command_receiver: receiver,
-            db_repository: self.db_repository.clone()
+            db_repository: self.db_repository.clone(),
+            search_index: self.search_index.clone()
         };
 
         self.start_plugin_runtime(data);
@@ -288,35 +303,6 @@ impl ApplicationManager {
         };
 
         self.send_command(data)
-    }
-
-    async fn reload_search_index(&self) -> anyhow::Result<()> {
-        tracing::info!("Reloading search index");
-
-        let search_items: Vec<_> = self.db_repository.list_plugins_and_entrypoints()
-            .await?
-            .into_iter()
-            .filter(|(plugin, _)| plugin.enabled)
-            .flat_map(|(plugin, entrypoints)| {
-                entrypoints
-                    .into_iter()
-                    .filter(|entrypoint| entrypoint.enabled)
-                    .map(|entrypoint| {
-                        SearchItem {
-                            entrypoint_type: entrypoint_from_str(&entrypoint.entrypoint_type),
-                            entrypoint_name: entrypoint.name.to_owned(),
-                            entrypoint_id: entrypoint.id.to_string(),
-                            plugin_name: plugin.name.to_owned(),
-                            plugin_id: plugin.id.to_string(),
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-        self.search_index.reload(search_items)?;
-
-        Ok(())
     }
 
     fn start_plugin_runtime(&self, data: PluginRuntimeData) {
