@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
 
-use common::model::PropertyValue;
+use common::model::{EntrypointId, PropertyValue};
 use common::rpc::{RpcUiPropertyValue, RpcUiWidget, RpcUiWidgetId};
 use common::rpc::rpc_ui_property_value::Value;
 
@@ -15,6 +15,7 @@ pub enum JsUiResponseData {
 #[derive(Debug)]
 pub enum JsUiRequestData {
     ReplaceView {
+        entrypoint_id: EntrypointId,
         render_location: JsRenderLocation,
         top_level_view: bool,
         container: IntermediateUiWidget,
@@ -55,6 +56,19 @@ pub enum JsUiEvent {
         event_name: String,
         #[serde(rename = "eventArguments")]
         event_arguments: Vec<JsPropertyValue>,
+    },
+    KeyboardEvent {
+        #[serde(rename = "entrypointId")]
+        entrypoint_id: String,
+        key: String,
+        #[serde(rename = "modifierShift")]
+        modifier_shift: bool,
+        #[serde(rename = "modifierControl")]
+        modifier_control: bool,
+        #[serde(rename = "modifierAlt")]
+        modifier_alt: bool,
+        #[serde(rename = "modifierMeta")]
+        modifier_meta: bool
     },
     PluginCommand {
         #[serde(rename = "commandType")]
@@ -107,10 +121,18 @@ pub enum IntermediateUiEvent {
     RunGeneratedCommand {
         entrypoint_id: String
     },
-    ViewEvent {
+    HandleViewEvent {
         widget_id: UiWidgetId,
         event_name: String,
         event_arguments: Vec<PropertyValue>,
+    },
+    HandleKeyboardEvent {
+        entrypoint_id: EntrypointId,
+        key: String,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool
     },
     PluginCommand {
         command_type: String,

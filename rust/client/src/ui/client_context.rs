@@ -1,4 +1,4 @@
-use common::model::{PluginId, RenderLocation};
+use common::model::{EntrypointId, PluginId, RenderLocation};
 
 use crate::model::{NativeUiViewEvent, NativeUiWidget};
 use crate::ui::widget::ComponentWidgetEvent;
@@ -47,10 +47,18 @@ impl ClientContext {
         &mut self.view
     }
 
-    pub fn replace_view(&mut self, render_location: RenderLocation, container: NativeUiWidget, plugin_id: &PluginId) {
+    pub fn get_view_plugin_id(&self) -> PluginId {
+        self.view.get_plugin_id()
+    }
+
+    pub fn get_view_entrypoint_id(&self) -> EntrypointId {
+        self.view.get_entrypoint_id()
+    }
+
+    pub fn replace_view(&mut self, render_location: RenderLocation, container: NativeUiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
         match render_location {
-            RenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container),
-            RenderLocation::View => self.get_mut_view_container().replace_view(container)
+            RenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, entrypoint_id),
+            RenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, entrypoint_id)
         }
     }
 

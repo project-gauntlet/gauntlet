@@ -46,8 +46,8 @@ export default function DetailView(): ReactElement {
     const { testBool } = usePluginPreferences<{ testBool: boolean }>();
     const entrypointPreferences = useEntrypointPreferences<DetailViewEntrypointConfig>();
 
-    const PORT = Deno.env.get("RUST_LOG");
-    console.log("RUST_LOG:", PORT);
+    const env = Deno.env.get("RUST_LOG");
+    console.log("RUST_LOG:", env);
 
     const logoData = assetDataSync("logo.png");
 
@@ -69,6 +69,7 @@ export default function DetailView(): ReactElement {
                             }}
                         />
                         <Action
+                            id="testAction1"
                             title={"action 2.2"}
                             onAction={() => {
                                 console.log("ActionTest 2.2")
@@ -77,6 +78,7 @@ export default function DetailView(): ReactElement {
                     </ActionPanel.Section>
                     <ActionPanel.Section>
                         <Action
+                            id="testAction2"
                             title={"action 3"}
                             onAction={() => {
                                 console.log("ActionTest 3")

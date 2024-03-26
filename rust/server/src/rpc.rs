@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 
 use common::model::{DownloadStatus, EntrypointId, PluginId};
-use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
+use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use common::rpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 
 use crate::model::from_rpc_to_intermediate_value;
@@ -94,6 +94,30 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.application_manager.handle_view_event(PluginId::from_string(plugin_id), widget_id, event_name, event_arguments);
         Ok(Response::new(RpcSendViewEventResponse::default()))
+    }
+
+    async fn send_keyboard_event(&self, request: Request<RpcSendKeyboardEventRequest>) -> Result<Response<RpcSendKeyboardEventResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let event = request.event.ok_or(Status::invalid_argument("event"))?;
+        let entrypoint_id = event.entrypoint_id;
+        let key = event.key;
+        let modifier_shift = event.modifier_shift;
+        let modifier_control = event.modifier_control;
+        let modifier_alt = event.modifier_alt;
+        let modifier_meta = event.modifier_meta;
+
+        self.application_manager.handle_keyboard_event(
+            PluginId::from_string(plugin_id),
+            EntrypointId::from_string(entrypoint_id),
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        );
+
+        Ok(Response::new(RpcSendKeyboardEventResponse::default()))
     }
 
     async fn plugins(&self, _: Request<RpcPluginsRequest>) -> Result<Response<RpcPluginsResponse>, Status> {

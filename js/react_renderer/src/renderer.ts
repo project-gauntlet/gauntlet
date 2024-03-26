@@ -55,6 +55,10 @@ class GauntletContextValue {
         return this._navStack[this._navStack.length - 1]
     }
 
+    entrypointId() {
+        return this._entrypointId!!
+    }
+
     rerender = (component: ReactNode) => {
         this._rerender!!(component)
     };
@@ -72,7 +76,7 @@ class GauntletContextValue {
     };
 
     entrypointPreferences = () => {
-        return InternalApi.get_entrypoint_preferences(this._entrypointId!!)
+        return InternalApi.get_entrypoint_preferences(this.entrypointId())
     }
 
     pluginPreferences = () => {
@@ -318,7 +322,7 @@ export const createHostConfig = (): HostConfig<
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
         container.widgetChildren = newChildren
-        InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), container)
+        InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), container)
     },
 
     cloneHiddenInstance(

@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock as StdRwLock};
-use global_hotkey::{GlobalHotKeyManager, HotKeyState};
 
+use global_hotkey::{GlobalHotKeyManager, HotKeyState};
 use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Settings, Size, Subscription, subscription, window};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
@@ -18,7 +18,7 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_frontend_server::RpcFrontendServer;
 use common::rpc::rpc_ui_property_value::Value;
@@ -244,12 +244,59 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(Event::Keyboard(event)) => {
+                let mut backend_client = self.backend_client.clone();
+
                 match event {
-                    keyboard::Event::KeyPressed { key, .. } => {
+                    keyboard::Event::KeyPressed { key, modifiers, .. } => {
                         match key {
                             Key::Named(Named::ArrowUp) => iced::widget::focus_previous(),
                             Key::Named(Named::ArrowDown) => iced::widget::focus_next(),
                             Key::Named(Named::Escape) => self.previous_view(),
+                            Key::Character(char) => {
+                                if let Some(_) = self.view_data {
+                                    let (plugin_id, entrypoint_id) = {
+                                        let client_context = self.client_context.read().expect("lock is poisoned");
+                                        (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+                                    };
+
+                                    println!("key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", char, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
+
+                                    match char.as_ref() {
+                                        // only stuff that is present on 60% keyboard
+                                        "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "-" | "=" |
+                                        "!" | "@" | "#" | "$" | "%" | "^" | "&" | "*" | "(" | ")" | "_" | "+" |
+                                        "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" |
+                                        "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" |
+                                        "," | "." | "/" | "[" | "]" | ";" | "'" | "\\" |
+                                        "<" | ">" | "?" | "{" | "}" | ":" | "\"" | "|" => {
+                                            Command::perform(async move {
+                                                let event = RpcEventKeyboardEvent {
+                                                    entrypoint_id: entrypoint_id.to_string(),
+                                                    key: char.to_string(),
+                                                    modifier_shift: modifiers.shift(),
+                                                    modifier_control: modifiers.control(),
+                                                    modifier_alt: modifiers.alt(),
+                                                    modifier_meta: modifiers.logo(),
+                                                };
+
+                                                let request = RpcSendKeyboardEventRequest {
+                                                    plugin_id: plugin_id.to_string(),
+                                                    event: Some(event),
+                                                };
+
+                                                backend_client.send_keyboard_event(Request::new(request))
+                                                    .await
+                                                    .unwrap();
+                                            }, |_| AppMsg::Noop)
+                                        }
+                                        _ => {
+                                            Command::none()
+                                        }
+                                    }
+                                } else {
+                                    Command::none()
+                                }
+                            }
                             _ => Command::none()
                         }
                     }
@@ -593,8 +640,8 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::ReplaceView { plugin_id, render_location, top_level_view, container } => {
-                    client_context.replace_view(render_location, container, &plugin_id);
+                NativeUiRequestData::ReplaceView { plugin_id, entrypoint_id, render_location, top_level_view, container } => {
+                    client_context.replace_view(render_location, container, &plugin_id, &entrypoint_id);
 
                     app_msg = AppMsg::SetTopLevelView(top_level_view);
 

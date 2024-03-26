@@ -50,6 +50,10 @@ pub struct DbReadPluginEntrypoint {
     pub preferences: HashMap<String, DbPluginPreference>,
     #[sqlx(json)]
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
+    #[sqlx(json)]
+    pub actions: Vec<DbPluginAction>,
+    #[sqlx(json)]
+    pub actions_user_data: Vec<DbPluginActionUserData>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -78,6 +82,8 @@ pub struct DbWritePluginEntrypoint {
     pub entrypoint_type: String,
     pub preferences: HashMap<String, DbPluginPreference>,
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
+    pub actions: Vec<DbPluginAction>,
+    pub actions_user_data: Vec<DbPluginActionUserData>,
 }
 
 pub struct DbWritePluginAssetData {
@@ -136,6 +142,29 @@ pub enum DbPluginPreferenceUserData {
     ListOfEnums {
         value: Option<Vec<String>>,
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DbPluginAction {
+    pub id: String,
+    pub description: String,
+    pub key: String,
+    pub kind: DbPluginActionShortcutKind
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DbPluginActionUserData {
+    pub id: String,
+    pub key: String,
+    pub kind: DbPluginActionShortcutKind
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum DbPluginActionShortcutKind {
+    #[serde(rename = "main")]
+    Main,
+    #[serde(rename = "alternative")]
+    Alternative,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -281,6 +310,67 @@ impl DataDbRepository {
             .map(|result| result.0);
 
         Ok(entrypoint_id)
+    }
+
+    pub async fn get_action_id_for_shortcut(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+        key: &str,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool
+    ) -> anyhow::Result<Option<String>> {
+        let kind = if cfg!(target_os = "macos") {
+            match (modifier_shift, modifier_control, modifier_alt, modifier_meta) {
+                (_, false, false, true) => DbPluginActionShortcutKind::Main,
+                (_, false, true, false) => DbPluginActionShortcutKind::Alternative,
+                _ => return Ok(None)
+            }
+        } else {
+            match (modifier_shift, modifier_control, modifier_alt, modifier_meta) {
+                (_, true, false, false) => DbPluginActionShortcutKind::Main,
+                (_, false, true, false) => DbPluginActionShortcutKind::Alternative,
+                _ => return Ok(None)
+            }
+        };
+
+        let kind = match kind {
+            DbPluginActionShortcutKind::Main => "main".to_owned(),
+            DbPluginActionShortcutKind::Alternative => "alternative".to_owned(),
+        };
+
+        // language=SQLite
+        let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions_user_data) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'kind' = ?4"#;
+
+        let mut action_id = sqlx::query_as::<_, (String, )>(sql)
+            .bind(plugin_id)
+            .bind(entrypoint_id)
+            .bind(key)
+            .bind(&kind)
+            .fetch_optional(&self.pool)
+            .await?
+            .map(|result| result.0);
+
+        match action_id {
+            Some(action_id) => Ok(Some(action_id)),
+            None => {
+                // language=SQLite
+                let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'kind' = ?4"#;
+
+                let action_id = sqlx::query_as::<_, (String, )>(sql)
+                    .bind(plugin_id)
+                    .bind(entrypoint_id)
+                    .bind(key)
+                    .bind(&kind)
+                    .fetch_optional(&self.pool)
+                    .await?
+                    .map(|result| result.0);
+
+                Ok(action_id)
+            }
+        }
     }
 
     pub async fn list_pending_plugins(&self) -> anyhow::Result<Vec<DbReadPendingPlugin>> {
@@ -443,7 +533,7 @@ impl DataDbRepository {
 
         for entrypoint in plugin.entrypoints {
             // language=SQLite
-            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)")
                 .bind(entrypoint.id)
                 .bind(&plugin.id)
                 .bind(entrypoint.name)
@@ -452,6 +542,8 @@ impl DataDbRepository {
                 .bind(Json(entrypoint.preferences))
                 .bind(Json(entrypoint.preferences_user_data))
                 .bind(entrypoint.description)
+                .bind(Json(entrypoint.actions))
+                .bind(Json(entrypoint.actions_user_data))
                 .execute(&mut *tx)
                 .await?;
         }

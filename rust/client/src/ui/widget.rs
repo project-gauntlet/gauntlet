@@ -199,7 +199,7 @@ impl ComponentWidgetWrapper {
 
                 text.into()
             }
-            ComponentWidget::Action { title } => {
+            ComponentWidget::Action { title, .. } => {
                 button(text(title))
                     .on_press(ComponentWidgetEvent::ActionClick { widget_id })
                     .style(ButtonStyle::EntrypointItem)

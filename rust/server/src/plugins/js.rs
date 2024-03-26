@@ -81,10 +81,18 @@ pub enum OnePluginCommandData {
     RunGeneratedCommand {
         entrypoint_id: String,
     },
-    HandleEvent {
+    HandleViewEvent {
         widget_id: UiWidgetId,
         event_name: String,
         event_arguments: Vec<PropertyValue>,
+    },
+    HandleKeyboardEvent {
+        entrypoint_id: EntrypointId,
+        key: String,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool,
     },
     ReloadSearchIndex,
 }
@@ -155,11 +163,21 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                     entrypoint_id,
                                 })
                             }
-                            OnePluginCommandData::HandleEvent { widget_id, event_name, event_arguments } => {
-                                Some(IntermediateUiEvent::ViewEvent {
+                            OnePluginCommandData::HandleViewEvent { widget_id, event_name, event_arguments } => {
+                                Some(IntermediateUiEvent::HandleViewEvent {
                                     widget_id,
                                     event_name,
                                     event_arguments,
+                                })
+                            }
+                            OnePluginCommandData::HandleKeyboardEvent { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+                                Some(IntermediateUiEvent::HandleKeyboardEvent {
+                                    entrypoint_id,
+                                    key,
+                                    modifier_shift,
+                                    modifier_control,
+                                    modifier_alt,
+                                    modifier_meta
                                 })
                             }
                             OnePluginCommandData::ReloadSearchIndex => {
@@ -408,6 +426,7 @@ deno_core::extension!(
         plugin_id,
         load_search_index,
         get_command_generator_entrypoint_ids,
+        fetch_action_id_for_shortcut,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -637,6 +656,44 @@ async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> an
 }
 
 #[op]
+async fn fetch_action_id_for_shortcut(
+    state: Rc<RefCell<OpState>>,
+    entrypoint_id: String,
+    key: String,
+    modifier_shift: bool,
+    modifier_control: bool,
+    modifier_alt: bool,
+    modifier_meta: bool
+) -> anyhow::Result<Option<String>> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DataDbRepository>()
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    let result = repository.get_action_id_for_shortcut(
+        &plugin_id.to_string(),
+        &entrypoint_id,
+        &key,
+        modifier_shift,
+        modifier_control,
+        modifier_alt,
+        modifier_meta
+    ).await?;
+
+    Ok(result)
+}
+
+#[op]
 async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>) -> anyhow::Result<()> {
     let (plugin_id, repository, search_index) = {
         let state = state.borrow();
@@ -753,6 +810,7 @@ fn op_react_replace_view(
     state: Rc<RefCell<OpState>>,
     render_location: JsRenderLocation,
     top_level_view: bool,
+    entrypoint_id: &str,
     container: JsUiWidget,
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
@@ -763,6 +821,7 @@ fn op_react_replace_view(
     // }
 
     let data = JsUiRequestData::ReplaceView {
+        entrypoint_id: EntrypointId::from_string(entrypoint_id),
         render_location,
         top_level_view,
         container: from_js_to_intermediate_widget(scope, container)?,
@@ -928,7 +987,7 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
 
 async fn make_request_async(plugin_id: PluginId, frontend_client: &mut FrontendClient, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::ReplaceView { render_location, top_level_view, container } => {
+        JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id } => {
             let rpc_render_location = match render_location {
                 JsRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
                 JsRenderLocation::View => RpcRenderLocation::ViewLocation,
@@ -937,6 +996,7 @@ async fn make_request_async(plugin_id: PluginId, frontend_client: &mut FrontendC
             let request = Request::new(RpcReplaceViewRequest {
                 top_level_view,
                 plugin_id: plugin_id.to_string(),
+                entrypoint_id: entrypoint_id.to_string(),
                 render_location: rpc_render_location.into(),
                 container: Some(container.into())
             });
@@ -975,7 +1035,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::RunGeneratedCommand { entrypoint_id } => JsUiEvent::RunGeneratedCommand {
             entrypoint_id
         },
-        IntermediateUiEvent::ViewEvent { widget_id, event_name, event_arguments } => {
+        IntermediateUiEvent::HandleViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()
                 .map(|arg| match arg {
                     PropertyValue::String(value) => JsPropertyValue::String { value },
@@ -992,6 +1052,16 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                 widget_id,
                 event_name,
                 event_arguments,
+            }
+        }
+        IntermediateUiEvent::HandleKeyboardEvent { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+            JsUiEvent::KeyboardEvent {
+                entrypoint_id: entrypoint_id.to_string(),
+                key,
+                modifier_shift,
+                modifier_control,
+                modifier_alt,
+                modifier_meta
             }
         }
         IntermediateUiEvent::PluginCommand { command_type } => JsUiEvent::PluginCommand {

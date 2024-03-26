@@ -1,5 +1,5 @@
 import { ReactElement, useState } from 'react';
-import { Form } from "@project-gauntlet/api/components";
+import { Action, ActionPanel, Form } from "@project-gauntlet/api/components";
 
 export default function FormView(): ReactElement {
 
@@ -9,7 +9,30 @@ export default function FormView(): ReactElement {
     const [selected, setSelected] = useState<string | undefined>("default_selected_item");
 
     return (
-        <Form>
+        <Form
+            actions={
+                <ActionPanel title={"action panel"}>
+                    <Action
+                        title={"action 1"}
+                        onAction={() => {
+                            console.log("ActionTest Form 1")
+                        }}
+                    />
+                    <Action
+                        title={"action 2"}
+                        onAction={() => {
+                            console.log("ActionTest Form 2")
+                        }}
+                    />
+                    <Action
+                        id="testAction"
+                        title={"action 3"}
+                        onAction={() => {
+                            console.log("ActionTest Form 3")
+                        }}
+                    />
+                </ActionPanel>
+            }>
             {/* uncontrolled */}
             <Form.TextField
                 label={"Text Field"}

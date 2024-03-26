@@ -1,6 +1,6 @@
 use tonic::{Request, Response, Status};
 
-use common::model::{PluginId, RenderLocation};
+use common::model::{EntrypointId, PluginId, RenderLocation};
 use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use utils::channel::RequestSender;
@@ -16,6 +16,7 @@ impl RpcFrontend for RpcFrontendServerImpl {
     async fn replace_view(&self, request: Request<RpcReplaceViewRequest>) -> Result<Response<RpcReplaceViewResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
+        let entrypoint_id = request.entrypoint_id;
         let container = request.container.ok_or(Status::invalid_argument("container"))?;
         let top_level_view = request.top_level_view;
         let render_location = request.render_location;
@@ -33,6 +34,7 @@ impl RpcFrontend for RpcFrontendServerImpl {
 
         let data = NativeUiRequestData::ReplaceView {
             plugin_id: PluginId::from_string(plugin_id),
+            entrypoint_id: EntrypointId::from_string(entrypoint_id),
             render_location,
             top_level_view,
             container

@@ -35,6 +35,7 @@ pub enum NativeUiRequestData {
     },
     ReplaceView {
         plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
         render_location: RenderLocation,
         top_level_view: bool,
         container: NativeUiWidget,

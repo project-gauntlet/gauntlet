@@ -235,6 +235,7 @@ pub fn create_component_model() -> Vec<Component> {
         "action",
         "Action",
         [
+            property("id", true, PropertyType::String),
             property("title", false, PropertyType::String),
             event("onAction", false, [])
         ],

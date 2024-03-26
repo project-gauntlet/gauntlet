@@ -23,6 +23,27 @@ function findWidgetWithId(widget: UiWidget, widgetId: number): UiWidget | undefi
     return undefined;
 }
 
+function findAllActionHandlers(widget: UiWidget): { id: string, onAction: () => void }[] {
+    if (widget.widgetType === "gauntlet:action") {
+        const id = widget.widgetProperties["id"];
+        const onAction = widget.widgetProperties["onAction"];
+        if (!!id && !!onAction) {
+            return [{ id, onAction }]
+        } else {
+            return []
+        }
+    }
+
+    let result: { id: string, onAction: () => void }[] = []
+    for (let widgetChild of widget.widgetChildren) {
+        const actionHandler = findAllActionHandlers(widgetChild);
+
+        result.push(...actionHandler)
+    }
+
+    return result;
+}
+
 function handleEvent(event: ViewEvent) {
     InternalApi.op_log_trace("plugin_event_handler", `Handling view event: ${Deno.inspect(event)}`);
     InternalApi.op_log_trace("plugin_event_handler", `Root widget: ${Deno.inspect(latestRootUiWidget)}`);
@@ -67,6 +88,20 @@ function handleEvent(event: ViewEvent) {
     }
 }
 
+async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
+    InternalApi.op_log_trace("plugin_event_handler", `Handling keyboard event: ${Deno.inspect(event)}`);
+    if (latestRootUiWidget) {
+        const actionHandlers = findAllActionHandlers(latestRootUiWidget);
+
+        const id = await InternalApi.fetch_action_id_for_shortcut(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta);
+
+        const actionHandler = actionHandlers.find(value => value.id === id);
+
+        if (actionHandler) {
+            actionHandler.onAction()
+        }
+    }
+}
 
 async function runLoop() {
     while (true) {
@@ -78,7 +113,15 @@ async function runLoop() {
                 try {
                     handleEvent(pluginEvent)
                 } catch (e) {
-                    console.error("Error occurred when receiving event to handle", e)
+                    console.error("Error occurred when receiving view event to handle", e)
+                }
+                break;
+            }
+            case "KeyboardEvent": {
+                try {
+                    await handleKeyboardEvent(pluginEvent)
+                } catch (e) {
+                    console.error("Error occurred when receiving keyboard event to handle", e)
                 }
                 break;
             }

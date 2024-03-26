@@ -15,9 +15,10 @@ message RpcShowWindowResponse {
 
 message RpcReplaceViewRequest {
   string plugin_id = 1;
-  RpcRenderLocation render_location = 2;
-  bool top_level_view = 3;
-  RpcUiWidget container = 4;
+  string entrypoint_id = 2;
+  RpcRenderLocation render_location = 3;
+  bool top_level_view = 4;
+  RpcUiWidget container = 5;
 }
 
 message RpcReplaceViewResponse {

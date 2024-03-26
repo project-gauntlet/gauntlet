@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 
 use common::model::{DownloadStatus, PluginId};
 
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, DbCode, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
 use crate::plugins::download_status::DownloadStatusHolder;
 use crate::plugins::js::asset_data;
 
@@ -236,6 +236,111 @@ impl PluginLoader {
                     })
                     .collect(),
                 preferences_user_data: HashMap::new(),
+                actions: entrypoint.actions.into_iter()
+                    .map(|action| DbPluginAction {
+                        id: action.id,
+                        description: action.description,
+                        key: match action.shortcut.key {
+                            PluginManifestActionShortcutKey::Num0 => "0".to_owned(),
+                            PluginManifestActionShortcutKey::Num1 => "1".to_owned(),
+                            PluginManifestActionShortcutKey::Num2 => "2".to_owned(),
+                            PluginManifestActionShortcutKey::Num3 => "3".to_owned(),
+                            PluginManifestActionShortcutKey::Num4 => "4".to_owned(),
+                            PluginManifestActionShortcutKey::Num5 => "5".to_owned(),
+                            PluginManifestActionShortcutKey::Num6 => "6".to_owned(),
+                            PluginManifestActionShortcutKey::Num7 => "7".to_owned(),
+                            PluginManifestActionShortcutKey::Num8 => "8".to_owned(),
+                            PluginManifestActionShortcutKey::Num9 => "9".to_owned(),
+                            PluginManifestActionShortcutKey::Exclamation => "!".to_owned(),
+                            PluginManifestActionShortcutKey::AtSign => "@".to_owned(),
+                            PluginManifestActionShortcutKey::Hash => "#".to_owned(),
+                            PluginManifestActionShortcutKey::Dollar => "$".to_owned(),
+                            PluginManifestActionShortcutKey::Percent => "%".to_owned(),
+                            PluginManifestActionShortcutKey::Caret => "^".to_owned(),
+                            PluginManifestActionShortcutKey::Ampersand => "&".to_owned(),
+                            PluginManifestActionShortcutKey::Star => "*".to_owned(),
+                            PluginManifestActionShortcutKey::LeftParenthesis => "(".to_owned(),
+                            PluginManifestActionShortcutKey::RightParenthesis => ")".to_owned(),
+                            PluginManifestActionShortcutKey::LowerA => "a".to_owned(),
+                            PluginManifestActionShortcutKey::LowerB => "b".to_owned(),
+                            PluginManifestActionShortcutKey::LowerC => "c".to_owned(),
+                            PluginManifestActionShortcutKey::LowerD => "d".to_owned(),
+                            PluginManifestActionShortcutKey::LowerE => "e".to_owned(),
+                            PluginManifestActionShortcutKey::LowerF => "f".to_owned(),
+                            PluginManifestActionShortcutKey::LowerG => "g".to_owned(),
+                            PluginManifestActionShortcutKey::LowerH => "h".to_owned(),
+                            PluginManifestActionShortcutKey::LowerI => "i".to_owned(),
+                            PluginManifestActionShortcutKey::LowerJ => "j".to_owned(),
+                            PluginManifestActionShortcutKey::LowerK => "k".to_owned(),
+                            PluginManifestActionShortcutKey::LowerL => "l".to_owned(),
+                            PluginManifestActionShortcutKey::LowerM => "m".to_owned(),
+                            PluginManifestActionShortcutKey::LowerN => "n".to_owned(),
+                            PluginManifestActionShortcutKey::LowerO => "o".to_owned(),
+                            PluginManifestActionShortcutKey::LowerP => "p".to_owned(),
+                            PluginManifestActionShortcutKey::LowerQ => "q".to_owned(),
+                            PluginManifestActionShortcutKey::LowerR => "r".to_owned(),
+                            PluginManifestActionShortcutKey::LowerS => "s".to_owned(),
+                            PluginManifestActionShortcutKey::LowerT => "t".to_owned(),
+                            PluginManifestActionShortcutKey::LowerU => "u".to_owned(),
+                            PluginManifestActionShortcutKey::LowerV => "v".to_owned(),
+                            PluginManifestActionShortcutKey::LowerW => "w".to_owned(),
+                            PluginManifestActionShortcutKey::LowerX => "x".to_owned(),
+                            PluginManifestActionShortcutKey::LowerY => "y".to_owned(),
+                            PluginManifestActionShortcutKey::LowerZ => "z".to_owned(),
+                            PluginManifestActionShortcutKey::UpperA => "A".to_owned(),
+                            PluginManifestActionShortcutKey::UpperB => "B".to_owned(),
+                            PluginManifestActionShortcutKey::UpperC => "C".to_owned(),
+                            PluginManifestActionShortcutKey::UpperD => "D".to_owned(),
+                            PluginManifestActionShortcutKey::UpperE => "E".to_owned(),
+                            PluginManifestActionShortcutKey::UpperF => "F".to_owned(),
+                            PluginManifestActionShortcutKey::UpperG => "G".to_owned(),
+                            PluginManifestActionShortcutKey::UpperH => "H".to_owned(),
+                            PluginManifestActionShortcutKey::UpperI => "I".to_owned(),
+                            PluginManifestActionShortcutKey::UpperJ => "J".to_owned(),
+                            PluginManifestActionShortcutKey::UpperK => "K".to_owned(),
+                            PluginManifestActionShortcutKey::UpperL => "L".to_owned(),
+                            PluginManifestActionShortcutKey::UpperM => "M".to_owned(),
+                            PluginManifestActionShortcutKey::UpperN => "N".to_owned(),
+                            PluginManifestActionShortcutKey::UpperO => "O".to_owned(),
+                            PluginManifestActionShortcutKey::UpperP => "P".to_owned(),
+                            PluginManifestActionShortcutKey::UpperQ => "Q".to_owned(),
+                            PluginManifestActionShortcutKey::UpperR => "R".to_owned(),
+                            PluginManifestActionShortcutKey::UpperS => "S".to_owned(),
+                            PluginManifestActionShortcutKey::UpperT => "T".to_owned(),
+                            PluginManifestActionShortcutKey::UpperU => "U".to_owned(),
+                            PluginManifestActionShortcutKey::UpperV => "V".to_owned(),
+                            PluginManifestActionShortcutKey::UpperW => "W".to_owned(),
+                            PluginManifestActionShortcutKey::UpperX => "X".to_owned(),
+                            PluginManifestActionShortcutKey::UpperY => "Y".to_owned(),
+                            PluginManifestActionShortcutKey::UpperZ => "Z".to_owned(),
+                            PluginManifestActionShortcutKey::Minus => "-".to_owned(),
+                            PluginManifestActionShortcutKey::Equals => "=".to_owned(),
+                            PluginManifestActionShortcutKey::Comma => ",".to_owned(),
+                            PluginManifestActionShortcutKey::Dot => ".".to_owned(),
+                            PluginManifestActionShortcutKey::Slash => "/".to_owned(),
+                            PluginManifestActionShortcutKey::OpenSquareBracket => "[".to_owned(),
+                            PluginManifestActionShortcutKey::CloseSquareBracket => "]".to_owned(),
+                            PluginManifestActionShortcutKey::Semicolon => ";".to_owned(),
+                            PluginManifestActionShortcutKey::Quote => "'".to_owned(),
+                            PluginManifestActionShortcutKey::Backslash => "\"".to_owned(),
+                            PluginManifestActionShortcutKey::Underscore => "_".to_owned(),
+                            PluginManifestActionShortcutKey::Plus => "+".to_owned(),
+                            PluginManifestActionShortcutKey::LessThan => "<".to_owned(),
+                            PluginManifestActionShortcutKey::GreaterThan => ">".to_owned(),
+                            PluginManifestActionShortcutKey::QuestionMark => "?".to_owned(),
+                            PluginManifestActionShortcutKey::LeftBrace =>"{".to_owned(),
+                            PluginManifestActionShortcutKey::RightBrace => "}".to_owned(),
+                            PluginManifestActionShortcutKey::Colon => ":".to_owned(),
+                            PluginManifestActionShortcutKey::DoubleQuotes => "\"".to_owned(),
+                            PluginManifestActionShortcutKey::Pipe => "|".to_owned(),
+                        },
+                        kind: match action.shortcut.kind {
+                            PluginManifestActionShortcutKind::Main => DbPluginActionShortcutKind::Main,
+                            PluginManifestActionShortcutKind::Alternative => DbPluginActionShortcutKind::Alternative,
+                        },
+                    })
+                    .collect(),
+                actions_user_data: vec![],
             })
             .collect();
 
@@ -326,6 +431,8 @@ struct PluginManifestEntrypoint {
     entrypoint_type: PluginManifestEntrypointTypes,
     #[serde(default)]
     preferences: Vec<PluginManifestPreference>,
+    #[serde(default)]
+    actions: Vec<PluginManifestAction>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -393,6 +500,221 @@ pub enum PluginManifestEntrypointTypes {
     InlineView,
     #[serde(rename = "command-generator")]
     CommandGenerator,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PluginManifestAction {
+    id: String,
+    description: String,
+    shortcut: PluginManifestActionShortcut
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PluginManifestActionShortcut {
+    key: PluginManifestActionShortcutKey,
+    kind: PluginManifestActionShortcutKind,
+}
+
+// only stuff that is present on 60% keyboard
+#[derive(Debug, Deserialize)]
+pub enum PluginManifestActionShortcutKey {
+    #[serde(rename = "0")]
+    Num0,
+    #[serde(rename = "1")]
+    Num1,
+    #[serde(rename = "2")]
+    Num2,
+    #[serde(rename = "3")]
+    Num3,
+    #[serde(rename = "4")]
+    Num4,
+    #[serde(rename = "5")]
+    Num5,
+    #[serde(rename = "6")]
+    Num6,
+    #[serde(rename = "7")]
+    Num7,
+    #[serde(rename = "8")]
+    Num8,
+    #[serde(rename = "9")]
+    Num9,
+
+    #[serde(rename = "!")]
+    Exclamation,
+    #[serde(rename = "@")]
+    AtSign,
+    #[serde(rename = "#")]
+    Hash,
+    #[serde(rename = "$")]
+    Dollar,
+    #[serde(rename = "%")]
+    Percent,
+    #[serde(rename = "^")]
+    Caret,
+    #[serde(rename = "&")]
+    Ampersand,
+    #[serde(rename = "*")]
+    Star,
+    #[serde(rename = "(")]
+    LeftParenthesis,
+    #[serde(rename = ")")]
+    RightParenthesis,
+
+    #[serde(rename = "a")]
+    LowerA,
+    #[serde(rename = "b")]
+    LowerB,
+    #[serde(rename = "c")]
+    LowerC,
+    #[serde(rename = "d")]
+    LowerD,
+    #[serde(rename = "e")]
+    LowerE,
+    #[serde(rename = "f")]
+    LowerF,
+    #[serde(rename = "g")]
+    LowerG,
+    #[serde(rename = "h")]
+    LowerH,
+    #[serde(rename = "i")]
+    LowerI,
+    #[serde(rename = "j")]
+    LowerJ,
+    #[serde(rename = "k")]
+    LowerK,
+    #[serde(rename = "l")]
+    LowerL,
+    #[serde(rename = "m")]
+    LowerM,
+    #[serde(rename = "n")]
+    LowerN,
+    #[serde(rename = "o")]
+    LowerO,
+    #[serde(rename = "p")]
+    LowerP,
+    #[serde(rename = "q")]
+    LowerQ,
+    #[serde(rename = "r")]
+    LowerR,
+    #[serde(rename = "s")]
+    LowerS,
+    #[serde(rename = "t")]
+    LowerT,
+    #[serde(rename = "u")]
+    LowerU,
+    #[serde(rename = "v")]
+    LowerV,
+    #[serde(rename = "w")]
+    LowerW,
+    #[serde(rename = "x")]
+    LowerX,
+    #[serde(rename = "y")]
+    LowerY,
+    #[serde(rename = "z")]
+    LowerZ,
+
+    #[serde(rename = "A")]
+    UpperA,
+    #[serde(rename = "B")]
+    UpperB,
+    #[serde(rename = "C")]
+    UpperC,
+    #[serde(rename = "D")]
+    UpperD,
+    #[serde(rename = "E")]
+    UpperE,
+    #[serde(rename = "F")]
+    UpperF,
+    #[serde(rename = "G")]
+    UpperG,
+    #[serde(rename = "H")]
+    UpperH,
+    #[serde(rename = "I")]
+    UpperI,
+    #[serde(rename = "J")]
+    UpperJ,
+    #[serde(rename = "K")]
+    UpperK,
+    #[serde(rename = "L")]
+    UpperL,
+    #[serde(rename = "M")]
+    UpperM,
+    #[serde(rename = "N")]
+    UpperN,
+    #[serde(rename = "O")]
+    UpperO,
+    #[serde(rename = "P")]
+    UpperP,
+    #[serde(rename = "Q")]
+    UpperQ,
+    #[serde(rename = "R")]
+    UpperR,
+    #[serde(rename = "S")]
+    UpperS,
+    #[serde(rename = "T")]
+    UpperT,
+    #[serde(rename = "U")]
+    UpperU,
+    #[serde(rename = "V")]
+    UpperV,
+    #[serde(rename = "W")]
+    UpperW,
+    #[serde(rename = "X")]
+    UpperX,
+    #[serde(rename = "Y")]
+    UpperY,
+    #[serde(rename = "Z")]
+    UpperZ,
+
+    #[serde(rename = "-")]
+    Minus,
+    #[serde(rename = "=")]
+    Equals,
+    #[serde(rename = ",")]
+    Comma,
+    #[serde(rename = ".")]
+    Dot,
+    #[serde(rename = "/")]
+    Slash,
+    #[serde(rename = "[")]
+    OpenSquareBracket,
+    #[serde(rename = "]")]
+    CloseSquareBracket,
+    #[serde(rename = ";")]
+    Semicolon,
+    #[serde(rename = "'")]
+    Quote,
+    #[serde(rename = "\\")]
+    Backslash,
+
+    #[serde(rename = "_")]
+    Underscore,
+    #[serde(rename = "+")]
+    Plus,
+    #[serde(rename = "<")]
+    LessThan,
+    #[serde(rename = ">")]
+    GreaterThan,
+    #[serde(rename = "?")]
+    QuestionMark,
+    #[serde(rename = "{")]
+    LeftBrace,
+    #[serde(rename = "}")]
+    RightBrace,
+    #[serde(rename = ":")]
+    Colon,
+    #[serde(rename = "\"")]
+    DoubleQuotes,
+    #[serde(rename = "|")]
+    Pipe,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum PluginManifestActionShortcutKind {
+    #[serde(rename = "main")]
+    Main,
+    #[serde(rename = "alternative")]
+    Alternative,
 }
 
 #[derive(Debug, Deserialize)]

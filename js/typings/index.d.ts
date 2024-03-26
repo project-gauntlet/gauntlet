@@ -6,7 +6,7 @@ interface DenoCore {
     ops: InternalApi
 }
 
-type PluginEvent = ViewEvent | RunCommand | RunGeneratedCommand | OpenView | PluginCommand | OpenInlineView | ReloadSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | PluginCommand | OpenInlineView | ReloadSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -14,6 +14,17 @@ type ViewEvent = {
     widgetId: number
     eventName: string
     eventArguments: PropertyValue[]
+}
+
+// naming to avoid collision
+type NotReactsKeyboardEvent = {
+    type: "KeyboardEvent"
+    entrypointId: string
+    key: string
+    modifierShift: boolean
+    modifierControl: boolean
+    modifierAlt: boolean
+    modifierMeta: boolean
 }
 
 type OpenView = {
@@ -89,7 +100,9 @@ interface InternalApi {
 
     load_search_index(searchItems: AdditionalSearchItem[]): Promise<void>;
 
-    op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, container: UiWidget): void;
+    op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: UiWidget): void;
+
+    fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string>;
 }
 
 // component model types

@@ -20,6 +20,15 @@ description = """
 A reasonably long detail description that tries to tell something usefull
 """
 
+[[entrypoint.actions]]
+id = 'testAction1'
+description = "test action description 1"
+shortcut = { key = 'a', kind = 'main'}
+
+[[entrypoint.actions]]
+id = 'testAction2'
+description = "test action description 2"
+shortcut = { key = 'B', kind = 'main'}
 
 [[entrypoint.preferences]]
 name = 'testBool'
@@ -71,6 +80,11 @@ name = 'Form view'
 path = 'src/form-view.tsx'
 type = 'view'
 description = ''
+
+[[entrypoint.actions]]
+id = 'testAction'
+description = "test action description in form"
+shortcut = { key = ':', kind = 'main'}
 
 [[entrypoint]]
 id = 'inline-view'

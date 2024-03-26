@@ -227,10 +227,24 @@ impl ApplicationManager {
     pub fn handle_view_event(&self, plugin_id: PluginId, widget_id: UiWidgetId, event_name: String, event_arguments: Vec<PropertyValue>) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
-            data: OnePluginCommandData::HandleEvent {
+            data: OnePluginCommandData::HandleViewEvent {
                 widget_id,
                 event_name,
                 event_arguments
+            }
+        })
+    }
+
+    pub fn handle_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: String, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::HandleKeyboardEvent {
+                entrypoint_id,
+                key,
+                modifier_shift,
+                modifier_control,
+                modifier_alt,
+                modifier_meta,
             }
         })
     }

@@ -4,6 +4,7 @@ declare global {
     namespace JSX {
         interface IntrinsicElements {
             ["gauntlet:action"]: {
+                id?: string;
                 title: string;
                 onAction: () => void;
             };
@@ -172,11 +173,12 @@ export type ElementComponent<Comp extends FC<any>> = Element<Comp> | EmptyNode |
 export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>;
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
 export interface ActionProps {
+    id?: string;
     title: string;
     onAction: () => void;
 }
 export const Action: FC<ActionProps> = (props: ActionProps): ReactNode => {
-    return <gauntlet:action title={props.title} onAction={props.onAction}/>;
+    return <gauntlet:action id={props.id} title={props.title} onAction={props.onAction}/>;
 };
 export interface ActionPanelSectionProps {
     children?: ElementComponent<typeof Action>;
