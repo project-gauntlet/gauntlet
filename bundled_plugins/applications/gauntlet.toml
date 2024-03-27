@@ -1,0 +1,13 @@
+[gauntlet]
+name = 'Bundled - Applications'
+description = ''
+
+[[entrypoint]]
+id = 'default'
+name = 'Default'
+path = 'src/default.ts'
+type = 'command-generator'
+description = ''
+
+[[supported_system]]
+os = 'linux'

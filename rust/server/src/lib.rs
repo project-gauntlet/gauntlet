@@ -32,16 +32,17 @@ async fn run_server() -> anyhow::Result<()> {
     let search_index = SearchIndex::create_index()?;
     let mut application_manager = ApplicationManager::create(search_index.clone()).await?;
 
+    if let Err(err) = application_manager.load_builtin_plugins().await {
+        tracing::error!("error loading bundled plugin(s): {:?}", err);
+    }
+
     if cfg!(feature = "dev") {
         let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin/dist").to_owned();
         let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
         let plugin_path = plugin_path.to_str().expect("valid utf8");
 
-        let result = application_manager.save_local_plugin(plugin_path)
-            .await;
-
-        if let Err(err) = result {
-            tracing::error!("error loading dev plugin: {}", err);
+        if let Err(err) = application_manager.save_local_plugin(plugin_path).await {
+            tracing::error!("error loading dev plugin: {:?}", err);
         }
     }
 

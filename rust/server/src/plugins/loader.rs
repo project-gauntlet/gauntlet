@@ -2,17 +2,19 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::DirEntry;
+use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::thread;
 
 use anyhow::{anyhow, Context};
+use include_dir::Dir;
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use common::model::{DownloadStatus, PluginId};
 
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
 use crate::plugins::download_status::DownloadStatusHolder;
 use crate::plugins::js::asset_data;
 
@@ -57,7 +59,7 @@ impl PluginLoader {
                     entrypoints: plugin_data.entrypoints,
                     asset_data: plugin_data.asset_data,
                     permissions: plugin_data.permissions,
-                    from_config: false,
+                    plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
                     preferences: plugin_data.preferences,
                     preferences_user_data: HashMap::new(),
                 }).await?;
@@ -96,7 +98,37 @@ impl PluginLoader {
             entrypoints: plugin_data.entrypoints,
             asset_data: plugin_data.asset_data,
             permissions: plugin_data.permissions,
-            from_config: false,
+            plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
+            preferences: plugin_data.preferences,
+            preferences_user_data: HashMap::new()
+        }).await?;
+
+        Ok(plugin_id)
+    }
+
+    pub async fn save_builtin_plugin(&self, id: &str, dir: &Dir<'_>) -> anyhow::Result<PluginId> {
+        let plugin_id = PluginId::from_string(format!("builtin://{id}"));
+        let temp_dir = tempfile::tempdir()?;
+
+        dir.extract(&temp_dir)?;
+
+        let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
+            .await
+            .context("Unable to read plugin directory")?;
+
+        // TODO instead of overwrite just update the code and assets
+        self.db_repository.remove_plugin(&plugin_data.id).await?;
+
+        self.db_repository.save_plugin(DbWritePlugin {
+            id: plugin_data.id,
+            name: plugin_data.name,
+            description: plugin_data.description,
+            enabled: true,
+            code: plugin_data.code,
+            entrypoints: plugin_data.entrypoints,
+            asset_data: plugin_data.asset_data,
+            permissions: plugin_data.permissions,
+            plugin_type: db_plugin_type_to_str(DbPluginType::Bundled).to_owned(),
             preferences: plugin_data.preferences,
             preferences_user_data: HashMap::new()
         }).await?;
@@ -162,6 +194,10 @@ impl PluginLoader {
         let asset_data = WalkDir::new(&assets)
             .into_iter()
             .collect::<walkdir::Result<Vec<walkdir::DirEntry>>>()
+            .or_else(|err| match err.io_error() {
+                Some(err) if matches!(err.kind(), ErrorKind::NotFound) => Ok(vec![]),
+                _ => Err(err),
+            })
             .context("Unable to get list of plugin asset data files")?
             .into_iter()
             .filter(|dir_entry| dir_entry.file_type().is_file())

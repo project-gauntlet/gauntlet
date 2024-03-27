@@ -1,0 +1,11 @@
+[gauntlet]
+name = 'Bundled - Calculator'
+description = ''
+
+[[entrypoint]]
+id = 'default'
+name = 'Default'
+path = 'src/default.tsx'
+type = 'inline-view'
+description = ''
+

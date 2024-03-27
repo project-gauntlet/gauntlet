@@ -5,7 +5,7 @@ edition = "2021"
 [dependencies]
 tokio = "1.28.1"
 clap = { version = "4.3.22", features = ["derive"] }
-anyhow = "1.0.75"
+anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1.0.48"
 #iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced"] }
 iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet", features = ["tokio", "lazy", "advanced"] }

@@ -15,7 +15,7 @@ once_cell = "1.18.0"
 gix = { version = "0.52.0", features = ["blocking-http-transport-curl"] }
 tempfile = "3"
 async-stream = "0.3.5"
-anyhow = "1.0.75"
+anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1.0.48"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -26,6 +26,7 @@ component_model = { path = "../component_model" }
 tonic = "0.11.0"
 client = { path = "../client" }
 walkdir = "2.4.0"
+include_dir = "0.7.3"
 
 [features]
 dev = []

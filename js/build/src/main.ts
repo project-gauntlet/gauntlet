@@ -25,26 +25,15 @@ program.command('build')
 await program.parseAsync(process.argv);
 
 function build(projectRoot: string, check: boolean) {
-    console.log("Building @project-gauntlet/api-build...")
-    execSync('npm run build --workspace @project-gauntlet/api-build', { stdio: "inherit", cwd: projectRoot});
-    console.log("Building @project-gauntlet/api...")
-    execSync('npm run build --workspace @project-gauntlet/api', { stdio: "inherit", cwd: projectRoot});
-    console.log("Building @project-gauntlet/deno...")
-    execSync('npm run build --workspace @project-gauntlet/deno', { stdio: "inherit", cwd: projectRoot });
-    console.log("Building @project-gauntlet/react...")
-    execSync('npm run build --workspace @project-gauntlet/react', { stdio: "inherit", cwd: projectRoot });
-
-    console.log("Building @project-gauntlet/react-renderer...")
-    execSync('npm run build --workspace @project-gauntlet/react-renderer', { stdio: "inherit", cwd: projectRoot });
-    console.log("Building @project-gauntlet/core...")
-    execSync('npm run build --workspace @project-gauntlet/core', { stdio: "inherit", cwd: projectRoot });
+    console.log("Building js...")
+    execSync('npm run build', { stdio: "inherit", cwd: projectRoot});
 
     if (check) {
-        console.log("Check application...")
+        console.log("Checking rust...")
         execSync('cargo check', { stdio: "inherit", cwd: projectRoot });
     }
 
-    console.log("Building application...")
+    console.log("Building rust...")
     execSync('cargo build --release', { stdio: "inherit", cwd: projectRoot });
 }
 

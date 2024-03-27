@@ -4,7 +4,7 @@ edition = "2021"
 
 [dependencies]
 gix = { version = "0.52.0", features = ["blocking-http-transport-curl"] }
-anyhow = "1.0.75"
+anyhow = { version = "1", features = ["backtrace"] }
 tonic = "0.11.0"
 prost = "0.12.3"
 

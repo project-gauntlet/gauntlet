@@ -30,7 +30,8 @@ pub struct DbReadPlugin {
     pub code: DbCode,
     #[sqlx(json)]
     pub permissions: DbPluginPermissions,
-    pub from_config: bool,
+    #[sqlx(rename = "type")]
+    pub plugin_type: String,
     #[sqlx(json)]
     pub preferences: HashMap<String, DbPluginPreference>,
     #[sqlx(json)]
@@ -70,7 +71,7 @@ pub struct DbWritePlugin {
     pub entrypoints: Vec<DbWritePluginEntrypoint>,
     pub asset_data: Vec<DbWritePluginAssetData>,
     pub permissions: DbPluginPermissions,
-    pub from_config: bool,
+    pub plugin_type: String,
     pub preferences: HashMap<String, DbPluginPreference>,
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
@@ -97,6 +98,13 @@ pub enum DbPluginEntrypointType {
     View,
     InlineView,
     CommandGenerator,
+}
+
+#[derive(Debug, Clone)]
+pub enum DbPluginType {
+    Normal,
+    Config,
+    Bundled,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -524,10 +532,10 @@ impl DataDbRepository {
             .bind(plugin.enabled)
             .bind(Json(plugin.code))
             .bind(Json(plugin.permissions))
-            .bind(false)
             .bind(Json(plugin.preferences))
             .bind(Json(plugin.preferences_user_data))
             .bind(plugin.description)
+            .bind(plugin.plugin_type)
             .execute(&mut *tx)
             .await?;
 
@@ -580,6 +588,24 @@ pub fn db_entrypoint_from_str(value: &str) -> DbPluginEntrypointType {
         "view" => DbPluginEntrypointType::View,
         "inline-view" => DbPluginEntrypointType::InlineView,
         "command-generator" => DbPluginEntrypointType::CommandGenerator,
-        _ => panic!("index contains illegal entrypoint_type: {}", value)
+        _ => panic!("illegal entrypoint_type: {}", value)
+    }
+}
+
+
+pub fn db_plugin_type_to_str(value: DbPluginType) -> &'static str {
+    match value {
+        DbPluginType::Normal => "normal",
+        DbPluginType::Config => "config",
+        DbPluginType::Bundled => "bundled"
+    }
+}
+
+pub fn db_plugin_type_from_str(value: &str) -> DbPluginType {
+    match value {
+        "normal" => DbPluginType::Normal,
+        "config" => DbPluginType::Config,
+        "bundled" => DbPluginType::Bundled,
+        _ => panic!("illegal plugin_type: {}", value)
     }
 }

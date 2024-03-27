@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use include_dir::{Dir, include_dir};
 
 use common::model::{DownloadStatus, EntrypointId, PluginId, PropertyValue};
 use common::rpc::{plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, rpc_ui_property_value, RpcEntrypoint, RpcEntrypointTypeSettings, RpcEnumValue, RpcNoProtoBufPluginPreferenceUserData, RpcPlugin, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue};
@@ -18,6 +19,12 @@ mod config_reader;
 mod loader;
 mod run_status;
 mod download_status;
+
+
+static BUILTIN_PLUGINS: [(&str, Dir); 2] = [
+    ("applications", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/applications/dist")),
+    ("calculator", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/calculator/dist")),
+];
 
 pub struct ApplicationManager {
     config_reader: ConfigReader,
@@ -65,6 +72,18 @@ impl ApplicationManager {
         let plugin_id = self.plugin_downloader.save_local_plugin(path, true).await?;
 
         self.reload_plugin(plugin_id).await?;
+
+        Ok(())
+    }
+
+    pub async fn load_builtin_plugins(&self) -> anyhow::Result<()> {
+        for (id, dir) in &BUILTIN_PLUGINS {
+            tracing::info!(target = "plugin", "Saving builtin plugin with id: {:?}", id);
+
+            let plugin_id = self.plugin_downloader.save_builtin_plugin(id, dir).await?;
+
+            self.reload_plugin(plugin_id).await?;
+        }
 
         Ok(())
     }

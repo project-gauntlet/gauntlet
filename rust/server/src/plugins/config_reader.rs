@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use tracing::{error, info};
 
 use crate::dirs::Dirs;
 use crate::plugins::data_db_repository::{DataDbRepository, DbWritePendingPlugin};
@@ -42,17 +41,15 @@ impl ConfigReader {
 
         match config_content {
             Ok(config_content) => {
-                match toml::from_str(&config_content) {
-                    Ok(config) => config,
-                    Err(err) => {
-                        error!("Unable to parse config, error: {error}", error = err.message());
+                toml::from_str(&config_content)
+                    .unwrap_or_else(|err| {
+                        tracing::error!("Unable to parse config, error: {:?}", err);
 
                         ApplicationConfig::default()
-                    }
-                }
+                    })
             }
             Err(_) => {
-                info!("No config found, using default configuration");
+                tracing::info!("No config found, using default configuration");
 
                 ApplicationConfig::default()
             }

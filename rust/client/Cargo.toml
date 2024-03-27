@@ -4,7 +4,7 @@ edition = "2021"
 
 [dependencies]
 tokio = "1.28.1"
-anyhow = "1"
+anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1"
 #iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced"] }
 iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet", features = ["tokio", "lazy", "advanced", "multi-window", "image"] }
@@ -20,5 +20,5 @@ itertools = "0.12.1"
 
 [build-dependencies]
 component_model = { path = "../component_model" }
-anyhow = "1"
+anyhow = { version = "1", features = ["backtrace"] }
 convert_case = "0.6.0"
