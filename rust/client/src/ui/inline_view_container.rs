@@ -27,9 +27,6 @@ pub struct PluginContainerState {
 
 pub enum InlineViewContainerEvent {
     WidgetEvent(ComponentWidgetEvent),
-    Local {
-
-    }
 }
 
 impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
@@ -53,7 +50,7 @@ impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
                     widget_event: event,
                 })
             }
-            InlineViewContainerEvent::Local { .. } => Some(AppMsg::Noop)        }
+        }
     }
 
     fn view(&self, state: &Self::State) -> Element<Self::Event> {
