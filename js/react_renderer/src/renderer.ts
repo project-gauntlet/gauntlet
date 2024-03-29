@@ -101,6 +101,14 @@ export function getAssetDataSync(path: string): ArrayBuffer {
     return new Uint8Array(vecU8).buffer;
 }
 
+export function getPluginPreferences(): Record<string, any> {
+    return gauntletContextValue.pluginPreferences()
+}
+
+export function getEntrypointPreferences(): Record<string, any> {
+    return gauntletContextValue.entrypointPreferences()
+}
+
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
     const component = hostContext.componentModel[type];
 

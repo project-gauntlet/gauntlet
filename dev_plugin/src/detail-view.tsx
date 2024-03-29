@@ -1,8 +1,8 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
-import { useNavigation, useEntrypointPreferences, usePluginPreferences } from "@project-gauntlet/api/hooks";
-import { assetDataSync } from "@project-gauntlet/api/helpers";
+import { useNavigation } from "@project-gauntlet/api/hooks";
+import { assetDataSync, pluginPreferences, entrypointPreferences } from "@project-gauntlet/api/helpers";
 
 interface DetailViewEntrypointConfig {
     testBool: boolean
@@ -43,8 +43,8 @@ export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
 
     const { pushView } = useNavigation();
-    const { testBool } = usePluginPreferences<{ testBool: boolean }>();
-    const entrypointPreferences = useEntrypointPreferences<DetailViewEntrypointConfig>();
+    const { testBool } = pluginPreferences<{ testBool: boolean }>();
+    const preferences = entrypointPreferences<DetailViewEntrypointConfig>();
 
     const env = Deno.env.get("RUST_LOG");
     console.log("RUST_LOG:", env);
@@ -105,7 +105,7 @@ export default function DetailView(): ReactElement {
                     Plugin config: {JSON.stringify(testBool)}
                 </Detail.Content.Paragraph>
                 <Detail.Content.Paragraph>
-                    Entrypoint config: {JSON.stringify(entrypointPreferences)}
+                    Entrypoint config: {JSON.stringify(preferences)}
                 </Detail.Content.Paragraph>
                 <Detail.Content.H4>Another H4 Title</Detail.Content.H4>
                 <Detail.Content.Paragraph>
