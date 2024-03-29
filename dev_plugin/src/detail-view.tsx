@@ -2,7 +2,7 @@ import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
 import { useNavigation } from "@project-gauntlet/api/hooks";
-import { assetDataSync, pluginPreferences, entrypointPreferences } from "@project-gauntlet/api/helpers";
+import { assetData, pluginPreferences, entrypointPreferences } from "@project-gauntlet/api/helpers";
 
 interface DetailViewEntrypointConfig {
     testBool: boolean
@@ -49,7 +49,7 @@ export default function DetailView(): ReactElement {
     const env = Deno.env.get("RUST_LOG");
     console.log("RUST_LOG:", env);
 
-    const logoData = assetDataSync("logo.png");
+    const logoData = assetData("logo.png");
 
     return (
         <Detail

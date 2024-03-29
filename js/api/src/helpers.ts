@@ -1,11 +1,7 @@
 // @ts-ignore TODO how to add declaration for this?
-import { getAssetData, getAssetDataSync, getPluginPreferences, getEntrypointPreferences } from "gauntlet:renderer";
+import { getAssetDataSync, getPluginPreferences, getEntrypointPreferences } from "gauntlet:renderer";
 
-export async function assetData(path: string): Promise<ArrayBuffer> {
-    return await getAssetData(path)
-}
-
-export function assetDataSync(path: string): ArrayBuffer {
+export function assetData(path: string): ArrayBuffer {
     return getAssetDataSync(path)
 }
 
