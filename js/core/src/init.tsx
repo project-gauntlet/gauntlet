@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { generatedCommandSearchIndex, runCommandGenerators, runGeneratedCommand } from "./command-generator";
+import { runCommandGenerators, runGeneratedCommand } from "./command-generator";
 import { loadSearchIndex } from "./search-index";
 
 // @ts-expect-error does typescript support such symbol declarations?
@@ -137,7 +137,8 @@ async function runLoop() {
             }
             case "RunCommand": {
                 try {
-                    await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)
+                    const command: () => void = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
+                    command()
                 } catch (e) {
                     console.error("Error occurred when running a command", pluginEvent.entrypointId, e)
                 }
