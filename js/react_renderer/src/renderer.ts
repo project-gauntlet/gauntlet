@@ -122,7 +122,7 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
                         if (value.data !== undefined) {
                             return [key, Array.from(new Uint8Array(value.data))]
                         } else {
-                            throw new Error("'icon' or 'data' property should be provided on image source property")
+                            throw new Error("'data' property should be provided on image source property")
                         }
                     }
                 }
@@ -287,9 +287,6 @@ export const createHostConfig = (): HostConfig<
     ): Instance {
         InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}, keepChildren: ${keepChildren}, recyclableInstance: ${Deno.inspect(recyclableInstance)}`)
 
-        // TODO validate
-        // TODO     validate_properties(&state, &instance.widget_type, &new_props)?;
-
         let clonedInstance: Instance;
 
         if (keepChildren) {
@@ -329,6 +326,10 @@ export const createHostConfig = (): HostConfig<
 
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
+
+        // TODO validate
+        // TODO     validate_properties(&state, &instance.widget_type, &new_props)?;
+
         container.widgetChildren = newChildren
         InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), container)
     },

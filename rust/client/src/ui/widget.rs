@@ -173,32 +173,7 @@ impl ComponentWidgetWrapper {
         let widget_id = self.id;
         let (widget, state) = &*self.get();
         match widget {
-            ComponentWidget::TextPart { value } => {
-                let size = match context {
-                    ComponentRenderContext::None => None,
-                    ComponentRenderContext::H1 => Some(34),
-                    ComponentRenderContext::H2 => Some(30),
-                    ComponentRenderContext::H3 => Some(24),
-                    ComponentRenderContext::H4 => Some(20),
-                    ComponentRenderContext::H5 => Some(18),
-                    ComponentRenderContext::H6 => Some(16),
-                    ComponentRenderContext::List { .. } => panic!("not supposed to be passed to text part"),
-                    ComponentRenderContext::Grid { .. } => panic!("not supposed to be passed to text part"),
-                };
-
-                let mut text = text(value);
-
-                if let Some(size) = size {
-                    text = text
-                        .size(size)
-                        .font(Font {
-                            weight: Weight::Bold,
-                            ..Font::DEFAULT
-                        })
-                }
-
-                text.into()
-            }
+            ComponentWidget::TextPart { value } => render_text_part(value, context),
             ComponentWidget::Action { title, .. } => {
                 button(text(title))
                     .on_press(ComponentWidgetEvent::ActionClick { widget_id })
@@ -271,8 +246,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::MetadataTagItem { children } => {
-                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
-                    .into();
+                let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let tag: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::TagClick { widget_id })
@@ -290,8 +264,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::MetadataLink { label, children, href } => {
-                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
-                    .into();
+                let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let link: Element<_> = button(content)
                     .style(ButtonStyle::Link)
@@ -313,8 +286,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::MetadataValue { label, children} => {
-                let value = row(render_children(children, ComponentRenderContext::None))
-                    .into();
+                let value: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 render_metadata_item(label, value)
                     .into()
@@ -343,8 +315,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Paragraph { children } => {
-                let paragraph: Element<_> = row(render_children(children, context))
-                    .into();
+                let paragraph: Element<_> = render_children_string(children, context);
 
                 container(paragraph)
                     .width(Length::Fill)
@@ -352,8 +323,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Link { children, href } => {
-                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
-                    .into();
+                let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let content: Element<_> = button(content)
                     .style(ButtonStyle::Link)
@@ -376,28 +346,22 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::H1 { children } => {
-                row(render_children(children, ComponentRenderContext::H1))
-                    .into()
+                render_children_string(children, ComponentRenderContext::H1)
             }
             ComponentWidget::H2 { children } => {
-                row(render_children(children, ComponentRenderContext::H2))
-                    .into()
+                render_children_string(children, ComponentRenderContext::H2)
             }
             ComponentWidget::H3 { children } => {
-                row(render_children(children, ComponentRenderContext::H3))
-                    .into()
+                render_children_string(children, ComponentRenderContext::H3)
             }
             ComponentWidget::H4 { children } => {
-                row(render_children(children, ComponentRenderContext::H4))
-                    .into()
+                render_children_string(children, ComponentRenderContext::H4)
             }
             ComponentWidget::H5 { children } => {
-                row(render_children(children, ComponentRenderContext::H5))
-                    .into()
+                render_children_string(children, ComponentRenderContext::H5)
             }
             ComponentWidget::H6 { children } => {
-                row(render_children(children, ComponentRenderContext::H6))
-                    .into()
+                render_children_string(children, ComponentRenderContext::H6)
             }
             ComponentWidget::HorizontalBreak => {
                 let separator: Element<_> = horizontal_rule(1).into();
@@ -408,7 +372,9 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::CodeBlock { children } => {
-                let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
+                let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
+
+                let content: Element<_> = container(content)
                     .padding(Padding::from([3.0, 5.0]))
                     .into();
 
@@ -1086,6 +1052,54 @@ fn render_root<'a>(show_action_panel: bool, widget_id: NativeUiWidgetId, childre
         .hide(hide_action_panel)
         .into()
 }
+
+fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
+    let header = match context {
+        ComponentRenderContext::None => None,
+        ComponentRenderContext::H1 => Some(34),
+        ComponentRenderContext::H2 => Some(30),
+        ComponentRenderContext::H3 => Some(24),
+        ComponentRenderContext::H4 => Some(20),
+        ComponentRenderContext::H5 => Some(18),
+        ComponentRenderContext::H6 => Some(16),
+        ComponentRenderContext::List { .. } => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::Grid { .. } => panic!("not supposed to be passed to text part"),
+    };
+
+    let mut text = text(value);
+
+    if let Some(size) = header {
+        text = text
+            .size(size)
+            .font(Font {
+                weight: Weight::Bold,
+                ..Font::DEFAULT
+            })
+    }
+
+    text.into()
+}
+
+fn render_children_string<'a>(
+    content: &[ComponentWidgetWrapper],
+    context: ComponentRenderContext
+) -> Element<'a, ComponentWidgetEvent> {
+    let text_part = content
+        .into_iter()
+        .map(|child| {
+            let (widget, _) = &*child.get();
+
+            let ComponentWidget::TextPart { value } = widget else {
+                panic!("unexpected widget kind {:?}", widget)
+            };
+
+            value.clone()
+        })
+        .join("");
+
+    return render_text_part(&text_part, context);
+}
+
 
 fn render_children<'a>(
     content: &[ComponentWidgetWrapper],
