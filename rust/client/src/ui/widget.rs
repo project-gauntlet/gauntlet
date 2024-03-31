@@ -561,11 +561,12 @@ impl ComponentWidgetWrapper {
                 };
 
                 let items: Vec<Element<_>> = children.iter()
-                    .map(|child| {
+                    .flat_map(|child| {
                         let (widget, _) = &*child.get();
 
                         match widget {
-                            ComponentWidget::Separator => child.render_widget(context),
+                            ComponentWidget::Separator => Some(child.render_widget(context)),
+                            ComponentWidget::ActionPanel { .. } => None,
                             _ => {
                                 let label = match widget {
                                     ComponentWidget::TextField { label, .. } => label.clone(),
@@ -607,9 +608,11 @@ impl ComponentWidgetWrapper {
                                     after,
                                 ];
 
-                                row(content)
+                                let row: Element<_> = row(content)
                                     .padding(Padding::new(10.0))
-                                    .into()
+                                    .into();
+
+                                Some(row)
                             }
                         }
                     })
