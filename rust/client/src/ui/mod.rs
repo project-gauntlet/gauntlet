@@ -6,7 +6,7 @@ use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
-use iced::multi_window::Application;
+use iced::Application;
 use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, reposition};
@@ -159,7 +159,7 @@ impl Application for AppModel {
         )
     }
 
-    fn title(&self, _: window::Id) -> String {
+    fn title(&self) -> String {
         "Gauntlet".to_owned()
     }
 
@@ -365,7 +365,7 @@ impl Application for AppModel {
         }
     }
 
-    fn view(&self, _: window::Id) -> Element<'_, Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         match &self.view_data {
             None => {
                 let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
@@ -456,7 +456,7 @@ impl Application for AppModel {
         }
     }
 
-    fn theme(&self, _: window::Id) -> Self::Theme {
+    fn theme(&self) -> Self::Theme {
         GauntletTheme::new()
     }
 
