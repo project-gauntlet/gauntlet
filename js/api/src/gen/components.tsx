@@ -93,6 +93,7 @@ declare global {
             };
             ["gauntlet:checkbox"]: {
                 label?: string;
+                title?: string;
                 value?: boolean;
                 onChange?: (value: boolean) => void;
             };
@@ -386,11 +387,12 @@ export const PasswordField: FC<PasswordFieldProps> = (props: PasswordFieldProps)
 };
 export interface CheckboxProps {
     label?: string;
+    title?: string;
     value?: boolean;
     onChange?: (value: boolean) => void;
 }
 export const Checkbox: FC<CheckboxProps> = (props: CheckboxProps): ReactNode => {
-    return <gauntlet:checkbox label={props.label} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:checkbox label={props.label} title={props.title} value={props.value} onChange={props.onChange}/>;
 };
 export interface DatePickerProps {
     label?: string;

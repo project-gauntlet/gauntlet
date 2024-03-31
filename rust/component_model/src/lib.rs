@@ -497,6 +497,7 @@ pub fn create_component_model() -> Vec<Component> {
         "Checkbox",
         [
             property("label", true, PropertyType::String),
+            property("title", true, PropertyType::String),
             property("value", true, PropertyType::Boolean),
             event("onChange", true, [property("value", false, PropertyType::Boolean)])
         ],

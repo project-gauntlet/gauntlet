@@ -48,6 +48,7 @@ export default function FormView(): ReactElement {
             />
             <Form.Checkbox
                 label={"My checkbox"}
+                title={"Checkbox title"}
                 onChange={value => {
                     console.log(`uncontrolled value: ${value}`)
                 }}

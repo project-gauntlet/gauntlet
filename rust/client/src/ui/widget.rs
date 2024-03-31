@@ -475,12 +475,12 @@ impl ComponentWidgetWrapper {
                     .style(TextInputStyle::Form)
                     .into()
             }
-            ComponentWidget::Checkbox { .. } => {
+            ComponentWidget::Checkbox { title, .. } => {
                 let ComponentWidgetState::Checkbox { state_value } = state else {
                     panic!("unexpected state kind {:?}", state)
                 };
 
-                checkbox("", state_value.to_owned())
+                checkbox(title.clone().unwrap_or_default(), state_value.to_owned())
                     .on_toggle(move |value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
                     .into()
             }
