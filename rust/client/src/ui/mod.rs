@@ -514,6 +514,7 @@ impl AppModel {
         Command::batch([
             window::change_mode(window::Id::MAIN, window::Mode::Windowed),
             window::gain_focus(window::Id::MAIN),
+            reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
         ])
