@@ -214,8 +214,9 @@ impl Application for ManagementAppModel {
         }).unwrap();
 
         let settings_env_data = std::env::var(SETTINGS_ENV)
-            .map(|val| settings_env_data_from_string(val))
-            .ok();
+            .ok()
+            .filter(|value| !value.is_empty())
+            .map(|val| settings_env_data_from_string(val));
 
         let select_item = match settings_env_data {
             None => SelectedItem::None,
