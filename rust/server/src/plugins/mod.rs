@@ -69,7 +69,7 @@ impl ApplicationManager {
     ) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Saving local plugin at path: {:?}", path);
 
-        let plugin_id = self.plugin_downloader.save_local_plugin(path, true).await?;
+        let plugin_id = self.plugin_downloader.save_local_plugin(path).await?;
 
         self.reload_plugin(plugin_id).await?;
 

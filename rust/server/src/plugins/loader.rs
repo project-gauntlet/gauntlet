@@ -61,7 +61,6 @@ impl PluginLoader {
                     permissions: plugin_data.permissions,
                     plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
                     preferences: plugin_data.preferences,
-                    preferences_user_data: HashMap::new(),
                 }).await?;
 
                 anyhow::Ok(())
@@ -76,18 +75,13 @@ impl PluginLoader {
         Ok(())
     }
 
-    pub async fn save_local_plugin(&self, path: &str, overwrite: bool) -> anyhow::Result<PluginId> {
+    pub async fn save_local_plugin(&self, path: &str) -> anyhow::Result<PluginId> {
         let plugin_id = PluginId::from_string(format!("file://{path}"));
         let plugin_dir = plugin_id.try_to_path()?;
 
         let plugin_data = PluginLoader::read_plugin_dir(plugin_dir.as_path(), plugin_id.clone())
             .await
             .context("Unable to read plugin directory")?;
-
-        if overwrite {
-            // TODO instead of overwrite just update the code and assets
-            self.db_repository.remove_plugin(&plugin_data.id).await?
-        }
 
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
@@ -100,7 +94,6 @@ impl PluginLoader {
             permissions: plugin_data.permissions,
             plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
             preferences: plugin_data.preferences,
-            preferences_user_data: HashMap::new()
         }).await?;
 
         Ok(plugin_id)
@@ -116,9 +109,6 @@ impl PluginLoader {
             .await
             .context("Unable to read plugin directory")?;
 
-        // TODO instead of overwrite just update the code and assets
-        self.db_repository.remove_plugin(&plugin_data.id).await?;
-
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
             name: plugin_data.name,
@@ -130,7 +120,6 @@ impl PluginLoader {
             permissions: plugin_data.permissions,
             plugin_type: db_plugin_type_to_str(DbPluginType::Bundled).to_owned(),
             preferences: plugin_data.preferences,
-            preferences_user_data: HashMap::new()
         }).await?;
 
         Ok(plugin_id)
@@ -271,7 +260,6 @@ impl PluginLoader {
                         },
                     })
                     .collect(),
-                preferences_user_data: HashMap::new(),
                 actions: entrypoint.actions.into_iter()
                     .map(|action| DbPluginAction {
                         id: action.id,
@@ -376,7 +364,6 @@ impl PluginLoader {
                         },
                     })
                     .collect(),
-                actions_user_data: vec![],
             })
             .collect();
 

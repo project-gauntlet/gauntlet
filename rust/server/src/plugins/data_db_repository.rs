@@ -1,17 +1,18 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use anyhow::Context;
+use anyhow::{Context, Error};
 use deno_core::error::AnyError;
 use deno_core::futures;
 use deno_core::futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Sqlite, SqlitePool};
+use sqlx::{Executor, Pool, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 
 use crate::dirs::Dirs;
+use crate::plugins::js::plugin_id;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -73,7 +74,6 @@ pub struct DbWritePlugin {
     pub permissions: DbPluginPermissions,
     pub plugin_type: String,
     pub preferences: HashMap<String, DbPluginPreference>,
-    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
 pub struct DbWritePluginEntrypoint {
@@ -82,9 +82,7 @@ pub struct DbWritePluginEntrypoint {
     pub description: String,
     pub entrypoint_type: String,
     pub preferences: HashMap<String, DbPluginPreference>,
-    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
     pub actions: Vec<DbPluginAction>,
-    pub actions_user_data: Vec<DbPluginActionUserData>,
 }
 
 pub struct DbWritePluginAssetData {
@@ -279,31 +277,87 @@ impl DataDbRepository {
     }
 
     pub async fn get_plugin_by_id(&self, plugin_id: &str) -> anyhow::Result<DbReadPlugin> {
+        self.get_plugin_by_id_with_executor(plugin_id, &self.pool).await
+    }
+
+    async fn get_plugin_by_id_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<DbReadPlugin>
+        where
+            E: Executor<'a, Database=Sqlite>,
+    {
         // language=SQLite
         let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
             .bind(plugin_id)
-            .fetch_one(&self.pool)
+            .fetch_one(executor)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn get_plugin_by_id_option(&self, plugin_id: &str) -> anyhow::Result<Option<DbReadPlugin>> {
+        self.get_plugin_by_id_option_with_executor(plugin_id, &self.pool).await
+    }
+
+    async fn get_plugin_by_id_option_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<Option<DbReadPlugin>>
+        where
+            E: Executor<'a, Database=Sqlite>,
+    {
+        // language=SQLite
+        let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
+            .bind(plugin_id)
+            .fetch_optional(executor)
             .await?;
 
         Ok(result)
     }
 
     pub async fn get_entrypoints_by_plugin_id(&self, plugin_id: &str) -> anyhow::Result<Vec<DbReadPluginEntrypoint>> {
+        self.get_entrypoints_by_plugin_id_with_executor(plugin_id, &self.pool).await
+    }
+
+    async fn get_entrypoints_by_plugin_id_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<Vec<DbReadPluginEntrypoint>>
+        where
+            E: Executor<'a, Database=Sqlite>
+    {
         // language=SQLite
         let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE plugin_id = ?1")
             .bind(plugin_id)
-            .fetch_all(&self.pool)
+            .fetch_all(executor)
             .await?;
 
         Ok(result)
     }
 
     pub async fn get_entrypoint_by_id(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<DbReadPluginEntrypoint> {
+        self.get_entrypoint_by_id_with_executor(plugin_id, entrypoint_id, &self.pool).await
+    }
+
+    async fn get_entrypoint_by_id_with_executor<'a, E>(&self, plugin_id: &str, entrypoint_id: &str, executor: E) -> anyhow::Result<DbReadPluginEntrypoint>
+        where
+            E: Executor<'a, Database=Sqlite>,
+    {
         // language=SQLite
         let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
             .bind(entrypoint_id)
             .bind(plugin_id)
-            .fetch_one(&self.pool)
+            .fetch_one(executor)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn get_entrypoint_by_id_option(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<Option<DbReadPluginEntrypoint>> {
+        self.get_entrypoint_by_id_option_with_executor(plugin_id, entrypoint_id, &self.pool).await
+    }
+
+    async fn get_entrypoint_by_id_option_with_executor<'a, E>(&self, plugin_id: &str, entrypoint_id: &str, executor: E) -> anyhow::Result<Option<DbReadPluginEntrypoint>>
+        where
+            E: Executor<'a, Database=Sqlite>,
+    {
+        // language=SQLite
+        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
+            .bind(entrypoint_id)
+            .bind(plugin_id)
+            .fetch_optional(executor)
             .await?;
 
         Ok(result)
@@ -441,6 +495,22 @@ impl DataDbRepository {
         Ok(result.data)
     }
 
+    async fn get_all_asset_data_paths<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<HashSet<String>>
+        where
+            E: Executor<'a, Database=Sqlite>,
+    {
+        // language=SQLite
+        let result = sqlx::query_as::<_, (String, )>("SELECT path FROM plugin_asset_data WHERE plugin_id = ?1")
+            .bind(plugin_id)
+            .fetch_all(executor)
+            .await?
+            .into_iter()
+            .map(|result| result.0)
+            .collect();
+
+        Ok(result)
+    }
+
     pub async fn set_plugin_enabled(&self, plugin_id: &str, enabled: bool) -> anyhow::Result<()> {
         // language=SQLite
         sqlx::query("UPDATE plugin SET enabled = ?1 WHERE id = ?2")
@@ -465,12 +535,11 @@ impl DataDbRepository {
     }
 
     pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, user_data_name: String, user_data_value: DbPluginPreferenceUserData) -> anyhow::Result<()> {
-        // should probably json_patch in database for atomic update,
-        // but that doesn't matter in this app
+        let mut tx = self.pool.begin().await?;
 
         match entrypoint_id {
             None => {
-                let mut user_data = self.get_plugin_by_id(&plugin_id)
+                let mut user_data = self.get_plugin_by_id_with_executor(&plugin_id, &mut *tx)
                     .await?
                     .preferences_user_data;
 
@@ -480,11 +549,11 @@ impl DataDbRepository {
                 sqlx::query("UPDATE plugin SET preferences_user_data = ?1 WHERE id = ?2")
                     .bind(Json(user_data))
                     .bind(&plugin_id)
-                    .execute(&self.pool)
+                    .execute(&mut *tx)
                     .await?;
             }
             Some(entrypoint_id) => {
-                let mut user_data = self.get_entrypoint_by_id(&plugin_id, &entrypoint_id)
+                let mut user_data = self.get_entrypoint_by_id_with_executor(&plugin_id, &entrypoint_id, &mut *tx)
                     .await?
                     .preferences_user_data;
 
@@ -495,10 +564,12 @@ impl DataDbRepository {
                     .bind(Json(user_data))
                     .bind(&entrypoint_id)
                     .bind(&plugin_id)
-                    .execute(&self.pool)
+                    .execute(&mut *tx)
                     .await?;
             }
         }
+
+        tx.commit().await?;
 
         Ok(())
     }
@@ -522,46 +593,90 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn save_plugin(&self, plugin: DbWritePlugin) -> anyhow::Result<()> {
+    pub async fn save_plugin(&self, new_plugin: DbWritePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
+        let preferences_user_data = self.get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx).await?
+            .map(|plugin| plugin.preferences_user_data)
+            .unwrap_or(HashMap::new());
+
         // language=SQLite
-        sqlx::query("INSERT INTO plugin VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")
-            .bind(&plugin.id)
-            .bind(plugin.name)
-            .bind(plugin.enabled)
-            .bind(Json(plugin.code))
-            .bind(Json(plugin.permissions))
-            .bind(Json(plugin.preferences))
-            .bind(Json(plugin.preferences_user_data))
-            .bind(plugin.description)
-            .bind(plugin.plugin_type)
+        let sql = r#"
+            INSERT INTO plugin (id, name, enabled, code, permissions, preferences, preferences_user_data, description, type)
+                VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                    ON CONFLICT (id)
+                        DO UPDATE SET name = ?2, enabled = ?3, code = ?4, permissions = ?5, preferences = ?6, preferences_user_data = ?7, description = ?8, type = ?9
+        "#;
+
+        sqlx::query(sql)
+            .bind(&new_plugin.id)
+            .bind(new_plugin.name)
+            .bind(new_plugin.enabled)
+            .bind(Json(new_plugin.code))
+            .bind(Json(new_plugin.permissions))
+            .bind(Json(new_plugin.preferences))
+            .bind(Json(preferences_user_data))
+            .bind(new_plugin.description)
+            .bind(new_plugin.plugin_type)
             .execute(&mut *tx)
             .await?;
 
-        for entrypoint in plugin.entrypoints {
+        let mut old_entrypoint_ids = self.get_entrypoints_by_plugin_id_with_executor(&new_plugin.id, &mut *tx).await?
+            .into_iter()
+            .map(|entrypoint| entrypoint.id)
+            .collect::<HashSet<_>>();
+
+        for new_entrypoint in new_plugin.entrypoints {
+            old_entrypoint_ids.remove(&new_entrypoint.id);
+
+            let (preferences_user_data, actions_user_data, enabled) = self.get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut *tx).await?
+                .map(|entrypoint| (entrypoint.preferences_user_data, entrypoint.actions_user_data, entrypoint.enabled))
+                .unwrap_or((HashMap::new(), vec![], true));
+
             // language=SQLite
-            sqlx::query("INSERT INTO plugin_entrypoint VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)")
-                .bind(entrypoint.id)
-                .bind(&plugin.id)
-                .bind(entrypoint.name)
-                .bind(true)
-                .bind(entrypoint.entrypoint_type)
-                .bind(Json(entrypoint.preferences))
-                .bind(Json(entrypoint.preferences_user_data))
-                .bind(entrypoint.description)
-                .bind(Json(entrypoint.actions))
-                .bind(Json(entrypoint.actions_user_data))
+            sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)")
+                .bind(&new_entrypoint.id)
+                .bind(&new_plugin.id)
+                .bind(new_entrypoint.name)
+                .bind(enabled)
+                .bind(new_entrypoint.entrypoint_type)
+                .bind(Json(new_entrypoint.preferences))
+                .bind(Json(preferences_user_data))
+                .bind(new_entrypoint.description)
+                .bind(Json(new_entrypoint.actions))
+                .bind(Json(actions_user_data))
                 .execute(&mut *tx)
                 .await?;
         }
 
-        for data in plugin.asset_data {
+        for old_entrypoint_id in old_entrypoint_ids {
             // language=SQLite
-            sqlx::query("INSERT INTO plugin_asset_data VALUES(?1, ?2, ?3)")
-                .bind(&plugin.id)
+            sqlx::query("DELETE FROM plugin_entrypoint WHERE id = ?1")
+                .bind(&old_entrypoint_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+
+        let mut old_asset_data_paths = self.get_all_asset_data_paths(&new_plugin.id, &mut *tx).await?;
+
+        for data in new_plugin.asset_data {
+            old_asset_data_paths.remove(&data.path);
+
+            // language=SQLite
+            sqlx::query("INSERT OR REPLACE INTO plugin_asset_data (plugin_id, path, data) VALUES(?1, ?2, ?3)")
+                .bind(&new_plugin.id)
                 .bind(&data.path)
                 .bind(&data.data)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        for old_asset_data_path in old_asset_data_paths {
+            // language=SQLite
+            sqlx::query("DELETE FROM plugin_asset_data WHERE plugin_id = ?1 AND path = ?2")
+                .bind(&new_plugin.id)
+                .bind(&old_asset_data_path)
                 .execute(&mut *tx)
                 .await?;
         }
