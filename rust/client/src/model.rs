@@ -40,6 +40,12 @@ pub enum NativeUiRequestData {
         top_level_view: bool,
         container: NativeUiWidget,
     },
+    ShowPreferenceRequiredView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool
+    },
 }
 
 #[derive(Debug, Clone)]

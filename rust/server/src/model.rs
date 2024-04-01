@@ -20,7 +20,12 @@ pub enum JsUiRequestData {
         top_level_view: bool,
         container: IntermediateUiWidget,
     },
-    ClearInlineView
+    ClearInlineView,
+    ShowPreferenceRequiredView {
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
@@ -200,9 +205,9 @@ fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) ->
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum PreferenceUserData {
-    Number(Option<f64>),
-    String(Option<String>),
-    Bool(Option<bool>),
+    Number(f64),
+    String(String),
+    Bool(bool),
     ListOfStrings(Vec<String>),
     ListOfNumbers(Vec<f64>),
 }

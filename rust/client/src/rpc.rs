@@ -1,7 +1,7 @@
 use tonic::{Request, Response, Status};
 
 use common::model::{EntrypointId, PluginId, RenderLocation};
-use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use utils::channel::RequestSender;
 
@@ -70,6 +70,27 @@ impl RpcFrontend for RpcFrontendServerImpl {
         };
 
         Ok(Response::new(RpcShowWindowResponse::default()))
+    }
+
+    async fn show_preference_required_view(&self, request: Request<RpcShowPreferenceRequiredViewRequest>) -> Result<Response<RpcShowPreferenceRequiredViewResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let entrypoint_id = request.entrypoint_id;
+        let plugin_preferences_required = request.plugin_preferences_required;
+        let entrypoint_preferences_required = request.entrypoint_preferences_required;
+
+        let data = NativeUiRequestData::ShowPreferenceRequiredView {
+            plugin_id: PluginId::from_string(plugin_id),
+            entrypoint_id: EntrypointId::from_string(entrypoint_id),
+            plugin_preferences_required,
+            entrypoint_preferences_required,
+        };
+
+        match self.context_tx.send_receive(data).await {
+            NativeUiResponseData::Nothing => {}
+        };
+
+        Ok(Response::new(RpcShowPreferenceRequiredViewResponse::default()))
     }
 }
 

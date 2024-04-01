@@ -7,7 +7,7 @@ use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::Application;
-use iced::widget::{column, container, horizontal_rule, scrollable, text_input};
+use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, reposition};
 use iced_aw::graphics::icons;
@@ -18,7 +18,7 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_frontend_server::RpcFrontendServer;
 use common::rpc::rpc_ui_property_value::Value;
@@ -46,16 +46,24 @@ pub struct AppModel {
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<NativeUiRequestData, NativeUiResponseData>>>,
     search_field_id: text_input::Id,
-    view_data: Option<ViewData>,
+    plugin_view_data: Option<PluginViewData>,
     prompt: Option<String>,
     waiting_for_next_unfocus: bool,
     global_hotkey_manager: GlobalHotKeyManager,
+    preference_required_view: Option<PreferenceRequiredViewData>,
 }
 
-struct ViewData {
+struct PluginViewData {
     top_level_view: bool,
     plugin_id: PluginId,
     entrypoint_id: EntrypointId,
+}
+
+struct PreferenceRequiredViewData {
+    plugin_id: PluginId,
+    entrypoint_id: EntrypointId,
+    plugin_preferences_required: bool,
+    entrypoint_preferences_required: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +93,16 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
+    ShowPreferenceRequiredView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool
+    },
+    OpenSettingsPreferences {
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>,
+    },
 }
 
 const WINDOW_WIDTH: f32 = 650.0;
@@ -147,9 +165,10 @@ impl Application for AppModel {
                 search_results: vec![],
                 search_field_id: text_input::Id::unique(),
                 prompt: None,
-                view_data: None,
+                plugin_view_data: None,
                 waiting_for_next_unfocus: false,
                 global_hotkey_manager,
+                preference_required_view: None,
             },
             Command::batch([
                 change_level(window::Id::MAIN, Level::AlwaysOnTop),
@@ -166,7 +185,7 @@ impl Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             AppMsg::OpenView { plugin_id, entrypoint_id } => {
-                self.view_data.replace(ViewData {
+                self.plugin_view_data.replace(PluginViewData {
                     top_level_view: true,
                     plugin_id: plugin_id.clone(),
                     entrypoint_id: entrypoint_id.clone(),
@@ -235,7 +254,7 @@ impl Application for AppModel {
                 Command::none()
             }
             AppMsg::SetTopLevelView(top_level_view) => {
-                match &mut self.view_data {
+                match &mut self.plugin_view_data {
                     None => Command::none(),
                     Some(view_data) => {
                         view_data.top_level_view = top_level_view;
@@ -253,7 +272,7 @@ impl Application for AppModel {
                             Key::Named(Named::ArrowDown) => iced::widget::focus_next(),
                             Key::Named(Named::Escape) => self.previous_view(),
                             Key::Character(char) => {
-                                if let Some(_) = self.view_data {
+                                if let Some(_) = self.plugin_view_data {
                                     let (plugin_id, entrypoint_id) = {
                                         let client_context = self.client_context.read().expect("lock is poisoned");
                                         (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
@@ -362,11 +381,89 @@ impl Application for AppModel {
             }
             AppMsg::ShowWindow => self.show_window(),
             AppMsg::HideWindow => self.hide_window(),
+            AppMsg::ShowPreferenceRequiredView {
+                plugin_id,
+                entrypoint_id,
+                plugin_preferences_required,
+                entrypoint_preferences_required
+            } => {
+                self.preference_required_view = Some(PreferenceRequiredViewData {
+                    plugin_id,
+                    entrypoint_id,
+                    plugin_preferences_required,
+                    entrypoint_preferences_required,
+                });
+                Command::none()
+            }
+            AppMsg::OpenSettingsPreferences { plugin_id, entrypoint_id, } => {
+                let mut backend_client = self.backend_client.clone();
+
+                Command::perform(async move {
+                    let request = RpcOpenSettingsWindowPreferencesRequest {
+                        plugin_id: plugin_id.to_string(),
+                        entrypoint_id: entrypoint_id.map(|val| val.to_string()).unwrap_or_default(),
+                    };
+
+                    backend_client.open_settings_window_preferences(Request::new(request))
+                        .await
+                        .unwrap();
+                }, |_| AppMsg::Noop)
+            }
         }
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        match &self.view_data {
+        if let Some(view_data) = &self.preference_required_view {
+            let PreferenceRequiredViewData { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } = view_data;
+
+            let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
+                (true, true) => {
+                    // TODO do not show "entrypoint" name to user
+                    let description_text = "Before using, plugin and entrypoint preferences need to be specified";
+                    // note:
+                    // we open plugin view and not entrypoint even though both need to be specified
+                    let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                    (description_text, msg)
+                }
+                (false, true) => {
+                    // TODO do not show "entrypoint" name to user
+                    let description_text = "Before using, entrypoint preferences need to be specified";
+                    let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: Some(entrypoint_id.clone()) };
+                    (description_text, msg)
+                }
+                (true, false) => {
+                    let description_text = "Before using, plugin preferences need to be specified";
+                    let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                    (description_text, msg)
+                }
+                (false, false) => unreachable!()
+            };
+
+            let description: Element<_> = text(description_text)
+                .into();
+
+            let button_label: Element<_> = text("Open Settings")
+                .into();
+
+            let button: Element<_> = button(button_label)
+                .on_press(msg)
+                .into();
+
+            let content: Element<_> = column([
+                description,
+                button
+            ]).into();
+
+            let content: Element<_> = container(content)
+                .style(ContainerStyle::Background)
+                .height(Length::Fixed(WINDOW_HEIGHT))
+                .width(Length::Fixed(WINDOW_WIDTH))
+                .into();
+
+            return content
+        }
+
+        match &self.plugin_view_data {
             None => {
                 let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
                     .on_input(AppMsg::PromptChanged)
@@ -440,7 +537,7 @@ impl Application for AppModel {
                 // element.explain(iced::color!(0xFF0000))
                 element
             }
-            Some(ViewData { plugin_id, entrypoint_id: _, top_level_view: _ }) => {
+            Some(PluginViewData { plugin_id, entrypoint_id: _, top_level_view: _ }) => {
                 let container_element: Element<_> = view_container(self.client_context.clone(), plugin_id.to_owned())
                     .into();
 
@@ -504,13 +601,16 @@ impl Application for AppModel {
 impl AppModel {
     fn hide_window(&mut self) -> Command<AppMsg> {
         self.prompt = None;
-        self.view_data = None;
+        self.plugin_view_data = None;
         self.search_results = vec![];
+        self.close_preference_required_view();
 
         window::change_mode(window::Id::MAIN, window::Mode::Hidden)
     }
 
     fn show_window(&mut self) -> Command<AppMsg> {
+        self.close_preference_required_view();
+
         Command::batch([
             window::change_mode(window::Id::MAIN, window::Mode::Windowed),
             window::gain_focus(window::Id::MAIN),
@@ -520,20 +620,24 @@ impl AppModel {
         ])
     }
 
+    fn close_preference_required_view(&mut self) {
+        self.preference_required_view = None;
+    }
+
     fn previous_view(&mut self) -> Command<AppMsg> {
-        match &self.view_data {
+        match &self.plugin_view_data {
             None => {
                 self.hide_window()
             }
-            Some(ViewData { top_level_view: true, .. }) => {
-                self.view_data.take();
+            Some(PluginViewData { top_level_view: true, .. }) => {
+                self.plugin_view_data.take();
 
                 Command::batch([
                     reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
                     window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
                 ])
             }
-            Some(ViewData { top_level_view: false, plugin_id, entrypoint_id }) => {
+            Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id }) => {
                 self.open_view(plugin_id.clone(), entrypoint_id.clone())
             }
         }
@@ -655,6 +759,21 @@ async fn request_loop(
                 }
                 NativeUiRequestData::ShowWindow => {
                     app_msg = AppMsg::ShowWindow;
+
+                    responder.respond(NativeUiResponseData::Nothing)
+                }
+                NativeUiRequestData::ShowPreferenceRequiredView {
+                    plugin_id,
+                    entrypoint_id,
+                    plugin_preferences_required,
+                    entrypoint_preferences_required
+                } => {
+                    app_msg = AppMsg::ShowPreferenceRequiredView {
+                        plugin_id,
+                        entrypoint_id,
+                        plugin_preferences_required,
+                        entrypoint_preferences_required
+                    };
 
                     responder.respond(NativeUiResponseData::Nothing)
                 }

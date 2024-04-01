@@ -12,6 +12,7 @@ pub(in crate) mod model;
 mod dirs;
 
 const FRONTEND_ENV: &'static str = "GAUNTLET_INTERNAL_FRONTEND";
+const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
 pub fn start_server() {
     if std::env::var(FRONTEND_ENV).is_ok() {

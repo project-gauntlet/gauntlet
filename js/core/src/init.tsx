@@ -103,6 +103,25 @@ async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
     }
 }
 
+async function checkRequiredPreferences(entrypointId: string): Promise<boolean> {
+    const pluginPreferencesRequired = InternalApi.plugin_preferences_required();
+    const entrypointPreferencesRequired = InternalApi.entrypoint_preferences_required(entrypointId);
+
+    return pluginPreferencesRequired || entrypointPreferencesRequired;
+}
+
+async function checkRequiredPreferencesAndAsk(entrypointId: string): Promise<boolean> {
+    const pluginPreferencesRequired = await InternalApi.plugin_preferences_required();
+    const entrypointPreferencesRequired = await InternalApi.entrypoint_preferences_required(entrypointId);
+
+    const required = pluginPreferencesRequired || entrypointPreferencesRequired;
+    if (required) {
+        InternalApi.show_preferences_required_view(entrypointId, pluginPreferencesRequired, entrypointPreferencesRequired)
+    }
+
+    return required;
+}
+
 async function runLoop() {
     while (true) {
         InternalApi.op_log_trace("plugin_loop", "Waiting for next plugin event...")
@@ -127,6 +146,10 @@ async function runLoop() {
             }
             case "OpenView": {
                 try {
+                    if (await checkRequiredPreferencesAndAsk(pluginEvent.entrypointId)) {
+                        break;
+                    }
+
                     const View: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
                     const { render } = await import("gauntlet:renderer");
                     latestRootUiWidget = render(pluginEvent.frontend, pluginEvent.entrypointId, "View", <View/>);
@@ -137,6 +160,10 @@ async function runLoop() {
             }
             case "RunCommand": {
                 try {
+                    if (await checkRequiredPreferencesAndAsk(pluginEvent.entrypointId)) {
+                        break;
+                    }
+
                     const command: () => void = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
                     command()
                 } catch (e) {
@@ -146,6 +173,10 @@ async function runLoop() {
             }
             case "RunGeneratedCommand": {
                 try {
+                    if (await checkRequiredPreferencesAndAsk(pluginEvent.entrypointId)) {
+                        break;
+                    }
+
                     runGeneratedCommand(pluginEvent.entrypointId)
                 } catch (e) {
                     console.error("Error occurred when running a generated command", pluginEvent.entrypointId, e)
@@ -153,14 +184,18 @@ async function runLoop() {
                 break;
             }
             case "OpenInlineView": {
-                const endpoint_id = InternalApi.op_inline_view_endpoint_id();
+                const endpointId = InternalApi.op_inline_view_endpoint_id();
 
-                if (endpoint_id) {
+                if (endpointId) {
+                    if (await checkRequiredPreferences(endpointId)) {
+                        break;
+                    }
+
                     try {
-                        const Handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpoint_id}`)).default;
+                        const Handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpointId}`)).default;
                         const { render } = await import("gauntlet:renderer");
 
-                        latestRootUiWidget = render("default", endpoint_id, "InlineView", <Handler text={pluginEvent.text}/>);
+                        latestRootUiWidget = render("default", endpointId, "InlineView", <Handler text={pluginEvent.text}/>);
 
                         if (latestRootUiWidget.widgetChildren.length === 0) {
                             InternalApi.op_log_debug("plugin_loop", `Inline view rendered no children, clearing inline view...`)

@@ -22,7 +22,7 @@ use tonic::Request;
 use tonic::transport::Channel;
 
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_frontend_client::RpcFrontendClient;
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, PropertyType};
@@ -427,6 +427,9 @@ deno_core::extension!(
         load_search_index,
         get_command_generator_entrypoint_ids,
         fetch_action_id_for_shortcut,
+        plugin_preferences_required,
+        entrypoint_preferences_required,
+        show_preferences_required_view,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -534,6 +537,70 @@ fn asset_data_blocking(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Res
 
         Ok(data)
     })
+}
+
+#[op]
+async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow::Result<bool> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DataDbRepository>()
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    let DbReadPlugin { preferences, preferences_user_data, .. } = repository
+        .get_plugin_by_id(&plugin_id.to_string()).await?;
+
+    Ok(all_preferences_required(preferences, preferences_user_data))
+}
+
+#[op]
+async fn entrypoint_preferences_required(state: Rc<RefCell<OpState>>, entrypoint_id: String) -> anyhow::Result<bool> {
+    let (plugin_id, repository) = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        let repository = state
+            .borrow::<DataDbRepository>()
+            .clone();
+
+        (plugin_id, repository)
+    };
+
+    let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = repository
+        .get_entrypoint_by_id(&plugin_id.to_string(), &entrypoint_id).await?;
+
+    Ok(all_preferences_required(preferences, preferences_user_data))
+}
+
+
+#[op]
+fn show_preferences_required_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, plugin_preferences_required: bool, entrypoint_preferences_required: bool) -> anyhow::Result<()> {
+    let data = JsUiRequestData::ShowPreferenceRequiredView {
+        entrypoint_id: EntrypointId::from_string(entrypoint_id),
+        plugin_preferences_required,
+        entrypoint_preferences_required
+    };
+
+    match make_request(&state, data).context("ShowPreferenceRequiredView frontend response")? {
+        JsUiResponseData::Nothing => {
+            tracing::trace!(target = "renderer_rs", "Calling show_preferences_required_view returned");
+            Ok(())
+        }
+        value @ _ => panic!("unsupported response type {:?}", value),
+    }
 }
 
 
@@ -777,25 +844,23 @@ fn preferences_to_js(
     preferences.into_iter()
         .map(|(name, preference)| {
             let user_data = match preferences_user_data.remove(&name) {
-                None => {
-                    match preference {
-                        DbPluginPreference::Number { default, .. } => PreferenceUserData::Number(default),
-                        DbPluginPreference::String { default, ..  } => PreferenceUserData::String(default),
-                        DbPluginPreference::Enum { default, ..  } => PreferenceUserData::String(default),
-                        DbPluginPreference::Bool { default, ..  } => PreferenceUserData::Bool(default),
-                        DbPluginPreference::ListOfStrings { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
-                        DbPluginPreference::ListOfNumbers { default, ..  } => PreferenceUserData::ListOfNumbers(default.unwrap_or(vec![])),
-                        DbPluginPreference::ListOfEnums { default, ..  } => PreferenceUserData::ListOfStrings(default.unwrap_or(vec![])),
-                    }
+                None => match preference {
+                    DbPluginPreference::Number { default, .. } => PreferenceUserData::Number(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::String { default, .. } => PreferenceUserData::String(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Enum { default, .. } => PreferenceUserData::String(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Bool { default, .. } => PreferenceUserData::Bool(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfStrings { default, .. } => PreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfNumbers { default, .. } => PreferenceUserData::ListOfNumbers(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfEnums { default, .. } => PreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
                 }
                 Some(user_data) => match user_data {
-                    DbPluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value),
-                    DbPluginPreferenceUserData::String { value } => PreferenceUserData::String(value),
-                    DbPluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value),
-                    DbPluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value),
-                    DbPluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
-                    DbPluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.unwrap_or(vec![])),
-                    DbPluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.unwrap_or(vec![])),
+                    DbPluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::String { value } => PreferenceUserData::String(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
                 }
             };
 
@@ -1020,6 +1085,21 @@ async fn make_request_async(plugin_id: PluginId, frontend_client: &mut FrontendC
 
             nothing
         }
+        JsUiRequestData::ShowPreferenceRequiredView { plugin_preferences_required, entrypoint_preferences_required, entrypoint_id } => {
+            let request = Request::new(RpcShowPreferenceRequiredViewRequest {
+                plugin_id: plugin_id.to_string(),
+                entrypoint_id: entrypoint_id.to_string(),
+                plugin_preferences_required,
+                entrypoint_preferences_required,
+            });
+
+            let nothing = frontend_client.show_preference_required_view(request)
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
     }
 }
 
@@ -1109,6 +1189,45 @@ fn from_js_to_intermediate_properties(
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;
 
     Ok(vec.into_iter().collect())
+}
+
+fn all_preferences_required(preferences: HashMap<String, DbPluginPreference>, preferences_user_data: HashMap<String, DbPluginPreferenceUserData>) -> bool {
+    for (name, preference) in preferences {
+        match preferences_user_data.get(&name) {
+            None => {
+                let no_default = match preference {
+                    DbPluginPreference::Number { default, .. } => default.is_none(),
+                    DbPluginPreference::String { default, .. } => default.is_none(),
+                    DbPluginPreference::Enum { default, .. } => default.is_none(),
+                    DbPluginPreference::Bool { default, .. } => default.is_none(),
+                    DbPluginPreference::ListOfStrings { default, .. } => default.is_none(),
+                    DbPluginPreference::ListOfNumbers { default, .. } => default.is_none(),
+                    DbPluginPreference::ListOfEnums { default, .. } => default.is_none(),
+                };
+
+                if no_default {
+                    return true
+                }
+            }
+            Some(preference) => {
+                let no_value = match preference {
+                    DbPluginPreferenceUserData::Number { value } => value.is_none(),
+                    DbPluginPreferenceUserData::String { value } => value.is_none(),
+                    DbPluginPreferenceUserData::Enum { value } => value.is_none(),
+                    DbPluginPreferenceUserData::Bool { value } => value.is_none(),
+                    DbPluginPreferenceUserData::ListOfStrings { value } => value.is_none(),
+                    DbPluginPreferenceUserData::ListOfNumbers { value } => value.is_none(),
+                    DbPluginPreferenceUserData::ListOfEnums { value } => value.is_none(),
+                };
+
+                if no_value {
+                    return true
+                }
+            }
+        }
+    }
+
+    false
 }
 
 pub struct PluginData {

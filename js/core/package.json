@@ -9,6 +9,7 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",
     "@types/react": "^18.2.35",
+    "@project-gauntlet/api": "*",
     "@project-gauntlet/typings": "*",
     "@project-gauntlet/deno": "*",
     "rollup": "^4.3.0",

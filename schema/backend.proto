@@ -29,6 +29,9 @@ service RpcBackend {
 
   rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
 
+  rpc OpenSettingsWindow (RpcOpenSettingsWindowRequest) returns (RpcOpenSettingsWindowResponse);
+  rpc OpenSettingsWindowPreferences (RpcOpenSettingsWindowPreferencesRequest) returns (RpcOpenSettingsWindowPreferencesResponse);
+
   // dev tools
   rpc SaveLocalPlugin (RpcSaveLocalPluginRequest) returns (RpcSaveLocalPluginResponse);
 }
@@ -121,6 +124,19 @@ message RpcDownloadStatusRequest {
 }
 message RpcDownloadStatusResponse {
   map<string, RpcDownloadStatusValue> status_per_plugin = 1;
+}
+
+
+message RpcOpenSettingsWindowRequest {
+}
+message RpcOpenSettingsWindowResponse {
+}
+
+message RpcOpenSettingsWindowPreferencesRequest {
+  string plugin_id = 1;
+  string entrypoint_id = 2;
+}
+message RpcOpenSettingsWindowPreferencesResponse {
 }
 
 message RpcSearchResult {

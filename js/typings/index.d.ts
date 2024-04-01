@@ -97,6 +97,9 @@ interface InternalApi {
     get_command_generator_entrypoint_ids(): Promise<string[]>
     get_plugin_preferences(): Record<string, any>;
     get_entrypoint_preferences(entrypointId: string): Record<string, any>;
+    plugin_preferences_required(): Promise<boolean>;
+    entrypoint_preferences_required(entrypointId: string): Promise<boolean>;
+    show_preferences_required_view(entrypointId: string, pluginPreferencesRequired: boolean, entrypointPreferencesRequired: boolean): void;
 
     load_search_index(searchItems: AdditionalSearchItem[]): Promise<void>;
 

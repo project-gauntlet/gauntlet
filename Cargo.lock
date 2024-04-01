@@ -1012,6 +1012,8 @@ dependencies = [
  "anyhow",
  "gix",
  "prost 0.12.3",
+ "serde",
+ "serde_json",
  "tonic",
  "tonic-build",
 ]

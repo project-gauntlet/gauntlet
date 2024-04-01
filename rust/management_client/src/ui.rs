@@ -14,9 +14,11 @@ use iced_table::table;
 use tonic::Request;
 
 use common::model::{EntrypointId, PluginId};
-use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest};
+use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, settings_env_data_from_string, SettingsEnvData};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_ui_property_value::Value;
+
+const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -46,6 +48,10 @@ enum ManagementAppMsg {
     TableSyncHeader(scrollable::AbsoluteOffset),
     FontLoaded(Result<(), font::Error>),
     PluginsReloaded(HashMap<PluginId, Plugin>),
+    InitialPluginsReloaded {
+        plugins: HashMap<PluginId, Plugin>,
+        select_item: SelectedItem,
+    },
     ToggleShowEntrypoints {
         plugin_id: PluginId,
     },
@@ -207,6 +213,21 @@ impl Application for ManagementAppModel {
             anyhow::Ok(RpcBackendClient::connect("http://127.0.0.1:42320").await?)
         }).unwrap();
 
+        let settings_env_data = std::env::var(SETTINGS_ENV)
+            .map(|val| settings_env_data_from_string(val))
+            .ok();
+
+        let select_item = match settings_env_data {
+            None => SelectedItem::None,
+            Some(SettingsEnvData::OpenEntrypointPreferences { plugin_id, entrypoint_id }) => SelectedItem::Entrypoint {
+                plugin_id: PluginId::from_string(plugin_id),
+                entrypoint_id: EntrypointId::from_string(entrypoint_id),
+            },
+            Some(SettingsEnvData::OpenPluginPreferences { plugin_id }) => SelectedItem::Plugin {
+                plugin_id: PluginId::from_string(plugin_id),
+            },
+        };
+
         (
             ManagementAppModel {
                 backend_client: backend_client.clone(),
@@ -230,8 +251,11 @@ impl Application for ManagementAppModel {
                     async {
                         reload_plugins(backend_client).await
                     },
-                    ManagementAppMsg::PluginsReloaded,
-                )
+                    |plugins| ManagementAppMsg::InitialPluginsReloaded {
+                        plugins,
+                        select_item
+                    },
+                ),
             ]),
         )
     }
@@ -256,75 +280,16 @@ impl Application for ManagementAppModel {
                 Command::none()
             }
             ManagementAppMsg::PluginsReloaded(plugins) => {
-                self.preference_user_data = plugins.iter()
-                    .map(|(plugin_id, plugin)| {
-                        let mut result = vec![];
-
-                        for (name, user_data) in &plugin.preferences_user_data {
-                            result.push(((plugin_id.clone(), None, name.clone()), user_data.clone()))
-                        }
-
-                        for (entrypoint_id, entrypoint) in &plugin.entrypoints {
-                            for (name, user_data) in &entrypoint.preferences_user_data {
-                                result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), name.clone()), user_data.clone()))
-                            }
-                        }
-
-                        result
-                    })
-                    .flatten()
-                    .collect();
-
-                let plugins = Rc::new(RefCell::new(plugins));
-                self.plugins = plugins.clone();
-
-                let plugin_refs = plugins.borrow();
-
-                let mut plugin_refs: Vec<_> = plugin_refs
-                    .iter()
-                    .map(|(_, plugin)| plugin)
-                    .collect();
-
-                plugin_refs.sort_by_key(|plugin| &plugin.plugin_name);
-
-                self.rows = plugin_refs
-                    .iter()
-                    .flat_map(|plugin| {
-                        let mut result = vec![];
-
-                        result.push(Row::Plugin {
-                            plugins: plugins.clone(),
-                            plugin_id: plugin.plugin_id.clone()
-                        });
-
-                        if plugin.show_entrypoints {
-                            let mut entrypoints: Vec<_> = plugin.entrypoints
-                                .iter()
-                                .map(|(_, entrypoint)| entrypoint)
-                                .collect();
-
-                            entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
-
-                            let mut entrypoints: Vec<_> = entrypoints
-                                .iter()
-                                .map(|entrypoint| {
-                                    Row::Entrypoint {
-                                        plugins: plugins.clone(),
-                                        plugin_id: plugin.plugin_id.clone(),
-                                        entrypoint_id: entrypoint.entrypoint_id.clone(),
-                                    }
-                                })
-                                .collect();
-
-                            result.append(&mut entrypoints);
-                        }
-
-                        result
-                    })
-                    .collect();
+                self.apply_plugin_reload(plugins);
 
                 Command::none()
             }
+            ManagementAppMsg::InitialPluginsReloaded { plugins, select_item } => {
+                self.apply_plugin_reload(plugins);
+                self.selected_item = select_item;
+
+                Command::none()
+            },
             ManagementAppMsg::SelectItem(selected_item) => {
                 self.selected_item = selected_item;
                 Command::none()
@@ -1481,6 +1446,76 @@ fn preferences_ui<'a>(
     column_content
 }
 
+impl ManagementAppModel {
+    fn apply_plugin_reload(&mut self, plugins: HashMap<PluginId, Plugin>) {
+        self.preference_user_data = plugins.iter()
+            .map(|(plugin_id, plugin)| {
+                let mut result = vec![];
+
+                for (name, user_data) in &plugin.preferences_user_data {
+                    result.push(((plugin_id.clone(), None, name.clone()), user_data.clone()))
+                }
+
+                for (entrypoint_id, entrypoint) in &plugin.entrypoints {
+                    for (name, user_data) in &entrypoint.preferences_user_data {
+                        result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), name.clone()), user_data.clone()))
+                    }
+                }
+
+                result
+            })
+            .flatten()
+            .collect();
+
+        let plugins = Rc::new(RefCell::new(plugins));
+        self.plugins = plugins.clone();
+
+        let plugin_refs = plugins.borrow();
+
+        let mut plugin_refs: Vec<_> = plugin_refs
+            .iter()
+            .map(|(_, plugin)| plugin)
+            .collect();
+
+        plugin_refs.sort_by_key(|plugin| &plugin.plugin_name);
+
+        self.rows = plugin_refs
+            .iter()
+            .flat_map(|plugin| {
+                let mut result = vec![];
+
+                result.push(Row::Plugin {
+                    plugins: plugins.clone(),
+                    plugin_id: plugin.plugin_id.clone()
+                });
+
+                if plugin.show_entrypoints {
+                    let mut entrypoints: Vec<_> = plugin.entrypoints
+                        .iter()
+                        .map(|(_, entrypoint)| entrypoint)
+                        .collect();
+
+                    entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
+
+                    let mut entrypoints: Vec<_> = entrypoints
+                        .iter()
+                        .map(|entrypoint| {
+                            Row::Entrypoint {
+                                plugins: plugins.clone(),
+                                plugin_id: plugin.plugin_id.clone(),
+                                entrypoint_id: entrypoint.entrypoint_id.clone(),
+                            }
+                        })
+                        .collect();
+
+                    result.append(&mut entrypoints);
+                }
+
+                result
+            })
+            .collect();
+    }
+}
 
 async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, Plugin> {
     backend_client.plugins(Request::new(RpcPluginsRequest::default()))

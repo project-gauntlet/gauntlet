@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 
 use common::model::{DownloadStatus, EntrypointId, PluginId};
-use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
+use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, settings_env_data_to_string, SettingsEnvData};
 use common::rpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 
+use crate::{FRONTEND_ENV, SETTINGS_ENV};
 use crate::model::from_rpc_to_intermediate_value;
 use crate::plugins::ApplicationManager;
 use crate::search::{SearchIndex, SearchIndexPluginEntrypointType};
@@ -228,6 +229,35 @@ impl RpcBackend for RpcBackendServerImpl {
         };
 
         Ok(Response::new(response))
+    }
+
+    async fn open_settings_window(&self, _: Request<RpcOpenSettingsWindowRequest>) -> Result<Response<RpcOpenSettingsWindowResponse>, Status> {
+        std::process::Command::new(std::env::current_exe()?)
+            .args(["management"])
+            .spawn()
+            .expect("failed to execute settings process");
+
+        Ok(Response::new(RpcOpenSettingsWindowResponse::default()))
+    }
+
+    async fn open_settings_window_preferences(&self, request: Request<RpcOpenSettingsWindowPreferencesRequest>) -> Result<Response<RpcOpenSettingsWindowPreferencesResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let entrypoint_id = request.entrypoint_id;
+
+        let data = if entrypoint_id.is_empty() {
+            SettingsEnvData::OpenPluginPreferences { plugin_id }
+        } else {
+            SettingsEnvData::OpenEntrypointPreferences { plugin_id, entrypoint_id }
+        };
+
+        std::process::Command::new(std::env::current_exe()?)
+            .args(["management"])
+            .env(SETTINGS_ENV, settings_env_data_to_string(data))
+            .spawn()
+            .expect("failed to execute settings process");
+
+        Ok(Response::new(RpcOpenSettingsWindowPreferencesResponse::default()))
     }
 
     async fn save_local_plugin(&self, request: Request<RpcSaveLocalPluginRequest>) -> Result<Response<RpcSaveLocalPluginResponse>, Status> {
