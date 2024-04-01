@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use iced::widget::Component;
+use iced::widget::{Component, horizontal_space};
 use iced::widget::component;
 
 use common::model::RenderLocation;
@@ -57,10 +57,14 @@ impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
         let client_context = self.client_context.read().expect("lock is poisoned");
         let containers = client_context.get_all_inline_view_containers();
 
-        let (_, container) = &containers[state.current_plugin];
-
-        container.render_widget(ComponentRenderContext::None)
-            .map(InlineViewContainerEvent::WidgetEvent)
+        // TODO for some reason, this returns None sometimes
+        if let Some((_, container)) = &containers.get(state.current_plugin) {
+            container.render_widget(ComponentRenderContext::None)
+                .map(InlineViewContainerEvent::WidgetEvent)
+        } else {
+            horizontal_space()
+                .into()
+        }
     }
 }
 

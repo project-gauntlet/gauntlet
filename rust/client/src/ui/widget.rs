@@ -106,7 +106,7 @@ impl ComponentWidgetState {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum ComponentRenderContext {
     None,
     H1,
@@ -698,6 +698,10 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::ListItem { id, title, subtitle, icon } => {
+                let ComponentRenderContext::List { widget_id: list_widget_id } = context else {
+                    panic!("not supposed to be passed to list item: {:?}", context)
+                };
+
                 let icon: Option<Element<_>> = icon.clone()  // FIXME really expensive clone
                     .map(|icon| image(Handle::from_memory(icon)).into());
 
@@ -727,14 +731,14 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 button(content)
-                    .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id: widget_id, item_id: id.to_owned() })
+                    .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id, item_id: id.to_owned() })
                     .style(ButtonStyle::EntrypointItem)
                     .width(Length::Fill)
                     .padding(Padding::new(5.0))
                     .into()
             }
             ComponentWidget::ListSection { children, title, subtitle } => {
-                let content = render_children(children, ComponentRenderContext::None);
+                let content = render_children(children, context);
 
                 let content = column(content)
                     .into();
@@ -789,6 +793,10 @@ impl ComponentWidgetWrapper {
                 render_root(show_action_panel, widget_id, children, content)
             }
             ComponentWidget::GridItem { children, id, title, subtitle } => {
+                let ComponentRenderContext::Grid { widget_id: grid_widget_id } = context else {
+                    panic!("not supposed to be passed to grid item: {:?}", context)
+                };
+
                 let content: Element<_> = column(render_children(children, ComponentRenderContext::None))
                     .into();
 
@@ -807,7 +815,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 button(content)
-                    .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id: widget_id, item_id: id.to_owned() })
+                    .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id: id.to_owned() })
                     .style(ButtonStyle::EntrypointItem)
                     .padding(Padding::new(5.0))
                     // .width(Length::Fill)
@@ -817,7 +825,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::GridSection { children, title, subtitle, aspectRatio: aspect_ratio, columns } => {
-                let content = render_grid(children, aspect_ratio.as_deref(), columns);
+                let content = render_grid(children, aspect_ratio.as_deref(), columns, context);
 
                 render_section(content, Some(title), subtitle)
             }
@@ -838,7 +846,7 @@ impl ComponentWidgetWrapper {
                         },
                         ComponentWidget::GridSection { .. } => {
                             if !pending.is_empty() {
-                                let content = render_grid(&pending, aspect_ratio.as_deref(), columns);
+                                let content = render_grid(&pending, aspect_ratio.as_deref(), columns, context);
 
                                 let space = Space::with_height(30)
                                     .into();
@@ -933,7 +941,7 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
         .into()
 }
 
-fn render_grid<'a>(children: &[ComponentWidgetWrapper], aspect_ratio: Option<&str>, columns: &Option<f64>) -> Element<'a, ComponentWidgetEvent> {
+fn render_grid<'a>(children: &[ComponentWidgetWrapper], aspect_ratio: Option<&str>, columns: &Option<f64>, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
     // let (width, height) = match aspect_ratio {
     //     None => (1, 1),
     //     Some("1") => (1, 1),
@@ -946,7 +954,7 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], aspect_ratio: Option<&st
     //     Some(value) => panic!("unsupported aspect_ratio {:?}", value)
     // };
 
-    let rows: Vec<GridRow<_, GauntletTheme, iced::Renderer>> = render_children(children, ComponentRenderContext::None)
+    let rows: Vec<GridRow<_, GauntletTheme, iced::Renderer>> = render_children(children, context)
         .into_iter()
         .chunks(columns.map(|value| value.trunc() as usize).unwrap_or(5))
         .into_iter()
@@ -1307,10 +1315,10 @@ impl ComponentWidgetEvent {
                 None
             }
             ComponentWidgetEvent::SelectListItem { list_widget_id, item_id } => {
-                Some(create_list_on_selection_change_event(list_widget_id, Some(item_id)))
+                Some(create_list_on_selection_change_event(list_widget_id, item_id))
             }
             ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id } => {
-                Some(create_grid_on_selection_change_event(grid_widget_id, Some(item_id)))
+                Some(create_grid_on_selection_change_event(grid_widget_id, item_id))
             }
             ComponentWidgetEvent::PreviousView => {
                 panic!("handle event on PreviousView event is not supposed to be called")

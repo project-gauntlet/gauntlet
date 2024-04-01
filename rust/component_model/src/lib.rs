@@ -629,7 +629,7 @@ pub fn create_component_model() -> Vec<Component> {
         "List",
         [
             property("actions", true, component_ref(&action_panel_component)),
-            event("onSelectionChange", true, [property("id", true, PropertyType::String)]),
+            event("onSelectionChange", true, [property("id", false, PropertyType::String)]),
         ],
         children_members([
             member("EmptyView", &empty_view_component),
@@ -678,7 +678,7 @@ pub fn create_component_model() -> Vec<Component> {
             property("columns", true, PropertyType::Number), // TODO default
             // fit
             // inset
-            event("onSelectionChange", true, [property("id", true, PropertyType::String)]),
+            event("onSelectionChange", true, [property("id", false, PropertyType::String)]),
         ],
         children_members([
             member("EmptyView", &empty_view_component),

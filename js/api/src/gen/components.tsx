@@ -142,7 +142,7 @@ declare global {
             };
             ["gauntlet:list"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
-                onSelectionChange?: (id: string | undefined) => void;
+                onSelectionChange?: (id: string) => void;
             };
             ["gauntlet:grid_item"]: {
                 children?: ElementComponent<typeof Content>;
@@ -161,7 +161,7 @@ declare global {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
                 aspectRatio?: string;
                 columns?: number;
-                onSelectionChange?: (id: string | undefined) => void;
+                onSelectionChange?: (id: string) => void;
             };
         }
     }
@@ -497,7 +497,7 @@ ListSection.Item = ListItem;
 export interface ListProps {
     children?: ElementComponent<typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
     actions?: ElementComponent<typeof ActionPanel>;
-    onSelectionChange?: (id: string | undefined) => void;
+    onSelectionChange?: (id: string) => void;
 }
 export const List: FC<ListProps> & {
     EmptyView: typeof EmptyView;
@@ -541,7 +541,7 @@ export interface GridProps {
     actions?: ElementComponent<typeof ActionPanel>;
     aspectRatio?: string;
     columns?: number;
-    onSelectionChange?: (id: string | undefined) => void;
+    onSelectionChange?: (id: string) => void;
 }
 export const Grid: FC<GridProps> & {
     EmptyView: typeof EmptyView;
