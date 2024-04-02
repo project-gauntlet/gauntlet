@@ -255,7 +255,7 @@ impl RpcBackend for RpcBackendServerImpl {
             .args(["management"])
             .env(SETTINGS_ENV, settings_env_data_to_string(data))
             .spawn()
-            .expect("failed to execute settings process");
+            .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by frontend compilation
 
         Ok(Response::new(RpcOpenSettingsWindowPreferencesResponse::default()))
     }
