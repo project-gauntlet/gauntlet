@@ -2,11 +2,11 @@ use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
 use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Settings, Size, Subscription, subscription, window};
+use iced::Application;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
-use iced::Application;
 use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, reposition};
@@ -82,7 +82,9 @@ pub enum AppMsg {
     },
     PromptChanged(String),
     SetSearchResults(Vec<NativeUiSearchResult>),
-    SetTopLevelView(bool),
+    ReplaceView {
+        top_level_view: bool,
+    },
     IcedEvent(Event),
     WidgetEvent {
         plugin_id: PluginId,
@@ -191,11 +193,7 @@ impl Application for AppModel {
                     entrypoint_id: entrypoint_id.clone(),
                 });
 
-                Command::batch([
-                    reposition(window::Id::MAIN, Position::Centered, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
-                    window::resize(window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
-                    self.open_view(plugin_id, entrypoint_id)
-                ])
+                self.open_view(plugin_id, entrypoint_id)
             }
             AppMsg::RunCommand { plugin_id, entrypoint_id } => {
                 Command::batch([
@@ -253,12 +251,16 @@ impl Application for AppModel {
                 self.search_results = search_results;
                 Command::none()
             }
-            AppMsg::SetTopLevelView(top_level_view) => {
+            AppMsg::ReplaceView { top_level_view } => {
                 match &mut self.plugin_view_data {
                     None => Command::none(),
                     Some(view_data) => {
                         view_data.top_level_view = top_level_view;
-                        Command::none()
+
+                        Command::batch([
+                            reposition(window::Id::MAIN, Position::Centered, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                            window::resize(window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
+                        ])
                     }
                 }
             }
@@ -442,11 +444,22 @@ impl Application for AppModel {
             let description: Element<_> = text(description_text)
                 .into();
 
+            let description = container(description)
+                .padding(Padding::new(10.0))
+                .width(Length::Fill)
+                .center_x()
+                .into();
+
             let button_label: Element<_> = text("Open Settings")
                 .into();
 
             let button: Element<_> = button(button_label)
                 .on_press(msg)
+                .into();
+
+            let button = container(button)
+                .width(Length::Fill)
+                .center_x()
                 .into();
 
             let content: Element<_> = column([
@@ -458,6 +471,8 @@ impl Application for AppModel {
                 .style(ContainerStyle::Background)
                 .height(Length::Fixed(WINDOW_HEIGHT))
                 .width(Length::Fixed(WINDOW_WIDTH))
+                .center_x()
+                .center_y()
                 .into();
 
             return content
@@ -739,28 +754,30 @@ async fn request_loop(
     loop {
         let (request_data, responder) = request_rx.recv().await;
 
-        let mut app_msg = AppMsg::Noop; // refresh ui
-
-        {
+        let app_msg = {
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
                 NativeUiRequestData::ReplaceView { plugin_id, entrypoint_id, render_location, top_level_view, container } => {
                     client_context.replace_view(render_location, container, &plugin_id, &entrypoint_id);
 
-                    app_msg = AppMsg::SetTopLevelView(top_level_view);
+                    responder.respond(NativeUiResponseData::Nothing);
 
-                    responder.respond(NativeUiResponseData::Nothing)
+                    AppMsg::ReplaceView {
+                        top_level_view
+                    }
                 }
                 NativeUiRequestData::ClearInlineView { plugin_id } => {
                     client_context.clear_inline_view(&plugin_id);
 
-                    responder.respond(NativeUiResponseData::Nothing)
+                    responder.respond(NativeUiResponseData::Nothing);
+
+                    AppMsg::Noop // refresh ui
                 }
                 NativeUiRequestData::ShowWindow => {
-                    app_msg = AppMsg::ShowWindow;
+                    responder.respond(NativeUiResponseData::Nothing);
 
-                    responder.respond(NativeUiResponseData::Nothing)
+                    AppMsg::ShowWindow
                 }
                 NativeUiRequestData::ShowPreferenceRequiredView {
                     plugin_id,
@@ -768,17 +785,17 @@ async fn request_loop(
                     plugin_preferences_required,
                     entrypoint_preferences_required
                 } => {
-                    app_msg = AppMsg::ShowPreferenceRequiredView {
+                    responder.respond(NativeUiResponseData::Nothing);
+
+                    AppMsg::ShowPreferenceRequiredView {
                         plugin_id,
                         entrypoint_id,
                         plugin_preferences_required,
                         entrypoint_preferences_required
-                    };
-
-                    responder.respond(NativeUiResponseData::Nothing)
+                    }
                 }
             }
-        }
+        };
 
         let _ = sender.send(app_msg).await;
     }
