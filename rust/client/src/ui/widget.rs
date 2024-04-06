@@ -416,12 +416,12 @@ impl ComponentWidgetWrapper {
                 let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
                     .map(|content_element| {
                         let content_element: Element<_> = container(content_element)
-                            .width(Length::FillPortion(3))
+                            .width(Length::Fill)
                             .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
                             .into();
 
                         let content_element: Element<_> = scrollable(content_element)
-                            .width(Length::Fill)
+                            .width(Length::FillPortion(3))
                             .into();
 
                         content_element
