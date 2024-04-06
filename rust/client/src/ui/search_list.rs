@@ -138,7 +138,7 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
 
                 button(button_content)
                     .width(Length::Fill)
-                    .style(ButtonStyle::EntrypointItem)
+                    .style(ButtonStyle::GauntletButton)
                     .on_press(event)
                     .padding(Padding::new(5.0))
                     .into()

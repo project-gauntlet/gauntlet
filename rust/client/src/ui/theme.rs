@@ -466,7 +466,8 @@ pub enum ButtonStyle {
     Positive,
     Destructive,
     Link,
-    EntrypointItem,
+    GauntletButton,
+    GauntletGridButton,
 }
 
 impl button::StyleSheet for GauntletTheme {
@@ -498,11 +499,21 @@ impl button::StyleSheet for GauntletTheme {
                 text_color: palette.background.weak.text,
                 ..appearance
             },
-            ButtonStyle::EntrypointItem => button::Appearance {
+            ButtonStyle::GauntletButton => button::Appearance {
                 background: None,
                 text_color: palette.background.base.text,
                 ..appearance
             },
+            ButtonStyle::GauntletGridButton => {
+                let mut color = palette.secondary.weak.color;
+                color.a = 0.05;
+
+                button::Appearance {
+                    background: Some(Background::Color(color)),
+                    text_color: palette.background.base.text,
+                    ..appearance
+                }
+            }
         }
     }
 
@@ -518,7 +529,12 @@ impl button::StyleSheet for GauntletTheme {
         };
 
         match style {
-            ButtonStyle::EntrypointItem => button::Appearance {
+            ButtonStyle::GauntletButton => button::Appearance {
+                background: Some(palette.background.weak.color.into()),
+                text_color: palette.secondary.base.text,
+                ..appearance
+            },
+            ButtonStyle::GauntletGridButton => button::Appearance {
                 background: Some(palette.background.weak.color.into()),
                 text_color: palette.secondary.base.text,
                 ..appearance

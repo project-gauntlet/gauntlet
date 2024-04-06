@@ -2,23 +2,23 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use iced::{color, Font, Length, Padding};
+use iced::{Font, Length, Padding};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
 use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
 use iced_aw::{floating_element, GridRow};
+use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
-use iced_aw::graphics::icons;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
 
 use common::model::PluginId;
 
 use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId};
-use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, GauntletTheme, TextInputStyle, TextStyle};
+use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -177,7 +177,7 @@ impl ComponentWidgetWrapper {
             ComponentWidget::Action { title, .. } => {
                 button(text(title))
                     .on_press(ComponentWidgetEvent::ActionClick { widget_id })
-                    .style(ButtonStyle::EntrypointItem)
+                    .style(ButtonStyle::GauntletButton)
                     .width(Length::Fill)
                     .into()
             }
@@ -393,11 +393,7 @@ impl ComponentWidgetWrapper {
             //         .into()
             // }
             ComponentWidget::Content { children } => {
-                let content: Element<_> = column(render_children(children, ComponentRenderContext::None))
-                    .into();
-
-                scrollable(content)
-                    .width(Length::Fill)
+                column(render_children(children, ComponentRenderContext::None))
                     .into()
             }
             ComponentWidget::Detail { children } => {
@@ -416,10 +412,16 @@ impl ComponentWidgetWrapper {
 
                 let content_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
                     .map(|content_element| {
-                        container(content_element)
+                        let content_element: Element<_> = container(content_element)
                             .width(Length::FillPortion(3))
                             .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-                            .into()
+                            .into();
+
+                        let content_element: Element<_> = scrollable(content_element)
+                            .width(Length::Fill)
+                            .into();
+
+                        content_element
                     })
                     .ok();
 
@@ -732,7 +734,7 @@ impl ComponentWidgetWrapper {
 
                 button(content)
                     .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id, item_id: id.to_owned() })
-                    .style(ButtonStyle::EntrypointItem)
+                    .style(ButtonStyle::GauntletButton)
                     .width(Length::Fill)
                     .padding(Padding::new(5.0))
                     .into()
@@ -765,13 +767,7 @@ impl ComponentWidgetWrapper {
                                 let content: Element<_> = column(render_children(&pending, ComponentRenderContext::List { widget_id }))
                                     .into();
 
-                                let space: Element<_> = Space::with_width(50)
-                                    .into();
-
-                                let section = column([space, content])
-                                    .into();
-
-                                items.push(section);
+                                items.push(content);
 
                                 pending = vec![];
                             }
@@ -814,22 +810,21 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = column(content)
                     .into();
 
-                button(content)
+                let content: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id: id.to_owned() })
-                    .style(ButtonStyle::EntrypointItem)
+                    .style(ButtonStyle::GauntletGridButton)
                     .padding(Padding::new(5.0))
-                    // .width(Length::Fill)
-                    // .height(Length::Fill)
-                    .width(20)
-                    .height(20)
-                    .into()
+                    .height(150) // TODO dynamic height
+                    .into();
+
+                content
             }
-            ComponentWidget::GridSection { children, title, subtitle, aspectRatio: aspect_ratio, columns } => {
-                let content = render_grid(children, aspect_ratio.as_deref(), columns, context);
+            ComponentWidget::GridSection { children, title, subtitle, columns } => {
+                let content = render_grid(children, columns, context);
 
                 render_section(content, Some(title), subtitle)
             }
-            ComponentWidget::Grid { children, aspectRatio: aspect_ratio, columns } => {
+            ComponentWidget::Grid { children, columns } => {
                 let ComponentWidgetState::Grid { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
@@ -846,20 +841,14 @@ impl ComponentWidgetWrapper {
                         },
                         ComponentWidget::GridSection { .. } => {
                             if !pending.is_empty() {
-                                let content = render_grid(&pending, aspect_ratio.as_deref(), columns, context);
+                                let content = render_grid(&pending, columns, ComponentRenderContext::Grid { widget_id });
 
-                                let space = Space::with_height(30)
-                                    .into();
-
-                                let section = column([space, content])
-                                    .into();
-
-                                items.push(section);
+                                items.push(content);
 
                                 pending = vec![];
                             }
 
-                            items.push(child.render_widget(context))
+                            items.push(child.render_widget(ComponentRenderContext::Grid { widget_id }))
                         },
                         _ => panic!("unexpected widget kind {:?}", widget)
                     }
@@ -868,9 +857,9 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = column(items)
                     .into();
 
-                // let content: Element<_> = scrollable(content)
-                //     .width(Length::Fill)
-                //     .into();
+                let content: Element<_> = scrollable(content)
+                    .width(Length::Fill)
+                    .into();
 
                 render_root(show_action_panel, widget_id, children, content)
             }
@@ -887,7 +876,7 @@ impl ComponentWidgetWrapper {
 }
 
 fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
-    let icon = text(icons::BootstrapIcon::ArrowLeft)
+    let icon = text(icons::Bootstrap::ArrowLeft)
         .font(icons::BOOTSTRAP_FONT);
 
     let back_button: Element<_> = button(icon)
@@ -941,7 +930,7 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
         .into()
 }
 
-fn render_grid<'a>(children: &[ComponentWidgetWrapper], aspect_ratio: Option<&str>, columns: &Option<f64>, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
+fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&str>,*/ columns: &Option<f64>, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
     // let (width, height) = match aspect_ratio {
     //     None => (1, 1),
     //     Some("1") => (1, 1),
@@ -954,21 +943,24 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], aspect_ratio: Option<&st
     //     Some(value) => panic!("unsupported aspect_ratio {:?}", value)
     // };
 
-    let rows: Vec<GridRow<_, GauntletTheme, iced::Renderer>> = render_children(children, context)
+    let row_length = columns.map(|value| value.trunc() as usize).unwrap_or(5);
+
+    let rows: Vec<GridRow<_, _, _>> = render_children(children, context)
         .into_iter()
-        .chunks(columns.map(|value| value.trunc() as usize).unwrap_or(5))
+        .chunks(row_length)
         .into_iter()
-        .map(|row_items| grid_row(row_items.collect()).into())
+        .map(|row_items| {
+            let mut row_items: Vec<_> = row_items.collect();
+            row_items.resize_with(row_length, || horizontal_space().into());
+
+            grid_row(row_items).into()
+        })
         .collect();
 
     let grid: Element<_> = grid(rows)
         .width(Length::Fill)
-        .height(Length::Fill)
-        .column_width(Length::Fill)
-        .row_height(30)
+        .spacing(10.0)
         .into();
-
-    let grid = grid.explain(color!(0xFF0000));
 
     grid
 }

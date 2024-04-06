@@ -6,7 +6,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install -y protobuf-compiler # deno_kv needs this
+      - run: sudo apt-get install -y protobuf-compiler
 
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

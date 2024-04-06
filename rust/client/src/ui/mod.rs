@@ -10,7 +10,7 @@ use iced::keyboard::key::Named;
 use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, reposition};
-use iced_aw::graphics::icons;
+use iced_aw::core::icons;
 use tokio::runtime::Handle;
 use tokio::sync::RwLock as TokioRwLock;
 use tonic::Request;

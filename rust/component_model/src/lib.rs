@@ -659,7 +659,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", false, PropertyType::String),
             property("subtitle", true, PropertyType::String),
-            property("aspectRatio", true, PropertyType::String),
+            // property("aspectRatio", true, PropertyType::String),
             property("columns", true, PropertyType::Number)
             // fit
             // inset
@@ -674,7 +674,7 @@ pub fn create_component_model() -> Vec<Component> {
         "Grid",
         [
             property("actions", true, component_ref(&action_panel_component)),
-            property("aspectRatio", true, PropertyType::String),
+            // property("aspectRatio", true, PropertyType::String),
             property("columns", true, PropertyType::Number), // TODO default
             // fit
             // inset

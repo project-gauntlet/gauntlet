@@ -8,7 +8,7 @@ use iced::{Alignment, Application, color, Command, Element, executor, font, Font
 use iced::font::Weight;
 use iced::theme::Palette;
 use iced::widget::{button, checkbox, column, container, horizontal_space, pick_list, row, scrollable, Space, text, text_input, vertical_rule};
-use iced_aw::graphics::icons;
+use iced_aw::core::icons;
 use iced_aw::helpers::number_input;
 use iced_table::table;
 use tonic::Request;
@@ -577,7 +577,7 @@ impl Application for ManagementAppModel {
         let top_button_text = if plugin_url.is_some() {
             text("Download plugin")
         } else {
-            text(icons::BootstrapIcon::Plus)
+            text(icons::Bootstrap::Plus)
                 .font(icons::BOOTSTRAP_FONT)
         };
 
@@ -709,7 +709,7 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                         let plugins = plugins.borrow();
                         let plugin = plugins.get(&plugin_id).unwrap();
 
-                        let icon = if plugin.show_entrypoints { icons::BootstrapIcon::CaretDown } else { icons::BootstrapIcon::CaretRight };
+                        let icon = if plugin.show_entrypoints { icons::Bootstrap::CaretDown } else { icons::Bootstrap::CaretRight };
 
                         let icon: Element<_> = text(icon)
                             .font(icons::BOOTSTRAP_FONT)
@@ -1114,7 +1114,7 @@ fn preferences_ui<'a>(
                             .style(theme::Container::Box)
                             .into();
 
-                        let remove_icon = text(icons::BootstrapIcon::Dash)
+                        let remove_icon = text(icons::Bootstrap::Dash)
                             .font(icons::BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
@@ -1165,7 +1165,7 @@ fn preferences_ui<'a>(
                     })
                 };
 
-                let add_icon: Element<_> = text(icons::BootstrapIcon::Plus)
+                let add_icon: Element<_> = text(icons::Bootstrap::Plus)
                     .font(icons::BOOTSTRAP_FONT)
                     .into();
 
@@ -1229,7 +1229,7 @@ fn preferences_ui<'a>(
                             .style(theme::Container::Box)
                             .into();
 
-                        let remove_icon = text(icons::BootstrapIcon::Dash)
+                        let remove_icon = text(icons::Bootstrap::Dash)
                             .font(icons::BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
@@ -1266,7 +1266,7 @@ fn preferences_ui<'a>(
                     }
                 };
 
-                let add_icon: Element<_> = text(icons::BootstrapIcon::Plus)
+                let add_icon: Element<_> = text(icons::Bootstrap::Plus)
                     .font(icons::BOOTSTRAP_FONT)
                     .into();
 
@@ -1343,7 +1343,7 @@ fn preferences_ui<'a>(
                             .style(theme::Container::Box)
                             .into();
 
-                        let remove_icon = text(icons::BootstrapIcon::Dash)
+                        let remove_icon = text(icons::Bootstrap::Dash)
                             .font(icons::BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
@@ -1396,7 +1396,7 @@ fn preferences_ui<'a>(
                 };
 
 
-                let add_icon: Element<_> = text(icons::BootstrapIcon::Plus)
+                let add_icon: Element<_> = text(icons::Bootstrap::Plus)
                     .font(icons::BOOTSTRAP_FONT)
                     .into();
 
