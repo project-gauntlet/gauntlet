@@ -29,7 +29,9 @@ pub fn search_list<Message>(
 
 pub struct OpenViewEvent {
     pub plugin_id: PluginId,
+    pub plugin_name: String,
     pub entrypoint_id: EntrypointId,
+    pub entrypoint_name: String,
 }
 
 pub struct RunCommandEvent {
@@ -50,7 +52,9 @@ pub enum Event {
     },
     OpenView {
         plugin_id: PluginId,
+        plugin_name: String,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
     },
     RunGeneratedCommand {
         plugin_id: PluginId,
@@ -84,8 +88,8 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
         event: Event,
     ) -> Option<Message> {
         match event {
-            Event::OpenView { plugin_id, entrypoint_id } => {
-                let event = OpenViewEvent { plugin_id, entrypoint_id, };
+            Event::OpenView { plugin_id, plugin_name, entrypoint_id, entrypoint_name } => {
+                let event = OpenViewEvent { plugin_id, plugin_name, entrypoint_id, entrypoint_name };
                 Some((self.on_open_view)(event))
             }
             Event::RunCommand { plugin_id, entrypoint_id } => {
@@ -127,8 +131,10 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                         plugin_id: search_result.plugin_id.clone()
                     },
                     SearchResultEntrypointType::View => Event::OpenView {
+                        plugin_id: search_result.plugin_id.clone(),
+                        plugin_name: search_result.plugin_name.clone(),
                         entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone()
+                        entrypoint_name: search_result.entrypoint_name.clone(),
                     },
                     SearchResultEntrypointType::GeneratedCommand => Event::RunGeneratedCommand {
                         entrypoint_id: search_result.entrypoint_id.clone(),

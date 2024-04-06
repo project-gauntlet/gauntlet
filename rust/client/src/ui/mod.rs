@@ -56,7 +56,9 @@ pub struct AppModel {
 struct PluginViewData {
     top_level_view: bool,
     plugin_id: PluginId,
+    plugin_name: String,
     entrypoint_id: EntrypointId,
+    entrypoint_name: String,
 }
 
 struct PreferenceRequiredViewData {
@@ -70,7 +72,9 @@ struct PreferenceRequiredViewData {
 pub enum AppMsg {
     OpenView {
         plugin_id: PluginId,
+        plugin_name: String,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
     },
     RunCommand {
         plugin_id: PluginId,
@@ -186,11 +190,13 @@ impl Application for AppModel {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            AppMsg::OpenView { plugin_id, entrypoint_id } => {
+            AppMsg::OpenView { plugin_id, plugin_name, entrypoint_id, entrypoint_name } => {
                 self.plugin_view_data.replace(PluginViewData {
                     top_level_view: true,
                     plugin_id: plugin_id.clone(),
+                    plugin_name,
                     entrypoint_id: entrypoint_id.clone(),
+                    entrypoint_name
                 });
 
                 self.open_view(plugin_id, entrypoint_id)
@@ -492,7 +498,9 @@ impl Application for AppModel {
                     search_results,
                     |event| AppMsg::OpenView {
                         plugin_id: event.plugin_id,
+                        plugin_name: event.plugin_name,
                         entrypoint_id: event.entrypoint_id,
+                        entrypoint_name: event.entrypoint_name,
                     },
                     |event| AppMsg::RunCommand {
                         plugin_id: event.plugin_id,
@@ -552,14 +560,19 @@ impl Application for AppModel {
                 // element.explain(iced::color!(0xFF0000))
                 element
             }
-            Some(PluginViewData { plugin_id, entrypoint_id: _, top_level_view: _ }) => {
-                let container_element: Element<_> = view_container(self.client_context.clone(), plugin_id.to_owned())
-                    .into();
+            Some(PluginViewData { top_level_view: _, plugin_id, plugin_name, entrypoint_id, entrypoint_name }) => {
+                let container_element: Element<_> = view_container(
+                    self.client_context.clone(),
+                    plugin_id.to_owned(),
+                    plugin_name.to_owned(),
+                    entrypoint_id.to_owned(),
+                    entrypoint_name.to_owned()
+                ).into();
 
                 let element: Element<_> = container(container_element)
                     .style(ContainerStyle::Background)
-                    .height(Length::Fixed(SUB_VIEW_WINDOW_HEIGHT as f32))
-                    .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH as f32))
+                    .height(Length::Fixed(SUB_VIEW_WINDOW_HEIGHT))
+                    .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH))
                     .into();
 
                 // element.explain(iced::color!(0xFF0000))
@@ -652,7 +665,7 @@ impl AppModel {
                     window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
                 ])
             }
-            Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id }) => {
+            Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id, .. }) => {
                 self.open_view(plugin_id.clone(), entrypoint_id.clone())
             }
         }

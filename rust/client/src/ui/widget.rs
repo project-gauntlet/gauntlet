@@ -106,7 +106,7 @@ impl ComponentWidgetState {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ComponentRenderContext {
     None,
     H1,
@@ -121,6 +121,9 @@ pub enum ComponentRenderContext {
     Grid {
         widget_id: NativeUiWidgetId
     },
+    Root {
+        entrypoint_name: String,
+    }
 }
 
 impl ComponentWidgetWrapper {
@@ -450,10 +453,10 @@ impl ComponentWidgetWrapper {
                     }
                 };
 
-                render_root(show_action_panel, widget_id, children, content)
+                render_root(show_action_panel, widget_id, children, content, context)
             }
             ComponentWidget::Root { children } => {
-                row(render_children(children, ComponentRenderContext::None))
+                row(render_children(children, context))
                     .into()
             }
             ComponentWidget::TextField { .. } => {
@@ -567,7 +570,7 @@ impl ComponentWidgetWrapper {
                         let (widget, _) = &*child.get();
 
                         match widget {
-                            ComponentWidget::Separator => Some(child.render_widget(context)),
+                            ComponentWidget::Separator => Some(child.render_widget(ComponentRenderContext::None)),
                             ComponentWidget::ActionPanel { .. } => None,
                             _ => {
                                 let label = match widget {
@@ -597,7 +600,7 @@ impl ComponentWidgetWrapper {
                                     }
                                 };
 
-                                let form_input = container(child.render_widget(context))
+                                let form_input = container(child.render_widget(ComponentRenderContext::None))
                                     .width(Length::FillPortion(3))
                                     .into();
 
@@ -627,7 +630,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .into();
 
-                render_root(show_action_panel, widget_id, children, content)
+                render_root(show_action_panel, widget_id, children, content, context)
             }
             ComponentWidget::InlineSeparator => {
                 vertical_rule(1)
@@ -786,7 +789,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .into();
 
-                render_root(show_action_panel, widget_id, children, content)
+                render_root(show_action_panel, widget_id, children, content, context)
             }
             ComponentWidget::GridItem { children, id, title, subtitle } => {
                 let ComponentRenderContext::Grid { widget_id: grid_widget_id } = context else {
@@ -861,7 +864,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .into();
 
-                render_root(show_action_panel, widget_id, children, content)
+                render_root(show_action_panel, widget_id, children, content, context)
             }
         }
     }
@@ -1002,7 +1005,19 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
         .into()
 }
 
-fn render_root<'a>(show_action_panel: bool, widget_id: NativeUiWidgetId, children: &[ComponentWidgetWrapper], content: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent>  {
+fn render_root<'a>(
+    show_action_panel: bool,
+    widget_id: NativeUiWidgetId,
+    children: &[ComponentWidgetWrapper],
+    content: Element<'a, ComponentWidgetEvent>,
+    context: ComponentRenderContext
+) -> Element<'a, ComponentWidgetEvent>  {
+    let ComponentRenderContext::Root { entrypoint_name } = context else {
+        panic!("not supposed to be passed to root item: {:?}", context)
+    };
+
+    let entrypoint_name: Element<_> = text(entrypoint_name)
+        .into();
 
     let space = Space::with_width(Length::FillPortion(3))
         .into();
@@ -1017,12 +1032,12 @@ fn render_root<'a>(show_action_panel: bool, widget_id: NativeUiWidgetId, childre
             .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
             .into();
 
-        let bottom_panel: Element<_> = row(vec![space, action_panel_toggle])
+        let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
             .into();
 
         (!show_action_panel, action_panel_element, bottom_panel)
     } else {
-        let bottom_panel: Element<_> = row(vec![space])
+        let bottom_panel: Element<_> = row(vec![entrypoint_name, space])
             .into();
 
         (true, Space::with_height(1).into(), bottom_panel)
@@ -1067,6 +1082,7 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
         ComponentRenderContext::H6 => Some(16),
         ComponentRenderContext::List { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Grid { .. } => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::Root { .. } => panic!("not supposed to be passed to text part")
     };
 
     let mut text = text(value);
@@ -1110,7 +1126,7 @@ fn render_children<'a>(
 ) -> Vec<Element<'a, ComponentWidgetEvent>> {
     return content
         .into_iter()
-        .map(|child| child.render_widget(context))
+        .map(|child| child.render_widget(context.clone()))
         .collect();
 }
 
@@ -1144,7 +1160,7 @@ fn render_children_by_type<'a>(
             let (widget, _) = &*child.get();
             predicate(widget)
         })
-        .map(|child| child.render_widget(context))
+        .map(|child| child.render_widget(context.clone()))
         .collect();
 }
 
