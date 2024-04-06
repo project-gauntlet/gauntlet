@@ -5,7 +5,6 @@
     "build": "npm run build --workspaces --if-present"
   },
   "workspaces": [
-    "bundled_plugins/*",
     "js/typings",
     "js/build",
     "js/api_build",
