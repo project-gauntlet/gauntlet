@@ -118,7 +118,7 @@ pub struct JsUiWidget<'a> {
 pub enum IntermediateUiEvent {
     OpenView {
         frontend: String,
-        entrypoint_id: String
+        entrypoint_id: EntrypointId
     },
     RunCommand {
         entrypoint_id: String
@@ -210,4 +210,16 @@ pub enum PreferenceUserData {
     Bool(bool),
     ListOfStrings(Vec<String>),
     ListOfNumbers(Vec<f64>),
+}
+
+#[derive(Debug, Clone)]
+pub struct ActionShortcut {
+    pub key: String,
+    pub kind: ActionShortcutKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum ActionShortcutKind {
+    Main,
+    Alternative
 }

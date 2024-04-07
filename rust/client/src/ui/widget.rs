@@ -18,6 +18,7 @@ use itertools::Itertools;
 use common::model::PluginId;
 
 use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId};
+use crate::ui::{ActionShortcut, ActionShortcutKind};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
@@ -123,6 +124,13 @@ pub enum ComponentRenderContext {
     },
     Root {
         entrypoint_name: String,
+        action_shortcuts: HashMap<String, ActionShortcut>,
+    },
+    ActionPanel {
+        action_shortcuts: HashMap<String, ActionShortcut>,
+    },
+    Action {
+        action_shortcut: Option<ActionShortcut>,
     }
 }
 
@@ -177,18 +185,119 @@ impl ComponentWidgetWrapper {
         let (widget, state) = &*self.get();
         match widget {
             ComponentWidget::TextPart { value } => render_text_part(value, context),
-            ComponentWidget::Action { title, .. } => {
-                button(text(title))
+            ComponentWidget::Action { id, title } => {
+                let ComponentRenderContext::ActionPanel { action_shortcuts } = context else {
+                    panic!("not supposed to be passed to action panel: {:?}", context)
+                };
+
+                let shortcut_element: Option<Element<_>> = id.as_ref()
+                    .map(|id| action_shortcuts.get(id))
+                    .flatten()
+                    .map(|shortcut| {
+                        let mut result = row(vec![]);
+
+                        let modifier: Element<_> = if cfg!(target_os = "macos") {
+                            match shortcut.kind {
+                                ActionShortcutKind::Main => {
+                                    text(icons::Bootstrap::Command)
+                                        .font(icons::BOOTSTRAP_FONT)
+                                        .into()
+                                }
+                                ActionShortcutKind::Alternative => {
+                                    text(icons::Bootstrap::Option)
+                                        .font(icons::BOOTSTRAP_FONT)
+                                        .into()
+                                }
+                            }
+                        } else {
+                            match shortcut.kind {
+                                ActionShortcutKind::Main => {
+                                    text("CTRL")
+                                        .into()
+                                }
+                                ActionShortcutKind::Alternative => {
+                                    text("ALT")
+                                        .into()
+                                }
+                            }
+                        };
+
+                        let modifier: Element<_> = container(modifier)
+                            .padding(Padding::from([0.0, 5.0]))
+                            .style(ContainerStyle::Code)
+                            .into();
+
+                        let modifier: Element<_> = container(modifier)
+                            .padding(Padding::from([0.0, 10.0, 0.0, 0.0]))
+                            .into();
+
+                        result = result.push(modifier);
+
+                        let shift = shortcut.key.chars().all(|ch| ch.is_ascii_uppercase() && ch.is_alphabetic());
+                        if shift {
+                            let shift_key: Element<_> = if cfg!(target_os = "macos") {
+                                text(icons::Bootstrap::Shift)
+                                    .font(icons::BOOTSTRAP_FONT)
+                                    .into()
+                            } else {
+                                text("SHIFT")
+                                    .into()
+                            };
+
+                            let shift_key: Element<_> = container(shift_key)
+                                .padding(Padding::from([0.0, 5.0]))
+                                .style(ContainerStyle::Code)
+                                .into();
+
+                            let shift_key: Element<_> = container(shift_key)
+                                .padding(Padding::from([0.0, 10.0, 0.0, 0.0]))
+                                .into();
+
+                            result = result.push(shift_key);
+                        }
+
+                        let text: Element<_> = text(shortcut.key.to_ascii_uppercase())
+                            .into();
+
+                        let text: Element<_> = container(text)
+                            .padding(Padding::from([0.0, 5.0]))
+                            .style(ContainerStyle::Code)
+                            .into();
+
+                        result = result.push(text);
+
+                        result.into()
+                    });
+
+                let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
+                    let text: Element<_> = text(title)
+                        .into();
+
+                    let space: Element<_> = horizontal_space()
+                        .into();
+
+                    row([text, space, shortcut_element])
+                        .into()
+                } else {
+                    text(title)
+                        .into()
+                };
+
+                button(content)
                     .on_press(ComponentWidgetEvent::ActionClick { widget_id })
                     .style(ButtonStyle::GauntletButton)
                     .width(Length::Fill)
                     .into()
             }
             ComponentWidget::ActionPanelSection { children, .. } => {
-                column(render_children(children, ComponentRenderContext::None))
+                column(render_children(children, context))
                     .into()
             }
             ComponentWidget::ActionPanel { children, title } => {
+                let ComponentRenderContext::ActionPanel { action_shortcuts } = context else {
+                    panic!("not supposed to be passed to action panel: {:?}", context)
+                };
+
                 let mut columns = vec![];
                 if let Some(title) = title {
                     columns.push(
@@ -216,14 +325,14 @@ impl ComponentWidgetWrapper {
                                 place_separator = false;
                             }
 
-                            columns.push(child.render_widget(ComponentRenderContext::None));
+                            columns.push(child.render_widget(ComponentRenderContext::ActionPanel { action_shortcuts: action_shortcuts.clone() }));
                         }
                         ComponentWidget::ActionPanelSection { .. } => {
                             let separator: Element<_> = horizontal_rule(1)
                                 .into();
                             columns.push(separator);
 
-                            columns.push(child.render_widget(ComponentRenderContext::None));
+                            columns.push(child.render_widget(ComponentRenderContext::ActionPanel { action_shortcuts: action_shortcuts.clone() }));
 
                             place_separator = true;
                         }
@@ -1012,7 +1121,7 @@ fn render_root<'a>(
     content: Element<'a, ComponentWidgetEvent>,
     context: ComponentRenderContext
 ) -> Element<'a, ComponentWidgetEvent>  {
-    let ComponentRenderContext::Root { entrypoint_name } = context else {
+    let ComponentRenderContext::Root { entrypoint_name, action_shortcuts } = context else {
         panic!("not supposed to be passed to root item: {:?}", context)
     };
 
@@ -1022,7 +1131,7 @@ fn render_root<'a>(
     let space = Space::with_width(Length::FillPortion(3))
         .into();
 
-    let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::None)
+    let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::ActionPanel { action_shortcuts })
         .ok();
 
     let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
@@ -1082,7 +1191,9 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
         ComponentRenderContext::H6 => Some(16),
         ComponentRenderContext::List { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Grid { .. } => panic!("not supposed to be passed to text part"),
-        ComponentRenderContext::Root { .. } => panic!("not supposed to be passed to text part")
+        ComponentRenderContext::Root { .. } => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::ActionPanel { .. } => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::Action { .. } => panic!("not supposed to be passed to text part"),
     };
 
     let mut text = text(value);

@@ -73,7 +73,7 @@ pub enum OnePluginCommandData {
     Stop,
     RenderView {
         frontend: String,
-        entrypoint_id: String,
+        entrypoint_id: EntrypointId,
     },
     RunCommand {
         entrypoint_id: String,
@@ -1107,7 +1107,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     match event {
         IntermediateUiEvent::OpenView { frontend, entrypoint_id } => JsUiEvent::OpenView {
             frontend,
-            entrypoint_id,
+            entrypoint_id: entrypoint_id.to_string(),
         },
         IntermediateUiEvent::RunCommand { entrypoint_id } => JsUiEvent::RunCommand {
             entrypoint_id

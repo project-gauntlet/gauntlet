@@ -5,9 +5,9 @@ use common::model::{DownloadStatus, EntrypointId, PluginId, PropertyValue};
 use common::rpc::{plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, rpc_ui_property_value, RpcEntrypoint, RpcEntrypointTypeSettings, RpcEnumValue, RpcNoProtoBufPluginPreferenceUserData, RpcPlugin, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue};
 
 use crate::dirs::Dirs;
-use crate::model::{from_rpc_to_intermediate_value, UiWidgetId};
+use crate::model::{ActionShortcut, ActionShortcutKind, from_rpc_to_intermediate_value, UiWidgetId};
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
@@ -233,7 +233,7 @@ impl ApplicationManager {
         })
     }
 
-    pub fn handle_render_view(&self, plugin_id: PluginId, frontend: String, entrypoint_id: String) {
+    pub fn handle_render_view(&self, plugin_id: PluginId, frontend: String, entrypoint_id: EntrypointId) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::RenderView {
@@ -289,6 +289,46 @@ impl ApplicationManager {
     async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> anyhow::Result<bool> {
         self.db_repository.is_plugin_enabled(&plugin_id.to_string())
             .await
+    }
+
+    pub async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
+        let DbReadPluginEntrypoint { actions, actions_user_data, .. } = self.db_repository.get_entrypoint_by_id(&plugin_id.to_string(), &entrypoint_id.to_string())
+            .await?;
+
+        let actions_user_data: HashMap<_, _> = actions_user_data.into_iter()
+            .map(|data| (data.id, (data.key, data.kind)))
+            .collect();
+
+        let action_shortcuts = actions.into_iter()
+            .map(|action| {
+                let id = action.id;
+
+                let shortcut = match actions_user_data.get(&id) {
+                    None => {
+                        ActionShortcut {
+                            key: action.key,
+                            kind: match action.kind {
+                                DbPluginActionShortcutKind::Main => ActionShortcutKind::Main,
+                                DbPluginActionShortcutKind::Alternative => ActionShortcutKind::Alternative,
+                            },
+                        }
+                    }
+                    Some((key, kind)) => {
+                        ActionShortcut {
+                            key: key.to_owned(),
+                            kind: match kind {
+                                DbPluginActionShortcutKind::Main => ActionShortcutKind::Main,
+                                DbPluginActionShortcutKind::Alternative => ActionShortcutKind::Alternative,
+                            },
+                        }
+                    }
+                };
+
+                (id, shortcut)
+            })
+            .collect();
+
+        Ok(action_shortcuts)
     }
 
     async fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {

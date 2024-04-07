@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
@@ -18,7 +19,7 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_frontend_server::RpcFrontendServer;
 use common::rpc::rpc_ui_property_value::Value;
@@ -59,6 +60,7 @@ struct PluginViewData {
     plugin_name: String,
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
+    action_shortcuts: HashMap<String, ActionShortcut>
 }
 
 struct PreferenceRequiredViewData {
@@ -109,6 +111,21 @@ pub enum AppMsg {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
     },
+    SaveActionShortcuts {
+        action_shortcuts: HashMap<String, ActionShortcut>
+    },
+}
+
+#[derive(Debug, Clone)]
+struct ActionShortcut {
+    key: String,
+    kind: ActionShortcutKind,
+}
+
+#[derive(Debug, Clone)]
+enum ActionShortcutKind {
+    Main,
+    Alternative
 }
 
 const WINDOW_WIDTH: f32 = 650.0;
@@ -196,7 +213,8 @@ impl Application for AppModel {
                     plugin_id: plugin_id.clone(),
                     plugin_name,
                     entrypoint_id: entrypoint_id.clone(),
-                    entrypoint_name
+                    entrypoint_name,
+                    action_shortcuts: HashMap::new()
                 });
 
                 self.open_view(plugin_id, entrypoint_id)
@@ -431,6 +449,12 @@ impl Application for AppModel {
                         .unwrap();
                 }, |_| AppMsg::Noop)
             }
+            AppMsg::SaveActionShortcuts { action_shortcuts } => {
+                if let Some(data) = self.plugin_view_data.as_mut() {
+                    data.action_shortcuts = action_shortcuts;
+                }
+                Command::none()
+            }
         }
     }
 
@@ -574,13 +598,23 @@ impl Application for AppModel {
                 // element.explain(iced::color!(0xFF0000))
                 element
             }
-            Some(PluginViewData { top_level_view: _, plugin_id, plugin_name, entrypoint_id, entrypoint_name }) => {
+            Some(data) => {
+                let PluginViewData {
+                    top_level_view: _,
+                    plugin_id,
+                    plugin_name,
+                    entrypoint_id,
+                    entrypoint_name,
+                    action_shortcuts
+                } = data;
+
                 let container_element: Element<_> = view_container(
                     self.client_context.clone(),
                     plugin_id.to_owned(),
                     plugin_name.to_owned(),
                     entrypoint_id.to_owned(),
-                    entrypoint_name.to_owned()
+                    entrypoint_name.to_owned(),
+                    action_shortcuts.to_owned(),
                 ).into();
 
                 let element: Element<_> = container(container_element)
@@ -699,10 +733,28 @@ impl AppModel {
                 event: Some(event),
             };
 
-            backend_client.request_view_render(Request::new(request))
+            let action_shortcuts = backend_client.request_view_render(Request::new(request))
                 .await
-                .unwrap();
-        }, |_| AppMsg::Noop)
+                .unwrap()
+                .into_inner()
+                .action_shortcuts
+                .into_iter()
+                .map(|(id, value)| {
+                    let key = value.key;
+                    let kind = RpcRequestViewRenderResponseActionKind::try_from(value.kind)
+                        .unwrap();
+
+                    let kind = match kind {
+                        RpcRequestViewRenderResponseActionKind::Main => ActionShortcutKind::Main,
+                        RpcRequestViewRenderResponseActionKind::Alternative => ActionShortcutKind::Alternative
+                    };
+
+                    (id, ActionShortcut { key, kind })
+                })
+                .collect::<HashMap<_, _>>();
+
+            action_shortcuts
+        }, |action_shortcuts| AppMsg::SaveActionShortcuts { action_shortcuts })
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {

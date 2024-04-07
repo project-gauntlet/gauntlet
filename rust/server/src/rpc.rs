@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 
 use common::model::{DownloadStatus, EntrypointId, PluginId};
-use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, settings_env_data_to_string, SettingsEnvData};
+use common::rpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypointTypeSearchResult, RpcEventRenderView, RpcEventRunCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, settings_env_data_to_string, SettingsEnvData};
 use common::rpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 
 use crate::{FRONTEND_ENV, SETTINGS_ENV};
-use crate::model::from_rpc_to_intermediate_value;
+use crate::model::{ActionShortcutKind, from_rpc_to_intermediate_value};
 use crate::plugins::ApplicationManager;
 use crate::search::{SearchIndex, SearchIndexPluginEntrypointType};
 
@@ -55,8 +55,31 @@ impl RpcBackend for RpcBackendServerImpl {
         let entrypoint_id = event.entrypoint_id;
         let frontend = event.frontend;
 
-        self.application_manager.handle_render_view(PluginId::from_string(plugin_id), frontend, entrypoint_id);
-        Ok(Response::new(RpcRequestViewRenderResponse::default()))
+        let plugin_id = PluginId::from_string(plugin_id);
+        let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+        self.application_manager.handle_render_view(plugin_id.clone(), frontend, entrypoint_id.clone());
+
+        let action_shortcuts = self.application_manager.action_shortcuts(plugin_id, entrypoint_id)
+            .await
+            .map_err(|err| Status::internal(err.to_string()))?;
+
+        let action_shortcuts = action_shortcuts.into_iter()
+            .map(|(id, shortcut)| {
+                let action = RpcRequestViewRenderResponseAction {
+                    key: shortcut.key,
+                    kind: match shortcut.kind {
+                        ActionShortcutKind::Main => RpcRequestViewRenderResponseActionKind::Main.into(),
+                        ActionShortcutKind::Alternative => RpcRequestViewRenderResponseActionKind::Alternative.into(),
+                    },
+                };
+
+                (id, action)
+            })
+            .collect();
+
+        Ok(Response::new(RpcRequestViewRenderResponse {
+            action_shortcuts,
+        }))
     }
 
     async fn request_run_command(&self, request: Request<RpcRequestRunCommandRequest>) -> Result<Response<RpcRequestRunCommandResponse>, Status> {

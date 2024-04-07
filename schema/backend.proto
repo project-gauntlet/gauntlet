@@ -49,6 +49,15 @@ message RpcRequestViewRenderRequest {
   RpcEventRenderView event = 2;
 }
 message RpcRequestViewRenderResponse {
+  map<string, RpcRequestViewRenderResponseAction> action_shortcuts = 1;
+}
+message RpcRequestViewRenderResponseAction {
+  string key = 1;
+  RpcRequestViewRenderResponseActionKind kind = 2;
+}
+enum RpcRequestViewRenderResponseActionKind {
+  MAIN = 0;
+  ALTERNATIVE = 1;
 }
 
 message RpcRequestRunCommandRequest {
