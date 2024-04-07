@@ -338,14 +338,14 @@ pub fn create_component_model() -> Vec<Component> {
         ]),
     );
 
-    let link_component = component(
-        "link",
-        "Link",
-        [
-            property("href", false, PropertyType::String),
-        ],
-        children_string(),
-    );
+    // let link_component = component(
+    //     "link",
+    //     "Link",
+    //     [
+    //         property("href", false, PropertyType::String),
+    //     ],
+    //     children_string(),
+    // );
 
     let image_component = component(
         "image",
@@ -430,13 +430,14 @@ pub fn create_component_model() -> Vec<Component> {
         // ]),
     );
 
+    // content shouldn't have any interactable items
     let content_component = component(
         "content",
         "Content",
         [],
         children_members([
             member("Paragraph", &paragraph_component),
-            member("Link", &link_component),
+            // member("Link", &link_component),
             member("Image", &image_component), // TODO color
             member("H1", &h1_component),
             member("H2", &h2_component),
@@ -776,7 +777,7 @@ pub fn create_component_model() -> Vec<Component> {
         metadata_icon_component,
         metadata_component,
 
-        link_component,
+        // link_component,
         image_component,
         h1_component,
         h2_component,

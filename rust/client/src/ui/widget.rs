@@ -325,25 +325,25 @@ impl ComponentWidgetWrapper {
                     .padding(Padding::new(5.0))
                     .into()
             }
-            ComponentWidget::Link { children, href } => {
-                let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
-
-                let content: Element<_> = button(content)
-                    .style(ButtonStyle::Link)
-                    .on_press(ComponentWidgetEvent::LinkClick { widget_id, href: href.to_owned() })
-                    .into();
-
-                if href.is_empty() {
-                    content
-                } else {
-                    let href: Element<_> = text(href)
-                        .into();
-
-                    tooltip(content, href, Position::Top)
-                        .style(ContainerStyle::Background)
-                        .into()
-                }
-            }
+            // ComponentWidget::Link { children, href } => {
+            //     let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
+            //
+            //     let content: Element<_> = button(content)
+            //         .style(ButtonStyle::Link)
+            //         .on_press(ComponentWidgetEvent::LinkClick { widget_id, href: href.to_owned() })
+            //         .into();
+            //
+            //     if href.is_empty() {
+            //         content
+            //     } else {
+            //         let href: Element<_> = text(href)
+            //             .into();
+            //
+            //         tooltip(content, href, Position::Top)
+            //             .style(ContainerStyle::Background)
+            //             .into()
+            //     }
+            // }
             ComponentWidget::Image { source } => {
                 image(Handle::from_memory(source.clone())) // FIXME really expensive clone
                     .into()
