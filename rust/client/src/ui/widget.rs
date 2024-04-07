@@ -1221,7 +1221,9 @@ impl ComponentWidgetEvent {
     pub fn handle(self, plugin_id: PluginId, widget: ComponentWidgetWrapper) -> Option<NativeUiViewEvent> {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id: _, href } => {
-                todo!("href {:?}", href);
+                Some(NativeUiViewEvent::Open {
+                    href
+                })
             }
             ComponentWidgetEvent::TagClick { widget_id } => {
                 Some(create_metadata_tag_item_on_click_event(widget_id))

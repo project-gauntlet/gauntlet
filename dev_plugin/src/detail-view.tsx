@@ -95,7 +95,6 @@ export default function DetailView(): ReactElement {
                 <Detail.Content.H5>H5 Title</Detail.Content.H5>
                 <Detail.Content.H6>H6 Title</Detail.Content.H6>
                 <Detail.Content.Image source={{ data: logoData }}/>
-                <Detail.Content.Link href={"https://google.com/"}>Google Link</Detail.Content.Link>
                 <Detail.Content.CodeBlock>Code block Test</Detail.Content.CodeBlock>
                 <Detail.Content.HorizontalBreak/>
                 <Detail.Content.Paragraph>
@@ -133,8 +132,8 @@ export default function DetailView(): ReactElement {
                     </Detail.Metadata.TagList.Item>
                 </Detail.Metadata.TagList>
                 <Detail.Metadata.Separator/>
-                <Detail.Metadata.Link label="Test 2" href={""}>
-                    Link text
+                <Detail.Metadata.Link label="Go Fishing" href="https://google.com/">
+                    Google Link
                 </Detail.Metadata.Link>
                 <Detail.Metadata.Value label="Label 3">
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do

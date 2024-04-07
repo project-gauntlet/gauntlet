@@ -18,13 +18,13 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_frontend_server::RpcFrontendServer;
 use common::rpc::rpc_ui_property_value::Value;
 use utils::channel::{channel, RequestReceiver};
 
-use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult, SearchResultEntrypointType};
+use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult, NativeUiViewEvent, SearchResultEntrypointType};
 use crate::rpc::RpcFrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
@@ -353,32 +353,46 @@ impl Application for AppModel {
                     };
 
                     if let Some(event) = event {
-                        let widget_id = RpcUiWidgetId { value: event.widget_id };
-                        let event_arguments = event.event_arguments
-                            .into_iter()
-                            .map(|value| match value {
-                                PropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
-                                PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
-                                PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
-                                PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
-                                PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
-                            })
-                            .collect();
+                        match event {
+                            NativeUiViewEvent::View { widget_id, event_name, event_arguments } => {
+                                let widget_id = RpcUiWidgetId { value: widget_id };
+                                let event_arguments = event_arguments
+                                    .into_iter()
+                                    .map(|value| match value {
+                                        PropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
+                                        PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
+                                        PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
+                                        PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
+                                        PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
+                                    })
+                                    .collect();
 
-                        let event = RpcEventViewEvent {
-                            widget_id: Some(widget_id),
-                            event_name: event.event_name,
-                            event_arguments,
-                        };
+                                let event = RpcEventViewEvent {
+                                    widget_id: Some(widget_id),
+                                    event_name,
+                                    event_arguments,
+                                };
 
-                        let request = RpcSendViewEventRequest {
-                            plugin_id: plugin_id.to_string(),
-                            event: Some(event),
-                        };
+                                let request = RpcSendViewEventRequest {
+                                    plugin_id: plugin_id.to_string(),
+                                    event: Some(event),
+                                };
 
-                        backend_client.send_view_event(Request::new(request))
-                            .await
-                            .unwrap();
+                                backend_client.send_view_event(Request::new(request))
+                                    .await
+                                    .unwrap();
+                            }
+                            NativeUiViewEvent::Open { href } => {
+                                let request = RpcSendOpenEventRequest {
+                                    plugin_id: plugin_id.to_string(),
+                                    href,
+                                };
+
+                                backend_client.send_open_event(Request::new(request))
+                                    .await
+                                    .unwrap();
+                            }
+                        }
                     };
                 }, |_| AppMsg::Noop)
             }

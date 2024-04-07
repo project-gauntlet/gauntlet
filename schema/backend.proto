@@ -15,6 +15,7 @@ service RpcBackend {
 
   rpc SendViewEvent (RpcSendViewEventRequest) returns (RpcSendViewEventResponse);
   rpc SendKeyboardEvent (RpcSendKeyboardEventRequest) returns (RpcSendKeyboardEventResponse);
+  rpc SendOpenEvent (RpcSendOpenEventRequest) returns (RpcSendOpenEventResponse);
 
   // settings
   rpc Plugins (RpcPluginsRequest) returns (RpcPluginsResponse);
@@ -76,6 +77,13 @@ message RpcSendKeyboardEventRequest {
   RpcEventKeyboardEvent event = 2;
 }
 message RpcSendKeyboardEventResponse {
+}
+
+message RpcSendOpenEventRequest {
+  string plugin_id = 1;
+  string href = 2;
+}
+message RpcSendOpenEventResponse {
 }
 
 message RpcPluginsRequest {

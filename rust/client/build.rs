@@ -380,7 +380,7 @@ fn main() -> anyhow::Result<()> {
                     }
 
                     output.push_str(") -> crate::model::NativeUiViewEvent {\n");
-                    output.push_str("    crate::model::NativeUiViewEvent {\n");
+                    output.push_str("    crate::model::NativeUiViewEvent::View {\n");
                     output.push_str("        widget_id,\n");
                     output.push_str(&format!("        event_name: \"{}\".to_owned(),\n", prop.name));
                     output.push_str("        event_arguments: vec![\n",);

@@ -28,6 +28,7 @@ tonic = "0.11.0"
 client = { path = "../client" }
 walkdir = "2.4.0"
 include_dir = "0.7.3"
+open = "5"
 
 [features]
 dev = []

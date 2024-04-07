@@ -49,10 +49,15 @@ pub enum NativeUiRequestData {
 }
 
 #[derive(Debug, Clone)]
-pub struct NativeUiViewEvent {
-    pub widget_id: NativeUiWidgetId,
-    pub event_name: String,
-    pub event_arguments: Vec<PropertyValue>,
+pub enum NativeUiViewEvent {
+    View {
+        widget_id: NativeUiWidgetId,
+        event_name: String,
+        event_arguments: Vec<PropertyValue>,
+    },
+    Open {
+        href: String
+    }
 }
 
 pub type NativeUiWidgetId = u32;
