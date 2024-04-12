@@ -18,6 +18,7 @@ message RpcUiPropertyValue {
     double number = 3;
     bool bool = 4;
     bytes bytes = 5;
+    string json = 6;
   }
 }
 

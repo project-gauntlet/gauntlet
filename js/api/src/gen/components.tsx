@@ -35,15 +35,11 @@ declare global {
                 label: string;
             };
             ["gauntlet:metadata_icon"]: {
-                icon: string;
+                icon: Icons;
                 label: string;
             };
             ["gauntlet:metadata"]: {
                 children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
-            };
-            ["gauntlet:link"]: {
-                children?: StringComponent;
-                href: string;
             };
             ["gauntlet:image"]: {
                 source: {
@@ -76,7 +72,7 @@ declare global {
                 children?: StringComponent;
             };
             ["gauntlet:content"]: {
-                children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
+                children?: ElementComponent<typeof Paragraph | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
             };
             ["gauntlet:detail"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof Metadata | typeof Content>;
@@ -133,7 +129,7 @@ declare global {
                 subtitle?: string;
                 icon?: {
                     data: ArrayBuffer;
-                };
+                } | Icons;
             };
             ["gauntlet:list_section"]: {
                 children?: ElementComponent<typeof ListItem>;
@@ -154,12 +150,10 @@ declare global {
                 children?: ElementComponent<typeof GridItem>;
                 title: string;
                 subtitle?: string;
-                aspectRatio?: string;
                 columns?: number;
             };
             ["gauntlet:grid"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
-                aspectRatio?: string;
                 columns?: number;
                 onSelectionChange?: (id: string) => void;
             };
@@ -173,6 +167,179 @@ export type EmptyNode = boolean | null | undefined;
 export type ElementComponent<Comp extends FC<any>> = Element<Comp> | EmptyNode | Iterable<ElementComponent<Comp>>;
 export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>;
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
+export enum Icons {
+    PersonAdd = "PersonAdd",
+    Airplane = "Airplane",
+    Alarm = "Alarm",
+    AlignCentre = "AlignCentre",
+    AlignLeft = "AlignLeft",
+    AlignRight = "AlignRight",
+    ArrowClockwise = "ArrowClockwise",
+    ArrowCounterClockwise = "ArrowCounterClockwise",
+    ArrowDown = "ArrowDown",
+    ArrowLeft = "ArrowLeft",
+    ArrowRight = "ArrowRight",
+    ArrowUp = "ArrowUp",
+    ArrowLeftRight = "ArrowLeftRight",
+    ArrowsContract = "ArrowsContract",
+    ArrowsExpand = "ArrowsExpand",
+    AtSymbol = "AtSymbol",
+    Cash = "Cash",
+    Battery = "Battery",
+    BatteryCharging = "BatteryCharging",
+    Bell = "Bell",
+    BellDisabled = "BellDisabled",
+    Document = "Document",
+    DocumentAdd = "DocumentAdd",
+    DocumentDelete = "DocumentDelete",
+    Bluetooth = "Bluetooth",
+    Bold = "Bold",
+    Book = "Book",
+    Bookmark = "Bookmark",
+    Box = "Box",
+    Bug = "Bug",
+    Building = "Building",
+    BulletPoints = "BulletPoints",
+    Calculator = "Calculator",
+    Calendar = "Calendar",
+    Camera = "Camera",
+    Car = "Car",
+    Cart = "Cart",
+    Checkmark = "Checkmark",
+    ChevronDown = "ChevronDown",
+    ChevronLeft = "ChevronLeft",
+    ChevronRight = "ChevronRight",
+    ChevronUp = "ChevronUp",
+    ChevronExpand = "ChevronExpand",
+    Circle = "Circle",
+    Clipboard = "Clipboard",
+    Clock = "Clock",
+    Cloud = "Cloud",
+    CloudLightning = "CloudLightning",
+    CloudRain = "CloudRain",
+    CloudSnow = "CloudSnow",
+    CloudSun = "CloudSun",
+    Code = "Code",
+    Gear = "Gear",
+    Coin = "Coin",
+    Command = "Command",
+    Compass = "Compass",
+    CreditCard = "CreditCard",
+    Crop = "Crop",
+    Dot = "Dot",
+    Download = "Download",
+    Eject = "Eject",
+    ThreeDots = "ThreeDots",
+    Envelope = "Envelope",
+    Eraser = "Eraser",
+    ExclamationMark = "ExclamationMark",
+    Eye = "Eye",
+    EyeDisabled = "EyeDisabled",
+    EyeDropper = "EyeDropper",
+    Female = "Female",
+    Film = "Film",
+    Filter = "Filter",
+    Fingerprint = "Fingerprint",
+    Flag = "Flag",
+    Folder = "Folder",
+    FolderAdd = "FolderAdd",
+    FolderDelete = "FolderDelete",
+    Forward = "Forward",
+    GameController = "GameController",
+    Virus = "Virus",
+    Gift = "Gift",
+    Glasses = "Glasses",
+    Globe = "Globe",
+    Hammer = "Hammer",
+    HardDrive = "HardDrive",
+    Headphones = "Headphones",
+    Heart = "Heart",
+    Heartbeat = "Heartbeat",
+    Hourglass = "Hourglass",
+    House = "House",
+    Image = "Image",
+    Info = "Info",
+    Italics = "Italics",
+    Key = "Key",
+    Keyboard = "Keyboard",
+    Layers = "Layers",
+    LightBulb = "LightBulb",
+    LightBulbDisabled = "LightBulbDisabled",
+    Link = "Link",
+    List = "List",
+    Lock = "Lock",
+    LockUnlocked = "LockUnlocked",
+    Male = "Male",
+    Map = "Map",
+    Maximize = "Maximize",
+    Megaphone = "Megaphone",
+    MemoryModule = "MemoryModule",
+    MemoryStick = "MemoryStick",
+    Message = "Message",
+    Microphone = "Microphone",
+    MicrophoneDisabled = "MicrophoneDisabled",
+    Minimize = "Minimize",
+    Minus = "Minus",
+    Mobile = "Mobile",
+    Moon = "Moon",
+    Mouse = "Mouse",
+    Multiply = "Multiply",
+    Music = "Music",
+    Network = "Network",
+    Paperclip = "Paperclip",
+    Paragraph = "Paragraph",
+    Pause = "Pause",
+    Pencil = "Pencil",
+    Person = "Person",
+    Phone = "Phone",
+    PieChart = "PieChart",
+    Capsule = "Capsule",
+    Play = "Play",
+    Plug = "Plug",
+    Plus = "Plus",
+    Power = "Power",
+    Printer = "Printer",
+    QuestionMark = "QuestionMark",
+    Quotes = "Quotes",
+    Receipt = "Receipt",
+    PersonRemove = "PersonRemove",
+    Repeat = "Repeat",
+    Reply = "Reply",
+    Rewind = "Rewind",
+    Rocket = "Rocket",
+    Shield = "Shield",
+    Shuffle = "Shuffle",
+    Snippets = "Snippets",
+    Snowflake = "Snowflake",
+    Star = "Star",
+    Stop = "Stop",
+    Stopwatch = "Stopwatch",
+    StrikeThrough = "StrikeThrough",
+    Sun = "Sun",
+    Scissors = "Scissors",
+    Tag = "Tag",
+    Thermometer = "Thermometer",
+    Terminal = "Terminal",
+    Text = "Text",
+    TextCursor = "TextCursor",
+    Trash = "Trash",
+    Tree = "Tree",
+    Trophy = "Trophy",
+    People = "People",
+    Umbrella = "Umbrella",
+    Underline = "Underline",
+    Upload = "Upload",
+    Wallet = "Wallet",
+    Wand = "Wand",
+    Wifi = "Wifi",
+    WifiDisabled = "WifiDisabled",
+    Window = "Window",
+    Tools = "Tools",
+    Watch = "Watch",
+    XMark = "XMark",
+    Indent = "Indent",
+    Unindent = "Unindent"
+}
 export interface ActionProps {
     id?: string;
     title: string;
@@ -239,7 +406,7 @@ export const MetadataValue: FC<MetadataValueProps> = (props: MetadataValueProps)
     return <gauntlet:metadata_value children={props.children} label={props.label}/>;
 };
 export interface MetadataIconProps {
-    icon: string;
+    icon: Icons;
     label: string;
 }
 export const MetadataIcon: FC<MetadataIconProps> = (props: MetadataIconProps): ReactNode => {
@@ -262,13 +429,6 @@ Metadata.Link = MetadataLink;
 Metadata.Value = MetadataValue;
 Metadata.Icon = MetadataIcon;
 Metadata.Separator = MetadataSeparator;
-export interface LinkProps {
-    children?: StringComponent;
-    href: string;
-}
-export const Link: FC<LinkProps> = (props: LinkProps): ReactNode => {
-    return <gauntlet:link children={props.children} href={props.href}/>;
-};
 export interface ImageProps {
     source: {
         data: ArrayBuffer;
@@ -329,11 +489,10 @@ export const Paragraph: FC<ParagraphProps> = (props: ParagraphProps): ReactNode 
     return <gauntlet:paragraph children={props.children}/>;
 };
 export interface ContentProps {
-    children?: ElementComponent<typeof Paragraph | typeof Link | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
+    children?: ElementComponent<typeof Paragraph | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
 }
 export const Content: FC<ContentProps> & {
     Paragraph: typeof Paragraph;
-    Link: typeof Link;
     Image: typeof Image;
     H1: typeof H1;
     H2: typeof H2;
@@ -347,7 +506,6 @@ export const Content: FC<ContentProps> & {
     return <gauntlet:content children={props.children}/>;
 };
 Content.Paragraph = Paragraph;
-Content.Link = Link;
 Content.Image = Image;
 Content.H1 = H1;
 Content.H2 = H2;
@@ -478,7 +636,7 @@ export interface ListItemProps {
     subtitle?: string;
     icon?: {
         data: ArrayBuffer;
-    };
+    } | Icons;
 }
 export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
     return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}/>;
@@ -527,19 +685,17 @@ export interface GridSectionProps {
     children?: ElementComponent<typeof GridItem>;
     title: string;
     subtitle?: string;
-    aspectRatio?: string;
     columns?: number;
 }
 export const GridSection: FC<GridSectionProps> & {
     Item: typeof GridItem;
 } = (props: GridSectionProps): ReactNode => {
-    return <gauntlet:grid_section children={props.children} title={props.title} subtitle={props.subtitle} aspectRatio={props.aspectRatio} columns={props.columns}/>;
+    return <gauntlet:grid_section children={props.children} title={props.title} subtitle={props.subtitle} columns={props.columns}/>;
 };
 GridSection.Item = GridItem;
 export interface GridProps {
     children?: ElementComponent<typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
     actions?: ElementComponent<typeof ActionPanel>;
-    aspectRatio?: string;
     columns?: number;
     onSelectionChange?: (id: string) => void;
 }
@@ -549,7 +705,7 @@ export const Grid: FC<GridProps> & {
     Item: typeof GridItem;
     Section: typeof GridSection;
 } = (props: GridProps): ReactNode => {
-    return <gauntlet:grid children={[props.actions, props.children] as any} aspectRatio={props.aspectRatio} columns={props.columns} onSelectionChange={props.onSelectionChange}/>;
+    return <gauntlet:grid children={[props.actions, props.children] as any} columns={props.columns} onSelectionChange={props.onSelectionChange}/>;
 };
 Grid.EmptyView = EmptyView;
 Grid.Detail = Detail;

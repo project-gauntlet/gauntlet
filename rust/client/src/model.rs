@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
+use serde::de::DeserializeOwned;
 
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
 use common::rpc::{RpcUiPropertyValue, RpcUiWidget};
@@ -72,6 +73,7 @@ pub fn from_rpc(value: HashMap<String, RpcUiPropertyValue>) -> anyhow::Result<Ha
                 Value::Number(value) => NativeUiPropertyValue::Number(value),
                 Value::Bool(value) => NativeUiPropertyValue::Bool(value),
                 Value::Bytes(value) => NativeUiPropertyValue::Bytes(value),
+                Value::Json(value) => NativeUiPropertyValue::Json(value),
                 _ => {
                     return Err(anyhow!("invalid type"))
                 }
@@ -92,6 +94,7 @@ pub enum NativeUiPropertyValue {
     Number(f64),
     Bool(bool),
     Bytes(Vec<u8>),
+    Json(String),
 }
 
 impl NativeUiPropertyValue {
@@ -119,6 +122,13 @@ impl NativeUiPropertyValue {
     pub fn as_bytes(&self) -> Option<&[u8]> {
         if let NativeUiPropertyValue::Bytes(val) = self {
             Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_json<T: DeserializeOwned>(&self) -> Option<T> {
+        if let NativeUiPropertyValue::Json(val) = self {
+            Some(serde_json::from_str(val).expect("invalid json sent from backend?"))
         } else {
             None
         }

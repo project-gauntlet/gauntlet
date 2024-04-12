@@ -18,6 +18,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
+use tonic::codegen::Body;
 use tonic::Request;
 use tonic::transport::Channel;
 
@@ -25,7 +26,7 @@ use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
 use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_frontend_client::RpcFrontendClient;
 use common::rpc::rpc_frontend_server::RpcFrontend;
-use component_model::{Children, Component, create_component_model, PropertyType};
+use component_model::{Children, Component, create_component_model, Property, PropertyType};
 
 use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
@@ -880,6 +881,9 @@ fn op_react_replace_view(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
+    let comp_state = state.borrow();
+    let component_model = comp_state.borrow::<ComponentModel>();
+
     // TODO fix validation
     // for new_child in &container.widget_children {
     //     validate_child(&state, &container.widget_type, &new_child.widget_type)?
@@ -889,7 +893,7 @@ fn op_react_replace_view(
         entrypoint_id: EntrypointId::from_string(entrypoint_id),
         render_location,
         top_level_view,
-        container: from_js_to_intermediate_widget(scope, container)?,
+        container: from_js_to_intermediate_widget(scope, container, component_model)?,
     };
 
     match make_request(&state, data).context("ReplaceView frontend response")? {
@@ -960,6 +964,9 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                                 }
                             }
                             PropertyValue::Bytes(_) => {
+                                todo!()
+                            }
+                            PropertyValue::Json(_) => {
                                 todo!()
                             }
                         }
@@ -1122,7 +1129,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                     PropertyValue::Number(value) => JsPropertyValue::Number { value },
                     PropertyValue::Bool(value) => JsPropertyValue::Bool { value },
                     PropertyValue::Undefined => JsPropertyValue::Undefined,
-                    PropertyValue::Bytes(_) => {
+                    PropertyValue::Bytes(_) | PropertyValue::Json(_)  => {
                         todo!()
                     }
                 })
@@ -1152,15 +1159,33 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     }
 }
 
-fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget) -> anyhow::Result<IntermediateUiWidget> {
+fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel) -> anyhow::Result<IntermediateUiWidget> {
     let children = ui_widget.widget_children.into_iter()
-        .map(|child| from_js_to_intermediate_widget(scope, child))
+        .map(|child| from_js_to_intermediate_widget(scope, child, component_model))
         .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
+
+    let component = component_model.components
+        .get(&ui_widget.widget_type)
+        .expect(&format!("component with type {} doesn't exist", &ui_widget.widget_type));
+
+    let empty = vec![];
+    let text_part = vec![Property { name: "value".to_owned(), optional: false, property_type: PropertyType::String }];
+    let props = match component {
+        Component::Standard { props, .. } => props,
+        Component::Root { .. } => &empty,
+        Component::TextPart { .. } => &text_part,
+    };
+
+    let props = props.into_iter()
+        .map(|prop| (&prop.name, &prop.property_type))
+        .collect::<HashMap<_, _>>();
+
+    let properties = from_js_to_intermediate_properties(scope, ui_widget.widget_properties, &props);
 
     Ok(IntermediateUiWidget {
         widget_id: ui_widget.widget_id,
         widget_type: ui_widget.widget_type,
-        widget_properties: from_js_to_intermediate_properties(scope, ui_widget.widget_properties)?,
+        widget_properties: properties?,
         widget_children: children,
     })
 }
@@ -1168,27 +1193,98 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
 fn from_js_to_intermediate_properties(
     scope: &mut v8::HandleScope,
     v8_properties: HashMap<String, serde_v8::Value>,
+    component_props: &HashMap<&String, &PropertyType>
 ) -> anyhow::Result<HashMap<String, PropertyValue>> {
+
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
         .filter(|(_, value)| !value.v8_value.is_function())
         .map(|(name, value)| {
             let val = value.v8_value;
-            if val.is_string() {
-                Ok((name, PropertyValue::String(val.to_rust_string_lossy(scope))))
-            } else if val.is_number() {
-                Ok((name, PropertyValue::Number(val.number_value(scope).expect("expected number"))))
-            } else if val.is_boolean() {
-                Ok((name, PropertyValue::Bool(val.boolean_value(scope))))
-            } else if val.is_array() {
-                Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, val)?)))
-            } else {
-                Err(anyhow!("invalid type for property {:?} - {:?}", name, val.type_repr()))
+
+            let Some(property_type) = component_props.get(&name) else {
+                return Err(anyhow!("unknown property encountered {:?}", name))
+            };
+
+            match property_type {
+                PropertyType::String => {
+                    if val.is_string() {
+                        Ok((name, PropertyValue::String(val.to_rust_string_lossy(scope))))
+                    } else {
+                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: string", name, val.type_repr()))
+                    }
+                }
+                PropertyType::Number => {
+                    if val.is_number() {
+                        Ok((name, PropertyValue::Number(val.number_value(scope).expect("expected number"))))
+                    } else {
+                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: number", name, val.type_repr()))
+                    }
+                }
+                PropertyType::Boolean => {
+                    if val.is_boolean() {
+                        Ok((name, PropertyValue::Bool(val.boolean_value(scope))))
+                    } else {
+                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: boolean", name, val.type_repr()))
+                    }
+                }
+                PropertyType::Component { .. } => {
+                    panic!("components should not be present here")
+                }
+                PropertyType::Function { .. } => {
+                    panic!("functions are filtered out")
+                }
+                PropertyType::ImageSource => {
+                    if val.is_array() { // TODO arraybuffer? fix when migrating to deno's op2
+                        Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, val)?)))
+                    } else {
+                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: string", name, val.type_repr()))
+                    }
+                }
+                PropertyType::Enum { .. } => {
+                    if val.is_string() {
+                        Ok((name, PropertyValue::String(val.to_rust_string_lossy(scope))))
+                    } else {
+                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: string", name, val.type_repr()))
+                    }
+                }
+                PropertyType::Union { .. } => {
+                    Ok((name.clone(), PropertyValue::Json(object_to_json(scope, val).context(format!("error while reading property {}", name))?)))
+                }
+                PropertyType::Object { .. } => {
+                    if val.is_object() {
+                        Ok((name.clone(), PropertyValue::Json(object_to_json(scope, val).context(format!("error while reading property {}", name))?)))
+                    } else {
+                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: boolean", name, val.type_repr()))
+                    }
+                }
             }
         })
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;
 
     Ok(vec.into_iter().collect())
+}
+
+fn object_to_json(
+    scope: &mut v8::HandleScope,
+    val: v8::Local<v8::Value>
+) -> anyhow::Result<String> {
+    let local = scope.get_current_context();
+    let global = local.global(scope);
+    let json_string = v8::String::new(scope, "JSON").ok_or(anyhow!("Unable to create JSON string"))?;
+    let json_object = global.get(scope, json_string.into()).ok_or(anyhow!("Global JSON object not found"))?;
+    let json_object: v8::Local<v8::Object> = json_object.try_into()?;
+    let stringify_string = v8::String::new(scope, "stringify").ok_or(anyhow!("Unable to create stringify string"))?;
+    let stringify_object = json_object.get(scope, stringify_string.into()).ok_or(anyhow!("Unable to get stringify on global JSON object"))?;
+    let stringify_fn: v8::Local<v8::Function> = stringify_object.try_into()?;
+    let undefined = v8::undefined(scope).into();
+
+    let json_object = stringify_fn.call(scope, undefined, &[val]).ok_or(anyhow!("Unable to get serialize prop"))?;
+    let json_string: v8::Local<v8::String> = json_object.try_into()?;
+
+    let result = json_string.to_rust_string_lossy(scope);
+
+    Ok(result)
 }
 
 fn all_preferences_required(preferences: HashMap<String, DbPluginPreference>, preferences_user_data: HashMap<String, DbPluginPreferenceUserData>) -> bool {

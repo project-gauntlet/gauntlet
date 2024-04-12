@@ -66,6 +66,7 @@ pub enum PropertyValue {
     Number(f64),
     Bool(bool),
     Bytes(Vec<u8>),
+    Json(String),
     Undefined,
 }
 

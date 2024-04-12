@@ -1,4 +1,4 @@
-import { List } from "@project-gauntlet/api/components";
+import { Icons, List } from "@project-gauntlet/api/components";
 import { ReactElement, useState } from "react";
 
 export default function ListView(): ReactElement {
@@ -18,7 +18,7 @@ export default function ListView(): ReactElement {
                 ))
             }
             <List.Section title={"Selected id: " + id}>
-                <List.Section.Item id="id section 1" title="Title Section 1"/>
+                <List.Section.Item id="id section 1" title="Title Section 1" icon={Icons.Clipboard}/>
             </List.Section>
             <List.Section title="Section 2">
                 <List.Section.Item id="id section 2 1" title="Title Section 2 1" subtitle="Subtitle 2 1"/>

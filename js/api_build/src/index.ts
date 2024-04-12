@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts, { DeclarationStatement } from "typescript";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 
 
@@ -51,7 +51,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
         )
     ];
 
-    const publicDeclarations = [
+    const publicDeclarations: DeclarationStatement[] = [
         ts.factory.createTypeAliasDeclaration(
             [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
             ts.factory.createIdentifier("ElementParams"),
@@ -239,6 +239,55 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
         )
     ];
 
+    const root = modelInput.find((component): component is RootComponent => component.type === "root");
+    if (root != null) {
+        for (const [name, sharedType] of Object.entries(root.sharedTypes)) {
+
+            switch (sharedType.type) {
+                case "enum": {
+                    const declaration = ts.factory.createEnumDeclaration(
+                        [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+                        ts.factory.createIdentifier(name),
+                        sharedType.items.map(value => {
+                            return ts.factory.createEnumMember(
+                                ts.factory.createIdentifier(value),
+                                ts.factory.createStringLiteral(value)
+                            )
+                        })
+                    );
+
+                    publicDeclarations.push(declaration)
+                    break;
+                }
+                case "object": {
+                    const declaration = ts.factory.createTypeAliasDeclaration(
+                        [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+                        ts.factory.createIdentifier(name),
+                        undefined,
+                        ts.factory.createTypeLiteralNode(
+                            Object.entries(sharedType.items).map(([propName, type]) => {
+                                return ts.factory.createPropertySignature(
+                                    undefined,
+                                    ts.factory.createIdentifier(propName),
+                                    undefined,
+                                    makeType(type)
+                                )
+                            })
+                        )
+                    )
+
+                    publicDeclarations.push(declaration)
+                    break;
+                }
+                default: {
+                    throw new Error("unreachable");
+                }
+            }
+
+        }
+    } else {
+        throw new Error("unreachable");
+    }
 
 
     const internalDeclarations = [
@@ -552,9 +601,6 @@ function makeChildrenType(type: Children, additionalComponentRefs: ComponentRef[
 
 function makeType(type: PropertyType): ts.TypeNode {
     switch (type.type) {
-        case "array": {
-            return ts.factory.createArrayTypeNode(makeType(type.nested))
-        }
         case "boolean": {
             return ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
         }
@@ -605,6 +651,21 @@ function makeType(type: PropertyType): ts.TypeNode {
                     )
                 )
             ])
+        }
+        case "enum": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier(type.name),
+                undefined
+            )
+        }
+        case "object": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier(type.name),
+                undefined
+            )
+        }
+        case "union": {
+            return ts.factory.createUnionTypeNode(type.items.map(value => makeType(value)))
         }
         default: {
             throw new Error(`unsupported type ${JSON.stringify(type)}`)

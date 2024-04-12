@@ -1,6 +1,6 @@
 import { ReactElement, useState } from 'react';
 import upperCase from "lodash/upperCase";
-import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
+import { Action, ActionPanel, Detail, Icons } from "@project-gauntlet/api/components";
 import { useNavigation } from "@project-gauntlet/api/hooks";
 import { assetData, pluginPreferences, entrypointPreferences } from "@project-gauntlet/api/helpers";
 
@@ -143,7 +143,7 @@ export default function DetailView(): ReactElement {
                     Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
                     anim id est laborum.
                 </Detail.Metadata.Value>
-                <Detail.Metadata.Icon label="Label 4" icon="icon"/>
+                <Detail.Metadata.Icon label="Label 4" icon={Icons.Watch}/>
                 <Detail.Metadata.Value label="Label 5">
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
                     eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis

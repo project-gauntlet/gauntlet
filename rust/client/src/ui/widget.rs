@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
+use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use iced::{Font, Length, Padding};
@@ -14,8 +15,11 @@ use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
+use serde::de::{DeserializeOwned, StdError};
+use serde::Deserialize;
 
 use common::model::PluginId;
+use component_model::PropertyType;
 
 use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId};
 use crate::ui::{ActionShortcut, ActionShortcutKind};
@@ -404,7 +408,9 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::MetadataIcon { label, icon} => {
-                let value = text(icon).into();
+                let value = text(icon_to_bootstrap(icon))
+                    .font(icons::BOOTSTRAP_FONT)
+                    .into();
 
                 render_metadata_item(label, value)
                     .into()
@@ -816,8 +822,21 @@ impl ComponentWidgetWrapper {
                     panic!("not supposed to be passed to list item: {:?}", context)
                 };
 
-                let icon: Option<Element<_>> = icon.clone()  // FIXME really expensive clone
-                    .map(|icon| image(Handle::from_memory(icon)).into());
+                let icon: Option<Element<_>> = icon.as_ref()
+                    .map(|icon| {
+                        match icon {
+                            ListItemIcon::_0(bytes) => {
+                                image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                                    .into()
+                            },
+                            ListItemIcon::_1(icon) => {
+                                let icon = icon.to_owned();
+                                text(icon_to_bootstrap(icon))
+                                    .font(icons::BOOTSTRAP_FONT)
+                                    .into()
+                            }
+                        }
+                    });
 
                 let title: Element<_> = text(title)
                     .into();
@@ -1527,4 +1546,259 @@ fn parse_bytes_optional(properties: &HashMap<String, NativeUiPropertyValue>, nam
 
 fn parse_bytes(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Vec<u8>> {
     parse_bytes_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
+}
+
+fn parse_enum_optional<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+    match properties.get(name) {
+        None => Ok(None),
+        Some(value) => {
+            let string = value.as_string().ok_or(anyhow::anyhow!("{} has to be a string", name))?.to_owned();
+            let enum_value = T::from_str(&string)?;
+            Ok(Some(enum_value))
+        },
+    }
+}
+
+fn parse_enum<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<T> {
+    parse_enum_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
+}
+
+fn parse_json_optional<T: DeserializeOwned>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+    match properties.get(name) {
+        None => Ok(None),
+        Some(value) => {
+            let value = value.as_json().ok_or(anyhow::anyhow!("{} has to be a json", name))?;
+
+            Ok(Some(value))
+        },
+    }
+}
+
+fn parse_json<T: DeserializeOwned>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str, ) -> anyhow::Result<T> {
+    parse_json_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
+}
+
+fn icon_to_bootstrap(icon: &Icons) -> icons::Bootstrap {
+    match icon {
+        Icons::Airplane => icons::Bootstrap::Airplane,
+        Icons::Alarm => icons::Bootstrap::Alarm,
+        Icons::AlignCentre => icons::Bootstrap::AlignCenter,
+        Icons::AlignLeft => icons::Bootstrap::AlignStart,
+        Icons::AlignRight => icons::Bootstrap::AlignEnd,
+        // Icons::Anchor => icons::Bootstrap::,
+        Icons::ArrowClockwise => icons::Bootstrap::ArrowClockwise,
+        Icons::ArrowCounterClockwise => icons::Bootstrap::ArrowCounterclockwise,
+        Icons::ArrowDown => icons::Bootstrap::ArrowDown,
+        Icons::ArrowLeft => icons::Bootstrap::ArrowLeft,
+        Icons::ArrowRight => icons::Bootstrap::ArrowRight,
+        Icons::ArrowUp => icons::Bootstrap::ArrowUp,
+        Icons::ArrowLeftRight => icons::Bootstrap::ArrowLeftRight,
+        Icons::ArrowsContract => icons::Bootstrap::ArrowsAngleContract,
+        Icons::ArrowsExpand => icons::Bootstrap::ArrowsAngleExpand,
+        Icons::AtSymbol => icons::Bootstrap::At,
+        // Icons::BandAid => icons::Bootstrap::Bandaid,
+        Icons::Cash => icons::Bootstrap::Cash,
+        // Icons::BarChart => icons::Bootstrap::BarChart,
+        // Icons::BarCode => icons::Bootstrap::,
+        Icons::Battery => icons::Bootstrap::Battery,
+        Icons::BatteryCharging => icons::Bootstrap::BatteryCharging,
+        // Icons::BatteryDisabled => icons::Bootstrap::,
+        Icons::Bell => icons::Bootstrap::Bell,
+        Icons::BellDisabled => icons::Bootstrap::BellSlash,
+        // Icons::Bike => icons::Bootstrap::Bicycle,
+        // Icons::Binoculars => icons::Bootstrap::Binoculars,
+        // Icons::Bird => icons::Bootstrap::,
+        Icons::Bluetooth => icons::Bootstrap::Bluetooth,
+        // Icons::Boat => icons::Bootstrap::,
+        Icons::Bold => icons::Bootstrap::TypeBold,
+        // Icons::Bolt => icons::Bootstrap::,
+        // Icons::BoltDisabled => icons::Bootstrap::,
+        Icons::Book => icons::Bootstrap::Book,
+        Icons::Bookmark => icons::Bootstrap::Bookmark,
+        Icons::Box => icons::Bootstrap::Box,
+        // Icons::Brush => icons::Bootstrap::Brush,
+        Icons::Bug => icons::Bootstrap::Bug,
+        Icons::Building => icons::Bootstrap::Building,
+        Icons::BulletPoints => icons::Bootstrap::ListUl,
+        Icons::Calculator => icons::Bootstrap::Calculator,
+        Icons::Calendar => icons::Bootstrap::Calendar,
+        Icons::Camera => icons::Bootstrap::Camera,
+        Icons::Car => icons::Bootstrap::CarFront,
+        Icons::Cart => icons::Bootstrap::Cart,
+        // Icons::Cd => icons::Bootstrap::,
+        // Icons::Center => icons::Bootstrap::,
+        Icons::Checkmark => icons::Bootstrap::Checktwo,
+        // Icons::ChessPiece => icons::Bootstrap::,
+        Icons::ChevronDown => icons::Bootstrap::ChevronDown,
+        Icons::ChevronLeft => icons::Bootstrap::ChevronLeft,
+        Icons::ChevronRight => icons::Bootstrap::ChevronRight,
+        Icons::ChevronUp => icons::Bootstrap::ChevronUp,
+        Icons::ChevronExpand => icons::Bootstrap::ChevronExpand,
+        Icons::Circle => icons::Bootstrap::Circle,
+        // Icons::CircleProgress100 => icons::Bootstrap::,
+        // Icons::CircleProgress25 => icons::Bootstrap::,
+        // Icons::CircleProgress50 => icons::Bootstrap::,
+        // Icons::CircleProgress75 => icons::Bootstrap::,
+        // Icons::ClearFormatting => icons::Bootstrap::,
+        Icons::Clipboard => icons::Bootstrap::Clipboard,
+        Icons::Clock => icons::Bootstrap::Clock,
+        Icons::Cloud => icons::Bootstrap::Cloud,
+        Icons::CloudLightning => icons::Bootstrap::CloudLightning,
+        Icons::CloudRain => icons::Bootstrap::CloudRain,
+        Icons::CloudSnow => icons::Bootstrap::CloudSnow,
+        Icons::CloudSun => icons::Bootstrap::CloudSun,
+        Icons::Code => icons::Bootstrap::Code,
+        Icons::Gear => icons::Bootstrap::Gear,
+        Icons::Coin => icons::Bootstrap::Coin,
+        Icons::Command => icons::Bootstrap::Command,
+        Icons::Compass => icons::Bootstrap::Compass,
+        // Icons::ComputerChip => icons::Bootstrap::,
+        // Icons::Contrast => icons::Bootstrap::,
+        Icons::CreditCard => icons::Bootstrap::CreditCard,
+        Icons::Crop => icons::Bootstrap::Crop,
+        // Icons::Crown => icons::Bootstrap::,
+        Icons::Document => icons::Bootstrap::FileEarmark,
+        Icons::DocumentAdd => icons::Bootstrap::FileEarmarkPlus,
+        Icons::DocumentDelete => icons::Bootstrap::FileEarmarkX,
+        Icons::Dot => icons::Bootstrap::Dot,
+        Icons::Download => icons::Bootstrap::Download,
+        // Icons::Duplicate => icons::Bootstrap::,
+        Icons::Eject => icons::Bootstrap::Eject,
+        Icons::ThreeDots => icons::Bootstrap::ThreeDots,
+        Icons::Envelope => icons::Bootstrap::Envelope,
+        Icons::Eraser => icons::Bootstrap::Eraser,
+        Icons::ExclamationMark => icons::Bootstrap::ExclamationLg,
+        Icons::Eye => icons::Bootstrap::Eye,
+        Icons::EyeDisabled => icons::Bootstrap::EyeSlash,
+        Icons::EyeDropper => icons::Bootstrap::Eyedropper,
+        Icons::Female => icons::Bootstrap::GenderFemale,
+        Icons::Film => icons::Bootstrap::Film,
+        Icons::Filter => icons::Bootstrap::Filter,
+        Icons::Fingerprint => icons::Bootstrap::Fingerprint,
+        Icons::Flag => icons::Bootstrap::Flag,
+        Icons::Folder => icons::Bootstrap::Folder,
+        Icons::FolderAdd => icons::Bootstrap::FolderPlus,
+        Icons::FolderDelete => icons::Bootstrap::FolderMinus,
+        Icons::Forward => icons::Bootstrap::Forward,
+        Icons::GameController => icons::Bootstrap::Controller,
+        Icons::Virus => icons::Bootstrap::Virus,
+        Icons::Gift => icons::Bootstrap::Gift,
+        Icons::Glasses => icons::Bootstrap::Eyeglasses,
+        Icons::Globe => icons::Bootstrap::Globe,
+        Icons::Hammer => icons::Bootstrap::Hammer,
+        Icons::HardDrive => icons::Bootstrap::DeviceHdd,
+        Icons::Headphones => icons::Bootstrap::Headphones,
+        Icons::Heart => icons::Bootstrap::Heart,
+        // Icons::HeartDisabled => icons::Bootstrap::,
+        Icons::Heartbeat => icons::Bootstrap::Activity,
+        Icons::Hourglass => icons::Bootstrap::Hourglass,
+        Icons::House => icons::Bootstrap::House,
+        Icons::Image => icons::Bootstrap::Image,
+        Icons::Info => icons::Bootstrap::InfoLg,
+        Icons::Italics => icons::Bootstrap::TypeItalic,
+        Icons::Key => icons::Bootstrap::Key,
+        Icons::Keyboard => icons::Bootstrap::Keyboard,
+        Icons::Layers => icons::Bootstrap::Layers,
+        // Icons::Leaf => icons::Bootstrap::,
+        Icons::LightBulb => icons::Bootstrap::Lightbulb,
+        Icons::LightBulbDisabled => icons::Bootstrap::LightbulbOff,
+        Icons::Link => icons::Bootstrap::LinkFourfivedeg,
+        Icons::List => icons::Bootstrap::List,
+        Icons::Lock => icons::Bootstrap::Lock,
+        // Icons::LockDisabled => icons::Bootstrap::,
+        Icons::LockUnlocked => icons::Bootstrap::Unlock,
+        // Icons::Logout => icons::Bootstrap::,
+        // Icons::Lowercase => icons::Bootstrap::,
+        // Icons::MagnifyingGlass => icons::Bootstrap::,
+        Icons::Male => icons::Bootstrap::GenderMale,
+        Icons::Map => icons::Bootstrap::Map,
+        Icons::Maximize => icons::Bootstrap::Fullscreen,
+        Icons::Megaphone => icons::Bootstrap::Megaphone,
+        Icons::MemoryModule => icons::Bootstrap::Memory,
+        Icons::MemoryStick => icons::Bootstrap::UsbDrive,
+        Icons::Message => icons::Bootstrap::Chat,
+        Icons::Microphone => icons::Bootstrap::Mic,
+        Icons::MicrophoneDisabled => icons::Bootstrap::MicMute,
+        Icons::Minimize => icons::Bootstrap::FullscreenExit,
+        Icons::Minus => icons::Bootstrap::Dash,
+        Icons::Mobile => icons::Bootstrap::Phone,
+        // Icons::Monitor => icons::Bootstrap::,
+        Icons::Moon => icons::Bootstrap::Moon,
+        // Icons::Mountain => icons::Bootstrap::,
+        Icons::Mouse => icons::Bootstrap::Mouse,
+        Icons::Multiply => icons::Bootstrap::X,
+        Icons::Music => icons::Bootstrap::MusicNoteBeamed,
+        Icons::Network => icons::Bootstrap::BroadcastPin,
+        Icons::Paperclip => icons::Bootstrap::Paperclip,
+        Icons::Paragraph => icons::Bootstrap::TextParagraph,
+        Icons::Pause => icons::Bootstrap::Pause,
+        Icons::Pencil => icons::Bootstrap::Pencil,
+        Icons::Person => icons::Bootstrap::Person,
+        Icons::PersonAdd => icons::Bootstrap::PersonAdd,
+        Icons::PersonRemove => icons::Bootstrap::PersonDash,
+        Icons::Phone => icons::Bootstrap::Telephone,
+        // Icons::PhoneRinging => icons::Bootstrap::,
+        Icons::PieChart => icons::Bootstrap::PieChart,
+        Icons::Capsule => icons::Bootstrap::Capsule,
+        // Icons::Pin => icons::Bootstrap::,
+        // Icons::PinDisabled => icons::Bootstrap::,
+        Icons::Play => icons::Bootstrap::Play,
+        Icons::Plug => icons::Bootstrap::Plug,
+        Icons::Plus => icons::Bootstrap::Plus,
+        // Icons::PlusMinusDivideMultiply => icons::Bootstrap::,
+        Icons::Power => icons::Bootstrap::Power,
+        Icons::Printer => icons::Bootstrap::Printer,
+        Icons::QuestionMark => icons::Bootstrap::QuestionLg,
+        Icons::Quotes => icons::Bootstrap::Quote,
+        Icons::Receipt => icons::Bootstrap::Receipt,
+        Icons::Repeat => icons::Bootstrap::Repeat,
+        Icons::Reply => icons::Bootstrap::Reply,
+        Icons::Rewind => icons::Bootstrap::Rewind,
+        Icons::Rocket => icons::Bootstrap::Rocket,
+        // Icons::Ruler => icons::Bootstrap::,
+        Icons::Shield => icons::Bootstrap::Shield,
+        Icons::Shuffle => icons::Bootstrap::Shuffle,
+        Icons::Snippets => icons::Bootstrap::BodyText,
+        Icons::Snowflake => icons::Bootstrap::Snow,
+        // Icons::VolumeHigh => icons::Bootstrap::VolumeUp,
+        // Icons::VolumeLow => icons::Bootstrap::VolumeDown,
+        // Icons::VolumeOff => icons::Bootstrap::VolumeOff,
+        // Icons::VolumeOn => icons::Bootstrap::,
+        Icons::Star => icons::Bootstrap::Star,
+        // Icons::StarDisabled => icons::Bootstrap::,
+        Icons::Stop => icons::Bootstrap::Stop,
+        Icons::Stopwatch => icons::Bootstrap::Stopwatch,
+        Icons::StrikeThrough => icons::Bootstrap::TypeStrikethrough,
+        Icons::Sun => icons::Bootstrap::SunFill, // TODO why Sun isn't in iced_aw?
+        Icons::Scissors => icons::Bootstrap::Scissors,
+        // Icons::Syringe => icons::Bootstrap::,
+        Icons::Tag => icons::Bootstrap::Tag,
+        Icons::Thermometer => icons::Bootstrap::Thermometer,
+        Icons::Terminal => icons::Bootstrap::Terminal,
+        Icons::Text => icons::Bootstrap::Fonts,
+        Icons::TextCursor => icons::Bootstrap::CursorText,
+        // Icons::TextSelection => icons::Bootstrap::,
+        // Icons::Torch => icons::Bootstrap::,
+        // Icons::Train => icons::Bootstrap::,
+        Icons::Trash => icons::Bootstrap::Trash,
+        Icons::Tree => icons::Bootstrap::Tree,
+        Icons::Trophy => icons::Bootstrap::Trophy,
+        Icons::People => icons::Bootstrap::People,
+        Icons::Umbrella => icons::Bootstrap::Umbrella,
+        Icons::Underline => icons::Bootstrap::TypeUnderline,
+        Icons::Upload => icons::Bootstrap::Upload,
+        // Icons::Uppercase => icons::Bootstrap::,
+        Icons::Wallet => icons::Bootstrap::Wallet,
+        Icons::Wand => icons::Bootstrap::Magic,
+        // Icons::Warning => icons::Bootstrap::,
+        // Icons::Weights => icons::Bootstrap::,
+        Icons::Wifi => icons::Bootstrap::Wifi,
+        Icons::WifiDisabled => icons::Bootstrap::WifiOff,
+        Icons::Window => icons::Bootstrap::Window,
+        Icons::Tools => icons::Bootstrap::Tools,
+        Icons::Watch => icons::Bootstrap::Watch,
+        Icons::XMark => icons::Bootstrap::XLg,
+        Icons::Indent => icons::Bootstrap::Indent,
+        Icons::Unindent => icons::Bootstrap::Unindent,
+    }
 }

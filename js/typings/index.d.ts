@@ -124,6 +124,19 @@ type RootComponent = {
     type: "root",
     internalName: string,
     children: ComponentRef[],
+    sharedTypes: Record<string, SharedType>
+}
+
+type SharedType = SharedTypeEnum | SharedTypeObject
+
+type SharedTypeEnum = {
+    type: "enum",
+    items: string[],
+}
+
+type SharedTypeObject = {
+    type: "object",
+    items: Record<string, PropertyType>
 }
 
 type TextPartComponent = {
@@ -160,7 +173,7 @@ type ComponentRef = {
     componentName: string,
 }
 
-type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeArray | TypeComponent | TypeFunction | TypeImageSource
+type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeComponent | TypeFunction | TypeImageSource | TypeImageEnum | TypeImageUnion | TypeImageObject
 
 type TypeString = {
     type: "string"
@@ -170,10 +183,6 @@ type TypeNumber = {
 }
 type TypeBoolean = {
     type: "boolean"
-}
-type TypeArray = {
-    type: "array"
-    nested: PropertyType
 }
 type TypeComponent = {
     type: "component"
@@ -185,4 +194,16 @@ type TypeFunction = {
 }
 type TypeImageSource = {
     type: "image_source"
+}
+type TypeImageEnum = {
+    type: "enum"
+    name: string
+}
+type TypeImageUnion = {
+    type: "union"
+    items: PropertyType[]
+}
+type TypeImageObject = {
+    type: "object"
+    name: string
 }

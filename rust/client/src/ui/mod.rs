@@ -381,6 +381,7 @@ impl Application for AppModel {
                                         PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
                                         PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
                                         PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
+                                        PropertyValue::Json(value) => RpcUiPropertyValue { value: Some(Value::Json(value)) },
                                         PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
                                     })
                                     .collect();
