@@ -833,7 +833,9 @@ pub fn create_component_model() -> Vec<Component> {
     let inline_separator_component = component(
         "inline_separator",
         "InlineSeparator",
-        [],
+        [
+            property("icon", true, PropertyType::Enum { name: "Icons".to_owned() }),
+        ],
         children_none(),
     );
 

@@ -707,7 +707,8 @@ impl AppModel {
 
                 Command::batch([
                     reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
-                    window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+                    window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+                    focus(self.search_field_id.clone()),
                 ])
             }
             Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id, .. }) => {

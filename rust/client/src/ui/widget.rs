@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use anyhow::anyhow;
 
-use iced::{Font, Length, Padding};
+use iced::{Alignment, color, Font, Length, Padding};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
@@ -118,6 +118,8 @@ pub enum ComponentRenderContext {
     H4,
     H5,
     H6,
+    Inline,
+    GridItem,
     List {
         widget_id: NativeUiWidgetId
     },
@@ -133,6 +135,12 @@ pub enum ComponentRenderContext {
     },
     Action {
         action_shortcut: Option<ActionShortcut>,
+    }
+}
+
+impl ComponentRenderContext {
+    fn is_content_centered(&self) -> bool {
+        matches!(self, ComponentRenderContext::Inline | ComponentRenderContext::GridItem)
     }
 }
 
@@ -431,12 +439,19 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Paragraph { children } => {
-                let paragraph: Element<_> = render_children_string(children, context);
+                let centered = context.is_content_centered();
 
-                container(paragraph)
+                let paragraph: Element<_> = render_children_string(children, ComponentRenderContext::None);
+
+                let mut content = container(paragraph)
                     .width(Length::Fill)
-                    .padding(Padding::new(5.0))
-                    .into()
+                    .padding(Padding::new(5.0));
+
+                if centered {
+                    content = content.center_x()
+                }
+
+                content.into()
             }
             // ComponentWidget::Link { children, href } => {
             //     let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
@@ -458,8 +473,19 @@ impl ComponentWidgetWrapper {
             //     }
             // }
             ComponentWidget::Image { source } => {
-                image(Handle::from_memory(source.data.clone())) // FIXME really expensive clone
-                    .into()
+                let centered = context.is_content_centered();
+
+                let content: Element<_> = image(Handle::from_memory(source.data.clone())) // FIXME really expensive clone
+                    .into();
+
+                let mut content = container(content)
+                    .width(Length::Fill);
+
+                if centered {
+                    content = content.center_x()
+                }
+
+                content.into()
             }
             ComponentWidget::H1 { children } => {
                 render_children_string(children, ComponentRenderContext::H1)
@@ -509,8 +535,21 @@ impl ComponentWidgetWrapper {
             //         .into()
             // }
             ComponentWidget::Content { children } => {
-                column(render_children(children, ComponentRenderContext::None))
-                    .into()
+                let centered = context.is_content_centered();
+
+                let content: Element<_> = column(render_children(children, context))
+                    .into();
+
+                if centered {
+                    container(content)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .center_x()
+                        .center_y()
+                        .into()
+                } else {
+                    content
+                }
             }
             ComponentWidget::Detail { children } => {
                 let ComponentWidgetState::Detail { show_action_panel } = *state else {
@@ -745,47 +784,66 @@ impl ComponentWidgetWrapper {
 
                 render_root(show_action_panel, widget_id, children, content, context)
             }
-            ComponentWidget::InlineSeparator => {
-                vertical_rule(1)
-                    .into()
+            ComponentWidget::InlineSeparator { icon } => {
+                match icon {
+                    None => vertical_rule(1).into(),
+                    Some(icon) => {
+                        let top_rule: Element<_> = vertical_rule(1)
+                            .into();
+
+                        let top_rule = container(top_rule)
+                            .center_x()
+                            .into();
+
+                        let icon = text(icon_to_bootstrap(icon))
+                            .font(icons::BOOTSTRAP_FONT)
+                            .size(30)
+                            .into();
+
+                        let bot_rule: Element<_> = vertical_rule(1)
+                            .into();
+
+                        let bot_rule = container(bot_rule)
+                            .center_x()
+                            .into();
+
+                        column([top_rule, icon, bot_rule])
+                            .align_items(Alignment::Center)
+                            .into()
+                    }
+                }
             }
             ComponentWidget::Inline { children } => {
-                let contents: Vec<_> = render_children_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::None)
+                let content: Vec<Element<_>> = children
                     .into_iter()
-                    .map(|content_element| {
-                        container(content_element)
-                            .width(Length::FillPortion(3))
-                            // .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-                            .into()
+                    .map(|child| {
+                        let (widget, _) = &*child.get();
+
+                        match widget {
+                            ComponentWidget::InlineSeparator { .. } => {
+                                child.render_widget(ComponentRenderContext::None)
+                            }
+                            ComponentWidget::Content { .. } => {
+                                let element = child.render_widget(ComponentRenderContext::Inline);
+
+                                container(element)
+                                    .width(Length::Fill)
+                                    .into()
+                            }
+                            _ => panic!("unexpected widget kind {:?}", widget)
+                        }
                     })
                     .collect();
 
-                // let mut separators: Vec<_> = render_children_by_type(children, |widget| matches!(widget, ComponentWidget::InlineSeparator { .. }), ComponentRenderContext::None);
-
-                // let mut left = contents.len();
-
-                let contents: Vec<_> = contents.into_iter()
-                    .flat_map(|i| {
-                        // if left > 1 {
-                        //     left = left - 1;
-                        //     if separators.is_empty() {
-                        //         let separator = vertical_rule(1).into();
-                        //         vec![i, separator]
-                        //     } else {
-                        //         let separator = separators.remove(0);
-                        //         vec![i, separator]
-                        //     }
-                        // } else {
-                            vec![i]
-                        // }
-                    })
-                    .collect();
-
-                let content: Element<_> = row(contents)
+                let content: Element<_> = row(content)
                     .into();
 
                 container(content)
                     .padding(Padding::new(5.0))
+                    .center_x()
+                    .center_y()
+                    .height(100)
+                    .max_height(100)
                     .into()
             }
             ComponentWidget::EmptyView { title, description, image } => {
@@ -922,7 +980,7 @@ impl ComponentWidgetWrapper {
                     panic!("not supposed to be passed to grid item: {:?}", context)
                 };
 
-                let content: Element<_> = column(render_children(children, ComponentRenderContext::None))
+                let content: Element<_> = column(render_children(children, ComponentRenderContext::GridItem))
                     .into();
 
                 let title: Element<_> = text(title)
@@ -1211,6 +1269,8 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
         ComponentRenderContext::Root { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::ActionPanel { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Action { .. } => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::Inline => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::GridItem => panic!("not supposed to be passed to text part")
     };
 
     let mut text = text(value);
