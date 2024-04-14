@@ -639,18 +639,11 @@ function makeType(type: PropertyType): ts.TypeNode {
                 ]
             )
         }
-        case "image_source": {
-            return ts.factory.createTypeLiteralNode([
-                ts.factory.createPropertySignature(
-                    undefined,
-                    ts.factory.createIdentifier("data"),
-                    undefined,
-                    ts.factory.createTypeReferenceNode(
-                        ts.factory.createIdentifier("ArrayBuffer"),
-                        undefined
-                    )
-                )
-            ])
+        case "image_data": {
+            return ts.factory.createTypeReferenceNode(
+                ts.factory.createIdentifier("ArrayBuffer"),
+                undefined
+            )
         }
         case "enum": {
             return ts.factory.createTypeReferenceNode(

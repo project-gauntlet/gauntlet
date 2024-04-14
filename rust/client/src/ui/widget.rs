@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use anyhow::anyhow;
 
 use iced::{Font, Length, Padding};
 use iced::alignment::Horizontal;
@@ -15,13 +16,10 @@ use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
-use serde::de::{DeserializeOwned, StdError};
-use serde::Deserialize;
 
 use common::model::PluginId;
-use component_model::PropertyType;
 
-use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId};
+use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId, ValueToEnum, ValueToStruct};
 use crate::ui::{ActionShortcut, ActionShortcutKind};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
@@ -460,7 +458,7 @@ impl ComponentWidgetWrapper {
             //     }
             // }
             ComponentWidget::Image { source } => {
-                image(Handle::from_memory(source.clone())) // FIXME really expensive clone
+                image(Handle::from_memory(source.data.clone())) // FIXME really expensive clone
                     .into()
             }
             ComponentWidget::H1 { children } => {
@@ -791,8 +789,8 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::EmptyView { title, description, image } => {
-                let image: Option<Element<_>> = image.clone()  // FIXME really expensive clone
-                    .map(|image| iced::widget::image(Handle::from_memory(image)).into());
+                let image: Option<Element<_>> = image.as_ref()
+                    .map(|image| iced::widget::image(Handle::from_memory(image.data.clone())).into()); // FIXME really expensive clone
 
                 let title: Element<_> = text(title)
                     .into();
@@ -826,7 +824,7 @@ impl ComponentWidgetWrapper {
                     .map(|icon| {
                         match icon {
                             ListItemIcon::_0(bytes) => {
-                                image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                                image(Handle::from_memory(bytes.data.clone())) // FIXME really expensive clone
                                     .into()
                             },
                             ListItemIcon::_1(icon) => {
@@ -1540,7 +1538,7 @@ pub fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
 fn parse_bytes_optional(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
     match properties.get(name) {
         None => Ok(None),
-        Some(value) => Ok(Some(value.as_bytes().ok_or(anyhow::anyhow!("{} has to be a string", name))?.to_owned())),
+        Some(value) => Ok(Some(value.as_bytes().ok_or(anyhow::anyhow!("{} has to be a byte array", name))?.to_owned())),
     }
 }
 
@@ -1563,19 +1561,31 @@ fn parse_enum<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, 
     parse_enum_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
-fn parse_json_optional<T: DeserializeOwned>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+
+fn parse_object_optional<T: ValueToStruct>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => {
-            let value = value.as_json().ok_or(anyhow::anyhow!("{} has to be a json", name))?;
+            let value = value.as_object().ok_or(anyhow::anyhow!("{} has to be a object", name))?;
 
             Ok(Some(value))
         },
     }
 }
 
-fn parse_json<T: DeserializeOwned>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str, ) -> anyhow::Result<T> {
-    parse_json_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
+fn parse_object<T: ValueToStruct>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<T> {
+    parse_object_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
+}
+
+fn parse_union_optional<T: ValueToEnum>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+    match properties.get(name) {
+        None => Ok(None),
+        Some(value) => Ok(Some(value.as_union()?)),
+    }
+}
+
+fn parse_union<T: ValueToEnum>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<T> {
+    parse_union_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
 fn icon_to_bootstrap(icon: &Icons) -> icons::Bootstrap {
@@ -1800,5 +1810,29 @@ fn icon_to_bootstrap(icon: &Icons) -> icons::Bootstrap {
         Icons::XMark => icons::Bootstrap::XLg,
         Icons::Indent => icons::Bootstrap::Indent,
         Icons::Unindent => icons::Bootstrap::Unindent,
+    }
+}
+
+impl ValueToEnum for ListItemIcon {
+    fn convert(value: &NativeUiPropertyValue) -> anyhow::Result<ListItemIcon> {
+        match value {
+            NativeUiPropertyValue::String(value) => Ok(ListItemIcon::_1(Icons::from_str(value)?)),
+            NativeUiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
+            NativeUiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
+            NativeUiPropertyValue::Bytes(_) => Err(anyhow!("unexpected type bytes for ListItemIcon")),
+            NativeUiPropertyValue::Object(value) => {
+                Ok(ListItemIcon::_0(ImageSource {
+                    data: parse_bytes(value, "data")?,
+                }))
+            }
+        }
+    }
+}
+
+impl ValueToStruct for ImageSource {
+    fn convert(value: &HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<ImageSource> {
+        Ok(ImageSource {
+            data: parse_bytes(value, "data")?,
+        })
     }
 }

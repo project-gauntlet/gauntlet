@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use anyhow::anyhow;
@@ -66,7 +67,7 @@ pub enum PropertyValue {
     Number(f64),
     Bool(bool),
     Bytes(Vec<u8>),
-    Json(String),
+    Object(HashMap<String, PropertyValue>),
     Undefined,
 }
 

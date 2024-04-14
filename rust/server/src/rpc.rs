@@ -113,8 +113,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         let event_arguments = event_arguments.into_iter()
             .map(|arg| from_rpc_to_intermediate_value(arg))
-            .collect::<Option<Vec<_>>>()
-            .ok_or(Status::invalid_argument("event_arguments"))?;
+            .collect::<Vec<_>>();
 
         self.application_manager.handle_view_event(PluginId::from_string(plugin_id), widget_id, event_name, event_arguments);
         Ok(Response::new(RpcSendViewEventResponse::default()))

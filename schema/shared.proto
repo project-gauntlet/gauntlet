@@ -18,7 +18,10 @@ message RpcUiPropertyValue {
     double number = 3;
     bool bool = 4;
     bytes bytes = 5;
-    string json = 6;
+    RpcUiPropertyValueObject object = 6;
   }
 }
 
+message RpcUiPropertyValueObject {
+  map<string, RpcUiPropertyValue> value = 1;
+}

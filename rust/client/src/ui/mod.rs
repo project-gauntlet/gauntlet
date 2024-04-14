@@ -19,7 +19,7 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidgetId};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_frontend_server::RpcFrontendServer;
 use common::rpc::rpc_ui_property_value::Value;
@@ -376,14 +376,7 @@ impl Application for AppModel {
                                 let widget_id = RpcUiWidgetId { value: widget_id };
                                 let event_arguments = event_arguments
                                     .into_iter()
-                                    .map(|value| match value {
-                                        PropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
-                                        PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
-                                        PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
-                                        PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
-                                        PropertyValue::Json(value) => RpcUiPropertyValue { value: Some(Value::Json(value)) },
-                                        PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
-                                    })
+                                    .map(|value| convert_property_value(value))
                                     .collect();
 
                                 let event = RpcEventViewEvent {
@@ -794,6 +787,23 @@ impl AppModel {
                 .await
                 .unwrap();
         }, |_| AppMsg::Noop)
+    }
+}
+
+fn convert_property_value(value: PropertyValue) -> RpcUiPropertyValue {
+    match value {
+        PropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
+        PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
+        PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
+        PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
+        PropertyValue::Object(value) => {
+            let value: HashMap<String, _> = value.into_iter()
+                .map(|(name, value)| (name, convert_property_value(value)))
+                .collect();
+
+            RpcUiPropertyValue { value: Some(Value::Object(RpcUiPropertyValueObject { value })) }
+        }
+        PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
     }
 }
 

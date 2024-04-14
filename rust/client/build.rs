@@ -79,8 +79,7 @@ fn main() -> anyhow::Result<()> {
                 for prop in props {
                     match &prop.property_type {
                         PropertyType::Union { items } => {
-                            output.push_str("#[derive(Debug, serde::Deserialize)]\n");
-                            output.push_str("#[serde(untagged)]\n");
+                            output.push_str("#[derive(Debug)]\n");
                             output.push_str(&format!("enum {}{} {{\n", component_name, prop.name.to_case(Case::Pascal)));
 
                             for (index, property_type) in items.iter().enumerate() {
@@ -103,7 +102,7 @@ fn main() -> anyhow::Result<()> {
                 for (type_name, shared_type) in shared_types {
                     match shared_type {
                         SharedType::Enum { items } => {
-                            output.push_str("#[derive(Debug, strum::EnumString, serde::Deserialize)]\n");
+                            output.push_str("#[derive(Debug, strum::EnumString)]\n");
                             output.push_str(&format!("enum {} {{\n", type_name));
 
                             for item in items {
@@ -114,11 +113,11 @@ fn main() -> anyhow::Result<()> {
                             output.push_str("\n");
                         }
                         SharedType::Object { items } => {
-                            output.push_str("#[derive(Debug, serde::Deserialize)]\n");
+                            output.push_str("#[derive(Debug)]\n");
                             output.push_str(&format!("struct {} {{\n", type_name));
 
                             for (property_name, property_type) in items {
-                                output.push_str(&format!("    {}: {},\n", &type_name, generate_required_type(&property_type, format!("{}{}", type_name, property_name))));
+                                output.push_str(&format!("    {}: {},\n", &property_name, generate_required_type(&property_type, format!("{}{}", type_name, property_name))));
                             }
 
                             output.push_str("}\n");
@@ -178,7 +177,7 @@ fn main() -> anyhow::Result<()> {
                             PropertyType::Component { .. } => {
                                 // component properties are found in a children array
                             }
-                            PropertyType::ImageSource => {
+                            PropertyType::ImageData => {
                                 if prop.optional {
                                     output.push_str(&format!("            {}: parse_bytes_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 } else {
@@ -192,11 +191,18 @@ fn main() -> anyhow::Result<()> {
                                     output.push_str(&format!("            {}: parse_enum(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 }
                             }
-                            PropertyType::Union { .. } | PropertyType::Object { .. } => {
+                            PropertyType::Union { .. } => {
                                 if prop.optional {
-                                    output.push_str(&format!("            {}: parse_json_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                    output.push_str(&format!("            {}: parse_union_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 } else {
-                                    output.push_str(&format!("            {}: parse_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                    output.push_str(&format!("            {}: parse_union(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                }
+                            }
+                            PropertyType::Object { .. } => {
+                                if prop.optional {
+                                    output.push_str(&format!("            {}: parse_object_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                } else {
+                                    output.push_str(&format!("            {}: parse_object(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 }
                             }
                         };
@@ -514,7 +520,7 @@ fn generate_required_type(property_type: &PropertyType, union_name: String) -> S
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Function { .. } => panic!("client doesn't know about functions in properties"),
         PropertyType::Component { .. } => panic!("component properties are found in children array"),
-        PropertyType::ImageSource => "Vec<u8>".to_owned(),
+        PropertyType::ImageData => "Vec<u8>".to_owned(),
         PropertyType::Union { .. } => union_name,
         PropertyType::Object { name } => name.to_owned(),
         PropertyType::Enum { name } => name.to_owned()

@@ -42,9 +42,7 @@ declare global {
                 children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
             };
             ["gauntlet:image"]: {
-                source: {
-                    data: ArrayBuffer;
-                };
+                source: ImageSource;
             };
             ["gauntlet:h1"]: {
                 children?: StringComponent;
@@ -119,17 +117,13 @@ declare global {
             ["gauntlet:empty_view"]: {
                 title: string;
                 description?: string;
-                image?: {
-                    data: ArrayBuffer;
-                };
+                image?: ImageSource;
             };
             ["gauntlet:list_item"]: {
                 id: string;
                 title: string;
                 subtitle?: string;
-                icon?: {
-                    data: ArrayBuffer;
-                } | Icons;
+                icon?: ImageSource | Icons;
             };
             ["gauntlet:list_section"]: {
                 children?: ElementComponent<typeof ListItem>;
@@ -340,6 +334,9 @@ export enum Icons {
     Indent = "Indent",
     Unindent = "Unindent"
 }
+export type ImageSource = {
+    data: ArrayBuffer;
+};
 export interface ActionProps {
     id?: string;
     title: string;
@@ -430,9 +427,7 @@ Metadata.Value = MetadataValue;
 Metadata.Icon = MetadataIcon;
 Metadata.Separator = MetadataSeparator;
 export interface ImageProps {
-    source: {
-        data: ArrayBuffer;
-    };
+    source: ImageSource;
 }
 export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
     return <gauntlet:image source={props.source}/>;
@@ -623,9 +618,7 @@ Inline.Center = Content;
 export interface EmptyViewProps {
     title: string;
     description?: string;
-    image?: {
-        data: ArrayBuffer;
-    };
+    image?: ImageSource;
 }
 export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
     return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}/>;
@@ -634,9 +627,7 @@ export interface ListItemProps {
     id: string;
     title: string;
     subtitle?: string;
-    icon?: {
-        data: ArrayBuffer;
-    } | Icons;
+    icon?: ImageSource | Icons;
 }
 export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
     return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}/>;

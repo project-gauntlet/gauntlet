@@ -850,8 +850,6 @@ dependencies = [
  "iced",
  "iced_aw",
  "itertools 0.12.1",
- "serde",
- "serde_json",
  "strum 0.26.2",
  "thiserror",
  "tokio",

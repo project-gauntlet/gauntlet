@@ -111,6 +111,8 @@ export function getEntrypointPreferences(): Record<string, any> {
 
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
     const component = hostContext.componentModel[type];
+    const rootComponent = hostContext.componentModel["gauntlet:root"] as RootComponent;
+    const sharedTypes = rootComponent.sharedTypes;
 
     const props = Object.fromEntries(
         Object.entries(properties)
@@ -118,11 +120,33 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
             .map(([key, value]) => {
                 if (component.type === "standard" && !!value) {
                     const prop = component.props.find(prop => prop.name === key)
-                    if (prop && prop.type.type === "image_source") {
-                        if (value.data !== undefined) {
-                            return [key, Array.from(new Uint8Array(value.data))]
-                        } else {
-                            throw new Error("'data' property should be provided on image source property")
+
+                    if (prop) {
+                        switch (prop.type.type) {
+                            case "image_data": {
+                                return [key, Array.from(new Uint8Array(value))]
+                            }
+                            case "object": {
+                                // TODO nested objects?
+                                const sharedType = sharedTypes[prop.type.name]!!;
+                                if (sharedType.type !== "object" || typeof value !== "object") {
+                                    throw new Error(key + " property is expected to be an object")
+                                }
+
+                                const object = Object.fromEntries(
+                                    Object.entries(value)
+                                        .map(([key, value]) => {
+                                            const prop = sharedType.items[key]
+                                            if (prop.type === "image_data") {
+                                                return [key, Array.from(new Uint8Array(value as any))] // TODO ugly cast
+                                            }
+
+                                            return [key, value]
+                                        })
+                                );
+
+                                return [key, object]
+                            }
                         }
                     }
                 }

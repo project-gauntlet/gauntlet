@@ -4,7 +4,7 @@ use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
 
 use common::model::{EntrypointId, PropertyValue};
-use common::rpc::{RpcUiPropertyValue, RpcUiWidget, RpcUiWidgetId};
+use common::rpc::{RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
 use common::rpc::rpc_ui_property_value::Value;
 
 #[derive(Debug)]
@@ -175,19 +175,22 @@ impl From<IntermediateUiWidget> for RpcUiWidget {
     }
 }
 
-pub fn from_rpc_to_intermediate_value(value: RpcUiPropertyValue) -> Option<PropertyValue> {
-    let value = match value.value? {
+pub fn from_rpc_to_intermediate_value(value: RpcUiPropertyValue) -> PropertyValue {
+    match value.value.unwrap() {
         Value::Undefined(_) => PropertyValue::Undefined,
         Value::String(value) => PropertyValue::String(value),
         Value::Number(value) => PropertyValue::Number(value),
         Value::Bool(value) => PropertyValue::Bool(value),
         Value::Bytes(value) => PropertyValue::Bytes(value),
-        Value::Json(value) => PropertyValue::Json(value)
-    };
+        Value::Object(value) => {
+            let value = value.value.into_iter()
+                .map(|(name, value)| (name, from_rpc_to_intermediate_value(value)))
+                .collect();
 
-    Some(value)
+            PropertyValue::Object(value)
+        }
+    }
 }
-
 
 fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) -> HashMap<String, RpcUiPropertyValue> {
     value.into_iter()
@@ -197,7 +200,11 @@ fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) ->
                 PropertyValue::Number(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Number(value)) })),
                 PropertyValue::Bool(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bool(value)) })),
                 PropertyValue::Bytes(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bytes(value)) })),
-                PropertyValue::Json(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Json(value)) })),
+                PropertyValue::Object(value) => Some((key, RpcUiPropertyValue {
+                    value: Some(Value::Object(RpcUiPropertyValueObject {
+                        value: from_intermediate_to_rpc_properties(value)
+                    }))
+                })),
                 PropertyValue::Undefined => None
             }
         })

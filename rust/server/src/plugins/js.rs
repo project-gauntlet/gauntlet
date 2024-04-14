@@ -10,6 +10,7 @@ use anyhow::{anyhow, Context};
 use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::futures::executor::block_on;
+use deno_core::v8::{Array, GetPropertyNamesArgs, IndexFilter, KeyCollectionMode, KeyConversionMode, Object, PropertyFilter};
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
@@ -26,7 +27,7 @@ use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
 use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_frontend_client::RpcFrontendClient;
 use common::rpc::rpc_frontend_server::RpcFrontend;
-use component_model::{Children, Component, create_component_model, Property, PropertyType};
+use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
 
 use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
@@ -889,11 +890,15 @@ fn op_react_replace_view(
     //     validate_child(&state, &container.widget_type, &new_child.widget_type)?
     // }
 
+    let Component::Root { shared_types, .. } = component_model.components.get("gauntlet:root").unwrap() else {
+        unreachable!()
+    };
+
     let data = JsUiRequestData::ReplaceView {
         entrypoint_id: EntrypointId::from_string(entrypoint_id),
         render_location,
         top_level_view,
-        container: from_js_to_intermediate_widget(scope, container, component_model)?,
+        container: from_js_to_intermediate_widget(scope, container, component_model, shared_types)?,
     };
 
     match make_request(&state, data).context("ReplaceView frontend response")? {
@@ -966,7 +971,7 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                             PropertyValue::Bytes(_) => {
                                 todo!()
                             }
-                            PropertyValue::Json(_) => {
+                            PropertyValue::Object(_) => {
                                 todo!()
                             }
                         }
@@ -1129,7 +1134,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                     PropertyValue::Number(value) => JsPropertyValue::Number { value },
                     PropertyValue::Bool(value) => JsPropertyValue::Bool { value },
                     PropertyValue::Undefined => JsPropertyValue::Undefined,
-                    PropertyValue::Bytes(_) | PropertyValue::Json(_)  => {
+                    PropertyValue::Bytes(_) | PropertyValue::Object(_)  => {
                         todo!()
                     }
                 })
@@ -1159,9 +1164,9 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     }
 }
 
-fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel) -> anyhow::Result<IntermediateUiWidget> {
+fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &HashMap<String, SharedType>) -> anyhow::Result<IntermediateUiWidget> {
     let children = ui_widget.widget_children.into_iter()
-        .map(|child| from_js_to_intermediate_widget(scope, child, component_model))
+        .map(|child| from_js_to_intermediate_widget(scope, child, component_model, shared_types))
         .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
 
     let component = component_model.components
@@ -1180,7 +1185,7 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
         .map(|prop| (&prop.name, &prop.property_type))
         .collect::<HashMap<_, _>>();
 
-    let properties = from_js_to_intermediate_properties(scope, ui_widget.widget_properties, &props);
+    let properties = from_js_to_intermediate_properties(scope, ui_widget.widget_properties, &props, shared_types);
 
     Ok(IntermediateUiWidget {
         widget_id: ui_widget.widget_id,
@@ -1193,9 +1198,9 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
 fn from_js_to_intermediate_properties(
     scope: &mut v8::HandleScope,
     v8_properties: HashMap<String, serde_v8::Value>,
-    component_props: &HashMap<&String, &PropertyType>
+    component_props: &HashMap<&String, &PropertyType>,
+    shared_types: &HashMap<String, SharedType>
 ) -> anyhow::Result<HashMap<String, PropertyValue>> {
-
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
         .filter(|(_, value)| !value.v8_value.is_function())
@@ -1206,63 +1211,170 @@ fn from_js_to_intermediate_properties(
                 return Err(anyhow!("unknown property encountered {:?}", name))
             };
 
-            match property_type {
-                PropertyType::String => {
-                    if val.is_string() {
-                        Ok((name, PropertyValue::String(val.to_rust_string_lossy(scope))))
-                    } else {
-                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: string", name, val.type_repr()))
-                    }
-                }
-                PropertyType::Number => {
-                    if val.is_number() {
-                        Ok((name, PropertyValue::Number(val.number_value(scope).expect("expected number"))))
-                    } else {
-                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: number", name, val.type_repr()))
-                    }
-                }
-                PropertyType::Boolean => {
-                    if val.is_boolean() {
-                        Ok((name, PropertyValue::Bool(val.boolean_value(scope))))
-                    } else {
-                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: boolean", name, val.type_repr()))
-                    }
-                }
-                PropertyType::Component { .. } => {
-                    panic!("components should not be present here")
-                }
-                PropertyType::Function { .. } => {
-                    panic!("functions are filtered out")
-                }
-                PropertyType::ImageSource => {
-                    if val.is_array() { // TODO arraybuffer? fix when migrating to deno's op2
-                        Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, val)?)))
-                    } else {
-                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: string", name, val.type_repr()))
-                    }
-                }
-                PropertyType::Enum { .. } => {
-                    if val.is_string() {
-                        Ok((name, PropertyValue::String(val.to_rust_string_lossy(scope))))
-                    } else {
-                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: string", name, val.type_repr()))
-                    }
-                }
-                PropertyType::Union { .. } => {
-                    Ok((name.clone(), PropertyValue::Json(object_to_json(scope, val).context(format!("error while reading property {}", name))?)))
-                }
-                PropertyType::Object { .. } => {
-                    if val.is_object() {
-                        Ok((name.clone(), PropertyValue::Json(object_to_json(scope, val).context(format!("error while reading property {}", name))?)))
-                    } else {
-                        Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: boolean", name, val.type_repr()))
-                    }
-                }
-            }
+            convert(scope, property_type, name, val, shared_types)
         })
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;
 
     Ok(vec.into_iter().collect())
+}
+
+fn convert(
+    scope: &mut v8::HandleScope,
+    property_type: &PropertyType,
+    name: String,
+    value: v8::Local<v8::Value>,
+    shared_types: &HashMap<String, SharedType>
+) -> anyhow::Result<(String, PropertyValue)> {
+    match property_type {
+        PropertyType::String | PropertyType::Enum { .. } => {
+            if value.is_string() {
+                convert_string(scope, name, value)
+            } else {
+                invalid_type_err(name, value, property_type)
+            }
+        }
+        PropertyType::Number => {
+            if value.is_number() {
+                convert_num(scope, name, value)
+            } else {
+                invalid_type_err(name, value, property_type)
+            }
+        }
+        PropertyType::Boolean => {
+            if value.is_boolean() {
+                convert_boolean(scope, name, value)
+            } else {
+                invalid_type_err(name, value, property_type)
+            }
+        }
+        PropertyType::Component { .. } => {
+            panic!("components should not be present here")
+        }
+        PropertyType::Function { .. } => {
+            panic!("functions are filtered out")
+        }
+        PropertyType::ImageData => {
+            if value.is_array() { // TODO arraybuffer? fix when migrating to deno's op2
+                convert_bytes(scope, name, value)
+            } else {
+                invalid_type_err(name, value, property_type)
+            }
+        }
+        PropertyType::Object { name: object_name } => {
+            if value.is_object() {
+                convert_object(scope, name, value, object_name, shared_types)
+            } else {
+                invalid_type_err(name, value, property_type)
+            }
+        }
+        PropertyType::Union { items } => {
+            if value.is_string() {
+                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::String | PropertyType::Enum { .. })) {
+                    None => invalid_type_err(name, value, property_type),
+                    Some(_) => convert_string(scope, name, value)
+                }
+            } else if value.is_number() {
+                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::Number)) {
+                    None => invalid_type_err(name, value, property_type),
+                    Some(_) => convert_num(scope, name, value)
+                }
+            } else if value.is_boolean() {
+                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::Boolean)) {
+                    None => invalid_type_err(name, value, property_type),
+                    Some(_) => convert_boolean(scope, name, value)
+                }
+            } else if value.is_array() { // TODO arraybuffer? fix when migrating to deno's op2
+                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::ImageData)) {
+                    None => invalid_type_err(name, value, property_type),
+                    Some(_) => convert_bytes(scope, name, value)
+                }
+            } else if value.is_object() {
+                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::Object { .. })) {
+                    None => invalid_type_err(name, value, property_type),
+                    Some(PropertyType::Object { name: object_name }) => {
+                        convert_object(scope, name, value, object_name, shared_types)
+                    },
+                    _ => unreachable!()
+                }
+            } else {
+                invalid_type_err(name, value, property_type)
+            }
+        }
+    }
+}
+
+fn convert_num(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
+    Ok((name, PropertyValue::Number(value.number_value(scope).expect("expected number"))))
+}
+
+fn convert_string(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
+    Ok((name, PropertyValue::String(value.to_rust_string_lossy(scope))))
+}
+
+fn convert_boolean(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
+    Ok((name, PropertyValue::Bool(value.boolean_value(scope))))
+}
+
+fn convert_bytes(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
+    Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, value)?)))
+}
+
+fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>, object_name: &str, shared_types: &HashMap<String, SharedType>) -> anyhow::Result<(String, PropertyValue)> {
+    let object: v8::Local<Object> = value.try_into().context(format!("error while reading property {}", name))?;
+
+    let props = object
+        .get_own_property_names(scope, GetPropertyNamesArgs {
+            property_filter: PropertyFilter::ONLY_ENUMERABLE | PropertyFilter::SKIP_SYMBOLS,
+            key_conversion: KeyConversionMode::NoNumbers,
+            ..Default::default()
+        })
+        .context("error getting get_own_property_names".to_string())?;
+
+    let mut result_obj: HashMap<String, PropertyValue> = HashMap::new();
+
+    for index in 0..props.length() {
+        let key = props.get_index(scope, index).unwrap();
+        let value = object.get(scope, key).unwrap();
+        let key = key.to_string(scope).unwrap().to_rust_string_lossy(scope);
+
+        let property_type = match shared_types.get(object_name).unwrap() {
+            SharedType::Enum { .. } => unreachable!(),
+            SharedType::Object { items } => items.get(&key).unwrap()
+        };
+
+        let (key, value) = convert(scope, property_type, key, value, shared_types)?;
+
+        result_obj.insert(key, value);
+    }
+
+    Ok((name, PropertyValue::Object(result_obj)))
+}
+
+fn invalid_type_err<T>(name: String, value: v8::Local<v8::Value>, property_type: &PropertyType) -> anyhow::Result<T> {
+    Err(anyhow!("invalid type for property {:?}, found: {:?}, expected: {}", name, value.type_repr(), expected_type(property_type)))
+}
+
+fn expected_type(prop_type: &PropertyType) -> String {
+    match prop_type {
+        PropertyType::String => "string".to_owned(),
+        PropertyType::Number => "number".to_owned(),
+        PropertyType::Boolean => "boolean".to_owned(),
+        PropertyType::Component { .. } => {
+            panic!("components should not be present here")
+        }
+        PropertyType::Function { .. } => {
+            panic!("functions are filtered out")
+        }
+        PropertyType::ImageData => "bytearray".to_owned(),
+        PropertyType::Enum { .. } => "enum".to_owned(),
+        PropertyType::Union { items } => {
+            items.into_iter()
+                .map(|prop_type| expected_type(prop_type))
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        PropertyType::Object { .. } => "object".to_owned(),
+    }
 }
 
 fn object_to_json(

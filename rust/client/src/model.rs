@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use serde::de::DeserializeOwned;
 
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
 use common::rpc::{RpcUiPropertyValue, RpcUiWidget};
@@ -73,7 +72,7 @@ pub fn from_rpc(value: HashMap<String, RpcUiPropertyValue>) -> anyhow::Result<Ha
                 Value::Number(value) => NativeUiPropertyValue::Number(value),
                 Value::Bool(value) => NativeUiPropertyValue::Bool(value),
                 Value::Bytes(value) => NativeUiPropertyValue::Bytes(value),
-                Value::Json(value) => NativeUiPropertyValue::Json(value),
+                Value::Object(value) => NativeUiPropertyValue::Object(property_value_from_rpc(value.value)),
                 _ => {
                     return Err(anyhow!("invalid type"))
                 }
@@ -88,13 +87,31 @@ pub fn from_rpc(value: HashMap<String, RpcUiPropertyValue>) -> anyhow::Result<Ha
     Ok(result)
 }
 
+
+fn property_value_from_rpc(map: HashMap<String, RpcUiPropertyValue>) -> HashMap<String, NativeUiPropertyValue> {
+    map.into_iter()
+        .map(|(name, value)| {
+            let value = match value.value.unwrap() {
+                Value::Undefined(_) => unreachable!(),
+                Value::String(value) => NativeUiPropertyValue::String(value),
+                Value::Number(value) => NativeUiPropertyValue::Number(value),
+                Value::Bool(value) => NativeUiPropertyValue::Bool(value),
+                Value::Bytes(value) => NativeUiPropertyValue::Bytes(value),
+                Value::Object(value) => NativeUiPropertyValue::Object(property_value_from_rpc(value.value)),
+            };
+
+            (name, value)
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone)]
 pub enum NativeUiPropertyValue {
     String(String),
     Number(f64),
     Bool(bool),
     Bytes(Vec<u8>),
-    Json(String),
+    Object(HashMap<String, NativeUiPropertyValue>),
 }
 
 impl NativeUiPropertyValue {
@@ -126,13 +143,24 @@ impl NativeUiPropertyValue {
             None
         }
     }
-    pub fn as_json<T: DeserializeOwned>(&self) -> Option<T> {
-        if let NativeUiPropertyValue::Json(val) = self {
-            Some(serde_json::from_str(val).expect("invalid json sent from backend?"))
+    pub fn as_object<T: ValueToStruct>(&self) -> Option<T> {
+        if let NativeUiPropertyValue::Object(val) = self {
+            Some(ValueToStruct::convert(val).expect("invalid object"))
         } else {
             None
         }
     }
+    pub fn as_union<T: ValueToEnum>(&self) -> anyhow::Result<T> {
+        ValueToEnum::convert(self)
+    }
+}
+
+pub trait ValueToStruct {
+    fn convert(value: &HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<Self> where Self: Sized;
+}
+
+pub trait ValueToEnum {
+    fn convert(value: &NativeUiPropertyValue) -> anyhow::Result<Self> where Self: Sized;
 }
 
 #[derive(Debug, Clone)]

@@ -81,8 +81,8 @@ pub enum PropertyType {
     Function {
         arguments: Vec<Property>
     },
-    #[serde(rename = "image_source")]
-    ImageSource,
+    #[serde(rename = "image_data")]
+    ImageData,
     #[serde(rename = "enum")]
     Enum {
         name: String
@@ -462,6 +462,10 @@ fn root(children: &[&Component]) -> Component {
 
                 ].into_iter().map(|s| s.to_string()).collect()
             }),
+            (
+                "ImageSource".to_owned(),
+                SharedType::Object { items: HashMap::from([("data".to_owned(), PropertyType::ImageData)]) }
+            )
         ]),
     }
 }
@@ -607,7 +611,7 @@ pub fn create_component_model() -> Vec<Component> {
         "image",
         "Image",
         [
-            property("source", false, PropertyType::ImageSource)
+            property("source", false, PropertyType::Object { name: "ImageSource".to_owned() })
         ],
         children_none(),
     );
@@ -851,7 +855,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", false, PropertyType::String),
             property("description", true, PropertyType::String),
-            property("image", true, PropertyType::ImageSource),
+            property("image", true, PropertyType::Object { name: "ImageSource".to_owned() }),
         ],
         children_none(),
     );
@@ -863,7 +867,7 @@ pub fn create_component_model() -> Vec<Component> {
             property("id", false, PropertyType::String),
             property("title", false, PropertyType::String),
             property("subtitle", true, PropertyType::String),
-            property("icon", true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("icon", true, PropertyType::Union { items: vec![PropertyType::Object { name: "ImageSource".to_owned() }, PropertyType::Enum { name: "Icons".to_owned() }] }),
             // accessories
         ],
         children_none(),
