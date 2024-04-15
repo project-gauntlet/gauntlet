@@ -29,7 +29,6 @@ type NotReactsKeyboardEvent = {
 
 type OpenView = {
     type: "OpenView"
-    frontend: string
     entrypointId: string
 }
 
@@ -104,6 +103,7 @@ interface InternalApi {
     load_search_index(searchItems: AdditionalSearchItem[]): Promise<void>;
 
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: UiWidget): void;
+    show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;
 
     fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string>;
 }

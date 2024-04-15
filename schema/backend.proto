@@ -199,8 +199,7 @@ message RpcEntrypoint {
 
 
 message RpcEventRenderView {
-  string frontend = 1;
-  string entrypoint_id = 2;
+  string entrypoint_id = 1;
 }
 
 message RpcEventRunCommand {

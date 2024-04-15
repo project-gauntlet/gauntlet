@@ -1,7 +1,7 @@
 use tonic::{Request, Response, Status};
 
 use common::model::{EntrypointId, PluginId, RenderLocation};
-use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use common::rpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowPluginErrorViewRequest, RpcShowPluginErrorViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use utils::channel::RequestSender;
 
@@ -91,6 +91,33 @@ impl RpcFrontend for RpcFrontendServerImpl {
         };
 
         Ok(Response::new(RpcShowPreferenceRequiredViewResponse::default()))
+    }
+
+    async fn show_plugin_error_view(&self, request: Request<RpcShowPluginErrorViewRequest>) -> Result<Response<RpcShowPluginErrorViewResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let entrypoint_id = request.entrypoint_id;
+        let render_location = request.render_location;
+
+        let render_location = RpcRenderLocation::try_from(render_location)
+            .map_err(|_| Status::invalid_argument("render_location"))?;
+
+        let render_location = match render_location {
+            RpcRenderLocation::InlineViewLocation => RenderLocation::InlineView,
+            RpcRenderLocation::ViewLocation => RenderLocation::View,
+        };
+
+        let data = NativeUiRequestData::ShowPluginErrorView {
+            plugin_id: PluginId::from_string(plugin_id),
+            entrypoint_id: EntrypointId::from_string(entrypoint_id),
+            render_location,
+        };
+
+        match self.context_tx.send_receive(data).await {
+            NativeUiResponseData::Nothing => {}
+        };
+
+        Ok(Response::new(RpcShowPluginErrorViewResponse::default()))
     }
 }
 

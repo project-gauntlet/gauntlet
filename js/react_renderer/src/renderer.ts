@@ -415,12 +415,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
-export function render(frontend: string, entrypointId: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
-    // specific frontend are implemented separately, it seems it is not feasible to do generic implementation
-    if (frontend !== "default") {
-        throw new Error("NOT SUPPORTED")
-    }
-
+export function render(entrypointId: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
     const hostConfig = createHostConfig();
 
     // const reconciler = ReactReconciler(createTracedHostConfig(hostConfig));

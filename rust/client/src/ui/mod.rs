@@ -51,7 +51,7 @@ pub struct AppModel {
     prompt: Option<String>,
     waiting_for_next_unfocus: bool,
     global_hotkey_manager: GlobalHotKeyManager,
-    preference_required_view: Option<PreferenceRequiredViewData>,
+    error_view: Option<ErrorViewData>,
 }
 
 struct PluginViewData {
@@ -63,11 +63,17 @@ struct PluginViewData {
     action_shortcuts: HashMap<String, ActionShortcut>
 }
 
-struct PreferenceRequiredViewData {
-    plugin_id: PluginId,
-    entrypoint_id: EntrypointId,
-    plugin_preferences_required: bool,
-    entrypoint_preferences_required: bool,
+enum ErrorViewData {
+    PreferenceRequiredViewData {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool,
+    },
+    PluginErrorViewData {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +119,11 @@ pub enum AppMsg {
     },
     SaveActionShortcuts {
         action_shortcuts: HashMap<String, ActionShortcut>
+    },
+    ShowPluginErrorView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        render_location: RenderLocation
     },
 }
 
@@ -191,7 +202,7 @@ impl Application for AppModel {
                 plugin_view_data: None,
                 waiting_for_next_unfocus: false,
                 global_hotkey_manager,
-                preference_required_view: None,
+                error_view: None,
             },
             Command::batch([
                 change_level(window::Id::MAIN, Level::AlwaysOnTop),
@@ -433,11 +444,18 @@ impl Application for AppModel {
                 plugin_preferences_required,
                 entrypoint_preferences_required
             } => {
-                self.preference_required_view = Some(PreferenceRequiredViewData {
+                self.error_view = Some(ErrorViewData::PreferenceRequiredViewData {
                     plugin_id,
                     entrypoint_id,
                     plugin_preferences_required,
                     entrypoint_preferences_required,
+                });
+                Command::none()
+            }
+            AppMsg::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
+                self.error_view = Some(ErrorViewData::PluginErrorViewData {
+                    plugin_id,
+                    entrypoint_id,
                 });
                 Command::none()
             }
@@ -465,67 +483,117 @@ impl Application for AppModel {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        if let Some(view_data) = &self.preference_required_view {
-            let PreferenceRequiredViewData { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } = view_data;
+        if let Some(view_data) = &self.error_view {
+            return match view_data {
+                ErrorViewData::PreferenceRequiredViewData { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
 
-            let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
-                (true, true) => {
-                    // TODO do not show "entrypoint" name to user
-                    let description_text = "Before using, plugin and entrypoint preferences need to be specified";
-                    // note:
-                    // we open plugin view and not entrypoint even though both need to be specified
-                    let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
-                    (description_text, msg)
+                    let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
+                        (true, true) => {
+                            // TODO do not show "entrypoint" name to user
+                            let description_text = "Before using, plugin and entrypoint preferences need to be specified";
+                            // note:
+                            // we open plugin view and not entrypoint even though both need to be specified
+                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                            (description_text, msg)
+                        }
+                        (false, true) => {
+                            // TODO do not show "entrypoint" name to user
+                            let description_text = "Before using, entrypoint preferences need to be specified";
+                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: Some(entrypoint_id.clone()) };
+                            (description_text, msg)
+                        }
+                        (true, false) => {
+                            let description_text = "Before using, plugin preferences need to be specified";
+                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                            (description_text, msg)
+                        }
+                        (false, false) => unreachable!()
+                    };
+
+                    let description: Element<_> = text(description_text)
+                        .into();
+
+                    let description = container(description)
+                        .padding(Padding::new(10.0))
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let button_label: Element<_> = text("Open Settings")
+                        .into();
+
+                    let button: Element<_> = button(button_label)
+                        .on_press(msg)
+                        .into();
+
+                    let button = container(button)
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let content: Element<_> = column([
+                        description,
+                        button
+                    ]).into();
+
+                    let content: Element<_> = container(content)
+                        .style(ContainerStyle::Background)
+                        .height(Length::Fixed(WINDOW_HEIGHT))
+                        .width(Length::Fixed(WINDOW_WIDTH))
+                        .center_x()
+                        .center_y()
+                        .into();
+
+                    content
                 }
-                (false, true) => {
-                    // TODO do not show "entrypoint" name to user
-                    let description_text = "Before using, entrypoint preferences need to be specified";
-                    let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: Some(entrypoint_id.clone()) };
-                    (description_text, msg)
+                ErrorViewData::PluginErrorViewData { plugin_id, entrypoint_id } => {
+                    let description: Element<_> = text("Error occurred in plugin when trying to show the view")
+                        .into();
+
+                    let description = container(description)
+                        .padding(Padding::new(10.0))
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let sub_description: Element<_> = text("Please report this to plugin author")
+                        .into();
+
+                    let sub_description = container(sub_description)
+                        .padding(Padding::new(10.0))
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let button_label: Element<_> = text("Close")
+                        .into();
+
+                    let button: Element<_> = button(button_label)
+                        .on_press(AppMsg::HideWindow)
+                        .into();
+
+                    let button = container(button)
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let content: Element<_> = column([
+                        description,
+                        sub_description,
+                        button
+                    ]).into();
+
+                    let content: Element<_> = container(content)
+                        .style(ContainerStyle::Background)
+                        .height(Length::Fixed(WINDOW_HEIGHT))
+                        .width(Length::Fixed(WINDOW_WIDTH))
+                        .center_x()
+                        .center_y()
+                        .into();
+
+                    content
                 }
-                (true, false) => {
-                    let description_text = "Before using, plugin preferences need to be specified";
-                    let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
-                    (description_text, msg)
-                }
-                (false, false) => unreachable!()
-            };
-
-            let description: Element<_> = text(description_text)
-                .into();
-
-            let description = container(description)
-                .padding(Padding::new(10.0))
-                .width(Length::Fill)
-                .center_x()
-                .into();
-
-            let button_label: Element<_> = text("Open Settings")
-                .into();
-
-            let button: Element<_> = button(button_label)
-                .on_press(msg)
-                .into();
-
-            let button = container(button)
-                .width(Length::Fill)
-                .center_x()
-                .into();
-
-            let content: Element<_> = column([
-                description,
-                button
-            ]).into();
-
-            let content: Element<_> = container(content)
-                .style(ContainerStyle::Background)
-                .height(Length::Fixed(WINDOW_HEIGHT))
-                .width(Length::Fixed(WINDOW_WIDTH))
-                .center_x()
-                .center_y()
-                .into();
-
-            return content
+            }
         }
 
         match &self.plugin_view_data {
@@ -685,13 +753,13 @@ impl AppModel {
         self.prompt = None;
         self.plugin_view_data = None;
         self.search_results = vec![];
-        self.close_preference_required_view();
+        self.close_error_view();
 
         window::change_mode(window::Id::MAIN, window::Mode::Hidden)
     }
 
     fn show_window(&mut self) -> Command<AppMsg> {
-        self.close_preference_required_view();
+        self.close_error_view();
 
         Command::batch([
             window::change_mode(window::Id::MAIN, window::Mode::Windowed),
@@ -702,8 +770,8 @@ impl AppModel {
         ])
     }
 
-    fn close_preference_required_view(&mut self) {
-        self.preference_required_view = None;
+    fn close_error_view(&mut self) {
+        self.error_view = None;
     }
 
     fn previous_view(&mut self) -> Command<AppMsg> {
@@ -731,7 +799,6 @@ impl AppModel {
 
         Command::perform(async move {
             let event = RpcEventRenderView {
-                frontend: "default".to_owned(),
                 entrypoint_id: entrypoint_id.to_string(),
             };
 
@@ -911,6 +978,15 @@ async fn request_loop(
                         entrypoint_id,
                         plugin_preferences_required,
                         entrypoint_preferences_required
+                    }
+                }
+                NativeUiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
+                    responder.respond(NativeUiResponseData::Nothing);
+
+                    AppMsg::ShowPluginErrorView {
+                        plugin_id,
+                        entrypoint_id,
+                        render_location,
                     }
                 }
             }

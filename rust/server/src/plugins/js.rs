@@ -24,7 +24,7 @@ use tonic::Request;
 use tonic::transport::Channel;
 
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
+use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
 use common::rpc::rpc_frontend_client::RpcFrontendClient;
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
@@ -32,7 +32,7 @@ use component_model::{Children, Component, create_component_model, Property, Pro
 use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::run_status::RunStatusGuard;
-use crate::search::{SearchIndexItem, SearchIndex, SearchIndexPluginEntrypointType};
+use crate::search::{SearchIndex, SearchIndexItem, SearchIndexPluginEntrypointType};
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -74,7 +74,6 @@ pub enum PluginCommand {
 pub enum OnePluginCommandData {
     Stop,
     RenderView {
-        frontend: String,
         entrypoint_id: EntrypointId,
     },
     RunCommand {
@@ -149,9 +148,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                     command_type: "stop".to_string(),
                                 })
                             }
-                            OnePluginCommandData::RenderView { frontend, entrypoint_id } => {
+                            OnePluginCommandData::RenderView { entrypoint_id } => {
                                 Some(IntermediateUiEvent::OpenView {
-                                    frontend,
                                     entrypoint_id,
                                 })
                             }
@@ -424,6 +422,7 @@ deno_core::extension!(
         op_inline_view_endpoint_id,
         get_plugin_preferences,
         get_entrypoint_preferences,
+        show_plugin_error_view,
         clear_inline_view,
         plugin_id,
         load_search_index,
@@ -760,6 +759,22 @@ async fn fetch_action_id_for_shortcut(
     ).await?;
 
     Ok(result)
+}
+
+#[op]
+fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, render_location: JsRenderLocation) -> anyhow::Result<()> {
+    let data = JsUiRequestData::ShowPluginErrorView {
+        entrypoint_id: EntrypointId::from_string(entrypoint_id),
+        render_location,
+    };
+
+    match make_request(&state, data).context("ClearInlineView frontend response")? {
+        JsUiResponseData::Nothing => {
+            tracing::trace!(target = "renderer_rs", "Calling show_plugin_error_view returned");
+            Ok(())
+        }
+        value @ _ => panic!("unsupported response type {:?}", value),
+    }
 }
 
 #[op]
@@ -1112,13 +1127,31 @@ async fn make_request_async(plugin_id: PluginId, frontend_client: &mut FrontendC
 
             nothing
         }
+        JsUiRequestData::ShowPluginErrorView { entrypoint_id, render_location } => {
+            let rpc_render_location = match render_location {
+                JsRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
+                JsRenderLocation::View => RpcRenderLocation::ViewLocation,
+            };
+
+            let request = Request::new(RpcShowPluginErrorViewRequest {
+                plugin_id: plugin_id.to_string(),
+                entrypoint_id: entrypoint_id.to_string(),
+                render_location: rpc_render_location.into(),
+            });
+
+            let nothing = frontend_client.show_plugin_error_view(request)
+                .await
+                .map(|_| JsUiResponseData::Nothing)
+                .map_err(|err| err.into());
+
+            nothing
+        }
     }
 }
 
 fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     match event {
-        IntermediateUiEvent::OpenView { frontend, entrypoint_id } => JsUiEvent::OpenView {
-            frontend,
+        IntermediateUiEvent::OpenView { entrypoint_id } => JsUiEvent::OpenView {
             entrypoint_id: entrypoint_id.to_string(),
         },
         IntermediateUiEvent::RunCommand { entrypoint_id } => JsUiEvent::RunCommand {

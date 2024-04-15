@@ -233,11 +233,10 @@ impl ApplicationManager {
         })
     }
 
-    pub fn handle_render_view(&self, plugin_id: PluginId, frontend: String, entrypoint_id: EntrypointId) {
+    pub fn handle_render_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::RenderView {
-                frontend,
                 entrypoint_id,
             }
         })

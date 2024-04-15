@@ -21,6 +21,10 @@ pub enum JsUiRequestData {
         container: IntermediateUiWidget,
     },
     ClearInlineView,
+    ShowPluginErrorView {
+        entrypoint_id: EntrypointId,
+        render_location: JsRenderLocation,
+    },
     ShowPreferenceRequiredView {
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
@@ -41,8 +45,6 @@ pub type UiWidgetId = u32;
 #[serde(tag = "type")]
 pub enum JsUiEvent {
     OpenView {
-        #[serde(rename = "frontend")]
-        frontend: String,
         #[serde(rename = "entrypointId")]
         entrypoint_id: String
     },
@@ -117,7 +119,6 @@ pub struct JsUiWidget<'a> {
 #[derive(Debug)]
 pub enum IntermediateUiEvent {
     OpenView {
-        frontend: String,
         entrypoint_id: EntrypointId
     },
     RunCommand {

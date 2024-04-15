@@ -152,9 +152,10 @@ async function runLoop() {
 
                     const View: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
                     const { render } = await import("gauntlet:renderer");
-                    latestRootUiWidget = render(pluginEvent.frontend, pluginEvent.entrypointId, "View", <View/>);
+                    latestRootUiWidget = render(pluginEvent.entrypointId, "View", <View/>);
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
+                    InternalApi.show_plugin_error_view(pluginEvent.entrypointId, "View")
                 }
                 break;
             }
@@ -195,7 +196,7 @@ async function runLoop() {
                         const Handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpointId}`)).default;
                         const { render } = await import("gauntlet:renderer");
 
-                        latestRootUiWidget = render("default", endpointId, "InlineView", <Handler text={pluginEvent.text}/>);
+                        latestRootUiWidget = render(endpointId, "InlineView", <Handler text={pluginEvent.text}/>);
 
                         if (latestRootUiWidget.widgetChildren.length === 0) {
                             InternalApi.op_log_debug("plugin_loop", `Inline view rendered no children, clearing inline view...`)

@@ -7,6 +7,7 @@ service RpcFrontend {
   rpc ClearInlineView (RpcClearInlineViewRequest) returns (RpcClearInlineViewResponse);
   rpc ShowWindow (RpcShowWindowRequest) returns (RpcShowWindowResponse);
   rpc ShowPreferenceRequiredView (RpcShowPreferenceRequiredViewRequest) returns (RpcShowPreferenceRequiredViewResponse);
+  rpc ShowPluginErrorView (RpcShowPluginErrorViewRequest) returns (RpcShowPluginErrorViewResponse);
 }
 
 message RpcShowWindowRequest {
@@ -40,6 +41,15 @@ message RpcShowPreferenceRequiredViewRequest {
 }
 
 message RpcShowPreferenceRequiredViewResponse {
+}
+
+message RpcShowPluginErrorViewRequest {
+  string plugin_id = 1;
+  string entrypoint_id = 2;
+  RpcRenderLocation render_location = 3;
+}
+
+message RpcShowPluginErrorViewResponse {
 }
 
 

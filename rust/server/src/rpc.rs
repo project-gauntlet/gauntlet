@@ -53,11 +53,10 @@ impl RpcBackend for RpcBackendServerImpl {
         let plugin_id = request.plugin_id;
         let event = request.event.ok_or(Status::invalid_argument("event"))?;
         let entrypoint_id = event.entrypoint_id;
-        let frontend = event.frontend;
 
         let plugin_id = PluginId::from_string(plugin_id);
         let entrypoint_id = EntrypointId::from_string(entrypoint_id);
-        self.application_manager.handle_render_view(plugin_id.clone(), frontend, entrypoint_id.clone());
+        self.application_manager.handle_render_view(plugin_id.clone(), entrypoint_id.clone());
 
         let action_shortcuts = self.application_manager.action_shortcuts(plugin_id, entrypoint_id)
             .await

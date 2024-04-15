@@ -46,6 +46,11 @@ pub enum NativeUiRequestData {
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool
     },
+    ShowPluginErrorView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        render_location: RenderLocation,
+    },
 }
 
 #[derive(Debug, Clone)]
