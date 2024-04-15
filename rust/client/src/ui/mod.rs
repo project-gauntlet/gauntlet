@@ -339,9 +339,18 @@ impl Application for AppModel {
                                         }
                                     }
                                 } else {
-                                    Command::none()
+                                    self.append_prompt(char.to_string());
+                                    focus(self.search_field_id.clone())
                                 }
                             }
+                            Key::Named(Named::Space) => {
+                                self.append_prompt(" ".to_string());
+                                focus(self.search_field_id.clone())
+                            },
+                            Key::Named(Named::Backspace) => {
+                                self.backspace_prompt();
+                                focus(self.search_field_id.clone())
+                            },
                             _ => Command::none()
                         }
                     }
@@ -791,6 +800,22 @@ impl AppModel {
                 .await
                 .unwrap();
         }, |_| AppMsg::Noop)
+    }
+
+    fn append_prompt(&mut self, value: String) {
+        let new_prompt = match &self.prompt {
+            None => value,
+            Some(prompt) => format!("{prompt}{value}")
+        };
+        self.prompt.replace(new_prompt);
+    }
+
+    fn backspace_prompt(&mut self) {
+        if let Some(prompt) = &self.prompt {
+            let mut chars = prompt.chars();
+            chars.next_back();
+            self.prompt.replace(chars.as_str().to_owned());
+        };
     }
 }
 
