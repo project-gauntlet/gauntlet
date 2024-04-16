@@ -46,7 +46,7 @@ pub enum Component {
         internal_name: String,
         children: Vec<ComponentRef>,
         #[serde(rename = "sharedTypes")]
-        shared_types: HashMap<String, SharedType>
+        shared_types: IndexMap<String, SharedType>
     },
     #[serde(rename = "text_part")]
     TextPart {
@@ -106,7 +106,7 @@ pub enum SharedType {
     },
     #[serde(rename = "object")]
     Object {
-        items: HashMap<String, PropertyType>
+        items: IndexMap<String, PropertyType>
     }
 }
 
@@ -231,7 +231,7 @@ fn root(children: &[&Component]) -> Component {
                 }
             })
             .collect(),
-        shared_types: HashMap::from([
+        shared_types: IndexMap::from([
             ("Icons".to_owned(), SharedType::Enum {
                 items: [
                     "PersonAdd",
@@ -464,7 +464,7 @@ fn root(children: &[&Component]) -> Component {
             }),
             (
                 "ImageSource".to_owned(),
-                SharedType::Object { items: HashMap::from([("data".to_owned(), PropertyType::ImageData)]) }
+                SharedType::Object { items: IndexMap::from([("data".to_owned(), PropertyType::ImageData)]) }
             )
         ]),
     }

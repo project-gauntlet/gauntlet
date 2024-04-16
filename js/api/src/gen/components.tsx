@@ -163,9 +163,6 @@ export type EmptyNode = boolean | null | undefined;
 export type ElementComponent<Comp extends FC<any>> = Element<Comp> | EmptyNode | Iterable<ElementComponent<Comp>>;
 export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>;
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
-export type ImageSource = {
-    data: ArrayBuffer;
-};
 export enum Icons {
     PersonAdd = "PersonAdd",
     Airplane = "Airplane",
@@ -339,6 +336,9 @@ export enum Icons {
     Indent = "Indent",
     Unindent = "Unindent"
 }
+export type ImageSource = {
+    data: ArrayBuffer;
+};
 export interface ActionProps {
     id?: string;
     title: string;
