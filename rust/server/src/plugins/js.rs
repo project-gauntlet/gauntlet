@@ -15,6 +15,11 @@ use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
+use numbat::InterpreterResult;
+use numbat::markup::Formatter;
+use numbat::module_importer::BuiltinModuleImporter;
+use numbat::pretty_print::PrettyPrint;
+use numbat::value::Value;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -431,6 +436,7 @@ deno_core::extension!(
         plugin_preferences_required,
         entrypoint_preferences_required,
         show_preferences_required_view,
+        run_numbat,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -924,6 +930,47 @@ fn op_react_replace_view(
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }
+
+#[derive(Debug, Serialize)]
+struct NumbatResult {
+    left: String,
+    right: String,
+}
+
+#[op]
+fn run_numbat(input: String) -> anyhow::Result<NumbatResult> {
+    // TODO add check for plugin id
+
+    let mut context = numbat::Context::new(BuiltinModuleImporter::default());
+    let _ = context.interpret("use prelude", numbat::resolver::CodeSource::Internal);
+
+    let (statements, result) = context.interpret(&input, numbat::resolver::CodeSource::Text)?;
+
+    let formatter = numbat::markup::PlainTextFormatter;
+
+    let expression = statements
+        .iter()
+        .map(|s| formatter.format(&s.pretty_print(), false))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let value = match result {
+        InterpreterResult::Value(value) => value,
+        InterpreterResult::Continue => Err(anyhow!("numbat returned Continue"))?
+    };
+
+    let value = match value {
+        Value::Quantity(value) => value.to_string(),
+        Value::Boolean(value) => value.to_string(),
+        Value::String(value) => value,
+    };
+
+    Ok(NumbatResult {
+        left: expression,
+        right: value
+    })
+}
+
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     let (plugin_id, mut frontend_client) = {

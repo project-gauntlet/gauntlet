@@ -29,6 +29,7 @@ client = { path = "../client" }
 walkdir = "2.4.0"
 include_dir = "0.7.3"
 open = "5"
+numbat = "1.9"
 
 [features]
 dev = []

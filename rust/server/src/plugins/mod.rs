@@ -21,9 +21,9 @@ mod run_status;
 mod download_status;
 
 
-static BUILTIN_PLUGINS: [(&str, Dir); 0] = [
-    // ("applications", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/applications/dist")),
-    // ("calculator", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/calculator/dist")),
+static BUILTIN_PLUGINS: [(&str, Dir); 2] = [
+    ("applications", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/applications/dist")),
+    ("calculator", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/calculator/dist")),
 ];
 
 pub struct ApplicationManager {
