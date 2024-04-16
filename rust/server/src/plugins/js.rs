@@ -15,6 +15,7 @@ use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
+use indexmap::IndexMap;
 use numbat::InterpreterResult;
 use numbat::markup::Formatter;
 use numbat::module_importer::BuiltinModuleImporter;
@@ -1245,7 +1246,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     }
 }
 
-fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &HashMap<String, SharedType>) -> anyhow::Result<IntermediateUiWidget> {
+fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<IntermediateUiWidget> {
     let children = ui_widget.widget_children.into_iter()
         .map(|child| from_js_to_intermediate_widget(scope, child, component_model, shared_types))
         .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
@@ -1280,7 +1281,7 @@ fn from_js_to_intermediate_properties(
     scope: &mut v8::HandleScope,
     v8_properties: HashMap<String, serde_v8::Value>,
     component_props: &HashMap<&String, &PropertyType>,
-    shared_types: &HashMap<String, SharedType>
+    shared_types: &IndexMap<String, SharedType>
 ) -> anyhow::Result<HashMap<String, PropertyValue>> {
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
@@ -1304,7 +1305,7 @@ fn convert(
     property_type: &PropertyType,
     name: String,
     value: v8::Local<v8::Value>,
-    shared_types: &HashMap<String, SharedType>
+    shared_types: &IndexMap<String, SharedType>
 ) -> anyhow::Result<(String, PropertyValue)> {
     match property_type {
         PropertyType::String | PropertyType::Enum { .. } => {
@@ -1400,7 +1401,7 @@ fn convert_bytes(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8:
     Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, value)?)))
 }
 
-fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>, object_name: &str, shared_types: &HashMap<String, SharedType>) -> anyhow::Result<(String, PropertyValue)> {
+fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>, object_name: &str, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<(String, PropertyValue)> {
     let object: v8::Local<Object> = value.try_into().context(format!("error while reading property {}", name))?;
 
     let props = object
