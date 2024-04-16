@@ -952,7 +952,8 @@ fn run_numbat(input: String) -> anyhow::Result<NumbatResult> {
         .iter()
         .map(|s| formatter.format(&s.pretty_print(), false))
         .collect::<Vec<_>>()
-        .join(" ");
+        .join(" ")
+        .replace('➞', "to");
 
     let value = match result {
         InterpreterResult::Value(value) => value,
