@@ -838,13 +838,22 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = row(content)
                     .into();
 
-                container(content)
+                let content: Element<_> = container(content)
                     .padding(Padding::new(5.0))
                     .center_x()
                     .center_y()
                     .height(100)
                     .max_height(100)
-                    .into()
+                    .into();
+
+                let rule: Element<_> = horizontal_rule(1)
+                    .into();
+
+                let content: Element<_> = column([content, rule])
+                    .width(Length::Fill)
+                    .into();
+
+                content
             }
             ComponentWidget::EmptyView { title, description, image } => {
                 let image: Option<Element<_>> = image.as_ref()

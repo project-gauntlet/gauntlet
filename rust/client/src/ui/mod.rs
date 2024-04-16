@@ -642,26 +642,12 @@ impl Application for AppModel {
                 let separator = horizontal_rule(1)
                     .into();
 
-                let inline_view_visible = {
-                    let client_context = self.client_context.read().expect("lock is poisoned");
-                    !client_context.get_all_inline_view_containers().is_empty()
-                };
-
-                let column: Element<_> = if inline_view_visible {
-                    column(vec![
-                        input,
-                        separator,
-                        inline_view_container(self.client_context.clone()).into(),
-                        horizontal_rule(1).into(),
-                        list,
-                    ]).into()
-                } else {
-                    column(vec![
-                        input,
-                        separator,
-                        list,
-                    ]).into()
-                };
+                let column: Element<_> = column(vec![
+                    input,
+                    separator,
+                    inline_view_container(self.client_context.clone()).into(),
+                    list,
+                ]).into();
 
                 let element: Element<_> = container(column)
                     .style(ContainerStyle::Background)
@@ -669,7 +655,6 @@ impl Application for AppModel {
                     .width(Length::Fixed(WINDOW_WIDTH))
                     .into();
 
-                // element.explain(iced::color!(0xFF0000))
                 element
             }
             Some(data) => {
