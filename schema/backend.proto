@@ -33,6 +33,8 @@ service RpcBackend {
   rpc OpenSettingsWindow (RpcOpenSettingsWindowRequest) returns (RpcOpenSettingsWindowResponse);
   rpc OpenSettingsWindowPreferences (RpcOpenSettingsWindowPreferencesRequest) returns (RpcOpenSettingsWindowPreferencesResponse);
 
+  rpc RemovePlugin (RpcRemovePluginRequest) returns (RpcRemovePluginResponse);
+
   // dev tools
   rpc SaveLocalPlugin (RpcSaveLocalPluginRequest) returns (RpcSaveLocalPluginResponse);
 }
@@ -154,6 +156,12 @@ message RpcOpenSettingsWindowPreferencesRequest {
   string entrypoint_id = 2;
 }
 message RpcOpenSettingsWindowPreferencesResponse {
+}
+
+message RpcRemovePluginRequest {
+  string plugin_id = 1;
+}
+message RpcRemovePluginResponse {
 }
 
 message RpcSearchResult {

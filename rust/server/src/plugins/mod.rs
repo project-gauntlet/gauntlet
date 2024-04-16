@@ -207,6 +207,10 @@ impl ApplicationManager {
         Ok(())
     }
 
+    pub async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        self.db_repository.remove_plugin(&plugin_id.to_string()).await
+    }
+
     pub fn handle_inline_view(&self, text: &str) {
         self.send_command(PluginCommand::All {
             data: AllPluginCommandData::OpenInlineView {

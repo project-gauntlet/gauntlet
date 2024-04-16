@@ -14,7 +14,7 @@ use iced_table::table;
 use tonic::Request;
 
 use common::model::{EntrypointId, PluginId};
-use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, settings_env_data_from_string, SettingsEnvData};
+use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcRemovePluginRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, settings_env_data_from_string, SettingsEnvData};
 use common::rpc::rpc_backend_client::RpcBackendClient;
 use common::rpc::rpc_ui_property_value::Value;
 
@@ -70,7 +70,10 @@ enum ManagementAppMsg {
     DownloadStatus {
         plugins: Vec<PluginId>,
     },
-    Noop
+    Noop,
+    RemovePlugin {
+        plugin_id: PluginId
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -422,6 +425,24 @@ impl Application for ManagementAppModel {
                     |_| ManagementAppMsg::Noop,
                 )
             }
+            ManagementAppMsg::RemovePlugin { plugin_id } => {
+                self.selected_item = SelectedItem::None;
+
+                let request = RpcRemovePluginRequest { plugin_id: plugin_id.to_string() };
+
+                let mut backend_client = self.backend_client.clone();
+
+                Command::perform(
+                    async move {
+                        backend_client.remove_plugin(Request::new(request))
+                            .await
+                            .unwrap();
+
+                        reload_plugins(backend_client).await
+                    },
+                    ManagementAppMsg::PluginsReloaded,
+                )
+            }
         }
     }
 
@@ -478,6 +499,24 @@ impl Application for ManagementAppModel {
 
                 for element in preferences_ui(plugin_id.clone(), None, &plugin.preferences, &self.preference_user_data) {
                     column_content.push(element)
+                }
+                if !plugin.plugin_id.to_string().starts_with("builtin://") {
+                    let remove_text: Element<_> = text("Remove plugin")
+                        .into();
+
+                    let remove_button_text_container: Element<_> = container(remove_text)
+                        .width(Length::Fill)
+                        .center_y()
+                        .center_x()
+                        .into();
+
+                    let remove_button: Element<_> = button(remove_button_text_container)
+                        .width(Length::Fill)
+                        .style(theme::Button::Destructive)
+                        .on_press(ManagementAppMsg::RemovePlugin { plugin_id: plugin.plugin_id.clone() })
+                        .into();
+
+                    column_content.push(remove_button);
                 }
 
                 let column: Element<_> = column(column_content)
