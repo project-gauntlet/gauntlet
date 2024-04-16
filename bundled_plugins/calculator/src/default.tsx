@@ -15,6 +15,10 @@ export default function Default(props: { text: string }): ReactNode | undefined 
     try {
         const { left, right } = InternalApi.run_numbat(text);
 
+        if (left == right) {
+            return undefined
+        }
+
         return (
             <Inline>
                 <Inline.Left>
