@@ -1,0 +1,11 @@
+[gauntlet]
+name = 'Bundled - Settings'
+description = ''
+
+[[entrypoint]]
+id = 'default'
+name = 'Open Gauntlet Settings'
+path = 'src/default.tsx'
+type = 'command'
+description = ''
+

@@ -438,6 +438,7 @@ deno_core::extension!(
         entrypoint_preferences_required,
         show_preferences_required_view,
         run_numbat,
+        open_settings,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -973,6 +974,15 @@ fn run_numbat(input: String) -> anyhow::Result<NumbatResult> {
     })
 }
 
+#[op]
+fn open_settings() -> anyhow::Result<()> {
+    std::process::Command::new(std::env::current_exe()?)
+        .args(["management"])
+        .spawn()
+        .expect("failed to execute settings process");
+
+    Ok(())
+}
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     let (plugin_id, mut frontend_client) = {
