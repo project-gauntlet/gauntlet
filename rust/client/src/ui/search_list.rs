@@ -6,104 +6,49 @@ use iced::widget::component;
 use iced::widget::row;
 use iced::widget::text;
 
-use common::model::{EntrypointId, PluginId};
-
-use crate::model::{NativeUiSearchResult, SearchResultEntrypointType};
+use crate::model::NativeUiSearchResult;
 use crate::ui::theme::{ButtonStyle, Element, GauntletTheme, TextStyle};
 
 pub struct SearchList<Message> {
-    on_open_view: Box<dyn Fn(OpenViewEvent) -> Message>,
-    on_run_command: Box<dyn Fn(RunCommandEvent) -> Message>,
-    on_run_generated_command: Box<dyn Fn(RunGeneratedCommandEvent) -> Message>,
+    on_select: Box<dyn Fn(NativeUiSearchResult) -> Message>,
     search_results: Vec<NativeUiSearchResult>,
 }
 
 pub fn search_list<Message>(
     search_results: Vec<NativeUiSearchResult>,
-    on_open_view: impl Fn(OpenViewEvent) -> Message + 'static,
-    on_run_command: impl Fn(RunCommandEvent) -> Message + 'static,
-    on_run_generated_command: impl Fn(RunGeneratedCommandEvent) -> Message + 'static
+    on_select: impl Fn(NativeUiSearchResult) -> Message + 'static,
 ) -> SearchList<Message> {
-    SearchList::new(search_results, on_open_view, on_run_command, on_run_generated_command)
-}
-
-pub struct OpenViewEvent {
-    pub plugin_id: PluginId,
-    pub plugin_name: String,
-    pub entrypoint_id: EntrypointId,
-    pub entrypoint_name: String,
-}
-
-pub struct RunCommandEvent {
-    pub plugin_id: PluginId,
-    pub entrypoint_id: EntrypointId,
-}
-
-pub struct RunGeneratedCommandEvent {
-    pub plugin_id: PluginId,
-    pub entrypoint_id: EntrypointId,
+    SearchList::new(search_results, on_select)
 }
 
 #[derive(Debug, Clone)]
-pub enum Event {
-    RunCommand {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    },
-    OpenView {
-        plugin_id: PluginId,
-        plugin_name: String,
-        entrypoint_id: EntrypointId,
-        entrypoint_name: String,
-    },
-    RunGeneratedCommand {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    },
-}
+pub struct SelectItemEvent(NativeUiSearchResult);
 
 impl<Message> SearchList<Message> {
     pub fn new(
         search_results: Vec<NativeUiSearchResult>,
-        on_open_view: impl Fn(OpenViewEvent) -> Message + 'static,
-        on_run_command: impl Fn(RunCommandEvent) -> Message + 'static,
-        on_run_generated_command: impl Fn(RunGeneratedCommandEvent) -> Message + 'static
+        on_open_view: impl Fn(NativeUiSearchResult) -> Message + 'static,
     ) -> Self {
         Self {
             search_results,
-            on_open_view: Box::new(on_open_view),
-            on_run_command: Box::new(on_run_command),
-            on_run_generated_command: Box::new(on_run_generated_command),
+            on_select: Box::new(on_open_view),
         }
     }
 }
 
 impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
     type State = ();
-    type Event = Event;
+    type Event = SelectItemEvent;
 
     fn update(
         &mut self,
         _state: &mut Self::State,
-        event: Event,
+        SelectItemEvent(event): SelectItemEvent,
     ) -> Option<Message> {
-        match event {
-            Event::OpenView { plugin_id, plugin_name, entrypoint_id, entrypoint_name } => {
-                let event = OpenViewEvent { plugin_id, plugin_name, entrypoint_id, entrypoint_name };
-                Some((self.on_open_view)(event))
-            }
-            Event::RunCommand { plugin_id, entrypoint_id } => {
-                let event = RunCommandEvent { plugin_id, entrypoint_id, };
-                Some((self.on_run_command)(event))
-            }
-            Event::RunGeneratedCommand { plugin_id, entrypoint_id } => {
-                let event = RunGeneratedCommandEvent { plugin_id, entrypoint_id, };
-                Some((self.on_run_generated_command)(event))
-            }
-        }
+        Some((self.on_select)(event))
     }
 
-    fn view(&self, _state: &Self::State) -> Element<Event> {
+    fn view(&self, _state: &Self::State) -> Element<SelectItemEvent> {
         let items: Vec<Element<_>> = self.search_results
             .iter()
             .map(|search_result| {
@@ -125,27 +70,10 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                     sub_text,
                 ]).into();
 
-                let event = match search_result.entrypoint_type {
-                    SearchResultEntrypointType::Command => Event::RunCommand {
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone()
-                    },
-                    SearchResultEntrypointType::View => Event::OpenView {
-                        plugin_id: search_result.plugin_id.clone(),
-                        plugin_name: search_result.plugin_name.clone(),
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        entrypoint_name: search_result.entrypoint_name.clone(),
-                    },
-                    SearchResultEntrypointType::GeneratedCommand => Event::RunGeneratedCommand {
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone()
-                    },
-                };
-
                 button(button_content)
                     .width(Length::Fill)
                     .style(ButtonStyle::GauntletButton)
-                    .on_press(event)
+                    .on_press(SelectItemEvent(search_result.clone()))
                     .padding(Padding::new(5.0))
                     .into()
             })

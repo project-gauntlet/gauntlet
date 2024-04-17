@@ -93,6 +93,7 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
     },
     PromptChanged(String),
+    PromptSubmit,
     SetSearchResults(Vec<NativeUiSearchResult>),
     ReplaceView {
         top_level_view: bool,
@@ -125,6 +126,7 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         render_location: RenderLocation
     },
+    SelectSearchItem(NativeUiSearchResult),
 }
 
 #[derive(Debug, Clone)]
@@ -281,6 +283,14 @@ impl Application for AppModel {
 
                     search_result
                 }, AppMsg::SetSearchResults)
+            }
+            AppMsg::PromptSubmit => {
+                if let Some(search_item) = self.search_results.first() {
+                    let search_item = search_item.clone();
+                    Command::perform(async {}, |_| AppMsg::SelectSearchItem(search_item))
+                } else {
+                    Command::none()
+                }
             }
             AppMsg::SetSearchResults(search_results) => {
                 self.search_results = search_results;
@@ -479,6 +489,26 @@ impl Application for AppModel {
                 }
                 Command::none()
             }
+            AppMsg::SelectSearchItem(search_result) => {
+                let event = match search_result.entrypoint_type {
+                    SearchResultEntrypointType::Command => AppMsg::RunCommand {
+                        entrypoint_id: search_result.entrypoint_id.clone(),
+                        plugin_id: search_result.plugin_id.clone()
+                    },
+                    SearchResultEntrypointType::View => AppMsg::OpenView {
+                        plugin_id: search_result.plugin_id.clone(),
+                        plugin_name: search_result.plugin_name.clone(),
+                        entrypoint_id: search_result.entrypoint_id.clone(),
+                        entrypoint_name: search_result.entrypoint_name.clone(),
+                    },
+                    SearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
+                        entrypoint_id: search_result.entrypoint_id.clone(),
+                        plugin_id: search_result.plugin_id.clone()
+                    },
+                };
+
+                Command::perform(async {}, |_| event)
+            }
         }
     }
 
@@ -600,6 +630,7 @@ impl Application for AppModel {
             None => {
                 let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
                     .on_input(AppMsg::PromptChanged)
+                    .on_submit(AppMsg::PromptSubmit)
                     .id(self.search_field_id.clone())
                     .width(Length::Fill)
                     .into();
@@ -608,20 +639,7 @@ impl Application for AppModel {
 
                 let search_list = search_list(
                     search_results,
-                    |event| AppMsg::OpenView {
-                        plugin_id: event.plugin_id,
-                        plugin_name: event.plugin_name,
-                        entrypoint_id: event.entrypoint_id,
-                        entrypoint_name: event.entrypoint_name,
-                    },
-                    |event| AppMsg::RunCommand {
-                        plugin_id: event.plugin_id,
-                        entrypoint_id: event.entrypoint_id,
-                    },
-                    |event| AppMsg::RunGeneratedCommandEvent {
-                        plugin_id: event.plugin_id,
-                        entrypoint_id: event.entrypoint_id,
-                    },
+                    AppMsg::SelectSearchItem
                 );
 
                 let list: Element<_> = scrollable(search_list)
