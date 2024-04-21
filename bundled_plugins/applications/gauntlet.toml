@@ -1,6 +1,6 @@
 [gauntlet]
-name = 'Bundled - Applications'
-description = ''
+name = 'Applications'
+description = 'Run applications from your system as commands'
 
 [[entrypoint]]
 id = 'default'

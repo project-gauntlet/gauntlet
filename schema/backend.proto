@@ -170,6 +170,7 @@ message RpcSearchResult {
   string entrypoint_id = 3;
   string entrypoint_name = 4;
   RpcEntrypointTypeSearchResult entrypoint_type = 5;
+  string entrypoint_icon_path = 6;
 }
 
 enum RpcEntrypointTypeSearchResult {

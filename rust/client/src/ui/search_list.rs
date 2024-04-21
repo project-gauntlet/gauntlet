@@ -1,4 +1,5 @@
-use iced::Length;
+use iced::advanced::image::Handle;
+use iced::{Alignment, Length};
 use iced::Padding;
 use iced::widget::{column, Component, container};
 use iced::widget::button;
@@ -65,10 +66,27 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                     .padding(Padding::new(3.0))
                     .into();
 
-                let button_content: Element<_> = row(vec![
-                    main_text,
-                    sub_text,
-                ]).into();
+                let mut button_content = row(vec![])
+                    .align_items(Alignment::Center);
+
+                if let Some(path) = &search_result.entrypoint_icon {
+                    let image: Element<_> = iced::widget::image(Handle::from_path(path))
+                        .width(16)
+                        .height(16)
+                        .into();
+
+                    let image: Element<_> = container(image)
+                        .padding(Padding::from([0.0, 3.0]))
+                        .into();
+
+                    button_content = button_content.push(image);
+                }
+
+                button_content = button_content
+                    .push(main_text)
+                    .push(sub_text);
+
+                let button_content: Element<_> = button_content.into();
 
                 button(button_content)
                     .width(Length::Fill)

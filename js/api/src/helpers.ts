@@ -12,3 +12,10 @@ export function pluginPreferences<T extends Record<string, any>>(): T {
 export function entrypointPreferences<T extends Record<string, any>>(): T {
     return getEntrypointPreferences()
 }
+
+export interface GeneratedCommand {
+    id: string
+    name: string
+    icon: ArrayBuffer | undefined
+    fn: () => void
+}

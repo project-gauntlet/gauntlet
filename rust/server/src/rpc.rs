@@ -37,6 +37,7 @@ impl RpcBackend for RpcBackendServerImpl {
                     entrypoint_type: entrypoint_type.into(),
                     entrypoint_name: item.entrypoint_name,
                     entrypoint_id: item.entrypoint_id,
+                    entrypoint_icon_path: item.entrypoint_icon_path.unwrap_or_default(),
                     plugin_name: item.plugin_name,
                     plugin_id: item.plugin_id,
                 }

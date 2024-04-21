@@ -19,6 +19,7 @@ mod config_reader;
 mod loader;
 mod run_status;
 mod download_status;
+mod applications;
 
 
 static BUILTIN_PLUGINS: [(&str, Dir); 3] = [
@@ -34,6 +35,7 @@ pub struct ApplicationManager {
     db_repository: DataDbRepository,
     plugin_downloader: PluginLoader,
     run_status_holder: RunStatusHolder,
+    dirs: Dirs,
 }
 
 impl ApplicationManager {
@@ -41,7 +43,7 @@ impl ApplicationManager {
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
-        let config_reader = ConfigReader::new(dirs, db_repository.clone());
+        let config_reader = ConfigReader::new(dirs.clone(), db_repository.clone());
         let run_status_holder = RunStatusHolder::new();
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
@@ -52,7 +54,8 @@ impl ApplicationManager {
             command_broadcaster,
             db_repository,
             plugin_downloader,
-            run_status_holder
+            run_status_holder,
+            dirs,
         })
     }
 
@@ -363,7 +366,8 @@ impl ApplicationManager {
             },
             command_receiver: receiver,
             db_repository: self.db_repository.clone(),
-            search_index: self.search_index.clone()
+            search_index: self.search_index.clone(),
+            dirs: self.dirs.clone()
         };
 
         self.start_plugin_runtime(data);

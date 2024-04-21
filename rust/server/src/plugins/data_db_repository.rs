@@ -46,6 +46,7 @@ pub struct DbReadPluginEntrypoint {
     pub name: String,
     pub description: String,
     pub enabled: bool,
+    pub icon_path: Option<String>,
     #[sqlx(rename = "type")]
     pub entrypoint_type: String,
     #[sqlx(json)]
@@ -80,6 +81,7 @@ pub struct DbWritePluginEntrypoint {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub icon_path: Option<String>,
     pub entrypoint_type: String,
     pub preferences: HashMap<String, DbPluginPreference>,
     pub actions: Vec<DbPluginAction>,
@@ -634,7 +636,7 @@ impl DataDbRepository {
                 .unwrap_or((HashMap::new(), vec![], true));
 
             // language=SQLite
-            sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)")
+            sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data, icon_path) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)")
                 .bind(&new_entrypoint.id)
                 .bind(&new_plugin.id)
                 .bind(new_entrypoint.name)
@@ -645,6 +647,7 @@ impl DataDbRepository {
                 .bind(new_entrypoint.description)
                 .bind(Json(new_entrypoint.actions))
                 .bind(Json(actions_user_data))
+                .bind(Json(new_entrypoint.icon_path))
                 .execute(&mut *tx)
                 .await?;
         }

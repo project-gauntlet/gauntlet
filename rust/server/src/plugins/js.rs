@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;
@@ -28,6 +28,7 @@ use tokio::net::TcpStream;
 use tonic::codegen::Body;
 use tonic::Request;
 use tonic::transport::Channel;
+use uuid::Uuid;
 
 use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
 use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
@@ -35,7 +36,9 @@ use common::rpc::rpc_frontend_client::RpcFrontendClient;
 use common::rpc::rpc_frontend_server::RpcFrontend;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
 
+use crate::dirs::Dirs;
 use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
+use crate::plugins::applications::{DesktopEntry, get_apps};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem, SearchIndexPluginEntrypointType};
@@ -47,7 +50,8 @@ pub struct PluginRuntimeData {
     pub permissions: PluginPermissions,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
     pub db_repository: DataDbRepository,
-    pub search_index: SearchIndex
+    pub search_index: SearchIndex,
+    pub dirs: Dirs,
 }
 
 pub struct PluginCode {
@@ -227,6 +231,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     component_model,
                     data.db_repository,
                     data.search_index,
+                    data.dirs,
                 ).await
             }));
 
@@ -255,6 +260,7 @@ async fn start_js_runtime(
     component_model: Vec<Component>,
     repository: DataDbRepository,
     search_index: SearchIndex,
+    dirs: Dirs,
 ) -> anyhow::Result<()> {
     let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
         allow_env: if permissions.environment.is_empty() { None } else { Some(permissions.environment) },
@@ -298,6 +304,7 @@ async fn start_js_runtime(
                 ComponentModel::new(component_model),
                 repository,
                 search_index,
+                dirs,
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -439,6 +446,8 @@ deno_core::extension!(
         show_preferences_required_view,
         run_numbat,
         open_settings,
+        list_applications,
+        open_application,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -447,6 +456,7 @@ deno_core::extension!(
         component_model: ComponentModel,
         db_repository: DataDbRepository,
         search_index: SearchIndex,
+        dirs: Dirs,
     },
     state = |state, options| {
         state.put(options.event_receiver);
@@ -455,6 +465,7 @@ deno_core::extension!(
         state.put(options.component_model);
         state.put(options.db_repository);
         state.put(options.search_index);
+        state.put(options.dirs);
     },
 );
 
@@ -787,7 +798,7 @@ fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, re
 
 #[op]
 async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>) -> anyhow::Result<()> {
-    let (plugin_id, repository, search_index) = {
+    let (plugin_id, repository, search_index, icon_cache_dir) = {
         let state = state.borrow();
 
         let plugin_id = state
@@ -803,43 +814,71 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
             .borrow::<SearchIndex>()
             .clone();
 
-        (plugin_id, repository, search_index)
+        let icon_cache_dir = state
+            .borrow::<Dirs>()
+            .icon_cache_dir();
+
+        (plugin_id, repository, search_index, icon_cache_dir)
     };
+
+    clear_icon_cache_dir(&icon_cache_dir)?;
 
     let DbReadPlugin { name, .. } = repository.get_plugin_by_id(&plugin_id.to_string()).await?;
 
     let entrypoints = repository.get_entrypoints_by_plugin_id(&plugin_id.to_string()).await?;
 
-    let mut search_items = generated_commands.into_iter()
-        .map(|item| SearchIndexItem {
-            entrypoint_type: SearchIndexPluginEntrypointType::GeneratedCommand,
-            entrypoint_id: item.entrypoint_id,
-            entrypoint_name: item.entrypoint_name,
+    let mut plugins_search_items = generated_commands.into_iter()
+        .map(|item| {
+            let entrypoint_icon_path = item.entrypoint_icon
+                .map(|data| save_icon_to_cache(&icon_cache_dir, data));
+
+            SearchIndexItem {
+                entrypoint_type: SearchIndexPluginEntrypointType::GeneratedCommand,
+                entrypoint_id: item.entrypoint_id,
+                entrypoint_name: item.entrypoint_name,
+                entrypoint_icon_path,
+            }
         })
         .collect::<Vec<_>>();
 
-    let mut other_search_items = entrypoints
-        .into_iter()
+    let mut icon_asset_data = HashMap::new();
+
+    for entrypoint in &entrypoints {
+        if let Some(path_to_asset) = &entrypoint.icon_path {
+            let result = repository.get_asset_data(&plugin_id.to_string(), path_to_asset)
+                .await;
+
+            if let Ok(data) = result {
+                icon_asset_data.insert((entrypoint.id.clone(), path_to_asset.clone()), data);
+            }
+        }
+    }
+
+    let mut builtin_search_items = entrypoints.into_iter()
         .filter(|entrypoint| entrypoint.enabled)
         .filter_map(|entrypoint| {
             let entrypoint_type = db_entrypoint_from_str(&entrypoint.entrypoint_type);
-
-            let entrypoint_name = entrypoint.name.to_owned();
             let entrypoint_id = entrypoint.id.to_string();
+            let entrypoint_icon_path = entrypoint.icon_path
+                .map(|path_to_asset| icon_asset_data.remove(&(entrypoint.id, path_to_asset)))
+                .flatten()
+                .map(|data| save_icon_to_cache(&icon_cache_dir, data));
 
             match &entrypoint_type {
                 DbPluginEntrypointType::Command => {
                     Some(SearchIndexItem {
                         entrypoint_type: SearchIndexPluginEntrypointType::Command,
-                        entrypoint_name,
+                        entrypoint_name: entrypoint.name,
                         entrypoint_id,
+                        entrypoint_icon_path,
                     })
                 },
                 DbPluginEntrypointType::View => {
                     Some(SearchIndexItem {
                         entrypoint_type: SearchIndexPluginEntrypointType::View,
-                        entrypoint_name,
+                        entrypoint_name: entrypoint.name,
                         entrypoint_id,
+                        entrypoint_icon_path,
                     })
                 },
                 DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {
@@ -849,17 +888,40 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
         })
         .collect::<Vec<_>>();
 
-    search_items.append(&mut other_search_items);
+    plugins_search_items.append(&mut builtin_search_items);
 
-    search_index.save_for_plugin(plugin_id, name, search_items)?;
+    search_index.save_for_plugin(plugin_id, name, plugins_search_items)?;
 
     Ok(())
+}
+
+fn clear_icon_cache_dir(icon_cache_dir: &PathBuf) -> anyhow::Result<()> {
+    std::fs::create_dir_all(&icon_cache_dir)?;
+    for entry in std::fs::read_dir(&icon_cache_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        std::fs::remove_file(path)?;
+    }
+
+    Ok(())
+}
+
+fn save_icon_to_cache(icon_cache_dir: &PathBuf, data: Vec<u8>) -> String {
+    let icon_id = Uuid::new_v4().to_string();
+    let path_to_icon = icon_cache_dir.join(format!("{}.png", &icon_id));
+
+    std::fs::write(&path_to_icon, data).expect(&format!("unable to create file {:?}", &path_to_icon));
+
+    let path_to_icon = path_to_icon.to_string_lossy();
+
+    path_to_icon.to_string()
 }
 
 #[derive(Debug, Deserialize)]
 struct AdditionalSearchItem {
     entrypoint_name: String,
     entrypoint_id: String,
+    entrypoint_icon: Option<Vec<u8>>,
 }
 
 fn preferences_to_js(
@@ -978,8 +1040,28 @@ fn run_numbat(input: String) -> anyhow::Result<NumbatResult> {
 fn open_settings() -> anyhow::Result<()> {
     std::process::Command::new(std::env::current_exe()?)
         .args(["management"])
-        .spawn()
-        .expect("failed to execute settings process");
+        .spawn()?;
+
+    Ok(())
+}
+
+#[op]
+fn list_applications() -> Vec<DesktopEntry> {
+    if cfg!(target_os = "linux") {
+        get_apps()
+    } else {
+        vec![]
+    }
+}
+
+#[op]
+fn open_application(command: Vec<String>) -> anyhow::Result<()> {
+    let path = &command[0];
+    let args = &command[1..];
+
+    std::process::Command::new(Path::new(path))
+        .args(args)
+        .spawn()?;
 
     Ok(())
 }

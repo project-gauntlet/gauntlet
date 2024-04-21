@@ -75,6 +75,7 @@ type PropsWithChildren = { children?: UiWidget[] } & Props;
 type AdditionalSearchItem = {
     entrypoint_name: string,
     entrypoint_id: string,
+    entrypoint_icon: ArrayBuffer | undefined,
 }
 
 interface InternalApi {

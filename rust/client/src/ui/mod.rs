@@ -271,11 +271,15 @@ impl Application for AppModel {
                                 RpcEntrypointTypeSearchResult::SrGeneratedCommand => SearchResultEntrypointType::GeneratedCommand,
                             };
 
+                            let icon_path = Some(search_result.entrypoint_icon_path)
+                                .filter(|path| path != "");
+
                             NativeUiSearchResult {
                                 plugin_id: PluginId::from_string(search_result.plugin_id),
                                 plugin_name: search_result.plugin_name,
                                 entrypoint_id: EntrypointId::from_string(search_result.entrypoint_id),
                                 entrypoint_name: search_result.entrypoint_name,
+                                entrypoint_icon: icon_path,
                                 entrypoint_type,
                             }
                         })

@@ -15,6 +15,7 @@ pub struct SearchIndex {
     entrypoint_type: Field,
     entrypoint_name: Field,
     entrypoint_id: Field,
+    entrypoint_icon_path: Field,
     plugin_name: Field,
     plugin_id: Field,
 }
@@ -27,6 +28,7 @@ impl SearchIndex {
             schema_builder.add_text_field("entrypoint_type", STORED);
             schema_builder.add_text_field("entrypoint_name", TEXT | STORED);
             schema_builder.add_text_field("entrypoint_id", STORED);
+            schema_builder.add_text_field("entrypoint_icon_path", STORED);
             schema_builder.add_text_field("plugin_name", TEXT | STORED);
             schema_builder.add_text_field("plugin_id", STORED);
 
@@ -36,6 +38,7 @@ impl SearchIndex {
         let entrypoint_type = schema.get_field("entrypoint_type").expect("entrypoint_type field should exist");
         let entrypoint_name = schema.get_field("entrypoint_name").expect("entrypoint_name field should exist");
         let entrypoint_id = schema.get_field("entrypoint_id").expect("entrypoint_id field should exist");
+        let entrypoint_icon_path = schema.get_field("entrypoint_icon_path").expect("entrypoint_icon_path field should exist");
         let plugin_name = schema.get_field("plugin_name").expect("plugin_name field should exist");
         let plugin_id = schema.get_field("plugin_id").expect("plugin_id field should exist");
 
@@ -53,6 +56,7 @@ impl SearchIndex {
             entrypoint_type,
             entrypoint_name,
             entrypoint_id,
+            entrypoint_icon_path,
             plugin_name,
             plugin_id,
         })
@@ -82,6 +86,7 @@ impl SearchIndex {
                 self.entrypoint_name => search_item.entrypoint_name,
                 self.entrypoint_type => search_index_entrypoint_to_str(search_item.entrypoint_type),
                 self.entrypoint_id => search_item.entrypoint_id,
+                self.entrypoint_icon_path => search_item.entrypoint_icon_path.unwrap_or_default(),
                 self.plugin_name => plugin_name.clone(),
                 self.plugin_id => plugin_id.to_string(),
             ))?;
@@ -107,6 +112,7 @@ impl SearchIndex {
             entrypoint_type: self.entrypoint_type,
             entrypoint_name: self.entrypoint_name,
             entrypoint_id: self.entrypoint_id,
+            entrypoint_icon_path: self.entrypoint_icon_path,
             plugin_name: self.plugin_name,
             plugin_id: self.plugin_id,
         }
@@ -118,6 +124,7 @@ pub struct SearchIndexItem {
     pub entrypoint_type: SearchIndexPluginEntrypointType,
     pub entrypoint_name: String,
     pub entrypoint_id: String,
+    pub entrypoint_icon_path: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -125,6 +132,7 @@ pub struct SearchResultItem {
     pub entrypoint_type: SearchIndexPluginEntrypointType,
     pub entrypoint_name: String,
     pub entrypoint_id: String,
+    pub entrypoint_icon_path: Option<String>,
     pub plugin_name: String,
     pub plugin_id: String,
 }
@@ -136,6 +144,7 @@ pub struct SearchHandle {
     entrypoint_name: Field,
     entrypoint_type: Field,
     entrypoint_id: Field,
+    entrypoint_icon_path: Field,
     plugin_name: Field,
     plugin_id: Field,
 }
@@ -189,6 +198,7 @@ impl SearchHandle {
                     entrypoint_type: search_index_entrypoint_from_str(&get_str_field(&retrieved_doc, self.entrypoint_type)),
                     entrypoint_name: get_str_field(&retrieved_doc, self.entrypoint_name),
                     entrypoint_id: get_str_field(&retrieved_doc, self.entrypoint_id),
+                    entrypoint_icon_path: Some(get_str_field(&retrieved_doc, self.entrypoint_icon_path)).filter(|value| value != ""),
                     plugin_name: get_str_field(&retrieved_doc, self.plugin_name),
                     plugin_id: get_str_field(&retrieved_doc, self.plugin_id),
                 }

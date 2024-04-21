@@ -1,38 +1,28 @@
-interface GeneratedCommand { // TODO Add this type to api
-    id: string
-    name: string
-    fn: () => void
+import {GeneratedCommand} from "@project-gauntlet/api/helpers";
+
+interface DesktopEntry {
+    name: string,
+    icon: ArrayBuffer | undefined,
+    command: string[],
+}
+
+// @ts-expect-error
+const denoCore: DenoCore = Deno[Deno.internal].core;
+const InternalApi: InternalApi = denoCore.ops;
+
+interface InternalApi {
+    list_applications(): DesktopEntry[]
+    open_application(command: string[]): void
 }
 
 export default function Default(): GeneratedCommand[] {
-    return [
-        {
-            id: 'generated-test-1',
-            name: 'Application 1',
+    return InternalApi.list_applications()
+        .map(value => ({
+            id: `${value.name}-${value.command.join("-")}`,
+            name: value.name,
+            icon: value.icon,
             fn: () => {
-                console.log('opening application 1')
+                InternalApi.open_application(value.command)
             }
-        },
-        {
-            id: 'generated-test-2',
-            name: 'Application 2',
-            fn: () => {
-                console.log('opening application 2')
-            }
-        },
-        {
-            id: 'generated-test-3',
-            name: 'Application 3',
-            fn: () => {
-                console.log('opening application 3')
-            }
-        },
-        {
-            id: 'generated-test-4',
-            name: 'Application 4',
-            fn: () => {
-                console.log('opening application 4')
-            }
-        }
-    ]
+        }))
 }

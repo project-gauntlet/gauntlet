@@ -5,6 +5,7 @@ const InternalApi = denoCore.ops;
 interface GeneratedCommand { // TODO Add this type to api
     id: string
     name: string
+    icon: ArrayBuffer | undefined
     fn: () => void
 }
 
@@ -35,6 +36,7 @@ export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
     return storedGeneratedCommands.map(value => ({
         entrypoint_id: value.lookupId,
         entrypoint_name: value.name,
+        entrypoint_icon: value.icon,
     }))
 }
 

@@ -230,6 +230,7 @@ impl PluginLoader {
                 id: entrypoint.id,
                 name: entrypoint.name,
                 description: entrypoint.description,
+                icon_path: entrypoint.icon,
                 entrypoint_type: db_entrypoint_to_str(match entrypoint.entrypoint_type {
                     PluginManifestEntrypointTypes::Command => DbPluginEntrypointType::Command,
                     PluginManifestEntrypointTypes::View => DbPluginEntrypointType::View,
@@ -450,6 +451,7 @@ struct PluginManifestEntrypoint {
     description: String,
     #[allow(unused)] // used when building plugin
     path: String,
+    icon: Option<String>,
     #[serde(rename = "type")]
     entrypoint_type: PluginManifestEntrypointTypes,
     #[serde(default)]

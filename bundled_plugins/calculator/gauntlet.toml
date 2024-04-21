@@ -1,5 +1,5 @@
 [gauntlet]
-name = 'Bundled - Calculator'
+name = 'Calculator'
 description = ''
 
 [[entrypoint]]

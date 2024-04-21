@@ -12,6 +12,7 @@ pub struct NativeUiSearchResult {
     pub plugin_name: String,
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
+    pub entrypoint_icon: Option<String>,
     pub entrypoint_type: SearchResultEntrypointType,
 }
 

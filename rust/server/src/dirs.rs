@@ -46,4 +46,18 @@ impl Dirs {
 
         config_dir
     }
+
+    pub fn icon_cache_dir(&self) -> PathBuf {
+        self.cache_dir().join("icons")
+    }
+
+    pub fn cache_dir(&self) -> PathBuf {
+        let cache_dir = if cfg!(feature = "dev") {
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/cache")).to_owned()
+        } else {
+            self.inner.cache_dir().to_path_buf()
+        };
+
+        cache_dir
+    }
 }
