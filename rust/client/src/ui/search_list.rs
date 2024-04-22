@@ -84,6 +84,16 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                         .into();
 
                     button_content = button_content.push(image);
+                } else {
+                    let spacer: Element<_> = horizontal_space()
+                        .width(16)
+                        .into();
+
+                    let spacer: Element<_> = container(spacer)
+                        .padding(Padding::from([0.0, 3.0]))
+                        .into();
+
+                    button_content = button_content.push(spacer);
                 }
 
                 button_content = button_content
