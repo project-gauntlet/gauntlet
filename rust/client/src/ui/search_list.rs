@@ -80,17 +80,17 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                         .into();
 
                     let image: Element<_> = container(image)
-                        .padding(Padding::from([0.0, 3.0]))
+                        .padding(Padding::from([0.0, 7.0, 0.0, 5.0]))
                         .into();
 
                     button_content = button_content.push(image);
                 } else {
-                    let spacer: Element<_> = horizontal_space()
+                    let spacer: Element<_> = horizontal_space() // TODO replace with grayed out gauntlet icon
                         .width(16)
                         .into();
 
                     let spacer: Element<_> = container(spacer)
-                        .padding(Padding::from([0.0, 3.0]))
+                        .padding(Padding::from([0.0, 7.0, 0.0, 5.0]))
                         .into();
 
                     button_content = button_content.push(spacer);
