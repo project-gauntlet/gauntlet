@@ -13,8 +13,11 @@ export default function Default(props: { text: string }): ReactNode | undefined 
     const text = props.text;
 
     try {
+        if (text.length < 3) {
+            return undefined
+        }
+
         const { left, right } = InternalApi.run_numbat(text);
-        // TODO bail if length is one or less
 
         if (left == right) {
             return undefined
