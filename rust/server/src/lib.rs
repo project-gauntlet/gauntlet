@@ -37,7 +37,7 @@ async fn run_server() -> anyhow::Result<()> {
         tracing::error!("error loading bundled plugin(s): {:?}", err);
     }
 
-    if cfg!(feature = "dev") {
+    if !cfg!(feature = "release") {
         let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin/dist").to_owned();
         let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
         let plugin_path = plugin_path.to_str().expect("valid utf8");
@@ -47,7 +47,7 @@ async fn run_server() -> anyhow::Result<()> {
         }
     }
 
-    if !cfg!(feature = "dev") {
+    if cfg!(feature = "release") {
         std::process::Command::new(std::env::current_exe()?)
             .args(["server"])
             .env(FRONTEND_ENV, "")

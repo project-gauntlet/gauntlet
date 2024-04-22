@@ -21,10 +21,10 @@ impl Dirs {
     }
 
     pub fn data_dir(&self) -> anyhow::Result<PathBuf> {
-        let data_dir = if cfg!(feature = "dev") {
-            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/data")).to_owned()
-        } else {
+        let data_dir = if cfg!(feature = "release") {
             self.inner.data_dir().to_path_buf()
+        } else {
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/data")).to_owned()
         };
 
         std::fs::create_dir_all(&data_dir)
@@ -38,10 +38,10 @@ impl Dirs {
     }
 
     pub fn config_dir(&self) -> PathBuf {
-        let config_dir = if cfg!(feature = "dev") {
-            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/config")).to_owned()
-        } else {
+        let config_dir = if cfg!(feature = "release") {
             self.inner.config_dir().to_path_buf()
+        } else {
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/config")).to_owned()
         };
 
         config_dir
@@ -52,10 +52,10 @@ impl Dirs {
     }
 
     pub fn cache_dir(&self) -> PathBuf {
-        let cache_dir = if cfg!(feature = "dev") {
-            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/cache")).to_owned()
-        } else {
+        let cache_dir = if cfg!(feature = "release") {
             self.inner.cache_dir().to_path_buf()
+        } else {
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/cache")).to_owned()
         };
 
         cache_dir

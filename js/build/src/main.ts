@@ -30,11 +30,11 @@ function build(projectRoot: string, check: boolean) {
 
     if (check) {
         console.log("Checking rust...")
-        execSync('cargo check', { stdio: "inherit", cwd: projectRoot });
+        execSync('cargo check --features release', { stdio: "inherit", cwd: projectRoot });
     }
 
     console.log("Building rust...")
-    execSync('cargo build --release', { stdio: "inherit", cwd: projectRoot });
+    execSync('cargo build --release --features release', { stdio: "inherit", cwd: projectRoot });
 }
 
 async function doBuild() {

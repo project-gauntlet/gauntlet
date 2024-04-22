@@ -375,9 +375,9 @@ impl ModuleLoader for CustomModuleLoader {
 
         let specifier = match (specifier, referrer) {
             ("gauntlet:core", _) => "gauntlet:core",
-            ("gauntlet:renderer", _) => if cfg!(feature = "dev") { "gauntlet:renderer:dev" } else { "gauntlet:renderer:prod" },
-            ("react", _) => if cfg!(feature = "dev") { "gauntlet:react:dev" } else { "gauntlet:react:prod" },
-            ("react/jsx-runtime", _) => if cfg!(feature = "dev") { "gauntlet:react-jsx-runtime:dev" } else { "gauntlet:react-jsx-runtime:prod" },
+            ("gauntlet:renderer", _) => if cfg!(feature = "release") { "gauntlet:renderer:prod" } else { "gauntlet:renderer:dev" },
+            ("react", _) => if cfg!(feature = "release") { "gauntlet:react:prod" } else { "gauntlet:react:dev" },
+            ("react/jsx-runtime", _) => if cfg!(feature = "release") { "gauntlet:react-jsx-runtime:prod" } else { "gauntlet:react-jsx-runtime:dev" },
             ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
             ("@project-gauntlet/api/hooks", _) => "gauntlet:api-hooks",
             ("@project-gauntlet/api/helpers", _) => "gauntlet:api-helpers",

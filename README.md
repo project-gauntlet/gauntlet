@@ -263,11 +263,20 @@ You will need:
 - Rust
 - Protobuf Compiler
 
-To build run:
+To build dev run:
 ```bash
 npm run build
 cargo build
 ```
+In dev (without "release" feature) application will use only directories inside project directory to store state or cache.
+Additionally, for easier development frontend will not be automatically executed and need to be started manually.
+
+To build release run:
+```bash
+npm run build
+cargo build --release --features release
+```
+But the new version release needs to be done via GitHub Actions
 
 ## Versioning
 
