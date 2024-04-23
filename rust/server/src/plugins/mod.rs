@@ -212,7 +212,9 @@ impl ApplicationManager {
     }
 
     pub async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
-        self.db_repository.remove_plugin(&plugin_id.to_string()).await
+        self.db_repository.remove_plugin(&plugin_id.to_string()).await?;
+        self.search_index.remove_for_plugin(plugin_id)?;
+        Ok(())
     }
 
     pub fn handle_inline_view(&self, text: &str) {

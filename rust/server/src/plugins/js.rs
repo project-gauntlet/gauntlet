@@ -735,6 +735,7 @@ async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> an
 
     let result = repository.get_entrypoints_by_plugin_id(&plugin_id.to_string()).await?
         .into_iter()
+        .filter(|entrypoint| entrypoint.enabled)
         .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::CommandGenerator))
         .map(|entrypoint| entrypoint.id)
         .collect::<Vec<_>>();

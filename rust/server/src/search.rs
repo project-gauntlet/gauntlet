@@ -27,10 +27,10 @@ impl SearchIndex {
 
             schema_builder.add_text_field("entrypoint_type", STORED);
             schema_builder.add_text_field("entrypoint_name", TEXT | STORED);
-            schema_builder.add_text_field("entrypoint_id", STORED);
+            schema_builder.add_text_field("entrypoint_id", STRING | STORED);
             schema_builder.add_text_field("entrypoint_icon_path", STORED);
             schema_builder.add_text_field("plugin_name", TEXT | STORED);
-            schema_builder.add_text_field("plugin_id", STORED);
+            schema_builder.add_text_field("plugin_id", STRING | STORED);
 
             schema_builder.build()
         };
@@ -65,7 +65,9 @@ impl SearchIndex {
     pub fn remove_for_plugin(&self, plugin_id: PluginId) -> tantivy::Result<()> {
         let mut index_writer = self.index.writer(5_000_000)?;
 
-        index_writer.delete_term(Term::from_field_text(self.plugin_id, &plugin_id.to_string()));
+        index_writer.delete_query(Box::new(
+            TermQuery::new(Term::from_field_text(self.plugin_id, &plugin_id.to_string()), IndexRecordOption::Basic)
+        ))?;
         index_writer.commit()?;
 
         Ok(())
@@ -79,7 +81,9 @@ impl SearchIndex {
 
         let mut index_writer = self.index.writer(3_000_000)?;
 
-        index_writer.delete_term(Term::from_field_text(self.plugin_id, &plugin_id.to_string()));
+        index_writer.delete_query(Box::new(
+            TermQuery::new(Term::from_field_text(self.plugin_id, &plugin_id.to_string()), IndexRecordOption::Basic)
+        ))?;
 
         for search_item in search_items {
             index_writer.add_document(doc!(
