@@ -9,6 +9,7 @@ use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
+use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, reposition};
 use iced_aw::core::icons;
@@ -47,6 +48,7 @@ pub struct AppModel {
     search_results: Vec<NativeUiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<NativeUiRequestData, NativeUiResponseData>>>,
     search_field_id: text_input::Id,
+    scrollable_id: scrollable::Id,
     plugin_view_data: Option<PluginViewData>,
     prompt: Option<String>,
     waiting_for_next_unfocus: bool,
@@ -200,6 +202,7 @@ impl Application for AppModel {
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
                 search_results: vec![],
                 search_field_id: text_input::Id::unique(),
+                scrollable_id: scrollable::Id::unique(),
                 prompt: None,
                 plugin_view_data: None,
                 waiting_for_next_unfocus: false,
@@ -647,6 +650,7 @@ impl Application for AppModel {
                 );
 
                 let list: Element<_> = scrollable(search_list)
+                    .id(self.scrollable_id.clone())
                     .width(Length::Fill)
                     .into();
 
@@ -772,6 +776,7 @@ impl AppModel {
             window::change_mode(window::Id::MAIN, window::Mode::Windowed),
             window::gain_focus(window::Id::MAIN),
             reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
         ])
