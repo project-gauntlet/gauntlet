@@ -51,6 +51,15 @@ async function doPublish() {
     const denoProjectPath = path.join(projectRoot, "js", "deno");
     const apiProjectPath = path.join(projectRoot, "js", "api");
 
+    console.log("Fetching architecture and target...")
+    const rustcVv = execSync('rustc -Vv', { encoding: "utf-8" });
+    console.log(rustcVv)
+    const archTarget = rustcVv.match(/^host: (.+)$/m)!![1]
+
+    if (archTarget !== "x86_64-unknown-linux-gnu") {
+        throw new Error(`Unsupported target "${archTarget}"`)
+    }
+
     console.log("Reading version file...")
     const versionRaw = await readFile(versionFilePath, { encoding: "utf-8" });
     const oldVersion = Number(versionRaw.trim());
@@ -129,15 +138,17 @@ async function doPublish() {
 
     build(projectRoot, false)
 
+    const releaseDirPath = path.join(projectRoot, 'target', 'release');
+    const executableFileName = 'gauntlet';
+    const archiveFileName = "gauntlet-x86_64-linux.tar.gz"
+    const archiveFilePath = path.join(releaseDirPath, archiveFileName);
+
+    execSync(`tar -czvf ${archiveFileName} ${executableFileName}`, { stdio: "inherit", cwd: releaseDirPath })
+
     console.log("Publishing npm deno package...")
     execSync('npm publish', { stdio: "inherit", cwd: denoProjectPath })
     console.log("Publishing npm api package...")
     execSync('npm publish', { stdio: "inherit", cwd: apiProjectPath })
-
-    console.log("Fetching architecture and target...")
-    const rustcVv = execSync('rustc -Vv', { encoding: "utf-8" });
-    console.log(rustcVv)
-    const archTarget = rustcVv.match(/^host: (.+)$/m)!![1]
 
     const octokit = new Octokit({
         auth: process.env.GITHUB_TOKEN
@@ -154,15 +165,14 @@ async function doPublish() {
         body: notesForCurrentRelease.join('\n'),
     });
 
-    const executableFilePath = path.join(projectRoot, 'target', 'release', 'gauntlet');
-    const fileBuffer = await readFile(executableFilePath);
+    const fileBuffer = await readFile(archiveFilePath);
 
     console.log("Uploading executable as github release asset...")
     await octokit.rest.repos.uploadReleaseAsset({
         ...repo,
         release_id: response.data.id,
         origin: response.data.upload_url,
-        name: `gauntlet-${archTarget}`,
+        name: archiveFileName,
         headers: {
             "Content-Type": "application/octet-stream",
         },
