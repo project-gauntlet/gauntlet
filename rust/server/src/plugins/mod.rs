@@ -8,6 +8,7 @@ use crate::dirs::Dirs;
 use crate::model::{ActionShortcut, ActionShortcutKind, from_rpc_to_intermediate_value, UiWidgetId};
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
+use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
@@ -20,6 +21,7 @@ mod loader;
 mod run_status;
 mod download_status;
 mod applications;
+mod icon_cache;
 
 
 static BUILTIN_PLUGINS: [(&str, Dir); 3] = [
@@ -35,7 +37,7 @@ pub struct ApplicationManager {
     db_repository: DataDbRepository,
     plugin_downloader: PluginLoader,
     run_status_holder: RunStatusHolder,
-    dirs: Dirs,
+    icon_cache: IconCache,
 }
 
 impl ApplicationManager {
@@ -44,6 +46,7 @@ impl ApplicationManager {
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
         let config_reader = ConfigReader::new(dirs.clone(), db_repository.clone());
+        let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
@@ -55,8 +58,12 @@ impl ApplicationManager {
             db_repository,
             plugin_downloader,
             run_status_holder,
-            dirs,
+            icon_cache,
         })
+    }
+
+    pub fn clear_all_icon_cache_dir(&self) -> anyhow::Result<()> {
+        self.icon_cache.clear_all_icon_cache_dir()
     }
 
     pub async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
@@ -354,6 +361,7 @@ impl ApplicationManager {
         let receiver = self.command_broadcaster.subscribe();
         let data = PluginRuntimeData {
             id: plugin_id,
+            uuid: plugin.uuid,
             code: PluginCode { js: plugin.code.js },
             inline_view_entrypoint_id,
             permissions: PluginPermissions {
@@ -369,7 +377,7 @@ impl ApplicationManager {
             command_receiver: receiver,
             db_repository: self.db_repository.clone(),
             search_index: self.search_index.clone(),
-            dirs: self.dirs.clone()
+            icon_cache: self.icon_cache.clone()
         };
 
         self.start_plugin_runtime(data);

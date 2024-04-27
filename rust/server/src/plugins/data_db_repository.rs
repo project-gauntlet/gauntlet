@@ -6,10 +6,11 @@ use deno_core::error::AnyError;
 use deno_core::futures;
 use deno_core::futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, Pool, Sqlite, SqlitePool};
+use sqlx::{Decode, Executor, Pool, Row, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
+use uuid::Uuid;
 
 use crate::dirs::Dirs;
 use crate::plugins::js::plugin_id;
@@ -24,6 +25,7 @@ pub struct DataDbRepository {
 #[derive(sqlx::FromRow)]
 pub struct DbReadPlugin {
     pub id: String,
+    pub uuid: String,
     pub name: String,
     pub description: String,
     pub enabled: bool,
@@ -42,6 +44,7 @@ pub struct DbReadPlugin {
 #[derive(sqlx::FromRow)]
 pub struct DbReadPluginEntrypoint {
     pub id: String,
+    pub uuid: String,
     pub plugin_id: String,
     pub name: String,
     pub description: String,
@@ -66,6 +69,7 @@ pub struct DbCode {
 
 pub struct DbWritePlugin {
     pub id: String,
+    pub uuid: String,
     pub name: String,
     pub description: String,
     pub enabled: bool,
@@ -79,6 +83,7 @@ pub struct DbWritePlugin {
 
 pub struct DbWritePluginEntrypoint {
     pub id: String,
+    pub uuid: String,
     pub name: String,
     pub description: String,
     pub icon_path: Option<String>,
@@ -248,9 +253,43 @@ impl DataDbRepository {
             .await
             .context("Unable apply database migration")?;
 
-        Ok(Self {
-            pool
-        })
+        let db_repository = Self { pool };
+
+        db_repository.apply_uuid_default_value().await?;
+
+        Ok(db_repository)
+    }
+
+    async fn apply_uuid_default_value(&self) -> anyhow::Result<()> {
+        // language=SQLite
+        let mut stream = self.pool.fetch(sqlx::query("SELECT id FROM plugin WHERE uuid IS NULL"));
+        while let Some(row) = stream.next().await {
+            let row = row?;
+            let id: &str = row.get("id");
+
+            // language=SQLite
+            sqlx::query("UPDATE plugin SET uuid = ?1 WHERE id = ?2")
+                .bind(Uuid::new_v4().to_string())
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        // language=SQLite
+        let mut stream = self.pool.fetch(sqlx::query("SELECT id FROM plugin_entrypoint WHERE uuid IS NULL"));
+        while let Some(row) = stream.next().await {
+            let row = row?;
+            let id: &str = row.get("id");
+
+            // language=SQLite
+            sqlx::query("UPDATE plugin_entrypoint SET uuid = ?1 WHERE id = ?2")
+                .bind(Uuid::new_v4().to_string())
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn list_plugins(&self) -> anyhow::Result<Vec<DbReadPlugin>> {
@@ -604,10 +643,10 @@ impl DataDbRepository {
 
         // language=SQLite
         let sql = r#"
-            INSERT INTO plugin (id, name, enabled, code, permissions, preferences, preferences_user_data, description, type)
-                VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            INSERT INTO plugin (id, name, enabled, code, permissions, preferences, preferences_user_data, description, type, uuid)
+                VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
                     ON CONFLICT (id)
-                        DO UPDATE SET name = ?2, enabled = ?3, code = ?4, permissions = ?5, preferences = ?6, preferences_user_data = ?7, description = ?8, type = ?9
+                        DO UPDATE SET name = ?2, enabled = ?3, code = ?4, permissions = ?5, preferences = ?6, preferences_user_data = ?7, description = ?8, type = ?9, uuid = ?10
         "#;
 
         sqlx::query(sql)
@@ -620,6 +659,7 @@ impl DataDbRepository {
             .bind(Json(preferences_user_data))
             .bind(new_plugin.description)
             .bind(new_plugin.plugin_type)
+            .bind(new_plugin.uuid)
             .execute(&mut *tx)
             .await?;
 
@@ -636,7 +676,7 @@ impl DataDbRepository {
                 .unwrap_or((HashMap::new(), vec![], true));
 
             // language=SQLite
-            sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data, icon_path) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)")
+            sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data, icon_path, uuid) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)")
                 .bind(&new_entrypoint.id)
                 .bind(&new_plugin.id)
                 .bind(new_entrypoint.name)
@@ -648,6 +688,7 @@ impl DataDbRepository {
                 .bind(Json(new_entrypoint.actions))
                 .bind(Json(actions_user_data))
                 .bind(Json(new_entrypoint.icon_path))
+                .bind(new_entrypoint.uuid)
                 .execute(&mut *tx)
                 .await?;
         }

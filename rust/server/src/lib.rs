@@ -33,6 +33,8 @@ async fn run_server() -> anyhow::Result<()> {
     let search_index = SearchIndex::create_index()?;
     let mut application_manager = ApplicationManager::create(search_index.clone()).await?;
 
+    application_manager.clear_all_icon_cache_dir()?;
+
     if let Err(err) = application_manager.load_builtin_plugins().await {
         tracing::error!("error loading bundled plugin(s): {:?}", err);
     }
