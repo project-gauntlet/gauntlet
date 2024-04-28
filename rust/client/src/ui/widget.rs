@@ -974,6 +974,13 @@ impl ComponentWidgetWrapper {
                     }
                 }
 
+                if !pending.is_empty() {
+                    let content: Element<_> = column(render_children(&pending, ComponentRenderContext::List { widget_id }))
+                        .into();
+
+                    items.push(content);
+                }
+
                 let content: Element<_> = column(items)
                     .width(Length::Fill)
                     .into();
@@ -1048,6 +1055,12 @@ impl ComponentWidgetWrapper {
                         },
                         _ => panic!("unexpected widget kind {:?}", widget)
                     }
+                }
+
+                if !pending.is_empty() {
+                    let content = render_grid(&pending, columns, ComponentRenderContext::Grid { widget_id });
+
+                    items.push(content);
                 }
 
                 let content: Element<_> = column(items)
