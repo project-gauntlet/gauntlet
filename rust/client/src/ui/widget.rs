@@ -997,6 +997,7 @@ impl ComponentWidgetWrapper {
                 };
 
                 let content: Element<_> = column(render_children(children, ComponentRenderContext::GridItem))
+                    .height(150) // TODO dynamic height
                     .into();
 
                 let title: Element<_> = text(title)
@@ -1017,7 +1018,6 @@ impl ComponentWidgetWrapper {
                     .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id: id.to_owned() })
                     .style(ButtonStyle::GauntletGridButton)
                     .padding(Padding::new(5.0))
-                    .height(150) // TODO dynamic height
                     .into();
 
                 content
