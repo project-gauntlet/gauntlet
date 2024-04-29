@@ -39,11 +39,15 @@ function build(projectRoot: string, check: boolean) {
 
 async function doBuild() {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
+    console.log("Building Gauntlet...")
+    console.log("Project root: " + projectRoot)
     build(projectRoot, true)
 }
 
 async function doPublish() {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
+    console.log("Publishing Gauntlet...")
+    console.log("Project root: " + projectRoot)
     const git = simpleGit(projectRoot);
 
     const versionFilePath = path.join(projectRoot, "VERSION");
