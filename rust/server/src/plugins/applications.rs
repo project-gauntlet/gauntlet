@@ -52,6 +52,11 @@ fn find_application_dirs() -> Option<Vec<PathBuf>> {
     Some(res)
 }
 
+#[cfg(not(target_os = "linux"))]
+pub fn get_apps() -> Vec<DesktopEntry> {
+    vec![]
+}
+
 #[cfg(target_os = "linux")]
 pub fn get_apps() -> Vec<DesktopEntry> {
     let app_dirs = find_application_dirs()

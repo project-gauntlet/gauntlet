@@ -1059,11 +1059,7 @@ fn open_settings() -> anyhow::Result<()> {
 
 #[op]
 fn list_applications() -> Vec<DesktopEntry> {
-    if cfg!(target_os = "linux") {
-        get_apps()
-    } else {
-        vec![]
-    }
+    get_apps()
 }
 
 #[op]
