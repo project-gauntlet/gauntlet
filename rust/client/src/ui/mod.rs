@@ -389,7 +389,7 @@ impl Application for AppModel {
                 // for some reason (on both macos and linux) Unfocused fires right at the application start
                 // and second time on actual window unfocus
                 if self.waiting_for_next_unfocus {
-                    if cfg!(target_os = "linux") { // FIXME gnome still requires double global shortcut press (may be gnome bug). need to test on KDE
+                    if cfg!(target_os = "linux") { // gnome requires double global shortcut press (probably gnome bug, because works on kde).
                         self.waiting_for_next_unfocus = false;
                     }
                     self.hide_window()

@@ -4,7 +4,7 @@
 
 <img align="right" width="100" height="100" src="docs/logo.png">
 
-~~Web-first~~ (not yet) ~~cross-platform~~ (not yet) application launcher with React-based plugins.
+Web-first ~~cross-platform~~ (not yet) application launcher with React-based plugins.
 
 > [!NOTE]
 > This is an MVP, expect bugs, missing features, incomplete ux, etc.
@@ -18,33 +18,47 @@
 ## Features
 
 - Plugin-first
-    - Plugins can create UI or one-shot commands
-    - It is just a framework for plugins
-    - No plugins are provided by default
-    - Plugins are distributed as separate branch in git repository (similar to how GitHub Pages work)
+    - Plugins are written in JavaScript
+    - Plugins can have the following functionality
+        - Create UI
+        - One-shot commands
+        - Dynamically provide list of one-shot commands
+        - Render quick "inline" content directly under main search bar based in value in it
+    - Currently, 3 bundled plugins are provided
+        - Applications: provides list of applications
+        - Calculator: shows result of mathematical operations directly under main search bar
+        - Settings: open Gauntlet Settings from Gauntlet itself
+    - Plugins are distributed as separate branch in git repository, meaning plugin distribution doesn't need any central
+      server
     - Plugins are installed using Git Repository URL
 - [React](https://github.com/facebook/react)-based UI for plugins
     - Implemented using custom React Reconciler
     - iced-rs is used for UI
-    - It is even possible to have multiple frontend implementations
 - [Deno JavaScript Runtime](https://github.com/denoland/deno)
     - Deno allows us to sandbox JavaScript code for better security
     - Plugins are required to explicitly specify what permissions they need to work
-    - Node is still used to run tooling
+    - NodeJS is still used to run tooling
 - Client-Server architecture
-    - All plugins run on server and render UI to a separate client process
-    - On Linux, DBus is used for inter-proces communication
+    - All plugins run on server and render UI is rendered in separate client process
+    - gRPC is used for inter-proces communication
 - Designed with cross-platform in mind
     - Permissions
         - If plugin asked for access to filesystem, env variables, FFI or running commands, it is required to specify
           which operating systems it supports.
         - If plugin doesn't use filesystem, env variables, ffi or running commands and just uses network and/or UI, it
           is cross-platform
-    - Keybinds (not yet implemented)
-        - Keybind is "primary" or "secondary" + key
-        - Meaning of "primary" and "secondary" depends on operating system that plugin is running on.
-            - E.g. for Linux "primary" is <kbd>Ctrl</kbd>, "secondary" - <kbd>Alt</kbd>
-            - But for macOS "primary" is <kbd>Cmd</kbd>, "secondary" - <kbd>Opt</kbd>
+    - Shortcuts
+        - Plugins are allowed to use only limited set of keys for shortcuts
+        - Only upper and lower-case letters, symbols and numbers
+        - Shortcut can have either `"main"` or `"alternative"` kind
+            - `"main"` shortcut requires following modifiers
+                - Windows and Linux: <kbd>CTRL</kbd>
+                - macOS: <kbd>CMD</kbd>
+            - `"alternative"` shortcut requires following modifiers
+                - Windows and Linux: <kbd>ALT</kbd>
+                - macOS: <kbd>OPT</kbd>
+            - Whether <kbd>SHIFT</kbd> is also required depends on character specified for shortcut, e.g `$` will
+              require <kbd>SHIFT</kbd> to be pressed, while `4` will not
 
 ##### OS Support
 
@@ -64,28 +78,32 @@
 - Detail
 - Form
 - Action Panel
-- Separate settings view
+- List
+- Grid
+- Separate settings window
+- Stack-based Navigation
+- Action Shortcuts
 
 ###### Planned
 
-- View router
-- List
-- Grid
 - Toast popups
-- Keyboard only navigation
+- Keyboard only navigation in plugin-views
 - Theming
 - Themable icons
 - Vim motions
 
 ##### APIs
 
+###### Implemented
+
+- Preferences
+- Inline views under main search bar
+
 ###### Planned
 
 - Clipboard
-- Preferences
 - Local Storage
 - OAuth PKCE flow support
-- Search bar parsing
 
 ## Getting Started
 
@@ -124,18 +142,55 @@ Be the first one to create a package. See [Application packaging for Linux](#app
 ```toml
 [gauntlet]
 name = 'Plugin Name'
+description = """
+Plugin description
+""" # required
+
+[[preferences]] # plugin preference
+name = 'testBool'
+type = 'enum' # available values: 'number', 'string,' 'bool', 'enum', 'list_of_strings', 'list_of_numbers', 'list_of_enums'
+default = 'item' # type of default depends on type field. Currently, list types have no default
+description = "Some preference description"
+enum_values = [{ label = 'Item', value = 'item'}] # defines list of available enum values, required for types "enum" and "list_of_enums"
 
 [[entrypoint]]
 id = 'ui-view' # id for entrypoint
 name = 'UI view' # name of entrypoint
 path = 'src/ui-view.tsx' # path to file, default export is expected to be function React Function Component
 type = 'view'
+description = 'Some entrypoint description' # required
+
+[[entrypoint.preferences]] # entrypoint preference
+name = 'boolPreference'
+type = 'bool'
+default = true
+description = "bool preference description"
+
+[[entrypoint.actions]]
+id = 'someAction' # id of action, needs to align with value in <Action> "id" property
+description = "demo action description"
+shortcut = { key = ':', kind = 'main'} # key string only accepts lower and upper-case letters, numbers and symbols. kind can be "main" or "alternative"
 
 [[entrypoint]]
 id = 'command-a' 
 name = 'Command A'
 path = 'src/command-a.ts' # path to file, the whole file is a js script
 type = 'command'
+description = 'Some entrypoint description' # required
+
+[[entrypoint]]
+id = 'command-generator'
+name = 'Command generator'
+path = 'src/command-generator.ts'
+type = 'command-generator'
+description = 'Some entrypoint description' # required
+
+[[entrypoint]]
+id = 'inline-view'
+name = 'Inline view'
+path = 'src/inline-view.tsx'
+type = 'inline-view'
+description = 'Some entrypoint description' # required
 
 [permissions] # For allowed values see: https://docs.deno.com/runtime/manual/basics/permissions
 environment = ["ENV_VAR_NAME"] # array of strings, if specified requires supported_system to be specified as well
@@ -163,8 +218,8 @@ Located at `$XDG_CONFIG_HOME/gauntlet/config.toml` for Linux. Not used at the mo
 The Application has a simple command line interface
 
 - `gauntlet server` - server part of launcher
-- `gauntlet client` - gui part of launcher
-- `gauntlet management` - settings, plugin installation, etc
+- `gauntlet open` - opens application window, can be used instead of global shortcut
+- `gauntlet management` - settings, plugin installation and removal, preferences, etc
 
 ### Dev Tools
 
@@ -185,8 +240,7 @@ development purposes. It has following commands:
 ## Architecture
 
 The Application consists of three parts: server, frontend and settings.
-Server is an application that is registered on session dbus with a well-known name and exposes 2 dbus interfaces:
-one for frontend, other for settings application.
+Server is an application that exposes gRPC server.
 All plugins run on server.
 Each plugin in its own sandboxed Deno Worker.
 In plugin manifest it is possible to configure permissions which will allow plugin to have access to filesystem,
@@ -194,8 +248,7 @@ network, environment variables, ffi or subprocess execution.
 Server saves plugins and state of plugins into SQLite database.
 
 Frontend is GUI application that uses [iced-rs](https://github.com/iced-rs/iced) as a GUI framework.
-It is also registered on session dbus with well-known name and exposes one dbus interface for server to call.
-From the perspective of dbus, it can also be considered a "server" because it answers requests that come from server.
+It is also exposes gRPC server that is used by server to render views
 
 Plugins can create UI using [React](https://github.com/facebook/react).
 Server implements custom React Reconciler (similar to React Native)
@@ -206,7 +259,7 @@ makes requests to the frontend containing information what actually should be re
 When a user interacts with the UI by clicking button or entering text into form,
 frontend sends signals to server to see whether any re-renders are needed.
 
-Settings is also a GUI application that communicates with server via DBus using a simple request-response approach.
+Settings is also a GUI application that communicates with server via gRPC using a simple request-response approach.
 
 ![](docs/architecture.png)
 
@@ -224,38 +277,40 @@ to generate TypeScript typings for `@project-gauntlet/api` and Rust validation c
 ## Application packaging for Linux
 
 This section contains a list of things
-that could be useful to someone who wants to package application for Linux distribution.
+that could be useful fir someone who wants to package application for Linux distribution.
 If something is missing, please [create an issue](https://github.com/project-gauntlet/gauntlet/issues).
 
 Gauntlet executable consists of three applications:
 
 - `$ path/to/gauntlet/executable server`
     - Needs to be started when user logs in
-- `$ path/to/gauntlet/executable client`
-    - Started on demand using <kbd>Super</kbd> key (or any other key/shortcut depending on your preference)
+- `$ path/to/gauntlet/executable open`
+    - Expected to be run on demand using some global shortcut
 - `$ path/to/gauntlet/executable management`
-    - Started on demand from the list of available applications (will vary depending on desktop environment or windows
-      manager chosen)
+    - Started on demand from the list of available applications (will vary depending on desktop environment or window
+      manager chosen) or from Gauntlet itself
 
-Client and Settings applications expect Server to always be running.
-Recommended way of ensuring that is running Server as Systemd service.
-Communication is done via DBus session bus.
+Settings applications expect Server to always be running.
+Recommended way of ensuring that is running Server as SystemD service.
 
 ###### Directories used
 
 - data dir - `$XDG_DATA_HOME/gauntlet` or `$HOME/.local/share/gauntlet`
     - contains application state `data.db`
+- cache dir - `$XDG_CACHE_HOME/gauntlet` or `$HOME/.cache/gauntlet`
+    - contains icon cache
 - config dir - `$XDG_CONFIG_HOME/gauntlet` or `$HOME/.config/gauntlet`
     - contains application config `config.toml`
     - application will never do changes to config file
+- `.desktop` file at locations defined by [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
 
 Application and Dev Tools use temporary directories:
 
 - Rust: [tempfile crate](https://crates.io/crates/tempfile)
 - JS: [NodeJS mkdtemp](https://nodejs.org/api/fs.html#fspromisesmkdtempprefix-options)
 
-Client and Setting applications have GUI and therefore use all the usual graphics-related stuff from Wayland or X11.
-For Wayland currently no special protocols are required, but it may change in the future.
+Client and Setting applications have GUI and therefore use all the usual graphics-related stuff from X11.
+Wayland is not supported at the moment.
 
 ## Building Gauntlet
 You will need:
@@ -265,14 +320,19 @@ You will need:
 
 To build dev run:
 ```bash
+npm install
 npm run build
+cd ./dev_plugin
+npm run build
+cd ..
 cargo build
 ```
 In dev (without "release" feature) application will use only directories inside project directory to store state or cache.
-Additionally, for easier development frontend will not be automatically executed and need to be started manually.
+Additionally, for easier development frontend will not be automatically executed and need to be started manually with GAUNTLET_INTERNAL_FRONTEND environment variable set to any value.
 
 To build release run:
 ```bash
+npm install
 npm run build
 cargo build --release --features release
 ```
