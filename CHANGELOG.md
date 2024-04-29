@@ -13,12 +13,12 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
   - Global shortcut is available to show the application window. Currently, hardcoded to <kbd>META</kbd> + <kbd>SPACE</kbd>
   - In case window manager or underlying library we use doesn't support global shortcuts, `gauntlet open` command is also now available 
   - Unfortunately had to remove Wayland support for now, because GUI library we use, on Wayland doesn't support hiding/showing windows as well as setting window to be top-level
+- **BREAKING CHANGE**: Inter-process communication protocol has been changed from `DBus` to `gRPC`
+  - To be able to support macOS and Windows easier in near future
+  - Currently, 2 TCP ports are used and hardcoded to be `42320` and `42321`
 - **BREAKING CHANGE**: Plugins and plugin entrypoints now require description to be specified in plugin manifest
   - `gauntlet.description` and `entrypoint.*.description` keys are now required
   - Currently, only shown in Settings
-- Inter-process communication protocol has been changed from `DBus` to `gRPC`
-  - To be able to support macOS and Windows easier in near future
-  - Currently, 2 TCP ports are used and hardcoded to be `42320` and `42321`
 - Actions can now be executed also using shortcuts
   - Shortcuts for specific entrypoint need to be specified in plugin manifest
   - Plugins are allowed to use only limited set of keys for shortcuts
