@@ -38,4 +38,4 @@ resvg = { version = "0.41", default-features = false}
 image = "0.25"
 
 [features]
-dev = []
+release = []

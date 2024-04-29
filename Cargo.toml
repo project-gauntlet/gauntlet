@@ -18,4 +18,4 @@ members = [
 cli = { path = "rust/cli" }
 
 [features]
-dev = ["cli/dev"]
+release = ["cli/release"]

@@ -11,4 +11,4 @@ client = { path = "../client" }
 server = { path = "../server" }
 
 [features]
-dev = ["server/dev"]
+release = ["server/release"]
