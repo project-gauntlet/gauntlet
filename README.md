@@ -7,9 +7,9 @@
 Web-first ~~cross-platform~~ (not yet) application launcher with React-based plugins.
 
 > [!NOTE]
-> This is an MVP, expect bugs, missing features, incomplete ux, etc.
+> Launcher is in active development, expect bugs, missing features, incomplete ux, etc.
 >
-> At the moment, it is not yet ready for daily usage.
+> At the moment, it may not yet be ready for daily usage.
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
