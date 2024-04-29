@@ -42,17 +42,19 @@ impl DownloadStatusGuard {
         let mut running_downloads = self.running_downloads.lock().expect("lock is poisoned");
 
         running_downloads.insert(self.id.clone(), DownloadStatus::Done);
+
+        self.drop_eventually()
     }
 
     pub fn download_failed(&self, message: String) {
         let mut running_downloads = self.running_downloads.lock().expect("lock is poisoned");
 
         running_downloads.insert(self.id.clone(), DownloadStatus::Failed { message });
-    }
-}
 
-impl Drop for DownloadStatusGuard {
-    fn drop(&mut self) {
+        self.drop_eventually()
+    }
+
+    fn drop_eventually(&self) {
         let running_downloads = self.running_downloads.clone();
         let plugin_id = self.id.clone();
         tokio::spawn(async move {

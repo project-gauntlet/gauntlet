@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use anyhow::anyhow;
-use gix::Url;
-use gix::url::Scheme;
+use gix_url::Url;
+use gix_url::Scheme;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PluginId(Arc<str>);
@@ -13,13 +13,21 @@ impl PluginId {
         PluginId(plugin_id.to_string().into())
     }
 
-    pub fn try_to_git_url(&self) -> anyhow::Result<Url> {
-        let url = gix::url::parse(gix::path::os_str_into_bstr(self.to_string().as_ref())?)?;
+    fn try_to_url(&self) -> anyhow::Result<Url> {
+        let url = self.to_string();
+        let url: &str = url.as_ref();
+        let url = gix_url::parse(url.try_into()?)?;
         Ok(url)
     }
 
+    pub fn try_to_git_url(&self) -> anyhow::Result<String> {
+        let url = self.try_to_url()?;
+
+        Ok(url.to_bstring().to_string())
+    }
+
     pub fn try_to_path(&self) -> anyhow::Result<PathBuf> {
-        let url = self.try_to_git_url()?;
+        let url = self.try_to_url()?;
 
         if url.scheme != Scheme::File {
             return Err(anyhow!("plugin id is expected to point to local file"))

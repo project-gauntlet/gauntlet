@@ -42,13 +42,14 @@ impl PluginLoader {
         let data_db_repository = self.db_repository.clone();
         let handle = tokio::runtime::Handle::current();
 
+        let plugin_id_clone = plugin_id.clone();
         thread::spawn(move || {
             let result = handle.block_on(async move {
                 let temp_dir = tempfile::tempdir()?;
 
-                PluginLoader::download(temp_dir.path(), plugin_id.clone())?;
+                PluginLoader::download(temp_dir.path(), plugin_id_clone.clone())?;
 
-                let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
+                let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id_clone.clone())
                     .await?;
 
                 data_db_repository.save_plugin(DbWritePlugin {
@@ -68,10 +69,18 @@ impl PluginLoader {
                 anyhow::Ok(())
             });
 
-            match result {
-                Ok(()) => download_status_guard.download_finished(),
-                Err(err) => download_status_guard.download_failed(err.to_string())
-            }
+            handle.block_on(async move {
+                match result {
+                    Ok(()) => {
+                        tracing::info!("Finished download of plugin: {:?}", plugin_id);
+                        download_status_guard.download_finished()
+                    },
+                    Err(err) => {
+                        tracing::warn!("Download of plugin {:?} returned an error {:?}", plugin_id, err);
+                        download_status_guard.download_failed(format!("{:?}", err))
+                    }
+                }
+            })
         });
 
         Ok(())
@@ -132,26 +141,9 @@ impl PluginLoader {
     fn download(target_dir: &Path, plugin_id: PluginId) -> anyhow::Result<()> {
         let url = plugin_id.try_to_git_url()?;
 
-        let mut prepare_fetch = gix::clone::PrepareFetch::new(url, &target_dir, gix::create::Kind::WithWorktree, Default::default(), Default::default())?
-            .with_shallow(gix::remote::fetch::Shallow::DepthAtRemote(1.try_into().unwrap()))
-            .configure_remote(|mut remote| {
-                remote.replace_refspecs(
-                    Some("+refs/heads/gauntlet/release:refs/remotes/origin/gauntlet/release"),
-                    gix::remote::Direction::Fetch,
-                )?;
-
-                Ok(remote)
-            });
-
-        let (mut prepare_checkout, _) = prepare_fetch.fetch_then_checkout(
-            gix::progress::Discard,
-            &gix::interrupt::IS_INTERRUPTED,
-        )?;
-
-        let (_repo, _) = prepare_checkout.main_worktree(
-            gix::progress::Discard,
-            &gix::interrupt::IS_INTERRUPTED,
-        )?;
+        let _ = git2::build::RepoBuilder::new()
+            .branch("gauntlet/release")
+            .clone(&url, target_dir)?;
 
         Ok(())
     }

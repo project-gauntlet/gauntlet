@@ -3,7 +3,7 @@ name = "common"
 edition = "2021"
 
 [dependencies]
-gix = { version = "0.52.0", features = ["blocking-http-transport-curl"] }
+gix-url = { version = "0.22.0" }
 anyhow = { version = "1", features = ["backtrace"] }
 tonic = "0.11.0"
 prost = "0.12.3"

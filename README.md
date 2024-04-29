@@ -118,7 +118,7 @@ Web-first ~~cross-platform~~ (not yet) application launcher with React-based plu
       and `@project-gauntlet/deno` should help
     - See Dev Plugin for examples ![here](dev_plugin)
 - Push changes to GitHub
-- Run `publish` GitHub Actions workflow to publish plugin to release branch
+- Run `publish` GitHub Actions workflow to publish plugin to `gauntlet/release` branch
 - Profit!
 
 ### Install plugin
@@ -263,7 +263,7 @@ Settings is also a GUI application that communicates with server via gRPC using 
 
 ![](docs/architecture.png)
 
-Plugins (or rather its compiled state) are distributed via Git repository in `release` branch (similar to GitHub Pages).
+Plugins (or rather its compiled state) are distributed via Git repository in `gauntlet/release` branch (similar to GitHub Pages).
 Which means there is no one central place for plugin distribution.
 And to install plugin all you need is Git repository url.
 

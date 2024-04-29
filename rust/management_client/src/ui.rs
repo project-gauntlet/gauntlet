@@ -342,7 +342,7 @@ impl Application for ManagementAppModel {
 
                 let exists = self.running_downloads.insert(plugin_id.clone());
                 if !exists {
-                    panic!("already downloading this plugins")
+                    panic!("already downloading this plugins") // TODO proper error handling
                 }
 
                 Command::perform(
