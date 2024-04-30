@@ -57,7 +57,7 @@ impl PluginLoader {
                     uuid: Uuid::new_v4().to_string(),
                     name: plugin_data.name,
                     description: plugin_data.description,
-                    enabled: true,
+                    enabled: false,
                     code: plugin_data.code,
                     entrypoints: plugin_data.entrypoints,
                     asset_data: plugin_data.asset_data,
