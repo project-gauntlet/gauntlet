@@ -166,6 +166,9 @@ impl ApplicationManager {
                 self.stop_plugin(plugin_id.clone()).await;
                 self.search_index.remove_for_plugin(plugin_id)?;
             }
+            (true, false, _) => {
+                tracing::error!("Plugin is running but is disabled, please report this: {}", plugin_id.to_string())
+            }
             _ => {}
         }
 
@@ -219,6 +222,7 @@ impl ApplicationManager {
     }
 
     pub async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        self.stop_plugin(plugin_id.clone()).await;
         self.db_repository.remove_plugin(&plugin_id.to_string()).await?;
         self.search_index.remove_for_plugin(plugin_id)?;
         Ok(())
