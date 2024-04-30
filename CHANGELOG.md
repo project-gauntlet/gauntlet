@@ -7,6 +7,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+## [2] - 2024-04-30
+
 ### Big changes
 
 - **BREAKING CHANGE**: Instead of separate binary for "frontend", frontend is now started by server in separate process on initial application launch
