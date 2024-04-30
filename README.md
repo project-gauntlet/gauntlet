@@ -13,7 +13,8 @@ Web-first ~~cross-platform~~ (not yet) application launcher with React-based plu
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
-![](docs/readme_demo.png)
+https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-bec9-bb0ee4fa822a
+
 
 ## Features
 
