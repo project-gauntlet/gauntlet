@@ -69,8 +69,9 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-
 
 ###### Planned
 
-- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/windows.svg" width="18" height="18" /> Windows
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
+    - already works (excluding built-in "Applications" plugin) but, at the moment, needs to be build manually 
+- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/windows.svg" width="18" height="18" /> Windows
 
 ##### UI
 
