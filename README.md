@@ -19,12 +19,12 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-
 ## Features
 
 - Plugin-first
-    - Plugins are written in JavaScript
+    - Plugins are written in TypeScript
     - Plugins can have the following functionality
         - Create UI
         - One-shot commands
         - Dynamically provide list of one-shot commands
-        - Render quick "inline" content directly under main search bar based in value in it
+        - Render quick "inline" content directly under main search bar based on value in it
     - Currently, 3 bundled plugins are provided
         - Applications: provides list of applications
         - Calculator: shows result of mathematical operations directly under main search bar
