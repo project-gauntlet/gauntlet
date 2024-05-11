@@ -137,9 +137,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     } else {
                         match data {
                             OnePluginCommandData::Stop => {
-                                Some(IntermediateUiEvent::PluginCommand {
-                                    command_type: "stop".to_string(),
-                                })
+                                Some(IntermediateUiEvent::StopPlugin)
                             }
                             OnePluginCommandData::RenderView { entrypoint_id } => {
                                 Some(IntermediateUiEvent::OpenView {
@@ -218,6 +216,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.search_index,
                     data.icon_cache.clone(),
                 ).await;
+
+                tracing::info!(target = "plugin", "plugin closed plugin runtime {:?}", result_plugin_id);
 
                 if let Err(err) = data.icon_cache.clear_plugin_icon_cache_dir(&data.uuid) {
                     tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", result_plugin_id, err)
@@ -1285,9 +1285,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                 modifier_meta
             }
         }
-        IntermediateUiEvent::PluginCommand { command_type } => JsUiEvent::PluginCommand {
-            command_type
-        },
+        IntermediateUiEvent::StopPlugin => JsUiEvent::StopPlugin,
         IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text },
         IntermediateUiEvent::ReloadSearchIndex => JsUiEvent::ReloadSearchIndex,
     }

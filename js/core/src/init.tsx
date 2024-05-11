@@ -204,13 +204,9 @@ async function runLoop() {
                 }
                 break;
             }
-            case "PluginCommand": {
-                switch (pluginEvent.commandType) {
-                    case "stop": {
-                        return;
-                    }
-                }
-                break;
+            case "StopPlugin": {
+                console.log("Received plugin stop command")
+                return;
             }
             case "ReloadSearchIndex": {
                 try {
