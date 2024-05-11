@@ -4,7 +4,7 @@ use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use common::model::PluginId;
+use common::model::{PluginId, SearchIndexPluginEntrypointType, SearchResultItem};
 
 #[derive(Clone)]
 pub struct SearchIndex {
@@ -129,16 +129,6 @@ pub struct SearchIndexItem {
     pub entrypoint_name: String,
     pub entrypoint_id: String,
     pub entrypoint_icon_path: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct SearchResultItem {
-    pub entrypoint_type: SearchIndexPluginEntrypointType,
-    pub entrypoint_name: String,
-    pub entrypoint_id: String,
-    pub entrypoint_icon_path: Option<String>,
-    pub plugin_name: String,
-    pub plugin_id: String,
 }
 
 pub struct SearchHandle {
@@ -283,14 +273,6 @@ impl QueryParser {
 
         terms
     }
-}
-
-
-#[derive(Debug, Clone)]
-pub enum SearchIndexPluginEntrypointType {
-    Command,
-    View,
-    GeneratedCommand,
 }
 
 fn search_index_entrypoint_to_str(value: SearchIndexPluginEntrypointType) -> &'static str {

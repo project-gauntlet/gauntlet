@@ -15,19 +15,16 @@ use iced::window::{change_level, Level, Position, reposition};
 use iced_aw::core::icons;
 use tokio::runtime::Handle;
 use tokio::sync::RwLock as TokioRwLock;
-use tonic::Request;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{BackendClient, RpcEntrypointTypeSearchResult, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidgetId};
-use common::rpc::rpc_backend_client::RpcBackendClient;
-use common::rpc::rpc_frontend_server::RpcFrontendServer;
-use common::rpc::rpc_ui_property_value::Value;
+use common::model::{ActionShortcut, EntrypointId, PluginId, RenderLocation, UiRequestData, UiSearchResult, UiSearchResultEntrypointType, UiViewEvent};
+use common::rpc::backend_api::BackendApi;
+use common::rpc::frontend_server::start_frontend_server;
 use utils::channel::{channel, RequestReceiver};
 
-use crate::model::{NativeUiRequestData, NativeUiResponseData, NativeUiSearchResult, NativeUiViewEvent, SearchResultEntrypointType};
-use crate::rpc::RpcFrontendServerImpl;
+use crate::model::NativeUiResponseData;
+use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
@@ -44,15 +41,15 @@ mod inline_view_container;
 
 pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
-    backend_client: BackendClient,
-    search_results: Vec<NativeUiSearchResult>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<NativeUiRequestData, NativeUiResponseData>>>,
+    backend_api: BackendApi,
+    search_results: Vec<UiSearchResult>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, NativeUiResponseData>>>,
     search_field_id: text_input::Id,
     scrollable_id: scrollable::Id,
     plugin_view_data: Option<PluginViewData>,
     prompt: Option<String>,
     waiting_for_next_unfocus: bool,
-    global_hotkey_manager: GlobalHotKeyManager,
+    _global_hotkey_manager: GlobalHotKeyManager,
     error_view: Option<ErrorViewData>,
 }
 
@@ -96,7 +93,7 @@ pub enum AppMsg {
     },
     PromptChanged(String),
     PromptSubmit,
-    SetSearchResults(Vec<NativeUiSearchResult>),
+    SetSearchResults(Vec<UiSearchResult>),
     ReplaceView {
         top_level_view: bool,
     },
@@ -128,20 +125,9 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         render_location: RenderLocation
     },
-    SelectSearchItem(NativeUiSearchResult),
+    SelectSearchItem(UiSearchResult),
 }
 
-#[derive(Debug, Clone)]
-struct ActionShortcut {
-    key: String,
-    kind: ActionShortcutKind,
-}
-
-#[derive(Debug, Clone)]
-enum ActionShortcutKind {
-    Main,
-    Alternative
-}
 
 const WINDOW_WIDTH: f32 = 650.0;
 const WINDOW_HEIGHT: f32 = 400.0;
@@ -177,28 +163,21 @@ impl Application for AppModel {
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let global_hotkey_manager = register_shortcut();
 
-        let (context_tx, request_rx) = channel::<NativeUiRequestData, NativeUiResponseData>();
+        let (context_tx, request_rx) = channel::<UiRequestData, NativeUiResponseData>();
 
         let client_context = Arc::new(StdRwLock::new(ClientContext::new()));
 
         tokio::spawn(async {
-            let addr = "127.0.0.1:42321".parse().unwrap();
-
-            Server::builder()
-                .add_service(RpcFrontendServer::new(RpcFrontendServerImpl { context_tx }))
-                .serve(addr)
-                .await
-                .expect("frontend server didn't start");
+            start_frontend_server(Box::new(FrontendServerImpl::new(context_tx))).await;
         });
 
-        let backend_client = futures::executor::block_on(async {
-            anyhow::Ok(RpcBackendClient::connect("http://127.0.0.1:42320").await?)
-        }).unwrap();
+        let backend_api = futures::executor::block_on(async { BackendApi::new().await })
+            .unwrap();
 
         (
             AppModel {
                 client_context: client_context.clone(),
-                backend_client,
+                backend_api,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
                 search_results: vec![],
                 search_field_id: text_input::Id::unique(),
@@ -206,7 +185,7 @@ impl Application for AppModel {
                 prompt: None,
                 plugin_view_data: None,
                 waiting_for_next_unfocus: false,
-                global_hotkey_manager,
+                _global_hotkey_manager: global_hotkey_manager,
                 error_view: None,
             },
             Command::batch([
@@ -250,45 +229,12 @@ impl Application for AppModel {
             AppMsg::PromptChanged(new_prompt) => {
                 self.prompt.replace(new_prompt.clone());
 
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_api = self.backend_api.clone();
 
                 Command::perform(async move {
-                    let request = RpcSearchRequest {
-                        text: new_prompt,
-                    };
-
-                    let search_result = backend_client.search(Request::new(request))
+                    backend_api.search(new_prompt)
                         .await
-                        .unwrap()
-                        .into_inner()
-                        .results
-                        .into_iter()
-                        .map(|search_result| {
-                            let entrypoint_type = search_result.entrypoint_type
-                                .try_into()
-                                .unwrap();
-
-                            let entrypoint_type = match entrypoint_type {
-                                RpcEntrypointTypeSearchResult::SrCommand => SearchResultEntrypointType::Command,
-                                RpcEntrypointTypeSearchResult::SrView => SearchResultEntrypointType::View,
-                                RpcEntrypointTypeSearchResult::SrGeneratedCommand => SearchResultEntrypointType::GeneratedCommand,
-                            };
-
-                            let icon_path = Some(search_result.entrypoint_icon_path)
-                                .filter(|path| path != "");
-
-                            NativeUiSearchResult {
-                                plugin_id: PluginId::from_string(search_result.plugin_id),
-                                plugin_name: search_result.plugin_name,
-                                entrypoint_id: EntrypointId::from_string(search_result.entrypoint_id),
-                                entrypoint_name: search_result.entrypoint_name,
-                                entrypoint_icon: icon_path,
-                                entrypoint_type,
-                            }
-                        })
-                        .collect();
-
-                    search_result
+                        .unwrap() // TODO proper error handling
                 }, AppMsg::SetSearchResults)
             }
             AppMsg::PromptSubmit => {
@@ -317,7 +263,7 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(Event::Keyboard(event)) => {
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_client = self.backend_api.clone();
 
                 match event {
                     keyboard::Event::KeyPressed { key, modifiers, .. } => {
@@ -343,23 +289,15 @@ impl Application for AppModel {
                                         "," | "." | "/" | "[" | "]" | ";" | "'" | "\\" |
                                         "<" | ">" | "?" | "{" | "}" | ":" | "\"" | "|" => {
                                             Command::perform(async move {
-                                                let event = RpcEventKeyboardEvent {
-                                                    entrypoint_id: entrypoint_id.to_string(),
-                                                    key: char.to_string(),
-                                                    modifier_shift: modifiers.shift(),
-                                                    modifier_control: modifiers.control(),
-                                                    modifier_alt: modifiers.alt(),
-                                                    modifier_meta: modifiers.logo(),
-                                                };
+                                                let char = char.to_string();
+                                                let modifier_shift = modifiers.shift();
+                                                let modifier_control = modifiers.control();
+                                                let modifier_alt = modifiers.alt();
+                                                let modifier_meta = modifiers.logo();
 
-                                                let request = RpcSendKeyboardEventRequest {
-                                                    plugin_id: plugin_id.to_string(),
-                                                    event: Some(event),
-                                                };
-
-                                                backend_client.send_keyboard_event(Request::new(request))
+                                                backend_client.send_keyboard_event(plugin_id, entrypoint_id, char, modifier_shift, modifier_control, modifier_alt, modifier_meta)
                                                     .await
-                                                    .unwrap();
+                                                    .unwrap(); // TODO proper error handling
                                             }, |_| AppMsg::Noop)
                                         }
                                         _ => {
@@ -401,7 +339,7 @@ impl Application for AppModel {
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
             AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_client = self.backend_api.clone();
                 let client_context = self.client_context.clone();
 
                 Command::perform(async move {
@@ -412,37 +350,15 @@ impl Application for AppModel {
 
                     if let Some(event) = event {
                         match event {
-                            NativeUiViewEvent::View { widget_id, event_name, event_arguments } => {
-                                let widget_id = RpcUiWidgetId { value: widget_id };
-                                let event_arguments = event_arguments
-                                    .into_iter()
-                                    .map(|value| convert_property_value(value))
-                                    .collect();
-
-                                let event = RpcEventViewEvent {
-                                    widget_id: Some(widget_id),
-                                    event_name,
-                                    event_arguments,
-                                };
-
-                                let request = RpcSendViewEventRequest {
-                                    plugin_id: plugin_id.to_string(),
-                                    event: Some(event),
-                                };
-
-                                backend_client.send_view_event(Request::new(request))
+                            UiViewEvent::View { widget_id, event_name, event_arguments } => {
+                                backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
                                     .await
-                                    .unwrap();
+                                    .unwrap(); // TODO proper error handling
                             }
-                            NativeUiViewEvent::Open { href } => {
-                                let request = RpcSendOpenEventRequest {
-                                    plugin_id: plugin_id.to_string(),
-                                    href,
-                                };
-
-                                backend_client.send_open_event(Request::new(request))
+                            UiViewEvent::Open { href } => {
+                                backend_client.send_open_event(plugin_id, href)
                                     .await
-                                    .unwrap();
+                                    .unwrap(); // TODO proper error handling
                             }
                         }
                     };
@@ -477,17 +393,12 @@ impl Application for AppModel {
                 Command::none()
             }
             AppMsg::OpenSettingsPreferences { plugin_id, entrypoint_id, } => {
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_api = self.backend_api.clone();
 
                 Command::perform(async move {
-                    let request = RpcOpenSettingsWindowPreferencesRequest {
-                        plugin_id: plugin_id.to_string(),
-                        entrypoint_id: entrypoint_id.map(|val| val.to_string()).unwrap_or_default(),
-                    };
-
-                    backend_client.open_settings_window_preferences(Request::new(request))
+                    backend_api.open_settings_window_preferences(plugin_id, entrypoint_id)
                         .await
-                        .unwrap();
+                        .unwrap(); // TODO proper error handling
                 }, |_| AppMsg::Noop)
             }
             AppMsg::SaveActionShortcuts { action_shortcuts } => {
@@ -498,17 +409,17 @@ impl Application for AppModel {
             }
             AppMsg::SelectSearchItem(search_result) => {
                 let event = match search_result.entrypoint_type {
-                    SearchResultEntrypointType::Command => AppMsg::RunCommand {
+                    UiSearchResultEntrypointType::Command => AppMsg::RunCommand {
                         entrypoint_id: search_result.entrypoint_id.clone(),
                         plugin_id: search_result.plugin_id.clone()
                     },
-                    SearchResultEntrypointType::View => AppMsg::OpenView {
+                    UiSearchResultEntrypointType::View => AppMsg::OpenView {
                         plugin_id: search_result.plugin_id.clone(),
                         plugin_name: search_result.plugin_name.clone(),
                         entrypoint_id: search_result.entrypoint_id.clone(),
                         entrypoint_name: search_result.entrypoint_name.clone(),
                     },
-                    SearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
+                    UiSearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
                         entrypoint_id: search_result.entrypoint_id.clone(),
                         plugin_id: search_result.plugin_id.clone()
                     },
@@ -807,77 +718,32 @@ impl AppModel {
     }
 
     fn open_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
-        let mut backend_client = self.backend_client.clone();
+        let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
-            let event = RpcEventRenderView {
-                entrypoint_id: entrypoint_id.to_string(),
-            };
-
-            let request = RpcRequestViewRenderRequest {
-                plugin_id: plugin_id.to_string(),
-                event: Some(event),
-            };
-
-            let action_shortcuts = backend_client.request_view_render(Request::new(request))
+            backend_client.request_view_render(plugin_id, entrypoint_id)
                 .await
-                .unwrap()
-                .into_inner()
-                .action_shortcuts
-                .into_iter()
-                .map(|(id, value)| {
-                    let key = value.key;
-                    let kind = RpcRequestViewRenderResponseActionKind::try_from(value.kind)
-                        .unwrap();
-
-                    let kind = match kind {
-                        RpcRequestViewRenderResponseActionKind::Main => ActionShortcutKind::Main,
-                        RpcRequestViewRenderResponseActionKind::Alternative => ActionShortcutKind::Alternative
-                    };
-
-                    (id, ActionShortcut { key, kind })
-                })
-                .collect::<HashMap<_, _>>();
-
-            action_shortcuts
+                .unwrap() // TODO proper error handling
         }, |action_shortcuts| AppMsg::SaveActionShortcuts { action_shortcuts })
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
-        let mut backend_client = self.backend_client.clone();
+        let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
-            let event = RpcEventRunCommand {
-                entrypoint_id: entrypoint_id.to_string(),
-            };
-
-            let request = RpcRequestRunCommandRequest {
-                plugin_id: plugin_id.to_string(),
-                event: Some(event),
-            };
-
-            backend_client.request_run_command(Request::new(request))
+            backend_client.request_run_command(plugin_id, entrypoint_id)
                 .await
-                .unwrap();
+                .unwrap(); // TODO proper error handling
         }, |_| AppMsg::Noop)
     }
 
     fn run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
-        let mut backend_client = self.backend_client.clone();
+        let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
-            let event = RpcEventRunGeneratedCommand {
-                entrypoint_id: entrypoint_id.to_string(),
-            };
-
-            let request = RpcRequestRunGeneratedCommandRequest {
-                plugin_id: plugin_id.to_string(),
-                event: Some(event),
-            };
-
-            backend_client.request_run_generated_command(Request::new(request))
+            backend_client.request_run_generated_command(plugin_id, entrypoint_id)
                 .await
-                .unwrap();
+                .unwrap(); // TODO proper error handling
         }, |_| AppMsg::Noop)
     }
 
@@ -898,23 +764,6 @@ impl AppModel {
     }
 }
 
-fn convert_property_value(value: PropertyValue) -> RpcUiPropertyValue {
-    match value {
-        PropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
-        PropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
-        PropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
-        PropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
-        PropertyValue::Object(value) => {
-            let value: HashMap<String, _> = value.into_iter()
-                .map(|(name, value)| (name, convert_property_value(value)))
-                .collect();
-
-            RpcUiPropertyValue { value: Some(Value::Object(RpcUiPropertyValueObject { value })) }
-        }
-        PropertyValue::Undefined => RpcUiPropertyValue { value: Some(Value::Undefined(0)) },
-    }
-}
-
 fn register_shortcut() -> GlobalHotKeyManager {
     use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 
@@ -926,7 +775,7 @@ fn register_shortcut() -> GlobalHotKeyManager {
     manager
 }
 
-fn listen_on_shortcut(mut sender: Sender<AppMsg>) {
+fn listen_on_shortcut(sender: Sender<AppMsg>) {
     use global_hotkey::GlobalHotKeyEvent;
 
     let handle = Handle::current();
@@ -945,7 +794,7 @@ fn listen_on_shortcut(mut sender: Sender<AppMsg>) {
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<NativeUiRequestData, NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, NativeUiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
     let mut request_rx = request_rx.write().await;
@@ -956,7 +805,7 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                NativeUiRequestData::ReplaceView { plugin_id, entrypoint_id, render_location, top_level_view, container } => {
+                UiRequestData::ReplaceView { plugin_id, entrypoint_id, render_location, top_level_view, container } => {
                     client_context.replace_view(render_location, container, &plugin_id, &entrypoint_id);
 
                     responder.respond(NativeUiResponseData::Nothing);
@@ -965,19 +814,19 @@ async fn request_loop(
                         top_level_view
                     }
                 }
-                NativeUiRequestData::ClearInlineView { plugin_id } => {
+                UiRequestData::ClearInlineView { plugin_id } => {
                     client_context.clear_inline_view(&plugin_id);
 
                     responder.respond(NativeUiResponseData::Nothing);
 
                     AppMsg::Noop // refresh ui
                 }
-                NativeUiRequestData::ShowWindow => {
+                UiRequestData::ShowWindow => {
                     responder.respond(NativeUiResponseData::Nothing);
 
                     AppMsg::ShowWindow
                 }
-                NativeUiRequestData::ShowPreferenceRequiredView {
+                UiRequestData::ShowPreferenceRequiredView {
                     plugin_id,
                     entrypoint_id,
                     plugin_preferences_required,
@@ -992,7 +841,7 @@ async fn request_loop(
                         entrypoint_preferences_required
                     }
                 }
-                NativeUiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
+                UiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
                     responder.respond(NativeUiResponseData::Nothing);
 
                     AppMsg::ShowPluginErrorView {

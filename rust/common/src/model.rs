@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+
 use anyhow::anyhow;
-use gix_url::Url;
 use gix_url::Scheme;
+use gix_url::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PluginId(Arc<str>);
@@ -69,18 +70,259 @@ pub enum DownloadStatus {
     },
 }
 
-#[derive(Debug, Clone)]
-pub enum PropertyValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-    Bytes(Vec<u8>),
-    Object(HashMap<String, PropertyValue>),
-    Undefined,
-}
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RenderLocation {
     InlineView,
     View
+}
+
+#[derive(Debug, Clone)]
+pub struct ActionShortcut {
+    pub key: String,
+    pub kind: ActionShortcutKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum ActionShortcutKind {
+    Main,
+    Alternative
+}
+
+
+#[derive(Debug, Clone)]
+pub struct UiSearchResult {
+    pub plugin_id: PluginId,
+    pub plugin_name: String,
+    pub entrypoint_id: EntrypointId,
+    pub entrypoint_name: String,
+    pub entrypoint_icon: Option<String>,
+    pub entrypoint_type: UiSearchResultEntrypointType,
+}
+
+#[derive(Debug, Clone)]
+pub enum UiSearchResultEntrypointType {
+    Command,
+    View,
+    GeneratedCommand,
+}
+
+#[derive(Debug, Clone)]
+pub struct UiWidget {
+    pub widget_id: UiWidgetId,
+    pub widget_type: String,
+    pub widget_properties: HashMap<String, UiPropertyValue>,
+    pub widget_children: Vec<UiWidget>,
+}
+
+#[derive(Debug, Clone)]
+pub enum UiPropertyValue {
+    String(String),
+    Number(f64),
+    Bool(bool),
+    Bytes(Vec<u8>),
+    Object(HashMap<String, UiPropertyValue>),
+    Undefined,
+}
+
+impl UiPropertyValue {
+    pub fn as_string(&self) -> Option<&str> {
+        if let UiPropertyValue::String(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_number(&self) -> Option<&f64> {
+        if let UiPropertyValue::Number(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let UiPropertyValue::Bool(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        if let UiPropertyValue::Bytes(val) = self {
+            Some(val)
+        } else {
+            None
+        }
+    }
+    pub fn as_object<T: UiPropertyValueToStruct>(&self) -> Option<T> {
+        if let UiPropertyValue::Object(val) = self {
+            Some(UiPropertyValueToStruct::convert(val).expect("invalid object"))
+        } else {
+            None
+        }
+    }
+    pub fn as_union<T: UiPropertyValueToEnum>(&self) -> anyhow::Result<T> {
+        UiPropertyValueToEnum::convert(self)
+    }
+}
+
+pub trait UiPropertyValueToStruct {
+    fn convert(value: &HashMap<String, UiPropertyValue>) -> anyhow::Result<Self> where Self: Sized;
+}
+
+pub trait UiPropertyValueToEnum {
+    fn convert(value: &UiPropertyValue) -> anyhow::Result<Self> where Self: Sized;
+}
+
+
+#[derive(Debug)]
+pub enum UiRequestData {
+    ShowWindow,
+    ClearInlineView {
+        plugin_id: PluginId
+    },
+    ReplaceView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        render_location: RenderLocation,
+        top_level_view: bool,
+        container: UiWidget,
+    },
+    ShowPreferenceRequiredView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool,
+    },
+    ShowPluginErrorView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        render_location: RenderLocation,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum UiViewEvent {
+    View {
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<UiPropertyValue>,
+    },
+    Open {
+        href: String
+    },
+}
+
+pub type UiWidgetId = u32;
+
+
+#[derive(Debug, Clone)]
+pub struct SettingsEntrypoint {
+    pub entrypoint_id: EntrypointId,
+    pub entrypoint_name: String,
+    pub entrypoint_description: String,
+    pub entrypoint_type: SettingsEntrypointType,
+    pub enabled: bool,
+    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SettingsPlugin {
+    pub plugin_id: PluginId,
+    pub plugin_name: String,
+    pub plugin_description: String,
+    pub enabled: bool,
+    pub entrypoints: HashMap<EntrypointId, SettingsEntrypoint>,
+    pub preferences: HashMap<String, PluginPreference>,
+    pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SettingsEntrypointType {
+    Command,
+    View,
+    InlineView,
+    CommandGenerator,
+}
+
+#[derive(Debug, Clone)]
+pub enum PluginPreferenceUserData {
+    Number {
+        value: Option<f64>,
+    },
+    String {
+        value: Option<String>,
+    },
+    Enum {
+        value: Option<String>,
+    },
+    Bool {
+        value: Option<bool>,
+    },
+    ListOfStrings {
+        value: Option<Vec<String>>,
+    },
+    ListOfNumbers {
+        value: Option<Vec<f64>>,
+    },
+    ListOfEnums {
+        value: Option<Vec<String>>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum PluginPreference {
+    Number {
+        default: Option<f64>,
+        description: String,
+    },
+    String {
+        default: Option<String>,
+        description: String,
+    },
+    Enum {
+        default: Option<String>,
+        description: String,
+        enum_values: Vec<PreferenceEnumValue>,
+    },
+    Bool {
+        default: Option<bool>,
+        description: String,
+    },
+    ListOfStrings {
+        default: Option<Vec<String>>,
+        description: String,
+    },
+    ListOfNumbers {
+        default: Option<Vec<f64>>,
+        description: String,
+    },
+    ListOfEnums {
+        default: Option<Vec<String>>,
+        enum_values: Vec<PreferenceEnumValue>,
+        description: String,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct PreferenceEnumValue {
+    pub label: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchIndexPluginEntrypointType {
+    Command,
+    View,
+    GeneratedCommand,
+}
+
+#[derive(Clone, Debug)]
+pub struct SearchResultItem {
+    pub entrypoint_type: SearchIndexPluginEntrypointType,
+    pub entrypoint_name: String,
+    pub entrypoint_id: String,
+    pub entrypoint_icon_path: Option<String>,
+    pub plugin_name: String,
+    pub plugin_id: String,
 }

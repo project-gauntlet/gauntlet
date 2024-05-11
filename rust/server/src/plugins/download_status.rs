@@ -24,10 +24,10 @@ impl DownloadStatusHolder {
         }
     }
 
-    pub fn download_status(&self) -> HashMap<String, DownloadStatus> {
+    pub fn download_status(&self) -> HashMap<PluginId, DownloadStatus> {
         let running_downloads = self.running_downloads.lock().expect("lock is poisoned");
         running_downloads.iter()
-            .map(|(plugin_id, status)| (plugin_id.to_string(), status.clone()))
+            .map(|(plugin_id, status)| (plugin_id.clone(), status.clone()))
             .collect()
     }
 }

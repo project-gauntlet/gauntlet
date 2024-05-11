@@ -11,12 +11,10 @@ use iced::widget::{button, checkbox, column, container, horizontal_space, pick_l
 use iced_aw::core::icons;
 use iced_aw::helpers::number_input;
 use iced_table::table;
-use tonic::Request;
 
-use common::model::{EntrypointId, PluginId};
-use common::rpc::{BackendClient, plugin_preference_user_data_from_npb, plugin_preference_user_data_to_npb, RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcNoProtoBufPluginPreferenceUserData, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcRemovePluginRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, settings_env_data_from_string, SettingsEnvData};
-use common::rpc::rpc_backend_client::RpcBackendClient;
-use common::rpc::rpc_ui_property_value::Value;
+use common::rpc::backend_api::BackendApi;
+use common::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin};
+use common::{settings_env_data_from_string, SettingsEnvData};
 
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
@@ -31,12 +29,93 @@ pub fn run() {
     }).unwrap();
 }
 
+#[derive(Debug, Clone)]
+struct PluginDataContainer {
+    plugins: HashMap<PluginId, SettingsPlugin>,
+    plugins_state: HashMap<PluginId, SettingsPluginData>
+}
+
+impl PluginDataContainer {
+    fn new() -> Self {
+        Self {
+            plugins: HashMap::new(),
+            plugins_state: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SettingsPluginData {
+    show_entrypoints: bool,
+}
+
+#[derive(Debug, Clone)]
+enum PluginPreferenceUserDataState {
+    Number {
+        value: Option<f64>,
+    },
+    String {
+        value: Option<String>,
+    },
+    Enum {
+        value: Option<String>,
+    },
+    Bool {
+        value: Option<bool>,
+    },
+    ListOfStrings {
+        value: Option<Vec<String>>,
+        new_value: String
+    },
+    ListOfNumbers {
+        value: Option<Vec<f64>>,
+        new_value: f64
+    },
+    ListOfEnums {
+        value: Option<Vec<String>>,
+        new_value: Option<SelectItem>
+    }
+}
+
+fn plugin_preference_user_data_to_state(value: PluginPreferenceUserData) -> PluginPreferenceUserDataState {
+    match value {
+        PluginPreferenceUserData::Number { value } => PluginPreferenceUserDataState::Number { value },
+        PluginPreferenceUserData::String { value } => PluginPreferenceUserDataState::String { value },
+        PluginPreferenceUserData::Enum { value } => PluginPreferenceUserDataState::Enum { value },
+        PluginPreferenceUserData::Bool { value } => PluginPreferenceUserDataState::Bool { value },
+        PluginPreferenceUserData::ListOfStrings { value } => PluginPreferenceUserDataState::ListOfStrings {
+            value,
+            new_value: "".to_owned()
+        },
+        PluginPreferenceUserData::ListOfNumbers { value } => PluginPreferenceUserDataState::ListOfNumbers {
+            value,
+            new_value: 0.0
+        },
+        PluginPreferenceUserData::ListOfEnums { value } => PluginPreferenceUserDataState::ListOfEnums {
+            value,
+            new_value: None
+        },
+    }
+}
+
+fn plugin_preference_user_data_from_state(value: PluginPreferenceUserDataState) -> PluginPreferenceUserData {
+    match value {
+        PluginPreferenceUserDataState::Number { value } => PluginPreferenceUserData::Number { value },
+        PluginPreferenceUserDataState::String { value } => PluginPreferenceUserData::String { value },
+        PluginPreferenceUserDataState::Enum { value } => PluginPreferenceUserData::Enum { value },
+        PluginPreferenceUserDataState::Bool { value } => PluginPreferenceUserData::Bool { value },
+        PluginPreferenceUserDataState::ListOfStrings { value, .. } => PluginPreferenceUserData::ListOfStrings { value },
+        PluginPreferenceUserDataState::ListOfNumbers { value, .. } => PluginPreferenceUserData::ListOfNumbers { value },
+        PluginPreferenceUserDataState::ListOfEnums { value, .. } => PluginPreferenceUserData::ListOfEnums { value },
+    }
+}
+
 struct ManagementAppModel {
-    backend_client: BackendClient,
+    backend_api: BackendApi,
     columns: Vec<Column>,
     rows: Vec<Row>,
-    plugins: Rc<RefCell<HashMap<PluginId, Plugin>>>,
-    preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserData>,
+    plugin_data: Rc<RefCell<PluginDataContainer>>,
+    preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>,
     selected_item: SelectedItem,
     header: scrollable::Id,
     body: scrollable::Id,
@@ -47,9 +126,9 @@ struct ManagementAppModel {
 enum ManagementAppMsg {
     TableSyncHeader(scrollable::AbsoluteOffset),
     FontLoaded(Result<(), font::Error>),
-    PluginsReloaded(HashMap<PluginId, Plugin>),
+    PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
     InitialPluginsReloaded {
-        plugins: HashMap<PluginId, Plugin>,
+        plugins: HashMap<PluginId, SettingsPlugin>,
         select_item: SelectedItem,
     },
     ToggleShowEntrypoints {
@@ -61,7 +140,7 @@ enum ManagementAppMsg {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
         name: String,
-        user_data: PluginPreferenceUserData
+        user_data: PluginPreferenceUserDataState
     },
     AddPlugin {
         plugin_id: PluginId,
@@ -105,106 +184,6 @@ enum EnabledItem {
 }
 
 
-#[derive(Debug, Clone)]
-struct Plugin {
-    plugin_id: PluginId,
-    plugin_name: String,
-    plugin_description: String,
-    show_entrypoints: bool,
-    enabled: bool,
-    entrypoints: HashMap<EntrypointId, Entrypoint>,
-    preferences: HashMap<String, PluginPreference>,
-    preferences_user_data: HashMap<String, PluginPreferenceUserData>,
-}
-
-#[derive(Debug, Clone)]
-struct Entrypoint {
-    entrypoint_id: EntrypointId,
-    entrypoint_name: String,
-    entrypoint_description: String,
-    entrypoint_type: EntrypointType,
-    enabled: bool,
-    preferences: HashMap<String, PluginPreference>,
-    preferences_user_data: HashMap<String, PluginPreferenceUserData>,
-}
-
-#[derive(Debug, Clone)]
-pub enum EntrypointType {
-    Command,
-    View,
-    InlineView,
-    CommandGenerator,
-}
-
-#[derive(Debug, Clone)]
-pub enum PluginPreferenceUserData {
-    Number {
-        value: Option<f64>,
-    },
-    String {
-        value: Option<String>,
-    },
-    Enum {
-        value: Option<String>,
-    },
-    Bool {
-        value: Option<bool>,
-    },
-    ListOfStrings {
-        value: Option<Vec<String>>,
-        new_value: String
-    },
-    ListOfNumbers {
-        value: Option<Vec<f64>>,
-        new_value: f64
-    },
-    ListOfEnums {
-        value: Option<Vec<String>>,
-        new_value: Option<SelectItem>
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum PluginPreference {
-    Number {
-        default: Option<f64>,
-        description: String,
-    },
-    String {
-        default: Option<String>,
-        description: String,
-    },
-    Enum {
-        default: Option<String>,
-        description: String,
-        enum_values: Vec<PreferenceEnumValue>,
-    },
-    Bool {
-        default: Option<bool>,
-        description: String,
-    },
-    ListOfStrings {
-        default: Option<Vec<String>>,
-        description: String,
-    },
-    ListOfNumbers {
-        default: Option<Vec<f64>>,
-        description: String,
-    },
-    ListOfEnums {
-        default: Option<Vec<String>>,
-        enum_values: Vec<PreferenceEnumValue>,
-        description: String,
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PreferenceEnumValue {
-    pub label: String,
-    pub value: String,
-}
-
-
 impl Application for ManagementAppModel {
     type Executor = executor::Default;
     type Message = ManagementAppMsg;
@@ -212,8 +191,8 @@ impl Application for ManagementAppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let backend_client = futures::executor::block_on(async {
-            anyhow::Ok(RpcBackendClient::connect("http://127.0.0.1:42320").await?)
+        let backend_api = futures::executor::block_on(async {
+            anyhow::Ok(BackendApi::new().await?)
         }).unwrap();
 
         let settings_env_data = std::env::var(SETTINGS_ENV)
@@ -234,7 +213,7 @@ impl Application for ManagementAppModel {
 
         (
             ManagementAppModel {
-                backend_client: backend_client.clone(),
+                backend_api: backend_api.clone(),
                 columns: vec![
                     Column::new(ColumnKind::ShowEntrypointsToggle),
                     Column::new(ColumnKind::Name),
@@ -242,7 +221,7 @@ impl Application for ManagementAppModel {
                     Column::new(ColumnKind::EnableToggle),
                 ],
                 rows: vec![],
-                plugins: Rc::new(RefCell::new(HashMap::new())),
+                plugin_data: Rc::new(RefCell::new(PluginDataContainer::new())),
                 preference_user_data: HashMap::new(),
                 selected_item: SelectedItem::None,
                 header: scrollable::Id::unique(),
@@ -253,7 +232,7 @@ impl Application for ManagementAppModel {
                 font::load(icons::BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
                 Command::perform(
                     async {
-                        reload_plugins(backend_client).await
+                        reload_plugins(backend_api).await
                     },
                     |plugins| ManagementAppMsg::InitialPluginsReloaded {
                         plugins,
@@ -278,9 +257,9 @@ impl Application for ManagementAppModel {
                 Command::none()
             }
             ManagementAppMsg::ToggleShowEntrypoints { plugin_id } => {
-                let mut plugins = self.plugins.borrow_mut();
-                let plugin = plugins.get_mut(&plugin_id).unwrap();
-                plugin.show_entrypoints = !plugin.show_entrypoints;
+                let mut plugin_data = self.plugin_data.borrow_mut();
+                let plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
+                plugin_data.show_entrypoints = !plugin_data.show_entrypoints;
                 Command::none()
             }
             ManagementAppMsg::PluginsReloaded(plugins) => {
@@ -301,16 +280,13 @@ impl Application for ManagementAppModel {
             ManagementAppMsg::EnabledToggleItem(item) => {
                 match item {
                     EnabledItem::Plugin { enabled, plugin_id } => {
-                        let mut backend_client = self.backend_client.clone();
+                        let mut backend_client = self.backend_api.clone();
 
                         Command::perform(
                             async move {
-                                let request = RpcSetPluginStateRequest {
-                                    plugin_id: plugin_id.to_string(),
-                                    enabled,
-                                };
-
-                                backend_client.set_plugin_state(Request::new(request)).await.unwrap();
+                                backend_client.set_plugin_state(plugin_id, enabled)
+                                    .await
+                                    .unwrap(); // TODO proper error handling
 
                                 reload_plugins(backend_client).await
                             },
@@ -318,17 +294,13 @@ impl Application for ManagementAppModel {
                         )
                     }
                     EnabledItem::Entrypoint { enabled, plugin_id, entrypoint_id } => {
-                        let mut backend_client = self.backend_client.clone();
+                        let mut backend_client = self.backend_api.clone();
 
                         Command::perform(
                             async move {
-                                let request = RpcSetEntrypointStateRequest {
-                                    plugin_id: plugin_id.to_string(),
-                                    entrypoint_id: entrypoint_id.to_string(),
-                                    enabled,
-                                };
-
-                                backend_client.set_entrypoint_state(Request::new(request)).await.unwrap();
+                                backend_client.set_entrypoint_state(plugin_id, entrypoint_id, enabled)
+                                    .await
+                                    .unwrap(); // TODO proper error handling
 
                                 reload_plugins(backend_client).await
                             },
@@ -338,7 +310,7 @@ impl Application for ManagementAppModel {
                 }
             }
             ManagementAppMsg::AddPlugin { plugin_id } => {
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_client = self.backend_api.clone();
 
                 let exists = self.running_downloads.insert(plugin_id.clone());
                 if !exists {
@@ -347,11 +319,9 @@ impl Application for ManagementAppModel {
 
                 Command::perform(
                     async move {
-                        let request = RpcDownloadPluginRequest {
-                            plugin_id: plugin_id.to_string()
-                        };
-
-                        backend_client.download_plugin(Request::new(request)).await.unwrap()
+                        backend_client.download_plugin(plugin_id)
+                            .await
+                            .unwrap() // TODO proper error handling
                     },
                     |_| ManagementAppMsg::Noop,
                 )
@@ -360,10 +330,10 @@ impl Application for ManagementAppModel {
                 for plugin in plugins {
                     self.running_downloads.remove(&plugin);
                 }
-                let backend_client = self.backend_client.clone();
+                let backend_api = self.backend_api.clone();
                 Command::perform(
                     async {
-                        reload_plugins(backend_client).await
+                        reload_plugins(backend_api).await
                     },
                     ManagementAppMsg::PluginsReloaded,
                 )
@@ -372,27 +342,13 @@ impl Application for ManagementAppModel {
                 if self.running_downloads.is_empty() {
                     Command::none()
                 } else {
-                    let mut backend_client = self.backend_client.clone();
+                    let mut backend_client = self.backend_api.clone();
 
                     Command::perform(
                         async move {
-                            let plugins = backend_client.download_status(Request::new(RpcDownloadStatusRequest::default()))
+                            let plugins = backend_client.download_status()
                                 .await
-                                .unwrap()
-                                .into_inner()
-                                .status_per_plugin
-                                .into_iter()
-                                .filter_map(|(plugin_id, status)| {
-                                    let status: RpcDownloadStatus = status.status.try_into()
-                                        .expect("download status failed");
-
-                                    match status {
-                                        RpcDownloadStatus::InProgress => None,
-                                        RpcDownloadStatus::Done => Some(PluginId::from_string(plugin_id)),
-                                        RpcDownloadStatus::Failed => Some(PluginId::from_string(plugin_id))
-                                    }
-                                })
-                                .collect::<Vec<_>>();
+                                .unwrap(); // TODO proper error handling
 
                             ManagementAppMsg::DownloadStatus { plugins }
                         },
@@ -407,20 +363,13 @@ impl Application for ManagementAppModel {
                 self.preference_user_data
                     .insert((plugin_id.clone(), entrypoint_id.clone(), name.clone()), user_data.clone());
 
-                let request = RpcSetPreferenceValueRequest {
-                    plugin_id: plugin_id.to_string(),
-                    entrypoint_id: entrypoint_id.map(|id| id.to_string()).unwrap_or_default(),
-                    preference_name: name,
-                    preference_value: Some(plugin_preference_user_data_from_npb(plugin_preference_user_data_to_grpc(user_data))),
-                };
-
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_client = self.backend_api.clone();
 
                 Command::perform(
                     async move {
-                        backend_client.set_preference_value(Request::new(request))
+                        backend_client.set_preference_value(plugin_id, entrypoint_id, name, plugin_preference_user_data_from_state(user_data))
                             .await
-                            .unwrap();
+                            .unwrap(); // TODO proper error handling
                     },
                     |_| ManagementAppMsg::Noop,
                 )
@@ -428,15 +377,13 @@ impl Application for ManagementAppModel {
             ManagementAppMsg::RemovePlugin { plugin_id } => {
                 self.selected_item = SelectedItem::None;
 
-                let request = RpcRemovePluginRequest { plugin_id: plugin_id.to_string() };
-
-                let mut backend_client = self.backend_client.clone();
+                let mut backend_client = self.backend_api.clone();
 
                 Command::perform(
                     async move {
-                        backend_client.remove_plugin(Request::new(request))
+                        backend_client.remove_plugin(plugin_id)
                             .await
-                            .unwrap();
+                            .unwrap(); // TODO proper error handling
 
                         reload_plugins(backend_client).await
                     },
@@ -469,8 +416,8 @@ impl Application for ManagementAppModel {
                     .into()
             }
             SelectedItem::Plugin { plugin_id } => {
-                let plugins = self.plugins.borrow();
-                let plugin = plugins.get(&plugin_id).unwrap();
+                let plugin_data = self.plugin_data.borrow();
+                let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                 let name = container(text(&plugin.plugin_name))
                     .padding(Padding::new(10.0))
@@ -534,8 +481,8 @@ impl Application for ManagementAppModel {
                     .into()
             }
             SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
-                let plugins = self.plugins.borrow();
-                let plugin = plugins.get(&plugin_id).unwrap();
+                let plugin_data = self.plugin_data.borrow();
+                let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                 let entrypoint = plugin.entrypoints.get(entrypoint_id).unwrap();
 
                 let name = container(text(&entrypoint.entrypoint_name))
@@ -679,11 +626,11 @@ impl Application for ManagementAppModel {
 
 enum Row {
     Plugin {
-        plugins: Rc<RefCell<HashMap<PluginId, Plugin>>>,
+        plugin_data: Rc<RefCell<PluginDataContainer>>,
         plugin_id: PluginId
     },
     Entrypoint {
-        plugins: Rc<RefCell<HashMap<PluginId, Plugin>>>,
+        plugin_data: Rc<RefCell<PluginDataContainer>>,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
@@ -744,11 +691,11 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => {
                 match row_entry {
-                    Row::Plugin { plugins, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Plugin { plugin_data, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin_data = plugin_data.plugins_state.get(&plugin_id).unwrap();
 
-                        let icon = if plugin.show_entrypoints { icons::Bootstrap::CaretDown } else { icons::Bootstrap::CaretRight };
+                        let icon = if plugin_data.show_entrypoints { icons::Bootstrap::CaretDown } else { icons::Bootstrap::CaretRight };
 
                         let icon: Element<_> = text(icon)
                             .font(icons::BOOTSTRAP_FONT)
@@ -756,7 +703,7 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
 
                         button(icon)
                             .style(theme::Button::Text)
-                            .on_press(ManagementAppMsg::ToggleShowEntrypoints { plugin_id: plugin.plugin_id.clone() })
+                            .on_press(ManagementAppMsg::ToggleShowEntrypoints { plugin_id: plugin_id.clone() })
                             .into()
                     }
                     Row::Entrypoint { .. } => {
@@ -767,17 +714,17 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
             }
             ColumnKind::Name => {
                 let content: Element<_> = match row_entry {
-                    Row::Plugin { plugins, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Plugin { plugin_data, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                         container(text(&plugin.plugin_name))
                             .center_y()
                             .into()
                     }
-                    Row::Entrypoint { plugins, plugin_id, entrypoint_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Entrypoint { plugin_data, plugin_id, entrypoint_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
                         let text: Element<_> = text(&entrypoint.entrypoint_name)
@@ -795,17 +742,17 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                 };
 
                 let msg = match &row_entry {
-                    Row::Plugin { plugins, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Plugin { plugin_data, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                         SelectedItem::Plugin {
                             plugin_id: plugin.plugin_id.clone()
                         }
                     },
-                    Row::Entrypoint { plugins, entrypoint_id, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Entrypoint { plugin_data, entrypoint_id, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
                         SelectedItem::Entrypoint {
@@ -827,16 +774,16 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                         horizontal_space()
                             .into()
                     }
-                    Row::Entrypoint { plugins, plugin_id, entrypoint_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Entrypoint { plugin_data, plugin_id, entrypoint_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
                         let entrypoint_type = match entrypoint.entrypoint_type {
-                            EntrypointType::Command => "Command",
-                            EntrypointType::View => "View",
-                            EntrypointType::InlineView => "Inline View",
-                            EntrypointType::CommandGenerator => "Command Generator"
+                            SettingsEntrypointType::Command => "Command",
+                            SettingsEntrypointType::View => "View",
+                            SettingsEntrypointType::InlineView => "Inline View",
+                            SettingsEntrypointType::CommandGenerator => "Command Generator"
                         };
 
                         container(text(entrypoint_type))
@@ -846,17 +793,17 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                 };
 
                 let msg = match &row_entry {
-                    Row::Plugin { plugins, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Plugin { plugin_data, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                         SelectedItem::Plugin {
                             plugin_id: plugin.plugin_id.clone()
                         }
                     },
-                    Row::Entrypoint { plugins, entrypoint_id, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Entrypoint { plugin_data, entrypoint_id, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
                         SelectedItem::Entrypoint {
@@ -874,9 +821,9 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
             }
             ColumnKind::EnableToggle => {
                 let (enabled, show_checkbox, plugin_id, entrypoint_id) = match &row_entry {
-                    Row::Plugin { plugins, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Plugin { plugin_data, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                         (
                             plugin.enabled,
@@ -885,9 +832,9 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                             None
                         )
                     }
-                    Row::Entrypoint { plugins, entrypoint_id, plugin_id } => {
-                        let plugins = plugins.borrow();
-                        let plugin = plugins.get(&plugin_id).unwrap();
+                    Row::Entrypoint { plugin_data, entrypoint_id, plugin_id } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
                         (
@@ -948,7 +895,7 @@ fn preferences_ui<'a>(
     plugin_id: PluginId,
     entrypoint_id: Option<EntrypointId>,
     preferences: &HashMap<String, PluginPreference>,
-    preference_user_data: &HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserData>
+    preference_user_data: &HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>
 ) -> Vec<Element<'a, ManagementAppMsg>> {
     let mut column_content = vec![];
 
@@ -1001,7 +948,7 @@ fn preferences_ui<'a>(
             PluginPreference::Number { default, .. } => {
                 let value = match user_data {
                     None => None,
-                    Some(PluginPreferenceUserData::Number { value }) => value.to_owned(),
+                    Some(PluginPreferenceUserDataState::Number { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
 
@@ -1017,7 +964,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::Number {
+                        user_data: PluginPreferenceUserDataState::Number {
                             value: Some(value),
                         },
                     }
@@ -1033,7 +980,7 @@ fn preferences_ui<'a>(
             PluginPreference::String { default, .. } => {
                 let value = match user_data {
                     None => None,
-                    Some(PluginPreferenceUserData::String { value }) => value.to_owned(),
+                    Some(PluginPreferenceUserDataState::String { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
 
@@ -1045,7 +992,7 @@ fn preferences_ui<'a>(
                             plugin_id: plugin_id.clone(),
                             entrypoint_id: entrypoint_id.clone(),
                             name: preference_name.to_owned(),
-                            user_data: PluginPreferenceUserData::String {
+                            user_data: PluginPreferenceUserDataState::String {
                                 value: Some(value),
                             },
                         }
@@ -1061,7 +1008,7 @@ fn preferences_ui<'a>(
             PluginPreference::Enum { default, enum_values, .. } => {
                 let value = match user_data {
                     None => None,
-                    Some(PluginPreferenceUserData::Enum { value }) => value.to_owned(),
+                    Some(PluginPreferenceUserDataState::Enum { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
 
@@ -1081,7 +1028,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::Enum {
+                        user_data: PluginPreferenceUserDataState::Enum {
                             value: Some(item.value),
                         },
                     })
@@ -1099,7 +1046,7 @@ fn preferences_ui<'a>(
             PluginPreference::Bool { default, .. } => {
                 let value = match user_data {
                     None => None,
-                    Some(PluginPreferenceUserData::Bool { value }) => value.to_owned(),
+                    Some(PluginPreferenceUserDataState::Bool { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
 
@@ -1109,7 +1056,7 @@ fn preferences_ui<'a>(
                             plugin_id: plugin_id.clone(),
                             entrypoint_id: entrypoint_id.clone(),
                             name: preference_name.to_owned(),
-                            user_data: PluginPreferenceUserData::Bool {
+                            user_data: PluginPreferenceUserDataState::Bool {
                                 value: Some(value),
                             },
                         }
@@ -1125,7 +1072,7 @@ fn preferences_ui<'a>(
             PluginPreference::ListOfStrings { .. } => {
                 let (value, new_value) = match user_data {
                     None => (None, "".to_owned()),
-                    Some(PluginPreferenceUserData::ListOfStrings { value, new_value }) => (value.to_owned(), new_value.to_owned()),
+                    Some(PluginPreferenceUserDataState::ListOfStrings { value, new_value }) => (value.to_owned(), new_value.to_owned()),
                     Some(_) => unreachable!()
                 };
 
@@ -1162,7 +1109,7 @@ fn preferences_ui<'a>(
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
                                 name: preference_name.to_owned(),
-                                user_data: PluginPreferenceUserData::ListOfStrings {
+                                user_data: PluginPreferenceUserDataState::ListOfStrings {
                                     value,
                                     new_value: new_value.clone(),
                                 },
@@ -1197,7 +1144,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::ListOfStrings {
+                        user_data: PluginPreferenceUserDataState::ListOfStrings {
                             value: Some(save_value),
                             new_value: "".to_owned(),
                         },
@@ -1218,7 +1165,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::ListOfStrings {
+                        user_data: PluginPreferenceUserDataState::ListOfStrings {
                             value: value.clone(),
                             new_value,
                         },
@@ -1239,7 +1186,7 @@ fn preferences_ui<'a>(
             PluginPreference::ListOfNumbers { .. } => {
                 let (value, new_value) = match user_data {
                     None => (None, 0.0),
-                    Some(PluginPreferenceUserData::ListOfNumbers { value, new_value }) => (value.to_owned(), new_value.to_owned()),
+                    Some(PluginPreferenceUserDataState::ListOfNumbers { value, new_value }) => (value.to_owned(), new_value.to_owned()),
                     Some(_) => unreachable!()
                 };
 
@@ -1277,7 +1224,7 @@ fn preferences_ui<'a>(
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
                                 name: preference_name.to_owned(),
-                                user_data: PluginPreferenceUserData::ListOfNumbers {
+                                user_data: PluginPreferenceUserDataState::ListOfNumbers {
                                     value,
                                     new_value: new_value.clone(),
                                 },
@@ -1315,7 +1262,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::ListOfNumbers {
+                        user_data: PluginPreferenceUserDataState::ListOfNumbers {
                             value: Some(save_value),
                             new_value: 0.0,
                         },
@@ -1333,7 +1280,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::ListOfNumbers {
+                        user_data: PluginPreferenceUserDataState::ListOfNumbers {
                             value: value.clone(),
                             new_value,
                         },
@@ -1354,7 +1301,7 @@ fn preferences_ui<'a>(
             PluginPreference::ListOfEnums { enum_values, .. } => {
                 let (value, new_value) = match user_data {
                     None => (None, None),
-                    Some(PluginPreferenceUserData::ListOfEnums { value, new_value }) => (value.to_owned(), new_value.to_owned()),
+                    Some(PluginPreferenceUserDataState::ListOfEnums { value, new_value }) => (value.to_owned(), new_value.to_owned()),
                     Some(_) => unreachable!()
                 };
 
@@ -1391,7 +1338,7 @@ fn preferences_ui<'a>(
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
                                 name: preference_name.to_owned(),
-                                user_data: PluginPreferenceUserData::ListOfEnums {
+                                user_data: PluginPreferenceUserDataState::ListOfEnums {
                                     value,
                                     new_value: new_value.clone(),
                                 },
@@ -1426,7 +1373,7 @@ fn preferences_ui<'a>(
                             plugin_id: plugin_id.clone(),
                             entrypoint_id: entrypoint_id.clone(),
                             name: preference_name.to_owned(),
-                            user_data: PluginPreferenceUserData::ListOfEnums {
+                            user_data: PluginPreferenceUserDataState::ListOfEnums {
                                 value: Some(save_value),
                                 new_value: None,
                             },
@@ -1455,7 +1402,7 @@ fn preferences_ui<'a>(
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
                         name: preference_name.to_owned(),
-                        user_data: PluginPreferenceUserData::ListOfEnums {
+                        user_data: PluginPreferenceUserDataState::ListOfEnums {
                             value: value.clone(),
                             new_value: Some(new_value),
                         },
@@ -1487,18 +1434,18 @@ fn preferences_ui<'a>(
 }
 
 impl ManagementAppModel {
-    fn apply_plugin_reload(&mut self, plugins: HashMap<PluginId, Plugin>) {
+    fn apply_plugin_reload(&mut self, plugins: HashMap<PluginId, SettingsPlugin>) {
         self.preference_user_data = plugins.iter()
             .map(|(plugin_id, plugin)| {
                 let mut result = vec![];
 
                 for (name, user_data) in &plugin.preferences_user_data {
-                    result.push(((plugin_id.clone(), None, name.clone()), user_data.clone()))
+                    result.push(((plugin_id.clone(), None, name.clone()), plugin_preference_user_data_to_state(user_data.clone())))
                 }
 
                 for (entrypoint_id, entrypoint) in &plugin.entrypoints {
                     for (name, user_data) in &entrypoint.preferences_user_data {
-                        result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), name.clone()), user_data.clone()))
+                        result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), name.clone()), plugin_preference_user_data_to_state(user_data.clone())))
                     }
                 }
 
@@ -1507,17 +1454,29 @@ impl ManagementAppModel {
             .flatten()
             .collect();
 
-        let plugins = Rc::new(RefCell::new(plugins));
-        self.plugins = plugins.clone();
+        let mut plugin_data = self.plugin_data.borrow_mut();
 
-        let plugin_refs = plugins.borrow();
+        plugin_data.plugins_state = plugins.iter()
+            .map(|(id, plugin)| {
+                let show_entrypoints = plugin_data.plugins_state
+                    .get(&id)
+                    .map(|data| data.show_entrypoints)
+                    .unwrap_or(true);
 
-        let mut plugin_refs: Vec<_> = plugin_refs
+                (id.clone(), SettingsPluginData { show_entrypoints })
+            })
+            .collect();
+
+        plugin_data.plugins = plugins;
+
+        let mut plugin_refs: Vec<_> = plugin_data.plugins
             .iter()
             .map(|(_, plugin)| plugin)
             .collect();
 
         plugin_refs.sort_by_key(|plugin| &plugin.plugin_name);
+
+        let plugin_data = self.plugin_data.clone();
 
         self.rows = plugin_refs
             .iter()
@@ -1525,31 +1484,29 @@ impl ManagementAppModel {
                 let mut result = vec![];
 
                 result.push(Row::Plugin {
-                    plugins: plugins.clone(),
+                    plugin_data: plugin_data.clone(),
                     plugin_id: plugin.plugin_id.clone()
                 });
 
-                if plugin.show_entrypoints {
-                    let mut entrypoints: Vec<_> = plugin.entrypoints
-                        .iter()
-                        .map(|(_, entrypoint)| entrypoint)
-                        .collect();
+                let mut entrypoints: Vec<_> = plugin.entrypoints
+                    .iter()
+                    .map(|(_, entrypoint)| entrypoint)
+                    .collect();
 
-                    entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
+                entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
 
-                    let mut entrypoints: Vec<_> = entrypoints
-                        .iter()
-                        .map(|entrypoint| {
-                            Row::Entrypoint {
-                                plugins: plugins.clone(),
-                                plugin_id: plugin.plugin_id.clone(),
-                                entrypoint_id: entrypoint.entrypoint_id.clone(),
-                            }
-                        })
-                        .collect();
+                let mut entrypoints: Vec<_> = entrypoints
+                    .iter()
+                    .map(|entrypoint| {
+                        Row::Entrypoint {
+                            plugin_data: plugin_data.clone(),
+                            plugin_id: plugin.plugin_id.clone(),
+                            entrypoint_id: entrypoint.entrypoint_id.clone(),
+                        }
+                    })
+                    .collect();
 
-                    result.append(&mut entrypoints);
-                }
+                result.append(&mut entrypoints);
 
                 result
             })
@@ -1557,234 +1514,10 @@ impl ManagementAppModel {
     }
 }
 
-async fn reload_plugins(mut backend_client: BackendClient) -> HashMap<PluginId, Plugin> {
-    backend_client.plugins(Request::new(RpcPluginsRequest::default()))
+async fn reload_plugins(mut backend_api: BackendApi) -> HashMap<PluginId, SettingsPlugin> {
+    backend_api.plugins()
         .await
-        .unwrap()
-        .into_inner()
-        .plugins
-        .into_iter()
-        .map(|plugin| {
-            let entrypoints: HashMap<_, _> = plugin.entrypoints
-                .into_iter()
-                .map(|entrypoint| {
-                    let id = EntrypointId::from_string(entrypoint.entrypoint_id);
-                    let entrypoint_type: RpcEntrypointTypeSettings = entrypoint.entrypoint_type.try_into()
-                        .expect("download status failed");
-
-                    let entrypoint_type = match entrypoint_type {
-                        RpcEntrypointTypeSettings::SCommand => EntrypointType::Command,
-                        RpcEntrypointTypeSettings::SView => EntrypointType::View,
-                        RpcEntrypointTypeSettings::SInlineView => EntrypointType::InlineView,
-                        RpcEntrypointTypeSettings::SCommandGenerator => EntrypointType::CommandGenerator
-                    };
-
-                    let entrypoint = Entrypoint {
-                        enabled: entrypoint.enabled,
-                        entrypoint_id: id.clone(),
-                        entrypoint_name: entrypoint.entrypoint_name.clone(),
-                        entrypoint_description: entrypoint.entrypoint_description,
-                        entrypoint_type,
-                        preferences: entrypoint.preferences.into_iter()
-                            .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
-                            .collect(),
-                        preferences_user_data: entrypoint.preferences_user_data.into_iter()
-                            .map(|(key, value)| (key, plugin_preference_user_data_from_grpc(plugin_preference_user_data_to_npb(value))))
-                            .collect(),
-                    };
-                    (id, entrypoint)
-                })
-                .collect();
-
-            let id = PluginId::from_string(plugin.plugin_id);
-            let plugin = Plugin {
-                plugin_id: id.clone(),
-                plugin_name: plugin.plugin_name,
-                plugin_description: plugin.plugin_description,
-                show_entrypoints: true,
-                enabled: plugin.enabled,
-                entrypoints,
-                preferences: plugin.preferences.into_iter()
-                    .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
-                    .collect(),
-                preferences_user_data: plugin.preferences_user_data.into_iter()
-                    .map(|(key, value)| (key, plugin_preference_user_data_from_grpc(plugin_preference_user_data_to_npb(value))))
-                    .collect(),};
-
-            (id, plugin)
-        })
-        .collect()
-}
-
-
-fn plugin_preference_from_grpc(value: RpcPluginPreference) -> PluginPreference {
-    let value_type: RpcPluginPreferenceValueType = value.r#type.try_into().unwrap();
-    match value_type {
-        RpcPluginPreferenceValueType::Number => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::Number(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::Number {
-                default,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::String => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::String(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::String {
-                default,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::Enum => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::String(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::Enum {
-                default,
-                description: value.description,
-                enum_values: value.enum_values.into_iter()
-                    .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
-                    .collect()
-            }
-        }
-        RpcPluginPreferenceValueType::Bool => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::Bool(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::Bool {
-                default,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::ListOfStrings => {
-            let default_list = match value.default_list_exists {
-                true => {
-                    let default_list = value.default_list
-                        .into_iter()
-                        .flat_map(|value| value.value.map(|value| {
-                            match value {
-                                Value::String(value) => value,
-                                _ => unreachable!()
-                            }
-                        }))
-                        .collect();
-
-                    Some(default_list)
-                },
-                false => None
-            };
-
-            PluginPreference::ListOfStrings {
-                default: default_list,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::ListOfNumbers => {
-            let default_list = match value.default_list_exists {
-                true => {
-                    let default_list = value.default_list
-                        .into_iter()
-                        .flat_map(|value| value.value.map(|value| {
-                            match value {
-                                Value::Number(value) => value,
-                                _ => unreachable!()
-                            }
-                        }))
-                        .collect();
-
-                    Some(default_list)
-                },
-                false => None
-            };
-
-            PluginPreference::ListOfNumbers {
-                default: default_list,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::ListOfEnums => {
-            let default_list = match value.default_list_exists {
-                true => {
-                    let default_list = value.default_list
-                        .into_iter()
-                        .flat_map(|value| value.value.map(|value| {
-                            match value {
-                                Value::String(value) => value,
-                                _ => unreachable!()
-                            }
-                        }))
-                        .collect();
-
-                    Some(default_list)
-                },
-                false => None
-            };
-
-            PluginPreference::ListOfEnums {
-                default: default_list,
-                enum_values: value.enum_values.into_iter()
-                    .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
-                    .collect(),
-                description: value.description,
-            }
-        }
-    }
-}
-
-fn plugin_preference_user_data_from_grpc(value: RpcNoProtoBufPluginPreferenceUserData) -> PluginPreferenceUserData {
-    match value {
-        RpcNoProtoBufPluginPreferenceUserData::Number { value } => PluginPreferenceUserData::Number { value },
-        RpcNoProtoBufPluginPreferenceUserData::String { value } => PluginPreferenceUserData::String { value },
-        RpcNoProtoBufPluginPreferenceUserData::Enum { value } => PluginPreferenceUserData::Enum { value },
-        RpcNoProtoBufPluginPreferenceUserData::Bool { value } => PluginPreferenceUserData::Bool { value },
-        RpcNoProtoBufPluginPreferenceUserData::ListOfStrings { value } => PluginPreferenceUserData::ListOfStrings {
-            value,
-            new_value: "".to_owned()
-        },
-        RpcNoProtoBufPluginPreferenceUserData::ListOfNumbers { value } => PluginPreferenceUserData::ListOfNumbers {
-            value,
-            new_value: 0.0
-        },
-        RpcNoProtoBufPluginPreferenceUserData::ListOfEnums { value } => PluginPreferenceUserData::ListOfEnums {
-            value,
-            new_value: None
-        },
-    }
-}
-
-fn plugin_preference_user_data_to_grpc(value: PluginPreferenceUserData) -> RpcNoProtoBufPluginPreferenceUserData {
-    match value {
-        PluginPreferenceUserData::Number { value } => RpcNoProtoBufPluginPreferenceUserData::Number { value },
-        PluginPreferenceUserData::String { value } => RpcNoProtoBufPluginPreferenceUserData::String { value },
-        PluginPreferenceUserData::Enum { value } => RpcNoProtoBufPluginPreferenceUserData::Enum { value },
-        PluginPreferenceUserData::Bool { value } => RpcNoProtoBufPluginPreferenceUserData::Bool { value },
-        PluginPreferenceUserData::ListOfStrings { value, .. } => RpcNoProtoBufPluginPreferenceUserData::ListOfStrings { value },
-        PluginPreferenceUserData::ListOfNumbers { value, .. } => RpcNoProtoBufPluginPreferenceUserData::ListOfNumbers { value },
-        PluginPreferenceUserData::ListOfEnums { value, .. } => RpcNoProtoBufPluginPreferenceUserData::ListOfEnums { value },
-    }
+        .unwrap() // TODO proper error handling
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

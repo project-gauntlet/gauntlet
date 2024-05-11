@@ -1,19 +1,18 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use anyhow::{Context, Error};
+use anyhow::{Context};
 use deno_core::error::AnyError;
 use deno_core::futures;
 use deno_core::futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use sqlx::{Decode, Executor, Pool, Row, Sqlite, SqlitePool};
+use sqlx::{Executor, Pool, Row, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::dirs::Dirs;
-use crate::plugins::js::plugin_id;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -447,7 +446,7 @@ impl DataDbRepository {
         // language=SQLite
         let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions_user_data) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'kind' = ?4"#;
 
-        let mut action_id = sqlx::query_as::<_, (String, )>(sql)
+        let action_id = sqlx::query_as::<_, (String, )>(sql)
             .bind(plugin_id)
             .bind(entrypoint_id)
             .bind(key)

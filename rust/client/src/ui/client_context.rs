@@ -1,6 +1,5 @@
-use common::model::{EntrypointId, PluginId, RenderLocation};
+use common::model::{EntrypointId, PluginId, RenderLocation, UiViewEvent, UiWidget};
 
-use crate::model::{NativeUiViewEvent, NativeUiWidget};
 use crate::ui::widget::ComponentWidgetEvent;
 use crate::ui::widget_container::PluginWidgetContainer;
 
@@ -55,7 +54,7 @@ impl ClientContext {
         self.view.get_entrypoint_id()
     }
 
-    pub fn replace_view(&mut self, render_location: RenderLocation, container: NativeUiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
+    pub fn replace_view(&mut self, render_location: RenderLocation, container: UiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
         match render_location {
             RenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, entrypoint_id),
             RenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, entrypoint_id)
@@ -68,7 +67,7 @@ impl ClientContext {
         }
     }
 
-    pub fn handle_event(&self, render_location: RenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<NativeUiViewEvent> {
+    pub fn handle_event(&self, render_location: RenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         match render_location {
             RenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
             RenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)

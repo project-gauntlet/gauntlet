@@ -1,15 +1,13 @@
 use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 use std::env;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 use directories::BaseDirs;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use image::ImageFormat;
 use image::imageops::FilterType;
-use regex::Regex;
 use serde::Serialize;
 use walkdir::WalkDir;
 

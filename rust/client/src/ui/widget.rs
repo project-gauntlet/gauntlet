@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use anyhow::anyhow;
 
-use iced::{Alignment, color, Font, Length, Padding};
+use iced::{Alignment, Font, Length, Padding};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
@@ -17,15 +17,14 @@ use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
 
-use common::model::PluginId;
+use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiViewEvent, UiWidgetId};
 
-use crate::model::{NativeUiPropertyValue, NativeUiViewEvent, NativeUiWidgetId, ValueToEnum, ValueToStruct};
-use crate::ui::{ActionShortcut, ActionShortcutKind};
+use crate::ui::{ActionShortcut};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
-    id: NativeUiWidgetId,
+    id: UiWidgetId,
     inner: Arc<RwLock<(ComponentWidget, ComponentWidgetState)>>,
 }
 
@@ -121,10 +120,10 @@ pub enum ComponentRenderContext {
     Inline,
     GridItem,
     List {
-        widget_id: NativeUiWidgetId
+        widget_id: UiWidgetId
     },
     Grid {
-        widget_id: NativeUiWidgetId
+        widget_id: UiWidgetId
     },
     Root {
         entrypoint_name: String,
@@ -146,9 +145,9 @@ impl ComponentRenderContext {
 
 impl ComponentWidgetWrapper {
     pub fn widget(
-        id: NativeUiWidgetId,
+        id: UiWidgetId,
         widget_type: impl Into<String>,
-        properties: HashMap<String, NativeUiPropertyValue>,
+        properties: HashMap<String, UiPropertyValue>,
         children: Vec<ComponentWidgetWrapper>
     ) -> anyhow::Result<Self> {
         let widget_type = widget_type.into();
@@ -159,18 +158,18 @@ impl ComponentWidgetWrapper {
         Ok(widget)
     }
 
-    pub fn root(id: NativeUiWidgetId) -> Self {
+    pub fn root(id: UiWidgetId) -> Self {
         ComponentWidgetWrapper::new(id, ComponentWidget::Root { children: vec![] }, ComponentWidgetState::None)
     }
 
-    fn new(id: NativeUiWidgetId, widget: ComponentWidget, state: ComponentWidgetState) -> Self {
+    fn new(id: UiWidgetId, widget: ComponentWidget, state: ComponentWidgetState) -> Self {
         Self {
             id,
             inner: Arc::new(RwLock::new((widget, state))),
         }
     }
 
-    pub fn find_child_with_id(&self, widget_id: NativeUiWidgetId) -> Option<ComponentWidgetWrapper> {
+    pub fn find_child_with_id(&self, widget_id: UiWidgetId) -> Option<ComponentWidgetWrapper> {
         if self.id == widget_id {
             return Some(self.clone())
         }
@@ -1213,7 +1212,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
 
 fn render_root<'a>(
     show_action_panel: bool,
-    widget_id: NativeUiWidgetId,
+    widget_id: UiWidgetId,
     children: &[ComponentWidgetWrapper],
     content: Element<'a, ComponentWidgetEvent>,
     context: ComponentRenderContext
@@ -1378,60 +1377,60 @@ fn render_children_by_type<'a>(
 #[derive(Clone, Debug)]
 pub enum ComponentWidgetEvent {
     LinkClick {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
         href: String
     },
     TagClick {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
     },
     ActionClick {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
     },
     ToggleDatePicker {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
     },
     OnChangeTextField {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
         value: String
     },
     OnChangePasswordField {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
         value: String
     },
     SubmitDatePicker {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
         value: String
     },
     CancelDatePicker {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
     },
     ToggleCheckbox {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
         value: bool
     },
     SelectPickList {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
         value: String
     },
     ToggleActionPanel {
-        widget_id: NativeUiWidgetId,
+        widget_id: UiWidgetId,
     },
     SelectListItem {
-        list_widget_id: NativeUiWidgetId,
+        list_widget_id: UiWidgetId,
         item_id: String,
     },
     SelectGridItem {
-        grid_widget_id: NativeUiWidgetId,
+        grid_widget_id: UiWidgetId,
         item_id: String,
     },
     PreviousView,
 }
 
 impl ComponentWidgetEvent {
-    pub fn handle(self, plugin_id: PluginId, widget: ComponentWidgetWrapper) -> Option<NativeUiViewEvent> {
+    pub fn handle(self, plugin_id: PluginId, widget: ComponentWidgetWrapper) -> Option<UiViewEvent> {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id: _, href } => {
-                Some(NativeUiViewEvent::Open {
+                Some(UiViewEvent::Open {
                     href
                 })
             }
@@ -1546,7 +1545,7 @@ impl ComponentWidgetEvent {
         }
     }
 
-    pub fn widget_id(&self) -> NativeUiWidgetId {
+    pub fn widget_id(&self) -> UiWidgetId {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ActionClick { widget_id, .. } => widget_id,
@@ -1566,35 +1565,35 @@ impl ComponentWidgetEvent {
     }
 }
 
-fn parse_optional_string(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<String>> {
+fn parse_optional_string(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<String>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => Ok(Some(value.as_string().ok_or(anyhow::anyhow!("{} has to be a string", name))?.to_owned())),
     }
 }
 
-fn parse_string(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<String> {
+fn parse_string(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<String> {
     parse_optional_string(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
-fn parse_optional_number(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<f64>> {
+fn parse_optional_number(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<f64>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => Ok(Some(value.as_number().ok_or(anyhow::anyhow!("{} has to be a number", name))?.to_owned())),
     }
 }
 
-fn parse_number(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<f64> {
+fn parse_number(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<f64> {
     parse_optional_number(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
-fn parse_optional_boolean(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<bool>> {
+fn parse_optional_boolean(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<bool>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => Ok(Some(value.as_bool().ok_or(anyhow::anyhow!("{} has to be a boolean", name))?.to_owned())),
     }
 }
-fn parse_boolean(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<bool> {
+fn parse_boolean(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<bool> {
     parse_optional_boolean(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
@@ -1617,18 +1616,18 @@ pub fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
     }
 }
 
-fn parse_bytes_optional(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
+fn parse_bytes_optional(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => Ok(Some(value.as_bytes().ok_or(anyhow::anyhow!("{} has to be a byte array", name))?.to_owned())),
     }
 }
 
-fn parse_bytes(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Vec<u8>> {
+fn parse_bytes(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Vec<u8>> {
     parse_bytes_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
-fn parse_enum_optional<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+fn parse_enum_optional<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => {
@@ -1639,12 +1638,12 @@ fn parse_enum_optional<T: FromStr<Err = strum::ParseError>>(properties: &HashMap
     }
 }
 
-fn parse_enum<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<T> {
+fn parse_enum<T: FromStr<Err = strum::ParseError>>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<T> {
     parse_enum_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
 
-fn parse_object_optional<T: ValueToStruct>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+fn parse_object_optional<T: UiPropertyValueToStruct>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => {
@@ -1655,18 +1654,18 @@ fn parse_object_optional<T: ValueToStruct>(properties: &HashMap<String, NativeUi
     }
 }
 
-fn parse_object<T: ValueToStruct>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<T> {
+fn parse_object<T: UiPropertyValueToStruct>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<T> {
     parse_object_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
-fn parse_union_optional<T: ValueToEnum>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
+fn parse_union_optional<T: UiPropertyValueToEnum>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
     match properties.get(name) {
         None => Ok(None),
         Some(value) => Ok(Some(value.as_union()?)),
     }
 }
 
-fn parse_union<T: ValueToEnum>(properties: &HashMap<String, NativeUiPropertyValue>, name: &str) -> anyhow::Result<T> {
+fn parse_union<T: UiPropertyValueToEnum>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<T> {
     parse_union_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
@@ -1895,24 +1894,25 @@ fn icon_to_bootstrap(icon: &Icons) -> icons::Bootstrap {
     }
 }
 
-impl ValueToEnum for ListItemIcon {
-    fn convert(value: &NativeUiPropertyValue) -> anyhow::Result<ListItemIcon> {
+impl UiPropertyValueToEnum for ListItemIcon {
+    fn convert(value: &UiPropertyValue) -> anyhow::Result<ListItemIcon> {
         match value {
-            NativeUiPropertyValue::String(value) => Ok(ListItemIcon::_1(Icons::from_str(value)?)),
-            NativeUiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
-            NativeUiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
-            NativeUiPropertyValue::Bytes(_) => Err(anyhow!("unexpected type bytes for ListItemIcon")),
-            NativeUiPropertyValue::Object(value) => {
+            UiPropertyValue::String(value) => Ok(ListItemIcon::_1(Icons::from_str(value)?)),
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
+            UiPropertyValue::Bytes(_) => Err(anyhow!("unexpected type bytes for ListItemIcon")),
+            UiPropertyValue::Object(value) => {
                 Ok(ListItemIcon::_0(ImageSource {
                     data: parse_bytes(value, "data")?,
                 }))
             }
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
         }
     }
 }
 
-impl ValueToStruct for ImageSource {
-    fn convert(value: &HashMap<String, NativeUiPropertyValue>) -> anyhow::Result<ImageSource> {
+impl UiPropertyValueToStruct for ImageSource {
+    fn convert(value: &HashMap<String, UiPropertyValue>) -> anyhow::Result<ImageSource> {
         Ok(ImageSource {
             data: parse_bytes(value, "data")?,
         })

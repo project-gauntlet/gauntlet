@@ -1,6 +1,5 @@
-use common::model::{EntrypointId, PluginId};
+use common::model::{EntrypointId, PluginId, UiViewEvent, UiWidget};
 
-use crate::model::{NativeUiViewEvent, NativeUiWidget};
 use crate::ui::theme::Element;
 use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent, ComponentWidgetWrapper};
 
@@ -31,7 +30,7 @@ impl PluginWidgetContainer {
         self.root_widget.render_widget(context)
     }
 
-    fn create_component_widget(&mut self, ui_widget: NativeUiWidget) -> ComponentWidgetWrapper {
+    fn create_component_widget(&mut self, ui_widget: UiWidget) -> ComponentWidgetWrapper {
         let children = ui_widget.widget_children
             .into_iter()
             .map(|ui_widget| self.create_component_widget(ui_widget))
@@ -41,7 +40,7 @@ impl PluginWidgetContainer {
             .expect("unable to create widget")
     }
 
-    pub fn replace_view(&mut self, container: NativeUiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
+    pub fn replace_view(&mut self, container: UiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
         tracing::trace!("replace_view is called. container: {:?}", container);
 
         self.plugin_id = Some(plugin_id.clone());
@@ -57,7 +56,7 @@ impl PluginWidgetContainer {
             .expect("unable to set children");
     }
 
-    pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<NativeUiViewEvent> {
+    pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         let widget = self.root_widget
             .find_child_with_id(event.widget_id())
             .expect("created event for non existing widget?");

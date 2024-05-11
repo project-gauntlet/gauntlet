@@ -6,29 +6,29 @@ use iced::widget::button;
 use iced::widget::component;
 use iced::widget::row;
 use iced::widget::text;
+use common::model::UiSearchResult;
 
-use crate::model::NativeUiSearchResult;
 use crate::ui::theme::{ButtonStyle, Element, GauntletTheme, TextStyle};
 
 pub struct SearchList<Message> {
-    on_select: Box<dyn Fn(NativeUiSearchResult) -> Message>,
-    search_results: Vec<NativeUiSearchResult>,
+    on_select: Box<dyn Fn(UiSearchResult) -> Message>,
+    search_results: Vec<UiSearchResult>,
 }
 
 pub fn search_list<Message>(
-    search_results: Vec<NativeUiSearchResult>,
-    on_select: impl Fn(NativeUiSearchResult) -> Message + 'static,
+    search_results: Vec<UiSearchResult>,
+    on_select: impl Fn(UiSearchResult) -> Message + 'static,
 ) -> SearchList<Message> {
     SearchList::new(search_results, on_select)
 }
 
 #[derive(Debug, Clone)]
-pub struct SelectItemEvent(NativeUiSearchResult);
+pub struct SelectItemEvent(UiSearchResult);
 
 impl<Message> SearchList<Message> {
     pub fn new(
-        search_results: Vec<NativeUiSearchResult>,
-        on_open_view: impl Fn(NativeUiSearchResult) -> Message + 'static,
+        search_results: Vec<UiSearchResult>,
+        on_open_view: impl Fn(UiSearchResult) -> Message + 'static,
     ) -> Self {
         Self {
             search_results,

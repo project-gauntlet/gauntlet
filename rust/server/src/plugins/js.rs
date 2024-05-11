@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context};
 use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::futures::executor::block_on;
-use deno_core::v8::{Array, GetPropertyNamesArgs, IndexFilter, KeyCollectionMode, KeyConversionMode, Object, PropertyFilter};
+use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
@@ -25,23 +25,18 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
-use tonic::codegen::Body;
-use tonic::Request;
-use tonic::transport::Channel;
-use uuid::Uuid;
 
-use common::model::{EntrypointId, PluginId, PropertyValue, RenderLocation};
-use common::rpc::{FrontendClient, RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcUiPropertyValue, RpcUiWidgetId};
-use common::rpc::rpc_frontend_client::RpcFrontendClient;
-use common::rpc::rpc_frontend_server::RpcFrontend;
+use common::model::{EntrypointId, PluginId, RenderLocation, SearchIndexPluginEntrypointType, UiPropertyValue, UiWidget, UiWidgetId};
+use common::rpc::frontend_api::FrontendApi;
+use common::rpc::frontend_server::wait_for_frontend_server;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
 
-use crate::model::{from_rpc_to_intermediate_value, IntermediateUiEvent, IntermediateUiWidget, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData, UiWidgetId};
+use crate::model::{IntermediateUiEvent, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::applications::{DesktopEntry, get_apps};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::run_status::RunStatusGuard;
-use crate::search::{SearchIndex, SearchIndexItem, SearchIndexPluginEntrypointType};
+use crate::search::{SearchIndex, SearchIndexItem};
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -96,7 +91,7 @@ pub enum OnePluginCommandData {
     HandleViewEvent {
         widget_id: UiWidgetId,
         event_name: String,
-        event_arguments: Vec<PropertyValue>,
+        event_arguments: Vec<UiPropertyValue>,
     },
     HandleKeyboardEvent {
         entrypoint_id: EntrypointId,
@@ -116,23 +111,10 @@ pub enum AllPluginCommandData {
     }
 }
 
-async fn wait_for_port() {
-    loop {
-        let addr: SocketAddr = "127.0.0.1:42321".parse().unwrap();
-
-        if TcpStream::connect(addr).await.is_ok() {
-            return;
-        }
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-}
-
-
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
-    wait_for_port().await;
+    wait_for_frontend_server().await;
 
-    let frontend_client = RpcFrontendClient::connect("http://127.0.0.1:42321").await?;
+    let frontend_api = FrontendApi::new().await?;
 
     let component_model = create_component_model();
 
@@ -230,7 +212,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.permissions,
                     data.inline_view_entrypoint_id,
                     event_stream,
-                    frontend_client,
+                    frontend_api,
                     component_model,
                     data.db_repository,
                     data.search_index,
@@ -266,7 +248,7 @@ async fn start_js_runtime(
     permissions: PluginPermissions,
     inline_view_entrypoint_id: Option<String>,
     event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
-    frontend_client: FrontendClient,
+    frontend_api: FrontendApi,
     component_model: Vec<Component>,
     repository: DataDbRepository,
     search_index: SearchIndex,
@@ -310,7 +292,7 @@ async fn start_js_runtime(
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
                 PluginData::new(plugin_id, plugin_uuid, inline_view_entrypoint_id),
-                frontend_client,
+                frontend_api,
                 ComponentModel::new(component_model),
                 repository,
                 search_index,
@@ -462,7 +444,7 @@ deno_core::extension!(
     options = {
         event_receiver: EventReceiver,
         plugin_data: PluginData,
-        frontend_client: FrontendClient,
+        frontend_api: FrontendApi,
         component_model: ComponentModel,
         db_repository: DataDbRepository,
         search_index: SearchIndex,
@@ -471,7 +453,7 @@ deno_core::extension!(
     state = |state, options| {
         state.put(options.event_receiver);
         state.put(options.plugin_data);
-        state.put(options.frontend_client);
+        state.put(options.frontend_api);
         state.put(options.component_model);
         state.put(options.db_repository);
         state.put(options.search_index);
@@ -1075,7 +1057,7 @@ fn open_application(command: Vec<String>) -> anyhow::Result<()> {
 }
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
-    let (plugin_id, mut frontend_client) = {
+    let (plugin_id, mut frontend_api) = {
         let state = state.borrow();
 
         let plugin_id = state
@@ -1083,19 +1065,19 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
             .plugin_id()
             .clone();
 
-        let frontend_client = state
-            .borrow::<FrontendClient>()
+        let frontend_api = state
+            .borrow::<FrontendApi>()
             .clone();
 
-        (plugin_id, frontend_client)
+        (plugin_id, frontend_api)
     };
 
     block_on(async {
-        make_request_async(plugin_id, &mut frontend_client, data).await
+        make_request_async(plugin_id, &mut frontend_api, data).await
     })
 }
 
-fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, PropertyValue>) -> anyhow::Result<()> {
+fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, UiPropertyValue>) -> anyhow::Result<()> {
     let state = state.borrow();
     let component_model = state.borrow::<ComponentModel>();
 
@@ -1112,30 +1094,30 @@ fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, proper
                     }
                     Some(prop_value) => {
                         match prop_value {
-                            PropertyValue::String(_) => {
+                            UiPropertyValue::String(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::String) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name, name))?
                                 }
                             }
-                            PropertyValue::Number(_) => {
+                            UiPropertyValue::Number(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Number) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name, name))?
                                 }
                             }
-                            PropertyValue::Bool(_) => {
+                            UiPropertyValue::Bool(_) => {
                                 if !matches!(comp_prop.property_type, PropertyType::Boolean) {
                                     Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name, name))?
                                 }
                             }
-                            PropertyValue::Undefined => {
+                            UiPropertyValue::Undefined => {
                                 if !comp_prop.optional {
                                     Err(anyhow::anyhow!("property {} on {} component has to be optional", comp_prop.name, name))?
                                 }
                             }
-                            PropertyValue::Bytes(_) => {
+                            UiPropertyValue::Bytes(_) => {
                                 todo!()
                             }
-                            PropertyValue::Object(_) => {
+                            UiPropertyValue::Object(_) => {
                                 todo!()
                             }
                         }
@@ -1226,74 +1208,39 @@ fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, chil
     Ok(())
 }
 
-async fn make_request_async(plugin_id: PluginId, frontend_client: &mut FrontendClient, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
+async fn make_request_async(plugin_id: PluginId, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
         JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id } => {
-            let rpc_render_location = match render_location {
-                JsRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
-                JsRenderLocation::View => RpcRenderLocation::ViewLocation,
+            let render_location = match render_location { // TODO into?
+                JsRenderLocation::InlineView => RenderLocation::InlineView,
+                JsRenderLocation::View => RenderLocation::View,
             };
 
-            let request = Request::new(RpcReplaceViewRequest {
-                top_level_view,
-                plugin_id: plugin_id.to_string(),
-                entrypoint_id: entrypoint_id.to_string(),
-                render_location: rpc_render_location.into(),
-                container: Some(container.into())
-            });
+            frontend_api.replace_view(plugin_id, entrypoint_id, render_location, top_level_view, container).await?;
 
-            let nothing = frontend_client.replace_view(request)
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
+            Ok(JsUiResponseData::Nothing)
         }
         JsUiRequestData::ClearInlineView => {
-            let request = Request::new(RpcClearInlineViewRequest {
-                plugin_id: plugin_id.to_string()
-            });
 
-            let nothing = frontend_client.clear_inline_view(request)
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
+            frontend_api.clear_inline_view(plugin_id).await?;
 
-            nothing
+            Ok(JsUiResponseData::Nothing)
         }
         JsUiRequestData::ShowPreferenceRequiredView { plugin_preferences_required, entrypoint_preferences_required, entrypoint_id } => {
-            let request = Request::new(RpcShowPreferenceRequiredViewRequest {
-                plugin_id: plugin_id.to_string(),
-                entrypoint_id: entrypoint_id.to_string(),
-                plugin_preferences_required,
-                entrypoint_preferences_required,
-            });
 
-            let nothing = frontend_client.show_preference_required_view(request)
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
+            frontend_api.show_preference_required_view(plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required).await?;
 
-            nothing
+            Ok(JsUiResponseData::Nothing)
         }
         JsUiRequestData::ShowPluginErrorView { entrypoint_id, render_location } => {
-            let rpc_render_location = match render_location {
-                JsRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
-                JsRenderLocation::View => RpcRenderLocation::ViewLocation,
+            let render_location = match render_location { // TODO into?
+                JsRenderLocation::InlineView => RenderLocation::InlineView,
+                JsRenderLocation::View => RenderLocation::View,
             };
 
-            let request = Request::new(RpcShowPluginErrorViewRequest {
-                plugin_id: plugin_id.to_string(),
-                entrypoint_id: entrypoint_id.to_string(),
-                render_location: rpc_render_location.into(),
-            });
+            frontend_api.show_plugin_error_view(plugin_id, entrypoint_id, render_location).await?;
 
-            let nothing = frontend_client.show_plugin_error_view(request)
-                .await
-                .map(|_| JsUiResponseData::Nothing)
-                .map_err(|err| err.into());
-
-            nothing
+            Ok(JsUiResponseData::Nothing)
         }
     }
 }
@@ -1312,11 +1259,11 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::HandleViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()
                 .map(|arg| match arg {
-                    PropertyValue::String(value) => JsPropertyValue::String { value },
-                    PropertyValue::Number(value) => JsPropertyValue::Number { value },
-                    PropertyValue::Bool(value) => JsPropertyValue::Bool { value },
-                    PropertyValue::Undefined => JsPropertyValue::Undefined,
-                    PropertyValue::Bytes(_) | PropertyValue::Object(_)  => {
+                    UiPropertyValue::String(value) => JsPropertyValue::String { value },
+                    UiPropertyValue::Number(value) => JsPropertyValue::Number { value },
+                    UiPropertyValue::Bool(value) => JsPropertyValue::Bool { value },
+                    UiPropertyValue::Undefined => JsPropertyValue::Undefined,
+                    UiPropertyValue::Bytes(_) | UiPropertyValue::Object(_)  => {
                         todo!()
                     }
                 })
@@ -1346,10 +1293,10 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     }
 }
 
-fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<IntermediateUiWidget> {
+fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<UiWidget> {
     let children = ui_widget.widget_children.into_iter()
         .map(|child| from_js_to_intermediate_widget(scope, child, component_model, shared_types))
-        .collect::<anyhow::Result<Vec<IntermediateUiWidget>>>()?;
+        .collect::<anyhow::Result<Vec<UiWidget>>>()?;
 
     let component = component_model.components
         .get(&ui_widget.widget_type)
@@ -1369,7 +1316,7 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
 
     let properties = from_js_to_intermediate_properties(scope, ui_widget.widget_properties, &props, shared_types);
 
-    Ok(IntermediateUiWidget {
+    Ok(UiWidget {
         widget_id: ui_widget.widget_id,
         widget_type: ui_widget.widget_type,
         widget_properties: properties?,
@@ -1382,7 +1329,7 @@ fn from_js_to_intermediate_properties(
     v8_properties: HashMap<String, serde_v8::Value>,
     component_props: &HashMap<&String, &PropertyType>,
     shared_types: &IndexMap<String, SharedType>
-) -> anyhow::Result<HashMap<String, PropertyValue>> {
+) -> anyhow::Result<HashMap<String, UiPropertyValue>> {
     let vec = v8_properties.into_iter()
         .filter(|(name, _)| name.as_str() != "children")
         .filter(|(_, value)| !value.v8_value.is_function())
@@ -1406,7 +1353,7 @@ fn convert(
     name: String,
     value: v8::Local<v8::Value>,
     shared_types: &IndexMap<String, SharedType>
-) -> anyhow::Result<(String, PropertyValue)> {
+) -> anyhow::Result<(String, UiPropertyValue)> {
     match property_type {
         PropertyType::String | PropertyType::Enum { .. } => {
             if value.is_string() {
@@ -1485,24 +1432,24 @@ fn convert(
     }
 }
 
-fn convert_num(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
-    Ok((name, PropertyValue::Number(value.number_value(scope).expect("expected number"))))
+fn convert_num(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, UiPropertyValue)> {
+    Ok((name, UiPropertyValue::Number(value.number_value(scope).expect("expected number"))))
 }
 
-fn convert_string(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
-    Ok((name, PropertyValue::String(value.to_rust_string_lossy(scope))))
+fn convert_string(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, UiPropertyValue)> {
+    Ok((name, UiPropertyValue::String(value.to_rust_string_lossy(scope))))
 }
 
-fn convert_boolean(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
-    Ok((name, PropertyValue::Bool(value.boolean_value(scope))))
+fn convert_boolean(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, UiPropertyValue)> {
+    Ok((name, UiPropertyValue::Bool(value.boolean_value(scope))))
 }
 
-fn convert_bytes(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, PropertyValue)> {
-    Ok((name, PropertyValue::Bytes(serde_v8::from_v8(scope, value)?)))
+fn convert_bytes(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, UiPropertyValue)> {
+    Ok((name, UiPropertyValue::Bytes(serde_v8::from_v8(scope, value)?)))
 }
 
-fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>, object_name: &str, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<(String, PropertyValue)> {
-    let object: v8::Local<Object> = value.try_into().context(format!("error while reading property {}", name))?;
+fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>, object_name: &str, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<(String, UiPropertyValue)> {
+    let object: v8::Local<v8::Object> = value.try_into().context(format!("error while reading property {}", name))?;
 
     let props = object
         .get_own_property_names(scope, GetPropertyNamesArgs {
@@ -1512,7 +1459,7 @@ fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8
         })
         .context("error getting get_own_property_names".to_string())?;
 
-    let mut result_obj: HashMap<String, PropertyValue> = HashMap::new();
+    let mut result_obj: HashMap<String, UiPropertyValue> = HashMap::new();
 
     for index in 0..props.length() {
         let key = props.get_index(scope, index).unwrap();
@@ -1529,7 +1476,7 @@ fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8
         result_obj.insert(key, value);
     }
 
-    Ok((name, PropertyValue::Object(result_obj)))
+    Ok((name, UiPropertyValue::Object(result_obj)))
 }
 
 fn invalid_type_err<T>(name: String, value: v8::Local<v8::Value>, property_type: &PropertyType) -> anyhow::Result<T> {

@@ -1,8 +1,7 @@
-use tonic::transport::Server;
 use client::start_client;
-use common::rpc::rpc_backend_server::RpcBackendServer;
-use crate::rpc::RpcBackendServerImpl;
+use common::rpc::backend_server::start_backend_server;
 use crate::plugins::ApplicationManager;
+use crate::rpc::BackendServerImpl;
 use crate::search::SearchIndex;
 
 pub mod rpc;
@@ -60,13 +59,7 @@ async fn run_server() -> anyhow::Result<()> {
     application_manager.reload_all_plugins().await?; // TODO do not fail here ?
 
     tokio::spawn(async {
-        let addr = "127.0.0.1:42320".parse().unwrap();
-
-        Server::builder()
-            .add_service(RpcBackendServer::new(RpcBackendServerImpl { search_index, application_manager }))
-            .serve(addr)
-            .await
-            .expect("unable to start backend server");
+        start_backend_server(Box::new(BackendServerImpl::new(search_index, application_manager))).await
     });
 
     std::future::pending::<()>().await;

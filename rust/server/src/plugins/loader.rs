@@ -1,10 +1,8 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::DirEntry;
-use std::io::{Error, ErrorKind};
+use std::io::{ErrorKind};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::thread;
 
 use anyhow::{anyhow, Context};
@@ -17,7 +15,6 @@ use common::model::{DownloadStatus, PluginId};
 
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
 use crate::plugins::download_status::DownloadStatusHolder;
-use crate::plugins::js::asset_data;
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
@@ -32,7 +29,7 @@ impl PluginLoader {
         }
     }
 
-    pub fn download_status(&self) -> HashMap<String, DownloadStatus> {
+    pub fn download_status(&self) -> HashMap<PluginId, DownloadStatus> {
         self.download_status_holder.download_status()
     }
 

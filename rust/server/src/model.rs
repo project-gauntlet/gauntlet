@@ -3,9 +3,7 @@ use std::collections::HashMap;
 use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
 
-use common::model::{EntrypointId, PropertyValue};
-use common::rpc::{RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
-use common::rpc::rpc_ui_property_value::Value;
+use common::model::{EntrypointId, UiPropertyValue, UiWidget, UiWidgetId};
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -18,7 +16,7 @@ pub enum JsUiRequestData {
         entrypoint_id: EntrypointId,
         render_location: JsRenderLocation,
         top_level_view: bool,
-        container: IntermediateUiWidget,
+        container: UiWidget,
     },
     ClearInlineView,
     ShowPluginErrorView {
@@ -37,9 +35,6 @@ pub enum JsRenderLocation {
     InlineView,
     View
 }
-
-
-pub type UiWidgetId = u32;
 
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
@@ -130,7 +125,7 @@ pub enum IntermediateUiEvent {
     HandleViewEvent {
         widget_id: UiWidgetId,
         event_name: String,
-        event_arguments: Vec<PropertyValue>,
+        event_arguments: Vec<UiPropertyValue>,
     },
     HandleKeyboardEvent {
         entrypoint_id: EntrypointId,
@@ -149,69 +144,6 @@ pub enum IntermediateUiEvent {
     ReloadSearchIndex,
 }
 
-#[derive(Debug)]
-pub struct IntermediateUiWidget {
-    pub widget_id: UiWidgetId,
-    pub widget_type: String,
-    pub widget_properties: HashMap<String, PropertyValue>,
-    pub widget_children: Vec<IntermediateUiWidget>,
-}
-
-impl From<IntermediateUiWidget> for RpcUiWidget {
-    fn from(value: IntermediateUiWidget) -> Self {
-        let children = value.widget_children.into_iter()
-            .map(|child| child.into())
-            .collect::<Vec<RpcUiWidget>>();
-
-        let widget_id = RpcUiWidgetId {
-            value: value.widget_id
-        };
-
-        Self {
-            widget_id: Some(widget_id),
-            widget_type: value.widget_type,
-            widget_properties: from_intermediate_to_rpc_properties(value.widget_properties),
-            widget_children: children
-        }
-    }
-}
-
-pub fn from_rpc_to_intermediate_value(value: RpcUiPropertyValue) -> PropertyValue {
-    match value.value.unwrap() {
-        Value::Undefined(_) => PropertyValue::Undefined,
-        Value::String(value) => PropertyValue::String(value),
-        Value::Number(value) => PropertyValue::Number(value),
-        Value::Bool(value) => PropertyValue::Bool(value),
-        Value::Bytes(value) => PropertyValue::Bytes(value),
-        Value::Object(value) => {
-            let value = value.value.into_iter()
-                .map(|(name, value)| (name, from_rpc_to_intermediate_value(value)))
-                .collect();
-
-            PropertyValue::Object(value)
-        }
-    }
-}
-
-fn from_intermediate_to_rpc_properties(value: HashMap<String, PropertyValue>) -> HashMap<String, RpcUiPropertyValue> {
-    value.into_iter()
-        .filter_map(|(key, value)| {
-            match value {
-                PropertyValue::String(value) => Some((key, RpcUiPropertyValue { value: Some(Value::String(value)) })),
-                PropertyValue::Number(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Number(value)) })),
-                PropertyValue::Bool(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bool(value)) })),
-                PropertyValue::Bytes(value) => Some((key, RpcUiPropertyValue { value: Some(Value::Bytes(value)) })),
-                PropertyValue::Object(value) => Some((key, RpcUiPropertyValue {
-                    value: Some(Value::Object(RpcUiPropertyValueObject {
-                        value: from_intermediate_to_rpc_properties(value)
-                    }))
-                })),
-                PropertyValue::Undefined => None
-            }
-        })
-        .collect()
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum PreferenceUserData {
@@ -220,16 +152,4 @@ pub enum PreferenceUserData {
     Bool(bool),
     ListOfStrings(Vec<String>),
     ListOfNumbers(Vec<f64>),
-}
-
-#[derive(Debug, Clone)]
-pub struct ActionShortcut {
-    pub key: String,
-    pub kind: ActionShortcutKind,
-}
-
-#[derive(Debug, Clone)]
-pub enum ActionShortcutKind {
-    Main,
-    Alternative
 }
