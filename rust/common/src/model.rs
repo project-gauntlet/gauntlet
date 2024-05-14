@@ -71,7 +71,7 @@ pub enum DownloadStatus {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum RenderLocation {
+pub enum UiRenderLocation {
     InlineView,
     View
 }
@@ -183,7 +183,7 @@ pub enum UiRequestData {
     ReplaceView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: RenderLocation,
+        render_location: UiRenderLocation,
         top_level_view: bool,
         container: UiWidget,
     },
@@ -196,7 +196,7 @@ pub enum UiRequestData {
     ShowPluginErrorView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: RenderLocation,
+        render_location: UiRenderLocation,
     },
 }
 

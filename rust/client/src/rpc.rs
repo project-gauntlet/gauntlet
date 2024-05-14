@@ -1,4 +1,4 @@
-use common::model::{EntrypointId, PluginId, RenderLocation, UiRequestData, UiWidget};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiWidget};
 use common::rpc::frontend_server::FrontendServer;
 use utils::channel::RequestSender;
 
@@ -18,7 +18,7 @@ impl FrontendServerImpl {
 
 #[tonic::async_trait]
 impl FrontendServer for FrontendServerImpl {
-    async fn replace_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, container: UiWidget, top_level_view: bool, render_location: RenderLocation) {
+    async fn replace_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, container: UiWidget, top_level_view: bool, render_location: UiRenderLocation) {
         let data = UiRequestData::ReplaceView {
             plugin_id: PluginId::from_string(plugin_id),
             entrypoint_id: EntrypointId::from_string(entrypoint_id),
@@ -63,7 +63,7 @@ impl FrontendServer for FrontendServerImpl {
         };
     }
 
-    async fn show_plugin_error_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, render_location: RenderLocation) {
+    async fn show_plugin_error_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, render_location: UiRenderLocation) {
         let data = UiRequestData::ShowPluginErrorView {
             plugin_id,
             entrypoint_id,

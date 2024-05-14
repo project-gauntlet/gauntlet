@@ -18,7 +18,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{ActionShortcut, EntrypointId, PluginId, RenderLocation, UiRequestData, UiSearchResult, UiSearchResultEntrypointType, UiViewEvent};
+use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiSearchResult, UiSearchResultEntrypointType, UiViewEvent};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::frontend_server::start_frontend_server;
 use utils::channel::{channel, RequestReceiver};
@@ -100,7 +100,7 @@ pub enum AppMsg {
     IcedEvent(Event),
     WidgetEvent {
         plugin_id: PluginId,
-        render_location: RenderLocation,
+        render_location: UiRenderLocation,
         widget_event: ComponentWidgetEvent,
     },
     Noop,
@@ -123,7 +123,7 @@ pub enum AppMsg {
     ShowPluginErrorView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: RenderLocation
+        render_location: UiRenderLocation
     },
     SelectSearchItem(UiSearchResult),
 }

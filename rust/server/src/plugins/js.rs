@@ -26,12 +26,12 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 
-use common::model::{EntrypointId, PluginId, RenderLocation, SearchIndexPluginEntrypointType, UiPropertyValue, UiWidget, UiWidgetId};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, SearchIndexPluginEntrypointType, UiPropertyValue, UiWidget, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common::rpc::frontend_server::wait_for_frontend_server;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
 
-use crate::model::{IntermediateUiEvent, JsPropertyValue, JsRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
+use crate::model::{IntermediateUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::applications::{DesktopEntry, get_apps};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
@@ -774,7 +774,7 @@ async fn fetch_action_id_for_shortcut(
 }
 
 #[op]
-fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, render_location: JsRenderLocation) -> anyhow::Result<()> {
+fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, render_location: JsUiRenderLocation) -> anyhow::Result<()> {
     let data = JsUiRequestData::ShowPluginErrorView {
         entrypoint_id: EntrypointId::from_string(entrypoint_id),
         render_location,
@@ -954,7 +954,7 @@ fn preferences_to_js(
 fn op_react_replace_view(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    render_location: JsRenderLocation,
+    render_location: JsUiRenderLocation,
     top_level_view: bool,
     entrypoint_id: &str,
     container: JsUiWidget,
@@ -1212,8 +1212,8 @@ async fn make_request_async(plugin_id: PluginId, frontend_api: &mut FrontendApi,
     match data {
         JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id } => {
             let render_location = match render_location { // TODO into?
-                JsRenderLocation::InlineView => RenderLocation::InlineView,
-                JsRenderLocation::View => RenderLocation::View,
+                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+                JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
             frontend_api.replace_view(plugin_id, entrypoint_id, render_location, top_level_view, container).await?;
@@ -1234,8 +1234,8 @@ async fn make_request_async(plugin_id: PluginId, frontend_api: &mut FrontendApi,
         }
         JsUiRequestData::ShowPluginErrorView { entrypoint_id, render_location } => {
             let render_location = match render_location { // TODO into?
-                JsRenderLocation::InlineView => RenderLocation::InlineView,
-                JsRenderLocation::View => RenderLocation::View,
+                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+                JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
             frontend_api.show_plugin_error_view(plugin_id, entrypoint_id, render_location).await?;
@@ -1259,10 +1259,10 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::HandleViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()
                 .map(|arg| match arg {
-                    UiPropertyValue::String(value) => JsPropertyValue::String { value },
-                    UiPropertyValue::Number(value) => JsPropertyValue::Number { value },
-                    UiPropertyValue::Bool(value) => JsPropertyValue::Bool { value },
-                    UiPropertyValue::Undefined => JsPropertyValue::Undefined,
+                    UiPropertyValue::String(value) => JsUiPropertyValue::String { value },
+                    UiPropertyValue::Number(value) => JsUiPropertyValue::Number { value },
+                    UiPropertyValue::Bool(value) => JsUiPropertyValue::Bool { value },
+                    UiPropertyValue::Undefined => JsUiPropertyValue::Undefined,
                     UiPropertyValue::Bytes(_) | UiPropertyValue::Object(_)  => {
                         todo!()
                     }

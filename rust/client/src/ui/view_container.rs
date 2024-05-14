@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use iced::widget::Component;
 use iced::widget::component;
 
-use common::model::{EntrypointId, PluginId, RenderLocation};
+use common::model::{EntrypointId, PluginId, UiRenderLocation};
 
 use crate::ui::{ActionShortcut, AppMsg};
 use crate::ui::client_context::ClientContext;
@@ -49,7 +49,7 @@ impl Component<AppMsg, GauntletTheme> for ViewContainer {
     ) -> Option<AppMsg> {
         Some(AppMsg::WidgetEvent {
             plugin_id: self.plugin_id.clone(),
-            render_location: RenderLocation::View,
+            render_location: UiRenderLocation::View,
             widget_event: event,
         })
     }

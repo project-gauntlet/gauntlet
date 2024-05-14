@@ -1,4 +1,4 @@
-use common::model::{EntrypointId, PluginId, RenderLocation, UiViewEvent, UiWidget};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiViewEvent, UiWidget};
 
 use crate::ui::widget::ComponentWidgetEvent;
 use crate::ui::widget_container::PluginWidgetContainer;
@@ -54,10 +54,10 @@ impl ClientContext {
         self.view.get_entrypoint_id()
     }
 
-    pub fn replace_view(&mut self, render_location: RenderLocation, container: UiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
+    pub fn replace_view(&mut self, render_location: UiRenderLocation, container: UiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
         match render_location {
-            RenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, entrypoint_id),
-            RenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, entrypoint_id)
+            UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, entrypoint_id),
+            UiRenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, entrypoint_id)
         }
     }
 
@@ -67,10 +67,10 @@ impl ClientContext {
         }
     }
 
-    pub fn handle_event(&self, render_location: RenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
+    pub fn handle_event(&self, render_location: UiRenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         match render_location {
-            RenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
-            RenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)
+            UiRenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
+            UiRenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)
         }
     }
 }

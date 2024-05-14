@@ -1,7 +1,7 @@
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{EntrypointId, PluginId, RenderLocation, UiWidget};
+use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcShowWindowRequest};
 use crate::rpc::convert::ui_widget_to_rpc;
 use crate::rpc::grpc::rpc_frontend_client::RpcFrontendClient;
@@ -22,13 +22,13 @@ impl FrontendApi {
         &mut self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: RenderLocation,
+        render_location: UiRenderLocation,
         top_level_view: bool,
         container: UiWidget,
     ) -> anyhow::Result<()> {
         let render_location = match render_location {
-            RenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
-            RenderLocation::View => RpcRenderLocation::ViewLocation,
+            UiRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
+            UiRenderLocation::View => RpcRenderLocation::ViewLocation,
         };
 
         let request = Request::new(RpcReplaceViewRequest {
@@ -87,11 +87,11 @@ impl FrontendApi {
         &mut self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: RenderLocation,
+        render_location: UiRenderLocation,
     ) -> anyhow::Result<()> {
         let render_location = match render_location {
-            RenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
-            RenderLocation::View => RpcRenderLocation::ViewLocation,
+            UiRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
+            UiRenderLocation::View => RpcRenderLocation::ViewLocation,
         };
 
         let request = Request::new(RpcShowPluginErrorViewRequest {

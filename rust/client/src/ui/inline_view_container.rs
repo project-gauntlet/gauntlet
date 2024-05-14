@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use iced::widget::{Component, horizontal_space};
 use iced::widget::component;
 
-use common::model::RenderLocation;
+use common::model::UiRenderLocation;
 
 use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;
@@ -46,7 +46,7 @@ impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
 
                 Some(AppMsg::WidgetEvent {
                     plugin_id: plugin_id.to_owned(),
-                    render_location: RenderLocation::InlineView,
+                    render_location: UiRenderLocation::InlineView,
                     widget_event: event,
                 })
             }

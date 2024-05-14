@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use crate::model::{EntrypointId, PluginId, RenderLocation, UiWidget};
+use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use crate::rpc::convert::ui_widget_from_rpc;
 use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowPluginErrorViewRequest, RpcShowPluginErrorViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_frontend_server::{RpcFrontend, RpcFrontendServer};
@@ -52,7 +52,7 @@ pub trait FrontendServer {
         entrypoint_id: EntrypointId,
         container: UiWidget,
         top_level_view: bool,
-        render_location: RenderLocation
+        render_location: UiRenderLocation
     );
 
     async fn clear_inline_view(&self, plugin_id: PluginId);
@@ -71,7 +71,7 @@ pub trait FrontendServer {
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: RenderLocation
+        render_location: UiRenderLocation
     );
 }
 
@@ -93,8 +93,8 @@ impl RpcFrontend for RpcFrontendServerImpl {
             .map_err(|_| Status::invalid_argument("render_location"))?;
 
         let render_location = match render_location {
-            RpcRenderLocation::InlineViewLocation => RenderLocation::InlineView,
-            RpcRenderLocation::ViewLocation => RenderLocation::View,
+            RpcRenderLocation::InlineViewLocation => UiRenderLocation::InlineView,
+            RpcRenderLocation::ViewLocation => UiRenderLocation::View,
         };
 
         let plugin_id = PluginId::from_string(plugin_id);
@@ -151,8 +151,8 @@ impl RpcFrontend for RpcFrontendServerImpl {
             .map_err(|_| Status::invalid_argument("render_location"))?;
 
         let render_location = match render_location {
-            RpcRenderLocation::InlineViewLocation => RenderLocation::InlineView,
-            RpcRenderLocation::ViewLocation => RenderLocation::View,
+            RpcRenderLocation::InlineViewLocation => UiRenderLocation::InlineView,
+            RpcRenderLocation::ViewLocation => UiRenderLocation::View,
         };
 
         let plugin_id = PluginId::from_string(plugin_id);

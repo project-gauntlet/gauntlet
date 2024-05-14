@@ -14,14 +14,14 @@ pub enum JsUiResponseData {
 pub enum JsUiRequestData {
     ReplaceView {
         entrypoint_id: EntrypointId,
-        render_location: JsRenderLocation,
+        render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: UiWidget,
     },
     ClearInlineView,
     ShowPluginErrorView {
         entrypoint_id: EntrypointId,
-        render_location: JsRenderLocation,
+        render_location: JsUiRenderLocation,
     },
     ShowPreferenceRequiredView {
         entrypoint_id: EntrypointId,
@@ -31,7 +31,7 @@ pub enum JsUiRequestData {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
-pub enum JsRenderLocation {
+pub enum JsUiRenderLocation {
     InlineView,
     View
 }
@@ -57,7 +57,7 @@ pub enum JsUiEvent {
         #[serde(rename = "eventName")]
         event_name: String,
         #[serde(rename = "eventArguments")]
-        event_arguments: Vec<JsPropertyValue>,
+        event_arguments: Vec<JsUiPropertyValue>,
     },
     KeyboardEvent {
         #[serde(rename = "entrypointId")]
@@ -83,7 +83,7 @@ pub enum JsUiEvent {
 // FIXME this could have been serde_v8::AnyValue but it doesn't support undefined, make a pr?
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
-pub enum JsPropertyValue {
+pub enum JsUiPropertyValue {
     String {
         value: String
     },
