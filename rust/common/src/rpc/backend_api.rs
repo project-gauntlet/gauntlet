@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiSearchResult, UiSearchResultEntrypointType, UiWidgetId};
-use crate::rpc::convert::{plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc};
+use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiSearchResult, UiSearchResultEntrypointType, UiWidgetId};
+use crate::rpc::convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPluginPreference, RpcPluginPreferenceValueType, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
-use crate::rpc::grpc::rpc_ui_property_value::Value;
 
 #[derive(Debug, Clone)]
 pub struct BackendApi {
@@ -217,7 +216,7 @@ impl BackendApi {
                             entrypoint_description: entrypoint.entrypoint_description,
                             entrypoint_type,
                             preferences: entrypoint.preferences.into_iter()
-                                .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
+                                .map(|(key, value)| (key, plugin_preference_from_rpc(value)))
                                 .collect(),
                             preferences_user_data: entrypoint.preferences_user_data.into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_from_rpc(value)))
@@ -235,7 +234,7 @@ impl BackendApi {
                     enabled: plugin.enabled,
                     entrypoints,
                     preferences: plugin.preferences.into_iter()
-                        .map(|(key, value)| (key, plugin_preference_from_grpc(value)))
+                        .map(|(key, value)| (key, plugin_preference_from_rpc(value)))
                         .collect(),
                     preferences_user_data: plugin.preferences_user_data.into_iter()
                         .map(|(key, value)| (key, plugin_preference_user_data_from_rpc(value)))
@@ -356,142 +355,5 @@ impl BackendApi {
             .await?;
 
         Ok(())
-    }
-}
-
-fn plugin_preference_from_grpc(value: RpcPluginPreference) -> PluginPreference {
-    let value_type: RpcPluginPreferenceValueType = value.r#type.try_into().unwrap();
-    match value_type {
-        RpcPluginPreferenceValueType::Number => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::Number(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::Number {
-                default,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::String => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::String(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::String {
-                default,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::Enum => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::String(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::Enum {
-                default,
-                description: value.description,
-                enum_values: value.enum_values.into_iter()
-                    .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
-                    .collect()
-            }
-        }
-        RpcPluginPreferenceValueType::Bool => {
-            let default = value.default
-                .map(|value| {
-                    match value.value.unwrap() {
-                        Value::Bool(value) => value,
-                        _ => unreachable!()
-                    }
-                });
-
-            PluginPreference::Bool {
-                default,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::ListOfStrings => {
-            let default_list = match value.default_list_exists {
-                true => {
-                    let default_list = value.default_list
-                        .into_iter()
-                        .flat_map(|value| value.value.map(|value| {
-                            match value {
-                                Value::String(value) => value,
-                                _ => unreachable!()
-                            }
-                        }))
-                        .collect();
-
-                    Some(default_list)
-                },
-                false => None
-            };
-
-            PluginPreference::ListOfStrings {
-                default: default_list,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::ListOfNumbers => {
-            let default_list = match value.default_list_exists {
-                true => {
-                    let default_list = value.default_list
-                        .into_iter()
-                        .flat_map(|value| value.value.map(|value| {
-                            match value {
-                                Value::Number(value) => value,
-                                _ => unreachable!()
-                            }
-                        }))
-                        .collect();
-
-                    Some(default_list)
-                },
-                false => None
-            };
-
-            PluginPreference::ListOfNumbers {
-                default: default_list,
-                description: value.description,
-            }
-        }
-        RpcPluginPreferenceValueType::ListOfEnums => {
-            let default_list = match value.default_list_exists {
-                true => {
-                    let default_list = value.default_list
-                        .into_iter()
-                        .flat_map(|value| value.value.map(|value| {
-                            match value {
-                                Value::String(value) => value,
-                                _ => unreachable!()
-                            }
-                        }))
-                        .collect();
-
-                    Some(default_list)
-                },
-                false => None
-            };
-
-            PluginPreference::ListOfEnums {
-                default: default_list,
-                enum_values: value.enum_values.into_iter()
-                    .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
-                    .collect(),
-                description: value.description,
-            }
-        }
     }
 }
