@@ -2,10 +2,12 @@
   "name": "project-gauntlet",
   "private": true,
   "scripts": {
-    "build": "npm run build --workspaces --if-present"
+    "build-all": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace js --workspace bundled_plugins --if-present"
   },
   "workspaces": [
     "bundled_plugins/*",
+    "scenarios/plugins/*",
     "js/typings",
     "js/build",
     "js/api_build",
@@ -13,6 +15,7 @@
     "js/api",
     "js/react",
     "js/core",
-    "js/react_renderer"
+    "js/react_renderer",
+    "js/scenario_runner_cli"
   ]
 }

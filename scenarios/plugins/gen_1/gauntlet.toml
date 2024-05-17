@@ -1,0 +1,11 @@
+[gauntlet]
+name = 'Gen 1'
+description = ''
+
+[[entrypoint]]
+id = 'default'
+name = 'Default'
+path = 'src/default.tsx'
+type = 'view'
+description = ''
+

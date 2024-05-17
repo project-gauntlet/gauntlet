@@ -39,3 +39,4 @@ image = "0.25"
 
 [features]
 release = []
+scenario_runner = []

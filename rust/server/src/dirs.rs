@@ -21,7 +21,7 @@ impl Dirs {
     }
 
     pub fn data_dir(&self) -> anyhow::Result<PathBuf> {
-        let data_dir = if cfg!(feature = "release") {
+        let data_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
             self.inner.data_dir().to_path_buf()
         } else {
             Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/data")).to_owned()
@@ -38,7 +38,7 @@ impl Dirs {
     }
 
     pub fn config_dir(&self) -> PathBuf {
-        let config_dir = if cfg!(feature = "release") {
+        let config_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
             self.inner.config_dir().to_path_buf()
         } else {
             Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/config")).to_owned()
@@ -52,7 +52,7 @@ impl Dirs {
     }
 
     pub fn cache_dir(&self) -> PathBuf {
-        let cache_dir = if cfg!(feature = "release") {
+        let cache_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
             self.inner.cache_dir().to_path_buf()
         } else {
             Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/cache")).to_owned()

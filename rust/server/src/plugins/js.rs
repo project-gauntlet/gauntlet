@@ -217,8 +217,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.icon_cache.clone(),
                 ).await;
 
-                tracing::info!(target = "plugin", "plugin closed plugin runtime {:?}", result_plugin_id);
-
                 if let Err(err) = data.icon_cache.clear_plugin_icon_cache_dir(&data.uuid) {
                     tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", result_plugin_id, err)
                 }
@@ -227,9 +225,9 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             }));
 
         if let Err(err) = result {
-            tracing::error!(target = "plugin", "plugin {:?} runtime failed {:?}", result_plugin_id, err)
+            tracing::error!(target = "plugin", "Plugin runtime failed {:?} - {:?}", result_plugin_id, err)
         } else {
-            tracing::info!(target = "plugin", "plugin {:?} runtime stopped", result_plugin_id)
+            tracing::info!(target = "plugin", "Plugin runtime stopped {:?}", result_plugin_id)
         }
     };
 

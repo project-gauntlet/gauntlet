@@ -1,0 +1,19 @@
+{
+  "type": "ReplaceView",
+  "entrypoint_id": "default",
+  "render_location": "View",
+  "top_level_view": true,
+  "container": {
+    "widget_id": 0,
+    "widget_type": "gauntlet:root",
+    "widget_properties": {},
+    "widget_children": [
+      {
+        "widget_id": 1,
+        "widget_type": "gauntlet:detail",
+        "widget_properties": {},
+        "widget_children": []
+      }
+    ]
+  }
+}

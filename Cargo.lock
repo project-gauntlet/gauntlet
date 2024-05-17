@@ -6621,6 +6621,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "scenario_runner"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tonic",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"

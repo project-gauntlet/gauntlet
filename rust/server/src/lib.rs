@@ -38,22 +38,26 @@ async fn run_server() -> anyhow::Result<()> {
         tracing::error!("error loading bundled plugin(s): {:?}", err);
     }
 
-    if !cfg!(feature = "release") {
-        let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin/dist").to_owned();
-        let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
-        let plugin_path = plugin_path.to_str().expect("valid utf8");
-
-        if let Err(err) = application_manager.save_local_plugin(plugin_path).await {
-            tracing::error!("error loading dev plugin: {:?}", err);
+    match (cfg!(feature = "release"), cfg!(feature = "scenario_runner")) {
+        (true, _) => {
+            std::process::Command::new(std::env::current_exe()?)
+                .args(["server"])
+                .env(FRONTEND_ENV, "")
+                .spawn()
+                .expect("failed to execute client process");
         }
-    }
+        (false, false) => {
+            let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin/dist").to_owned();
+            let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
+            let plugin_path = plugin_path.to_str().expect("valid utf8");
 
-    if cfg!(feature = "release") {
-        std::process::Command::new(std::env::current_exe()?)
-            .args(["server"])
-            .env(FRONTEND_ENV, "")
-            .spawn()
-            .expect("failed to execute client process");
+            if let Err(err) = application_manager.save_local_plugin(plugin_path).await {
+                tracing::error!("error loading dev plugin: {:?}", err);
+            }
+        }
+        (false, true) => {
+            // scenario runner
+        }
     }
 
     application_manager.reload_all_plugins().await?; // TODO do not fail here ?

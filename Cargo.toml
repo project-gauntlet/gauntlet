@@ -12,6 +12,7 @@ members = [
     "rust/utils",
     "rust/cli",
     "rust/component_model",
+    "rust/scenario_runner",
 ]
 
 [dependencies]
@@ -19,3 +20,4 @@ cli = { path = "rust/cli" }
 
 [features]
 release = ["cli/release"]
+scenario_runner = ["cli/scenario_runner"]
