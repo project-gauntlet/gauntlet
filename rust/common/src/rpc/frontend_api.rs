@@ -3,7 +3,7 @@ use tonic::transport::Channel;
 
 use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcShowWindowRequest};
-use crate::rpc::convert::ui_widget_to_rpc;
+use crate::rpc::grpc_convert::ui_widget_to_rpc;
 use crate::rpc::grpc::rpc_frontend_client::RpcFrontendClient;
 
 #[derive(Debug, Clone)]

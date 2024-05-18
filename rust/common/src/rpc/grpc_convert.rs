@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use crate::model::{PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, UiWidget};
 
+use crate::model::{PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, UiWidget};
 use crate::rpc::grpc::{rpc_ui_property_value, RpcEnumValue, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_ui_property_value::Value;
 

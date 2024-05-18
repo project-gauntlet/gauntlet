@@ -12,4 +12,4 @@ server = { path = "../server" }
 
 [features]
 release = ["server/release"]
-scenario_runner = ["server/scenario_runner"]
+scenario_runner = ["server/scenario_runner", "client/scenario_runner"]

@@ -1,4 +1,5 @@
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiViewEvent, UiWidget};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
+use crate::model::UiViewEvent;
 
 use crate::ui::widget::ComponentWidgetEvent;
 use crate::ui::widget_container::PluginWidgetContainer;

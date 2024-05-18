@@ -1,7 +1,7 @@
 import {Command} from 'commander';
 import {spawn, spawnSync} from "node:child_process";
 import path from "node:path";
-import {existsSync, readdirSync, rmSync} from "node:fs";
+import {existsSync, readFileSync, readdirSync, rmSync} from "node:fs";
 
 const program = new Command();
 
@@ -12,6 +12,11 @@ program
 program.command('run-scenarios')
     .action(async () => {
         await runScenarios()
+    });
+
+program.command('run-screenshot-gen')
+    .action(async () => {
+        await runScreenshotGen()
     });
 
 await program.parseAsync(process.argv);
@@ -27,23 +32,8 @@ async function runScenarios() {
     const scenariosData = path.join(scenarios, "data");
     const scenariosRun = path.join(scenarios, "run");
 
-    const scenarioRunnerBuildResult = spawnSync('cargo', ['build', '--package', 'scenario_runner'], {
-        stdio: "inherit",
-        cwd: projectRoot,
-    });
-
-    if (scenarioRunnerBuildResult.status !== 0) {
-        throw new Error(`Unable to compile generator, status ${scenarioRunnerBuildResult.status}`);
-    }
-
-    const serverBuildResult = spawnSync('cargo', ['build', '--features', 'scenario_runner'], {
-        stdio: "inherit",
-        cwd: projectRoot,
-    });
-
-    if (serverBuildResult.status !== 0) {
-        throw new Error(`Unable to compile server, status: ${serverBuildResult.status}`);
-    }
+    buildScenarioRunner(projectRoot)
+    buildServer(projectRoot)
 
     for (const scenarioName of readdirSync(scenariosData)) {
 
@@ -85,5 +75,86 @@ async function runScenarios() {
 
     if (existsSync(scenariosRun)) {
         rmSync(scenariosRun, { recursive: true })
+    }
+}
+
+async function runScreenshotGen() {
+    const projectRoot = path.resolve(process.cwd(), '..', '..');
+    const scenarios = path.join(projectRoot, "scenarios");
+    const scenariosOut = path.join(scenarios, "out");
+
+    buildScenarioRunner(projectRoot)
+    buildServer(projectRoot)
+
+    for (const plugin of readdirSync(scenariosOut)) {
+        const pluginDir = path.join(scenariosOut, plugin);
+
+        for (const entrypoint of readdirSync(pluginDir)) {
+            const entrypointDir = path.join(pluginDir, entrypoint);
+
+            for (const scenario of readdirSync(entrypointDir)) {
+                const scenarioFile = path.join(entrypointDir, scenario);
+
+                const json = readFileSync(scenarioFile, 'utf-8');
+
+                console.log("Starting screenshot generating frontend for scenario: " + scenarioFile)
+
+                const mockBackendProcess = spawn('target/debug/scenario_runner', ['server'], {
+                    stdio: "inherit",
+                    cwd: projectRoot,
+                })
+
+                await sleep(500)
+
+                const scenarioName = path.parse(scenario).name;
+
+                let scenarioNameTitle = scenarioName
+                    .split("_")
+                    .filter(x => x.length > 0)
+                    .map(x => (x.charAt(0).toUpperCase() + x.slice(1)))
+                    .join(" ");
+
+                spawnSync('target/debug/gauntlet', ['server'], {
+                    stdio: "inherit",
+                    cwd: projectRoot,
+                    env: Object.assign(process.env, {
+                        GAUNTLET_INTERNAL_FRONTEND: "",
+                        GAUNTLET_SCREENSHOT_GEN_IN: json,
+                        GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out-screenshot", plugin, entrypoint, scenarioName + ".png"),
+                        GAUNTLET_SCREENSHOT_GEN_NAME: scenarioNameTitle,
+                    })
+                });
+
+                console.log("Frontend exited")
+
+                console.log("Killing backend")
+
+                if (!mockBackendProcess.kill()) {
+                    console.error("Unable to kill backend after frontend finished")
+                }
+            }
+        }
+    }
+}
+
+function buildServer(projectRoot: string) {
+    const serverBuildResult = spawnSync('cargo', ['build', '--features', 'scenario_runner'], {
+        stdio: "inherit",
+        cwd: projectRoot,
+    });
+
+    if (serverBuildResult.status !== 0) {
+        throw new Error(`Unable to compile server, status: ${serverBuildResult.status}`);
+    }
+}
+
+function buildScenarioRunner(projectRoot: string) {
+    const scenarioRunnerBuildResult = spawnSync('cargo', ['build', '--package', 'scenario_runner'], {
+        stdio: "inherit",
+        cwd: projectRoot,
+    });
+
+    if (scenarioRunnerBuildResult.status !== 0) {
+        throw new Error(`Unable to compile generator, status ${scenarioRunnerBuildResult.status}`);
     }
 }

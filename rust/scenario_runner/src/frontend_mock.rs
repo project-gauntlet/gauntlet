@@ -5,8 +5,10 @@ use std::time::Duration;
 use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::frontend_server::{FrontendServer, start_frontend_server};
+use common::scenario_convert::{ui_render_location_to_scenario, ui_widget_to_scenario};
+use common::scenario_model::ScenarioFrontendEvent;
 
-use crate::model::{ScenarioBackendEvent, ScenarioFrontendEvent, ui_render_location_to_scenario, ui_widget_to_scenario};
+use crate::model::ScenarioBackendEvent;
 
 pub async fn start_mock_frontend() -> anyhow::Result<()> {
     let scenario_dir = std::env::var("GAUNTLET_SCENARIOS_DIR")
@@ -113,7 +115,6 @@ impl RpcFrontendSaveToJson {
 
         let entrypoint_id = match event {
             ScenarioFrontendEvent::ReplaceView { entrypoint_id, .. } => entrypoint_id,
-            ScenarioFrontendEvent::ClearInlineView => "inline".to_string(),
             ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, .. } => entrypoint_id,
             ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, .. } => entrypoint_id,
         };
@@ -146,9 +147,7 @@ impl FrontendServer for RpcFrontendSaveToJson {
     }
 
     async fn clear_inline_view(&self, _plugin_id: PluginId) {
-        let event = ScenarioFrontendEvent::ClearInlineView;
-
-        self.save_event(event);
+        unreachable!()
     }
 
     async fn show_window(&self) {

@@ -18,8 +18,8 @@ impl GauntletTheme {
                 background: iced::color!(0x2C323A),
                 text: iced::color!(0xCAC2B6),
                 primary: iced::color!(0xC79F60),
-                success: iced::color!(0x659B5E), // NOT USED FOR NOW
-                danger: iced::color!(0x6C1B1B), // NOT USED FOR NOW
+                success: iced::color!(0x659B5E),
+                danger: iced::color!(0x6C1B1B),
             })
         }
     }

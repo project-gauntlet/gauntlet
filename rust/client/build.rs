@@ -447,8 +447,8 @@ fn main() -> anyhow::Result<()> {
                         output.push_str(&format!("    {}: {}\n", arg.name, generate_type(&arg, name)));
                     }
 
-                    output.push_str(") -> common::model::UiViewEvent {\n");
-                    output.push_str("    common::model::UiViewEvent::View {\n");
+                    output.push_str(") -> crate::model::UiViewEvent {\n");
+                    output.push_str("    crate::model::UiViewEvent::View {\n");
                     output.push_str("        widget_id,\n");
                     output.push_str(&format!("        event_name: \"{}\".to_owned(),\n", prop.name));
                     output.push_str("        event_arguments: vec![\n",);

@@ -4,7 +4,7 @@ use tonic::Request;
 use tonic::transport::Channel;
 
 use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiSearchResult, UiSearchResultEntrypointType, UiWidgetId};
-use crate::rpc::convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc};
+use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 

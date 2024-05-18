@@ -2,7 +2,8 @@
   "name": "@project-gauntlet/scenario-runner-cli",
   "scripts": {
     "build-this": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript",
-    "run-scenarios": "npm run build-this && node dist/main.js run-scenarios"
+    "run-scenarios": "npm run build-this && node dist/main.js run-scenarios",
+    "run-screenshot-gen": "npm run build-this && node dist/main.js run-screenshot-gen"
   },
   "type": "module",
   "dependencies": {

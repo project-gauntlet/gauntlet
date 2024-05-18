@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 pub mod model;
 pub mod rpc;
+pub mod scenario_convert;
+pub mod scenario_model;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]

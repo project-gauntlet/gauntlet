@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
@@ -11,19 +13,22 @@ use iced::keyboard::key::Named;
 use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
 use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
-use iced::window::{change_level, Level, Position, reposition};
+use iced::window::{change_level, Level, Position, reposition, Screenshot};
 use iced_aw::core::icons;
+use serde::Deserialize;
 use tokio::runtime::Handle;
 use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiSearchResult, UiSearchResultEntrypointType, UiViewEvent};
+use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, UiSearchResult, UiSearchResultEntrypointType};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::frontend_server::start_frontend_server;
+use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
+use common::scenario_model::ScenarioFrontendEvent;
 use utils::channel::{channel, RequestReceiver};
 
-use crate::model::NativeUiResponseData;
+use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
 use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
@@ -40,17 +45,22 @@ mod widget_container;
 mod inline_view_container;
 
 pub struct AppModel {
-    client_context: Arc<StdRwLock<ClientContext>>,
+    // logic
     backend_api: BackendApi,
-    search_results: Vec<UiSearchResult>,
     request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, NativeUiResponseData>>>,
     search_field_id: text_input::Id,
     scrollable_id: scrollable::Id,
-    plugin_view_data: Option<PluginViewData>,
-    prompt: Option<String>,
     waiting_for_next_unfocus: bool,
     _global_hotkey_manager: GlobalHotKeyManager,
+
+    // ephemeral state
+    prompt: Option<String>,
+
+    // state
+    client_context: Arc<StdRwLock<ClientContext>>,
+    plugin_view_data: Option<PluginViewData>,
     error_view: Option<ErrorViewData>,
+    search_results: Vec<UiSearchResult>,
 }
 
 struct PluginViewData {
@@ -126,6 +136,14 @@ pub enum AppMsg {
         render_location: UiRenderLocation
     },
     SelectSearchItem(UiSearchResult),
+    Screenshot {
+        save_path: String
+    },
+    ScreenshotDone {
+        save_path: String,
+        screenshot: Screenshot
+    },
+    Close,
 }
 
 
@@ -165,8 +183,6 @@ impl Application for AppModel {
 
         let (context_tx, request_rx) = channel::<UiRequestData, NativeUiResponseData>();
 
-        let client_context = Arc::new(StdRwLock::new(ClientContext::new()));
-
         tokio::spawn(async {
             start_frontend_server(Box::new(FrontendServerImpl::new(context_tx))).await;
         });
@@ -174,25 +190,101 @@ impl Application for AppModel {
         let backend_api = futures::executor::block_on(async { BackendApi::new().await })
             .unwrap();
 
+        let mut commands = vec![
+            change_level(window::Id::MAIN, Level::AlwaysOnTop),
+            Command::perform(async {}, |_| AppMsg::ShowWindow),
+            font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
+        ];
+
+        let (client_context, plugin_view_data, error_view) = if cfg!(feature = "scenario_runner") {
+            let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
+                .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
+
+            let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT")
+                .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
+
+            let gen_name = std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME")
+                .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
+
+            let event: ScenarioFrontendEvent = serde_json::from_str(&gen_in)
+                .expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
+
+            commands.push(
+                Command::perform(
+                    async {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                    },
+                    |_| AppMsg::Screenshot { save_path: gen_out },
+                )
+            );
+
+            match event {
+                ScenarioFrontendEvent::ReplaceView { entrypoint_id, render_location, top_level_view, container } => {
+                    let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
+                    let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
+                    let mut context = ClientContext::new();
+                    context.replace_view(
+                        ui_render_location_from_scenario(render_location),
+                        ui_widget_from_scenario(container),
+                        &plugin_id,
+                        &entrypoint_id
+                    );
+
+                    let plugin_view_data = Some(PluginViewData {
+                        top_level_view,
+                        plugin_id,
+                        plugin_name: "Screenshot Gen".to_string(),
+                        entrypoint_id,
+                        entrypoint_name: gen_name,
+                        action_shortcuts: Default::default(),
+                    });
+
+                    (context, plugin_view_data, None)
+                }
+                ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
+                    let error_view = Some(ErrorViewData::PreferenceRequiredViewData {
+                        plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
+                        entrypoint_id: EntrypointId::from_string(entrypoint_id),
+                        plugin_preferences_required,
+                        entrypoint_preferences_required,
+                    });
+
+                    (ClientContext::new(), None, error_view)
+                }
+                ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, render_location: _ } => {
+                    let error_view = Some(ErrorViewData::PluginErrorViewData {
+                        plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
+                        entrypoint_id: EntrypointId::from_string(entrypoint_id),
+                    });
+
+                    (ClientContext::new(), None, error_view)
+                }
+            }
+        } else {
+            (ClientContext::new(), None, None)
+        };
+
         (
             AppModel {
-                client_context: client_context.clone(),
+                // logic
                 backend_api,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
-                search_results: vec![],
+                _global_hotkey_manager: global_hotkey_manager,
                 search_field_id: text_input::Id::unique(),
                 scrollable_id: scrollable::Id::unique(),
-                prompt: None,
-                plugin_view_data: None,
                 waiting_for_next_unfocus: false,
-                _global_hotkey_manager: global_hotkey_manager,
-                error_view: None,
+
+                // ephemeral state
+                prompt: None,
+
+                // state
+                client_context: Arc::new(StdRwLock::new(client_context)),
+                plugin_view_data,
+                error_view,
+                search_results: vec![],
             },
-            Command::batch([
-                change_level(window::Id::MAIN, Level::AlwaysOnTop),
-                Command::perform(async {}, |_| AppMsg::ShowWindow),
-                font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)
-            ]),
+            Command::batch(commands),
         )
     }
 
@@ -227,15 +319,19 @@ impl Application for AppModel {
                 ])
             }
             AppMsg::PromptChanged(new_prompt) => {
-                self.prompt.replace(new_prompt.clone());
+                if cfg!(feature = "scenario_runner") {
+                    Command::none()
+                } else {
+                    self.prompt.replace(new_prompt.clone());
 
-                let mut backend_api = self.backend_api.clone();
+                    let mut backend_api = self.backend_api.clone();
 
-                Command::perform(async move {
-                    backend_api.search(new_prompt)
-                        .await
-                        .unwrap() // TODO proper error handling
-                }, AppMsg::SetSearchResults)
+                    Command::perform(async move {
+                        backend_api.search(new_prompt)
+                            .await
+                            .unwrap() // TODO proper error handling
+                    }, AppMsg::SetSearchResults)
+                }
             }
             AppMsg::PromptSubmit => {
                 if let Some(search_item) = self.search_results.first() {
@@ -427,6 +523,43 @@ impl Application for AppModel {
 
                 Command::perform(async {}, |_| event)
             }
+            AppMsg::Screenshot { save_path } => {
+                window::screenshot(
+                    window::Id::MAIN,
+                    |screenshot| AppMsg::ScreenshotDone {
+                        save_path,
+                        screenshot,
+                    }
+                )
+            }
+            AppMsg::ScreenshotDone { save_path, screenshot } => {
+                Command::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            let save_dir = Path::new(&save_path);
+
+                            let save_parent_dir = save_dir
+                                .parent()
+                                .expect("save_path has no parent");
+
+                            fs::create_dir_all(save_parent_dir)
+                                .expect("unable to create save_parent_dir");
+
+                            image::save_buffer_with_format(
+                                &save_path,
+                                &screenshot.bytes,
+                                screenshot.size.width,
+                                screenshot.size.height,
+                                image::ColorType::Rgba8,
+                                image::ImageFormat::Png
+                            )
+                        }).await
+                            .expect("Unable to save screenshot")
+                    },
+                    |_| AppMsg::Close,
+                )
+            }
+            AppMsg::Close => window::close(window::Id::MAIN)
         }
     }
 

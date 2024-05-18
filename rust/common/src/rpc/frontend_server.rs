@@ -6,7 +6,7 @@ use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
-use crate::rpc::convert::ui_widget_from_rpc;
+use crate::rpc::grpc_convert::ui_widget_from_rpc;
 use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowPluginErrorViewRequest, RpcShowPluginErrorViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_frontend_server::{RpcFrontend, RpcFrontendServer};
 

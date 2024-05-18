@@ -17,7 +17,8 @@ use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
 
-use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiViewEvent, UiWidgetId};
+use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
+use crate::model::UiViewEvent;
 
 use crate::ui::{ActionShortcut};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};

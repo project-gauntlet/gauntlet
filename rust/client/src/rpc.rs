@@ -1,8 +1,8 @@
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiWidget};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use common::rpc::frontend_server::FrontendServer;
 use utils::channel::RequestSender;
 
-use crate::model::NativeUiResponseData;
+use crate::model::{NativeUiResponseData, UiRequestData};
 
 pub struct FrontendServerImpl {
     context_tx: RequestSender<UiRequestData, NativeUiResponseData>
