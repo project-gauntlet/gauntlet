@@ -902,8 +902,13 @@ fn register_shortcut() -> GlobalHotKeyManager {
 
     let manager = GlobalHotKeyManager::new().unwrap();
 
-    manager.register(HotKey::new(Some(Modifiers::META), Code::Space))
-        .unwrap();
+    let key = HotKey::new(Some(Modifiers::META), Code::Space);
+
+    let result = manager.register(key);
+
+    if let Err(err) = &result {
+        tracing::warn!(target  "rpc", "error occurred when registering shortcut {:?}", err)
+    }
 
     manager
 }
