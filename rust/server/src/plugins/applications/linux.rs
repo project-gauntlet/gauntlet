@@ -10,15 +10,8 @@ use image::ImageFormat;
 use image::imageops::FilterType;
 use serde::Serialize;
 use walkdir::WalkDir;
+use crate::plugins::applications::DesktopEntry;
 
-#[derive(Debug, Serialize)]
-pub struct DesktopEntry {
-    pub name: String,
-    pub icon: Option<Vec<u8>>,
-    pub command: Vec<String>,
-}
-
-#[cfg(target_os = "linux")]
 fn find_application_dirs() -> Option<Vec<PathBuf>> {
     let data_home = match env::var_os("XDG_DATA_HOME") {
         Some(val) => {
@@ -50,12 +43,6 @@ fn find_application_dirs() -> Option<Vec<PathBuf>> {
     Some(res)
 }
 
-#[cfg(not(target_os = "linux"))]
-pub fn get_apps() -> Vec<DesktopEntry> {
-    vec![]
-}
-
-#[cfg(target_os = "linux")]
 pub fn get_apps() -> Vec<DesktopEntry> {
     let app_dirs = find_application_dirs()
         .unwrap_or_default()
@@ -107,7 +94,6 @@ pub fn get_apps() -> Vec<DesktopEntry> {
     result.into_values().collect()
 }
 
-#[cfg(target_os = "linux")]
 fn create_app_entry(path: PathBuf) -> Option<DesktopEntry> {
     let entry = parse_entry(&path)
         .inspect_err(|err| tracing::warn!("error parsing .desktop file at path {:?}: {:?}", &path, err))
