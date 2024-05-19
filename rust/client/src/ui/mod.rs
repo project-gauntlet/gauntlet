@@ -902,7 +902,11 @@ fn register_shortcut() -> GlobalHotKeyManager {
 
     let manager = GlobalHotKeyManager::new().unwrap();
 
-    let key = HotKey::new(Some(Modifiers::META), Code::Space);
+    let key = if cfg!(target_os = "windows") {
+        HotKey::new(Some(Modifiers::ALT), Code::Space)
+    } else {
+        HotKey::new(Some(Modifiers::META), Code::Space)
+    };
 
     let result = manager.register(key);
 
