@@ -911,7 +911,7 @@ fn register_shortcut() -> GlobalHotKeyManager {
     let result = manager.register(key);
 
     if let Err(err) = &result {
-        tracing::warn!(target  "rpc", "error occurred when registering shortcut {:?}", err)
+        tracing::warn!(target = "rpc", "error occurred when registering shortcut {:?}", err)
     }
 
     manager
