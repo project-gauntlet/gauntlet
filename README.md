@@ -279,7 +279,7 @@ to generate TypeScript typings for `@project-gauntlet/api` and Rust validation c
 ## Application packaging for Linux
 
 This section contains a list of things
-that could be useful fir someone who wants to package application for Linux distribution.
+that could be useful for someone who wants to package application for Linux distribution.
 If something is missing, please [create an issue](https://github.com/project-gauntlet/gauntlet/issues).
 
 Gauntlet executable consists of three applications:
