@@ -10,7 +10,7 @@ use image::ImageFormat;
 use image::imageops::FilterType;
 use serde::Serialize;
 use walkdir::WalkDir;
-use crate::plugins::applications::DesktopEntry;
+use crate::plugins::applications::{DesktopEntry, resize_icon};
 
 fn find_application_dirs() -> Option<Vec<PathBuf>> {
     let data_home = match env::var_os("XDG_DATA_HOME") {
@@ -174,17 +174,6 @@ fn create_app_entry(path: PathBuf) -> Option<DesktopEntry> {
         icon,
         command,
     })
-}
-
-fn resize_icon(data: Vec<u8>) -> anyhow::Result<Vec<u8>> {
-    let data = image::load_from_memory_with_format(&data, ImageFormat::Png)?;
-    let data = image::imageops::resize(&data, 48, 48, FilterType::Lanczos3);
-
-    let mut buffer = std::io::Cursor::new(vec![]);
-
-    data.write_to(&mut buffer, ImageFormat::Png)?;
-
-    Ok(buffer.into_inner())
 }
 
 fn parse_freedesktop_exec(value: &str) -> anyhow::Result<Vec<String>> {
