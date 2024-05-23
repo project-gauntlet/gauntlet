@@ -1,12 +1,12 @@
-name: publish
+name: setup macos
 
-on: workflow_dispatch
+on:
+  workflow_call: {}
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  triage:
+    runs-on: macos-latest
     steps:
-      - run: sudo apt-get install -y protobuf-compiler
 
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +16,13 @@ jobs:
           scope: '@project-gauntlet'
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - run: brew install protobuf
+      - run: brew install create-dmg
+
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -24,9 +31,3 @@ jobs:
 
       - run: git config --global user.name "${GITHUB_ACTOR}"
       - run: git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
-      - run: npm run publish-project --workspace @project-gauntlet/build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
-
-

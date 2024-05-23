@@ -1,0 +1,27 @@
+name: setup linux
+
+on:
+  workflow_call: {}
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - run: sudo apt-get install -y protobuf-compiler
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
+          scope: '@project-gauntlet'
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - run: npm ci
+
+      - run: git config --global user.name "${GITHUB_ACTOR}"
+      - run: git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"

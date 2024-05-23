@@ -3,8 +3,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import { simpleGit } from 'simple-git';
 import { EOL } from "node:os";
 import { Octokit } from 'octokit';
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { mkdirSync, readFileSync } from "fs";
+import { copyFileSync, writeFileSync } from "node:fs";
 
 const program = new Command();
 
@@ -12,74 +14,181 @@ program
     .name('gauntlet-build')
     .description('Gauntlet Build Tool')
 
-program.command('publish')
+program.command('publish-init')
     .action(async () => {
-        await doPublish()
+        await doPublishInit()
     });
 
-program.command('build')
+program.command('publish-linux')
     .action(async () => {
-        await doBuild()
+        await doPublishLinux()
+    });
+
+program.command('publish-macos')
+    .action(async () => {
+        await doPublishMacOS()
+    });
+
+program.command('publish-final')
+    .action(async () => {
+        await doPublishFinal()
+    });
+
+program.command('build-linux')
+    .action(async () => {
+        await doBuildLinux()
+    });
+
+program.command('build-macos')
+    .action(async () => {
+        await doBuildMacOS()
     });
 
 await program.parseAsync(process.argv);
 
-function build(projectRoot: string, check: boolean) {
-    console.log("Building js...")
-    execSync('npm run build', { stdio: "inherit", cwd: projectRoot});
+const octokit = new Octokit({
+    auth: process.env.GITHUB_TOKEN,
+})
+const repo = { owner: 'project-gauntlet', repo: 'gauntlet' };
+
+async function doBuild(arch: string) {
+    console.log("Building Gauntlet...")
+
+    const projectRoot = getProjectRoot();
+    build(projectRoot, true, arch)
+}
+
+async function doPublishInit() {
+    console.log("Publishing Gauntlet... Initiating...")
+
+    const projectRoot = getProjectRoot()
+
+    const { newVersion, releaseNotes } = await makeRepoChanges(projectRoot);
+
+    await createRelease(newVersion, releaseNotes)
+}
+
+async function doPublishLinux() {
+    console.log("Publishing Gauntlet... Linux...")
+
+    const projectRoot = getProjectRoot()
+
+    const arch = 'x86_64-unknown-linux-gnu';
+
+    build(projectRoot, false, arch)
+
+    const { fileName, filePath } = packageForLinux(projectRoot, arch)
+
+    await addFileToRelease(projectRoot, filePath, fileName)
+}
+
+async function doBuildLinux() {
+    await doBuild('x86_64-unknown-linux-gnu')
+}
+
+async function doPublishMacOS() {
+    const projectRoot = getProjectRoot();
+
+    const arch = 'aarch64-apple-darwin';
+
+    build(projectRoot, false, arch)
+
+    const { fileName, filePath } = await packageForMacos(projectRoot, arch)
+
+    await addFileToRelease(projectRoot, filePath, fileName)
+}
+
+async function doBuildMacOS() {
+    await doBuild('aarch64-apple-darwin')
+}
+
+async function undraftRelease(projectRoot: string) {
+    const version = await readVersion(projectRoot)
+
+    const response = await octokit.rest.repos.getReleaseByTag({
+        ...repo,
+        tag: `v${version}`,
+    });
+
+    await octokit.rest.repos.updateRelease({
+        ...repo,
+        release_id: response.data.id,
+        origin: response.data.upload_url,
+        draft: false
+    });
+}
+
+async function doPublishFinal() {
+    console.log("Publishing Gauntlet... Finishing up...")
+    const projectRoot = getProjectRoot()
+
+    buildJs(projectRoot)
+
+    publishNpmPackage(projectRoot)
+
+    await undraftRelease(projectRoot)
+}
+
+function build(projectRoot: string, check: boolean, arch: string) {
+    buildJs(projectRoot)
 
     if (check) {
         console.log("Checking rust...")
-        execSync('cargo check --features release', { stdio: "inherit", cwd: projectRoot });
+        const cargoCheckResult = spawnSync('cargo', ['check', '--features', 'release', '--target', arch], {
+            stdio: "inherit",
+            cwd: projectRoot
+        });
+
+        if (cargoCheckResult.status !== 0) {
+            throw new Error(`Unable to check, status: ${JSON.stringify(cargoCheckResult)}`);
+        }
     }
 
     console.log("Building rust...")
-    execSync('cargo build --release --features release', { stdio: "inherit", cwd: projectRoot });
+    const cargoBuildResult = spawnSync('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
+        stdio: "inherit",
+        cwd: projectRoot
+    });
+
+    if (cargoBuildResult.status !== 0) {
+        throw new Error(`Unable to build rust, status: ${JSON.stringify(cargoBuildResult)}`);
+    }
 }
 
-async function doBuild() {
-    const projectRoot = path.resolve(process.cwd(), '..', '..');
-    console.log("Building Gauntlet...")
-    console.log("Project root: " + projectRoot)
-    build(projectRoot, true)
+function buildJs(projectRoot: string) {
+    console.log("Building js...")
+    const npmRunResult = spawnSync('npm', ['run', 'build'], { stdio: "inherit", cwd: projectRoot });
+
+    if (npmRunResult.status !== 0) {
+        throw new Error(`Unable to build js, status: ${JSON.stringify(npmRunResult)}`);
+    }
 }
 
-async function doPublish() {
+function getProjectRoot(): string {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
-    console.log("Publishing Gauntlet...")
     console.log("Project root: " + projectRoot)
+    return projectRoot
+}
+
+async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: string; newVersion: number; }> {
     const git = simpleGit(projectRoot);
 
-    const versionFilePath = path.join(projectRoot, "VERSION");
-    const changelogFilePath = path.join(projectRoot, "CHANGELOG.md");
-    const denoProjectPath = path.join(projectRoot, "js", "deno");
-    const apiProjectPath = path.join(projectRoot, "js", "api");
-
-    console.log("Fetching architecture and target...")
-    const rustcVv = execSync('rustc -Vv', { encoding: "utf-8" });
-    console.log(rustcVv)
-    const archTarget = rustcVv.match(/^host: (.+)$/m)!![1]
-
-    if (archTarget !== "x86_64-unknown-linux-gnu") {
-        throw new Error(`Unsupported target "${archTarget}"`)
-    }
-
     console.log("Reading version file...")
-    const versionRaw = await readFile(versionFilePath, { encoding: "utf-8" });
-    const oldVersion = Number(versionRaw.trim());
+    const oldVersion = await readVersion(projectRoot)
 
     const newVersion = oldVersion + 1;
 
     console.log("Writing version file...")
-    await writeFile(versionFilePath, `${newVersion}`)
+    await writeVersion(projectRoot, newVersion)
 
     console.log("Reading changelog file...")
+    const changelogFilePath = path.join(projectRoot, "CHANGELOG.md");
     const changelogRaw = await readFile(changelogFilePath, { encoding: "utf-8" });
 
     const notesForCurrentRelease: string[] = []
     const newChangelog: string[] = []
 
-    let section: "before" | "unreleased" | "after" = "before" ;
+    let section: "before" | "unreleased" | "after" = "before";
     for (const line of changelogRaw.split(EOL)) {
         switch (section) {
             case "before": {
@@ -121,12 +230,19 @@ async function doPublish() {
     await writeFile(changelogFilePath, newChangelog.join(EOL))
 
     const bumpNpmPackage = (packageDir: string) => {
-        execSync(`npm version 0.${newVersion}.0`, { stdio: "inherit", cwd: packageDir })
+        const npmVersionResult = spawnSync(`npm`, [`version 0.${newVersion}.0`], { stdio: "inherit", cwd: packageDir })
+
+        if (npmVersionResult.status !== 0) {
+            throw new Error(`Unable to run npm version, status: ${JSON.stringify(npmVersionResult)}`);
+        }
     }
 
     console.log("Bump version for deno subproject...")
+    const denoProjectPath = path.join(projectRoot, "js", "deno");
     bumpNpmPackage(denoProjectPath)
+
     console.log("Bump version for api subproject...")
+    const apiProjectPath = path.join(projectRoot, "js", "api");
     bumpNpmPackage(apiProjectPath)
 
     console.log("git add all files...")
@@ -140,46 +256,146 @@ async function doPublish() {
     console.log("git push tags...")
     await git.pushTags();
 
-    build(projectRoot, false)
+    return {
+        newVersion,
+        releaseNotes: notesForCurrentRelease.join('\n'),
+    }
+}
 
-    const releaseDirPath = path.join(projectRoot, 'target', 'release');
+function packageForLinux(projectRoot: string, arch: string): { filePath: string; fileName: string } {
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
     const executableFileName = 'gauntlet';
     const archiveFileName = "gauntlet-x86_64-linux.tar.gz"
     const archiveFilePath = path.join(releaseDirPath, archiveFileName);
 
-    execSync(`tar -czvf ${archiveFileName} ${executableFileName}`, { stdio: "inherit", cwd: releaseDirPath })
-
-    console.log("Publishing npm deno package...")
-    execSync('npm publish', { stdio: "inherit", cwd: denoProjectPath })
-    console.log("Publishing npm api package...")
-    execSync('npm publish', { stdio: "inherit", cwd: apiProjectPath })
-
-    const octokit = new Octokit({
-        auth: process.env.GITHUB_TOKEN
+    const tarResult = spawnSync(`tar`, ['-czvf', archiveFileName, executableFileName], {
+        stdio: "inherit",
+        cwd: releaseDirPath
     })
 
-    const repo = { owner: 'project-gauntlet', repo: 'gauntlet' };
+    if (tarResult.status !== 0) {
+        throw new Error(`Unable to package for linux, status: ${JSON.stringify(tarResult)}`);
+    }
 
+    return {
+        filePath: archiveFilePath,
+        fileName: archiveFileName
+    }
+}
+
+async function packageForMacos(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
+    const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
+    const outFileName = "gauntlet-aarch64-macos.dmg"
+    const outFilePath = path.join(releaseDirPath, outFileName);
+    const sourceInfoFilePath = path.join(projectRoot, 'assets', 'Info.plist');
+
+    const bundleDir = path.join(releaseDirPath, 'Gauntlet.app');
+    const contentsDir = path.join(bundleDir, 'Contents');
+    const macosContentsDir = path.join(contentsDir, 'MacOS');
+    const targetExecutableFilePath = path.join(macosContentsDir, 'Gauntlet');
+    const targetInfoFilePath = path.join(contentsDir, 'Info.plist');
+
+    const dmgBackground = path.join(projectRoot, 'assets', 'dmg-background.png');
+
+    const version = await readVersion(projectRoot)
+
+    mkdirSync(bundleDir)
+    mkdirSync(contentsDir)
+    mkdirSync(macosContentsDir)
+
+    copyFileSync(sourceExecutableFilePath, targetExecutableFilePath)
+    copyFileSync(sourceInfoFilePath, targetInfoFilePath)
+
+    const infoSource = readFileSync(targetInfoFilePath, 'utf8');
+    const infoResult = infoSource.replace('__VERSION__', `${version}.0.0`);
+    writeFileSync(targetInfoFilePath, infoResult,'utf8');
+
+    const createDmgResult = spawnSync(`create-dmg`, [
+        '--volname', 'Gauntlet Installer',
+        '--window-size', '660', '400',
+        '--background', dmgBackground,
+        '--icon', "Gauntlet.app", '180', '170',
+        '--icon-size', '160',
+        '--app-drop-link', '480', '170',
+        '--hide-extension', 'Gauntlet.app',
+        outFileName,
+        bundleDir
+    ], {
+        stdio: "inherit",
+        cwd: releaseDirPath
+    })
+
+    if (createDmgResult.status !== 0) {
+        throw new Error(`Unable to package for macos, status: ${JSON.stringify(createDmgResult)}`);
+    }
+
+    return {
+        filePath: outFilePath,
+        fileName: outFileName
+    }
+}
+
+function publishNpmPackage(projectRoot: string) {
+    console.log("Publishing npm deno package...")
+    const denoProjectPath = path.join(projectRoot, "js", "deno");
+    const denoNpmPublish = spawnSync('npm', ['publish'], { stdio: "inherit", cwd: denoProjectPath })
+
+    if (denoNpmPublish.status !== 0) {
+        throw new Error(`Unable to publish deno package, status: ${JSON.stringify(denoNpmPublish)}`);
+    }
+
+    console.log("Publishing npm api package...")
+    const apiProjectPath = path.join(projectRoot, "js", "api");
+    const apiNpmPublish = spawnSync('npm', ['publish'], { stdio: "inherit", cwd: apiProjectPath })
+
+    if (apiNpmPublish.status !== 0) {
+        throw new Error(`Unable to publish api package, status: ${JSON.stringify(apiNpmPublish)}`);
+    }
+}
+
+async function createRelease(newVersion: number, releaseNotes: string) {
     console.log("Creating github release...")
-    const response = await octokit.rest.repos.createRelease({
+    await octokit.rest.repos.createRelease({
         ...repo,
         tag_name: `v${newVersion}`,
         target_commitish: 'main',
         name: `v${newVersion}`,
-        body: notesForCurrentRelease.join('\n'),
+        body: releaseNotes,
+        draft: true
+    });
+}
+
+async function addFileToRelease(projectRoot: string, filePath: string, fileName: string) {
+    const version = await readVersion(projectRoot)
+
+    const response = await octokit.rest.repos.getReleaseByTag({
+        ...repo,
+        tag: `v${version}`,
     });
 
-    const fileBuffer = await readFile(archiveFilePath);
+    const fileBuffer = await readFile(filePath);
 
     console.log("Uploading executable as github release asset...")
     await octokit.rest.repos.uploadReleaseAsset({
         ...repo,
         release_id: response.data.id,
         origin: response.data.upload_url,
-        name: archiveFileName,
+        name: fileName,
         headers: {
             "Content-Type": "application/octet-stream",
         },
         data: fileBuffer as any,
     })
+}
+
+async function readVersion(projectRoot: string): Promise<number> {
+    const versionFilePath = path.join(projectRoot, "VERSION");
+    const versionRaw = await readFile(versionFilePath, { encoding: "utf-8" });
+    return Number(versionRaw.trim())
+}
+
+async function writeVersion(projectRoot: string, version: number) {
+    const versionFilePath = path.join(projectRoot, "VERSION");
+    await writeFile(versionFilePath, `${version}`)
 }

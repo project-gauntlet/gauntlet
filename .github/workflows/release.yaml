@@ -1,0 +1,47 @@
+name: release
+
+on: workflow_dispatch
+
+jobs:
+  publish-init:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/workflows/setup-linux.yaml
+      - run: npm run publish-init-project --workspace @project-gauntlet/build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+
+  publish-linux:
+    runs-on: ubuntu-latest
+    needs:
+      - publish-init
+    steps:
+      - uses: ./.github/workflows/setup-linux.yaml
+      - run: npm run publish-linux-project --workspace @project-gauntlet/build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+
+  publish-macos:
+    runs-on: macos-latest
+    needs:
+      - publish-init
+    steps:
+      - uses: ./.github/workflows/setup-macos.yaml
+      - run: npm run publish-macos-project --workspace @project-gauntlet/build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+
+  publish-final:
+    runs-on: ubuntu-latest
+    needs:
+      - publish-linux
+      - publish-macos
+    steps:
+      - uses: ./.github/workflows/setup-linux.yaml
+      - run: npm run publish-final-project --workspace @project-gauntlet/build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}

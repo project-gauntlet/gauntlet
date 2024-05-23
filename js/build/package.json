@@ -2,8 +2,12 @@
   "name": "@project-gauntlet/build",
   "scripts": {
     "build-this": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript",
-    "build-project": "npm run build-this && node dist/main.js build",
-    "publish-project": "npm run build-this && node dist/main.js publish"
+    "build-linux-project": "npm run build-this && node dist/main.js build-linux",
+    "build-macos-project": "npm run build-this && node dist/main.js build-macos",
+    "publish-init-project": "npm run build-this && node dist/main.js publish-init",
+    "publish-linux-project": "npm run build-this && node dist/main.js publish-linux",
+    "publish-macos-project": "npm run build-this && node dist/main.js publish-macos",
+    "publish-final-project": "npm run build-this && node dist/main.js publish-final"
   },
   "type": "module",
   "dependencies": {
