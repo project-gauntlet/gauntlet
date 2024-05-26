@@ -32,10 +32,18 @@ async function runScenarios() {
     const scenariosData = path.join(scenarios, "data");
     const scenariosRun = path.join(scenarios, "run");
 
+    console.log("Building scenario runner")
     buildScenarioRunner(projectRoot)
+
+    console.log("Building server")
     buildServer(projectRoot)
 
     for (const scenarioName of readdirSync(scenariosData)) {
+        const scenariosPlugin = path.join(scenarios, "plugins", scenarioName);
+
+        console.log("Building scenario plugin")
+
+        buildScenarioPlugin(scenariosPlugin)
 
         console.log("Starting real server")
 
@@ -156,5 +164,16 @@ function buildScenarioRunner(projectRoot: string) {
 
     if (scenarioRunnerBuildResult.status !== 0) {
         throw new Error(`Unable to compile generator, status ${scenarioRunnerBuildResult.status}`);
+    }
+}
+
+function buildScenarioPlugin(pluginDir: string) {
+    const scenarioPluginBuildResult = spawnSync('npm', ['run', 'build'], {
+        stdio: "inherit",
+        cwd: pluginDir,
+    });
+
+    if (scenarioPluginBuildResult.status !== 0) {
+        throw new Error(`Unable to compile plugin, status ${scenarioPluginBuildResult.status}`);
     }
 }
