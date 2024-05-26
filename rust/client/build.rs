@@ -257,7 +257,7 @@ fn main() -> anyhow::Result<()> {
                                 output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
                             }
                         }
-                        Children::String { text_part_internal_name } => {
+                        Children::String { text_part_internal_name, .. } => {
                             output.push_str(&format!("                (\"gauntlet:{}\", _) => (),\n", text_part_internal_name));
                         }
                         Children::None => {}
@@ -364,7 +364,7 @@ fn main() -> anyhow::Result<()> {
                                 output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", member.component_internal_name));
                             }
                         }
-                        Children::String { text_part_internal_name } => {
+                        Children::String { text_part_internal_name, .. } => {
                             output.push_str(&format!("                    (\"gauntlet:{}\", _) => (),\n", text_part_internal_name));
                         }
                         Children::None => {}

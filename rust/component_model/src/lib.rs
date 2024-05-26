@@ -128,6 +128,7 @@ pub enum Children {
     String {
         #[serde(rename = "textPartInternalName")]
         text_part_internal_name: String,
+        description: String,
     },
     #[serde(rename = "none")]
     None,
@@ -158,9 +159,10 @@ fn children_members<I>(members: I) -> Children
     }
 }
 
-fn children_string() -> Children {
+fn children_string(description: String) -> Children {
     Children::String {
-        text_part_internal_name: "text_part".to_owned()
+        text_part_internal_name: "text_part".to_owned(),
+        description,
     }
 }
 
@@ -554,7 +556,7 @@ pub fn create_component_model() -> Vec<Component> {
             property("label", mark_doc!("/metadata_link/props/label.md"), false, PropertyType::String),
             property("href", mark_doc!("/metadata_link/props/href.md"), false, PropertyType::String),
         ],
-        children_string(),
+        children_string(mark_doc!("/metadata_link/props/children.md")),
     );
 
     let metadata_tag_item_component = component(
@@ -565,7 +567,7 @@ pub fn create_component_model() -> Vec<Component> {
             // property("color", true, PropertyType::String),
             event("onClick", mark_doc!("/metadata_tag_item/props/onClick.md"), true, [])
         ],
-        children_string(),
+        children_string(mark_doc!("/metadata_tag_item/props/children.md")),
     );
 
     let metadata_tag_list_component = component(
@@ -606,7 +608,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", mark_doc!("/metadata_value/props/label.md"), false, PropertyType::String),
         ],
-        children_string(),
+        children_string(mark_doc!("/metadata_value/props/children.md")),
     );
 
     let metadata_component = component(
@@ -647,7 +649,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/h1/description.md"),
         "H1",
         [],
-        children_string(),
+        children_string(mark_doc!("/h1/props/children.md")),
     );
 
     let h2_component = component(
@@ -655,7 +657,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/h2/description.md"),
         "H2",
         [],
-        children_string(),
+        children_string(mark_doc!("/h2/props/children.md")),
     );
 
     let h3_component = component(
@@ -663,7 +665,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/h3/description.md"),
         "H3",
         [],
-        children_string(),
+        children_string(mark_doc!("/h3/props/children.md")),
     );
 
     let h4_component = component(
@@ -671,7 +673,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/h4/description.md"),
         "H4",
         [],
-        children_string(),
+        children_string(mark_doc!("/h4/props/children.md")),
     );
 
     let h5_component = component(
@@ -679,7 +681,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/h5/description.md"),
         "H5",
         [],
-        children_string(),
+        children_string(mark_doc!("/h5/props/children.md")),
     );
 
     let h6_component = component(
@@ -687,7 +689,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/h6/description.md"),
         "H6",
         [],
-        children_string(),
+        children_string(mark_doc!("/h6/props/children.md")),
     );
 
     let horizontal_break_component = component(
@@ -703,7 +705,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/code_block/description.md"),
         "CodeBlock",
         [],
-        children_string(),
+        children_string(mark_doc!("/code_block/props/children.md")),
     );
 
     // let code_component = component(
@@ -718,7 +720,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/paragraph/description.md"),
         "Paragraph",
         [],
-        children_string(),
+        children_string(mark_doc!("/paragraph/props/children.md")),
         // children_string_or_members([
         //     member("Link", &link_component),
         //     member("Code", &code_component),
@@ -832,7 +834,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("value", mark_doc!("/select_item/props/value.md"),false, PropertyType::String),
         ],
-        children_string(),
+        children_string(mark_doc!("/select_item/props/children.md")),
     );
 
     let select_component = component(
