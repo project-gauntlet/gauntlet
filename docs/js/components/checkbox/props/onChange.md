@@ -1,0 +1,1 @@
+Function that is called when the value of the checkbox was changed

@@ -868,8 +868,8 @@ impl ComponentWidgetWrapper {
                 };
 
                 let mut content = vec![title, subtitle];
-                if let Some(icon) = image {
-                    content.insert(0, icon)
+                if let Some(image) = image {
+                    content.insert(0, image)
                 }
 
                 let content: Element<_> = column(content)

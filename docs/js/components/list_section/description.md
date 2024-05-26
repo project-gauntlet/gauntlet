@@ -1,0 +1,1 @@
+List section allows to group a list of the List Items under some name

@@ -1,0 +1,1 @@
+Grid section allows to group a list of the Grid Items under some name

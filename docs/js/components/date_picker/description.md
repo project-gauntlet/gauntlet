@@ -1,0 +1,1 @@
+Date Picker is a type of form input that produces date value represented as a string in `YYYY-MM-DD` format

@@ -1,0 +1,1 @@
+List is a root component that allows to display a list of items.

@@ -1,0 +1,1 @@
+Internal value of the selected item

@@ -36,6 +36,7 @@ pub enum Component {
         #[serde(rename = "internalName")]
         internal_name: String,
         name: ComponentName,
+        description: String,
         props: Vec<Property>,
         children: Children,
     },
@@ -58,6 +59,7 @@ pub enum Component {
 #[derive(Debug, Clone, Serialize)]
 pub struct Property {
     pub name: String,
+    pub description: String,
     pub optional: bool,
     #[serde(rename = "type")]
     pub property_type: PropertyType,
@@ -183,11 +185,12 @@ fn member(member_name: impl ToString, component: &Component) -> (String, Compone
 }
 
 
-fn component<I>(internal_name: impl ToString, name: impl ToString, properties: I, children: Children) -> Component
+fn component<I>(internal_name: impl ToString, description: String, name: impl ToString, properties: I, children: Children) -> Component
     where I: IntoIterator<Item=Property>
 {
     Component::Standard {
         internal_name: internal_name.to_string(),
+        description,
         name: ComponentName::new(name),
         props: properties.into_iter().collect(),
         children,
@@ -212,8 +215,19 @@ fn component_ref(component: &Component) -> PropertyType {
 fn text_part() -> Component {
     Component::TextPart {
         internal_name: "text_part".to_owned(),
-        props: vec![property("value", false, PropertyType::String)]
+        props: vec![Property {
+            name: "value".into(),
+            description: "".to_string(),
+            optional: false,
+            property_type: PropertyType::String,
+        }],
     }
+}
+
+macro_rules! mark_doc {
+    ($expr:literal) => {
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/js/components", $expr)).to_string()
+    };
 }
 
 fn root(children: &[&Component]) -> Component {
@@ -469,20 +483,22 @@ fn root(children: &[&Component]) -> Component {
     }
 }
 
-fn event<I>(name: impl Into<String>, optional: bool, arguments: I) -> Property
+fn event<I>(name: impl Into<String>, description: String, optional: bool, arguments: I) -> Property
     where I: IntoIterator<Item=Property>
 {
     Property {
         name: name.into(),
+        description,
         optional,
         property_type: PropertyType::Function { arguments: arguments.into_iter().collect() },
     }
 }
 
 
-fn property(name: impl Into<String>, optional: bool, property_type: PropertyType) -> Property {
+fn property(name: impl Into<String>, description: String, optional: bool, property_type: PropertyType) -> Property {
     Property {
         name: name.into(),
+        description,
         optional,
         property_type,
     }
@@ -492,11 +508,12 @@ pub fn create_component_model() -> Vec<Component> {
 
     let action_component = component(
         "action",
+        mark_doc!("/action/description.md"),
         "Action",
         [
-            property("id", true, PropertyType::String),
-            property("title", false, PropertyType::String),
-            event("onAction", false, [])
+            property("id", mark_doc!("/action/props/id.md"), true, PropertyType::String),
+            property("title", mark_doc!("/action/props/title.md"), false, PropertyType::String),
+            event("onAction", mark_doc!("/action/props/onAction.md"), false, [])
         ],
         children_none(),
     );
@@ -504,9 +521,10 @@ pub fn create_component_model() -> Vec<Component> {
 
     let action_panel_section_component = component(
         "action_panel_section",
+        mark_doc!("/action_panel_section/description.md"),
         "ActionPanelSection",
         [
-            property("title", true, PropertyType::String),
+            property("title", mark_doc!("/action_panel_section/props/title.md"), true, PropertyType::String),
         ],
         children_members([
             member("Action", &action_component),
@@ -516,9 +534,10 @@ pub fn create_component_model() -> Vec<Component> {
 
     let action_panel_component = component(
         "action_panel",
+        mark_doc!("/action_panel/description.md"),
         "ActionPanel",
         [
-            property("title", true, PropertyType::String),
+            property("title", mark_doc!("/action_panel/props/title.md"), true, PropertyType::String),
         ],
         children_members([
             member("Action", &action_component),
@@ -529,29 +548,32 @@ pub fn create_component_model() -> Vec<Component> {
 
     let metadata_link_component = component(
         "metadata_link",
+        mark_doc!("/metadata_link/description.md"),
         "MetadataLink",
         [
-            property("label", false, PropertyType::String),
-            property("href", false, PropertyType::String),
+            property("label", mark_doc!("/metadata_link/props/label.md"), false, PropertyType::String),
+            property("href", mark_doc!("/metadata_link/props/href.md"), false, PropertyType::String),
         ],
         children_string(),
     );
 
     let metadata_tag_item_component = component(
         "metadata_tag_item",
+        mark_doc!("/metadata_tag_item/description.md"),
         "MetadataTagItem",
         [
             // property("color", true, PropertyType::String),
-            event("onClick", true, [])
+            event("onClick", mark_doc!("/metadata_tag_item/props/onClick.md"), true, [])
         ],
         children_string(),
     );
 
     let metadata_tag_list_component = component(
         "metadata_tag_list",
+        mark_doc!("/metadata_tag_list/description.md"),
         "MetadataTagList",
         [
-            property("label", false, PropertyType::String)
+            property("label", mark_doc!("/metadata_tag_list/props/label.md"), false, PropertyType::String)
         ],
         children_members([
             member("Item", &metadata_tag_item_component),
@@ -560,6 +582,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let metadata_separator_component = component(
         "metadata_separator",
+        mark_doc!("/metadata_separator/description.md"),
         "MetadataSeparator",
         [],
         children_none(),
@@ -567,25 +590,28 @@ pub fn create_component_model() -> Vec<Component> {
 
     let metadata_icon_component = component(
         "metadata_icon",
+        mark_doc!("/metadata_icon/description.md"),
         "MetadataIcon",
         [
-            property("icon", false, PropertyType::Enum { name: "Icons".to_owned() }),
-            property("label", false, PropertyType::String),
+            property("icon", mark_doc!("/metadata_icon/props/icon.md"), false, PropertyType::Enum { name: "Icons".to_owned() }),
+            property("label", mark_doc!("/metadata_icon/props/label.md"), false, PropertyType::String),
         ],
         children_none(),
     );
 
     let metadata_value_component = component(
         "metadata_value",
+        mark_doc!("/metadata_value/description.md"),
         "MetadataValue",
         [
-            property("label", false, PropertyType::String),
+            property("label", mark_doc!("/metadata_value/props/label.md"), false, PropertyType::String),
         ],
         children_string(),
     );
 
     let metadata_component = component(
         "metadata",
+        mark_doc!("/metadata/description.md"),
         "Metadata",
         [],
         children_members([
@@ -608,15 +634,17 @@ pub fn create_component_model() -> Vec<Component> {
 
     let image_component = component(
         "image",
+        mark_doc!("/image/description.md"),
         "Image",
         [
-            property("source", false, PropertyType::Object { name: "ImageSource".to_owned() })
+            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::Object { name: "ImageSource".to_owned() })
         ],
         children_none(),
     );
 
     let h1_component = component(
         "h1",
+        mark_doc!("/h1/description.md"),
         "H1",
         [],
         children_string(),
@@ -624,6 +652,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let h2_component = component(
         "h2",
+        mark_doc!("/h2/description.md"),
         "H2",
         [],
         children_string(),
@@ -631,6 +660,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let h3_component = component(
         "h3",
+        mark_doc!("/h3/description.md"),
         "H3",
         [],
         children_string(),
@@ -638,6 +668,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let h4_component = component(
         "h4",
+        mark_doc!("/h4/description.md"),
         "H4",
         [],
         children_string(),
@@ -645,6 +676,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let h5_component = component(
         "h5",
+        mark_doc!("/h5/description.md"),
         "H5",
         [],
         children_string(),
@@ -652,6 +684,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let h6_component = component(
         "h6",
+        mark_doc!("/h6/description.md"),
         "H6",
         [],
         children_string(),
@@ -659,6 +692,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let horizontal_break_component = component(
         "horizontal_break",
+        mark_doc!("/horizontal_break/description.md"),
         "HorizontalBreak",
         [],
         children_none(),
@@ -666,6 +700,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let code_block_component = component(
         "code_block",
+        mark_doc!("/code_block/description.md"),
         "CodeBlock",
         [],
         children_string(),
@@ -680,6 +715,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let paragraph_component = component(
         "paragraph",
+        mark_doc!("/paragraph/description.md"),
         "Paragraph",
         [],
         children_string(),
@@ -692,6 +728,7 @@ pub fn create_component_model() -> Vec<Component> {
     // content shouldn't have any interactable items
     let content_component = component(
         "content",
+        mark_doc!("/content/description.md"),
         "Content",
         [],
         children_members([
@@ -712,9 +749,10 @@ pub fn create_component_model() -> Vec<Component> {
 
     let detail_component = component(
         "detail",
+        mark_doc!("/detail/description.md"),
         "Detail",
         [
-            property("actions", true, component_ref(&action_panel_component))
+            property("actions", mark_doc!("/detail/props/actions.md"), true, component_ref(&action_panel_component))
         ],
         children_members([
             member("Metadata", &metadata_component),
@@ -725,22 +763,28 @@ pub fn create_component_model() -> Vec<Component> {
 
     let text_field_component = component(
         "text_field",
+        mark_doc!("/text_field/description.md"),
         "TextField",
         [
-            property("label", true, PropertyType::String),
-            property("value", true, PropertyType::String),
-            event("onChange", true, [property("value", true, PropertyType::String)])
+            property("label", mark_doc!("/text_field/props/label.md"),true, PropertyType::String),
+            property("value", mark_doc!("/text_field/props/value.md"),true, PropertyType::String),
+            event("onChange", mark_doc!("/text_field/props/onChange.md"),true, [
+                property("value", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_none(),
     );
 
     let password_field_component = component(
         "password_field",
+        mark_doc!("/password_field/description.md"),
         "PasswordField",
         [
-            property("label", true, PropertyType::String),
-            property("value", true, PropertyType::String),
-            event("onChange", true, [property("value", true, PropertyType::String)])
+            property("label", mark_doc!("/password_field/props/label.md"), true, PropertyType::String),
+            property("value", mark_doc!("/password_field/props/value.md"), true, PropertyType::String),
+            event("onChange", mark_doc!("/password_field/props/onChange.md"), true, [
+                property("value", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_none(),
     );
@@ -754,43 +798,53 @@ pub fn create_component_model() -> Vec<Component> {
 
     let checkbox_component = component(
         "checkbox",
+        mark_doc!("/checkbox/description.md"),
         "Checkbox",
         [
-            property("label", true, PropertyType::String),
-            property("title", true, PropertyType::String),
-            property("value", true, PropertyType::Boolean),
-            event("onChange", true, [property("value", false, PropertyType::Boolean)])
+            property("label", mark_doc!("/checkbox/props/label.md"),true, PropertyType::String),
+            property("title", mark_doc!("/checkbox/props/title.md"),true, PropertyType::String),
+            property("value", mark_doc!("/checkbox/props/value.md"),true, PropertyType::Boolean),
+            event("onChange", mark_doc!("/checkbox/props/onChange.md"),true, [
+                property("value", "".to_string(),false, PropertyType::Boolean)
+            ])
         ],
         children_none(),
     );
 
     let date_picker_component = component(
         "date_picker",
+        mark_doc!("/date_picker/description.md"),
         "DatePicker",
         [
-            property("label", true, PropertyType::String),
-            property("value", true, PropertyType::String),
-            event("onChange", true, [property("value", true, PropertyType::String)])
+            property("label", mark_doc!("/date_picker/props/label.md"),true, PropertyType::String),
+            property("value", mark_doc!("/date_picker/props/value.md"),true, PropertyType::String),
+            event("onChange", mark_doc!("/date_picker/props/onChange.md"),true, [
+                property("value", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_none(),
     );
 
     let select_item_component = component(
         "select_item",
+        mark_doc!("/select_item/description.md"),
         "SelectItem",
         [
-            property("value", false, PropertyType::String),
+            property("value", mark_doc!("/select_item/props/value.md"),false, PropertyType::String),
         ],
         children_string(),
     );
 
     let select_component = component(
         "select",
+        mark_doc!("/select/description.md"),
         "Select",
         [
-            property("label", true, PropertyType::String),
-            property("value", true, PropertyType::String),
-            event("onChange", true, [property("value", true, PropertyType::String)])
+            property("label", mark_doc!("/select/props/label.md"),true, PropertyType::String),
+            property("value", mark_doc!("/select/props/value.md"),true, PropertyType::String),
+            event("onChange", mark_doc!("/select/props/onChange.md"),true, [
+                property("value", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_members([
             member("Item", &select_item_component)
@@ -806,6 +860,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     let separator_component = component(
         "separator",
+        mark_doc!("/separator/description.md"),
         "Separator",
         [],
         children_none(),
@@ -813,9 +868,10 @@ pub fn create_component_model() -> Vec<Component> {
 
     let form_component = component(
         "form",
+        mark_doc!("/form/description.md"),
         "Form",
         [
-            property("actions", true, component_ref(&action_panel_component)),
+            property("actions", mark_doc!("/form/props/actions.md"), true, component_ref(&action_panel_component)),
         ],
         children_members([
             member("TextField", &text_field_component),
@@ -831,15 +887,17 @@ pub fn create_component_model() -> Vec<Component> {
 
     let inline_separator_component = component(
         "inline_separator",
+        mark_doc!("/inline_separator/description.md"),
         "InlineSeparator",
         [
-            property("icon", true, PropertyType::Enum { name: "Icons".to_owned() }),
+            property("icon", mark_doc!("/inline_separator/props/icon.md"), true, PropertyType::Enum { name: "Icons".to_owned() }),
         ],
         children_none(),
     );
 
     let inline_component = component(
         "inline",
+        mark_doc!("/inline/description.md"),
         "Inline",
         [],
         children_members([
@@ -852,23 +910,25 @@ pub fn create_component_model() -> Vec<Component> {
 
     let empty_view_component = component(
         "empty_view",
+        mark_doc!("/empty_view/description.md"),
         "EmptyView",
         [
-            property("title", false, PropertyType::String),
-            property("description", true, PropertyType::String),
-            property("image", true, PropertyType::Object { name: "ImageSource".to_owned() }),
+            property("title", mark_doc!("/empty_view/props/title.md"),false, PropertyType::String),
+            property("description", mark_doc!("/empty_view/props/description.md"),true, PropertyType::String),
+            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::Object { name: "ImageSource".to_owned() }),
         ],
         children_none(),
     );
 
     let list_item_component = component(
         "list_item",
+        mark_doc!("/list_item/description.md"),
         "ListItem",
         [
-            property("id", false, PropertyType::String),
-            property("title", false, PropertyType::String),
-            property("subtitle", true, PropertyType::String),
-            property("icon", true, PropertyType::Union { items: vec![PropertyType::Object { name: "ImageSource".to_owned() }, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("id", mark_doc!("/list_item/props/id.md"),false, PropertyType::String),
+            property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
+            property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
+            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::Object { name: "ImageSource".to_owned() }, PropertyType::Enum { name: "Icons".to_owned() }] }),
             // accessories
         ],
         children_none(),
@@ -876,10 +936,11 @@ pub fn create_component_model() -> Vec<Component> {
 
     let list_section_component = component(
         "list_section",
+        mark_doc!("/list_section/description.md"),
         "ListSection",
         [
-            property("title", false, PropertyType::String),
-            property("subtitle", true, PropertyType::String),
+            property("title", mark_doc!("/list_section/props/title.md"),false, PropertyType::String),
+            property("subtitle", mark_doc!("/list_section/props/subtitle.md"),true, PropertyType::String),
         ],
         children_members([
             member("Item", &list_item_component),
@@ -888,10 +949,13 @@ pub fn create_component_model() -> Vec<Component> {
 
     let list_component = component(
         "list",
+        mark_doc!("/list/description.md"),
         "List",
         [
-            property("actions", true, component_ref(&action_panel_component)),
-            event("onSelectionChange", true, [property("id", false, PropertyType::String)]),
+            property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component)),
+            event("onSelectionChange", mark_doc!("/list/props/onSelectionChange.md"), true, [
+                property("id", "".to_string(), false, PropertyType::String)
+            ]),
         ],
         children_members([
             member("EmptyView", &empty_view_component),
@@ -903,11 +967,12 @@ pub fn create_component_model() -> Vec<Component> {
 
     let grid_item_component = component(
         "grid_item",
+        mark_doc!("/grid_item/description.md"),
         "GridItem",
         [
-            property("id", false, PropertyType::String),
-            property("title", false, PropertyType::String),
-            property("subtitle", true, PropertyType::String),
+            property("id", mark_doc!("/grid_item/props/id.md"), false, PropertyType::String),
+            property("title", mark_doc!("/grid_item/props/title.md"), false, PropertyType::String),
+            property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
             // accessories
         ],
         children_members([
@@ -917,12 +982,13 @@ pub fn create_component_model() -> Vec<Component> {
 
     let grid_section_component = component(
         "grid_section",
+        mark_doc!("/grid_section/description.md"),
         "GridSection",
         [
-            property("title", false, PropertyType::String),
-            property("subtitle", true, PropertyType::String),
+            property("title", mark_doc!("/grid_section/props/title.md"), false, PropertyType::String),
+            property("subtitle", mark_doc!("/grid_section/props/subtitle.md"), true, PropertyType::String),
             // property("aspectRatio", true, PropertyType::String),
-            property("columns", true, PropertyType::Number)
+            property("columns", mark_doc!("/grid_section/props/columns.md"), true, PropertyType::Number)
             // fit
             // inset
         ],
@@ -933,14 +999,17 @@ pub fn create_component_model() -> Vec<Component> {
 
     let grid_component = component(
         "grid",
+        mark_doc!("/grid/description.md"),
         "Grid",
         [
-            property("actions", true, component_ref(&action_panel_component)),
+            property("actions", mark_doc!("/grid/props/actions.md"),true, component_ref(&action_panel_component)),
             // property("aspectRatio", true, PropertyType::String),
-            property("columns", true, PropertyType::Number), // TODO default
+            property("columns", mark_doc!("/grid/props/columns.md"),true, PropertyType::Number), // TODO default
             // fit
             // inset
-            event("onSelectionChange", true, [property("id", false, PropertyType::String)]),
+            event("onSelectionChange", mark_doc!("/grid/props/onSelectionChange.md"), true, [
+                property("id", "".to_string(), false, PropertyType::String)
+            ]),
         ],
         children_members([
             member("EmptyView", &empty_view_component),

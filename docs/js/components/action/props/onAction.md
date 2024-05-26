@@ -1,0 +1,1 @@
+Function that is called when the button in UI is clicked or the shortcut is pressed

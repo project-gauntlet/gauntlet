@@ -1,0 +1,1 @@
+Icon displayed under the label

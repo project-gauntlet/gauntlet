@@ -1,0 +1,1 @@
+View that will be displayed if there is no grid or list items available.

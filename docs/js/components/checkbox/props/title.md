@@ -1,0 +1,1 @@
+Text displayed in UI to the right of the checkbox itself

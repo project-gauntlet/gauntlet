@@ -1,0 +1,1 @@
+Icon to be displayed

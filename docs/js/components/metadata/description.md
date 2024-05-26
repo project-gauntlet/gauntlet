@@ -1,0 +1,1 @@
+Metadata is a component that displays list of name-value pairs. Can contain interactive parts

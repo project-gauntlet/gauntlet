@@ -1,0 +1,1 @@
+Horizontal separator that allows to visually divide list of values

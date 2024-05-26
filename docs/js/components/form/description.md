@@ -1,0 +1,1 @@
+Form is a root component that contains a set of input field of various types. Use it to allow users to provide data

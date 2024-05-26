@@ -1,0 +1,1 @@
+Function that is called when the value of the data picker was changed

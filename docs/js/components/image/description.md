@@ -1,0 +1,1 @@
+Component that displays arbitrary image

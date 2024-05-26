@@ -1,0 +1,1 @@
+Simple string value with a title

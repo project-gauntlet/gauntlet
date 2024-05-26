@@ -1,0 +1,1 @@
+Field that allows to select a single value in a predefined list 

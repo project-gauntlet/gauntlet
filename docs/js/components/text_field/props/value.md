@@ -1,0 +1,1 @@
+String value of the field. Can be used to implement controlled form

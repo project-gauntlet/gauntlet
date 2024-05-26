@@ -1,0 +1,1 @@
+Title displayed under the grid item

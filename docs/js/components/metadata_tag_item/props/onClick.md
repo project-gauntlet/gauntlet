@@ -1,0 +1,1 @@
+Function that will be executed when user clicks on the tag

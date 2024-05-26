@@ -374,7 +374,7 @@ impl Application for AppModel {
                                         (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
                                     };
 
-                                    println!("key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", char, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
+                                    tracing::debug!("key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", char, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
 
                                     match char.as_ref() {
                                         // only stuff that is present on 60% keyboard

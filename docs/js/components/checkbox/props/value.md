@@ -1,0 +1,1 @@
+Value of the checkbox. Can be used to implement controlled form

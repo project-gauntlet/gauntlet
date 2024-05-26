@@ -1,0 +1,1 @@
+Smaller text displayed next to the title

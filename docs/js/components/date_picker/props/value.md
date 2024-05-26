@@ -1,0 +1,1 @@
+Value of the Date Picker. Can be used to implement controlled form

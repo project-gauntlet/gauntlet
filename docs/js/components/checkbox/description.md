@@ -1,0 +1,1 @@
+Checkbox is a type of form input that produces boolean value, either `true` or `false`

@@ -1,0 +1,2 @@
+Allows to define an Action Panel for this view
+Every root component has such property

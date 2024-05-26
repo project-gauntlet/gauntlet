@@ -1,0 +1,1 @@
+Grid is a root component that allows to display a list of items represented in form of a grid.

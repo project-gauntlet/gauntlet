@@ -1,0 +1,1 @@
+Amount of columns that the grid will have
