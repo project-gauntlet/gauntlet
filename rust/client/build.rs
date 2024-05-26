@@ -136,7 +136,7 @@ fn main() -> anyhow::Result<()> {
 
     for component in &components {
         match component {
-            Component::Standard { internal_name, name, props, children } => {
+            Component::Standard { internal_name, name, props, children, .. } => {
                 output.push_str(&format!("        \"gauntlet:{}\" => ComponentWidget::{}", internal_name, name));
 
                 let has_children = !matches!(children, Children::None);
@@ -215,7 +215,7 @@ fn main() -> anyhow::Result<()> {
             Component::Root { .. } => {}
             Component::TextPart { internal_name, props } => {
                 let name = match &props[..] {
-                    [Property { property_type: PropertyType::String, optional: false, name }] => name,
+                    [Property { property_type: PropertyType::String, optional: false, name, .. }] => name,
                     _ => panic!("text_part should have single string not optional prop")
                 };
                 output.push_str(&format!("        \"gauntlet:{}\" => ComponentWidget::TextPart {{\n", internal_name));

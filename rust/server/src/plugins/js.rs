@@ -1299,7 +1299,7 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
         .expect(&format!("component with type {} doesn't exist", &ui_widget.widget_type));
 
     let empty = vec![];
-    let text_part = vec![Property { name: "value".to_owned(), optional: false, property_type: PropertyType::String }];
+    let text_part = vec![Property { name: "value".to_owned(), optional: false, property_type: PropertyType::String, description: "".to_string() }];
     let props = match component {
         Component::Standard { props, .. } => props,
         Component::Root { .. } => &empty,
