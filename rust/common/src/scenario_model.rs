@@ -17,7 +17,6 @@ pub struct ScenarioUiWidget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub enum ScenarioUiPropertyValue {
     String(String),
     Number(f64),
