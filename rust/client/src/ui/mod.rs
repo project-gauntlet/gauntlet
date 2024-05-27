@@ -200,6 +200,9 @@ impl Application for AppModel {
             let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
                 .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
 
+            let gen_in = fs::read_to_string(gen_in)
+                .expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
+
             let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT")
                 .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
 
@@ -230,6 +233,8 @@ impl Application for AppModel {
                         &plugin_id,
                         &entrypoint_id
                     );
+
+                    commands.push(Command::perform(async move { top_level_view }, |top_level_view| AppMsg::ReplaceView { top_level_view }));
 
                     let plugin_view_data = Some(PluginViewData {
                         top_level_view,
@@ -524,6 +529,11 @@ impl Application for AppModel {
                 Command::perform(async {}, |_| event)
             }
             AppMsg::Screenshot { save_path } => {
+                println!("Creating screenshot at: {}", save_path);
+
+                fs::create_dir_all(Path::new(&save_path).parent().expect("no parent?"))
+                    .expect("unable to create scenario out directories");
+
                 window::screenshot(
                     window::Id::MAIN,
                     |screenshot| AppMsg::ScreenshotDone {
@@ -533,6 +543,8 @@ impl Application for AppModel {
                 )
             }
             AppMsg::ScreenshotDone { save_path, screenshot } => {
+                println!("Saving screenshot at: {}", save_path);
+
                 Command::perform(
                     async move {
                         tokio::task::spawn_blocking(move || {

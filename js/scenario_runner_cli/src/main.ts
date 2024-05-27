@@ -62,7 +62,7 @@ async function runScenarios() {
 
         console.log("Starting mock frontend")
 
-        spawnSync('target/debug/scenario_runner', ['frontend'], {
+        const runnerReturn = spawnSync('target/debug/scenario_runner', ['frontend'], {
             stdio: "inherit",
             cwd: projectRoot,
             env: Object.assign(process.env, {
@@ -70,7 +70,11 @@ async function runScenarios() {
                 GAUNTLET_SCENARIOS_DIR: scenarios,
                 GAUNTLET_SCENARIO_PLUGIN_NAME: scenarioName,
             })
-        })
+        });
+
+        if (runnerReturn.status !== 0) {
+            throw new Error(`Unable to run scenario runner, status: ${runnerReturn.status}`);
+        }
 
         await sleep(1000)
 
@@ -103,8 +107,6 @@ async function runScreenshotGen() {
             for (const scenario of readdirSync(entrypointDir)) {
                 const scenarioFile = path.join(entrypointDir, scenario);
 
-                const json = readFileSync(scenarioFile, 'utf-8');
-
                 console.log("Starting screenshot generating frontend for scenario: " + scenarioFile)
 
                 const mockBackendProcess = spawn('target/debug/scenario_runner', ['server'], {
@@ -122,16 +124,21 @@ async function runScreenshotGen() {
                     .map(x => (x.charAt(0).toUpperCase() + x.slice(1)))
                     .join(" ");
 
-                spawnSync('target/debug/gauntlet', ['server'], {
+                const frontendReturn = spawnSync('target/debug/gauntlet', ['server'], {
                     stdio: "inherit",
                     cwd: projectRoot,
                     env: Object.assign(process.env, {
+                        RUST_LOG: "client=info",
                         GAUNTLET_INTERNAL_FRONTEND: "",
-                        GAUNTLET_SCREENSHOT_GEN_IN: json,
+                        GAUNTLET_SCREENSHOT_GEN_IN: scenarioFile,
                         GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out-screenshot", plugin, entrypoint, scenarioName + ".png"),
                         GAUNTLET_SCREENSHOT_GEN_NAME: scenarioNameTitle,
                     })
                 });
+
+                if (frontendReturn.status !== 0) {
+                    throw new Error(`Unable to run frontend, status: ${frontendReturn.error}`);
+                }
 
                 console.log("Frontend exited")
 
