@@ -117,8 +117,9 @@ async function runScreenshotGen() {
                 await sleep(500)
 
                 const scenarioName = path.parse(scenario).name;
+                const entrypointName = path.parse(entrypoint).name;
 
-                let scenarioNameTitle = scenarioName
+                let scenarioNameTitle = entrypointName
                     .split("_")
                     .filter(x => x.length > 0)
                     .map(x => (x.charAt(0).toUpperCase() + x.slice(1)))
