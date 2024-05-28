@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "build-all": "npm run build --workspaces --if-present",
-    "build": "npm run build --workspace js --workspace bundled_plugins --if-present"
+    "build-scenarios": "npm run build --workspace scenarios --if-present",
+    "build": "npm run build --workspace js --workspace bundled_plugins --if-present",
+    "run-scenarios": "npm run run-scenarios --workspace js/scenario_runner_cli",
+    "run-screenshot-gen": "npm run run-screenshot-gen --workspace js/scenario_runner_cli"
   },
   "workspaces": [
     "bundled_plugins/*",

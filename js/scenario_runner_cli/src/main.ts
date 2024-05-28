@@ -38,12 +38,13 @@ async function runScenarios() {
     console.log("Building server")
     buildServer(projectRoot)
 
+    buildScenarioPlugins(projectRoot)
+
     for (const scenarioName of readdirSync(scenariosData)) {
         const scenariosPlugin = path.join(scenarios, "plugins", scenarioName);
 
         console.log("Building scenario plugin")
 
-        buildScenarioPlugin(scenariosPlugin)
 
         console.log("Starting real server")
 
@@ -73,7 +74,7 @@ async function runScenarios() {
         });
 
         if (runnerReturn.status !== 0) {
-            throw new Error(`Unable to run scenario runner, status: ${runnerReturn.status}`);
+            throw new Error(`Unable to run scenario runner, status: ${JSON.stringify(runnerReturn)}`);
         }
 
         await sleep(1000)
@@ -83,10 +84,12 @@ async function runScenarios() {
         if (!backendProcess.kill()) {
             console.error("Unable to kill backend after frontend finished")
         }
-    }
 
-    if (existsSync(scenariosRun)) {
-        rmSync(scenariosRun, { recursive: true })
+        if (existsSync(scenariosRun)) {
+            rmSync(scenariosRun, { recursive: true })
+        }
+
+        await sleep(1000)
     }
 }
 
@@ -138,7 +141,7 @@ async function runScreenshotGen() {
                 });
 
                 if (frontendReturn.status !== 0) {
-                    throw new Error(`Unable to run frontend, status: ${frontendReturn.error}`);
+                    throw new Error(`Unable to run frontend, status: ${JSON.stringify(frontendReturn)}`);
                 }
 
                 console.log("Frontend exited")
@@ -160,7 +163,7 @@ function buildServer(projectRoot: string) {
     });
 
     if (serverBuildResult.status !== 0) {
-        throw new Error(`Unable to compile server, status: ${serverBuildResult.status}`);
+        throw new Error(`Unable to compile server, status: ${JSON.stringify(serverBuildResult)}`);
     }
 }
 
@@ -171,17 +174,17 @@ function buildScenarioRunner(projectRoot: string) {
     });
 
     if (scenarioRunnerBuildResult.status !== 0) {
-        throw new Error(`Unable to compile generator, status ${scenarioRunnerBuildResult.status}`);
+        throw new Error(`Unable to compile generator, status ${JSON.stringify(scenarioRunnerBuildResult)}`);
     }
 }
 
-function buildScenarioPlugin(pluginDir: string) {
-    const scenarioPluginBuildResult = spawnSync('npm', ['run', 'build'], {
+function buildScenarioPlugins(projectRoot: string) {
+    const scenarioPluginBuildResult = spawnSync('npm', ['run', 'build-all'], {
         stdio: "inherit",
-        cwd: pluginDir,
+        cwd: projectRoot,
     });
 
     if (scenarioPluginBuildResult.status !== 0) {
-        throw new Error(`Unable to compile plugin, status ${scenarioPluginBuildResult.status}`);
+        throw new Error(`Unable to compile plugin, status ${JSON.stringify(scenarioPluginBuildResult)}`);
     }
 }

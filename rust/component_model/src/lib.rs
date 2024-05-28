@@ -1033,11 +1033,7 @@ pub fn create_component_model() -> Vec<Component> {
 
     // Detail
     // Detail.Content
-    // Detail.Content.Link
-    // Detail.Content.Code
     // Detail.Content.Paragraph
-    // Detail.Content.Paragraph.Link
-    // Detail.Content.Paragraph.Code
     // Detail.Content.Image
     // Detail.Content.H1-6
     // Detail.Content.HorizontalBreak
