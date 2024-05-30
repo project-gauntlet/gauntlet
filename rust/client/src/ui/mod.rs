@@ -25,7 +25,7 @@ use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, Ui
 use common::rpc::backend_api::BackendApi;
 use common::rpc::frontend_server::start_frontend_server;
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
-use common::scenario_model::ScenarioFrontendEvent;
+use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
 use utils::channel::{channel, RequestReceiver};
 
 use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
@@ -236,14 +236,17 @@ impl Application for AppModel {
 
                     commands.push(Command::perform(async move { top_level_view }, |top_level_view| AppMsg::ReplaceView { top_level_view }));
 
-                    let plugin_view_data = Some(PluginViewData {
-                        top_level_view,
-                        plugin_id,
-                        plugin_name: "Screenshot Gen".to_string(),
-                        entrypoint_id,
-                        entrypoint_name: gen_name,
-                        action_shortcuts: Default::default(),
-                    });
+                    let plugin_view_data= match render_location {
+                        ScenarioUiRenderLocation::InlineView => None,
+                        ScenarioUiRenderLocation::View => Some(PluginViewData {
+                            top_level_view,
+                            plugin_id,
+                            plugin_name: "Screenshot Gen".to_string(),
+                            entrypoint_id,
+                            entrypoint_name: gen_name,
+                            action_shortcuts: Default::default(),
+                        })
+                    };
 
                     (context, plugin_view_data, None)
                 }
