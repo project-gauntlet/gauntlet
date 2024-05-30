@@ -149,7 +149,7 @@ declare global {
                 columns?: number;
             };
             ["gauntlet:grid"]: {
-                children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
+                children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof GridItem | typeof GridSection>;
                 columns?: number;
                 onSelectionChange?: (id: string) => void;
             };
@@ -690,20 +690,18 @@ export const GridSection: FC<GridSectionProps> & {
 };
 GridSection.Item = GridItem;
 export interface GridProps {
-    children?: ElementComponent<typeof EmptyView | typeof Detail | typeof GridItem | typeof GridSection>;
+    children?: ElementComponent<typeof EmptyView | typeof GridItem | typeof GridSection>;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
     onSelectionChange?: (id: string) => void;
 }
 export const Grid: FC<GridProps> & {
     EmptyView: typeof EmptyView;
-    Detail: typeof Detail;
     Item: typeof GridItem;
     Section: typeof GridSection;
 } = (props: GridProps): ReactNode => {
     return <gauntlet:grid children={[props.actions, props.children] as any} columns={props.columns} onSelectionChange={props.onSelectionChange}/>;
 };
 Grid.EmptyView = EmptyView;
-Grid.Detail = Detail;
 Grid.Item = GridItem;
 Grid.Section = GridSection;

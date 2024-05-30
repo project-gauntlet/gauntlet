@@ -1015,7 +1015,6 @@ pub fn create_component_model() -> Vec<Component> {
         ],
         children_members([
             member("EmptyView", &empty_view_component),
-            member("Detail", &detail_component),
             member("Item", &grid_item_component),
             member("Section", &grid_section_component),
         ]),
