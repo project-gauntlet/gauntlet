@@ -1,0 +1,36 @@
+[gauntlet]
+name = 'Docs List'
+description = ''
+
+
+[[entrypoint]]
+id = 'detail'
+name = 'Detail'
+path = 'src/detail.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'empty-view'
+name = 'Empty View'
+path = 'src/empty_view.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'main'
+name = 'Main'
+path = 'src/main.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'section'
+name = 'Section'
+path = 'src/section.tsx'
+type = 'view'
+description = ''
+
+[permissions]
+network = ["static.wikia.nocookie.net"]
+

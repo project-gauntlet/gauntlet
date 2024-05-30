@@ -1,0 +1,11 @@
+[gauntlet]
+name = 'Docs Inline'
+description = ''
+
+[[entrypoint]]
+id = 'main'
+name = 'Main'
+path = 'src/main.tsx'
+type = 'inline-view'
+description = ''
+

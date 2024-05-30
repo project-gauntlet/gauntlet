@@ -1,0 +1,108 @@
+[gauntlet]
+name = 'Docs Detail'
+description = ''
+
+[[entrypoint]]
+id = 'content'
+name = 'Content'
+path = 'src/content.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'content-code-block'
+name = 'Content Code Block'
+path = 'src/content_code_block.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'content-header'
+name = 'Content Header'
+path = 'src/content_header.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'content-horizontal-break'
+name = 'Content Horizontal Break'
+path = 'src/content_horizontal_break.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'content-image'
+name = 'Content Image'
+path = 'src/content_image.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'content-paragraph'
+name = 'Content Paragraph'
+path = 'src/content_paragraph.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'main'
+name = 'Main'
+path = 'src/main.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'metadata'
+name = 'Metadata'
+path = 'src/metadata.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'metadata-icon'
+name = 'Metadata Icon'
+path = 'src/metadata_icon.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'metadata-link'
+name = 'Metadata Link'
+path = 'src/metadata_link.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'metadata-separator'
+name = 'Metadata Separator'
+path = 'src/metadata_separator.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'metadata-tag-list'
+name = 'Metadata Tag List'
+path = 'src/metadata_tag_list.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'metadata-value'
+name = 'Metadata Value'
+path = 'src/metadata_value.tsx'
+type = 'view'
+description = ''
+
+
+
+
+
+
+
+
+
+
+
+
+
+

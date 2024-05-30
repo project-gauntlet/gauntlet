@@ -1,0 +1,68 @@
+[gauntlet]
+name = 'Docs Form'
+description = ''
+
+
+[[entrypoint]]
+id = 'checkbox'
+name = 'Checkbox'
+path = 'src/checkbox.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'date-picker'
+name = 'Date Picker'
+path = 'src/date-picker.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'main'
+name = 'Main'
+path = 'src/main.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'password-field'
+name = 'Password Field'
+path = 'src/password-field.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'select'
+name = 'Select'
+path = 'src/select.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'separator'
+name = 'Separator'
+path = 'src/separator.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'text-field'
+name = 'Text Field'
+path = 'src/text-field.tsx'
+type = 'view'
+description = ''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
