@@ -857,22 +857,37 @@ impl ComponentWidgetWrapper {
             }
             ComponentWidget::EmptyView { title, description, image } => {
                 let image: Option<Element<_>> = image.as_ref()
-                    .map(|image| iced::widget::image(Handle::from_memory(image.data.clone())).into()); // FIXME really expensive clone
+                    .map(|image| {
+                        iced::widget::image(Handle::from_memory(image.data.clone()))  // FIXME really expensive clone
+                            .width(100)
+                            .height(100)
+                            .into()
+                    });
 
                 let title: Element<_> = text(title)
                     .into();
 
                 let subtitle: Element<_> = match description {
                     None => horizontal_space().into(),
-                    Some(subtitle) => text(subtitle).into(),
+                    Some(subtitle) => {
+                        text(subtitle)
+                            .style(TextStyle::Subtext)
+                            .into()
+                    }
                 };
 
                 let mut content = vec![title, subtitle];
                 if let Some(image) = image {
+
+                    let image: Element<_> = container(image)
+                        .padding(Padding::new(10.0))
+                        .into();
+
                     content.insert(0, image)
                 }
 
                 let content: Element<_> = column(content)
+                    .align_items(Alignment::Center)
                     .into();
 
                 container(content)
