@@ -159,7 +159,8 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                 });
 
                 if (frontendReturn.status !== 0) {
-                    throw new Error(`Unable to run frontend, status: ${JSON.stringify(frontendReturn)}`);
+                    const killed = mockBackendProcess.kill();
+                    throw new Error(`Unable to run frontend, mock backend killed: ${killed}, status: ${JSON.stringify(frontendReturn)}`);
                 }
 
                 console.log("Frontend exited")
