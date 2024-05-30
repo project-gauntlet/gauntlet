@@ -10,13 +10,16 @@ program
     .description('Gauntlet Scenario Runner Tool');
 
 program.command('run-scenarios')
-    .action(async () => {
-        await runScenarios()
+    .argument('[plugin]')
+    .action(async (plugin) => {
+        await runScenarios(plugin)
     });
 
 program.command('run-screenshot-gen')
-    .action(async () => {
-        await runScreenshotGen()
+    .argument('[plugin]')
+    .argument('[entrypoint]')
+    .action(async (plugin, entrypoint) => {
+        await runScreenshotGen(plugin, entrypoint)
     });
 
 await program.parseAsync(process.argv);
@@ -25,7 +28,7 @@ async function sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));
 }
 
-async function runScenarios() {
+async function runScenarios(expectedPlugin: string | undefined) {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
 
     const scenarios = path.join(projectRoot, "scenarios");
@@ -41,7 +44,13 @@ async function runScenarios() {
     console.log("Building scenario plugins")
     buildScenarioPlugins(projectRoot)
 
-    for (const scenarioName of readdirSync(scenariosData)) {
+    for (const pluginName of readdirSync(scenariosData)) {
+        if (expectedPlugin) {
+            if (pluginName != expectedPlugin) {
+                continue
+            }
+        }
+
         console.log("Starting real server")
 
         const backendProcess = spawn('target/debug/gauntlet', ['server'], {
@@ -65,7 +74,7 @@ async function runScenarios() {
             env: Object.assign(process.env, {
                 RUST_LOG: "info",
                 GAUNTLET_SCENARIOS_DIR: scenarios,
-                GAUNTLET_SCENARIO_PLUGIN_NAME: scenarioName,
+                GAUNTLET_SCENARIO_PLUGIN_NAME: pluginName,
             })
         });
 
@@ -90,7 +99,7 @@ async function runScenarios() {
     }
 }
 
-async function runScreenshotGen() {
+async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntrypoint: string | undefined) {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
     const scenarios = path.join(projectRoot, "scenarios");
     const scenariosOut = path.join(scenarios, "out");
@@ -99,9 +108,21 @@ async function runScreenshotGen() {
     buildServer(projectRoot)
 
     for (const plugin of readdirSync(scenariosOut)) {
+        if (expectedPlugin) {
+            if (plugin != expectedPlugin) {
+                continue
+            }
+        }
+
         const pluginDir = path.join(scenariosOut, plugin);
 
         for (const entrypoint of readdirSync(pluginDir)) {
+            if (expectedEntrypoint) {
+                if (entrypoint != expectedEntrypoint) {
+                    continue
+                }
+            }
+
             const entrypointDir = path.join(pluginDir, entrypoint);
 
             for (const scenario of readdirSync(entrypointDir)) {
