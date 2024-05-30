@@ -34,8 +34,10 @@ async fn run_server() -> anyhow::Result<()> {
 
     application_manager.clear_all_icon_cache_dir()?;
 
-    if let Err(err) = application_manager.load_builtin_plugins().await {
-        tracing::error!("error loading bundled plugin(s): {:?}", err);
+    if !cfg!(feature = "scenario_runner") {
+        if let Err(err) = application_manager.load_builtin_plugins().await {
+            tracing::error!("error loading bundled plugin(s): {:?}", err);
+        }
     }
 
     match (cfg!(feature = "release"), cfg!(feature = "scenario_runner")) {
