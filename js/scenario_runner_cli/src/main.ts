@@ -38,14 +38,10 @@ async function runScenarios() {
     console.log("Building server")
     buildServer(projectRoot)
 
+    console.log("Building scenario plugins")
     buildScenarioPlugins(projectRoot)
 
     for (const scenarioName of readdirSync(scenariosData)) {
-        const scenariosPlugin = path.join(scenarios, "plugins", scenarioName);
-
-        console.log("Building scenario plugin")
-
-
         console.log("Starting real server")
 
         const backendProcess = spawn('target/debug/gauntlet', ['server'], {
@@ -74,7 +70,8 @@ async function runScenarios() {
         });
 
         if (runnerReturn.status !== 0) {
-            throw new Error(`Unable to run scenario runner, status: ${JSON.stringify(runnerReturn)}`);
+            const killed = backendProcess.kill();
+            throw new Error(`Unable to run scenario runner, backend killed: ${killed}, status: ${JSON.stringify(runnerReturn)}`);
         }
 
         await sleep(1000)
@@ -123,7 +120,7 @@ async function runScreenshotGen() {
                 const entrypointName = path.parse(entrypoint).name;
 
                 let scenarioNameTitle = entrypointName
-                    .split("_")
+                    .split("-")
                     .filter(x => x.length > 0)
                     .map(x => (x.charAt(0).toUpperCase() + x.slice(1)))
                     .join(" ");

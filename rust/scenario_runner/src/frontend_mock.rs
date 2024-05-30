@@ -36,16 +36,15 @@ pub async fn start_mock_frontend() -> anyhow::Result<()> {
 
     let scenario_out_dir = scenario_dir
         .join("out")
-        .join(&plugin_name)
-        .to_str()
-        .expect("scenario_out_dir is invalid UTF-8")
-        .to_string();
+        .join(&plugin_name);
 
     fs::create_dir_all(&scenario_out_dir)
         .expect("unable to create scenario_out_dir");
 
-    tokio::spawn(async {
-        start_frontend_server(Box::new(RpcFrontendSaveToJson::new(scenario_out_dir))).await;
+    let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+
+    tokio::spawn(async move {
+        start_frontend_server(Box::new(RpcFrontendSaveToJson::new(sender))).await;
     });
 
     let mut client = BackendApi::new().await?;
@@ -71,6 +70,8 @@ pub async fn start_mock_frontend() -> anyhow::Result<()> {
 
             let scenario_path = scenario.path();
 
+            let scenario_name = scenario_path.file_stem().unwrap().to_str().unwrap().to_string();
+
             let scenario_data = fs::read(&scenario_path)
                 .expect("unable to read scenario scenario from file");
 
@@ -88,6 +89,11 @@ pub async fn start_mock_frontend() -> anyhow::Result<()> {
                     client.request_view_render(plugin_id, entrypoint_id).await?;
                 }
             }
+
+            match receiver.recv().await {
+                None => unreachable!(),
+                Some(event) => save_event(&scenario_out_dir, scenario_name, event)
+            }
         }
     }
 
@@ -96,40 +102,44 @@ pub async fn start_mock_frontend() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn save_event(scenario_out_dir: &Path, scenario_name: String, event: ScenarioFrontendEvent) {
+    let json = serde_json::to_string_pretty(&event)
+        .expect("unable to serialize scenario event");
+
+    let entrypoint_id = match event {
+        ScenarioFrontendEvent::ReplaceView { entrypoint_id, .. } => entrypoint_id,
+        ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, .. } => entrypoint_id,
+        ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, .. } => entrypoint_id,
+    };
+
+    let out_dir = Path::new(scenario_out_dir)
+        .join(entrypoint_id);
+
+    fs::create_dir_all(&out_dir)
+        .expect("Unable to create scenario out dir");
+
+    let out_path = out_dir
+        .join(format!("{}.json", scenario_name));
+
+    fs::write(&out_path, json)
+        .expect("unable to write scenario event to file");
+}
+
 struct RpcFrontendSaveToJson {
-    scenario_out_dir: String,
-    counter: usize
+    scenario_sender: tokio::sync::mpsc::Sender<ScenarioFrontendEvent>,
 }
 
 impl RpcFrontendSaveToJson {
-    fn new(scenario_out_dir: String) -> Self {
+    fn new(scenario_sender: tokio::sync::mpsc::Sender<ScenarioFrontendEvent>) -> Self {
         Self {
-            scenario_out_dir,
-            counter: 0,
+            scenario_sender,
         }
     }
 
-    fn save_event(&self, event: ScenarioFrontendEvent) {
-        let json = serde_json::to_string_pretty(&event)
-            .expect("unable to serialize scenario event");
-
-        let entrypoint_id = match event {
-            ScenarioFrontendEvent::ReplaceView { entrypoint_id, .. } => entrypoint_id,
-            ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, .. } => entrypoint_id,
-            ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, .. } => entrypoint_id,
-        };
-
-        let out_dir = Path::new(&self.scenario_out_dir)
-            .join(entrypoint_id);
-
-        fs::create_dir_all(&out_dir)
-            .expect("Unable to create scenario out dir");
-
-        let out_path = out_dir
-            .join(format!("{}.json", self.counter));
-
-        fs::write(&out_path, json)
-            .expect("unable to write scenario event to file");
+    async fn save_event(&self, event: ScenarioFrontendEvent) {
+        self.scenario_sender.send(event)
+            .await
+            .expect("send failed")
     }
 }
 
@@ -143,7 +153,7 @@ impl FrontendServer for RpcFrontendSaveToJson {
             container: ui_widget_to_scenario(container),
         };
 
-        self.save_event(event);
+        self.save_event(event).await;
     }
 
     async fn clear_inline_view(&self, _plugin_id: PluginId) {
@@ -161,7 +171,7 @@ impl FrontendServer for RpcFrontendSaveToJson {
             entrypoint_preferences_required,
         };
 
-        self.save_event(event);
+        self.save_event(event).await;
     }
 
     async fn show_plugin_error_view(&self, _plugin_id: PluginId, entrypoint_id: EntrypointId, render_location: UiRenderLocation) {
@@ -170,7 +180,7 @@ impl FrontendServer for RpcFrontendSaveToJson {
             render_location: ui_render_location_to_scenario(render_location)
         };
 
-        self.save_event(event);
+        self.save_event(event).await;
     }
 }
 
