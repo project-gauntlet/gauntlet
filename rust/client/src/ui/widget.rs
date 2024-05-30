@@ -556,6 +556,8 @@ impl ComponentWidgetWrapper {
                     panic!("unexpected state kind {:?}", state)
                 };
 
+                let is_in_list = matches!(context, ComponentRenderContext::List { .. });
+
                 let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }), ComponentRenderContext::None)
                     .map(|metadata_element| {
                         container(metadata_element)
@@ -580,32 +582,47 @@ impl ComponentWidgetWrapper {
                     })
                     .ok();
 
-                let separator = vertical_rule(1)
-                    .into();
+                let separator = if is_in_list {
+                    horizontal_rule(1)
+                        .into()
+                } else {
+                    vertical_rule(1)
+                        .into()
+                };
+
+                let list_fn = |vec| {
+                    if is_in_list {
+                        column(vec)
+                            .into()
+                    } else {
+                        row(vec)
+                            .into()
+                    }
+                };
 
                 let content: Element<_> = match (content_element, metadata_element) {
                     (Some(content_element), Some(metadata_element)) => {
-                        row(vec![content_element, separator, metadata_element])
-                            .into()
+                        list_fn(vec![content_element, separator, metadata_element])
                     }
                     (Some(content_element), None) => {
-                        row(vec![content_element])
-                            .into()
+                        list_fn(vec![content_element])
                     }
                     (None, Some(metadata_element)) => {
                         let content_element = vertical_space()
                             .into();
 
-                        row(vec![content_element, separator, metadata_element])
-                            .into()
+                        list_fn(vec![content_element, separator, metadata_element])
                     }
                     (None, None) => {
-                        row(vec![])
-                            .into()
+                        list_fn(vec![])
                     }
                 };
 
-                render_root(show_action_panel, widget_id, children, content, context)
+                if is_in_list {
+                    content
+                } else {
+                    render_root(show_action_panel, widget_id, children, content, context)
+                }
             }
             ComponentWidget::Root { children } => {
                 row(render_children(children, context))
@@ -985,6 +1002,7 @@ impl ComponentWidgetWrapper {
 
                             items.push(child.render_widget(ComponentRenderContext::List { widget_id }))
                         },
+                        ComponentWidget::EmptyView { .. } | ComponentWidget::Detail { .. } => {},
                         _ => panic!("unexpected widget kind {:?}", widget)
                     }
                 }
@@ -996,12 +1014,47 @@ impl ComponentWidgetWrapper {
                     items.push(content);
                 }
 
-                let content: Element<_> = column(items)
-                    .width(Length::Fill)
-                    .into();
+                let content = if items.is_empty() {
+                    if let Ok(empty_view) =  render_child_by_type(children, |child| matches!(child, ComponentWidget::EmptyView { .. }), ComponentRenderContext::None) {
+                        empty_view
+                    } else {
+                        horizontal_space()
+                            .into()
+                    }
+                } else {
+                    let content: Element<_> = column(items)
+                        .width(Length::Fill)
+                        .into();
 
-                let content: Element<_> = scrollable(content)
-                    .width(Length::Fill)
+                    let content: Element<_> = scrollable(content)
+                        .width(Length::Fill)
+                        .into();
+
+                    let content: Element<_> = container(content)
+                        .width(Length::FillPortion(2))
+                        .into();
+
+                    content
+                };
+
+                let mut elements = vec![content];
+
+                if let Ok(detail) = render_child_by_type(children, |child| matches!(child, ComponentWidget::Detail { .. }), ComponentRenderContext::List { widget_id }) {
+
+                    let detail: Element<_> = container(detail)
+                        .width(Length::FillPortion(3))
+                        .into();
+
+                    let separator: Element<_> = vertical_rule(1)
+                        .into();
+
+                    elements.push(separator);
+
+                    elements.push(detail);
+                }
+
+                let content: Element<_> = row(elements)
+                    .height(Length::Fill)
                     .into();
 
                 render_root(show_action_panel, widget_id, children, content, context)
@@ -1068,6 +1121,7 @@ impl ComponentWidgetWrapper {
 
                             items.push(child.render_widget(ComponentRenderContext::Grid { widget_id }))
                         },
+                        ComponentWidget::EmptyView { .. } => {},
                         _ => panic!("unexpected widget kind {:?}", widget)
                     }
                 }
