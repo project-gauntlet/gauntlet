@@ -26,4 +26,4 @@ description = ''
 
 
 [permissions]
-network = ["github.com", "raw.githubusercontent.com", "static.wikia.nocookie.net"]
+network = ["static.wikia.nocookie.net"]

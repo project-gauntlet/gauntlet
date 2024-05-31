@@ -93,16 +93,5 @@ path = 'src/metadata_value.tsx'
 type = 'view'
 description = ''
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+[permissions]
+network = ["static.wikia.nocookie.net"]
