@@ -608,10 +608,7 @@ impl ComponentWidgetWrapper {
                         list_fn(vec![content_element])
                     }
                     (None, Some(metadata_element)) => {
-                        let content_element = vertical_space()
-                            .into();
-
-                        list_fn(vec![content_element, separator, metadata_element])
+                        list_fn(vec![metadata_element])
                     }
                     (None, None) => {
                         list_fn(vec![])
