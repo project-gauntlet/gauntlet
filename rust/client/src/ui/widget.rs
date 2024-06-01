@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use anyhow::anyhow;
 
-use iced::{Alignment, Font, Length, Padding};
+use anyhow::anyhow;
+use iced::{Alignment, color, Font, Length};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
@@ -18,9 +18,10 @@ use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
 
 use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
-use crate::model::UiViewEvent;
 
-use crate::ui::{ActionShortcut};
+use crate::model::UiViewEvent;
+use crate::ui::ActionShortcut;
+use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindGrid, ThemeKindRow};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
@@ -233,13 +234,10 @@ impl ComponentWidgetWrapper {
                         };
 
                         let modifier: Element<_> = container(modifier)
-                            .padding(Padding::from([0.0, 5.0]))
-                            .style(ContainerStyle::Code)
-                            .into();
+                            .themed(ThemeKindContainer::ActionShortcutModifier);
 
                         let modifier: Element<_> = container(modifier)
-                            .padding(Padding::from([0.0, 10.0, 0.0, 0.0]))
-                            .into();
+                            .themed(ThemeKindContainer::ActionShortcutModifiersInit);
 
                         result = result.push(modifier);
 
@@ -255,13 +253,10 @@ impl ComponentWidgetWrapper {
                             };
 
                             let shift_key: Element<_> = container(shift_key)
-                                .padding(Padding::from([0.0, 5.0]))
-                                .style(ContainerStyle::Code)
-                                .into();
+                                .themed(ThemeKindContainer::ActionShortcutModifier);
 
                             let shift_key: Element<_> = container(shift_key)
-                                .padding(Padding::from([0.0, 10.0, 0.0, 0.0]))
-                                .into();
+                                .themed(ThemeKindContainer::ActionShortcutModifiersInit);
 
                             result = result.push(shift_key);
                         }
@@ -270,13 +265,11 @@ impl ComponentWidgetWrapper {
                             .into();
 
                         let text: Element<_> = container(text)
-                            .padding(Padding::from([0.0, 5.0]))
-                            .style(ContainerStyle::Code)
-                            .into();
+                            .themed(ThemeKindContainer::ActionShortcutModifier);
 
                         result = result.push(text);
 
-                        result.into()
+                        result.themed(ThemeKindRow::ActionShortcut)
                     });
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
@@ -295,9 +288,8 @@ impl ComponentWidgetWrapper {
 
                 button(content)
                     .on_press(ComponentWidgetEvent::ActionClick { widget_id })
-                    .style(ButtonStyle::GauntletButton)
                     .width(Length::Fill)
-                    .into()
+                    .themed(ThemeKindButton::Action)
             }
             ComponentWidget::ActionPanelSection { children, .. } => {
                 column(render_children(children, context))
@@ -361,11 +353,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 container(actions)
-                    .padding(Padding::new(10.0))
-                    .style(ContainerStyle::Background)
-                    .height(Length::Fixed(200.0))
-                    .width(Length::Fixed(300.0))
-                    .into()
+                    .themed(ThemeKindContainer::ActionPanel)
             }
             ComponentWidget::MetadataTagItem { children } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
@@ -375,8 +363,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 container(tag)
-                    .padding(Padding::new(5.0))
-                    .into()
+                    .themed(ThemeKindContainer::MetadataTagItem)
             }
             ComponentWidget::MetadataTagList { label,  children } => {
                 let value = wrap_horizontal(render_children(children, ComponentRenderContext::None))
@@ -427,8 +414,7 @@ impl ComponentWidgetWrapper {
 
                 container(separator)
                     .width(Length::Fill)
-                    .padding(Padding::from([10.0, 0.0]))
-                    .into()
+                    .themed(ThemeKindContainer::MetadataSeparator)
             }
             ComponentWidget::Metadata { children } => {
                 let metadata: Element<_> = column(render_children(children, ComponentRenderContext::None))
@@ -444,34 +430,14 @@ impl ComponentWidgetWrapper {
                 let paragraph: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let mut content = container(paragraph)
-                    .width(Length::Fill)
-                    .padding(Padding::new(5.0));
+                    .width(Length::Fill);
 
                 if centered {
                     content = content.center_x()
                 }
 
-                content.into()
+                content.themed(ThemeKindContainer::ContentParagraph)
             }
-            // ComponentWidget::Link { children, href } => {
-            //     let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
-            //
-            //     let content: Element<_> = button(content)
-            //         .style(ButtonStyle::Link)
-            //         .on_press(ComponentWidgetEvent::LinkClick { widget_id, href: href.to_owned() })
-            //         .into();
-            //
-            //     if href.is_empty() {
-            //         content
-            //     } else {
-            //         let href: Element<_> = text(href)
-            //             .into();
-            //
-            //         tooltip(content, href, Position::Top)
-            //             .style(ContainerStyle::Background)
-            //             .into()
-            //     }
-            // }
             ComponentWidget::Image { source } => {
                 let centered = context.is_content_centered();
 
@@ -510,30 +476,19 @@ impl ComponentWidgetWrapper {
 
                 container(separator)
                     .width(Length::Fill)
-                    .padding(Padding::from([10.0, 0.0]))
-                    .into()
+                    .themed(ThemeKindContainer::ContentHorizontalBreak)
             }
             ComponentWidget::CodeBlock { children } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let content: Element<_> = container(content)
-                    .padding(Padding::from([3.0, 5.0]))
-                    .into();
+                    .themed(ThemeKindContainer::ContentCodeBlockText);
 
                 container(content)
                     .width(Length::Fill)
                     .style(ContainerStyle::Code)
                     .into()
             }
-            // ComponentWidget::Code { children } => {
-            //     let content: Element<_> = row(render_children(children, ComponentRenderContext::None))
-            //         .padding(Padding::from([3.0, 5.0]))
-            //         .into();
-            //
-            //     container(content)
-            //         .style(ContainerStyle::Code)
-            //         .into()
-            // }
             ComponentWidget::Content { children } => {
                 let centered = context.is_content_centered();
 
@@ -562,8 +517,7 @@ impl ComponentWidgetWrapper {
                     .map(|metadata_element| {
                         container(metadata_element)
                             .width(Length::FillPortion(2))
-                            .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-                            .into()
+                            .themed(ThemeKindContainer::DetailMetadata)
                     })
                     .ok();
 
@@ -571,8 +525,7 @@ impl ComponentWidgetWrapper {
                     .map(|content_element| {
                         let content_element: Element<_> = container(content_element)
                             .width(Length::Fill)
-                            .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-                            .into();
+                            .themed(ThemeKindContainer::DetailContent);
 
                         let content_element: Element<_> = scrollable(content_element)
                             .width(Length::FillPortion(3))
@@ -761,8 +714,7 @@ impl ComponentWidgetWrapper {
 
                                         container(label)
                                             .width(Length::FillPortion(2))
-                                            .padding(Padding::from([5.0, 10.0]))
-                                            .into()
+                                            .themed(ThemeKindContainer::FormInputLabel)
                                     }
                                 };
 
@@ -780,8 +732,7 @@ impl ComponentWidgetWrapper {
                                 ];
 
                                 let row: Element<_> = row(content)
-                                    .padding(Padding::new(10.0))
-                                    .into();
+                                    .themed(ThemeKindRow::FormInput);
 
                                 Some(row)
                             }
@@ -853,12 +804,9 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 let content: Element<_> = container(content)
-                    .padding(Padding::new(5.0))
                     .center_x()
                     .center_y()
-                    .height(100)
-                    .max_height(100)
-                    .into();
+                    .themed(ThemeKindContainer::Inline);
 
                 let rule: Element<_> = horizontal_rule(1)
                     .into();
@@ -894,8 +842,7 @@ impl ComponentWidgetWrapper {
                 if let Some(image) = image {
 
                     let image: Element<_> = container(image)
-                        .padding(Padding::new(10.0))
-                        .into();
+                        .themed(ThemeKindContainer::EmptyViewImage);
 
                     content.insert(0, image)
                 }
@@ -935,8 +882,7 @@ impl ComponentWidgetWrapper {
                 let title: Element<_> = text(title)
                     .into();
                 let title: Element<_> = container(title)
-                    .padding(Padding::new(3.0))
-                    .into();
+                    .themed(ThemeKindContainer::ListItemTitle);
 
                 let mut content = vec![title];
 
@@ -949,8 +895,7 @@ impl ComponentWidgetWrapper {
                         .style(TextStyle::Subtext)
                         .into();
                     let subtitle: Element<_> = container(subtitle)
-                        .padding(Padding::new(3.0))
-                        .into();
+                        .themed(ThemeKindContainer::ListItemSubtitle);
 
                     content.push(subtitle)
                 }
@@ -959,10 +904,8 @@ impl ComponentWidgetWrapper {
 
                 button(content)
                     .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id, item_id: id.to_owned() })
-                    .style(ButtonStyle::GauntletButton)
                     .width(Length::Fill)
-                    .padding(Padding::new(5.0))
-                    .into()
+                    .themed(ThemeKindButton::ListItem)
             }
             ComponentWidget::ListSection { children, title, subtitle } => {
                 let content = render_children(children, context);
@@ -1081,9 +1024,7 @@ impl ComponentWidgetWrapper {
 
                 let content: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id: id.to_owned() })
-                    .style(ButtonStyle::GauntletGridButton)
-                    .padding(Padding::new(5.0))
-                    .into();
+                    .themed(ThemeKindButton::GridItem);
 
                 content
             }
@@ -1155,10 +1096,8 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
         .font(icons::BOOTSTRAP_FONT);
 
     let back_button: Element<_> = button(icon)
-        .padding(Padding::from([3.0, 5.0]))
-        .style(ButtonStyle::Secondary)
         .on_press(ComponentWidgetEvent::PreviousView)
-        .into();
+        .themed(ThemeKindButton::TopPanelBackButton);
 
     let space = Space::with_width(Length::FillPortion(3))
         .into();
@@ -1167,9 +1106,8 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
         .into();
 
     let top_panel: Element<_> = container(top_panel)
-        .padding(Padding::new(10.0))
         .width(Length::Fill)
-        .into();
+        .themed(ThemeKindContainer::RootTopPanel);
 
     top_panel
 }
@@ -1198,8 +1136,7 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
         .into();
 
     let value = container(value)
-        .padding(Padding::new(5.0))
-        .into();
+        .themed(ThemeKindContainer::MetadataItemValue);
 
     column(vec![label, value])
         .into()
@@ -1234,8 +1171,7 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&
 
     let grid: Element<_> = grid(rows)
         .width(Length::Fill)
-        .spacing(10.0)
-        .into();
+        .themed(ThemeKindGrid::Grid);
 
     grid
 }
@@ -1270,8 +1206,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     }
 
     let title_content = row(title_content)
-        .padding(Padding::from([5.0, 8.0])) // 5 + 3 to line up a section with items
-        .into();
+        .themed(ThemeKindRow::ListGridSectionTitle);
 
     column([title_content, content])
         .into()
@@ -1299,10 +1234,8 @@ fn render_root<'a>(
 
     let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
         let action_panel_toggle: Element<_> = button(text("Actions"))
-            .padding(Padding::from([0.0, 5.0]))
-            .style(ButtonStyle::Secondary)
             .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
-            .into();
+            .themed(ThemeKindButton::ActionPopup);
 
         let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
             .into();
@@ -1318,9 +1251,8 @@ fn render_root<'a>(
     let top_panel = create_top_panel();
 
     let bottom_panel: Element<_> = container(bottom_panel)
-        .padding(Padding::new(5.0))
         .width(Length::Fill)
-        .into();
+        .themed(ThemeKindContainer::RootBottomPanel);
 
     let top_separator = horizontal_rule(1)
         .into();
@@ -1330,9 +1262,7 @@ fn render_root<'a>(
 
     let content: Element<_> = container(content)
         .width(Length::Fill)
-        .height(Length::Fill) // TODO remove after https://github.com/iced-rs/iced/issues/2186 is resolved
-        .padding(Padding::from([5.0, 5.0, 0.0, 5.0]))
-        .into();
+        .themed(ThemeKindContainer::Root);
 
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
         .into();

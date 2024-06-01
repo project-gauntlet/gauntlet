@@ -43,6 +43,7 @@ mod theme;
 mod client_context;
 mod widget_container;
 mod inline_view_container;
+mod themable_widget;
 
 pub struct AppModel {
     // logic
@@ -767,7 +768,7 @@ impl Application for AppModel {
                     .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH))
                     .into();
 
-                // element.explain(iced::color!(0xFF0000))
+                // let element = element.explain(iced::color!(0xFF0000));
                 element
             }
         }
