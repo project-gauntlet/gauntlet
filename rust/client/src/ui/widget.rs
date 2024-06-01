@@ -21,7 +21,7 @@ use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyVal
 
 use crate::model::UiViewEvent;
 use crate::ui::ActionShortcut;
-use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindGrid, ThemeKindRow};
+use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindGrid, ThemeKindImage, ThemeKindRow};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
@@ -205,7 +205,7 @@ impl ComponentWidgetWrapper {
                     .map(|id| action_shortcuts.get(id))
                     .flatten()
                     .map(|shortcut| {
-                        let mut result = row(vec![]);
+                        let mut result = vec![];
 
                         let modifier: Element<_> = if cfg!(target_os = "macos") {
                             match shortcut.kind {
@@ -239,7 +239,7 @@ impl ComponentWidgetWrapper {
                         let modifier: Element<_> = container(modifier)
                             .themed(ThemeKindContainer::ActionShortcutModifiersInit);
 
-                        result = result.push(modifier);
+                        result.push(modifier);
 
                         let shift = shortcut.key.chars().all(|ch| ch.is_ascii_uppercase() && ch.is_alphabetic());
                         if shift {
@@ -258,7 +258,7 @@ impl ComponentWidgetWrapper {
                             let shift_key: Element<_> = container(shift_key)
                                 .themed(ThemeKindContainer::ActionShortcutModifiersInit);
 
-                            result = result.push(shift_key);
+                            result.push(shift_key);
                         }
 
                         let text: Element<_> = text(shortcut.key.to_ascii_uppercase())
@@ -267,9 +267,10 @@ impl ComponentWidgetWrapper {
                         let text: Element<_> = container(text)
                             .themed(ThemeKindContainer::ActionShortcutModifier);
 
-                        result = result.push(text);
+                        result.push(text);
 
-                        result.themed(ThemeKindRow::ActionShortcut)
+                        row(result)
+                            .themed(ThemeKindRow::ActionShortcut)
                     });
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
@@ -280,6 +281,7 @@ impl ComponentWidgetWrapper {
                         .into();
 
                     row([text, space, shortcut_element])
+                        .align_items(Alignment::Center)
                         .into()
                 } else {
                     text(title)
@@ -451,7 +453,7 @@ impl ComponentWidgetWrapper {
                     content = content.center_x()
                 }
 
-                content.into()
+                content.themed(ThemeKindContainer::ContentImage)
             }
             ComponentWidget::H1 { children } => {
                 render_children_string(children, ComponentRenderContext::H1)
@@ -481,13 +483,13 @@ impl ComponentWidgetWrapper {
             ComponentWidget::CodeBlock { children } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
-                let content: Element<_> = container(content)
+                let content = container(content)
+                    .width(Length::Fill)
                     .themed(ThemeKindContainer::ContentCodeBlockText);
 
                 container(content)
                     .width(Length::Fill)
-                    .style(ContainerStyle::Code)
-                    .into()
+                    .themed(ThemeKindContainer::ContentCodeBlock)
             }
             ComponentWidget::Content { children } => {
                 let centered = context.is_content_centered();
@@ -732,6 +734,7 @@ impl ComponentWidgetWrapper {
                                 ];
 
                                 let row: Element<_> = row(content)
+                                    .align_items(Alignment::Center)
                                     .themed(ThemeKindRow::FormInput);
 
                                 Some(row)
@@ -821,9 +824,7 @@ impl ComponentWidgetWrapper {
                 let image: Option<Element<_>> = image.as_ref()
                     .map(|image| {
                         iced::widget::image(Handle::from_memory(image.data.clone()))  // FIXME really expensive clone
-                            .width(100)
-                            .height(100)
-                            .into()
+                            .themed(ThemeKindImage::EmptyViewImage)
                     });
 
                 let title: Element<_> = text(title)
@@ -900,6 +901,7 @@ impl ComponentWidgetWrapper {
                     content.push(subtitle)
                 }
                 let content: Element<_> = row(content)
+                    .align_items(Alignment::Center)
                     .into();
 
                 button(content)
@@ -913,7 +915,7 @@ impl ComponentWidgetWrapper {
                 let content = column(content)
                     .into();
 
-                render_section(content, Some(title), subtitle)
+                render_section(content, Some(title), subtitle, ThemeKindRow::ListSectionTitle)
             }
             ComponentWidget::List { children } => {
                 let ComponentWidgetState::List { show_action_panel } = *state else {
@@ -1031,7 +1033,7 @@ impl ComponentWidgetWrapper {
             ComponentWidget::GridSection { children, title, subtitle, columns } => {
                 let content = render_grid(children, columns, context);
 
-                render_section(content, Some(title), subtitle)
+                render_section(content, Some(title), subtitle, ThemeKindRow::GridSectionTitle)
             }
             ComponentWidget::Grid { children, columns } => {
                 let ComponentWidgetState::Grid { show_action_panel } = *state else {
@@ -1097,12 +1099,13 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
 
     let back_button: Element<_> = button(icon)
         .on_press(ComponentWidgetEvent::PreviousView)
-        .themed(ThemeKindButton::TopPanelBackButton);
+        .themed(ThemeKindButton::RootTopPanelBackButton);
 
     let space = Space::with_width(Length::FillPortion(3))
         .into();
 
     let top_panel: Element<_> = row(vec![back_button, space])
+        .align_items(Alignment::Center)
         .into();
 
     let top_panel: Element<_> = container(top_panel)
@@ -1176,7 +1179,7 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&
     grid
 }
 
-fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>) -> Element<'a, ComponentWidgetEvent> {
+fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>, theme_kind_title: ThemeKindRow) -> Element<'a, ComponentWidgetEvent> {
     let mut title_content = vec![];
 
     if let Some(title) = title {
@@ -1206,7 +1209,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     }
 
     let title_content = row(title_content)
-        .themed(ThemeKindRow::ListGridSectionTitle);
+        .themed(theme_kind_title);
 
     column([title_content, content])
         .into()
@@ -1235,9 +1238,10 @@ fn render_root<'a>(
     let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
         let action_panel_toggle: Element<_> = button(text("Actions"))
             .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
-            .themed(ThemeKindButton::ActionPopup);
+            .themed(ThemeKindButton::RootBottomPanelActionButton);
 
         let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
+            .align_items(Alignment::Center)
             .into();
 
         (!show_action_panel, action_panel_element, bottom_panel)
@@ -1262,7 +1266,7 @@ fn render_root<'a>(
 
     let content: Element<_> = container(content)
         .width(Length::Fill)
-        .themed(ThemeKindContainer::Root);
+        .themed(ThemeKindContainer::RootContent);
 
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
         .into();

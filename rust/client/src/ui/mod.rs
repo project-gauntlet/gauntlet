@@ -32,6 +32,7 @@ use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
 use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
+use crate::ui::themable_widget::init_theme;
 use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
 use crate::ui::view_container::view_container;
 use crate::ui::widget::ComponentWidgetEvent;
@@ -166,6 +167,8 @@ fn window_settings() -> iced::window::Settings {
 }
 
 pub fn run() {
+    init_theme(themable_widget::DEFAULT_THEME.clone());
+
     AppModel::run(Settings {
         id: None,
         window: window_settings(),
