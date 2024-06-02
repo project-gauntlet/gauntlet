@@ -34,11 +34,13 @@ class GauntletContextValue {
     private _renderLocation: RenderLocation | undefined
     private _rerender: ((node: ReactNode) => void) | undefined
     private _entrypointId: string | undefined;
+    private _clear: (() => void) | undefined;
 
-    reset(entrypointId: string, renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void) {
+    reset(entrypointId: string, renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void, clear: () => void) {
         this._entrypointId = entrypointId
         this._renderLocation = renderLocation
         this._rerender = rerender
+        this._clear = clear
         this._navStack = []
         this._navStack.push(view)
     }
@@ -61,6 +63,10 @@ class GauntletContextValue {
 
     rerender = (component: ReactNode) => {
         this._rerender!!(component)
+    };
+
+    clear = () => {
+        this._clear!!()
     };
 
     pushView = (component: ReactNode) => {
@@ -415,6 +421,10 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
     }
 });
 
+export function clearRenderer() {
+    gauntletContextValue.clear()
+}
+
 export function render(entrypointId: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
     const hostConfig = createHostConfig();
 
@@ -428,14 +438,27 @@ export function render(entrypointId: string, renderLocation: RenderLocation, vie
         widgetChildren: [],
     };
 
-    gauntletContextValue.reset(entrypointId, renderLocation, view, (node: ReactNode) => {
-        reconciler.updateContainer(
-            node,
-            root,
-            null,
-            null
-        );
-    })
+    gauntletContextValue.reset(
+        entrypointId,
+        renderLocation,
+        view,
+        (node: ReactNode) => {
+            reconciler.updateContainer(
+                node,
+                root,
+                null,
+                null
+            );
+        },
+        () => {
+            reconciler.updateContainer(
+                null,
+                root,
+                null,
+                null
+            );
+        }
+    )
 
     const root = reconciler.createContainer(
         container,

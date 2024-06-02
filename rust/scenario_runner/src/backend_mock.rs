@@ -19,6 +19,10 @@ impl BackendServer for RpcBackendReadFromJson {
         todo!()
     }
 
+    async fn request_view_close(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        todo!()
+    }
+
     async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
         todo!()
     }

@@ -8,6 +8,7 @@ service RpcBackend {
 
   // ui
   rpc RequestViewRender (RpcRequestViewRenderRequest) returns (RpcRequestViewRenderResponse);
+  rpc RequestViewClose (RpcRequestViewCloseRequest) returns (RpcRequestViewCloseResponse);
 
   rpc RequestRunCommand (RpcRequestRunCommandRequest) returns (RpcRequestRunCommandResponse);
 
@@ -53,6 +54,13 @@ message RpcRequestViewRenderRequest {
 message RpcRequestViewRenderResponse {
   map<string, RpcRequestViewRenderResponseAction> action_shortcuts = 1;
 }
+
+message RpcRequestViewCloseRequest {
+  string plugin_id = 1;
+}
+message RpcRequestViewCloseResponse {
+}
+
 message RpcRequestViewRenderResponseAction {
   string key = 1;
   RpcRequestViewRenderResponseActionKind kind = 2;

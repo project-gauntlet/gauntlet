@@ -807,12 +807,20 @@ impl Application for AppModel {
 
 impl AppModel {
     fn hide_window(&mut self) -> Command<AppMsg> {
+        let mut commands = vec![
+            window::change_mode(window::Id::MAIN, window::Mode::Hidden)
+        ];
+
+        if let Some(PluginViewData { plugin_id, .. }) = &self.plugin_view_data {
+            commands.push(self.close_view(plugin_id.clone()));
+        }
+
         self.prompt = None;
         self.plugin_view_data = None;
         self.search_results = vec![];
         self.close_error_view();
 
-        window::change_mode(window::Id::MAIN, window::Mode::Hidden)
+        Command::batch(commands)
     }
 
     fn show_window(&mut self) -> Command<AppMsg> {
@@ -837,10 +845,13 @@ impl AppModel {
             None => {
                 self.hide_window()
             }
-            Some(PluginViewData { top_level_view: true, .. }) => {
+            Some(PluginViewData { top_level_view: true, plugin_id, .. }) => {
+                let plugin_id = plugin_id.clone();
+
                 self.plugin_view_data.take();
 
                 Command::batch([
+                    self.close_view(plugin_id),
                     reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
                     window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
                     focus(self.search_field_id.clone()),
@@ -860,6 +871,16 @@ impl AppModel {
                 .await
                 .unwrap() // TODO proper error handling
         }, |action_shortcuts| AppMsg::SaveActionShortcuts { action_shortcuts })
+    }
+
+    fn close_view(&self, plugin_id: PluginId) -> Command<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+
+        Command::perform(async move {
+            backend_client.request_view_close(plugin_id)
+                .await
+                .unwrap() // TODO proper error handling
+        }, |_| AppMsg::Noop)
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {

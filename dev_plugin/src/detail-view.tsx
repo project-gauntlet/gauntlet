@@ -1,4 +1,4 @@
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail, Icons } from "@project-gauntlet/api/components";
 import { useNavigation } from "@project-gauntlet/api/hooks";
@@ -15,6 +15,12 @@ interface DetailViewEntrypointConfig {
 
 function TestView(props: { value: number }): ReactElement {
     const { popView } = useNavigation();
+
+    useEffect(() => {
+        return () => {
+            console.log("TestView useEffect destructor called")
+        };
+    }, []);
 
     return (
         <Detail>
@@ -50,6 +56,12 @@ export default function DetailView(): ReactElement {
     console.log("RUST_LOG:", env);
 
     const logoData = assetData("logo.png");
+
+    useEffect(() => {
+        return () => {
+            console.log("DetailView useEffect destructor called")
+        };
+    }, []);
 
     return (
         <Detail

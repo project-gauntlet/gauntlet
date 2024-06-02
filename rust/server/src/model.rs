@@ -43,6 +43,7 @@ pub enum JsUiEvent {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String
     },
+    CloseView,
     RunCommand {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String
@@ -113,6 +114,7 @@ pub enum IntermediateUiEvent {
     OpenView {
         entrypoint_id: EntrypointId
     },
+    CloseView,
     RunCommand {
         entrypoint_id: String
     },

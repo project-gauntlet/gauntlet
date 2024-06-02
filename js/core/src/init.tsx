@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { runCommandGenerators, runGeneratedCommand } from "./command-generator";
 import { loadSearchIndex } from "./search-index";
+import { clearRenderer } from "gauntlet:renderer";
 
 // @ts-expect-error does typescript support such symbol declarations?
 const denoCore: DenoCore = Deno[Deno.internal].core;
@@ -157,6 +158,10 @@ async function runLoop() {
                     console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
                     InternalApi.show_plugin_error_view(pluginEvent.entrypointId, "View")
                 }
+                break;
+            }
+            case "CloseView": {
+                clearRenderer()
                 break;
             }
             case "RunCommand": {

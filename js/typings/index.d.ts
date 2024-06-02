@@ -6,7 +6,7 @@ interface DenoCore {
     ops: InternalApi
 }
 
-type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | StopPluginCommand | OpenInlineView | ReloadSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | CloseView | StopPluginCommand | OpenInlineView | ReloadSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -30,6 +30,10 @@ type NotReactsKeyboardEvent = {
 type OpenView = {
     type: "OpenView"
     entrypointId: string
+}
+
+type CloseView = {
+    type: "CloseView"
 }
 
 type RunCommand = {

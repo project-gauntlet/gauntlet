@@ -5,7 +5,7 @@ use tonic::transport::Channel;
 
 use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiSearchResult, UiSearchResultEntrypointType, UiWidgetId};
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 
 #[derive(Debug, Clone)]
@@ -86,6 +86,16 @@ impl BackendApi {
             .collect::<HashMap<_, _>>();
 
         Ok(action_shortcuts)
+    }
+
+    pub async fn request_view_close(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
+        let request = RpcRequestViewCloseRequest {
+            plugin_id: plugin_id.to_string(),
+        };
+
+        self.client.request_view_close(Request::new(request)).await?;
+
+        Ok(())
     }
 
     pub async fn request_run_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {

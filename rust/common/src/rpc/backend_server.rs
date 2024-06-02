@@ -5,7 +5,7 @@ use tonic::transport::Server;
 
 use crate::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchIndexPluginEntrypointType, SearchResultItem, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 
 pub async fn start_backend_server(server: Box<dyn BackendServer + Sync + Send>) {
@@ -42,6 +42,11 @@ pub trait BackendServer {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId
     ) -> anyhow::Result<HashMap<String, ActionShortcut>>;
+
+    async fn request_view_close(
+        &self,
+        plugin_id: PluginId,
+    ) -> anyhow::Result<()>;
 
     async fn request_run_command(
         &self,
@@ -184,6 +189,19 @@ impl RpcBackend for RpcBackendServerImpl {
         Ok(Response::new(RpcRequestViewRenderResponse {
             action_shortcuts,
         }))
+    }
+
+    async fn request_view_close(&self, request: Request<RpcRequestViewCloseRequest>) -> Result<Response<RpcRequestViewCloseResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+
+        let plugin_id = PluginId::from_string(plugin_id);
+
+        self.server.request_view_close(plugin_id)
+            .await
+            .map_err(|err| Status::internal(err.to_string()))?;
+
+        Ok(Response::new(RpcRequestViewCloseResponse::default()))
     }
 
     async fn request_run_command(&self, request: Request<RpcRequestRunCommandRequest>) -> Result<Response<RpcRequestRunCommandResponse>, Status> {

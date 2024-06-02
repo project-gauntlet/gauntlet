@@ -39,6 +39,12 @@ impl BackendServer for BackendServerImpl {
         self.application_manager.action_shortcuts(plugin_id, entrypoint_id).await
     }
 
+    async fn request_view_close(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        self.application_manager.handle_view_close(plugin_id);
+
+        Ok(())
+    }
+
     async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
         self.application_manager.handle_run_command(plugin_id, entrypoint_id);
 

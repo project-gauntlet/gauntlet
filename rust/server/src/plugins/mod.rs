@@ -267,6 +267,13 @@ impl ApplicationManager {
         })
     }
 
+    pub fn handle_view_close(&self, plugin_id: PluginId) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::CloseView
+        })
+    }
+
     pub fn handle_view_event(&self, plugin_id: PluginId, widget_id: UiWidgetId, event_name: String, event_arguments: Vec<UiPropertyValue>) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
