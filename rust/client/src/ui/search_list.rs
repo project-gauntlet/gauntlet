@@ -1,14 +1,15 @@
-use iced::advanced::image::Handle;
 use iced::{Alignment, Length};
-use iced::Padding;
+use iced::advanced::image::Handle;
 use iced::widget::{column, Component, container, horizontal_space};
 use iced::widget::button;
 use iced::widget::component;
 use iced::widget::row;
 use iced::widget::text;
+
 use common::model::UiSearchResult;
 
-use crate::ui::theme::{ButtonStyle, Element, GauntletTheme, TextStyle};
+use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindImage, ThemeKindSpace, ThemeKindText};
+use crate::ui::theme::{Element, GauntletTheme};
 
 pub struct SearchList<Message> {
     on_select: Box<dyn Fn(UiSearchResult) -> Message>,
@@ -56,59 +57,49 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                 let main_text: Element<_> = text(&search_result.entrypoint_name)
                     .into();
                 let main_text: Element<_> = container(main_text)
-                    .padding(Padding::new(3.0))
-                    .into();
+                    .themed(ThemeKindContainer::MainListItemText);
 
                 let spacer: Element<_> = horizontal_space()
                     .width(Length::Fill)
                     .into();
 
                 let sub_text: Element<_> = text(&search_result.plugin_name)
-                    .style(TextStyle::Subtext)
-                    .into();
+                    .themed(ThemeKindText::Subtext);
                 let sub_text: Element<_> = container(sub_text)
-                    .padding(Padding::from([3.0, 10.0])) // FIXME find a way to set padding based on whether the scroll bar is visible
-                    .into();
+                    .themed(ThemeKindContainer::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
 
-                let mut button_content = row(vec![])
-                    .align_items(Alignment::Center);
+                let mut button_content = vec![];
 
                 if let Some(path) = &search_result.entrypoint_icon {
                     let image: Element<_> = iced::widget::image(Handle::from_path(path))
-                        .width(16)
-                        .height(16)
-                        .into();
+                        .themed(ThemeKindImage::MainListItemIcon);
 
                     let image: Element<_> = container(image)
-                        .padding(Padding::from([0.0, 7.0, 0.0, 5.0]))
-                        .into();
+                        .themed(ThemeKindContainer::MainListItemIcon);
 
-                    button_content = button_content.push(image);
+                    button_content.push(image);
                 } else {
                     let spacer: Element<_> = horizontal_space() // TODO replace with grayed out gauntlet icon
-                        .width(16)
-                        .into();
+                        .themed(ThemeKindSpace::MainListItemIcon);
 
                     let spacer: Element<_> = container(spacer)
-                        .padding(Padding::from([0.0, 7.0, 0.0, 5.0]))
-                        .into();
+                        .themed(ThemeKindContainer::MainListItemIcon);
 
-                    button_content = button_content.push(spacer);
+                    button_content.push(spacer);
                 }
 
-                button_content = button_content
-                    .push(main_text)
-                    .push(spacer)
-                    .push(sub_text);
+                button_content.push(main_text);
+                button_content.push(spacer);
+                button_content.push(sub_text);
 
-                let button_content: Element<_> = button_content.into();
+                let button_content: Element<_> = row(button_content)
+                    .align_items(Alignment::Center)
+                    .into();
 
                 button(button_content)
                     .width(Length::Fill)
-                    .style(ButtonStyle::GauntletButton)
                     .on_press(SelectItemEvent(search_result.clone()))
-                    .padding(Padding::new(5.0))
-                    .into()
+                    .themed(ThemeKindButton::MainListItem)
             })
             .collect();
 

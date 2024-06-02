@@ -1,8 +1,9 @@
 use iced::{Length, Padding, Renderer};
-use iced::widget::{Button, Container, Image, Row};
+use iced::widget::{Button, Container, Image, Row, Space, Text, TextInput, Tooltip};
 use iced_aw::Grid;
 
-use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, GauntletTheme};
+use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, GauntletTheme, TextInputStyle, TextStyle};
+use crate::ui::{SUB_VIEW_WINDOW_HEIGHT, SUB_VIEW_WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH};
 
 static THEME: once_cell::sync::OnceCell<ExternalTheme> = once_cell::sync::OnceCell::new();
 
@@ -102,6 +103,33 @@ pub static DEFAULT_THEME: ExternalTheme = ExternalTheme {
     grid_section_title: ExternalThemePaddingOnly {
         padding: padding_axis(5.0, 8.0), // 5 + 3 to line up a section with items
     },
+    main_list_item: ExternalThemePaddingOnly {
+        padding: padding_all(5.0),
+    },
+    main_list_item_text: ExternalThemePaddingOnly {
+        padding: padding_all(3.0),
+    },
+    main_list_item_sub_text: ExternalThemePaddingOnly {
+        padding: padding_axis(3.0, 10.0),
+    },
+    main_list_item_icon: ExternalThemePaddingOnly {
+        padding: padding(0.0, 7.0, 0.0, 5.0),
+    },
+    main_list: ExternalThemePaddingOnly {
+        padding: padding_all(5.0),
+    },
+    main_search_bar: ExternalThemePaddingOnly {
+        padding: padding_all(10.0),
+    },
+    plugin_error_view_title: ExternalThemePaddingOnly {
+        padding: padding_all(10.0),
+    },
+    plugin_error_view_description: ExternalThemePaddingOnly {
+        padding: padding_all(10.0),
+    },
+    preference_required_view_description: ExternalThemePaddingOnly {
+        padding: padding_all(10.0),
+    },
 };
 
 const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ExternalThemePadding {
@@ -172,6 +200,15 @@ pub struct ExternalTheme {
     root_content: ExternalThemePaddingOnly,
     root_top_panel: ExternalThemePaddingOnly,
     root_top_panel_button: ExternalThemePaddingOnly,
+    main_list_item: ExternalThemePaddingOnly,
+    main_list_item_text: ExternalThemePaddingOnly,
+    main_list_item_sub_text: ExternalThemePaddingOnly,
+    main_list_item_icon: ExternalThemePaddingOnly,
+    main_list: ExternalThemePaddingOnly,
+    main_search_bar: ExternalThemePaddingOnly,
+    plugin_error_view_title: ExternalThemePaddingOnly,
+    plugin_error_view_description: ExternalThemePaddingOnly,
+    preference_required_view_description: ExternalThemePaddingOnly
 }
 
 #[derive(Debug, Clone)]
@@ -230,9 +267,11 @@ pub enum ThemeKindRow {
 
 pub enum ThemeKindButton {
     Action,
-    RootBottomPanelActionButton,
     GridItem,
     ListItem,
+    MainListItem,
+    MetadataLink,
+    RootBottomPanelActionButton,
     RootTopPanelBackButton,
 }
 
@@ -252,20 +291,49 @@ pub enum ThemeKindContainer {
     Inline,
     ListItemSubtitle,
     ListItemTitle,
+    Main,
+    MainList,
+    MainListItemIcon,
+    MainListItemSubText,
+    MainListItemText,
+    MainSearchBar,
     MetadataItemValue,
     MetadataSeparator,
     MetadataTagItem,
-    RootContent, // TODO "content" has different meaning in this context. need better name
+    PluginErrorView,
+    PluginErrorViewDescription,
+    PluginErrorViewTitle,
+    PreferenceRequiredView,
+    PreferenceRequiredViewDescription,
+    Root,
     RootBottomPanel,
+    RootContent,
     RootTopPanel,
 }
 
 pub enum ThemeKindImage {
     EmptyViewImage,
+    MainListItemIcon,
 }
 
 pub enum ThemeKindGrid {
     Grid,
+}
+
+pub enum ThemeKindSpace {
+    MainListItemIcon,
+}
+
+pub enum ThemeKindText {
+    Subtext,
+}
+
+pub enum ThemeKindTooltip {
+    Tooltip,
+}
+
+pub enum ThemeKindTextInput {
+    FormInput,
 }
 
 pub trait ThemableWidget<'a, Message> {
@@ -318,6 +386,12 @@ impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for Button<'a, Message
             }
             ThemeKindButton::ListItem => {
                 self.style(ButtonStyle::GauntletButton).padding(theme.list_item.padding.to_iced())
+            }
+            ThemeKindButton::MainListItem => {
+                self.style(ButtonStyle::GauntletButton).padding(theme.main_list_item.padding.to_iced())
+            }
+            ThemeKindButton::MetadataLink => {
+                self.style(ButtonStyle::Link)
             }
         }.into()
     }
@@ -402,6 +476,50 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ThemeKindContainer::EmptyViewImage => {
                 self.padding(theme.empty_view_image.padding.to_iced())
             }
+            ThemeKindContainer::PreferenceRequiredView => {
+                self.style(ContainerStyle::Background)
+                    .height(Length::Fixed(WINDOW_HEIGHT))
+                    .width(Length::Fixed(WINDOW_WIDTH))
+            }
+            ThemeKindContainer::PluginErrorView => {
+                self.style(ContainerStyle::Background)
+                    .height(Length::Fixed(WINDOW_HEIGHT))
+                    .width(Length::Fixed(WINDOW_WIDTH))
+            }
+            ThemeKindContainer::Main => {
+                self.style(ContainerStyle::Background)
+                    .height(Length::Fixed(WINDOW_HEIGHT))
+                    .width(Length::Fixed(WINDOW_WIDTH))
+            }
+            ThemeKindContainer::MainListItemText => {
+                self.padding(theme.main_list_item_text.padding.to_iced())
+            }
+            ThemeKindContainer::MainListItemSubText => {
+                self.padding(theme.main_list_item_sub_text.padding.to_iced())
+            }
+            ThemeKindContainer::MainListItemIcon => {
+                self.padding(theme.main_list_item_icon.padding.to_iced())
+            }
+            ThemeKindContainer::MainList => {
+                self.padding(theme.main_list.padding.to_iced())
+            }
+            ThemeKindContainer::MainSearchBar => {
+                self.padding(theme.main_search_bar.padding.to_iced())
+            }
+            ThemeKindContainer::Root => {
+                self.style(ContainerStyle::Background)
+                    .height(Length::Fixed(SUB_VIEW_WINDOW_HEIGHT))
+                    .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH))
+            }
+            ThemeKindContainer::PluginErrorViewTitle => {
+                self.padding(theme.plugin_error_view_title.padding.to_iced())
+            }
+            ThemeKindContainer::PluginErrorViewDescription => {
+                self.padding(theme.plugin_error_view_description.padding.to_iced())
+            }
+            ThemeKindContainer::PreferenceRequiredViewDescription => {
+                self.padding(theme.preference_required_view_description.padding.to_iced())
+            }
         }.into()
     }
 }
@@ -417,6 +535,67 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Image<iced::advanced::imag
                 self.width(theme.empty_view_image.size.width)
                     .height(theme.empty_view_image.size.height)
             },
+            ThemeKindImage::MainListItemIcon => {
+                self.width(16)
+                    .height(16)
+            }
+        }.into()
+    }
+}
+
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Space {
+    type Kind = ThemeKindSpace;
+
+    fn themed(mut self, kind: ThemeKindSpace) -> Element<'a, Message> {
+        let theme = get_theme();
+
+        match kind {
+            ThemeKindSpace::MainListItemIcon => {
+                self.width(16)
+                    .height(16)
+            }
+        }.into()
+    }
+}
+
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Renderer> {
+    type Kind = ThemeKindText;
+
+    fn themed(mut self, kind: ThemeKindText) -> Element<'a, Message> {
+        let theme = get_theme();
+
+        match kind {
+            ThemeKindText::Subtext => {
+                self.style(TextStyle::Subtext)
+            }
+        }.into()
+    }
+}
+
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Tooltip<'a, Message, GauntletTheme, Renderer> {
+    type Kind = ThemeKindTooltip;
+
+    fn themed(mut self, kind: ThemeKindTooltip) -> Element<'a, Message> {
+        let theme = get_theme();
+
+        match kind {
+            ThemeKindTooltip::Tooltip => {
+                self.style(ContainerStyle::Background)
+            }
+        }.into()
+    }
+}
+
+impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for TextInput<'a, Message, GauntletTheme, Renderer> {
+    type Kind = ThemeKindTextInput;
+
+    fn themed(mut self, kind: ThemeKindTextInput) -> Element<'a, Message> {
+        let theme = get_theme();
+
+        match kind {
+            ThemeKindTextInput::FormInput => {
+                self.style(TextInputStyle::Form)
+            }
         }.into()
     }
 }

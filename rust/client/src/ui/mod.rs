@@ -32,8 +32,8 @@ use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
 use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
-use crate::ui::themable_widget::init_theme;
-use crate::ui::theme::{ContainerStyle, Element, GauntletTheme};
+use crate::ui::themable_widget::{init_theme, ThemableWidget, ThemeKindContainer};
+use crate::ui::theme::{Element, GauntletTheme};
 use crate::ui::view_container::view_container;
 use crate::ui::widget::ComponentWidgetEvent;
 
@@ -614,10 +614,9 @@ impl Application for AppModel {
                         .into();
 
                     let description = container(description)
-                        .padding(Padding::new(10.0))
                         .width(Length::Fill)
                         .center_x()
-                        .into();
+                        .themed(ThemeKindContainer::PreferenceRequiredViewDescription);
 
                     let button_label: Element<_> = text("Open Settings")
                         .into();
@@ -637,12 +636,9 @@ impl Application for AppModel {
                     ]).into();
 
                     let content: Element<_> = container(content)
-                        .style(ContainerStyle::Background)
-                        .height(Length::Fixed(WINDOW_HEIGHT))
-                        .width(Length::Fixed(WINDOW_WIDTH))
                         .center_x()
                         .center_y()
-                        .into();
+                        .themed(ThemeKindContainer::PreferenceRequiredView);
 
                     content
                 }
@@ -651,19 +647,17 @@ impl Application for AppModel {
                         .into();
 
                     let description = container(description)
-                        .padding(Padding::new(10.0))
                         .width(Length::Fill)
                         .center_x()
-                        .into();
+                        .themed(ThemeKindContainer::PluginErrorViewTitle);
 
                     let sub_description: Element<_> = text("Please report this to plugin author")
                         .into();
 
                     let sub_description = container(sub_description)
-                        .padding(Padding::new(10.0))
                         .width(Length::Fill)
                         .center_x()
-                        .into();
+                        .themed(ThemeKindContainer::PluginErrorViewDescription);
 
                     let button_label: Element<_> = text("Close")
                         .into();
@@ -684,12 +678,9 @@ impl Application for AppModel {
                     ]).into();
 
                     let content: Element<_> = container(content)
-                        .style(ContainerStyle::Background)
-                        .height(Length::Fixed(WINDOW_HEIGHT))
-                        .width(Length::Fixed(WINDOW_WIDTH))
                         .center_x()
                         .center_y()
-                        .into();
+                        .themed(ThemeKindContainer::PluginErrorView);
 
                     content
                 }
@@ -720,13 +711,11 @@ impl Application for AppModel {
                 let list = container(list)
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .padding(Padding::new(5.0))
-                    .into();
+                    .themed(ThemeKindContainer::MainList);
 
                 let input = container(input)
                     .width(Length::Fill)
-                    .padding(Padding::new(10.0))
-                    .into();
+                    .themed(ThemeKindContainer::MainSearchBar);
 
                 let separator = horizontal_rule(1)
                     .into();
@@ -739,10 +728,7 @@ impl Application for AppModel {
                 ]).into();
 
                 let element: Element<_> = container(column)
-                    .style(ContainerStyle::Background)
-                    .height(Length::Fixed(WINDOW_HEIGHT))
-                    .width(Length::Fixed(WINDOW_WIDTH))
-                    .into();
+                    .themed(ThemeKindContainer::Main);
 
                 element
             }
@@ -766,10 +752,7 @@ impl Application for AppModel {
                 ).into();
 
                 let element: Element<_> = container(container_element)
-                    .style(ContainerStyle::Background)
-                    .height(Length::Fixed(SUB_VIEW_WINDOW_HEIGHT))
-                    .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH))
-                    .into();
+                    .themed(ThemeKindContainer::Root);
 
                 // let element = element.explain(iced::color!(0xFF0000));
                 element

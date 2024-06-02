@@ -21,7 +21,7 @@ use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyVal
 
 use crate::model::UiViewEvent;
 use crate::ui::ActionShortcut;
-use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindGrid, ThemeKindImage, ThemeKindRow};
+use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindGrid, ThemeKindImage, ThemeKindRow, ThemeKindText, ThemeKindTextInput, ThemeKindTooltip};
 use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
 
 #[derive(Clone, Debug)]
@@ -378,9 +378,8 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let link: Element<_> = button(content)
-                    .style(ButtonStyle::Link)
                     .on_press(ComponentWidgetEvent::LinkClick { widget_id, href: href.to_owned() })
-                    .into();
+                    .themed(ThemeKindButton::MetadataLink);
 
                 let content: Element<_> = if href.is_empty() {
                     link
@@ -389,8 +388,7 @@ impl ComponentWidgetWrapper {
                         .into();
 
                     tooltip(link, href, Position::Top)
-                        .style(ContainerStyle::Background)
-                        .into()
+                        .themed(ThemeKindTooltip::Tooltip)
                 };
 
                 render_metadata_item(label, content)
@@ -587,8 +585,7 @@ impl ComponentWidgetWrapper {
 
                 text_input("", state_value)
                     .on_input(move |value| ComponentWidgetEvent::OnChangeTextField { widget_id, value })
-                    .style(TextInputStyle::Form)
-                    .into()
+                    .themed(ThemeKindTextInput::FormInput)
             }
             ComponentWidget::PasswordField { .. } => {
                 let ComponentWidgetState::PasswordField { state_value } = state else {
@@ -598,8 +595,7 @@ impl ComponentWidgetWrapper {
                 text_input("", state_value)
                     .secure(true)
                     .on_input(move |value| ComponentWidgetEvent::OnChangePasswordField { widget_id, value })
-                    .style(TextInputStyle::Form)
-                    .into()
+                    .themed(ThemeKindTextInput::FormInput)
             }
             ComponentWidget::Checkbox { title, .. } => {
                 let ComponentWidgetState::Checkbox { state_value } = state else {
@@ -834,8 +830,7 @@ impl ComponentWidgetWrapper {
                     None => horizontal_space().into(),
                     Some(subtitle) => {
                         text(subtitle)
-                            .style(TextStyle::Subtext)
-                            .into()
+                            .themed(ThemeKindText::Subtext)
                     }
                 };
 
@@ -893,8 +888,7 @@ impl ComponentWidgetWrapper {
 
                 if let Some(subtitle) = subtitle {
                     let subtitle: Element<_> = text(subtitle)
-                        .style(TextStyle::Subtext)
-                        .into();
+                        .themed(ThemeKindText::Subtext);
                     let subtitle: Element<_> = container(subtitle)
                         .themed(ThemeKindContainer::ListItemSubtitle);
 
@@ -1185,8 +1179,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     if let Some(title) = title {
         let title: Element<_> = text(title)
             .size(15)
-            .style(TextStyle::Subtext)
-            .into();
+            .themed(ThemeKindText::Subtext);
 
         title_content.push(title)
     }
@@ -1194,8 +1187,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     if let Some(subtitle) = subtitle {
         let subtitle: Element<_> = text(subtitle)
             .size(15)
-            .style(TextStyle::Subtext)
-            .into();
+            .themed(ThemeKindText::Subtext);
 
         title_content.push(subtitle)
     }
