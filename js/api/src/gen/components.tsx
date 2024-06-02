@@ -345,7 +345,7 @@ export interface ActionProps {
     onAction: () => void;
 }
 export const Action: FC<ActionProps> = (props: ActionProps): ReactNode => {
-    return <gauntlet:action id={props.id} title={props.title} onAction={props.onAction}/>;
+    return <gauntlet:action id={props.id} title={props.title} onAction={props.onAction}></gauntlet:action>;
 };
 export interface ActionPanelSectionProps {
     children?: ElementComponent<typeof Action>;
@@ -354,7 +354,7 @@ export interface ActionPanelSectionProps {
 export const ActionPanelSection: FC<ActionPanelSectionProps> & {
     Action: typeof Action;
 } = (props: ActionPanelSectionProps): ReactNode => {
-    return <gauntlet:action_panel_section children={props.children} title={props.title}/>;
+    return <gauntlet:action_panel_section title={props.title}>{props.children}</gauntlet:action_panel_section>;
 };
 ActionPanelSection.Action = Action;
 export interface ActionPanelProps {
@@ -365,7 +365,7 @@ export const ActionPanel: FC<ActionPanelProps> & {
     Action: typeof Action;
     Section: typeof ActionPanelSection;
 } = (props: ActionPanelProps): ReactNode => {
-    return <gauntlet:action_panel children={props.children} title={props.title}/>;
+    return <gauntlet:action_panel title={props.title}>{props.children}</gauntlet:action_panel>;
 };
 ActionPanel.Action = Action;
 ActionPanel.Section = ActionPanelSection;
@@ -375,14 +375,14 @@ export interface MetadataLinkProps {
     href: string;
 }
 export const MetadataLink: FC<MetadataLinkProps> = (props: MetadataLinkProps): ReactNode => {
-    return <gauntlet:metadata_link children={props.children} label={props.label} href={props.href}/>;
+    return <gauntlet:metadata_link label={props.label} href={props.href}>{props.children}</gauntlet:metadata_link>;
 };
 export interface MetadataTagItemProps {
     children?: StringComponent;
     onClick?: () => void;
 }
 export const MetadataTagItem: FC<MetadataTagItemProps> = (props: MetadataTagItemProps): ReactNode => {
-    return <gauntlet:metadata_tag_item children={props.children} onClick={props.onClick}/>;
+    return <gauntlet:metadata_tag_item onClick={props.onClick}>{props.children}</gauntlet:metadata_tag_item>;
 };
 export interface MetadataTagListProps {
     children?: ElementComponent<typeof MetadataTagItem>;
@@ -391,25 +391,25 @@ export interface MetadataTagListProps {
 export const MetadataTagList: FC<MetadataTagListProps> & {
     Item: typeof MetadataTagItem;
 } = (props: MetadataTagListProps): ReactNode => {
-    return <gauntlet:metadata_tag_list children={props.children} label={props.label}/>;
+    return <gauntlet:metadata_tag_list label={props.label}>{props.children}</gauntlet:metadata_tag_list>;
 };
 MetadataTagList.Item = MetadataTagItem;
 export const MetadataSeparator: FC = (): ReactNode => {
-    return <gauntlet:metadata_separator />;
+    return <gauntlet:metadata_separator></gauntlet:metadata_separator>;
 };
 export interface MetadataValueProps {
     children?: StringComponent;
     label: string;
 }
 export const MetadataValue: FC<MetadataValueProps> = (props: MetadataValueProps): ReactNode => {
-    return <gauntlet:metadata_value children={props.children} label={props.label}/>;
+    return <gauntlet:metadata_value label={props.label}>{props.children}</gauntlet:metadata_value>;
 };
 export interface MetadataIconProps {
     icon: Icons;
     label: string;
 }
 export const MetadataIcon: FC<MetadataIconProps> = (props: MetadataIconProps): ReactNode => {
-    return <gauntlet:metadata_icon icon={props.icon} label={props.label}/>;
+    return <gauntlet:metadata_icon icon={props.icon} label={props.label}></gauntlet:metadata_icon>;
 };
 export interface MetadataProps {
     children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
@@ -421,7 +421,7 @@ export const Metadata: FC<MetadataProps> & {
     Icon: typeof MetadataIcon;
     Separator: typeof MetadataSeparator;
 } = (props: MetadataProps): ReactNode => {
-    return <gauntlet:metadata children={props.children}/>;
+    return <gauntlet:metadata>{props.children}</gauntlet:metadata>;
 };
 Metadata.TagList = MetadataTagList;
 Metadata.Link = MetadataLink;
@@ -432,58 +432,58 @@ export interface ImageProps {
     source: ImageSource;
 }
 export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
-    return <gauntlet:image source={props.source}/>;
+    return <gauntlet:image source={props.source}></gauntlet:image>;
 };
 export interface H1Props {
     children?: StringComponent;
 }
 export const H1: FC<H1Props> = (props: H1Props): ReactNode => {
-    return <gauntlet:h1 children={props.children}/>;
+    return <gauntlet:h1>{props.children}</gauntlet:h1>;
 };
 export interface H2Props {
     children?: StringComponent;
 }
 export const H2: FC<H2Props> = (props: H2Props): ReactNode => {
-    return <gauntlet:h2 children={props.children}/>;
+    return <gauntlet:h2>{props.children}</gauntlet:h2>;
 };
 export interface H3Props {
     children?: StringComponent;
 }
 export const H3: FC<H3Props> = (props: H3Props): ReactNode => {
-    return <gauntlet:h3 children={props.children}/>;
+    return <gauntlet:h3>{props.children}</gauntlet:h3>;
 };
 export interface H4Props {
     children?: StringComponent;
 }
 export const H4: FC<H4Props> = (props: H4Props): ReactNode => {
-    return <gauntlet:h4 children={props.children}/>;
+    return <gauntlet:h4>{props.children}</gauntlet:h4>;
 };
 export interface H5Props {
     children?: StringComponent;
 }
 export const H5: FC<H5Props> = (props: H5Props): ReactNode => {
-    return <gauntlet:h5 children={props.children}/>;
+    return <gauntlet:h5>{props.children}</gauntlet:h5>;
 };
 export interface H6Props {
     children?: StringComponent;
 }
 export const H6: FC<H6Props> = (props: H6Props): ReactNode => {
-    return <gauntlet:h6 children={props.children}/>;
+    return <gauntlet:h6>{props.children}</gauntlet:h6>;
 };
 export const HorizontalBreak: FC = (): ReactNode => {
-    return <gauntlet:horizontal_break />;
+    return <gauntlet:horizontal_break></gauntlet:horizontal_break>;
 };
 export interface CodeBlockProps {
     children?: StringComponent;
 }
 export const CodeBlock: FC<CodeBlockProps> = (props: CodeBlockProps): ReactNode => {
-    return <gauntlet:code_block children={props.children}/>;
+    return <gauntlet:code_block>{props.children}</gauntlet:code_block>;
 };
 export interface ParagraphProps {
     children?: StringComponent;
 }
 export const Paragraph: FC<ParagraphProps> = (props: ParagraphProps): ReactNode => {
-    return <gauntlet:paragraph children={props.children}/>;
+    return <gauntlet:paragraph>{props.children}</gauntlet:paragraph>;
 };
 export interface ContentProps {
     children?: ElementComponent<typeof Paragraph | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
@@ -500,7 +500,7 @@ export const Content: FC<ContentProps> & {
     HorizontalBreak: typeof HorizontalBreak;
     CodeBlock: typeof CodeBlock;
 } = (props: ContentProps): ReactNode => {
-    return <gauntlet:content children={props.children}/>;
+    return <gauntlet:content>{props.children}</gauntlet:content>;
 };
 Content.Paragraph = Paragraph;
 Content.Image = Image;
@@ -520,7 +520,7 @@ export const Detail: FC<DetailProps> & {
     Metadata: typeof Metadata;
     Content: typeof Content;
 } = (props: DetailProps): ReactNode => {
-    return <gauntlet:detail children={[props.actions, props.children] as any}/>;
+    return <gauntlet:detail>{props.actions as any}{props.children}</gauntlet:detail>;
 };
 Detail.Metadata = Metadata;
 Detail.Content = Content;
@@ -530,7 +530,7 @@ export interface TextFieldProps {
     onChange?: (value: string | undefined) => void;
 }
 export const TextField: FC<TextFieldProps> = (props: TextFieldProps): ReactNode => {
-    return <gauntlet:text_field label={props.label} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:text_field label={props.label} value={props.value} onChange={props.onChange}></gauntlet:text_field>;
 };
 export interface PasswordFieldProps {
     label?: string;
@@ -538,7 +538,7 @@ export interface PasswordFieldProps {
     onChange?: (value: string | undefined) => void;
 }
 export const PasswordField: FC<PasswordFieldProps> = (props: PasswordFieldProps): ReactNode => {
-    return <gauntlet:password_field label={props.label} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:password_field label={props.label} value={props.value} onChange={props.onChange}></gauntlet:password_field>;
 };
 export interface CheckboxProps {
     label?: string;
@@ -547,7 +547,7 @@ export interface CheckboxProps {
     onChange?: (value: boolean) => void;
 }
 export const Checkbox: FC<CheckboxProps> = (props: CheckboxProps): ReactNode => {
-    return <gauntlet:checkbox label={props.label} title={props.title} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:checkbox label={props.label} title={props.title} value={props.value} onChange={props.onChange}></gauntlet:checkbox>;
 };
 export interface DatePickerProps {
     label?: string;
@@ -555,14 +555,14 @@ export interface DatePickerProps {
     onChange?: (value: string | undefined) => void;
 }
 export const DatePicker: FC<DatePickerProps> = (props: DatePickerProps): ReactNode => {
-    return <gauntlet:date_picker label={props.label} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:date_picker label={props.label} value={props.value} onChange={props.onChange}></gauntlet:date_picker>;
 };
 export interface SelectItemProps {
     children?: StringComponent;
     value: string;
 }
 export const SelectItem: FC<SelectItemProps> = (props: SelectItemProps): ReactNode => {
-    return <gauntlet:select_item children={props.children} value={props.value}/>;
+    return <gauntlet:select_item value={props.value}>{props.children}</gauntlet:select_item>;
 };
 export interface SelectProps {
     children?: ElementComponent<typeof SelectItem>;
@@ -573,11 +573,11 @@ export interface SelectProps {
 export const Select: FC<SelectProps> & {
     Item: typeof SelectItem;
 } = (props: SelectProps): ReactNode => {
-    return <gauntlet:select children={props.children} label={props.label} value={props.value} onChange={props.onChange}/>;
+    return <gauntlet:select label={props.label} value={props.value} onChange={props.onChange}>{props.children}</gauntlet:select>;
 };
 Select.Item = SelectItem;
 export const Separator: FC = (): ReactNode => {
-    return <gauntlet:separator />;
+    return <gauntlet:separator></gauntlet:separator>;
 };
 export interface FormProps {
     children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
@@ -591,7 +591,7 @@ export const Form: FC<FormProps> & {
     Select: typeof Select;
     Separator: typeof Separator;
 } = (props: FormProps): ReactNode => {
-    return <gauntlet:form children={[props.actions, props.children] as any}/>;
+    return <gauntlet:form>{props.actions as any}{props.children}</gauntlet:form>;
 };
 Form.TextField = TextField;
 Form.PasswordField = PasswordField;
@@ -603,7 +603,7 @@ export interface InlineSeparatorProps {
     icon?: Icons;
 }
 export const InlineSeparator: FC<InlineSeparatorProps> = (props: InlineSeparatorProps): ReactNode => {
-    return <gauntlet:inline_separator icon={props.icon}/>;
+    return <gauntlet:inline_separator icon={props.icon}></gauntlet:inline_separator>;
 };
 export interface InlineProps {
     children?: ElementComponent<typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
@@ -614,7 +614,7 @@ export const Inline: FC<InlineProps> & {
     Right: typeof Content;
     Center: typeof Content;
 } = (props: InlineProps): ReactNode => {
-    return <gauntlet:inline children={props.children}/>;
+    return <gauntlet:inline>{props.children}</gauntlet:inline>;
 };
 Inline.Left = Content;
 Inline.Separator = InlineSeparator;
@@ -626,7 +626,7 @@ export interface EmptyViewProps {
     image?: ImageSource;
 }
 export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
-    return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}/>;
+    return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}></gauntlet:empty_view>;
 };
 export interface ListItemProps {
     id: string;
@@ -635,7 +635,7 @@ export interface ListItemProps {
     icon?: ImageSource | Icons;
 }
 export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
-    return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}/>;
+    return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}></gauntlet:list_item>;
 };
 export interface ListSectionProps {
     children?: ElementComponent<typeof ListItem>;
@@ -645,7 +645,7 @@ export interface ListSectionProps {
 export const ListSection: FC<ListSectionProps> & {
     Item: typeof ListItem;
 } = (props: ListSectionProps): ReactNode => {
-    return <gauntlet:list_section children={props.children} title={props.title} subtitle={props.subtitle}/>;
+    return <gauntlet:list_section title={props.title} subtitle={props.subtitle}>{props.children}</gauntlet:list_section>;
 };
 ListSection.Item = ListItem;
 export interface ListProps {
@@ -659,7 +659,7 @@ export const List: FC<ListProps> & {
     Item: typeof ListItem;
     Section: typeof ListSection;
 } = (props: ListProps): ReactNode => {
-    return <gauntlet:list children={[props.actions, props.children] as any} onSelectionChange={props.onSelectionChange}/>;
+    return <gauntlet:list onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:list>;
 };
 List.EmptyView = EmptyView;
 List.Detail = Detail;
@@ -674,7 +674,7 @@ export interface GridItemProps {
 export const GridItem: FC<GridItemProps> & {
     Content: typeof Content;
 } = (props: GridItemProps): ReactNode => {
-    return <gauntlet:grid_item children={props.children} id={props.id} title={props.title} subtitle={props.subtitle}/>;
+    return <gauntlet:grid_item id={props.id} title={props.title} subtitle={props.subtitle}>{props.children}</gauntlet:grid_item>;
 };
 GridItem.Content = Content;
 export interface GridSectionProps {
@@ -686,7 +686,7 @@ export interface GridSectionProps {
 export const GridSection: FC<GridSectionProps> & {
     Item: typeof GridItem;
 } = (props: GridSectionProps): ReactNode => {
-    return <gauntlet:grid_section children={props.children} title={props.title} subtitle={props.subtitle} columns={props.columns}/>;
+    return <gauntlet:grid_section title={props.title} subtitle={props.subtitle} columns={props.columns}>{props.children}</gauntlet:grid_section>;
 };
 GridSection.Item = GridItem;
 export interface GridProps {
@@ -700,7 +700,7 @@ export const Grid: FC<GridProps> & {
     Item: typeof GridItem;
     Section: typeof GridSection;
 } = (props: GridProps): ReactNode => {
-    return <gauntlet:grid children={[props.actions, props.children] as any} columns={props.columns} onSelectionChange={props.onSelectionChange}/>;
+    return <gauntlet:grid columns={props.columns} onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
 Grid.EmptyView = EmptyView;
 Grid.Item = GridItem;

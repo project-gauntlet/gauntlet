@@ -346,50 +346,32 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
             })
             .filter((prop): prop is ts.JsxAttribute => prop != null);
 
+        const children = []
         if (component.children.type != "none") {
             const componentProps = component.props.filter(prop => prop.type.type === "component");
             if (componentProps.length !== 0) {
-                properties.unshift(ts.factory.createJsxAttribute(
-                    ts.factory.createIdentifier("children"),
-                    ts.factory.createJsxExpression(
-                        undefined,
+                children.push(
+                    ...componentProps.map(prop => (
                         ts.factory.createAsExpression(
-                            ts.factory.createArrayLiteralExpression(
-                                [
-                                    ...componentProps.map(prop => (
-                                        ts.factory.createPropertyAccessExpression(
-                                            ts.factory.createIdentifier("props"),
-                                            ts.factory.createIdentifier(prop.name)
-                                        )
-                                    )),
-                                    ts.factory.createPropertyAccessExpression(
-                                        ts.factory.createIdentifier("props"),
-                                        ts.factory.createIdentifier("children")
-                                    )
-                                ],
-                                false
+                            ts.factory.createPropertyAccessExpression(
+                                ts.factory.createIdentifier("props"),
+                                ts.factory.createIdentifier(prop.name)
                             ),
                             ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
                         )
-                    )
-                ))
-            } else {
-                properties.unshift(ts.factory.createJsxAttribute(
-                    ts.factory.createIdentifier("children"),
-                    ts.factory.createJsxExpression(
-                        undefined,
-                        ts.factory.createPropertyAccessExpression(
-                            ts.factory.createIdentifier("props"),
-                            ts.factory.createIdentifier("children")
-                        )
-                    )
-                ))
+                    ))
+                );
             }
+
+            children.push(ts.factory.createPropertyAccessExpression(
+                ts.factory.createIdentifier("props"),
+                ts.factory.createIdentifier("children")
+            ))
         }
 
         const componentFCType = ts.factory.createTypeReferenceNode(
             ts.factory.createIdentifier("FC"),
-            properties.length === 0 ? [] : [
+            (properties.length === 0 && component.children.type == "none") ? [] : [
                 ts.factory.createTypeReferenceNode(
                     ts.factory.createIdentifier(`${component.name}Props`),
                     undefined
@@ -461,7 +443,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
             )
         ];
 
-        const propsParameter = properties.length === 0 ? [] : [
+        const propsParameter = (properties.length === 0 && component.children.type == "none") ? [] : [
             ts.factory.createParameterDeclaration(
                 undefined,
                 undefined,
@@ -496,13 +478,25 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                             ts.factory.createBlock(
                                 [
                                     ts.factory.createReturnStatement(
-                                        ts.factory.createJsxSelfClosingElement(
-                                            ts.factory.createJsxNamespacedName(
+                                        ts.factory.createJsxElement(
+                                            ts.factory.createJsxOpeningElement(
+                                                ts.factory.createJsxNamespacedName(
+                                                    ts.factory.createIdentifier("gauntlet"),
+                                                    ts.factory.createIdentifier(component.internalName)
+                                                ),
+                                                undefined,
+                                                ts.factory.createJsxAttributes(properties)
+                                            ),
+                                            children.map(value => (
+                                                ts.factory.createJsxExpression(
+                                                    undefined,
+                                                    value
+                                                )
+                                            )),
+                                            ts.factory.createJsxClosingElement(ts.factory.createJsxNamespacedName(
                                                 ts.factory.createIdentifier("gauntlet"),
                                                 ts.factory.createIdentifier(component.internalName)
-                                            ),
-                                            undefined,
-                                            ts.factory.createJsxAttributes(properties)
+                                            ))
                                         )
                                     )
                                 ],
