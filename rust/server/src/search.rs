@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use tantivy::{doc, Index, IndexReader, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
-use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, TermQuery};
+use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
 use common::model::{PluginId, SearchIndexPluginEntrypointType, SearchResultItem};
@@ -223,28 +223,24 @@ impl QueryParser {
             return Box::new(AllQuery);
         }
 
-        // TODO https://github.com/quickwit-oss/tantivy/issues/563
-        //  fuzzy search scoring doesn't account for levenshtein distance
-        //  which means results don't make sense
-        //  if distance is > 0
-        //  FuzzyTermQuery is used because it supports prefix matching
-
-        let fuzzy_terms_fn = |field: Field| -> Box<dyn Query> {
-            let res = self.tokenize(field, query)
+        let contains_terms_fn = |field: Field| -> Box<dyn Query> {
+            let res = self.tokenize(query)
                 .into_iter()
                 .map(|term| -> Box<dyn Query> {
                     Box::new(
-                        FuzzyTermQuery::new_prefix(term, 0, false)
+                        // basically a "contains" query
+                        RegexQuery::from_pattern(&format!(".*{}.*", regex::escape(&term)), field)
+                            .expect("there should not exist a situation where that regex is invalid")
                     )
                 })
                 .collect::<Vec<_>>();
 
-            Box::new(BooleanQuery::union(res))
+            Box::new(BooleanQuery::intersection(res))
         };
 
         let terms_fn = |field: Field| -> Box<dyn Query> {
             Box::new(
-                fuzzy_terms_fn(field)
+                contains_terms_fn(field)
             )
         };
 
@@ -259,16 +255,16 @@ impl QueryParser {
         );
     }
 
-    fn tokenize(&self, field: Field, query: &str) -> Vec<Term> {
+    fn tokenize(&self, query: &str) -> Vec<String> {
         let mut text_analyzer = self
             .tokenizer_manager
             .get("default")
             .expect("default tokenizer should exist");
 
-        let mut terms: Vec<Term> = Vec::new();
+        let mut terms: Vec<String> = Vec::new();
         let mut token_stream = text_analyzer.token_stream(query);
         token_stream.process(&mut |token| {
-            terms.push(Term::from_field_text(field, &token.text));
+            terms.push(token.text.to_string());
         });
 
         terms

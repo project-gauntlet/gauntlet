@@ -330,10 +330,12 @@ impl Application for AppModel {
                     self.run_generated_command(plugin_id, entrypoint_id),
                 ])
             }
-            AppMsg::PromptChanged(new_prompt) => {
+            AppMsg::PromptChanged(mut new_prompt) => {
                 if cfg!(feature = "scenario_runner") {
                     Command::none()
                 } else {
+                    new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
+
                     self.prompt.replace(new_prompt.clone());
 
                     let mut backend_api = self.backend_api.clone();
