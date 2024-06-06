@@ -832,6 +832,10 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
         .await
         .context("error when getting entrypoints by plugin id")?;
 
+    let frecency_map = repository.get_frecency_for_plugin(&plugin_id.to_string())
+        .await
+        .context("error when getting frecency for plugin")?;
+
     let mut plugins_search_items = generated_commands.into_iter()
         .map(|item| {
             let entrypoint_icon_path = match item.entrypoint_icon {
@@ -839,11 +843,14 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
                 Some(data) => Some(icon_cache.save_entrypoint_icon_to_cache(&plugin_uuid, &item.entrypoint_uuid, data)?),
             };
 
+            let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
+
             Ok(SearchIndexItem {
                 entrypoint_type: SearchIndexPluginEntrypointType::GeneratedCommand,
                 entrypoint_id: item.entrypoint_id,
                 entrypoint_name: item.entrypoint_name,
                 entrypoint_icon_path,
+                entrypoint_frecency,
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
@@ -867,6 +874,8 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
             let entrypoint_type = db_entrypoint_from_str(&entrypoint.entrypoint_type);
             let entrypoint_id = entrypoint.id.to_string();
 
+            let entrypoint_frecency = frecency_map.get(&entrypoint_id).cloned().unwrap_or(0.0);
+
             let entrypoint_icon_path = match entrypoint.icon_path {
                 None => None,
                 Some(path_to_asset) => {
@@ -884,6 +893,7 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
                         entrypoint_name: entrypoint.name,
                         entrypoint_id,
                         entrypoint_icon_path,
+                        entrypoint_frecency,
                     }))
                 },
                 DbPluginEntrypointType::View => {
@@ -892,6 +902,7 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
                         entrypoint_name: entrypoint.name,
                         entrypoint_id,
                         entrypoint_icon_path,
+                        entrypoint_frecency,
                     }))
                 },
                 DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {

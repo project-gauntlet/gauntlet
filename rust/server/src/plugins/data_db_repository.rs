@@ -13,6 +13,7 @@ use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::dirs::Dirs;
+use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -235,6 +236,18 @@ pub struct DbReadPendingPlugin {
 
 pub struct DbWritePendingPlugin {
     pub id: String,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct DbPluginEntrypointFrecencyStats {
+    pub plugin_id: String,
+    pub entrypoint_id: String,
+
+    pub reference_time: f64,
+    pub half_life: f64,
+    pub last_accessed: f64,
+    pub frecency: f64,
+    pub num_accesses: i32,
 }
 
 impl DataDbRepository {
@@ -546,6 +559,90 @@ impl DataDbRepository {
             .await?
             .into_iter()
             .map(|result| result.0)
+            .collect();
+
+        Ok(result)
+    }
+
+    pub async fn mark_entrypoint_frecency(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        // TODO reset time after 5 half lives
+        //  https://github.com/camdencheek/fre/blob/6574ee7045061957de24855567e0abf05f2778d9/src/main.rs#L23
+        //  why? dunno
+
+        #[derive(sqlx::FromRow)]
+        struct DbFrecencyMetaParams {
+            pub reference_time: f64,
+            pub half_life: f64,
+        }
+
+        // language=SQLite
+        let meta_params = sqlx::query_as::<_, DbFrecencyMetaParams>("SELECT reference_time, half_life FROM plugin_entrypoint_frecency_stats")
+            .fetch_optional(&mut *tx)
+            .await?;
+
+        let meta_params = match meta_params {
+            None => FrecencyMetaParams::default(),
+            Some(meta_params) => FrecencyMetaParams {
+                reference_time: meta_params.reference_time,
+                half_life: meta_params.half_life,
+            }
+        };
+
+        // language=SQLite
+        let stats = sqlx::query_as::<_, DbPluginEntrypointFrecencyStats>("SELECT plugin_id, entrypoint_id, reference_time, half_life, last_accessed, frecency, num_accesses FROM plugin_entrypoint_frecency_stats WHERE plugin_id = ?1 and entrypoint_id = ?2")
+            .bind(plugin_id)
+            .bind(entrypoint_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+
+        let mut new_stats = match stats {
+            None => {
+                FrecencyItemStats::new(meta_params.reference_time, meta_params.half_life)
+            }
+            Some(stats) => {
+                FrecencyItemStats {
+                    half_life: stats.half_life,
+                    reference_time: stats.reference_time,
+                    last_accessed: stats.last_accessed,
+                    frecency: stats.frecency,
+                    num_accesses: stats.num_accesses,
+                }
+            }
+        };
+
+        new_stats.mark_used();
+
+        // language=SQLite
+        let sql = r#"
+            INSERT OR REPLACE INTO plugin_entrypoint_frecency_stats (plugin_id, entrypoint_id, reference_time, half_life, last_accessed, frecency, num_accesses)
+                VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        "#;
+
+        sqlx::query(sql)
+            .bind(plugin_id)
+            .bind(entrypoint_id)
+            .bind(new_stats.reference_time)
+            .bind(new_stats.half_life)
+            .bind(new_stats.last_accessed)
+            .bind(new_stats.frecency)
+            .bind(new_stats.num_accesses)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(())
+    }
+
+    pub async fn get_frecency_for_plugin(&self, plugin_id: &str) -> anyhow::Result<HashMap<String, f64>> {
+        // language=SQLite
+        let result = sqlx::query_as::<_, (String, f64)>("SELECT entrypoint_id, frecency FROM plugin_entrypoint_frecency_stats WHERE plugin_id = ?1")
+            .bind(plugin_id)
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
             .collect();
 
         Ok(result)

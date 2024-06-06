@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::sync::{Arc, Mutex};
 use tantivy::{doc, Index, IndexReader, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
@@ -16,6 +17,7 @@ pub struct SearchIndex {
     entrypoint_name: Field,
     entrypoint_id: Field,
     entrypoint_icon_path: Field,
+    entrypoint_frecency: Field,
     plugin_name: Field,
     plugin_id: Field,
 }
@@ -29,6 +31,7 @@ impl SearchIndex {
             schema_builder.add_text_field("entrypoint_name", TEXT | STORED);
             schema_builder.add_text_field("entrypoint_id", STRING | STORED);
             schema_builder.add_text_field("entrypoint_icon_path", STORED);
+            schema_builder.add_text_field("entrypoint_frecency", STORED);
             schema_builder.add_text_field("plugin_name", TEXT | STORED);
             schema_builder.add_text_field("plugin_id", STRING | STORED);
 
@@ -39,6 +42,7 @@ impl SearchIndex {
         let entrypoint_name = schema.get_field("entrypoint_name").expect("entrypoint_name field should exist");
         let entrypoint_id = schema.get_field("entrypoint_id").expect("entrypoint_id field should exist");
         let entrypoint_icon_path = schema.get_field("entrypoint_icon_path").expect("entrypoint_icon_path field should exist");
+        let entrypoint_frecency = schema.get_field("entrypoint_frecency").expect("entrypoint_frecency field should exist");
         let plugin_name = schema.get_field("plugin_name").expect("plugin_name field should exist");
         let plugin_id = schema.get_field("plugin_id").expect("plugin_id field should exist");
 
@@ -57,6 +61,7 @@ impl SearchIndex {
             entrypoint_name,
             entrypoint_id,
             entrypoint_icon_path,
+            entrypoint_frecency,
             plugin_name,
             plugin_id,
         })
@@ -91,6 +96,7 @@ impl SearchIndex {
                 self.entrypoint_type => search_index_entrypoint_to_str(search_item.entrypoint_type),
                 self.entrypoint_id => search_item.entrypoint_id,
                 self.entrypoint_icon_path => search_item.entrypoint_icon_path.unwrap_or_default(),
+                self.entrypoint_frecency => search_item.entrypoint_frecency,
                 self.plugin_name => plugin_name.clone(),
                 self.plugin_id => plugin_id.to_string(),
             ))?;
@@ -117,6 +123,7 @@ impl SearchIndex {
             entrypoint_name: self.entrypoint_name,
             entrypoint_id: self.entrypoint_id,
             entrypoint_icon_path: self.entrypoint_icon_path,
+            entrypoint_frecency: self.entrypoint_frecency,
             plugin_name: self.plugin_name,
             plugin_id: self.plugin_id,
         }
@@ -129,6 +136,7 @@ pub struct SearchIndexItem {
     pub entrypoint_name: String,
     pub entrypoint_id: String,
     pub entrypoint_icon_path: Option<String>,
+    pub entrypoint_frecency: f64,
 }
 
 pub struct SearchHandle {
@@ -139,6 +147,7 @@ pub struct SearchHandle {
     entrypoint_type: Field,
     entrypoint_id: Field,
     entrypoint_icon_path: Field,
+    entrypoint_frecency: Field,
     plugin_name: Field,
     plugin_id: Field,
 }
@@ -149,7 +158,7 @@ impl SearchHandle {
 
         let mut index = 0;
 
-        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<SearchResultItem>>> {
+        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<(SearchResultItem, f64)>>> {
             let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20));
 
             index += 1;
@@ -170,10 +179,20 @@ impl SearchHandle {
 
         let result = fetch.collect::<Result<Vec<Vec<_>>, _>>()?;
 
-        Ok(result.into_iter().flatten().collect::<Vec<_>>())
+        let mut result = result.into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        result.sort_by(|(_, score_a), (_, score_b)| score_b.partial_cmp(score_a).unwrap_or(Ordering::Less));
+
+        let result = result.into_iter()
+            .map(|(item, _)| item)
+            .collect::<Vec<_>>();
+
+        Ok(result)
     }
 
-    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<SearchResultItem>> {
+    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<(SearchResultItem, f64)>> {
         let get_str_field = |retrieved_doc: &Document, field: Field| -> String {
             retrieved_doc.get_first(field)
                 .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
@@ -182,20 +201,31 @@ impl SearchHandle {
                 .to_owned()
         };
 
+        let get_f64_field = |retrieved_doc: &Document, field: Field| -> f64 {
+            retrieved_doc.get_first(field)
+                .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
+                .as_f64()
+                .unwrap_or_else(|| panic!("field with name {:?} should contain string", self.searcher.schema().get_field_name(field)))
+        };
+
         let result = self.searcher.search(query, &collector)?
             .into_iter()
             .map(|(_score, doc_address)| {
                 let retrieved_doc = self.searcher.doc(doc_address)
                     .expect("index should contain just searched results");
 
-                SearchResultItem {
+                let score = get_f64_field(&retrieved_doc, self.entrypoint_frecency);
+
+                let result_item = SearchResultItem {
                     entrypoint_type: search_index_entrypoint_from_str(&get_str_field(&retrieved_doc, self.entrypoint_type)),
                     entrypoint_name: get_str_field(&retrieved_doc, self.entrypoint_name),
                     entrypoint_id: get_str_field(&retrieved_doc, self.entrypoint_id),
                     entrypoint_icon_path: Some(get_str_field(&retrieved_doc, self.entrypoint_icon_path)).filter(|value| value != ""),
                     plugin_name: get_str_field(&retrieved_doc, self.plugin_name),
                     plugin_id: get_str_field(&retrieved_doc, self.plugin_id),
-                }
+                };
+
+                (result_item, score)
             })
             .collect::<Vec<_>>();
 

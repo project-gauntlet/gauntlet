@@ -34,7 +34,8 @@ impl BackendServer for BackendServerImpl {
     }
 
     async fn request_view_render(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
-        self.application_manager.handle_render_view(plugin_id.clone(), entrypoint_id.clone());
+        self.application_manager.handle_render_view(plugin_id.clone(), entrypoint_id.clone())
+            .await;
 
         self.application_manager.action_shortcuts(plugin_id, entrypoint_id).await
     }
@@ -46,13 +47,15 @@ impl BackendServer for BackendServerImpl {
     }
 
     async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
-        self.application_manager.handle_run_command(plugin_id, entrypoint_id);
+        self.application_manager.handle_run_command(plugin_id, entrypoint_id)
+            .await;
 
         Ok(())
     }
 
     async fn request_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
-        self.application_manager.handle_run_generated_command(plugin_id, entrypoint_id);
+        self.application_manager.handle_run_generated_command(plugin_id, entrypoint_id)
+            .await;
 
         Ok(())
     }

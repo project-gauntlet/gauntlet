@@ -20,6 +20,7 @@ mod run_status;
 mod download_status;
 mod applications;
 mod icon_cache;
+pub(super) mod frecency;
 
 
 static BUILTIN_PLUGINS: [(&str, Dir); 3] = [
@@ -240,31 +241,37 @@ impl ApplicationManager {
         })
     }
 
-    pub fn handle_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    pub async fn handle_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         self.send_command(PluginCommand::One {
-            id: plugin_id,
+            id: plugin_id.clone(),
             data: OnePluginCommandData::RunCommand {
                 entrypoint_id: entrypoint_id.to_string(),
             }
-        })
+        });
+
+        self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub fn handle_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    pub async fn handle_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         self.send_command(PluginCommand::One {
-            id: plugin_id,
+            id: plugin_id.clone(),
             data: OnePluginCommandData::RunGeneratedCommand {
                 entrypoint_id: entrypoint_id.to_string(),
             }
-        })
+        });
+
+        self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub fn handle_render_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    pub async fn handle_render_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         self.send_command(PluginCommand::One {
-            id: plugin_id,
+            id: plugin_id.clone(),
             data: OnePluginCommandData::RenderView {
-                entrypoint_id,
+                entrypoint_id: entrypoint_id.clone(),
             }
-        })
+        });
+
+        self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
     pub fn handle_view_close(&self, plugin_id: PluginId) {
@@ -423,6 +430,17 @@ impl ApplicationManager {
 
     fn send_command(&self, command: PluginCommand) {
         self.command_broadcaster.send(command).expect("all respective receivers were closed");
+    }
+
+    async fn mark_entrypoint_frecency(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+        let result = self.db_repository.mark_entrypoint_frecency(&plugin_id.to_string(), &entrypoint_id.to_string())
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "rpc", "error occurred when marking entrypoint frecency {:?}", err)
+        }
+
+        self.request_search_index_reload(plugin_id);
     }
 }
 
