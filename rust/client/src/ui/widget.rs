@@ -1258,6 +1258,7 @@ fn render_root<'a>(
 
     let content: Element<_> = container(content)
         .width(Length::Fill)
+        .height(Length::Fill)
         .themed(ThemeKindContainer::RootContent);
 
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
