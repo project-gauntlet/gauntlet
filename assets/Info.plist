@@ -31,5 +31,8 @@
 
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
+
+    <key>LSUIElement</key>
+    <true/>
 </dict>
 </plist>
