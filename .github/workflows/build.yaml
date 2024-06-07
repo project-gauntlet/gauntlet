@@ -12,11 +12,13 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/workflows/setup-linux.yaml
       - run: npm run build-linux-project --workspace @project-gauntlet/build
 
   build-macos:
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/workflows/setup-macos.yaml
       - run: npm run build-macos-project --workspace @project-gauntlet/build

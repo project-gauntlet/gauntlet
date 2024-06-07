@@ -6,6 +6,7 @@ jobs:
   publish-init:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/workflows/setup-linux.yaml
       - run: npm run publish-init-project --workspace @project-gauntlet/build
         env:
@@ -17,6 +18,7 @@ jobs:
     needs:
       - publish-init
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/workflows/setup-linux.yaml
       - run: npm run publish-linux-project --workspace @project-gauntlet/build
         env:
@@ -28,6 +30,7 @@ jobs:
     needs:
       - publish-init
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/workflows/setup-macos.yaml
       - run: npm run publish-macos-project --workspace @project-gauntlet/build
         env:
@@ -40,6 +43,7 @@ jobs:
       - publish-linux
       - publish-macos
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/workflows/setup-linux.yaml
       - run: npm run publish-final-project --workspace @project-gauntlet/build
         env:
