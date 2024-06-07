@@ -10,13 +10,11 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/setup-linux.yaml
-    steps:
-      - run: npm run build-linux-project --workspace @project-gauntlet/build
+    with:
+      command: npm run build-linux-project --workspace @project-gauntlet/build
 
   build-macos:
-    runs-on: macos-latest
     uses: ./.github/workflows/setup-macos.yaml
-    steps:
-      - run: npm run build-macos-project --workspace @project-gauntlet/build
+    with:
+      command: npm run build-macos-project --workspace @project-gauntlet/build

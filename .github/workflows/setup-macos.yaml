@@ -1,7 +1,11 @@
 name: setup macos
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      command:
+        required: true
+        type: string
 
 jobs:
   triage:
@@ -31,3 +35,5 @@ jobs:
 
       - run: git config --global user.name "${GITHUB_ACTOR}"
       - run: git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+
+      - run: ${{ inputs.command }}
