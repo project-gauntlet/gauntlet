@@ -9,6 +9,7 @@ jobs:
     steps:
       - run: sudo apt-get install -y protobuf-compiler
 
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 18
