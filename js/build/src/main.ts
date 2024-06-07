@@ -289,12 +289,15 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
     const sourceInfoFilePath = path.join(projectRoot, 'assets', 'Info.plist');
+    const sourceIconFilePath = path.join(projectRoot, 'assets', 'AppIcon.icns');
 
     const bundleDir = path.join(releaseDirPath, 'Gauntlet.app');
     const contentsDir = path.join(bundleDir, 'Contents');
     const macosContentsDir = path.join(contentsDir, 'MacOS');
+    const resourcesContentsDir = path.join(contentsDir, 'Resources');
     const targetExecutableFilePath = path.join(macosContentsDir, 'Gauntlet');
     const targetInfoFilePath = path.join(contentsDir, 'Info.plist');
+    const targetIconFilePath = path.join(resourcesContentsDir, 'AppIcon.icns');
 
     const dmgBackground = path.join(projectRoot, 'assets', 'dmg-background.png');
 
@@ -303,9 +306,11 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     mkdirSync(bundleDir)
     mkdirSync(contentsDir)
     mkdirSync(macosContentsDir)
+    mkdirSync(resourcesContentsDir)
 
     copyFileSync(sourceExecutableFilePath, targetExecutableFilePath)
     copyFileSync(sourceInfoFilePath, targetInfoFilePath)
+    copyFileSync(sourceIconFilePath, targetIconFilePath)
 
     const infoSource = readFileSync(targetInfoFilePath, 'utf8');
     const infoResult = infoSource.replace('__VERSION__', `${version}.0.0`);

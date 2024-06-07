@@ -11,6 +11,9 @@
     <key>CFBundleExecutable</key>
     <string>Gauntlet</string>
 
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
+
     <key>CFBundleIdentifier</key>
     <string>dev.project-gauntlet.gauntlet</string>
 
