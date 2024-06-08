@@ -43,7 +43,6 @@ async fn run_server() -> anyhow::Result<()> {
     match (cfg!(feature = "release"), cfg!(feature = "scenario_runner")) {
         (true, _) => {
             std::process::Command::new(std::env::current_exe()?)
-                .args(["server"])
                 .env(FRONTEND_ENV, "")
                 .spawn()
                 .expect("failed to execute client process");
