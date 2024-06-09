@@ -3,11 +3,17 @@ syntax = "proto3";
 import "shared.proto";
 
 service RpcFrontend {
+  rpc RequestSearchResultsUpdate (RpcRequestSearchResultsUpdateRequest) returns (RpcRequestSearchResultsUpdateResponse);
   rpc ReplaceView (RpcReplaceViewRequest) returns (RpcReplaceViewResponse);
   rpc ClearInlineView (RpcClearInlineViewRequest) returns (RpcClearInlineViewResponse);
   rpc ShowWindow (RpcShowWindowRequest) returns (RpcShowWindowResponse);
   rpc ShowPreferenceRequiredView (RpcShowPreferenceRequiredViewRequest) returns (RpcShowPreferenceRequiredViewResponse);
   rpc ShowPluginErrorView (RpcShowPluginErrorViewRequest) returns (RpcShowPluginErrorViewResponse);
+}
+
+message RpcRequestSearchResultsUpdateRequest {
+}
+message RpcRequestSearchResultsUpdateResponse {
 }
 
 message RpcShowWindowRequest {

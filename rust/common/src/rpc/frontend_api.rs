@@ -2,9 +2,9 @@ use tonic::Request;
 use tonic::transport::Channel;
 
 use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
-use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcShowWindowRequest};
-use crate::rpc::grpc_convert::ui_widget_to_rpc;
+use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcRequestSearchResultsUpdateRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_frontend_client::RpcFrontendClient;
+use crate::rpc::grpc_convert::ui_widget_to_rpc;
 
 #[derive(Debug, Clone)]
 pub struct FrontendApi {
@@ -16,6 +16,15 @@ impl FrontendApi {
         Ok(Self {
             client: RpcFrontendClient::connect("http://127.0.0.1:42321").await?
         })
+    }
+
+    pub async fn request_search_results_update(&mut self) -> anyhow::Result<()> {
+        let request = RpcRequestSearchResultsUpdateRequest {};
+
+        self.client.request_search_results_update(Request::new(request))
+            .await
+            .map(|_| ())
+            .map_err(|err| err.into())
     }
 
     pub async fn replace_view(

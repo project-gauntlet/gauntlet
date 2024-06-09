@@ -90,17 +90,17 @@ pub enum ActionShortcutKind {
 
 
 #[derive(Debug, Clone)]
-pub struct UiSearchResult {
+pub struct SearchResult {
     pub plugin_id: PluginId,
     pub plugin_name: String,
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
     pub entrypoint_icon: Option<String>,
-    pub entrypoint_type: UiSearchResultEntrypointType,
+    pub entrypoint_type: SearchResultEntrypointType,
 }
 
 #[derive(Debug, Clone)]
-pub enum UiSearchResultEntrypointType {
+pub enum SearchResultEntrypointType {
     Command,
     View,
     GeneratedCommand,
@@ -268,21 +268,4 @@ pub enum PluginPreference {
 pub struct PreferenceEnumValue {
     pub label: String,
     pub value: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum SearchIndexPluginEntrypointType {
-    Command,
-    View,
-    GeneratedCommand,
-}
-
-#[derive(Clone, Debug)]
-pub struct SearchResultItem {
-    pub entrypoint_type: SearchIndexPluginEntrypointType,
-    pub entrypoint_name: String,
-    pub entrypoint_id: String,
-    pub entrypoint_icon_path: Option<String>,
-    pub plugin_name: String,
-    pub plugin_id: String,
 }

@@ -6,10 +6,10 @@ use tokio::net::TcpStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use crate::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchIndexPluginEntrypointType, SearchResultItem, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
+use crate::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
-use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc};
+use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc, ui_search_result_to_rpc};
 
 pub async fn wait_for_backend_server() {
     loop {
@@ -50,7 +50,7 @@ pub trait BackendServer {
     async fn search(
         &self,
         text: String,
-    ) -> anyhow::Result<Vec<SearchResultItem>>;
+    ) -> anyhow::Result<Vec<SearchResult>>;
 
     async fn request_view_render(
         &self,
@@ -157,22 +157,7 @@ impl RpcBackend for RpcBackendServerImpl {
         let results = result
             .map_err(|err| Status::internal(err.to_string()))?
             .into_iter()
-            .map(|item| {
-                let entrypoint_type = match item.entrypoint_type {
-                    SearchIndexPluginEntrypointType::Command => RpcEntrypointTypeSearchResult::SrCommand,
-                    SearchIndexPluginEntrypointType::View => RpcEntrypointTypeSearchResult::SrView,
-                    SearchIndexPluginEntrypointType::GeneratedCommand => RpcEntrypointTypeSearchResult::SrGeneratedCommand,
-                };
-
-                RpcSearchResult {
-                    entrypoint_type: entrypoint_type.into(),
-                    entrypoint_name: item.entrypoint_name,
-                    entrypoint_id: item.entrypoint_id,
-                    entrypoint_icon_path: item.entrypoint_icon_path.unwrap_or_default(),
-                    plugin_name: item.plugin_name,
-                    plugin_id: item.plugin_id,
-                }
-            })
+            .map(|item| ui_search_result_to_rpc(item))
             .collect();
 
         Ok(Response::new(RpcSearchResponse { results }))

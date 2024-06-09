@@ -26,9 +26,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 
-use common::model::{EntrypointId, PluginId, UiRenderLocation, SearchIndexPluginEntrypointType, UiPropertyValue, UiWidget, UiWidgetId};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiPropertyValue, UiWidget, UiWidgetId, SearchResultEntrypointType};
 use common::rpc::frontend_api::FrontendApi;
-use common::rpc::frontend_server::wait_for_frontend_server;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
 
 use crate::model::{IntermediateUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
@@ -48,6 +47,7 @@ pub struct PluginRuntimeData {
     pub db_repository: DataDbRepository,
     pub search_index: SearchIndex,
     pub icon_cache: IconCache,
+    pub frontend_api: FrontendApi,
 }
 
 pub struct PluginCode {
@@ -113,10 +113,6 @@ pub enum AllPluginCommandData {
 }
 
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
-    wait_for_frontend_server().await;
-
-    let frontend_api = FrontendApi::new().await?;
-
     let component_model = create_component_model();
 
     let mut command_receiver = data.command_receiver;
@@ -214,7 +210,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.permissions,
                     data.inline_view_entrypoint_id,
                     event_stream,
-                    frontend_api,
+                    data.frontend_api,
                     component_model,
                     data.db_repository,
                     data.search_index,
@@ -793,7 +789,7 @@ fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, re
 
 #[op]
 async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>) -> anyhow::Result<()> {
-    let (plugin_id, plugin_uuid, repository, search_index, icon_cache) = {
+    let (plugin_id, plugin_uuid, repository, mut search_index, icon_cache) = {
         let state = state.borrow();
 
         let plugin_data = state.borrow::<PluginData>();
@@ -846,7 +842,7 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
             let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
 
             Ok(SearchIndexItem {
-                entrypoint_type: SearchIndexPluginEntrypointType::GeneratedCommand,
+                entrypoint_type: SearchResultEntrypointType::GeneratedCommand,
                 entrypoint_id: item.entrypoint_id,
                 entrypoint_name: item.entrypoint_name,
                 entrypoint_icon_path,
@@ -889,7 +885,7 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
             match &entrypoint_type {
                 DbPluginEntrypointType::Command => {
                     Ok(Some(SearchIndexItem {
-                        entrypoint_type: SearchIndexPluginEntrypointType::Command,
+                        entrypoint_type: SearchResultEntrypointType::Command,
                         entrypoint_name: entrypoint.name,
                         entrypoint_id,
                         entrypoint_icon_path,
@@ -898,7 +894,7 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
                 },
                 DbPluginEntrypointType::View => {
                     Ok(Some(SearchIndexItem {
-                        entrypoint_type: SearchIndexPluginEntrypointType::View,
+                        entrypoint_type: SearchResultEntrypointType::View,
                         entrypoint_name: entrypoint.name,
                         entrypoint_id,
                         entrypoint_icon_path,

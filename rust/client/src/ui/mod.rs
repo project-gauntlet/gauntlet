@@ -21,7 +21,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, UiSearchResult, UiSearchResultEntrypointType};
+use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, SearchResult, SearchResultEntrypointType};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::wait_for_backend_server;
 use common::rpc::frontend_server::start_frontend_server;
@@ -63,7 +63,7 @@ pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
     plugin_view_data: Option<PluginViewData>,
     error_view: Option<ErrorViewData>,
-    search_results: Vec<UiSearchResult>,
+    search_results: Vec<SearchResult>,
 }
 
 struct PluginViewData {
@@ -106,7 +106,7 @@ pub enum AppMsg {
     },
     PromptChanged(String),
     PromptSubmit,
-    SetSearchResults(Vec<UiSearchResult>),
+    SetSearchResults(Vec<SearchResult>),
     ReplaceView {
         top_level_view: bool,
     },
@@ -138,7 +138,8 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation
     },
-    SelectSearchItem(UiSearchResult),
+    SelectSearchItem(SearchResult),
+    RequestSearchResultUpdate,
     Screenshot {
         save_path: String
     },
@@ -526,23 +527,30 @@ impl Application for AppModel {
             }
             AppMsg::SelectSearchItem(search_result) => {
                 let event = match search_result.entrypoint_type {
-                    UiSearchResultEntrypointType::Command => AppMsg::RunCommand {
+                    SearchResultEntrypointType::Command => AppMsg::RunCommand {
                         entrypoint_id: search_result.entrypoint_id.clone(),
                         plugin_id: search_result.plugin_id.clone()
                     },
-                    UiSearchResultEntrypointType::View => AppMsg::OpenView {
+                    SearchResultEntrypointType::View => AppMsg::OpenView {
                         plugin_id: search_result.plugin_id.clone(),
                         plugin_name: search_result.plugin_name.clone(),
                         entrypoint_id: search_result.entrypoint_id.clone(),
                         entrypoint_name: search_result.entrypoint_name.clone(),
                     },
-                    UiSearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
+                    SearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
                         entrypoint_id: search_result.entrypoint_id.clone(),
                         plugin_id: search_result.plugin_id.clone()
                     },
                 };
 
                 Command::perform(async {}, |_| event)
+            }
+            AppMsg::RequestSearchResultUpdate => {
+                let msg = match &self.prompt {
+                    None => AppMsg::PromptChanged("".to_string()),
+                    Some(prompt) => AppMsg::PromptChanged(prompt.to_string())
+                };
+                Command::perform(async {}, move |_| msg)
             }
             AppMsg::Screenshot { save_path } => {
                 println!("Creating screenshot at: {}", save_path);
@@ -1029,6 +1037,11 @@ async fn request_loop(
                         entrypoint_id,
                         render_location,
                     }
+                }
+                UiRequestData::RequestSearchResultUpdate => {
+                    responder.respond(NativeUiResponseData::Nothing);
+
+                    AppMsg::RequestSearchResultUpdate
                 }
             }
         };

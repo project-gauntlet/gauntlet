@@ -18,6 +18,14 @@ impl FrontendServerImpl {
 
 #[tonic::async_trait]
 impl FrontendServer for FrontendServerImpl {
+    async fn request_search_results_update(&self) {
+        let data = UiRequestData::RequestSearchResultUpdate;
+
+        match self.context_tx.send_receive(data).await {
+            NativeUiResponseData::Nothing => {}
+        };
+    }
+
     async fn replace_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, container: UiWidget, top_level_view: bool, render_location: UiRenderLocation) {
         let data = UiRequestData::ReplaceView {
             plugin_id: PluginId::from_string(plugin_id),

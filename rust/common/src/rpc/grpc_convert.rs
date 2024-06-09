@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 
-use crate::model::{PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, UiWidget};
-use crate::rpc::grpc::{rpc_ui_property_value, RpcEnumValue, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
+use crate::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, SearchResult, SearchResultEntrypointType, UiWidget};
+use crate::rpc::grpc::{rpc_ui_property_value, RpcEntrypointTypeSearchResult, RpcEnumValue, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcSearchResult, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_ui_property_value::Value;
 
 pub(crate) fn ui_widget_to_rpc(value: UiWidget) -> RpcUiWidget {
@@ -475,5 +475,46 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
                 description: value.description,
             }
         }
+    }
+}
+
+pub fn ui_search_result_from_rpc(search_result: RpcSearchResult) -> SearchResult {
+    let entrypoint_type = search_result.entrypoint_type
+        .try_into()
+        .unwrap();
+
+    let entrypoint_type = match entrypoint_type {
+        RpcEntrypointTypeSearchResult::SrCommand => SearchResultEntrypointType::Command,
+        RpcEntrypointTypeSearchResult::SrView => SearchResultEntrypointType::View,
+        RpcEntrypointTypeSearchResult::SrGeneratedCommand => SearchResultEntrypointType::GeneratedCommand,
+    };
+
+    let icon_path = Some(search_result.entrypoint_icon_path)
+        .filter(|path| path != "");
+
+    SearchResult {
+        plugin_id: PluginId::from_string(search_result.plugin_id),
+        plugin_name: search_result.plugin_name,
+        entrypoint_id: EntrypointId::from_string(search_result.entrypoint_id),
+        entrypoint_name: search_result.entrypoint_name,
+        entrypoint_icon: icon_path,
+        entrypoint_type,
+    }
+}
+
+pub fn ui_search_result_to_rpc(item: SearchResult) -> RpcSearchResult {
+    let entrypoint_type = match item.entrypoint_type {
+        SearchResultEntrypointType::Command => RpcEntrypointTypeSearchResult::SrCommand,
+        SearchResultEntrypointType::View => RpcEntrypointTypeSearchResult::SrView,
+        SearchResultEntrypointType::GeneratedCommand => RpcEntrypointTypeSearchResult::SrGeneratedCommand,
+    };
+
+    RpcSearchResult {
+        entrypoint_type: entrypoint_type.into(),
+        entrypoint_name: item.entrypoint_name,
+        entrypoint_id: item.entrypoint_id.to_string(),
+        entrypoint_icon_path: item.entrypoint_icon.unwrap_or_default(),
+        plugin_name: item.plugin_name,
+        plugin_id: item.plugin_id.to_string(),
     }
 }

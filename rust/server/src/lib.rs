@@ -91,8 +91,7 @@ fn start_server() {
 }
 
 async fn run_server() -> anyhow::Result<()> {
-    let search_index = SearchIndex::create_index()?;
-    let mut application_manager = ApplicationManager::create(search_index.clone()).await?;
+    let mut application_manager = ApplicationManager::create().await?;
 
     application_manager.clear_all_icon_cache_dir()?;
 
@@ -122,7 +121,7 @@ async fn run_server() -> anyhow::Result<()> {
     application_manager.reload_all_plugins().await?; // TODO do not fail here ?
 
     tokio::spawn(async {
-        start_backend_server(Box::new(BackendServerImpl::new(search_index, application_manager))).await
+        start_backend_server(Box::new(BackendServerImpl::new(application_manager))).await
     });
 
     std::future::pending::<()>().await;

@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use include_dir::{Dir, include_dir};
 
-use common::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::rpc::frontend_api::FrontendApi;
+use common::rpc::frontend_server::wait_for_frontend_server;
 
 use crate::dirs::Dirs;
 use crate::plugins::config_reader::ConfigReader;
@@ -37,16 +39,21 @@ pub struct ApplicationManager {
     plugin_downloader: PluginLoader,
     run_status_holder: RunStatusHolder,
     icon_cache: IconCache,
+    frontend_api: FrontendApi,
 }
 
 impl ApplicationManager {
-    pub async fn create(search_index: SearchIndex) -> anyhow::Result<Self> {
+    pub async fn create() -> anyhow::Result<Self> {
+        wait_for_frontend_server().await;
+
+        let frontend_api = FrontendApi::new().await?;
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
         let config_reader = ConfigReader::new(dirs.clone(), db_repository.clone());
         let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
+        let search_index = SearchIndex::create_index(frontend_api.clone())?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
@@ -58,6 +65,7 @@ impl ApplicationManager {
             plugin_downloader,
             run_status_holder,
             icon_cache,
+            frontend_api,
         })
     }
 
@@ -71,6 +79,11 @@ impl ApplicationManager {
 
     pub fn download_status(&self) -> HashMap<PluginId, DownloadStatus> {
         self.plugin_downloader.download_status()
+    }
+
+    pub fn search(&self, text: &str) -> anyhow::Result<Vec<SearchResult>> {
+        self.search_index.create_handle()
+            .search(&text)
     }
 
     pub async fn save_local_plugin(
@@ -407,7 +420,8 @@ impl ApplicationManager {
             command_receiver: receiver,
             db_repository: self.db_repository.clone(),
             search_index: self.search_index.clone(),
-            icon_cache: self.icon_cache.clone()
+            icon_cache: self.icon_cache.clone(),
+            frontend_api: self.frontend_api.clone()
         };
 
         self.start_plugin_runtime(data);

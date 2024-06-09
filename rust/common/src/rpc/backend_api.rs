@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiSearchResult, UiSearchResultEntrypointType, UiWidgetId};
-use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc};
+use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, SearchResult, SearchResultEntrypointType, UiWidgetId};
+use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPingResponse, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 
@@ -27,7 +27,7 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn search(&mut self, text: String) -> anyhow::Result<Vec<UiSearchResult>> {
+    pub async fn search(&mut self, text: String) -> anyhow::Result<Vec<SearchResult>> {
         let request = RpcSearchRequest { text };
 
         let search_result = self.client.search(Request::new(request))
@@ -35,29 +35,7 @@ impl BackendApi {
             .into_inner()
             .results
             .into_iter()
-            .map(|search_result| {
-                let entrypoint_type = search_result.entrypoint_type
-                    .try_into()
-                    .unwrap();
-
-                let entrypoint_type = match entrypoint_type {
-                    RpcEntrypointTypeSearchResult::SrCommand => UiSearchResultEntrypointType::Command,
-                    RpcEntrypointTypeSearchResult::SrView => UiSearchResultEntrypointType::View,
-                    RpcEntrypointTypeSearchResult::SrGeneratedCommand => UiSearchResultEntrypointType::GeneratedCommand,
-                };
-
-                let icon_path = Some(search_result.entrypoint_icon_path)
-                    .filter(|path| path != "");
-
-                UiSearchResult {
-                    plugin_id: PluginId::from_string(search_result.plugin_id),
-                    plugin_name: search_result.plugin_name,
-                    entrypoint_id: EntrypointId::from_string(search_result.entrypoint_id),
-                    entrypoint_name: search_result.entrypoint_name,
-                    entrypoint_icon: icon_path,
-                    entrypoint_type,
-                }
-            })
+            .map(|search_result| ui_search_result_from_rpc(search_result))
             .collect();
 
         Ok(search_result)

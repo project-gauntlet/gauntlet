@@ -29,6 +29,7 @@ pub enum UiRequestData {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation,
     },
+    RequestSearchResultUpdate
 }
 
 #[derive(Debug, Clone)]

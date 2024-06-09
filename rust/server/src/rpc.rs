@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use common::{settings_env_data_to_string, SettingsEnvData};
-use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchResultItem, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId};
 use common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
@@ -9,14 +9,12 @@ use crate::search::SearchIndex;
 use crate::SETTINGS_ENV;
 
 pub struct BackendServerImpl {
-    pub search_index: SearchIndex,
     pub application_manager: ApplicationManager,
 }
 
 impl BackendServerImpl {
-    pub fn new(search_index: SearchIndex, application_manager: ApplicationManager) -> Self {
+    pub fn new(application_manager: ApplicationManager) -> Self {
         Self {
-            search_index,
             application_manager
         }
     }
@@ -24,9 +22,8 @@ impl BackendServerImpl {
 
 #[tonic::async_trait]
 impl BackendServer for BackendServerImpl {
-    async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResultItem>> {
-        let result = self.search_index.create_handle()
-            .search(&text);
+    async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResult>> {
+        let result = self.application_manager.search(&text);
 
         self.application_manager.handle_inline_view(&text);
 

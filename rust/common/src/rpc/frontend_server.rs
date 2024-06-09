@@ -6,9 +6,9 @@ use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
-use crate::rpc::grpc_convert::ui_widget_from_rpc;
-use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcShowPluginErrorViewRequest, RpcShowPluginErrorViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcClearInlineViewResponse, RpcRenderLocation, RpcReplaceViewRequest, RpcReplaceViewResponse, RpcRequestSearchResultsUpdateRequest, RpcRequestSearchResultsUpdateResponse, RpcShowPluginErrorViewRequest, RpcShowPluginErrorViewResponse, RpcShowPreferenceRequiredViewRequest, RpcShowPreferenceRequiredViewResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_frontend_server::{RpcFrontend, RpcFrontendServer};
+use crate::rpc::grpc_convert::ui_widget_from_rpc;
 
 pub async fn wait_for_frontend_server() {
     loop {
@@ -46,6 +46,8 @@ impl RpcFrontendServerImpl {
 
 #[tonic::async_trait]
 pub trait FrontendServer {
+    async fn request_search_results_update(&self);
+
     async fn replace_view(
         &self,
         plugin_id: PluginId,
@@ -78,6 +80,13 @@ pub trait FrontendServer {
 
 #[tonic::async_trait]
 impl RpcFrontend for RpcFrontendServerImpl {
+    async fn request_search_results_update(&self, _request: Request<RpcRequestSearchResultsUpdateRequest>) -> Result<Response<RpcRequestSearchResultsUpdateResponse>, Status> {
+        self.server.request_search_results_update()
+            .await;
+
+        Ok(Response::new(RpcRequestSearchResultsUpdateResponse::default()))
+    }
+
     async fn replace_view(&self, request: Request<RpcReplaceViewRequest>) -> Result<Response<RpcReplaceViewResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;

@@ -5,10 +5,12 @@ use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use common::model::{PluginId, SearchIndexPluginEntrypointType, SearchResultItem};
+use common::model::{EntrypointId, PluginId, SearchResult, SearchResultEntrypointType};
+use common::rpc::frontend_api::FrontendApi;
 
 #[derive(Clone)]
 pub struct SearchIndex {
+    frontend_api: FrontendApi,
     index: Index,
     index_reader: IndexReader,
     index_writer_mutex: Arc<Mutex<()>>,
@@ -23,7 +25,7 @@ pub struct SearchIndex {
 }
 
 impl SearchIndex {
-    pub fn create_index() -> tantivy::Result<Self> {
+    pub fn create_index(frontend_api: FrontendApi) -> tantivy::Result<Self> {
         let schema = {
             let mut schema_builder = Schema::builder();
 
@@ -54,6 +56,7 @@ impl SearchIndex {
             .try_into()?;
 
         Ok(Self {
+            frontend_api,
             index,
             index_reader,
             index_writer_mutex: Arc::new(Mutex::new(())),
@@ -78,7 +81,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub fn save_for_plugin(&self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>) -> tantivy::Result<()> {
+    pub fn save_for_plugin(&mut self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>) -> tantivy::Result<()> {
         tracing::debug!("Reloading search index for plugin {:?} {:?} using following data: {:?}", plugin_id, plugin_name, search_items);
 
         // writer panics if another writer exists
@@ -103,6 +106,18 @@ impl SearchIndex {
         }
 
         index_writer.commit()?;
+
+        let mut frontend_api = self.frontend_api.clone();
+        tokio::spawn(async move {
+            tracing::info!("requesting search results update because search index update for plugin: {:?}", plugin_id);
+
+            let result = frontend_api.request_search_results_update()
+                .await;
+
+            if let Err(err) = &result {
+                tracing::warn!("error occurred when requesting search results update {:?}", err)
+            }
+        });
 
         Ok(())
     }
@@ -132,7 +147,7 @@ impl SearchIndex {
 
 #[derive(Clone, Debug)]
 pub struct SearchIndexItem {
-    pub entrypoint_type: SearchIndexPluginEntrypointType,
+    pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_name: String,
     pub entrypoint_id: String,
     pub entrypoint_icon_path: Option<String>,
@@ -153,12 +168,12 @@ pub struct SearchHandle {
 }
 
 impl SearchHandle {
-    pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResultItem>> {
+    pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
         let query = self.query_parser.create_query(query);
 
         let mut index = 0;
 
-        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<(SearchResultItem, f64)>>> {
+        let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<(SearchResult, f64)>>> {
             let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20));
 
             index += 1;
@@ -192,7 +207,7 @@ impl SearchHandle {
         Ok(result)
     }
 
-    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<(SearchResultItem, f64)>> {
+    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<(SearchResult, f64)>> {
         let get_str_field = |retrieved_doc: &Document, field: Field| -> String {
             retrieved_doc.get_first(field)
                 .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
@@ -216,13 +231,13 @@ impl SearchHandle {
 
                 let score = get_f64_field(&retrieved_doc, self.entrypoint_frecency);
 
-                let result_item = SearchResultItem {
+                let result_item = SearchResult {
                     entrypoint_type: search_index_entrypoint_from_str(&get_str_field(&retrieved_doc, self.entrypoint_type)),
                     entrypoint_name: get_str_field(&retrieved_doc, self.entrypoint_name),
-                    entrypoint_id: get_str_field(&retrieved_doc, self.entrypoint_id),
-                    entrypoint_icon_path: Some(get_str_field(&retrieved_doc, self.entrypoint_icon_path)).filter(|value| value != ""),
+                    entrypoint_id: EntrypointId::from_string(get_str_field(&retrieved_doc, self.entrypoint_id)),
+                    entrypoint_icon: Some(get_str_field(&retrieved_doc, self.entrypoint_icon_path)).filter(|value| value != ""),
                     plugin_name: get_str_field(&retrieved_doc, self.plugin_name),
-                    plugin_id: get_str_field(&retrieved_doc, self.plugin_id),
+                    plugin_id: PluginId::from_string(get_str_field(&retrieved_doc, self.plugin_id)),
                 };
 
                 (result_item, score)
@@ -301,19 +316,19 @@ impl QueryParser {
     }
 }
 
-fn search_index_entrypoint_to_str(value: SearchIndexPluginEntrypointType) -> &'static str {
+fn search_index_entrypoint_to_str(value: SearchResultEntrypointType) -> &'static str {
     match value {
-        SearchIndexPluginEntrypointType::Command => "command",
-        SearchIndexPluginEntrypointType::View => "view",
-        SearchIndexPluginEntrypointType::GeneratedCommand => "generated-command",
+        SearchResultEntrypointType::Command => "command",
+        SearchResultEntrypointType::View => "view",
+        SearchResultEntrypointType::GeneratedCommand => "generated-command",
     }
 }
 
-fn search_index_entrypoint_from_str(value: &str) -> SearchIndexPluginEntrypointType {
+fn search_index_entrypoint_from_str(value: &str) -> SearchResultEntrypointType {
     match value {
-        "command" => SearchIndexPluginEntrypointType::Command,
-        "view" => SearchIndexPluginEntrypointType::View,
-        "generated-command" => SearchIndexPluginEntrypointType::GeneratedCommand,
+        "command" => SearchResultEntrypointType::Command,
+        "view" => SearchResultEntrypointType::View,
+        "generated-command" => SearchResultEntrypointType::GeneratedCommand,
         _ => panic!("index contains illegal entrypoint_type: {}", value)
     }
 }

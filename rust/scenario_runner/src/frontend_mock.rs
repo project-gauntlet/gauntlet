@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::Path;
-use std::time::Duration;
 
 use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use common::rpc::backend_api::BackendApi;
@@ -145,6 +144,10 @@ impl RpcFrontendSaveToJson {
 
 #[tonic::async_trait]
 impl FrontendServer for RpcFrontendSaveToJson {
+    async fn request_search_results_update(&self) {
+        unreachable!()
+    }
+
     async fn replace_view(&self, _plugin_id: PluginId, entrypoint_id: EntrypointId, container: UiWidget, top_level_view: bool, render_location: UiRenderLocation) {
         let event = ScenarioFrontendEvent::ReplaceView {
             entrypoint_id: entrypoint_id.to_string(),
