@@ -91,6 +91,7 @@ fn setup_auto_launch(app_path: String) -> anyhow::Result<()> {
     auto_launch::AutoLaunchBuilder::new()
         .set_app_name("Gauntlet")
         .set_app_path(&app_path)
+        .set_args(&["--minimized"])
         .build()
         .and_then(|auto| auto.enable())?;
 
