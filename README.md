@@ -330,7 +330,6 @@ cd ..
 cargo build
 ```
 In dev (without "release" feature) application will use only directories inside project directory to store state or cache.
-Additionally, for easier development frontend will not be automatically executed and need to be started manually with GAUNTLET_INTERNAL_FRONTEND environment variable set to any value.
 
 To build release run:
 ```bash

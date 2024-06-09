@@ -3,63 +3,64 @@ use std::collections::HashMap;
 use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchResultItem, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::backend_server::{BackendServer, start_backend_server};
 
-pub async fn start_mock_backend() {
-    start_backend_server(Box::new(RpcBackendReadFromJson)).await;
+pub async fn start_screenshot_gen_backend() {
+    start_backend_server(Box::new(RpcBackendScreenshotGen)).await;
 }
 
-struct RpcBackendReadFromJson;
+struct RpcBackendScreenshotGen;
 
 #[tonic::async_trait]
-impl BackendServer for RpcBackendReadFromJson {
+impl BackendServer for RpcBackendScreenshotGen {
     async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResultItem>> {
-        todo!()
+        todo!();
     }
 
-    async fn request_view_render(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
-        todo!()
+    async fn request_view_render(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn request_view_close(&self, plugin_id: PluginId) -> anyhow::Result<()> {
-        todo!()
+    async fn request_view_close(&self, _plugin_id: PluginId) -> anyhow::Result<()> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
-        todo!()
+    async fn request_run_command(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId) -> anyhow::Result<()> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn request_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
-        todo!()
+    async fn request_run_generated_command(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId) -> anyhow::Result<()> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn send_view_event(&self, plugin_id: PluginId, widget_id: UiWidgetId, event_name: String, event_arguments: Vec<UiPropertyValue>) -> anyhow::Result<()> {
-        todo!()
+    async fn send_view_event(&self, _plugin_id: PluginId, _widget_id: UiWidgetId, _event_name: String, _event_arguments: Vec<UiPropertyValue>) -> anyhow::Result<()> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn send_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: String, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> anyhow::Result<()> {
-        todo!()
+    async fn send_keyboard_event(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId, _key: String, _modifier_shift: bool, _modifier_control: bool, _modifier_alt: bool, _modifier_meta: bool) -> anyhow::Result<()> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn send_open_event(&self, plugin_id: PluginId, href: String) -> anyhow::Result<()> {
-        todo!()
+    async fn send_open_event(&self, _plugin_id: PluginId, _href: String) -> anyhow::Result<()> {
+        unreachable!(); // screenshot gen is not interactive
     }
 
+    // settings
     async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>> {
         unreachable!();
     }
 
-    async fn set_plugin_state(&self, plugin_id: PluginId, enabled: bool) -> anyhow::Result<()> {
+    async fn set_plugin_state(&self, _plugin_id: PluginId, _enabled: bool) -> anyhow::Result<()> {
         unreachable!();
     }
 
-    async fn set_entrypoint_state(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> anyhow::Result<()> {
+    async fn set_entrypoint_state(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId, _enabled: bool) -> anyhow::Result<()> {
         unreachable!();
     }
 
-    async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_name: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
+    async fn set_preference_value(&self, _plugin_id: PluginId, _entrypoint_id: Option<EntrypointId>, _preference_name: String, _preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
         unreachable!();
     }
 
-    async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    async fn download_plugin(&self, _plugin_id: PluginId) -> anyhow::Result<()> {
         unreachable!();
     }
 
@@ -71,15 +72,15 @@ impl BackendServer for RpcBackendReadFromJson {
         unreachable!();
     }
 
-    async fn open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) -> anyhow::Result<()> {
+    async fn open_settings_window_preferences(&self, _plugin_id: PluginId, _entrypoint_id: Option<EntrypointId>) -> anyhow::Result<()> {
         unreachable!();
     }
 
-    async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    async fn remove_plugin(&self, _plugin_id: PluginId) -> anyhow::Result<()> {
         unreachable!();
     }
 
-    async fn save_local_plugin(&self, path: String) -> anyhow::Result<()> {
+    async fn save_local_plugin(&self, _path: String) -> anyhow::Result<()> {
         unreachable!();
     }
 }

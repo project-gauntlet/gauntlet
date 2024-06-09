@@ -4,13 +4,13 @@ use std::time::Duration;
 
 use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
 use common::rpc::backend_api::BackendApi;
-use common::rpc::frontend_server::{FrontendServer, start_frontend_server};
+use common::rpc::frontend_server::{FrontendServer, start_frontend_server, wait_for_frontend_server};
 use common::scenario_convert::{ui_render_location_to_scenario, ui_widget_to_scenario};
 use common::scenario_model::ScenarioFrontendEvent;
 
 use crate::model::ScenarioBackendEvent;
 
-pub async fn start_mock_frontend() -> anyhow::Result<()> {
+pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
     let scenario_dir = std::env::var("GAUNTLET_SCENARIOS_DIR")
         .expect("Unable to read GAUNTLET_SCENARIOS_DIR");
 
@@ -46,6 +46,8 @@ pub async fn start_mock_frontend() -> anyhow::Result<()> {
     tokio::spawn(async move {
         start_frontend_server(Box::new(RpcFrontendSaveToJson::new(sender))).await;
     });
+
+    wait_for_frontend_server().await;
 
     let mut client = BackendApi::new().await?;
 
@@ -97,9 +99,7 @@ pub async fn start_mock_frontend() -> anyhow::Result<()> {
         }
     }
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    Ok(())
+    std::process::exit(0)
 }
 
 fn save_event(scenario_out_dir: &Path, scenario_name: String, event: ScenarioFrontendEvent) {

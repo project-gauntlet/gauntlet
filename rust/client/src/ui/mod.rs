@@ -23,6 +23,7 @@ use tonic::transport::Server;
 use client_context::ClientContext;
 use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, UiSearchResult, UiSearchResultEntrypointType};
 use common::rpc::backend_api::BackendApi;
+use common::rpc::backend_server::wait_for_backend_server;
 use common::rpc::frontend_server::start_frontend_server;
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -146,6 +147,7 @@ pub enum AppMsg {
         screenshot: Screenshot
     },
     Close,
+    ResetWindowState,
 }
 
 
@@ -155,23 +157,24 @@ const SUB_VIEW_WINDOW_WIDTH: f32 = 850.0;
 const SUB_VIEW_WINDOW_HEIGHT: f32 = 500.0;
 
 
-fn window_settings() -> iced::window::Settings {
+fn window_settings(minimized: bool) -> iced::window::Settings {
     iced::window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position: Position::Centered,
         resizable: false,
         decorations: false,
         transparent: true,
+        visible: !minimized,
         ..Default::default()
     }
 }
 
-pub fn run() {
+pub fn run(minimized: bool) {
     init_theme(themable_widget::DEFAULT_THEME.clone());
 
     AppModel::run(Settings {
         id: None,
-        window: window_settings(),
+        window: window_settings(minimized),
         ..Default::default()
     }).unwrap();
 }
@@ -191,12 +194,15 @@ impl Application for AppModel {
             start_frontend_server(Box::new(FrontendServerImpl::new(context_tx))).await;
         });
 
-        let backend_api = futures::executor::block_on(async { BackendApi::new().await })
-            .unwrap();
+        let backend_api = futures::executor::block_on(async {
+            wait_for_backend_server().await;
+
+            BackendApi::new().await
+        }).unwrap();
 
         let mut commands = vec![
             change_level(window::Id::MAIN, Level::AlwaysOnTop),
-            Command::perform(async {}, |_| AppMsg::ShowWindow),
+            Command::perform(async {}, |_| AppMsg::ResetWindowState),
             font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
         ];
 
@@ -479,6 +485,7 @@ impl Application for AppModel {
                 result.expect("unable to load font");
                 Command::none()
             }
+            AppMsg::ResetWindowState => self.reset_window_state(),
             AppMsg::ShowWindow => self.show_window(),
             AppMsg::HideWindow => self.hide_window(),
             AppMsg::ShowPreferenceRequiredView {
@@ -830,6 +837,12 @@ impl AppModel {
 
         Command::batch([
             window::change_mode(window::Id::MAIN, window::Mode::Windowed),
+            self.reset_window_state()
+        ])
+    }
+
+    fn reset_window_state(&mut self) -> Command<AppMsg> {
+        Command::batch([
             window::gain_focus(window::Id::MAIN),
             reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
             scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),

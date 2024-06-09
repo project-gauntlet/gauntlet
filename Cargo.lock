@@ -6787,14 +6787,11 @@ name = "scenario_runner"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "clap",
  "common",
  "serde",
  "serde_json",
  "tokio",
  "tonic",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -7064,6 +7061,7 @@ dependencies = [
  "plist",
  "regex",
  "resvg",
+ "scenario_runner",
  "serde",
  "sqlx",
  "tantivy",

@@ -3,12 +3,15 @@ use clap::Parser;
 
 use client::open_window;
 use management_client::start_management_client;
-use server::start_server;
+use server::start;
 
 #[derive(Debug, clap::Parser)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
+
+    #[arg(long)]
+    minimized: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -37,7 +40,7 @@ pub fn init() {
                 }
             }
 
-            start_server()
+            start(cli.minimized)
         }
         Some(command) => {
             match command {

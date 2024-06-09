@@ -6,9 +6,6 @@ edition = "2021"
 tokio = { version = "1.28.1", features = ["rt", "rt-multi-thread", "macros"] }
 tonic = "0.11.0"
 common = { path = "../common" }
-clap = { version = "4.3.22", features = ["derive"] }
-tracing = "0.1"
-tracing-subscriber = "0.3"
 anyhow = { version = "1", features = ["backtrace"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

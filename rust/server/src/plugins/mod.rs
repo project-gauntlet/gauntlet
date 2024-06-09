@@ -154,6 +154,9 @@ impl ApplicationManager {
     pub async fn set_plugin_state(&self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
         let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
         let currently_enabled = self.is_plugin_enabled(&plugin_id).await?;
+
+        tracing::info!(target = "plugin", "Setting plugin state for plugin id: {:?}, currently_running: {}, currently_enabled: {}, set_enabled: {}", plugin_id, currently_running, currently_enabled, set_enabled);
+
         match (currently_running, currently_enabled, set_enabled) {
             (false, false, true) => {
                 self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)
@@ -205,6 +208,7 @@ impl ApplicationManager {
     }
 
     pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
+        tracing::info!("Reloading all plugins");
 
         self.reload_config().await?;
 
@@ -227,6 +231,8 @@ impl ApplicationManager {
     }
 
     pub async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        tracing::info!(target = "plugin", "Removing plugin with id: {:?}", plugin_id);
+
         self.stop_plugin(plugin_id.clone()).await;
         self.db_repository.remove_plugin(&plugin_id.to_string()).await?;
         self.search_index.remove_for_plugin(plugin_id)?;
@@ -314,6 +320,8 @@ impl ApplicationManager {
     }
 
     async fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        tracing::info!(target = "plugin", "Reloading plugin with id: {:?}", plugin_id);
+
         let running = self.run_status_holder.is_plugin_running(&plugin_id);
         if running {
             self.stop_plugin(plugin_id.clone()).await;

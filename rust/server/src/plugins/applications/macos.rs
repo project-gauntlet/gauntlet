@@ -6,7 +6,6 @@ use cacao::url::Url;
 use deno_runtime::deno_http::compressible::is_content_compressible;
 use plist::Dictionary;
 use serde::Deserialize;
-use tracing_subscriber::fmt::format;
 use crate::plugins::applications::{DesktopEntry, resize_icon};
 
 pub fn get_apps() -> Vec<DesktopEntry> {

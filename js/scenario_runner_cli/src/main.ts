@@ -1,7 +1,7 @@
-import {Command} from 'commander';
-import {spawn, spawnSync} from "node:child_process";
+import { Command } from 'commander';
+import { spawnSync } from "node:child_process";
 import path from "node:path";
-import {existsSync, readFileSync, readdirSync, rmSync} from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 
 const program = new Command();
 
@@ -35,9 +35,6 @@ async function runScenarios(expectedPlugin: string | undefined) {
     const scenariosData = path.join(scenarios, "data");
     const scenariosRun = path.join(scenarios, "run");
 
-    console.log("Building scenario runner")
-    buildScenarioRunner(projectRoot)
-
     console.log("Building server")
     buildServer(projectRoot)
 
@@ -51,44 +48,24 @@ async function runScenarios(expectedPlugin: string | undefined) {
             }
         }
 
-        console.log("Starting real server")
+        console.log("Starting runner")
 
-        const backendProcess = spawn('target/debug/gauntlet', ['server'], {
+        const backendProcess = spawnSync('target/debug/gauntlet', {
             stdio: "inherit",
             cwd: projectRoot,
             env: Object.assign(process.env, {
                 RUST_LOG: "server=info",
+                GAUNTLET_SCENARIO_RUNNER_TYPE: "scenario_runner",
+                GAUNTLET_SCENARIOS_DIR: scenarios,
+                GAUNTLET_SCENARIO_PLUGIN_NAME: pluginName,
                 XDG_DATA_HOME: path.join(scenariosRun, "data"),
                 XDG_CONFIG_HOME: path.join(scenariosRun, "config"),
                 XDG_CACHE_HOME: path.join(scenariosRun, "cache"),
             })
         })
 
-        await sleep(1000)
-
-        console.log("Starting mock frontend")
-
-        const runnerReturn = spawnSync('target/debug/scenario_runner', ['frontend'], {
-            stdio: "inherit",
-            cwd: projectRoot,
-            env: Object.assign(process.env, {
-                RUST_LOG: "info",
-                GAUNTLET_SCENARIOS_DIR: scenarios,
-                GAUNTLET_SCENARIO_PLUGIN_NAME: pluginName,
-            })
-        });
-
-        if (runnerReturn.status !== 0) {
-            const killed = backendProcess.kill();
-            throw new Error(`Unable to run scenario runner, backend killed: ${killed}, status: ${JSON.stringify(runnerReturn)}`);
-        }
-
-        await sleep(1000)
-
-        console.log("Killing backend")
-
-        if (!backendProcess.kill()) {
-            console.error("Unable to kill backend after frontend finished")
+        if (backendProcess.status !== 0) {
+            throw new Error(`Unable to run scenario runner, status: ${JSON.stringify(backendProcess)}`);
         }
 
         if (existsSync(scenariosRun)) {
@@ -104,7 +81,6 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
     const scenarios = path.join(projectRoot, "scenarios");
     const scenariosOut = path.join(scenarios, "out");
 
-    buildScenarioRunner(projectRoot)
     buildServer(projectRoot)
 
     for (const plugin of readdirSync(scenariosOut)) {
@@ -128,14 +104,7 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
             for (const scenario of readdirSync(entrypointDir)) {
                 const scenarioFile = path.join(entrypointDir, scenario);
 
-                console.log("Starting screenshot generating frontend for scenario: " + scenarioFile)
-
-                const mockBackendProcess = spawn('target/debug/scenario_runner', ['server'], {
-                    stdio: "inherit",
-                    cwd: projectRoot,
-                })
-
-                await sleep(500)
+                console.log("Starting screenshot generating runner for scenario: " + scenarioFile)
 
                 const scenarioName = path.parse(scenario).name;
                 const entrypointName = path.parse(entrypoint).name;
@@ -146,12 +115,12 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                     .map(x => (x.charAt(0).toUpperCase() + x.slice(1)))
                     .join(" ");
 
-                const frontendReturn = spawnSync('target/debug/gauntlet', ['server'], {
+                const frontendReturn = spawnSync('target/debug/gauntlet', {
                     stdio: "inherit",
                     cwd: projectRoot,
                     env: Object.assign(process.env, {
                         RUST_LOG: "client=info",
-                        GAUNTLET_INTERNAL_FRONTEND: "",
+                        GAUNTLET_SCENARIO_RUNNER_TYPE: "screenshot_gen",
                         GAUNTLET_SCREENSHOT_GEN_IN: scenarioFile,
                         GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out-screenshot", plugin, entrypoint, scenarioName + ".png"),
                         GAUNTLET_SCREENSHOT_GEN_NAME: scenarioNameTitle,
@@ -159,17 +128,10 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                 });
 
                 if (frontendReturn.status !== 0) {
-                    const killed = mockBackendProcess.kill();
-                    throw new Error(`Unable to run frontend, mock backend killed: ${killed}, status: ${JSON.stringify(frontendReturn)}`);
+                    throw new Error(`Unable to run frontend, status: ${JSON.stringify(frontendReturn)}`);
                 }
 
-                console.log("Frontend exited")
-
-                console.log("Killing backend")
-
-                if (!mockBackendProcess.kill()) {
-                    console.error("Unable to kill backend after frontend finished")
-                }
+                console.log("Runner exited")
             }
         }
     }
@@ -183,17 +145,6 @@ function buildServer(projectRoot: string) {
 
     if (serverBuildResult.status !== 0) {
         throw new Error(`Unable to compile server, status: ${JSON.stringify(serverBuildResult)}`);
-    }
-}
-
-function buildScenarioRunner(projectRoot: string) {
-    const scenarioRunnerBuildResult = spawnSync('cargo', ['build', '--package', 'scenario_runner'], {
-        stdio: "inherit",
-        cwd: projectRoot,
-    });
-
-    if (scenarioRunnerBuildResult.status !== 0) {
-        throw new Error(`Unable to compile generator, status ${JSON.stringify(scenarioRunnerBuildResult)}`);
     }
 }
 

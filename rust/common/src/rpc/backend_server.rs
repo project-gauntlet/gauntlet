@@ -1,12 +1,27 @@
 use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::time::Duration;
+use tokio::net::TcpStream;
 
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchIndexPluginEntrypointType, SearchResultItem, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSearchResult, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
+use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc};
+
+pub async fn wait_for_backend_server() {
+    loop {
+        let addr: SocketAddr = "127.0.0.1:42320".parse().unwrap();
+
+        if TcpStream::connect(addr).await.is_ok() {
+            return;
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
 
 pub async fn start_backend_server(server: Box<dyn BackendServer + Sync + Send>) {
     let addr = "127.0.0.1:42320".parse().unwrap();
@@ -128,6 +143,10 @@ pub trait BackendServer {
 
 #[tonic::async_trait]
 impl RpcBackend for RpcBackendServerImpl {
+    async fn ping(&self, _: Request<RpcPingRequest>) -> Result<Response<RpcPingResponse>, Status> {
+        Ok(Response::new(RpcPingResponse::default()))
+    }
+
     async fn search(&self, request: Request<RpcSearchRequest>) -> Result<Response<RpcSearchResponse>, Status> {
         let request = request.into_inner();
         let text = request.text;

@@ -3,6 +3,9 @@ syntax = "proto3";
 import "shared.proto";
 
 service RpcBackend {
+  // ping
+  rpc Ping (RpcPingRequest) returns (RpcPingResponse);
+
   // search
   rpc Search (RpcSearchRequest) returns (RpcSearchResponse);
 
@@ -38,6 +41,11 @@ service RpcBackend {
 
   // dev tools
   rpc SaveLocalPlugin (RpcSaveLocalPluginRequest) returns (RpcSaveLocalPluginResponse);
+}
+
+message RpcPingRequest {
+}
+message RpcPingResponse {
 }
 
 message RpcSearchRequest {
