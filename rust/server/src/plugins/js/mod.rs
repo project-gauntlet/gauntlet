@@ -427,7 +427,6 @@ deno_core::extension!(
     ops = [
         // core
         op_plugin_get_pending_event,
-        plugin_id,
 
         // logs
         op_log_trace,
@@ -491,16 +490,6 @@ deno_core::extension!(
     },
 );
 
-
-#[op]
-fn plugin_id(state: Rc<RefCell<OpState>>) -> String {
-    state.borrow()
-        .borrow::<PluginData>()
-        .plugin_id
-        .clone()
-        .to_string()
-}
-
 #[op]
 async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiEvent> {
     let event_stream = {
@@ -539,137 +528,6 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
     block_on(async {
         make_request_async(plugin_id, &mut frontend_api, data).await
     })
-}
-
-fn validate_properties(state: &Rc<RefCell<OpState>>, internal_name: &str, properties: &HashMap<String, UiPropertyValue>) -> anyhow::Result<()> {
-    let state = state.borrow();
-    let component_model = state.borrow::<ComponentModel>();
-
-    let component = component_model.components.get(internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", internal_name))?;
-
-    match component {
-        Component::Standard { name, props, .. } => {
-            for comp_prop in props {
-                match properties.get(&comp_prop.name) {
-                    None => {
-                        if !comp_prop.optional {
-                            Err(anyhow::anyhow!("property {} is required on {} component", comp_prop.name, name))?
-                        }
-                    }
-                    Some(prop_value) => {
-                        match prop_value {
-                            UiPropertyValue::String(_) => {
-                                if !matches!(comp_prop.property_type, PropertyType::String) {
-                                    Err(anyhow::anyhow!("property {} on {} component has to be a string", comp_prop.name, name))?
-                                }
-                            }
-                            UiPropertyValue::Number(_) => {
-                                if !matches!(comp_prop.property_type, PropertyType::Number) {
-                                    Err(anyhow::anyhow!("property {} on {} component has to be a number", comp_prop.name, name))?
-                                }
-                            }
-                            UiPropertyValue::Bool(_) => {
-                                if !matches!(comp_prop.property_type, PropertyType::Boolean) {
-                                    Err(anyhow::anyhow!("property {} on {} component has to be a boolean", comp_prop.name, name))?
-                                }
-                            }
-                            UiPropertyValue::Undefined => {
-                                if !comp_prop.optional {
-                                    Err(anyhow::anyhow!("property {} on {} component has to be optional", comp_prop.name, name))?
-                                }
-                            }
-                            UiPropertyValue::Bytes(_) => {
-                                todo!()
-                            }
-                            UiPropertyValue::Object(_) => {
-                                todo!()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Component::Root { .. } => Err(anyhow::anyhow!("properties of root cannot be validated, likely a bug"))?,
-        Component::TextPart { .. } => Err(anyhow::anyhow!("properties of text_part cannot be validated, likely a bug"))?,
-    }
-
-    Ok(())
-}
-
-fn validate_child(state: &Rc<RefCell<OpState>>, parent_internal_name: &str, child_internal_name: &str) -> anyhow::Result<()> {
-    let state = state.borrow();
-    let component_model = state.borrow::<ComponentModel>();
-
-    let components = &component_model.components;
-    let parent_component = components.get(parent_internal_name).ok_or(anyhow::anyhow!("invalid parent component internal name: {}", parent_internal_name))?;
-    let child_component = components.get(child_internal_name).ok_or(anyhow::anyhow!("invalid component internal name: {}", child_internal_name))?;
-
-    match parent_component {
-        Component::Standard { name: parent_name, children: parent_children, .. } => {
-            match parent_children {
-                Children::StringOrMembers { members, .. } => {
-                    match child_component {
-                        Component::Standard { internal_name, name, .. } => {
-                            let allowed_members: HashMap<_, _> = members.iter()
-                                .map(|(_, member)| (&member.component_internal_name, member))
-                                .collect();
-
-                            match allowed_members.get(internal_name) {
-                                None => Err(anyhow::anyhow!("{} component not be a child of {}", name, parent_name))?,
-                                Some(_) => (),
-                            }
-                        }
-                        Component::Root { .. } => Err(anyhow::anyhow!("root component not be a child"))?,
-                        Component::TextPart { .. } => ()
-                    }
-                }
-                Children::Members { members } => {
-                    match child_component {
-                        Component::Standard { internal_name, name, .. } => {
-                            let allowed_members: HashMap<_, _> = members.iter()
-                                .map(|(_, member)| (&member.component_internal_name, member))
-                                .collect();
-
-                            match allowed_members.get(internal_name) {
-                                None => Err(anyhow::anyhow!("{} component not be a child of {}", name, parent_name))?,
-                                Some(_) => (),
-                            }
-                        }
-                        Component::Root { .. } => Err(anyhow::anyhow!("root component not be a child"))?,
-                        Component::TextPart { .. } => Err(anyhow::anyhow!("{} component can not have text child", parent_name))?
-                    }
-                }
-                Children::String { .. } => {
-                    match child_component {
-                        Component::TextPart { .. } => (),
-                        _ => Err(anyhow::anyhow!("{} component can only have text child", parent_name))?
-                    }
-                }
-                Children::None => {
-                    Err(anyhow::anyhow!("{} component cannot have children", parent_name))?
-                }
-            }
-        }
-        Component::Root { children, .. } => {
-            let allowed_children: HashMap<_, _> = children.iter()
-                .map(|member| (&member.component_internal_name, member))
-                .collect();
-
-            match child_component {
-                Component::Standard { internal_name, name, .. } => {
-                    match allowed_children.get(internal_name) {
-                        None => Err(anyhow::anyhow!("{} component not be a child of root", name))?,
-                        Some(..) => (),
-                    }
-                }
-                Component::Root { .. } => Err(anyhow::anyhow!("root component not be a child"))?,
-                Component::TextPart { .. } => Err(anyhow::anyhow!("root component can not have text child"))?
-            }
-        }
-        Component::TextPart { .. } => Err(anyhow::anyhow!("text part component can not have children"))?
-    }
-
-    Ok(())
 }
 
 async fn make_request_async(plugin_id: PluginId, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
@@ -754,28 +612,6 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text },
         IntermediateUiEvent::ReloadSearchIndex => JsUiEvent::ReloadSearchIndex,
     }
-}
-
-fn object_to_json(
-    scope: &mut v8::HandleScope,
-    val: v8::Local<v8::Value>
-) -> anyhow::Result<String> {
-    let local = scope.get_current_context();
-    let global = local.global(scope);
-    let json_string = v8::String::new(scope, "JSON").ok_or(anyhow!("Unable to create JSON string"))?;
-    let json_object = global.get(scope, json_string.into()).ok_or(anyhow!("Global JSON object not found"))?;
-    let json_object: v8::Local<v8::Object> = json_object.try_into()?;
-    let stringify_string = v8::String::new(scope, "stringify").ok_or(anyhow!("Unable to create stringify string"))?;
-    let stringify_object = json_object.get(scope, stringify_string.into()).ok_or(anyhow!("Unable to get stringify on global JSON object"))?;
-    let stringify_fn: v8::Local<v8::Function> = stringify_object.try_into()?;
-    let undefined = v8::undefined(scope).into();
-
-    let json_object = stringify_fn.call(scope, undefined, &[val]).ok_or(anyhow!("Unable to get serialize prop"))?;
-    let json_string: v8::Local<v8::String> = json_object.try_into()?;
-
-    let result = json_string.to_rust_string_lossy(scope);
-
-    Ok(result)
 }
 
 pub struct PluginData {
