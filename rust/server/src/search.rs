@@ -81,7 +81,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub fn save_for_plugin(&mut self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>) -> tantivy::Result<()> {
+    pub fn save_for_plugin(&mut self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>, refresh_search_list: bool) -> tantivy::Result<()> {
         tracing::debug!("Reloading search index for plugin {:?} {:?} using following data: {:?}", plugin_id, plugin_name, search_items);
 
         // writer panics if another writer exists
@@ -107,17 +107,19 @@ impl SearchIndex {
 
         index_writer.commit()?;
 
-        let mut frontend_api = self.frontend_api.clone();
-        tokio::spawn(async move {
-            tracing::info!("requesting search results update because search index update for plugin: {:?}", plugin_id);
+        if refresh_search_list {
+            let mut frontend_api = self.frontend_api.clone();
+            tokio::spawn(async move {
+                tracing::info!("requesting search results update because search index update for plugin: {:?}", plugin_id);
 
-            let result = frontend_api.request_search_results_update()
-                .await;
+                let result = frontend_api.request_search_results_update()
+                    .await;
 
-            if let Err(err) = &result {
-                tracing::warn!("error occurred when requesting search results update {:?}", err)
-            }
-        });
+                if let Err(err) = &result {
+                    tracing::warn!("error occurred when requesting search results update {:?}", err)
+                }
+            });
+        }
 
         Ok(())
     }

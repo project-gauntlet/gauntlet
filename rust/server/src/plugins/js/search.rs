@@ -11,7 +11,7 @@ use crate::plugins::js::PluginData;
 use crate::search::{SearchIndex, SearchIndexItem};
 
 #[op]
-async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>) -> anyhow::Result<()> {
+async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
     let (plugin_id, plugin_uuid, repository, mut search_index, icon_cache) = {
         let state = state.borrow();
 
@@ -136,7 +136,7 @@ async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<
 
     plugins_search_items.append(&mut builtin_search_items);
 
-    search_index.save_for_plugin(plugin_id, name, plugins_search_items)
+    search_index.save_for_plugin(plugin_id, name, plugins_search_items, refresh_search_list)
         .context("error when updating search index")?;
 
     Ok(())

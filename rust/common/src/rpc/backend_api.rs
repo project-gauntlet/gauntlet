@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, SearchResult, SearchResultEntrypointType, UiWidgetId};
-use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSearchResult, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPingResponse, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
+use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
+use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
 
 #[derive(Debug, Clone)]
 pub struct BackendApi {
@@ -27,8 +27,8 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn search(&mut self, text: String) -> anyhow::Result<Vec<SearchResult>> {
-        let request = RpcSearchRequest { text };
+    pub async fn search(&mut self, text: String, render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
+        let request = RpcSearchRequest { text, render_inline_view };
 
         let search_result = self.client.search(Request::new(request))
             .await?

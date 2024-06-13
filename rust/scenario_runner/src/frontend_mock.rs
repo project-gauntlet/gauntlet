@@ -81,7 +81,7 @@ pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
 
             match event {
                 ScenarioBackendEvent::Search { text } => {
-                    client.search(text).await?;
+                    client.search(text, true).await?;
                 }
                 ScenarioBackendEvent::RequestViewRender => {
                     let plugin_id = PluginId::from_string(format!("file://{scenario_plugin_dir}"));

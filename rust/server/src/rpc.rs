@@ -22,10 +22,12 @@ impl BackendServerImpl {
 
 #[tonic::async_trait]
 impl BackendServer for BackendServerImpl {
-    async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResult>> {
+    async fn search(&self, text: String, render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
         let result = self.application_manager.search(&text);
 
-        self.application_manager.handle_inline_view(&text);
+        if render_inline_view {
+            self.application_manager.handle_inline_view(&text);
+        }
 
         result
     }

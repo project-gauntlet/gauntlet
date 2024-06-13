@@ -357,10 +357,8 @@ export const createHostConfig = (): HostConfig<
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
         InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
 
-        // TODO validate
-        // TODO     validate_properties(&state, &instance.widget_type, &new_props)?;
-
         container.widgetChildren = newChildren
+
         InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), container)
     },
 

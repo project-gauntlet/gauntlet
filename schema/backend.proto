@@ -50,6 +50,7 @@ message RpcPingResponse {
 
 message RpcSearchRequest {
   string text = 1;
+  bool render_inline_view = 2;
 }
 message RpcSearchResponse {
   repeated RpcSearchResult results = 1;

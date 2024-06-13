@@ -57,7 +57,7 @@ pub struct AppModel {
     _global_hotkey_manager: GlobalHotKeyManager,
 
     // ephemeral state
-    prompt: Option<String>,
+    prompt: String,
 
     // state
     client_context: Arc<StdRwLock<ClientContext>>,
@@ -106,6 +106,7 @@ pub enum AppMsg {
     },
     PromptChanged(String),
     PromptSubmit,
+    UpdateSearchResults,
     SetSearchResults(Vec<SearchResult>),
     ReplaceView {
         top_level_view: bool,
@@ -295,7 +296,7 @@ impl Application for AppModel {
                 waiting_for_next_unfocus: false,
 
                 // ephemeral state
-                prompt: None,
+                prompt: "".to_string(),
 
                 // state
                 client_context: Arc::new(StdRwLock::new(client_context)),
@@ -343,16 +344,27 @@ impl Application for AppModel {
                 } else {
                     new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
-                    self.prompt.replace(new_prompt.clone());
+                    self.prompt = new_prompt.clone();
 
                     let mut backend_api = self.backend_api.clone();
 
                     Command::perform(async move {
-                        backend_api.search(new_prompt)
+                        backend_api.search(new_prompt, true)
                             .await
                             .unwrap() // TODO proper error handling
                     }, AppMsg::SetSearchResults)
                 }
+            }
+            AppMsg::UpdateSearchResults => {
+                let prompt = self.prompt.clone();
+
+                let mut backend_api = self.backend_api.clone();
+
+                Command::perform(async move {
+                    backend_api.search(prompt, false)
+                        .await
+                        .unwrap() // TODO proper error handling
+                }, AppMsg::SetSearchResults)
             }
             AppMsg::PromptSubmit => {
                 if let Some(search_item) = self.search_results.first() {
@@ -546,11 +558,7 @@ impl Application for AppModel {
                 Command::perform(async {}, |_| event)
             }
             AppMsg::RequestSearchResultUpdate => {
-                let msg = match &self.prompt {
-                    None => AppMsg::PromptChanged("".to_string()),
-                    Some(prompt) => AppMsg::PromptChanged(prompt.to_string())
-                };
-                Command::perform(async {}, move |_| msg)
+                Command::perform(async {}, move |_| AppMsg::UpdateSearchResults)
             }
             AppMsg::Screenshot { save_path } => {
                 println!("Creating screenshot at: {}", save_path);
@@ -706,7 +714,7 @@ impl Application for AppModel {
 
         match &self.plugin_view_data {
             None => {
-                let input: Element<_> = text_input("Search...", self.prompt.as_ref().unwrap_or(&"".to_owned()))
+                let input: Element<_> = text_input("Search...", &self.prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
                     .id(self.search_field_id.clone())
@@ -832,7 +840,7 @@ impl AppModel {
             commands.push(self.close_view(plugin_id.clone()));
         }
 
-        self.prompt = None;
+        self.prompt = "".to_string();
         self.plugin_view_data = None;
         self.search_results = vec![];
         self.close_error_view();
@@ -927,19 +935,13 @@ impl AppModel {
     }
 
     fn append_prompt(&mut self, value: String) {
-        let new_prompt = match &self.prompt {
-            None => value,
-            Some(prompt) => format!("{prompt}{value}")
-        };
-        self.prompt.replace(new_prompt);
+        self.prompt = format!("{}{}", self.prompt, value);
     }
 
     fn backspace_prompt(&mut self) {
-        if let Some(prompt) = &self.prompt {
-            let mut chars = prompt.chars();
-            chars.next_back();
-            self.prompt.replace(chars.as_str().to_owned());
-        };
+        let mut chars = self.prompt.chars();
+        chars.next_back();
+        self.prompt = chars.as_str().to_owned();
     }
 }
 

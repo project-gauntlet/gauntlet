@@ -103,7 +103,7 @@ interface InternalApi {
     entrypoint_preferences_required(entrypointId: string): Promise<boolean>;
     show_preferences_required_view(entrypointId: string, pluginPreferencesRequired: boolean, entrypointPreferencesRequired: boolean): void;
 
-    load_search_index(searchItems: AdditionalSearchItem[]): Promise<void>;
+    load_search_index(searchItems: AdditionalSearchItem[], refreshSearchList: boolean): Promise<void>;
 
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: UiWidget): void;
     show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;

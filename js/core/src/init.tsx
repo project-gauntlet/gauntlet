@@ -216,7 +216,7 @@ async function runLoop() {
             case "ReloadSearchIndex": {
                 try {
                     await runCommandGenerators();
-                    await loadSearchIndex();
+                    await loadSearchIndex(false);
                 } catch (e) {
                     console.error("Error occurred when reloading search index", e)
                 }
@@ -228,7 +228,7 @@ async function runLoop() {
 
 try {
     await runCommandGenerators();
-    await loadSearchIndex();
+    await loadSearchIndex(true);
 } catch (e) {
     console.error("Error occurred when reloading search index", e)
 }

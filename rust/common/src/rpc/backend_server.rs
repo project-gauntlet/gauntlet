@@ -50,6 +50,7 @@ pub trait BackendServer {
     async fn search(
         &self,
         text: String,
+        render_inline_view: bool,
     ) -> anyhow::Result<Vec<SearchResult>>;
 
     async fn request_view_render(
@@ -150,8 +151,9 @@ impl RpcBackend for RpcBackendServerImpl {
     async fn search(&self, request: Request<RpcSearchRequest>) -> Result<Response<RpcSearchResponse>, Status> {
         let request = request.into_inner();
         let text = request.text;
+        let render_inline_view = request.render_inline_view;
 
-        let result = self.server.search(text)
+        let result = self.server.search(text, render_inline_view)
             .await;
 
         let results = result
