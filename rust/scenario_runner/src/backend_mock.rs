@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchResultItem, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::backend_server::{BackendServer, start_backend_server};
 
 pub async fn start_screenshot_gen_backend() {
@@ -11,7 +11,7 @@ struct RpcBackendScreenshotGen;
 
 #[tonic::async_trait]
 impl BackendServer for RpcBackendScreenshotGen {
-    async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResultItem>> {
+    async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResult>> {
         todo!();
     }
 
