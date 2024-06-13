@@ -127,3 +127,4 @@ os = 'linux'
 [permissions]
 environment = ["RUST_LOG"]
 system = ["systemMemoryInfo"]
+network = ["upload.wikimedia.org"]

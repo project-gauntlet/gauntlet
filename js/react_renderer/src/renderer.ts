@@ -144,7 +144,7 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
                                         .map(([key, value]) => {
                                             const prop = sharedType.items[key]
                                             if (prop.type === "image_data") {
-                                                return [key, Array.from(new Uint8Array(value as any))] // TODO ugly cast
+                                                return [key, Array.from(new Uint8Array(value as any))] // TODO arraybuffer? fix when migrating to deno's op2
                                             }
 
                                             return [key, value]

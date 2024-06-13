@@ -80,11 +80,6 @@ fn op_react_replace_view(
     let comp_state = state.borrow();
     let component_model = comp_state.borrow::<ComponentModel>();
 
-    // TODO fix validation
-    // for new_child in &container.widget_children {
-    //     validate_child(&state, &container.widget_type, &new_child.widget_type)?
-    // }
-
     let Component::Root { shared_types, .. } = component_model.components.get("gauntlet:root").unwrap() else {
         unreachable!()
     };

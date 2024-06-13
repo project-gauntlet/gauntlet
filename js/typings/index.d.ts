@@ -109,6 +109,12 @@ interface InternalApi {
     show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;
 
     fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string>;
+
+    clipboard_read(): Promise<{ text_data?: string, png_data?: Blob }>;
+    clipboard_read_text(): Promise<string | undefined>;
+    clipboard_write(data: { text_data?: string, png_data?: number[] }): Promise<void>;
+    clipboard_write_text(data: string): Promise<void>;
+    clipboard_clear(): Promise<void>;
 }
 
 // component model types

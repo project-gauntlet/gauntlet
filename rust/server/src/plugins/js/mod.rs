@@ -5,6 +5,7 @@ mod assets;
 mod preferences;
 mod search;
 mod command_generators;
+mod clipboard;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -40,6 +41,7 @@ use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_st
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::plugins::applications::{list_applications, open_application};
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
+use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
 use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::plugins::numbat::run_numbat;
@@ -459,6 +461,13 @@ deno_core::extension!(
 
         // search
         load_search_index,
+
+        // clipboard
+        clipboard_read_text,
+        clipboard_read,
+        clipboard_write,
+        clipboard_write_text,
+        clipboard_clear,
 
         // plugins numbat
         run_numbat,

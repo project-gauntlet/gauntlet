@@ -2,7 +2,12 @@ import { ReactElement, useEffect, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail, Icons } from "@project-gauntlet/api/components";
 import { useNavigation } from "@project-gauntlet/api/hooks";
-import { assetData, pluginPreferences, entrypointPreferences } from "@project-gauntlet/api/helpers";
+import { assetData, pluginPreferences, entrypointPreferences, Clipboard } from "@project-gauntlet/api/helpers";
+
+async function readFile(url: string): Promise<Blob> {
+    const res = await fetch(url);
+    return await res.blob();
+}
 
 interface DetailViewEntrypointConfig {
     testBool: boolean
@@ -141,6 +146,46 @@ export default function DetailView(): ReactElement {
                         pushView(<TestView value={1}/>)
                     }}>
                         Push New View
+                    </Detail.Metadata.TagList.Item>
+                </Detail.Metadata.TagList>
+                <Detail.Metadata.TagList label={"Clipboard"}>
+                    <Detail.Metadata.TagList.Item
+                        onClick={() => {
+                            Clipboard.read()
+                                .then(data => console.log(Deno.inspect(data)));
+                        }}
+                    >
+                        Read
+                    </Detail.Metadata.TagList.Item>
+                    <Detail.Metadata.TagList.Item
+                        onClick={() => {
+                            Clipboard.readText()
+                                .then(data => console.log(Deno.inspect(data)));
+                        }}
+                    >
+                        Read Text
+                    </Detail.Metadata.TagList.Item>
+                    <Detail.Metadata.TagList.Item
+                        onClick={() => {
+                            readFile("https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/PNG_Test.png/477px-PNG_Test.png?20240527104658")
+                                .then(image => Clipboard.write({ "text/plain": "Gauntlet Test 1", "image/png": image }));
+                        }}
+                    >
+                        Write
+                    </Detail.Metadata.TagList.Item>
+                    <Detail.Metadata.TagList.Item
+                        onClick={() => {
+                            Clipboard.writeText("Gauntlet Test 2");
+                        }}
+                    >
+                        Write Text
+                    </Detail.Metadata.TagList.Item>
+                    <Detail.Metadata.TagList.Item
+                        onClick={() => {
+                            Clipboard.clear();
+                        }}
+                    >
+                        Clear
                     </Detail.Metadata.TagList.Item>
                 </Detail.Metadata.TagList>
                 <Detail.Metadata.Separator/>
