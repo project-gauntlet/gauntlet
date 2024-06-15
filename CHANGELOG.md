@@ -7,6 +7,46 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+### Big things
+- macOS support
+  - `.dmg` file is now available
+  - Implement Applications Plugin on macOS
+  - Implement auto-launch on startup
+- Search improvements
+  - Use Frecency-based sorting
+  - Use substring matching instead of prefix matching
+  - Fix multiple (space-separated) word queries returning intersection of results instead of union
+- Startup was reworked again
+  - **BREAKING CHANGE**: Server is now started with plain `gauntlet` command instead of `gauntlet server` CLI option
+  - When executing the binary, if server is already running, GUI will be opened
+  - Added `--minimized` flag to start server without opening the GUI
+  - Frontend is now in the same process as server
+- Main view search results are now refreshed if the plugin changed search index while the view was opened
+
+### Work-in-progress Windows support
+- Fix build on Windows
+- Implemented auto-launch on Windows
+- Use <kbd>ALT</kbd> + <kbd>SPACE</kbd> global shortcut on Windows to open main window
+
+### APIs changes
+- Implemented Clipboard API
+  - `text/plain` and `image/png` are supported types of clipboards
+- Remove `Detail` children component of `Grid` from TypeScript typings. It never worked
+
+### UI Improvements and Fixes
+- Slightly better styling of `EmptyView` component
+- Remove vertical separator line in Details view when there is no Content
+
+### General fixes
+- Fix panic when global shortcut functionality is not available
+- Fix React warning about required `key` property when `ActionPanel` component is used
+- Fix useEffect destructors not being called when view is closed
+
+### Internal Improvements
+- Preparation for documentation web page
+  - Screenshot generation tool to generate screenshots for showing how UI looks for specific TS code
+- Preparation for theming support
+
 ## [2] - 2024-04-30
 
 ### Big changes
