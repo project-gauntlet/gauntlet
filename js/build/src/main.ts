@@ -100,7 +100,7 @@ async function doBuildMacOS() {
 async function undraftRelease(projectRoot: string) {
     const octokit = getOctokit();
 
-    const version = await readVersion(projectRoot)
+    const version = await readNewVersion(projectRoot)
 
     const response = await octokit.rest.repos.getReleaseByTag({
         ...getGithubRepo(),
@@ -171,9 +171,7 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
     const git = simpleGit(projectRoot);
 
     console.log("Reading version file...")
-    const oldVersion = await readVersion(projectRoot)
-
-    const newVersion = oldVersion + 1;
+    const newVersion = await readNewVersion(projectRoot)
 
     console.log("Writing version file...")
     await writeVersion(projectRoot, newVersion)
@@ -298,7 +296,7 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
 
     const dmgBackground = path.join(projectRoot, 'assets', 'dmg-background.png');
 
-    const version = await readVersion(projectRoot)
+    const version = await readNewVersion(projectRoot)
 
     mkdirSync(bundleDir)
     mkdirSync(contentsDir)
@@ -372,11 +370,7 @@ async function createRelease(newVersion: number, releaseNotes: string) {
 }
 
 async function addFileToRelease(projectRoot: string, filePath: string, fileName: string) {
-    // this is old version because actions/checkout@v4 clones the ref
-    // which triggered the workflow and not the latest which has updated version file
-    const oldVersion = await readVersion(projectRoot)
-
-    const newVersion = oldVersion + 1;
+    const newVersion = await readNewVersion(projectRoot)
 
     const octokit = getOctokit();
 
@@ -410,6 +404,14 @@ function getGithubRepo() {
         owner: 'project-gauntlet',
         repo: 'gauntlet',
     }
+}
+
+async function readNewVersion(projectRoot: string) {
+    // this is old version because actions/checkout@v4 clones the ref
+    // which triggered the workflow and not the latest which has updated version file
+    const oldVersion = await readVersion(projectRoot)
+
+    return oldVersion + 1
 }
 
 async function readVersion(projectRoot: string): Promise<number> {
