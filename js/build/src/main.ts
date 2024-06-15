@@ -372,13 +372,17 @@ async function createRelease(newVersion: number, releaseNotes: string) {
 }
 
 async function addFileToRelease(projectRoot: string, filePath: string, fileName: string) {
-    const version = await readVersion(projectRoot)
+    // this is old version because actions/checkout@v4 clones the ref
+    // which triggered the workflow and not the latest which has updated version file
+    const oldVersion = await readVersion(projectRoot)
+
+    const newVersion = oldVersion + 1;
 
     const octokit = getOctokit();
 
     const response = await octokit.rest.repos.getReleaseByTag({
         ...getGithubRepo(),
-        tag: `v${version}`,
+        tag: `v${newVersion}`,
     });
 
     const fileBuffer = await readFile(filePath);
