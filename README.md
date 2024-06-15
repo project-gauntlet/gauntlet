@@ -4,7 +4,7 @@
 
 <img align="right" width="100" height="100" src="docs/logo.png">
 
-Web-first ~~cross-platform~~ (not yet) application launcher with React-based plugins.
+Web-first cross-platform application launcher with React-based plugins.
 
 > [!NOTE]
 > Launcher is in active development, expect bugs, missing features, incomplete ux, etc.
@@ -25,6 +25,7 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-
         - One-shot commands
         - Dynamically provide list of one-shot commands
         - Render quick "inline" content directly under main search bar based on value in it
+        - Get content from and add to Clipboard
     - Currently, 3 bundled plugins are provided
         - Applications: provides list of applications
         - Calculator: shows result of mathematical operations directly under main search bar
@@ -39,9 +40,7 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-
     - Deno allows us to sandbox JavaScript code for better security
     - Plugins are required to explicitly specify what permissions they need to work
     - NodeJS is still used to run tooling
-- Client-Server architecture
-    - All plugins run on server and render UI is rendered in separate client process
-    - gRPC is used for inter-proces communication
+- Frecency-based search result ordering
 - Designed with cross-platform in mind
     - Permissions
         - If plugin asked for access to filesystem, env variables, FFI or running commands, it is required to specify
@@ -66,12 +65,12 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-
 ###### Implemented
 
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux
+- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
 
 ###### Planned
 
-- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
-    - already works (excluding built-in "Applications" plugin) but, at the moment, needs to be build manually 
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/windows.svg" width="18" height="18" /> Windows
+    - already works (excluding built-in "Applications" plugin) but, at the moment, needs to be build manually 
 
 ##### UI
 
@@ -100,10 +99,10 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/ef226ea2-ae40-436f-
 
 - Preferences
 - Inline views under main search bar
+- Clipboard
 
 ###### Planned
 
-- Clipboard
 - Local Storage
 - OAuth PKCE flow support
 
@@ -130,6 +129,12 @@ Plugins are installed in Settings UI. Use Git repository name of the plugin to i
 ![](docs/settings_ui.png)
 
 ### Install application
+
+#### macOS
+
+Download `.dmg` file from [Releases](https://github.com/project-gauntlet/gauntlet/releases) section and install application from it 
+
+#### Linux
 
 > [!NOTE]
 > At the moment application is not published anywhere,
@@ -219,7 +224,8 @@ Located at `$XDG_CONFIG_HOME/gauntlet/config.toml` for Linux. Not used at the mo
 
 The Application has a simple command line interface
 
-- `gauntlet server` - server part of launcher
+- `gauntlet` - starts server
+  - `gauntlet --minimized` to start server but not open main window 
 - `gauntlet open` - opens application window, can be used instead of global shortcut
 - `gauntlet management` - settings, plugin installation and removal, preferences, etc
 
@@ -247,26 +253,25 @@ All plugins run on server.
 Each plugin in its own sandboxed Deno Worker.
 In plugin manifest it is possible to configure permissions which will allow plugin to have access to filesystem,
 network, environment variables, ffi or subprocess execution.
-Server saves plugins and state of plugins into SQLite database.
+Server saves plugins themselves and state of plugins into SQLite database.
 
 Frontend is GUI application that uses [iced-rs](https://github.com/iced-rs/iced) as a GUI framework.
 It is also exposes gRPC server that is used by server to render views
 
 Plugins can create UI using [React](https://github.com/facebook/react).
-Server implements custom React Reconciler (similar to React Native)
-and renders to frontend running as a separate process.
-Server listens on signals from frontend, so when user opens view defined by plugin, frontend sends an open-view signal.
-Server then receives the signal, runs React render and React Reconciler
+Server implements custom React Reconciler (similar to React Native) which renders GUI components to frontend.
+Server listens on signals from frontend, so when user opens view defined by plugin, frontend sends an open-view request.
+Server then receives it, runs React render and React Reconciler
 makes requests to the frontend containing information what actually should be rendered.
 When a user interacts with the UI by clicking button or entering text into form,
-frontend sends signals to server to see whether any re-renders are needed.
+frontend sends events to server to see whether any re-renders are needed.
 
-Settings is also a GUI application that communicates with server via gRPC using a simple request-response approach.
+Settings is a GUI application runs in separate process that communicates with server via gRPC using a simple request-response approach.
 
 ![](docs/architecture.png)
 
-Plugins (or rather its compiled state) are distributed via Git repository in `gauntlet/release` branch (similar to GitHub Pages).
-Which means there is no one central place for plugin distribution.
+Plugins (or rather its compiled state: manifest, js code and assets) are distributed via Git repository in `gauntlet/release` branch (similar to GitHub Pages).
+Which means there is no one central place required for plugin distribution.
 And to install plugin all you need is Git repository url.
 
 Application defines set of React components to use for plugins.
@@ -284,15 +289,15 @@ If something is missing, please [create an issue](https://github.com/project-gau
 
 Gauntlet executable consists of three applications:
 
-- `$ path/to/gauntlet/executable server`
+- `$ path/to/gauntlet/executable --minimized`
     - Needs to be started when user logs in
 - `$ path/to/gauntlet/executable open`
-    - Expected to be run on demand using some global shortcut
+    - Expected to be run on demand using launcher or system provided global shortcut
 - `$ path/to/gauntlet/executable management`
     - Started on demand from the list of available applications (will vary depending on desktop environment or window
       manager chosen) or from Gauntlet itself
 
-Settings applications expect Server to always be running.
+Settings application expects Server to always be running.
 Recommended way of ensuring that is running Server as SystemD service.
 
 ###### Directories used
@@ -311,6 +316,8 @@ Application and Dev Tools use temporary directories:
 - Rust: [tempfile crate](https://crates.io/crates/tempfile)
 - JS: [NodeJS mkdtemp](https://nodejs.org/api/fs.html#fspromisesmkdtempprefix-options)
 
+X11 API is used to add global shortcut
+
 Client and Setting applications have GUI and therefore use all the usual graphics-related stuff from X11.
 Wayland is not supported at the moment.
 
@@ -322,9 +329,10 @@ You will need:
 
 To build dev run:
 ```bash
-npm install
+npm ci
 npm run build
 cd ./dev_plugin
+npm ci
 npm run build
 cd ..
 cargo build
