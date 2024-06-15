@@ -23,10 +23,9 @@ jobs:
       command: npm run publish-macos-project --workspace @project-gauntlet/build
 
   publish-final:
-    runs-on: ubuntu-latest
     needs:
       - publish-linux
       - publish-macos
     uses: ./.github/workflows/setup-linux.yaml
     with:
-      command: npm run publish-final-project --workspace @project-gauntlet/buil
+      command: npm run publish-final-project --workspace @project-gauntlet/build
