@@ -230,7 +230,7 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
     await writeFile(changelogFilePath, newChangelog.join(EOL))
 
     const bumpNpmPackage = (packageDir: string) => {
-        const npmVersionResult = spawnSync(`npm`, [`version 0.${newVersion}.0`], { stdio: "inherit", cwd: packageDir })
+        const npmVersionResult = spawnSync('npm', ['version', `0.${newVersion}.0`], { stdio: "inherit", cwd: packageDir })
 
         if (npmVersionResult.status !== 0) {
             throw new Error(`Unable to run npm version, status: ${JSON.stringify(npmVersionResult)}`);
