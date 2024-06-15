@@ -46,9 +46,6 @@ program.command('build-macos')
 
 await program.parseAsync(process.argv);
 
-const octokit = new Octokit({
-    auth: process.env.GITHUB_TOKEN,
-})
 const repo = { owner: 'project-gauntlet', repo: 'gauntlet' };
 
 async function doBuild(arch: string) {
@@ -103,6 +100,8 @@ async function doBuildMacOS() {
 }
 
 async function undraftRelease(projectRoot: string) {
+    const octokit = getOctokit();
+
     const version = await readVersion(projectRoot)
 
     const response = await octokit.rest.repos.getReleaseByTag({
@@ -360,7 +359,10 @@ function publishNpmPackage(projectRoot: string) {
 }
 
 async function createRelease(newVersion: number, releaseNotes: string) {
+    const octokit = getOctokit();
+
     console.log("Creating github release...")
+
     await octokit.rest.repos.createRelease({
         ...repo,
         tag_name: `v${newVersion}`,
@@ -373,6 +375,8 @@ async function createRelease(newVersion: number, releaseNotes: string) {
 
 async function addFileToRelease(projectRoot: string, filePath: string, fileName: string) {
     const version = await readVersion(projectRoot)
+
+    const octokit = getOctokit();
 
     const response = await octokit.rest.repos.getReleaseByTag({
         ...repo,
@@ -391,6 +395,12 @@ async function addFileToRelease(projectRoot: string, filePath: string, fileName:
             "Content-Type": "application/octet-stream",
         },
         data: fileBuffer as any,
+    })
+}
+
+function getOctokit() {
+    return new Octokit({
+        auth: process.env.GITHUB_TOKEN,
     })
 }
 
