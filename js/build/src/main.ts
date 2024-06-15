@@ -46,8 +46,6 @@ program.command('build-macos')
 
 await program.parseAsync(process.argv);
 
-const repo = { owner: 'project-gauntlet', repo: 'gauntlet' };
-
 async function doBuild(arch: string) {
     console.log("Building Gauntlet...")
 
@@ -105,12 +103,12 @@ async function undraftRelease(projectRoot: string) {
     const version = await readVersion(projectRoot)
 
     const response = await octokit.rest.repos.getReleaseByTag({
-        ...repo,
+        ...getGithubRepo(),
         tag: `v${version}`,
     });
 
     await octokit.rest.repos.updateRelease({
-        ...repo,
+        ...getGithubRepo(),
         release_id: response.data.id,
         origin: response.data.upload_url,
         draft: false
@@ -364,7 +362,7 @@ async function createRelease(newVersion: number, releaseNotes: string) {
     console.log("Creating github release...")
 
     await octokit.rest.repos.createRelease({
-        ...repo,
+        ...getGithubRepo(),
         tag_name: `v${newVersion}`,
         target_commitish: 'main',
         name: `v${newVersion}`,
@@ -379,7 +377,7 @@ async function addFileToRelease(projectRoot: string, filePath: string, fileName:
     const octokit = getOctokit();
 
     const response = await octokit.rest.repos.getReleaseByTag({
-        ...repo,
+        ...getGithubRepo(),
         tag: `v${version}`,
     });
 
@@ -387,7 +385,7 @@ async function addFileToRelease(projectRoot: string, filePath: string, fileName:
 
     console.log("Uploading executable as github release asset...")
     await octokit.rest.repos.uploadReleaseAsset({
-        ...repo,
+        ...getGithubRepo(),
         release_id: response.data.id,
         origin: response.data.upload_url,
         name: fileName,
@@ -402,6 +400,12 @@ function getOctokit() {
     return new Octokit({
         auth: process.env.GITHUB_TOKEN,
     })
+}
+function getGithubRepo() {
+    return {
+        owner: 'project-gauntlet',
+        repo: 'gauntlet',
+    }
 }
 
 async function readVersion(projectRoot: string): Promise<number> {
