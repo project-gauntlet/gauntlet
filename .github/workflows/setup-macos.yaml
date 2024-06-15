@@ -11,6 +11,10 @@ jobs:
   triage:
     runs-on: macos-latest
     steps:
+      # https://github.com/actions/runner-images/issues/7522#issuecomment-1556766641
+      - name: Kill XProtectBehaviorService
+        run: |
+          echo Killing XProtect.; sudo pkill -9 XProtect >/dev/null || true;
 
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
