@@ -7,6 +7,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+## [3] - 2024-06-16
+
 ### Big things
 - macOS support
   - `.dmg` file is now available
