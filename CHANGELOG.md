@@ -15,7 +15,7 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 - Search improvements
   - Use Frecency-based sorting
   - Use substring matching instead of prefix matching
-  - Fix multiple (space-separated) word queries returning intersection of results instead of union
+  - Multiple (space-separated) word queries now return intersection of results instead of union
 - Startup was reworked again
   - **BREAKING CHANGE**: Server is now started with plain `gauntlet` command instead of `gauntlet server` CLI option
   - When executing the binary, if server is already running, GUI will be opened
