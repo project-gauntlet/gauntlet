@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { mkdirSync, readFileSync } from "fs";
 import { copyFileSync, writeFileSync } from "node:fs";
+import * as core from '@actions/core';
 
 const program = new Command();
 
@@ -74,7 +75,7 @@ async function doPublishLinux() {
 
     const { fileName, filePath } = packageForLinux(projectRoot, arch)
 
-    await addFileToRelease(projectRoot, filePath, fileName)
+    await addFileToRelease(filePath, fileName)
 }
 
 async function doBuildLinux() {
@@ -90,21 +91,19 @@ async function doPublishMacOS() {
 
     const { fileName, filePath } = await packageForMacos(projectRoot, arch)
 
-    await addFileToRelease(projectRoot, filePath, fileName)
+    await addFileToRelease(filePath, fileName)
 }
 
 async function doBuildMacOS() {
     await doBuild('aarch64-apple-darwin')
 }
 
-async function undraftRelease(projectRoot: string) {
+async function undraftRelease() {
     const octokit = getOctokit();
 
-    const version = await readNewVersion(projectRoot)
-
-    const response = await octokit.rest.repos.getReleaseByTag({
+    const response = await octokit.rest.repos.getRelease({
         ...getGithubRepo(),
-        tag: `v${version}`,
+        release_id: getGithubReleaseId(),
     });
 
     await octokit.rest.repos.updateRelease({
@@ -123,7 +122,7 @@ async function doPublishFinal() {
 
     publishNpmPackage(projectRoot)
 
-    await undraftRelease(projectRoot)
+    await undraftRelease()
 }
 
 function build(projectRoot: string, check: boolean, arch: string) {
@@ -359,7 +358,7 @@ async function createRelease(newVersion: number, releaseNotes: string) {
 
     console.log("Creating github release...")
 
-    await octokit.rest.repos.createRelease({
+    const response = await octokit.rest.repos.createRelease({
         ...getGithubRepo(),
         tag_name: `v${newVersion}`,
         target_commitish: 'main',
@@ -367,16 +366,16 @@ async function createRelease(newVersion: number, releaseNotes: string) {
         body: releaseNotes,
         draft: true
     });
+
+    core.setOutput("github-release-id", `${response.data.id}`)
 }
 
-async function addFileToRelease(projectRoot: string, filePath: string, fileName: string) {
-    const newVersion = await readNewVersion(projectRoot)
-
+async function addFileToRelease(filePath: string, fileName: string) {
     const octokit = getOctokit();
 
-    const response = await octokit.rest.repos.getReleaseByTag({
+    const response = await octokit.rest.repos.getRelease({
         ...getGithubRepo(),
-        tag: `v${newVersion}`,
+        release_id: getGithubReleaseId(),
     });
 
     const fileBuffer = await readFile(filePath);
@@ -404,6 +403,10 @@ function getGithubRepo() {
         owner: 'project-gauntlet',
         repo: 'gauntlet',
     }
+}
+
+function getGithubReleaseId() {
+    return Number(process.env.GITHUB_RELEASE_ID!!)
 }
 
 async function readNewVersion(projectRoot: string) {

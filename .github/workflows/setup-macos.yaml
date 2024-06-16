@@ -8,7 +8,7 @@ on:
         type: string
 
 jobs:
-  triage:
+  run-on-macos:
     runs-on: macos-latest
     steps:
       # https://github.com/actions/runner-images/issues/7522#issuecomment-1556766641
@@ -37,10 +37,8 @@ jobs:
 
       - run: npm ci
 
-      - run: git config --global user.name "${GITHUB_ACTOR}"
-      - run: git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
-
       - run: ${{ inputs.command }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+          GITHUB_RELEASE_ID: ${{ inputs.github-release-id }}

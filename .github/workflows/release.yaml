@@ -4,9 +4,24 @@ on: workflow_dispatch
 
 jobs:
   publish-init:
-    uses: ./.github/workflows/setup-linux.yaml
-    with:
-      command: npm run publish-init-project --workspace @project-gauntlet/build
+    runs-on: ubuntu-latest
+    outputs:
+      github-release-id: ${{ steps.init-step.outputs.github-release-id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - run: npm ci
+
+      - run: git config --global user.name "${GITHUB_ACTOR}"
+      - run: git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+
+      - run: npm run publish-init-project --workspace @project-gauntlet/build
+        id: init-step
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-linux:
     needs:
@@ -14,6 +29,7 @@ jobs:
     uses: ./.github/workflows/setup-linux.yaml
     with:
       command: npm run publish-linux-project --workspace @project-gauntlet/build
+      github-release-id: ${{ needs.publish-init.outputs.github-release-id }}
 
   publish-macos:
     needs:
@@ -21,6 +37,7 @@ jobs:
     uses: ./.github/workflows/setup-macos.yaml
     with:
       command: npm run publish-macos-project --workspace @project-gauntlet/build
+      github-release-id: ${{ needs.publish-init.outputs.github-release-id }}
 
   publish-final:
     needs:
@@ -29,3 +46,4 @@ jobs:
     uses: ./.github/workflows/setup-linux.yaml
     with:
       command: npm run publish-final-project --workspace @project-gauntlet/build
+      github-release-id: ${{ needs.publish-init.outputs.github-release-id }}
