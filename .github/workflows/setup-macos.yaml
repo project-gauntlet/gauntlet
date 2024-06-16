@@ -6,6 +6,8 @@ on:
       command:
         required: true
         type: string
+      github-release-id:
+        type: string
 
 jobs:
   run-on-macos:
