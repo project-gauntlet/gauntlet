@@ -43,6 +43,7 @@ jobs:
     needs:
       - publish-linux
       - publish-macos
+      - publish-init
     uses: ./.github/workflows/setup-linux.yaml
     with:
       command: npm run publish-final-project --workspace @project-gauntlet/build
