@@ -170,7 +170,9 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
     const git = simpleGit(projectRoot);
 
     console.log("Reading version file...")
-    const newVersion = await readNewVersion(projectRoot)
+    const oldVersion = await readVersion(projectRoot)
+
+    const newVersion = oldVersion + 1;
 
     console.log("Writing version file...")
     await writeVersion(projectRoot, newVersion)
@@ -295,7 +297,7 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
 
     const dmgBackground = path.join(projectRoot, 'assets', 'dmg-background.png');
 
-    const version = await readNewVersion(projectRoot)
+    const version = await readVersion(projectRoot)
 
     mkdirSync(bundleDir)
     mkdirSync(contentsDir)
@@ -407,14 +409,6 @@ function getGithubRepo() {
 
 function getGithubReleaseId() {
     return Number(process.env.GITHUB_RELEASE_ID!!)
-}
-
-async function readNewVersion(projectRoot: string) {
-    // this is old version because actions/checkout@v4 clones the ref
-    // which triggered the workflow and not the latest which has updated version file
-    const oldVersion = await readVersion(projectRoot)
-
-    return oldVersion + 1
 }
 
 async function readVersion(projectRoot: string): Promise<number> {
