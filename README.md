@@ -268,7 +268,13 @@ frontend sends events to server to see whether any re-renders are needed.
 
 Settings is a GUI application runs in separate process that communicates with server via gRPC using a simple request-response approach.
 
+Simplified gRPC communication:
 ![](docs/architecture.png)
+
+Components:
+![](docs/architecture-blocks.png)
+
+Each component runs in a separate thread. Main thread is the thread that renders GUI. Each component has its own tokio runtime instance. 
 
 Plugins (or rather its compiled state: manifest, js code and assets) are distributed via Git repository in `gauntlet/release` branch (similar to GitHub Pages).
 Which means there is no one central place required for plugin distribution.

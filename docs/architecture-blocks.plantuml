@@ -1,0 +1,17 @@
+@startuml
+
+node "Frontend"
+node "Server"
+node "Deno worker 1" as Deno1
+node "Deno worker 2" as Deno2
+node "Deno worker 3" as Deno3
+node "Deno worker 4" as Deno4
+
+[Frontend] --> [Server]
+
+[Server] --> [Deno1]
+[Server] --> [Deno2]
+[Server] --> [Deno3]
+[Server] --> [Deno4]
+
+@enduml
