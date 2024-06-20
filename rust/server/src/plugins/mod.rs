@@ -451,7 +451,8 @@ impl ApplicationManager {
     }
 
     fn send_command(&self, command: PluginCommand) {
-        self.command_broadcaster.send(command).expect("all respective receivers were closed");
+        // it is possible to have 0 plugins
+        let _ = self.command_broadcaster.send(command);
     }
 
     async fn mark_entrypoint_frecency(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
