@@ -7,6 +7,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+## [4] - 2024-06-20
+
 ### Fixes
 - Fix Gauntlet crash on startup on macOS 
 - Fix Gauntlet crash on startup if there is no enabled plugins
