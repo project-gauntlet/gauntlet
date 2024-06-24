@@ -69,7 +69,7 @@ async fn clipboard_read() -> anyhow::Result<ClipboardData> {
             text_data,
             png_data,
         })
-    }).await
+    }).await?
 }
 
 
