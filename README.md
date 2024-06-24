@@ -132,7 +132,13 @@ Plugins are installed in Settings UI. Use Git repository name of the plugin to i
 
 #### macOS
 
-Download `.dmg` file from [Releases](https://github.com/project-gauntlet/gauntlet/releases) section and install application from it 
+Download `.dmg` file from [Releases](https://github.com/project-gauntlet/gauntlet/releases) section and install application from it.
+At the moment, the application is not notarized by Apple and if plain installation is attempted 
+the "Is Damaged and Can’t Be Opened. You Should Move It To The Trash" error will appear.
+To workaround this problem (given that you trust the application) you can remove `com.apple.quarantine` attribute from the `.dmg` file in terminal:
+```bash
+xattr -d com.apple.quarantine ./gauntlet-aarch64-macos.dmg
+```
 
 #### Linux
 
