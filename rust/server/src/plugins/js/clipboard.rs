@@ -27,7 +27,7 @@ struct ClipboardData {
 
 #[op]
 async fn clipboard_read() -> anyhow::Result<ClipboardData> {
-    let result1 = spawn_blocking(|| {
+    spawn_blocking(|| {
         let mut clipboard = arboard::Clipboard::new()
             .map_err(|err| unknown_err_clipboard(err))?;
 
@@ -69,9 +69,7 @@ async fn clipboard_read() -> anyhow::Result<ClipboardData> {
             text_data,
             png_data,
         })
-    }).await?;
-    println!("clipboard_read after: {:?}", result1);
-    result1
+    }).await
 }
 
 
