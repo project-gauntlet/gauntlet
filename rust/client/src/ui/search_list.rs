@@ -8,8 +8,12 @@ use iced::widget::text;
 
 use common::model::SearchResult;
 
-use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindImage, ThemeKindSpace, ThemeKindText};
-use crate::ui::theme::{Element, GauntletTheme};
+use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
+use crate::ui::theme::button::ButtonStyle;
+use crate::ui::theme::container::ContainerStyle;
+use crate::ui::theme::image::ImageStyle;
+use crate::ui::theme::space::ThemeKindSpace;
+use crate::ui::theme::text::TextStyle;
 
 pub struct SearchList<Message> {
     on_select: Box<dyn Fn(SearchResult) -> Message>,
@@ -57,25 +61,25 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                 let main_text: Element<_> = text(&search_result.entrypoint_name)
                     .into();
                 let main_text: Element<_> = container(main_text)
-                    .themed(ThemeKindContainer::MainListItemText);
+                    .themed(ContainerStyle::MainListItemText);
 
                 let spacer: Element<_> = horizontal_space()
                     .width(Length::Fill)
                     .into();
 
                 let sub_text: Element<_> = text(&search_result.plugin_name)
-                    .themed(ThemeKindText::Subtext);
+                    .themed(TextStyle::MainListItemSubtext);
                 let sub_text: Element<_> = container(sub_text)
-                    .themed(ThemeKindContainer::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
+                    .themed(ContainerStyle::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
 
                 let mut button_content = vec![];
 
                 if let Some(path) = &search_result.entrypoint_icon {
                     let image: Element<_> = iced::widget::image(Handle::from_path(path))
-                        .themed(ThemeKindImage::MainListItemIcon);
+                        .themed(ImageStyle::MainListItemIcon);
 
                     let image: Element<_> = container(image)
-                        .themed(ThemeKindContainer::MainListItemIcon);
+                        .themed(ContainerStyle::MainListItemIcon);
 
                     button_content.push(image);
                 } else {
@@ -83,7 +87,7 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                         .themed(ThemeKindSpace::MainListItemIcon);
 
                     let spacer: Element<_> = container(spacer)
-                        .themed(ThemeKindContainer::MainListItemIcon);
+                        .themed(ContainerStyle::MainListItemIcon);
 
                     button_content.push(spacer);
                 }
@@ -99,7 +103,7 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                 button(button_content)
                     .width(Length::Fill)
                     .on_press(SelectItemEvent(search_result.clone()))
-                    .themed(ThemeKindButton::MainListItem)
+                    .themed(ButtonStyle::MainListItem)
             })
             .collect();
 

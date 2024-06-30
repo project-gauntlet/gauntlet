@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
@@ -21,7 +22,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{ActionShortcut, EntrypointId, PluginId, UiRenderLocation, SearchResult, SearchResultEntrypointType};
+use common::model::{ActionShortcut, EntrypointId, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::wait_for_backend_server;
 use common::rpc::frontend_server::start_frontend_server;
@@ -33,8 +34,9 @@ use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
 use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
-use crate::ui::themable_widget::{init_theme, ThemableWidget, ThemeKindContainer};
-use crate::ui::theme::{Element, GauntletTheme};
+use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
+use crate::ui::theme::container::ContainerStyle;
+use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::view_container::view_container;
 use crate::ui::widget::ComponentWidgetEvent;
 
@@ -45,7 +47,6 @@ mod theme;
 mod client_context;
 mod widget_container;
 mod inline_view_container;
-mod themable_widget;
 
 pub struct AppModel {
     // logic
@@ -55,6 +56,7 @@ pub struct AppModel {
     scrollable_id: scrollable::Id,
     waiting_for_next_unfocus: bool,
     _global_hotkey_manager: GlobalHotKeyManager,
+    theme: GauntletTheme,
 
     // ephemeral state
     prompt: String,
@@ -172,8 +174,6 @@ fn window_settings(minimized: bool) -> iced::window::Settings {
 }
 
 pub fn run(minimized: bool) {
-    init_theme(themable_widget::DEFAULT_THEME.clone());
-
     AppModel::run(Settings {
         id: None,
         window: window_settings(minimized),
@@ -294,6 +294,7 @@ impl Application for AppModel {
                 search_field_id: text_input::Id::unique(),
                 scrollable_id: scrollable::Id::unique(),
                 waiting_for_next_unfocus: false,
+                theme: GauntletTheme::new(),
 
                 // ephemeral state
                 prompt: "".to_string(),
@@ -641,7 +642,7 @@ impl Application for AppModel {
                     let description = container(description)
                         .width(Length::Fill)
                         .center_x()
-                        .themed(ThemeKindContainer::PreferenceRequiredViewDescription);
+                        .themed(ContainerStyle::PreferenceRequiredViewDescription);
 
                     let button_label: Element<_> = text("Open Settings")
                         .into();
@@ -663,7 +664,7 @@ impl Application for AppModel {
                     let content: Element<_> = container(content)
                         .center_x()
                         .center_y()
-                        .themed(ThemeKindContainer::PreferenceRequiredView);
+                        .themed(ContainerStyle::Main);
 
                     content
                 }
@@ -674,7 +675,7 @@ impl Application for AppModel {
                     let description = container(description)
                         .width(Length::Fill)
                         .center_x()
-                        .themed(ThemeKindContainer::PluginErrorViewTitle);
+                        .themed(ContainerStyle::PluginErrorViewTitle);
 
                     let sub_description: Element<_> = text("Please report this to plugin author")
                         .into();
@@ -682,7 +683,7 @@ impl Application for AppModel {
                     let sub_description = container(sub_description)
                         .width(Length::Fill)
                         .center_x()
-                        .themed(ThemeKindContainer::PluginErrorViewDescription);
+                        .themed(ContainerStyle::PluginErrorViewDescription);
 
                     let button_label: Element<_> = text("Close")
                         .into();
@@ -705,7 +706,7 @@ impl Application for AppModel {
                     let content: Element<_> = container(content)
                         .center_x()
                         .center_y()
-                        .themed(ThemeKindContainer::PluginErrorView);
+                        .themed(ContainerStyle::Main);
 
                     content
                 }
@@ -719,7 +720,7 @@ impl Application for AppModel {
                     .on_submit(AppMsg::PromptSubmit)
                     .id(self.search_field_id.clone())
                     .width(Length::Fill)
-                    .into();
+                    .themed(TextInputStyle::MainSearch);
 
                 let search_results = self.search_results.iter().cloned().collect();
 
@@ -736,11 +737,11 @@ impl Application for AppModel {
                 let list = container(list)
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .themed(ThemeKindContainer::MainList);
+                    .themed(ContainerStyle::MainList);
 
                 let input = container(input)
                     .width(Length::Fill)
-                    .themed(ThemeKindContainer::MainSearchBar);
+                    .themed(ContainerStyle::MainSearchBar);
 
                 let separator = horizontal_rule(1)
                     .into();
@@ -753,7 +754,7 @@ impl Application for AppModel {
                 ]).into();
 
                 let element: Element<_> = container(column)
-                    .themed(ThemeKindContainer::Main);
+                    .themed(ContainerStyle::Main);
 
                 element
             }
@@ -777,7 +778,7 @@ impl Application for AppModel {
                 ).into();
 
                 let element: Element<_> = container(container_element)
-                    .themed(ThemeKindContainer::Root);
+                    .themed(ContainerStyle::Root);
 
                 // let element = element.explain(iced::color!(0xFF0000));
                 element
@@ -786,7 +787,7 @@ impl Application for AppModel {
     }
 
     fn theme(&self) -> Self::Theme {
-        GauntletTheme::new()
+        self.theme.clone()
     }
 
     fn subscription(&self) -> Subscription<AppMsg> {

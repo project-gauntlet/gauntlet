@@ -21,8 +21,17 @@ use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyVal
 
 use crate::model::UiViewEvent;
 use crate::ui::ActionShortcut;
-use crate::ui::themable_widget::{ThemableWidget, ThemeKindButton, ThemeKindContainer, ThemeKindGrid, ThemeKindImage, ThemeKindRow, ThemeKindText, ThemeKindTextInput, ThemeKindTooltip};
-use crate::ui::theme::{ButtonStyle, ContainerStyle, Element, TextInputStyle, TextStyle};
+use crate::ui::theme::{Element, ThemableWidget};
+use crate::ui::theme::button::ButtonStyle;
+use crate::ui::theme::container::ContainerStyle;
+use crate::ui::theme::date_picker::DatePickerStyle;
+use crate::ui::theme::grid::GridStyle;
+use crate::ui::theme::image::ImageStyle;
+use crate::ui::theme::pick_list::PickListStyle;
+use crate::ui::theme::row::RowStyle;
+use crate::ui::theme::text::TextStyle;
+use crate::ui::theme::text_input::TextInputStyle;
+use crate::ui::theme::tooltip::TooltipStyle;
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -234,10 +243,10 @@ impl ComponentWidgetWrapper {
                         };
 
                         let modifier: Element<_> = container(modifier)
-                            .themed(ThemeKindContainer::ActionShortcutModifier);
+                            .themed(ContainerStyle::ActionShortcutModifier);
 
                         let modifier: Element<_> = container(modifier)
-                            .themed(ThemeKindContainer::ActionShortcutModifiersInit);
+                            .themed(ContainerStyle::ActionShortcutModifiersInit);
 
                         result.push(modifier);
 
@@ -253,10 +262,10 @@ impl ComponentWidgetWrapper {
                             };
 
                             let shift_key: Element<_> = container(shift_key)
-                                .themed(ThemeKindContainer::ActionShortcutModifier);
+                                .themed(ContainerStyle::ActionShortcutModifier);
 
                             let shift_key: Element<_> = container(shift_key)
-                                .themed(ThemeKindContainer::ActionShortcutModifiersInit);
+                                .themed(ContainerStyle::ActionShortcutModifiersInit);
 
                             result.push(shift_key);
                         }
@@ -265,12 +274,12 @@ impl ComponentWidgetWrapper {
                             .into();
 
                         let text: Element<_> = container(text)
-                            .themed(ThemeKindContainer::ActionShortcutModifier);
+                            .themed(ContainerStyle::ActionShortcutModifier);
 
                         result.push(text);
 
                         row(result)
-                            .themed(ThemeKindRow::ActionShortcut)
+                            .themed(RowStyle::ActionShortcut)
                     });
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
@@ -291,7 +300,7 @@ impl ComponentWidgetWrapper {
                 button(content)
                     .on_press(ComponentWidgetEvent::ActionClick { widget_id })
                     .width(Length::Fill)
-                    .themed(ThemeKindButton::Action)
+                    .themed(ButtonStyle::Action)
             }
             ComponentWidget::ActionPanelSection { children, .. } => {
                 column(render_children(children, context))
@@ -355,17 +364,17 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 container(actions)
-                    .themed(ThemeKindContainer::ActionPanel)
+                    .themed(ContainerStyle::ActionPanel)
             }
             ComponentWidget::MetadataTagItem { children } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let tag: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::TagClick { widget_id })
-                    .into();
+                    .themed(ButtonStyle::MetadataTagItem);
 
                 container(tag)
-                    .themed(ThemeKindContainer::MetadataTagItem)
+                    .themed(ContainerStyle::MetadataTagItem)
             }
             ComponentWidget::MetadataTagList { label,  children } => {
                 let value = wrap_horizontal(render_children(children, ComponentRenderContext::None))
@@ -379,7 +388,7 @@ impl ComponentWidgetWrapper {
 
                 let link: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::LinkClick { widget_id, href: href.to_owned() })
-                    .themed(ThemeKindButton::MetadataLink);
+                    .themed(ButtonStyle::MetadataLink);
 
                 let content: Element<_> = if href.is_empty() {
                     link
@@ -388,7 +397,7 @@ impl ComponentWidgetWrapper {
                         .into();
 
                     tooltip(link, href, Position::Top)
-                        .themed(ThemeKindTooltip::Tooltip)
+                        .themed(TooltipStyle::Tooltip)
                 };
 
                 render_metadata_item(label, content)
@@ -414,7 +423,7 @@ impl ComponentWidgetWrapper {
 
                 container(separator)
                     .width(Length::Fill)
-                    .themed(ThemeKindContainer::MetadataSeparator)
+                    .themed(ContainerStyle::MetadataSeparator)
             }
             ComponentWidget::Metadata { children } => {
                 let metadata: Element<_> = column(render_children(children, ComponentRenderContext::None))
@@ -436,7 +445,7 @@ impl ComponentWidgetWrapper {
                     content = content.center_x()
                 }
 
-                content.themed(ThemeKindContainer::ContentParagraph)
+                content.themed(ContainerStyle::ContentParagraph)
             }
             ComponentWidget::Image { source } => {
                 let centered = context.is_content_centered();
@@ -451,7 +460,7 @@ impl ComponentWidgetWrapper {
                     content = content.center_x()
                 }
 
-                content.themed(ThemeKindContainer::ContentImage)
+                content.themed(ContainerStyle::ContentImage)
             }
             ComponentWidget::H1 { children } => {
                 render_children_string(children, ComponentRenderContext::H1)
@@ -476,18 +485,18 @@ impl ComponentWidgetWrapper {
 
                 container(separator)
                     .width(Length::Fill)
-                    .themed(ThemeKindContainer::ContentHorizontalBreak)
+                    .themed(ContainerStyle::ContentHorizontalBreak)
             }
             ComponentWidget::CodeBlock { children } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
                 let content = container(content)
                     .width(Length::Fill)
-                    .themed(ThemeKindContainer::ContentCodeBlockText);
+                    .themed(ContainerStyle::ContentCodeBlockText);
 
                 container(content)
                     .width(Length::Fill)
-                    .themed(ThemeKindContainer::ContentCodeBlock)
+                    .themed(ContainerStyle::ContentCodeBlock)
             }
             ComponentWidget::Content { children } => {
                 let centered = context.is_content_centered();
@@ -517,7 +526,7 @@ impl ComponentWidgetWrapper {
                     .map(|metadata_element| {
                         container(metadata_element)
                             .width(Length::FillPortion(2))
-                            .themed(ThemeKindContainer::DetailMetadata)
+                            .themed(ContainerStyle::DetailMetadata)
                     })
                     .ok();
 
@@ -525,7 +534,7 @@ impl ComponentWidgetWrapper {
                     .map(|content_element| {
                         let content_element: Element<_> = container(content_element)
                             .width(Length::Fill)
-                            .themed(ThemeKindContainer::DetailContent);
+                            .themed(ContainerStyle::DetailContent);
 
                         let content_element: Element<_> = scrollable(content_element)
                             .width(Length::FillPortion(3))
@@ -585,7 +594,7 @@ impl ComponentWidgetWrapper {
 
                 text_input("", state_value)
                     .on_input(move |value| ComponentWidgetEvent::OnChangeTextField { widget_id, value })
-                    .themed(ThemeKindTextInput::FormInput)
+                    .themed(TextInputStyle::FormInput)
             }
             ComponentWidget::PasswordField { .. } => {
                 let ComponentWidgetState::PasswordField { state_value } = state else {
@@ -595,7 +604,7 @@ impl ComponentWidgetWrapper {
                 text_input("", state_value)
                     .secure(true)
                     .on_input(move |value| ComponentWidgetEvent::OnChangePasswordField { widget_id, value })
-                    .themed(ThemeKindTextInput::FormInput)
+                    .themed(TextInputStyle::FormInput)
             }
             ComponentWidget::Checkbox { title, .. } => {
                 let ComponentWidgetState::Checkbox { state_value } = state else {
@@ -614,6 +623,10 @@ impl ComponentWidgetWrapper {
                 let button = button(text(state_value.to_string()))
                     .on_press(ComponentWidgetEvent::ToggleDatePicker { widget_id });
 
+                // TODO unable to customize buttons here, split to separate button styles
+                //     DatePickerUnderlay,
+                //     DatePickerOverlay,
+
                 date_picker(
                     show_picker.to_owned(),
                     state_value.to_owned(),
@@ -625,7 +638,7 @@ impl ComponentWidgetWrapper {
                             value: date.to_string(),
                         }
                     }
-                ).into()
+                ).themed(DatePickerStyle::Default)
             }
             ComponentWidget::SelectItem { .. } => {
                 panic!("parent select component takes care of rendering")
@@ -671,7 +684,7 @@ impl ComponentWidgetWrapper {
                     items,
                     state_value,
                     move |item| ComponentWidgetEvent::SelectPickList { widget_id, value: item.value }
-                ).into()
+                ).themed(PickListStyle::Default)
             }
             ComponentWidget::Separator => {
                 horizontal_rule(1)
@@ -712,7 +725,7 @@ impl ComponentWidgetWrapper {
 
                                         container(label)
                                             .width(Length::FillPortion(2))
-                                            .themed(ThemeKindContainer::FormInputLabel)
+                                            .themed(ContainerStyle::FormInputLabel)
                                     }
                                 };
 
@@ -731,7 +744,7 @@ impl ComponentWidgetWrapper {
 
                                 let row: Element<_> = row(content)
                                     .align_items(Alignment::Center)
-                                    .themed(ThemeKindRow::FormInput);
+                                    .themed(RowStyle::FormInput);
 
                                 Some(row)
                             }
@@ -805,7 +818,7 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = container(content)
                     .center_x()
                     .center_y()
-                    .themed(ThemeKindContainer::Inline);
+                    .themed(ContainerStyle::Inline);
 
                 let rule: Element<_> = horizontal_rule(1)
                     .into();
@@ -820,7 +833,7 @@ impl ComponentWidgetWrapper {
                 let image: Option<Element<_>> = image.as_ref()
                     .map(|image| {
                         iced::widget::image(Handle::from_memory(image.data.clone()))  // FIXME really expensive clone
-                            .themed(ThemeKindImage::EmptyViewImage)
+                            .themed(ImageStyle::EmptyViewImage)
                     });
 
                 let title: Element<_> = text(title)
@@ -830,7 +843,7 @@ impl ComponentWidgetWrapper {
                     None => horizontal_space().into(),
                     Some(subtitle) => {
                         text(subtitle)
-                            .themed(ThemeKindText::Subtext)
+                            .themed(TextStyle::EmptyViewSubtitle)
                     }
                 };
 
@@ -838,7 +851,7 @@ impl ComponentWidgetWrapper {
                 if let Some(image) = image {
 
                     let image: Element<_> = container(image)
-                        .themed(ThemeKindContainer::EmptyViewImage);
+                        .themed(ContainerStyle::EmptyViewImage);
 
                     content.insert(0, image)
                 }
@@ -878,7 +891,7 @@ impl ComponentWidgetWrapper {
                 let title: Element<_> = text(title)
                     .into();
                 let title: Element<_> = container(title)
-                    .themed(ThemeKindContainer::ListItemTitle);
+                    .themed(ContainerStyle::ListItemTitle);
 
                 let mut content = vec![title];
 
@@ -888,9 +901,9 @@ impl ComponentWidgetWrapper {
 
                 if let Some(subtitle) = subtitle {
                     let subtitle: Element<_> = text(subtitle)
-                        .themed(ThemeKindText::Subtext);
+                        .themed(TextStyle::ListItemSubtitle);
                     let subtitle: Element<_> = container(subtitle)
-                        .themed(ThemeKindContainer::ListItemSubtitle);
+                        .themed(ContainerStyle::ListItemSubtitle);
 
                     content.push(subtitle)
                 }
@@ -901,7 +914,7 @@ impl ComponentWidgetWrapper {
                 button(content)
                     .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id, item_id: id.to_owned() })
                     .width(Length::Fill)
-                    .themed(ThemeKindButton::ListItem)
+                    .themed(ButtonStyle::ListItem)
             }
             ComponentWidget::ListSection { children, title, subtitle } => {
                 let content = render_children(children, context);
@@ -909,7 +922,7 @@ impl ComponentWidgetWrapper {
                 let content = column(content)
                     .into();
 
-                render_section(content, Some(title), subtitle, ThemeKindRow::ListSectionTitle)
+                render_section(content, Some(title), subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle)
             }
             ComponentWidget::List { children } => {
                 let ComponentWidgetState::List { show_action_panel } = *state else {
@@ -1020,14 +1033,14 @@ impl ComponentWidgetWrapper {
 
                 let content: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id: id.to_owned() })
-                    .themed(ThemeKindButton::GridItem);
+                    .themed(ButtonStyle::GridItem);
 
                 content
             }
             ComponentWidget::GridSection { children, title, subtitle, columns } => {
                 let content = render_grid(children, columns, context);
 
-                render_section(content, Some(title), subtitle, ThemeKindRow::GridSectionTitle)
+                render_section(content, Some(title), subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle)
             }
             ComponentWidget::Grid { children, columns } => {
                 let ComponentWidgetState::Grid { show_action_panel } = *state else {
@@ -1093,7 +1106,7 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
 
     let back_button: Element<_> = button(icon)
         .on_press(ComponentWidgetEvent::PreviousView)
-        .themed(ThemeKindButton::RootTopPanelBackButton);
+        .themed(ButtonStyle::RootTopPanelBackButton);
 
     let space = Space::with_width(Length::FillPortion(3))
         .into();
@@ -1104,7 +1117,7 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
 
     let top_panel: Element<_> = container(top_panel)
         .width(Length::Fill)
-        .themed(ThemeKindContainer::RootTopPanel);
+        .themed(ContainerStyle::RootTopPanel);
 
     top_panel
 }
@@ -1133,7 +1146,7 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
         .into();
 
     let value = container(value)
-        .themed(ThemeKindContainer::MetadataItemValue);
+        .themed(ContainerStyle::MetadataItemValue);
 
     column(vec![label, value])
         .into()
@@ -1168,26 +1181,26 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&
 
     let grid: Element<_> = grid(rows)
         .width(Length::Fill)
-        .themed(ThemeKindGrid::Grid);
+        .themed(GridStyle::Default);
 
     grid
 }
 
-fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>, theme_kind_title: ThemeKindRow) -> Element<'a, ComponentWidgetEvent> {
+fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>, theme_kind_title: RowStyle, theme_kind_title_text: TextStyle) -> Element<'a, ComponentWidgetEvent> {
     let mut title_content = vec![];
 
     if let Some(title) = title {
         let title: Element<_> = text(title)
             .size(15)
-            .themed(ThemeKindText::Subtext);
+            .themed(theme_kind_title_text.clone());
 
         title_content.push(title)
     }
 
-    if let Some(subtitle) = subtitle {
+    if let Some(subtitle) = subtitle { // TODO remove ?
         let subtitle: Element<_> = text(subtitle)
             .size(15)
-            .themed(ThemeKindText::Subtext);
+            .themed(theme_kind_title_text);
 
         title_content.push(subtitle)
     }
@@ -1230,7 +1243,7 @@ fn render_root<'a>(
     let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
         let action_panel_toggle: Element<_> = button(text("Actions"))
             .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
-            .themed(ThemeKindButton::RootBottomPanelActionButton);
+            .themed(ButtonStyle::RootBottomPanelActionButton);
 
         let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
             .align_items(Alignment::Center)
@@ -1248,7 +1261,7 @@ fn render_root<'a>(
 
     let bottom_panel: Element<_> = container(bottom_panel)
         .width(Length::Fill)
-        .themed(ThemeKindContainer::RootBottomPanel);
+        .themed(ContainerStyle::RootBottomPanel);
 
     let top_separator = horizontal_rule(1)
         .into();
@@ -1259,7 +1272,7 @@ fn render_root<'a>(
     let content: Element<_> = container(content)
         .width(Length::Fill)
         .height(Length::Fill)
-        .themed(ThemeKindContainer::RootContent);
+        .themed(ContainerStyle::RootContent);
 
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
         .into();
