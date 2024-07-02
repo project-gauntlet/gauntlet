@@ -14,7 +14,7 @@ use iced::keyboard::key::Named;
 use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
 use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
-use iced::window::{change_level, Level, Position, reposition, Screenshot};
+use iced::window::{change_level, Level, Position, Screenshot};
 use iced_aw::core::icons;
 use serde::Deserialize;
 use tokio::runtime::Handle;
@@ -154,12 +154,8 @@ pub enum AppMsg {
     ResetWindowState,
 }
 
-
-const WINDOW_WIDTH: f32 = 650.0;
-const WINDOW_HEIGHT: f32 = 400.0;
-const SUB_VIEW_WINDOW_WIDTH: f32 = 850.0;
-const SUB_VIEW_WINDOW_HEIGHT: f32 = 500.0;
-
+const WINDOW_WIDTH: f32 = 750.0;
+const WINDOW_HEIGHT: f32 = 450.0;
 
 fn window_settings(minimized: bool) -> iced::window::Settings {
     iced::window::Settings {
@@ -385,10 +381,7 @@ impl Application for AppModel {
                     Some(view_data) => {
                         view_data.top_level_view = top_level_view;
 
-                        Command::batch([
-                            reposition(window::Id::MAIN, Position::Centered, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
-                            window::resize(window::Id::MAIN, Size::new(SUB_VIEW_WINDOW_WIDTH, SUB_VIEW_WINDOW_HEIGHT)),
-                        ])
+                        Command::none()
                     }
                 }
             }
@@ -861,7 +854,6 @@ impl AppModel {
     fn reset_window_state(&mut self) -> Command<AppMsg> {
         Command::batch([
             window::gain_focus(window::Id::MAIN),
-            reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
             scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
@@ -884,8 +876,6 @@ impl AppModel {
 
                 Command::batch([
                     self.close_view(plugin_id),
-                    reposition(window::Id::MAIN, Position::Centered, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
-                    window::resize(window::Id::MAIN, Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
                     focus(self.search_field_id.clone()),
                 ])
             }

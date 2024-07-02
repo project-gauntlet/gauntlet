@@ -2,7 +2,6 @@ use container::Appearance;
 use iced::{Border, Color, Length, Padding, Renderer};
 use iced::widget::{Container, container};
 
-use crate::ui::{SUB_VIEW_WINDOW_HEIGHT, SUB_VIEW_WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
 
 pub enum ContainerStyle {
@@ -280,8 +279,6 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::Main => {
                 self.style(ContainerStyleInner::Main)
-                    .height(Length::Fixed(WINDOW_HEIGHT))
-                    .width(Length::Fixed(WINDOW_WIDTH))
             }
             ContainerStyle::MainListItemText => {
                 self.padding(theme.main_list_item_text.padding.to_iced())
@@ -300,8 +297,6 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::Root => {
                 self.style(ContainerStyleInner::Root)
-                    .height(Length::Fixed(SUB_VIEW_WINDOW_HEIGHT))
-                    .width(Length::Fixed(SUB_VIEW_WINDOW_WIDTH))
             }
             ContainerStyle::PluginErrorViewTitle => {
                 self.padding(theme.plugin_error_view_title.padding.to_iced())
