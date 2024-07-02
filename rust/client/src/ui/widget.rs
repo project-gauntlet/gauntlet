@@ -480,10 +480,7 @@ impl ComponentWidgetWrapper {
                     content = content.center_x()
                 }
 
-                let element = content.themed(ContainerStyle::ContentImage);
-                let element = element.explain(iced::color!(0xFF0000));
-
-                element
+                content.themed(ContainerStyle::ContentImage)
             }
             ComponentWidget::H1 { children } => {
                 render_children_string(children, ComponentRenderContext::H1)
@@ -549,7 +546,7 @@ impl ComponentWidgetWrapper {
                     .map(|metadata_element| {
                         container(metadata_element)
                             .width(if is_in_list { Length::Fill } else { Length::FillPortion(2) })
-                            .height(Length::Fill)
+                            .height(if is_in_list { Length::FillPortion(3) } else { Length::Fill })
                             .themed(ContainerStyle::DetailMetadata)
                     })
                     .ok();
@@ -566,7 +563,7 @@ impl ComponentWidgetWrapper {
 
                         let content_element: Element<_> = container(content_element)
                             .width(if is_in_list { Length::Fill } else { Length::FillPortion(3) })
-                            .height(Length::Fill)
+                            .height(if is_in_list { Length::FillPortion(5) } else { Length::Fill })
                             .themed(ContainerStyle::DetailContent);
 
                         content_element
@@ -1024,7 +1021,7 @@ impl ComponentWidgetWrapper {
                         .into();
 
                     let content: Element<_> = container(content)
-                        .width(Length::FillPortion(2))
+                        .width(Length::FillPortion(3))
                         .themed(ContainerStyle::List);
 
                     content
@@ -1035,7 +1032,7 @@ impl ComponentWidgetWrapper {
                 if let Ok(detail) = render_child_by_type(children, |child| matches!(child, ComponentWidget::Detail { .. }), ComponentRenderContext::List { widget_id }) {
 
                     let detail: Element<_> = container(detail)
-                        .width(Length::FillPortion(3))
+                        .width(Length::FillPortion(5))
                         .into();
 
                     let separator: Element<_> = vertical_rule(1)
