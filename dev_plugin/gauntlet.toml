@@ -121,6 +121,13 @@ path = 'src/command-generator.ts'
 type = 'command-generator'
 description = ''
 
+[[entrypoint]]
+id = 'test-list-detail'
+name = 'Test List Detail'
+path = 'src/test-list-detail.tsx'
+type = 'view'
+description = ''
+
 [[supported_system]]
 os = 'linux'
 

@@ -1,5 +1,5 @@
 use container::Appearance;
-use iced::{Border, Length, Padding, Renderer};
+use iced::{Border, Color, Length, Padding, Renderer};
 use iced::widget::{Container, container};
 
 use crate::ui::{SUB_VIEW_WINDOW_HEIGHT, SUB_VIEW_WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH};
@@ -15,28 +15,39 @@ pub enum ContainerStyle {
     ContentImage,
     ContentParagraph,
     DetailContent,
+    DetailContentInner,
     DetailMetadata,
     EmptyViewImage,
     FormInputLabel,
     Inline,
     ListItemSubtitle,
     ListItemTitle,
+    ListItemIcon,
     Main,
     MainList,
     MainListItemIcon,
     MainListItemSubText,
     MainListItemText,
     MainSearchBar,
+    MetadataInner,
     MetadataItemValue,
+    MetadataItemLabel,
     MetadataSeparator,
     MetadataTagItem,
+    MetadataLinkIcon,
+    Form,
+    FormInner,
     PluginErrorViewDescription,
     PluginErrorViewTitle,
     PreferenceRequiredViewDescription,
     Root,
     RootBottomPanel,
-    RootContent,
+    RootInner,
     RootTopPanel,
+    Grid,
+    GridInner,
+    List,
+    ListInner,
 }
 
 #[derive(Default)]
@@ -51,6 +62,7 @@ pub enum ContainerStyleInner {
     ContentCodeBlockText,
     Main,
     Root,
+    ContentImage,
 }
 
 
@@ -153,6 +165,20 @@ impl container::StyleSheet for GauntletTheme {
                     shadow: Default::default(),
                 }
             }
+            ContainerStyleInner::ContentImage => {
+                let theme = &self.content_image;
+
+                // TODO this border radius doesn't work on image, for some reason
+
+                Appearance {
+                    border: Border {
+                        radius: theme.border_radius.into(),
+                        width: 0.0,
+                        color: Color::TRANSPARENT,
+                    },
+                    ..Appearance::default()
+                }
+            }
         }
     }
 }
@@ -164,7 +190,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
         let theme = get_theme();
 
         match name {
-            ContainerStyle::RootContent => {
+            ContainerStyle::RootInner => {
                 self.padding(theme.root_content.padding.to_iced())
             }
             ContainerStyle::ActionShortcutModifier => {
@@ -184,6 +210,12 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::MetadataTagItem => {
                 self.padding(theme.metadata_tag_item.padding.to_iced())
             }
+            ContainerStyle::MetadataItemLabel => {
+                self.padding(theme.metadata_item_label.padding.to_iced())
+            }
+            ContainerStyle::MetadataLinkIcon => {
+                self.padding(theme.metadata_link_icon.padding.to_iced())
+            }
             ContainerStyle::MetadataItemValue => {
                 self.padding(theme.metadata_item_value.padding.to_iced())
             }
@@ -199,6 +231,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::ListItemTitle => {
                 self.padding(theme.list_item_title.padding.to_iced())
             }
+            ContainerStyle::ListItemIcon => {
+                self.padding(theme.list_item_icon.padding.to_iced())
+            }
             ContainerStyle::ContentParagraph => {
                 self.padding(theme.content_paragraph.padding.to_iced())
             }
@@ -213,7 +248,14 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                     .padding(theme.content_code_block_text.padding.to_iced())
             }
             ContainerStyle::ContentImage => {
-                self.padding(theme.content_image.padding.to_iced())
+                self.style(ContainerStyleInner::ContentImage)
+                    .padding(theme.content_image.padding.to_iced())
+            }
+            ContainerStyle::DetailContentInner => {
+                self.padding(theme.metadata_content_inner.padding.to_iced())
+            }
+            ContainerStyle::MetadataInner => {
+                self.padding(theme.metadata_inner.padding.to_iced())
             }
             ContainerStyle::MetadataSeparator => {
                 self.padding(theme.metadata_separator.padding.to_iced())
@@ -269,6 +311,24 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::PreferenceRequiredViewDescription => {
                 self.padding(theme.preference_required_view_description.padding.to_iced())
+            }
+            ContainerStyle::Form => {
+                self.padding(theme.form.padding.to_iced())
+            }
+            ContainerStyle::FormInner => {
+                self.padding(theme.form_inner.padding.to_iced())
+            }
+            ContainerStyle::GridInner => {
+                self.padding(theme.grid_inner.padding.to_iced())
+            }
+            ContainerStyle::Grid => {
+                self.padding(theme.grid.padding.to_iced())
+            }
+            ContainerStyle::List => {
+                self.padding(theme.list.padding.to_iced())
+            }
+            ContainerStyle::ListInner => {
+                self.padding(theme.list_inner.padding.to_iced())
             }
         }.into()
     }

@@ -11,7 +11,7 @@ struct RpcBackendScreenshotGen;
 
 #[tonic::async_trait]
 impl BackendServer for RpcBackendScreenshotGen {
-    async fn search(&self, text: String) -> anyhow::Result<Vec<SearchResult>> {
+    async fn search(&self, _text: String, _render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
         todo!();
     }
 

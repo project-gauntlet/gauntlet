@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
-use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Settings, Size, Subscription, subscription, window};
+use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
 use iced::Application;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;

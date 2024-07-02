@@ -62,7 +62,7 @@ impl ButtonStyle {
                 theme.padding.to_iced()
             }
             ButtonStyle::MetadataLink => {
-                padding_all(5.0).to_iced()
+                padding_all(0.0).to_iced()
             }
             ButtonStyle::MetadataTagItem => {
                 let theme = &theme.metadata_tag_item_button;

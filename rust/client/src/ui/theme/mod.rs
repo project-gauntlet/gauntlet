@@ -28,12 +28,14 @@ pub struct GauntletTheme {
     content_code_block: ExternalThemePaddingOnly,
     content_code_block_text: ExternalThemeCode,
     content_horizontal_break: ExternalThemePaddingOnly,
-    content_image: ExternalThemePaddingOnly,
+    content_image: ExternalThemeImage,
     content_paragraph: ExternalThemePaddingOnly,
     detail_content: ExternalThemePaddingOnly,
     detail_metadata: ExternalThemePaddingOnly,
     empty_view_image: ExternalThemePaddingSize,
     empty_view_subtitle: ExternalThemeTextColor,
+    form: ExternalThemePaddingOnly,
+    form_inner: ExternalThemePaddingOnly,
     form_input: ExternalThemePaddingOnly,
     form_input_label: ExternalThemePaddingOnly,
     form_input_date_picker: ExternalThemeDatePicker,
@@ -42,13 +44,17 @@ pub struct GauntletTheme {
     form_input_select: ExternalThemeSelect,
     form_input_select_menu: ExternalThemeSelectMenu,
     form_input_text_field: ExternalThemeTextField,
-    grid: ExternalThemeSpacing,
+    grid: ExternalThemeGrid,
+    grid_inner: ExternalThemePaddingOnly,
+    list: ExternalThemePaddingOnly,
+    list_inner: ExternalThemePaddingOnly,
     grid_item: ExternalThemeButton,
     grid_section_title: ExternalThemePaddingColor,
     inline: ExternalThemePaddingOnly,
     list_item: ExternalThemeButton,
     list_item_subtitle: ExternalThemePaddingColor,
     list_item_title: ExternalThemePaddingOnly,
+    list_item_icon: ExternalThemePaddingOnly,
     list_section_title: ExternalThemePaddingColor,
     main_list: ExternalThemePaddingOnly,
     main_list_item: ExternalThemeButton,
@@ -57,8 +63,12 @@ pub struct GauntletTheme {
     main_list_item_text: ExternalThemePaddingOnly,
     main_search_bar: ExternalThemePaddingOnly,
     metadata_item_value: ExternalThemePaddingOnly,
+    metadata_content_inner: ExternalThemePaddingOnly,
+    metadata_inner: ExternalThemePaddingOnly,
     metadata_separator: ExternalThemePaddingOnly,
     metadata_tag_item: ExternalThemePaddingOnly,
+    metadata_item_label: ExternalThemePaddingOnly,
+    metadata_link_icon: ExternalThemePaddingOnly,
     metadata_tag_item_button: ExternalThemeButton,
     plugin_error_view_description: ExternalThemePaddingOnly,
     plugin_error_view_title: ExternalThemePaddingOnly,
@@ -79,6 +89,9 @@ impl Default for GauntletTheme {
     }
 }
 
+// TODO add border on focus, lighter background on hover
+// TODO padding on button is padding, not margin, a lot of margins missing?
+
 impl GauntletTheme {
     pub fn new() -> Self {
         let theme = Self {
@@ -87,15 +100,15 @@ impl GauntletTheme {
                 background_color: BACKGROUND,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_BORDER,
+                border_color: BACKGROUND_2,
             },
             action_panel: ExternalThemePaddingOnly {
-                padding: padding_all(10.0),
+                padding: padding_all(8.0), // TODO slightly lighter background
             },
             action: ExternalThemeButton {
-                padding: padding_all(5.0),
+                padding: padding_all(4.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: GRID_BUTTON, // TODO
+                background_color_hovered: BACKGROUND_2,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -106,68 +119,75 @@ impl GauntletTheme {
                 padding: padding_all(0.0)
             },
             action_shortcut_modifier: ExternalThemeActionShortcutModifier {
-                padding: padding_axis(0.0, 5.0),
-                spacing: 10.0,
-                background_color: MODIFIER_BACKGROUND, // TODO
+                padding: padding_axis(0.0, 4.0),
+                spacing: 4.0,
+                background_color: BACKGROUND_3,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             form_input: ExternalThemePaddingOnly {
-                padding: padding_all(10.0)
+                padding: padding_all(8.0)
             },
             metadata_tag_item: ExternalThemePaddingOnly {
-                padding: padding_all(5.0),
+                padding: padding_all(4.0),
             },
             metadata_tag_item_button: ExternalThemeButton {
-                padding: padding_all(5.0),
+                padding: padding_axis(4.0, 8.0),
                 background_color: PRIMARY,
-                background_color_hovered: PRIMARY, // TODO
-                text_color: BACKGROUND,
-                text_color_hovered: BACKGROUND, // TODO
+                background_color_hovered: PRIMARY_2,
+                text_color: TEXT_DARK,
+                text_color_hovered: TEXT_DARK,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
+            metadata_item_label: ExternalThemePaddingOnly {
+                padding: padding_all(0.0)
+            },
             metadata_item_value: ExternalThemePaddingOnly {
-                padding: padding_all(5.0),
+                padding: padding_all(4.0),
+            },
+            metadata_link_icon: ExternalThemePaddingOnly {
+                padding: padding_all(4.0),
             },
             root_bottom_panel: ExternalThemePaddingOnly {
-                padding: padding_all(5.0),
+                padding: padding_all(8.0), // TODO slightly lighter background
             },
             root_top_panel: ExternalThemePaddingOnly {
-                padding: padding_all(10.0),
+                padding: padding_all(12.0),
             },
             list_item_subtitle: ExternalThemePaddingColor {
-                padding: padding_all(3.0),
+                padding: padding_all(4.0),
                 text_color: SUBTITLE_TEXT,
             },
             list_item_title: ExternalThemePaddingOnly {
-                padding: padding_all(3.0),
+                padding: padding_all(4.0),
             },
             content_paragraph: ExternalThemePaddingOnly {
-                padding: padding_all(5.0)
+                padding: padding_all(8.0)
             },
             content_code_block: ExternalThemePaddingOnly {
                 padding: padding_all(0.0),
             },
-            content_image: ExternalThemePaddingOnly {
-                padding: padding_all(0.0)
+            content_image: ExternalThemeImage {
+                padding: padding_all(0.0),
+                border_radius: 6.0,
             },
             inline: ExternalThemePaddingOnly {
-                padding: padding_all(5.0)
+                padding: padding_all(8.0)
             },
             empty_view_image: ExternalThemePaddingSize {
-                padding: padding_all(10.0),
+                padding: padding_all(8.0),
                 size: ExternalThemeSize {
                     width: 100.0,
                     height: 100.0,
                 },
             },
             grid_item: ExternalThemeButton {
-                padding: padding_all(5.0),
-                background_color: GRID_BUTTON,
-                background_color_hovered: GRID_BUTTON, // TODO
+                padding: padding_all(8.0),
+                background_color: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_3,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -175,75 +195,100 @@ impl GauntletTheme {
                 border_color: TRANSPARENT,
             },
             content_horizontal_break: ExternalThemePaddingOnly {
-                padding: padding_axis(10.0, 0.0),
-            },
-            grid: ExternalThemeSpacing {
-                spacing: 10.0,
+                padding: padding_axis(8.0, 0.0),
             },
             content_code_block_text: ExternalThemeCode {
-                padding: padding_axis(3.0, 5.0),
-                background_color: CODE_BACKGROUND, // TODO
+                padding: padding_axis(4.0, 8.0),
+                background_color: BACKGROUND_2,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             metadata_separator: ExternalThemePaddingOnly {
-                padding: padding_axis(10.0, 0.0),
+                padding: padding_axis(8.0, 0.0),
             },
             root_top_panel_button: ExternalThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: SECONDARY_BUTTON,
-                background_color_hovered: SECONDARY_BUTTON, // TODO
+                background_color: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_3,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             root_bottom_panel_action_button: ExternalThemeButton {
-                padding: padding_axis(0.0, 5.0),
-                background_color: SECONDARY_BUTTON,
-                background_color_hovered: SECONDARY_BUTTON, // TODO
+                padding: padding_axis(3.0, 5.0),
+                background_color: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_3,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             list_item: ExternalThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: GRID_BUTTON, // TODO
+                background_color_hovered: BACKGROUND_2,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            detail_metadata: ExternalThemePaddingOnly {
-                padding: padding(5.0, 5.0, 0.0, 5.0), // zero because it is inside scrollable
-            },
-            detail_content: ExternalThemePaddingOnly {
-                padding: padding(5.0, 5.0, 0.0, 5.0),
+            list_item_icon: ExternalThemePaddingOnly {
+                padding: padding_axis(0.0, 4.0)
             },
             root_content: ExternalThemePaddingOnly {
-                padding: padding(5.0, 5.0, 0.0, 5.0),
+                padding: padding(0.0, 0.0, 0.0, 0.0), // TODO hardcode this?
+            },
+            detail_metadata: ExternalThemePaddingOnly {
+                padding: padding(0.0, 12.0, 0.0, 12.0),
+            },
+            metadata_inner: ExternalThemePaddingOnly {
+                padding: padding(12.0, 0.0, 12.0, 0.0),
+            },
+            detail_content: ExternalThemePaddingOnly {
+                padding: padding(0.0, 12.0, 0.0, 12.0),
+            },
+            metadata_content_inner: ExternalThemePaddingOnly {
+                padding: padding(12.0, 0.0, 12.0, 0.0),
+            },
+            form: ExternalThemePaddingOnly {
+                padding: padding(0.0, 12.0, 0.0, 12.0),
+            },
+            form_inner: ExternalThemePaddingOnly {
+                padding: padding(12.0, 0.0, 12.0, 0.0),
+            },
+            grid: ExternalThemeGrid {
+                spacing: 8.0,
+                padding: padding(0.0, 12.0, 0.0, 12.0),
+            },
+            grid_inner: ExternalThemePaddingOnly {
+                padding: padding(12.0, 0.0, 12.0, 0.0),
+            },
+            list: ExternalThemePaddingOnly {
+                padding: padding(0.0, 8.0, 0.0, 8.0),
+            },
+            list_inner: ExternalThemePaddingOnly {
+                padding: padding(8.0, 0.0, 8.0, 0.0),
             },
             form_input_label: ExternalThemePaddingOnly {
-                padding: padding_axis(5.0, 10.0),
+                padding: padding_axis(4.0, 12.0),
             },
             list_section_title: ExternalThemePaddingColor {
-                padding: padding_axis(5.0, 8.0), // 5 + 3 to line up a section with items
+                padding: padding_axis(4.0, 8.0),
                 text_color: SUBTITLE_TEXT,
             },
             grid_section_title: ExternalThemePaddingColor {
-                padding: padding_axis(5.0, 8.0), // 5 + 3 to line up a section with items
+                padding: padding_axis(4.0, 0.0),
                 text_color: SUBTITLE_TEXT,
             },
             main_list_item: ExternalThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: GRID_BUTTON, // TODO
+                background_color_hovered: BACKGROUND_2,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -251,33 +296,33 @@ impl GauntletTheme {
                 border_color: TRANSPARENT,
             },
             main_list_item_text: ExternalThemePaddingOnly {
-                padding: padding_all(3.0),
+                padding: padding_all(4.0),
             },
             main_list_item_sub_text: ExternalThemePaddingColor {
-                padding: padding_axis(3.0, 10.0),
+                padding: padding_axis(4.0, 12.0),
                 text_color: SUBTITLE_TEXT,
             },
             main_list_item_icon: ExternalThemePaddingOnly {
                 padding: padding(0.0, 7.0, 0.0, 5.0),
             },
             main_list: ExternalThemePaddingOnly {
-                padding: padding_all(5.0),
+                padding: padding_all(8.0),
             },
             main_search_bar: ExternalThemePaddingOnly {
-                padding: padding_all(10.0),
+                padding: padding_all(12.0),
             },
             plugin_error_view_title: ExternalThemePaddingOnly {
-                padding: padding_all(10.0),
+                padding: padding_all(12.0),
             },
             plugin_error_view_description: ExternalThemePaddingOnly {
-                padding: padding_all(10.0),
+                padding: padding_all(12.0),
             },
             preference_required_view_description: ExternalThemePaddingOnly {
-                padding: padding_all(10.0),
+                padding: padding_all(12.0),
             },
             metadata_link: ExternalThemeLink {
                 text_color: TEXT,
-                text_color_hovered: TEXT, // TODO
+                text_color_hovered: TEXT_2,
             },
             empty_view_subtitle: ExternalThemeTextColor {
                 text_color: SUBTITLE_TEXT,
@@ -286,21 +331,21 @@ impl GauntletTheme {
                 background_color: BACKGROUND,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_BORDER,
+                border_color: BACKGROUND_2,
                 text_color: TEXT,
                 text_color_selected: SUBTITLE_TEXT,
                 text_color_hovered: SUBTITLE_TEXT,
                 text_attenuated_color: ExternalThemeColor::new(0xCAC2B6, 0.3),
-                day_background_color: BACKGROUND_BORDER,
-                day_background_color_selected: BACKGROUND_BORDER,
-                day_background_color_hovered: BACKGROUND_BORDER,
+                day_background_color: BACKGROUND_2,
+                day_background_color_selected: BACKGROUND_2,
+                day_background_color_hovered: BACKGROUND_2,
             },
             form_input_date_picker_buttons: ExternalThemeButton {
-                padding: padding_all(5.0),
+                padding: padding_all(8.0),
                 background_color: PRIMARY,
-                background_color_hovered: PRIMARY, // TODO
-                text_color: BACKGROUND, // TODO
-                text_color_hovered: BACKGROUND, // TODO
+                background_color_hovered: PRIMARY_2,
+                text_color: TEXT_DARK,
+                text_color_hovered: TEXT_DARK,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -308,48 +353,47 @@ impl GauntletTheme {
             form_input_checkbox: ExternalThemeCheckbox {
                 background_color_checked: PRIMARY,
                 background_color_unchecked: BACKGROUND,
-                background_color_checked_hovered: PRIMARY, // TODO
-                background_color_unchecked_hovered: BACKGROUND, // TODO
-                border_radius: 2.0,
+                background_color_checked_hovered: PRIMARY_2,
+                background_color_unchecked_hovered: BACKGROUND_2,
+                border_radius: 4.0,
                 border_width: 1.0,
                 border_color: PRIMARY,
                 icon_color: BACKGROUND,
             },
             form_input_select: ExternalThemeSelect {
                 background_color: PRIMARY,
-                background_color_hovered: PRIMARY, // TODO
-                text_color: BACKGROUND,
-                text_color_hovered: BACKGROUND, // TODO
-                border_radius: 2.0,
+                background_color_hovered: PRIMARY_2,
+                text_color: TEXT_DARK,
+                text_color_hovered: TEXT_DARK,
+                border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_BORDER,
+                border_color: BACKGROUND_2,
             },
             form_input_select_menu: ExternalThemeSelectMenu {
                 background_color: BACKGROUND,
-                background_color_selected: PRIMARY, // TODO
+                background_color_selected: BACKGROUND_2,
                 text_color: TEXT,
-                text_color_selected: BACKGROUND, // TODO
-                border_radius: 2.0,
+                text_color_selected: TEXT,
+                border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_BORDER,
+                border_color: BACKGROUND_2,
             },
             form_input_text_field: ExternalThemeTextField {
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_BORDER, // TODO
+                background_color_hovered: BACKGROUND_2,
                 text_color: TEXT,
-                text_color_placeholder: TEXT, // TODO
+                text_color_placeholder: TEXT,
                 selection_color: PRIMARY,
-                border_radius: 2.0,
+                border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_BORDER,
-                border_color_hovered: BACKGROUND_BORDER, // TODO
+                border_color: BACKGROUND_2,
+                border_color_hovered: BACKGROUND_2,
             },
             separator: ExternalThemeSeparator {
-                color: BACKGROUND_BORDER
+                color: BACKGROUND_2
             },
             scrollbar: ExternalThemeScrollbar {
-                color: BACKGROUND_BORDER,
-                color_hovered: PRIMARY,
+                color: PRIMARY,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -374,21 +418,18 @@ static THEME: once_cell::sync::OnceCell<GauntletTheme> = once_cell::sync::OnceCe
 
 const NOT_INTENDED_TO_BE_USED: ExternalThemeColor = ExternalThemeColor::new(0xAF5BFF, 1.0);
 
-// TODO proper colors
 const TRANSPARENT: ExternalThemeColor = ExternalThemeColor::new(0x000000, 0.0);
 const BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x2C323A, 1.0);
-const BACKGROUND_BORDER: ExternalThemeColor = ExternalThemeColor::new(0x48505B, 0.5);
+const BACKGROUND_2: ExternalThemeColor = ExternalThemeColor::new(0x48505B, 0.5);
+const BACKGROUND_3: ExternalThemeColor = ExternalThemeColor::new(0x626974, 0.3);
 const TEXT: ExternalThemeColor = ExternalThemeColor::new(0xCAC2B6, 1.0);
+const TEXT_2: ExternalThemeColor = ExternalThemeColor::new(0xE1E0DD, 1.0);
+const TEXT_DARK: ExternalThemeColor = ExternalThemeColor::new(0x1D242C, 1.0);
 const SUBTITLE_TEXT: ExternalThemeColor = ExternalThemeColor::new(0x848484, 1.0);
 const PRIMARY: ExternalThemeColor = ExternalThemeColor::new(0xC79F60, 1.0);
-const SECONDARY_BUTTON: ExternalThemeColor = ExternalThemeColor::new(0x848484, 1.0);
-const GRID_BUTTON: ExternalThemeColor = ExternalThemeColor::new(0x4D6a7b, 1.0);
-const MODIFIER_BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x68645E, 1.0);
-const CODE_BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x68645E, 1.0);
+const PRIMARY_2: ExternalThemeColor = ExternalThemeColor::new(0xD7B37A, 1.0);
 
-const BUTTON_BORDER_RADIUS: f32 = 2.0;
-
-// TODO padding on button is padding, not margin, a lot of margins missing?
+const BUTTON_BORDER_RADIUS: f32 = 6.0;
 
 const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ExternalThemePadding {
     ExternalThemePadding {
@@ -494,7 +535,6 @@ pub struct ExternalThemeSeparator {
 #[derive(Debug, Clone)]
 pub struct ExternalThemeScrollbar {
     color: ExternalThemeColor,
-    color_hovered: ExternalThemeColor,
     border_radius: f32,
     border_width: f32,
     border_color: ExternalThemeColor,
@@ -564,6 +604,13 @@ pub struct ExternalThemePaddingOnly {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExternalThemeImage {
+    padding: ExternalThemePadding,
+
+    border_radius: f32,
+}
+
+#[derive(Debug, Clone)]
 pub struct ExternalThemeTextColor {
     text_color: ExternalThemeColor,
 }
@@ -575,7 +622,8 @@ pub struct ExternalThemePaddingSize {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExternalThemeSpacing {
+pub struct ExternalThemeGrid {
+    padding: ExternalThemePadding,
     spacing: f32,
 }
 

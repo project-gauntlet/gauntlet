@@ -11,22 +11,22 @@ export default function FormView(): ReactElement {
     return (
         <Form
             actions={
-                <ActionPanel title={"action panel"}>
+                <ActionPanel title={"Action panel"}>
                     <Action
-                        title={"action 1"}
+                        title={"Action 1"}
                         onAction={() => {
                             console.log("ActionTest Form 1")
                         }}
                     />
                     <Action
-                        title={"action 2"}
+                        title={"Action 2"}
                         onAction={() => {
                             console.log("ActionTest Form 2")
                         }}
                     />
                     <Action
                         id="testAction"
-                        title={"action 3"}
+                        title={"Action 3"}
                         onAction={() => {
                             console.log("ActionTest Form 3")
                         }}

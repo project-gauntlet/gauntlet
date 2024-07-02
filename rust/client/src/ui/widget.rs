@@ -29,6 +29,7 @@ use crate::ui::theme::grid::GridStyle;
 use crate::ui::theme::image::ImageStyle;
 use crate::ui::theme::pick_list::PickListStyle;
 use crate::ui::theme::row::RowStyle;
+use crate::ui::theme::rule::RuleStyle;
 use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
@@ -332,7 +333,8 @@ impl ComponentWidgetWrapper {
                         ComponentWidget::Action { .. } => {
                             if place_separator {
                                 let separator: Element<_> = horizontal_rule(1)
-                                    .into();
+                                    .themed(RuleStyle::ActionPanel);
+
                                 columns.push(separator);
 
                                 place_separator = false;
@@ -342,7 +344,8 @@ impl ComponentWidgetWrapper {
                         }
                         ComponentWidget::ActionPanelSection { .. } => {
                             let separator: Element<_> = horizontal_rule(1)
-                                .into();
+                                .themed(RuleStyle::ActionPanel);
+
                             columns.push(separator);
 
                             columns.push(child.render_widget(ComponentRenderContext::ActionPanel { action_shortcuts: action_shortcuts.clone() }));
@@ -386,6 +389,18 @@ impl ComponentWidgetWrapper {
             ComponentWidget::MetadataLink { label, children, href } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
 
+                let icon: Element<_> = text(icons::Bootstrap::BoxArrowUpRight)
+                    .font(icons::BOOTSTRAP_FONT)
+                    .size(16)
+                    .into();
+
+                let icon = container(icon)
+                    .themed(ContainerStyle::MetadataLinkIcon);
+
+                let content: Element<_> = row([content, icon])
+                    .align_items(Alignment::Center)
+                    .into();
+
                 let link: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::LinkClick { widget_id, href: href.to_owned() })
                     .themed(ButtonStyle::MetadataLink);
@@ -412,6 +427,7 @@ impl ComponentWidgetWrapper {
             ComponentWidget::MetadataIcon { label, icon} => {
                 let value = text(icon_to_bootstrap(icon))
                     .font(icons::BOOTSTRAP_FONT)
+                    .size(26)
                     .into();
 
                 render_metadata_item(label, value)
@@ -428,6 +444,10 @@ impl ComponentWidgetWrapper {
             ComponentWidget::Metadata { children } => {
                 let metadata: Element<_> = column(render_children(children, ComponentRenderContext::None))
                     .into();
+
+                let metadata = container(metadata)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::MetadataInner);
 
                 scrollable(metadata)
                     .width(Length::Fill)
@@ -460,7 +480,10 @@ impl ComponentWidgetWrapper {
                     content = content.center_x()
                 }
 
-                content.themed(ContainerStyle::ContentImage)
+                let element = content.themed(ContainerStyle::ContentImage);
+                let element = element.explain(iced::color!(0xFF0000));
+
+                element
             }
             ComponentWidget::H1 { children } => {
                 render_children_string(children, ComponentRenderContext::H1)
@@ -525,7 +548,8 @@ impl ComponentWidgetWrapper {
                 let metadata_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::Metadata { .. }), ComponentRenderContext::None)
                     .map(|metadata_element| {
                         container(metadata_element)
-                            .width(Length::FillPortion(2))
+                            .width(if is_in_list { Length::Fill } else { Length::FillPortion(2) })
+                            .height(Length::Fill)
                             .themed(ContainerStyle::DetailMetadata)
                     })
                     .ok();
@@ -534,11 +558,16 @@ impl ComponentWidgetWrapper {
                     .map(|content_element| {
                         let content_element: Element<_> = container(content_element)
                             .width(Length::Fill)
-                            .themed(ContainerStyle::DetailContent);
+                            .themed(ContainerStyle::DetailContentInner);
 
                         let content_element: Element<_> = scrollable(content_element)
-                            .width(Length::FillPortion(3))
+                            .width(Length::Fill)
                             .into();
+
+                        let content_element: Element<_> = container(content_element)
+                            .width(if is_in_list { Length::Fill } else { Length::FillPortion(3) })
+                            .height(Length::Fill)
+                            .themed(ContainerStyle::DetailContent);
 
                         content_element
                     })
@@ -755,9 +784,17 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = column(items)
                     .into();
 
+                let content: Element<_> = container(content)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::FormInner);
+
                 let content: Element<_> = scrollable(content)
                     .width(Length::Fill)
                     .into();
+
+                let content: Element<_> = container(content)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::Form);
 
                 render_root(show_action_panel, widget_id, children, content, context)
             }
@@ -896,6 +933,9 @@ impl ComponentWidgetWrapper {
                 let mut content = vec![title];
 
                 if let Some(icon) = icon {
+                    let icon: Element<_> = container(icon)
+                        .themed(ContainerStyle::ListItemIcon);
+
                     content.insert(0, icon)
                 }
 
@@ -975,13 +1015,17 @@ impl ComponentWidgetWrapper {
                         .width(Length::Fill)
                         .into();
 
+                    let content: Element<_> = container(content)
+                        .width(Length::Fill)
+                        .themed(ContainerStyle::ListInner);
+
                     let content: Element<_> = scrollable(content)
                         .width(Length::Fill)
                         .into();
 
                     let content: Element<_> = container(content)
                         .width(Length::FillPortion(2))
-                        .into();
+                        .themed(ContainerStyle::List);
 
                     content
                 };
@@ -1082,9 +1126,17 @@ impl ComponentWidgetWrapper {
                 let content: Element<_> = column(items)
                     .into();
 
+                let content: Element<_> = container(content)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::GridInner);
+
                 let content: Element<_> = scrollable(content)
                     .width(Length::Fill)
                     .into();
+
+                let content: Element<_> = container(content)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::Grid);
 
                 render_root(show_action_panel, widget_id, children, content, context)
             }
@@ -1144,6 +1196,9 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
     let label: Element<_> = text(label)
         .font(bold_font)
         .into();
+
+    let label = container(label)
+        .themed(ContainerStyle::MetadataItemLabel);
 
     let value = container(value)
         .themed(ContainerStyle::MetadataItemValue);
@@ -1272,13 +1327,13 @@ fn render_root<'a>(
     let content: Element<_> = container(content)
         .width(Length::Fill)
         .height(Length::Fill)
-        .themed(ContainerStyle::RootContent);
+        .themed(ContainerStyle::RootInner);
 
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
         .into();
 
     floating_element(content, action_panel_element)
-        .offset(Offset::from([5.0, 35.0]))
+        .offset(Offset::from([8.0, 46.0]))
         .hide(hide_action_panel)
         .into()
 }

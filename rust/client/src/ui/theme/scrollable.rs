@@ -30,8 +30,8 @@ fn appearance(state: ScrollbarState) -> Appearance {
     let theme = &theme.scrollbar;
 
     let scroller_color = match state {
-        ScrollbarState::Active => theme.color.to_iced(),
-        ScrollbarState::Hovered => theme.color_hovered.to_iced(),
+        ScrollbarState::Active => Color::TRANSPARENT,
+        ScrollbarState::Hovered => theme.color.to_iced(),
     };
 
     Appearance {
