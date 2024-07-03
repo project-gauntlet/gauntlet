@@ -1055,7 +1055,7 @@ impl ComponentWidgetWrapper {
                 };
 
                 let content: Element<_> = column(render_children(children, ComponentRenderContext::GridItem))
-                    .height(150) // TODO dynamic height
+                    .height(130) // TODO dynamic height
                     .into();
 
                 let title: Element<_> = text(title)
