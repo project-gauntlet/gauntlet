@@ -74,7 +74,8 @@ struct PluginViewData {
     plugin_name: String,
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
-    action_shortcuts: HashMap<String, ActionShortcut>
+    action_shortcuts: HashMap<String, ActionShortcut>,
+    waiting_for_first_render: bool,
 }
 
 enum ErrorViewData {
@@ -253,6 +254,7 @@ impl Application for AppModel {
                             entrypoint_id,
                             entrypoint_name: gen_name,
                             action_shortcuts: Default::default(),
+                            waiting_for_first_render: false,
                         })
                     };
 
@@ -318,7 +320,8 @@ impl Application for AppModel {
                     plugin_name,
                     entrypoint_id: entrypoint_id.clone(),
                     entrypoint_name,
-                    action_shortcuts: HashMap::new()
+                    action_shortcuts: HashMap::new(),
+                    waiting_for_first_render: true,
                 });
 
                 self.open_view(plugin_id, entrypoint_id)
@@ -380,6 +383,7 @@ impl Application for AppModel {
                     None => Command::none(),
                     Some(view_data) => {
                         view_data.top_level_view = top_level_view;
+                        view_data.waiting_for_first_render = false;
 
                         Command::none()
                     }
@@ -707,7 +711,7 @@ impl Application for AppModel {
         }
 
         match &self.plugin_view_data {
-            None => {
+            None | Some(PluginViewData { waiting_for_first_render: true, .. }) => {
                 let input: Element<_> = text_input("Search...", &self.prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
@@ -747,6 +751,8 @@ impl Application for AppModel {
                 ]).into();
 
                 let element: Element<_> = container(column)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
                     .themed(ContainerStyle::Main);
 
                 element
@@ -758,7 +764,8 @@ impl Application for AppModel {
                     plugin_name,
                     entrypoint_id,
                     entrypoint_name,
-                    action_shortcuts
+                    action_shortcuts,
+                    waiting_for_first_render: _
                 } = data;
 
                 let container_element: Element<_> = view_container(
@@ -771,9 +778,12 @@ impl Application for AppModel {
                 ).into();
 
                 let element: Element<_> = container(container_element)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
                     .themed(ContainerStyle::Root);
 
                 // let element = element.explain(iced::color!(0xFF0000));
+
                 element
             }
         }
