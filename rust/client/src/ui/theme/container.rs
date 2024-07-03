@@ -1,5 +1,6 @@
 use container::Appearance;
 use iced::{Border, Color, Length, Padding, Renderer};
+use iced::border::Radius;
 use iced::widget::{Container, container};
 
 use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
@@ -62,6 +63,7 @@ pub enum ContainerStyleInner {
     Main,
     Root,
     ContentImage,
+    RootBottomPanel,
 }
 
 
@@ -73,7 +75,8 @@ impl container::StyleSheet for GauntletTheme {
             ContainerStyleInner::Transparent => Default::default(),
             ContainerStyleInner::ActionPanel => {
                 let root_theme = &self.root;
-                let background_color = &root_theme.background_color;
+                let panel_theme = &self.action_panel;
+                let background_color = &panel_theme.background_color;
 
                 Appearance {
                     text_color: None,
@@ -151,7 +154,8 @@ impl container::StyleSheet for GauntletTheme {
             }
             ContainerStyleInner::Tooltip => {
                 let theme = &self.root;
-                let background_color = &theme.background_color;
+                let tooltip_theme = &self.tooltip;
+                let background_color = &tooltip_theme.background_color;
 
                 Appearance {
                     text_color: None,
@@ -172,6 +176,20 @@ impl container::StyleSheet for GauntletTheme {
                 Appearance {
                     border: Border {
                         radius: theme.border_radius.into(),
+                        width: 0.0,
+                        color: Color::TRANSPARENT,
+                    },
+                    ..Appearance::default()
+                }
+            }
+            ContainerStyleInner::RootBottomPanel => {
+                let root_theme = &self.root;
+                let panel_theme = &self.root_bottom_panel;
+
+                Appearance {
+                    background: Some(panel_theme.background_color.to_iced().into()),
+                    border: Border {
+                        radius: Radius::from([0.0, 0.0, root_theme.border_radius, root_theme.border_radius]),
                         width: 0.0,
                         color: Color::TRANSPARENT,
                     },
@@ -219,7 +237,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.metadata_item_value.padding.to_iced())
             }
             ContainerStyle::RootBottomPanel => {
-                self.padding(theme.root_bottom_panel.padding.to_iced())
+                self.style(ContainerStyleInner::RootBottomPanel)
+                    .padding(theme.root_bottom_panel.padding.to_iced())
             }
             ContainerStyle::RootTopPanel => {
                 self.padding(theme.root_top_panel.padding.to_iced())

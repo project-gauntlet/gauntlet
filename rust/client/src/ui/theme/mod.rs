@@ -22,7 +22,7 @@ pub struct GauntletTheme {
     text: ExternalThemeColor,
     root: ExternalThemeRoot,
     action: ExternalThemeButton,
-    action_panel: ExternalThemePaddingOnly,
+    action_panel: ExternalThemePaddingBackgroundColor,
     action_shortcut: ExternalThemePaddingOnly,
     action_shortcut_modifier: ExternalThemeActionShortcutModifier,
     content_code_block: ExternalThemePaddingOnly,
@@ -49,17 +49,17 @@ pub struct GauntletTheme {
     list: ExternalThemePaddingOnly,
     list_inner: ExternalThemePaddingOnly,
     grid_item: ExternalThemeButton,
-    grid_section_title: ExternalThemePaddingColor,
+    grid_section_title: ExternalThemePaddingTextColor,
     inline: ExternalThemePaddingOnly,
     list_item: ExternalThemeButton,
-    list_item_subtitle: ExternalThemePaddingColor,
+    list_item_subtitle: ExternalThemePaddingTextColor,
     list_item_title: ExternalThemePaddingOnly,
     list_item_icon: ExternalThemePaddingOnly,
-    list_section_title: ExternalThemePaddingColor,
+    list_section_title: ExternalThemePaddingTextColor,
     main_list: ExternalThemePaddingOnly,
     main_list_item: ExternalThemeButton,
     main_list_item_icon: ExternalThemePaddingOnly,
-    main_list_item_sub_text: ExternalThemePaddingColor,
+    main_list_item_sub_text: ExternalThemePaddingTextColor,
     main_list_item_text: ExternalThemePaddingOnly,
     main_search_bar: ExternalThemePaddingOnly,
     metadata_item_value: ExternalThemePaddingOnly,
@@ -73,7 +73,7 @@ pub struct GauntletTheme {
     plugin_error_view_description: ExternalThemePaddingOnly,
     plugin_error_view_title: ExternalThemePaddingOnly,
     preference_required_view_description: ExternalThemePaddingOnly,
-    root_bottom_panel: ExternalThemePaddingOnly,
+    root_bottom_panel: ExternalThemePaddingBackgroundColor,
     root_bottom_panel_action_button: ExternalThemeButton,
     root_content: ExternalThemePaddingOnly,
     root_top_panel: ExternalThemePaddingOnly,
@@ -81,6 +81,7 @@ pub struct GauntletTheme {
     metadata_link: ExternalThemeLink,
     separator: ExternalThemeSeparator,
     scrollbar: ExternalThemeScrollbar,
+    tooltip: ExternalThemeTooltip
 }
 
 impl Default for GauntletTheme {
@@ -102,8 +103,9 @@ impl GauntletTheme {
                 border_width: 1.0,
                 border_color: BACKGROUND_2,
             },
-            action_panel: ExternalThemePaddingOnly {
-                padding: padding_all(8.0), // TODO slightly lighter background
+            action_panel: ExternalThemePaddingBackgroundColor {
+                padding: padding_all(8.0),
+                background_color: BACKGROUND_1_5,
             },
             action: ExternalThemeButton {
                 padding: padding_all(4.0),
@@ -151,13 +153,14 @@ impl GauntletTheme {
             metadata_link_icon: ExternalThemePaddingOnly {
                 padding: padding_all(4.0),
             },
-            root_bottom_panel: ExternalThemePaddingOnly {
-                padding: padding_all(8.0), // TODO slightly lighter background
+            root_bottom_panel: ExternalThemePaddingBackgroundColor {
+                padding: padding_all(8.0),
+                background_color: BACKGROUND_1_5,
             },
             root_top_panel: ExternalThemePaddingOnly {
                 padding: padding_all(12.0),
             },
-            list_item_subtitle: ExternalThemePaddingColor {
+            list_item_subtitle: ExternalThemePaddingTextColor {
                 padding: padding_all(4.0),
                 text_color: SUBTITLE_TEXT,
             },
@@ -277,11 +280,11 @@ impl GauntletTheme {
             form_input_label: ExternalThemePaddingOnly {
                 padding: padding_axis(4.0, 12.0),
             },
-            list_section_title: ExternalThemePaddingColor {
+            list_section_title: ExternalThemePaddingTextColor {
                 padding: padding_axis(4.0, 8.0),
                 text_color: SUBTITLE_TEXT,
             },
-            grid_section_title: ExternalThemePaddingColor {
+            grid_section_title: ExternalThemePaddingTextColor {
                 padding: padding_axis(4.0, 0.0),
                 text_color: SUBTITLE_TEXT,
             },
@@ -298,7 +301,7 @@ impl GauntletTheme {
             main_list_item_text: ExternalThemePaddingOnly {
                 padding: padding_all(4.0),
             },
-            main_list_item_sub_text: ExternalThemePaddingColor {
+            main_list_item_sub_text: ExternalThemePaddingTextColor {
                 padding: padding_axis(4.0, 12.0),
                 text_color: SUBTITLE_TEXT,
             },
@@ -398,6 +401,10 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
+            tooltip: ExternalThemeTooltip {
+                padding: 8.0,
+                background_color: BACKGROUND_1_5,
+            },
         };
 
         init_theme(theme.clone());
@@ -420,6 +427,7 @@ const NOT_INTENDED_TO_BE_USED: ExternalThemeColor = ExternalThemeColor::new(0xAF
 
 const TRANSPARENT: ExternalThemeColor = ExternalThemeColor::new(0x000000, 0.0);
 const BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x2C323A, 1.0);
+const BACKGROUND_1_5: ExternalThemeColor = ExternalThemeColor::new(0x333a42, 1.0);
 const BACKGROUND_2: ExternalThemeColor = ExternalThemeColor::new(0x48505B, 0.5);
 const BACKGROUND_3: ExternalThemeColor = ExternalThemeColor::new(0x626974, 0.3);
 const TEXT: ExternalThemeColor = ExternalThemeColor::new(0xCAC2B6, 1.0);
@@ -593,9 +601,21 @@ pub struct ExternalThemeDatePicker {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExternalThemePaddingColor {
+pub struct ExternalThemePaddingTextColor {
     padding: ExternalThemePadding,
     text_color: ExternalThemeColor,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternalThemePaddingBackgroundColor {
+    padding: ExternalThemePadding,
+    background_color: ExternalThemeColor,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternalThemeTooltip {
+    padding: f32, // TODO for some reason padding on tooltip is a single number in iced-rs
+    background_color: ExternalThemeColor,
 }
 
 #[derive(Debug, Clone)]
