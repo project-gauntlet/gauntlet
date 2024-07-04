@@ -14,6 +14,7 @@ pub enum TextStyle {
     ListSectionTitle,
     GridSectionTitle,
     MainListItemSubtext,
+    MetadataItemLabel,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Renderer> {
@@ -45,6 +46,9 @@ impl text::StyleSheet for GauntletTheme {
             TextStyle::MainListItemSubtext => Appearance {
                 color: Some(self.main_list_item_sub_text.text_color.to_iced()),
             },
+            TextStyle::MetadataItemLabel => Appearance {
+                color: Some(self.metadata_item_label.text_color.to_iced()),
+            }
         }
     }
 }

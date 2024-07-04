@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use iced::{Alignment, color, Font, Length};
+use iced::{Alignment, Application, color, Font, Length};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
@@ -314,14 +314,17 @@ impl ComponentWidgetWrapper {
 
                 let mut columns = vec![];
                 if let Some(title) = title {
-                    columns.push(
-                        text(title)
-                            .font(Font {
-                                weight: Weight::Bold,
-                                ..Font::DEFAULT
-                            })
-                            .into()
-                    )
+                    let text: Element<_> = text(title)
+                        .font(Font {
+                            weight: Weight::Bold,
+                            ..Font::DEFAULT
+                        })
+                        .into();
+
+                    let text = container(text)
+                        .themed(ContainerStyle::ActionPanelTitle);
+
+                    columns.push(text)
                 }
 
                 let mut place_separator = false;
@@ -1185,14 +1188,8 @@ impl Display for SelectItem {
 
 
 fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
-    let bold_font = Font {
-        weight: Weight::Bold,
-        ..Font::DEFAULT
-    };
-
     let label: Element<_> = text(label)
-        .font(bold_font)
-        .into();
+        .themed(TextStyle::MainListItemSubtext);
 
     let label = container(label)
         .themed(ContainerStyle::MetadataItemLabel);
@@ -1286,9 +1283,6 @@ fn render_root<'a>(
     let entrypoint_name: Element<_> = text(entrypoint_name)
         .into();
 
-    let space = Space::with_width(Length::FillPortion(3))
-        .into();
-
     let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::ActionPanel { action_shortcuts })
         .ok();
 
@@ -1297,12 +1291,18 @@ fn render_root<'a>(
             .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
             .themed(ButtonStyle::RootBottomPanelActionButton);
 
+        let space = horizontal_space()
+            .into();
+
         let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
             .align_items(Alignment::Center)
             .into();
 
         (!show_action_panel, action_panel_element, bottom_panel)
     } else {
+        let space: Element<_> = Space::with_height(16 + 8 + 2) // TODO get value from theme
+            .into();
+
         let bottom_panel: Element<_> = row(vec![entrypoint_name, space])
             .into();
 
@@ -1318,19 +1318,16 @@ fn render_root<'a>(
     let top_separator = horizontal_rule(1)
         .into();
 
-    let bottom_separator = horizontal_rule(1)
-        .into();
-
     let content: Element<_> = container(content)
         .width(Length::Fill)
         .height(Length::Fill)
         .themed(ContainerStyle::RootInner);
 
-    let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_separator, bottom_panel])
+    let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_panel])
         .into();
 
     floating_element(content, action_panel_element)
-        .offset(Offset::from([8.0, 46.0]))
+        .offset(Offset::from([8.0, 40.0])) // TODO calculate based on theme
         .hide(hide_action_panel)
         .into()
 }

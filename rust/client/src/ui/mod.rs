@@ -5,13 +5,13 @@ use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
-use iced::{Command, Event, event, executor, font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
+use iced::{Alignment, Command, Event, event, executor, font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
 use iced::Application;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
-use iced::widget::{button, column, container, horizontal_rule, scrollable, text, text_input};
+use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, Space, text, text_input};
 use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
 use iced::window::{change_level, Level, Position, Screenshot};
@@ -725,6 +725,10 @@ impl Application for AppModel {
                     search_results,
                     AppMsg::SelectSearchItem
                 );
+
+                let search_list = container(search_list)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::MainListInner);
 
                 let list: Element<_> = scrollable(search_list)
                     .id(self.scrollable_id.clone())

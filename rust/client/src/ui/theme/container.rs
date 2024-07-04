@@ -7,6 +7,7 @@ use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
 
 pub enum ContainerStyle {
     ActionPanel,
+    ActionPanelTitle,
     ActionShortcutModifier,
     ActionShortcutModifiersInit, // "init" means every item on list except last one
     ContentCodeBlock,
@@ -25,6 +26,7 @@ pub enum ContainerStyle {
     ListItemIcon,
     Main,
     MainList,
+    MainListInner,
     MainListItemIcon,
     MainListItemSubText,
     MainListItemText,
@@ -190,8 +192,8 @@ impl container::StyleSheet for GauntletTheme {
                     background: Some(panel_theme.background_color.to_iced().into()),
                     border: Border {
                         radius: Radius::from([0.0, 0.0, root_theme.border_radius, root_theme.border_radius]),
-                        width: 0.0,
-                        color: Color::TRANSPARENT,
+                        width: root_theme.border_width,
+                        color: root_theme.border_color.to_iced(),
                     },
                     ..Appearance::default()
                 }
@@ -209,6 +211,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
         match name {
             ContainerStyle::RootInner => {
                 self.padding(theme.root_content.padding.to_iced())
+            }
+            ContainerStyle::ActionPanelTitle => {
+                self.padding(theme.action_panel_title.padding.to_iced())
             }
             ContainerStyle::ActionShortcutModifier => {
                 self.style(ContainerStyleInner::ActionShortcutModifier)
@@ -310,6 +315,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::MainList => {
                 self.padding(theme.main_list.padding.to_iced())
+            }
+            ContainerStyle::MainListInner => {
+                self.padding(theme.main_list_inner.padding.to_iced())
             }
             ContainerStyle::MainSearchBar => {
                 self.padding(theme.main_search_bar.padding.to_iced())

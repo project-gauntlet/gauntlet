@@ -23,6 +23,7 @@ pub struct GauntletTheme {
     root: ExternalThemeRoot,
     action: ExternalThemeButton,
     action_panel: ExternalThemePaddingBackgroundColor,
+    action_panel_title: ExternalThemePaddingOnly,
     action_shortcut: ExternalThemePaddingOnly,
     action_shortcut_modifier: ExternalThemeActionShortcutModifier,
     content_code_block: ExternalThemePaddingOnly,
@@ -57,6 +58,7 @@ pub struct GauntletTheme {
     list_item_icon: ExternalThemePaddingOnly,
     list_section_title: ExternalThemePaddingTextColor,
     main_list: ExternalThemePaddingOnly,
+    main_list_inner: ExternalThemePaddingOnly,
     main_list_item: ExternalThemeButton,
     main_list_item_icon: ExternalThemePaddingOnly,
     main_list_item_sub_text: ExternalThemePaddingTextColor,
@@ -67,7 +69,7 @@ pub struct GauntletTheme {
     metadata_inner: ExternalThemePaddingOnly,
     metadata_separator: ExternalThemePaddingOnly,
     metadata_tag_item: ExternalThemePaddingOnly,
-    metadata_item_label: ExternalThemePaddingOnly,
+    metadata_item_label: ExternalThemePaddingTextColor,
     metadata_link_icon: ExternalThemePaddingOnly,
     metadata_tag_item_button: ExternalThemeButton,
     plugin_error_view_description: ExternalThemePaddingOnly,
@@ -81,7 +83,7 @@ pub struct GauntletTheme {
     metadata_link: ExternalThemeLink,
     separator: ExternalThemeSeparator,
     scrollbar: ExternalThemeScrollbar,
-    tooltip: ExternalThemeTooltip
+    tooltip: ExternalThemeTooltip,
 }
 
 impl Default for GauntletTheme {
@@ -107,8 +109,11 @@ impl GauntletTheme {
                 padding: padding_all(8.0),
                 background_color: BACKGROUND_1_5,
             },
+            action_panel_title: ExternalThemePaddingOnly {
+                padding: padding_axis(2.0, 8.0),
+            },
             action: ExternalThemeButton {
-                padding: padding_all(4.0),
+                padding: padding_all(8.0),
                 background_color: TRANSPARENT,
                 background_color_hovered: BACKGROUND_2,
                 text_color: TEXT,
@@ -144,8 +149,9 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            metadata_item_label: ExternalThemePaddingOnly {
-                padding: padding_all(0.0)
+            metadata_item_label: ExternalThemePaddingTextColor {
+                padding: padding_all(0.0),
+                text_color: SUBTITLE_TEXT,
             },
             metadata_item_value: ExternalThemePaddingOnly {
                 padding: padding_all(4.0),
@@ -154,7 +160,7 @@ impl GauntletTheme {
                 padding: padding_all(4.0),
             },
             root_bottom_panel: ExternalThemePaddingBackgroundColor {
-                padding: padding_all(8.0),
+                padding: padding_axis(4.0, 8.0),
                 background_color: BACKGROUND_1_5,
             },
             root_top_panel: ExternalThemePaddingOnly {
@@ -244,38 +250,38 @@ impl GauntletTheme {
                 padding: padding_axis(0.0, 4.0)
             },
             root_content: ExternalThemePaddingOnly {
-                padding: padding(0.0, 0.0, 0.0, 0.0), // TODO hardcode this?
+                padding: padding_all(0.0), // TODO hardcode this?
             },
             detail_metadata: ExternalThemePaddingOnly {
-                padding: padding(0.0, 12.0, 0.0, 12.0),
+                padding: padding_axis(0.0, 12.0),
             },
             metadata_inner: ExternalThemePaddingOnly {
-                padding: padding(12.0, 0.0, 12.0, 0.0),
+                padding: padding_axis(12.0, 0.0),
             },
             detail_content: ExternalThemePaddingOnly {
-                padding: padding(0.0, 12.0, 0.0, 12.0),
+                padding: padding_axis(0.0, 12.0),
             },
             metadata_content_inner: ExternalThemePaddingOnly {
-                padding: padding(12.0, 0.0, 12.0, 0.0),
+                padding: padding_axis(12.0, 0.0),
             },
             form: ExternalThemePaddingOnly {
-                padding: padding(0.0, 12.0, 0.0, 12.0),
+                padding: padding_axis(0.0, 12.0),
             },
             form_inner: ExternalThemePaddingOnly {
-                padding: padding(12.0, 0.0, 12.0, 0.0),
+                padding: padding_axis(12.0, 0.0),
             },
             grid: ExternalThemeGrid {
                 spacing: 8.0,
-                padding: padding(0.0, 12.0, 0.0, 12.0),
+                padding: padding_axis(0.0, 12.0),
             },
             grid_inner: ExternalThemePaddingOnly {
-                padding: padding(12.0, 0.0, 12.0, 0.0),
+                padding: padding_axis(12.0, 0.0),
             },
             list: ExternalThemePaddingOnly {
-                padding: padding(0.0, 8.0, 0.0, 8.0),
+                padding: padding_axis(0.0, 8.0),
             },
             list_inner: ExternalThemePaddingOnly {
-                padding: padding(8.0, 0.0, 8.0, 0.0),
+                padding: padding_axis(8.0, 0.0),
             },
             form_input_label: ExternalThemePaddingOnly {
                 padding: padding_axis(4.0, 12.0),
@@ -309,7 +315,10 @@ impl GauntletTheme {
                 padding: padding(0.0, 7.0, 0.0, 5.0),
             },
             main_list: ExternalThemePaddingOnly {
-                padding: padding_all(8.0),
+                padding: padding_axis(0.0, 8.0),
+            },
+            main_list_inner: ExternalThemePaddingOnly {
+                padding: padding_axis(8.0, 0.0),
             },
             main_search_bar: ExternalThemePaddingOnly {
                 padding: padding_all(12.0),
