@@ -733,9 +733,9 @@ impl DataDbRepository {
     pub async fn save_plugin(&self, new_plugin: DbWritePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
-        let preferences_user_data = self.get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx).await?
-            .map(|plugin| plugin.preferences_user_data)
-            .unwrap_or(HashMap::new());
+        let (enabled, preferences_user_data) = self.get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx).await?
+            .map(|plugin| (plugin.enabled, plugin.preferences_user_data))
+            .unwrap_or((new_plugin.enabled, HashMap::new()));
 
         // language=SQLite
         let sql = r#"
@@ -748,7 +748,7 @@ impl DataDbRepository {
         sqlx::query(sql)
             .bind(&new_plugin.id)
             .bind(new_plugin.name)
-            .bind(new_plugin.enabled)
+            .bind(enabled)
             .bind(Json(new_plugin.code))
             .bind(Json(new_plugin.permissions))
             .bind(Json(new_plugin.preferences))

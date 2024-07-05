@@ -340,7 +340,9 @@ impl ApplicationManager {
             self.stop_plugin(plugin_id.clone()).await;
         }
 
-        self.start_plugin(plugin_id).await?;
+        if self.is_plugin_enabled(&plugin_id).await? {
+            self.start_plugin(plugin_id).await?;
+        }
 
         Ok(())
     }
