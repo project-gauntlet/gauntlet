@@ -51,7 +51,7 @@ async function doBuild(arch: string) {
     console.log("Building Gauntlet...")
 
     const projectRoot = getProjectRoot();
-    build(projectRoot, true, arch, true)
+    build(projectRoot, true, arch)
 }
 
 async function doPublishInit() {
@@ -71,7 +71,7 @@ async function doPublishLinux() {
 
     const arch = 'x86_64-unknown-linux-gnu';
 
-    build(projectRoot, false, arch, true)
+    build(projectRoot, false, arch)
 
     const { fileName, filePath } = packageForLinux(projectRoot, arch)
 
@@ -87,7 +87,7 @@ async function doPublishMacOS() {
 
     const arch = 'aarch64-apple-darwin';
 
-    build(projectRoot, false, arch, false)
+    build(projectRoot, false, arch)
 
     const { fileName, filePath } = await packageForMacos(projectRoot, arch)
 
@@ -125,7 +125,7 @@ async function doPublishFinal() {
     await undraftRelease()
 }
 
-function build(projectRoot: string, check: boolean, arch: string, release: boolean) {
+function build(projectRoot: string, check: boolean, arch: string) {
     buildJs(projectRoot)
 
     if (check) {
@@ -141,13 +141,7 @@ function build(projectRoot: string, check: boolean, arch: string, release: boole
     }
 
     console.log("Building rust...")
-
-    const args = ['build', '--features', 'release', '--target', arch];
-    if (release) {
-        args.push('--release')
-    }
-
-    const cargoBuildResult = spawnSync('cargo', args, {
+    const cargoBuildResult = spawnSync('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
         stdio: "inherit",
         cwd: projectRoot
     });
@@ -286,7 +280,7 @@ function packageForLinux(projectRoot: string, arch: string): { filePath: string;
 }
 
 async function packageForMacos(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'debug');
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
