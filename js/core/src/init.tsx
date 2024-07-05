@@ -193,6 +193,12 @@ async function runLoop() {
                         break;
                     }
 
+                    if (pluginEvent.text.length === 0) {
+                        InternalApi.op_log_debug("plugin_loop", `Do not render because empty search text, clearing inline view...`)
+                        InternalApi.clear_inline_view()
+                        break;
+                    }
+
                     try {
                         const Handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpointId}`)).default;
                         const { render } = await import("gauntlet:renderer");
