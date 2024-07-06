@@ -7,6 +7,14 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+### Big things
+- Style overhaul
+- Window no longer changes the size in subviews. Default window size is a little bigger
+
+### Fixes
+- Fix Gauntlet crash on startup on Linux
+- Built-in plugins no longer re-enable themselves after restart
+
 ## [4] - 2024-06-20
 
 ### Fixes
