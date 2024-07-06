@@ -661,6 +661,8 @@ impl Application for AppModel {
                     let content: Element<_> = container(content)
                         .center_x()
                         .center_y()
+                        .width(Length::Fill)
+                        .height(Length::Fill)
                         .themed(ContainerStyle::Main);
 
                     content
@@ -703,6 +705,8 @@ impl Application for AppModel {
                     let content: Element<_> = container(content)
                         .center_x()
                         .center_y()
+                        .width(Length::Fill)
+                        .height(Length::Fill)
                         .themed(ContainerStyle::Main);
 
                     content
