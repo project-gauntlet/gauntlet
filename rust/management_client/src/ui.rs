@@ -111,7 +111,7 @@ fn plugin_preference_user_data_from_state(value: PluginPreferenceUserDataState) 
 }
 
 struct ManagementAppModel {
-    backend_api: BackendApi,
+    backend_api: Option<BackendApi>,
     columns: Vec<Column>,
     rows: Vec<Row>,
     plugin_data: Rc<RefCell<PluginDataContainer>>,
@@ -191,29 +191,45 @@ impl Application for ManagementAppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let backend_api = futures::executor::block_on(async {
+        let mut backend_api = futures::executor::block_on(async {
             anyhow::Ok(BackendApi::new().await?)
-        }).unwrap();
+        })
+            .inspect_err(|err| tracing::error!("Unable to connect to backend: {:?}", err))
+            .ok();
 
-        let settings_env_data = std::env::var(SETTINGS_ENV)
-            .ok()
-            .filter(|value| !value.is_empty())
-            .map(|val| settings_env_data_from_string(val));
+        let command = if let Some(backend_api) = backend_api.clone() {
+            let settings_env_data = std::env::var(SETTINGS_ENV)
+                .ok()
+                .filter(|value| !value.is_empty())
+                .map(|val| settings_env_data_from_string(val));
 
-        let select_item = match settings_env_data {
-            None => SelectedItem::None,
-            Some(SettingsEnvData::OpenEntrypointPreferences { plugin_id, entrypoint_id }) => SelectedItem::Entrypoint {
-                plugin_id: PluginId::from_string(plugin_id),
-                entrypoint_id: EntrypointId::from_string(entrypoint_id),
-            },
-            Some(SettingsEnvData::OpenPluginPreferences { plugin_id }) => SelectedItem::Plugin {
-                plugin_id: PluginId::from_string(plugin_id),
-            },
+            let select_item = match settings_env_data {
+                None => SelectedItem::None,
+                Some(SettingsEnvData::OpenEntrypointPreferences { plugin_id, entrypoint_id }) => SelectedItem::Entrypoint {
+                    plugin_id: PluginId::from_string(plugin_id),
+                    entrypoint_id: EntrypointId::from_string(entrypoint_id),
+                },
+                Some(SettingsEnvData::OpenPluginPreferences { plugin_id }) => SelectedItem::Plugin {
+                    plugin_id: PluginId::from_string(plugin_id),
+                },
+            };
+
+            Command::perform(
+                async move {
+                    reload_plugins(backend_api.clone()).await
+                },
+                |plugins| ManagementAppMsg::InitialPluginsReloaded {
+                    plugins,
+                    select_item
+                },
+            )
+        } else {
+            Command::none()
         };
 
         (
             ManagementAppModel {
-                backend_api: backend_api.clone(),
+                backend_api,
                 columns: vec![
                     Column::new(ColumnKind::ShowEntrypointsToggle),
                     Column::new(ColumnKind::Name),
@@ -230,15 +246,7 @@ impl Application for ManagementAppModel {
             },
             Command::batch([
                 font::load(icons::BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
-                Command::perform(
-                    async {
-                        reload_plugins(backend_api).await
-                    },
-                    |plugins| ManagementAppMsg::InitialPluginsReloaded {
-                        plugins,
-                        select_item
-                    },
-                ),
+                command,
             ]),
         )
     }
@@ -248,6 +256,13 @@ impl Application for ManagementAppModel {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        let mut backend_api = match &self.backend_api {
+            Some(backend_api) => backend_api.clone(),
+            None => {
+                return Command::none()
+            }
+        };
+
         match message {
             ManagementAppMsg::TableSyncHeader(offset) => {
                 scrollable::scroll_to(self.header.clone(), offset)
@@ -280,7 +295,7 @@ impl Application for ManagementAppModel {
             ManagementAppMsg::EnabledToggleItem(item) => {
                 match item {
                     EnabledItem::Plugin { enabled, plugin_id } => {
-                        let mut backend_client = self.backend_api.clone();
+                        let mut backend_client = backend_api.clone();
 
                         Command::perform(
                             async move {
@@ -294,7 +309,7 @@ impl Application for ManagementAppModel {
                         )
                     }
                     EnabledItem::Entrypoint { enabled, plugin_id, entrypoint_id } => {
-                        let mut backend_client = self.backend_api.clone();
+                        let mut backend_client = backend_api.clone();
 
                         Command::perform(
                             async move {
@@ -310,7 +325,7 @@ impl Application for ManagementAppModel {
                 }
             }
             ManagementAppMsg::AddPlugin { plugin_id } => {
-                let mut backend_client = self.backend_api.clone();
+                let mut backend_client = backend_api.clone();
 
                 let exists = self.running_downloads.insert(plugin_id.clone());
                 if !exists {
@@ -330,7 +345,7 @@ impl Application for ManagementAppModel {
                 for plugin in plugins {
                     self.running_downloads.remove(&plugin);
                 }
-                let backend_api = self.backend_api.clone();
+                let backend_api = backend_api.clone();
                 Command::perform(
                     async {
                         reload_plugins(backend_api).await
@@ -342,7 +357,7 @@ impl Application for ManagementAppModel {
                 if self.running_downloads.is_empty() {
                     Command::none()
                 } else {
-                    let mut backend_client = self.backend_api.clone();
+                    let mut backend_client = backend_api.clone();
 
                     Command::perform(
                         async move {
@@ -363,7 +378,7 @@ impl Application for ManagementAppModel {
                 self.preference_user_data
                     .insert((plugin_id.clone(), entrypoint_id.clone(), name.clone()), user_data.clone());
 
-                let mut backend_client = self.backend_api.clone();
+                let mut backend_client = backend_api.clone();
 
                 Command::perform(
                     async move {
@@ -377,7 +392,7 @@ impl Application for ManagementAppModel {
             ManagementAppMsg::RemovePlugin { plugin_id } => {
                 self.selected_item = SelectedItem::None;
 
-                let mut backend_client = self.backend_api.clone();
+                let mut backend_client = backend_api.clone();
 
                 Command::perform(
                     async move {
@@ -394,6 +409,20 @@ impl Application for ManagementAppModel {
     }
 
     fn view(&self) -> Element<'_, Self::Message, Self::Theme> {
+        if let None = &self.backend_api {
+            let description: Element<_> = text("Unable to connect to server. Please check if you have Gauntlet running on your PC")
+                .into();
+
+            let content: Element<_> = container(description)
+                .center_x()
+                .center_y()
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into();
+
+            return content
+        }
+
         let table: Element<_> = table(self.header.clone(), self.body.clone(), &self.columns, &self.rows, ManagementAppMsg::TableSyncHeader)
             .into();
 
