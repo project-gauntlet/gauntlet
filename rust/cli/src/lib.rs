@@ -17,7 +17,7 @@ struct Cli {
 #[derive(Debug, clap::Subcommand)]
 enum Commands {
     Open,
-    Management,
+    Settings,
 }
 
 pub fn init() {
@@ -45,7 +45,7 @@ pub fn init() {
         Some(command) => {
             match command {
                 Commands::Open => open_window(),
-                Commands::Management => start_management_client(),
+                Commands::Settings => start_management_client(),
             };
         }
     }

@@ -149,7 +149,7 @@ impl BackendServer for BackendServerImpl {
 
     async fn open_settings_window(&self) -> anyhow::Result<()> {
         std::process::Command::new(std::env::current_exe()?)
-            .args(["management"])
+            .args(["settings"])
             .spawn()
             .expect("failed to execute settings process");
 
@@ -170,7 +170,7 @@ impl BackendServer for BackendServerImpl {
         };
 
         std::process::Command::new(std::env::current_exe()?)
-            .args(["management"])
+            .args(["settings"])
             .env(SETTINGS_ENV, settings_env_data_to_string(data))
             .spawn()
             .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by frontend compilation

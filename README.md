@@ -233,7 +233,7 @@ The Application has a simple command line interface
 - `gauntlet` - starts server
   - `gauntlet --minimized` to start server but not open main window 
 - `gauntlet open` - opens application window, can be used instead of global shortcut
-- `gauntlet management` - settings, plugin installation and removal, preferences, etc
+- `gauntlet settings` - settings, plugin installation and removal, preferences, etc
 
 ### Dev Tools
 
@@ -305,7 +305,7 @@ Gauntlet executable consists of three applications:
     - Needs to be started when user logs in
 - `$ path/to/gauntlet/executable open`
     - Expected to be run on demand using launcher or system provided global shortcut
-- `$ path/to/gauntlet/executable management`
+- `$ path/to/gauntlet/executable settings`
     - Started on demand from the list of available applications (will vary depending on desktop environment or window
       manager chosen) or from Gauntlet itself
 
