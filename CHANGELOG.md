@@ -10,6 +10,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 ### Big things
 - Style overhaul
 - Window no longer changes the size in subviews. Default window size is a little bigger
+- **BREAKING CHANGE**: Rename `management` cli option to `settings`
+- Add error message for settings view when unable to connect to server
 
 ### Fixes
 - Fix Gauntlet crash on startup on Linux
