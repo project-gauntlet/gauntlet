@@ -7,6 +7,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 
 ## [Unreleased]
 
+## [5] - 2024-07-07
+
 ### Big things
 - Style overhaul
 - Window no longer changes the size in subviews. Default window size is a little bigger
