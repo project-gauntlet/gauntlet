@@ -31,7 +31,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiPropertyValue, UiWidget, UiWidgetId, SearchResultEntrypointType};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiPropertyValue, UiWidget, UiWidgetId, SearchResultEntrypointType, PhysicalKey};
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
 
@@ -111,7 +111,7 @@ pub enum OnePluginCommandData {
     },
     HandleKeyboardEvent {
         entrypoint_id: EntrypointId,
-        key: String,
+        key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
@@ -610,7 +610,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::HandleKeyboardEvent { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
             JsUiEvent::KeyboardEvent {
                 entrypoint_id: entrypoint_id.to_string(),
-                key,
+                key: key.to_value(),
                 modifier_shift,
                 modifier_control,
                 modifier_alt,

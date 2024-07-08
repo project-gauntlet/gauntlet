@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use common::{settings_env_data_to_string, SettingsEnvData};
-use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId};
+use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey};
 use common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
@@ -65,7 +65,7 @@ impl BackendServer for BackendServerImpl {
         Ok(())
     }
 
-    async fn send_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: String, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> anyhow::Result<()> {
+    async fn send_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> anyhow::Result<()> {
         self.application_manager.handle_keyboard_event(
             plugin_id,
             entrypoint_id,

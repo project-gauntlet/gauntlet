@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use anyhow::anyhow;
 use include_dir::{Dir, include_dir};
 
-use common::model::{ActionShortcut, ActionShortcutKind, DownloadStatus, EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PhysicalKey, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common::rpc::frontend_server::wait_for_frontend_server;
 
 use crate::dirs::Dirs;
+use crate::model::ActionShortcutKey;
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
@@ -311,7 +313,7 @@ impl ApplicationManager {
         })
     }
 
-    pub fn handle_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: String, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) {
+    pub fn handle_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::HandleKeyboardEvent {
@@ -357,7 +359,7 @@ impl ApplicationManager {
             .await?;
 
         let actions_user_data: HashMap<_, _> = actions_user_data.into_iter()
-            .map(|data| (data.id, (data.key, data.kind)))
+            .map(|data| (data.id, (data.key, data.modifier_shift, data.modifier_control, data.modifier_alt, data.modifier_meta)))
             .collect();
 
         let action_shortcuts = actions.into_iter()
@@ -366,28 +368,48 @@ impl ApplicationManager {
 
                 let shortcut = match actions_user_data.get(&id) {
                     None => {
-                        ActionShortcut {
-                            key: action.key,
-                            kind: match action.kind {
-                                DbPluginActionShortcutKind::Main => ActionShortcutKind::Main,
-                                DbPluginActionShortcutKind::Alternative => ActionShortcutKind::Alternative,
+                        let (key, modifier_shift) = match ActionShortcutKey::from_value(&action.key) {
+                            Some(key) => key.to_physical_key(),
+                            None => {
+                                return Err(anyhow!("unknown key: {}", &action.key))
                             },
+                        };
+
+                        let (modifier_control, modifier_alt, modifier_meta) = match action.kind {
+                            DbPluginActionShortcutKind::Main => {
+                                if cfg!(target_os = "macos") {
+                                    (false, false, true)
+                                } else {
+                                    (true, false, false)
+                                }
+                            },
+                            DbPluginActionShortcutKind::Alternative => {
+                                (false, true, false)
+                            },
+                        };
+
+                        ActionShortcut {
+                            key,
+                            modifier_shift,
+                            modifier_control,
+                            modifier_alt,
+                            modifier_meta,
                         }
                     }
-                    Some((key, kind)) => {
+                    Some(&(ref key, modifier_shift, modifier_control, modifier_alt, modifier_meta)) => {
                         ActionShortcut {
-                            key: key.to_owned(),
-                            kind: match kind {
-                                DbPluginActionShortcutKind::Main => ActionShortcutKind::Main,
-                                DbPluginActionShortcutKind::Alternative => ActionShortcutKind::Alternative,
-                            },
+                            key: PhysicalKey::from_value(key.to_owned()),
+                            modifier_shift,
+                            modifier_control,
+                            modifier_alt,
+                            modifier_meta,
                         }
                     }
                 };
 
-                (id, shortcut)
+                Ok((id, shortcut))
             })
-            .collect();
+            .collect::<Result<HashMap<_, _>, _>>()?;
 
         Ok(action_shortcuts)
     }

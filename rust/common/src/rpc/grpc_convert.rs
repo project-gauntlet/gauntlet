@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 
-use crate::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, SearchResult, SearchResultEntrypointType, UiWidget};
+use crate::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, SearchResult, SearchResultEntrypointType, UiWidget, PhysicalKey};
 use crate::rpc::grpc::{rpc_ui_property_value, RpcEntrypointTypeSearchResult, RpcEnumValue, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcSearchResult, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_ui_property_value::Value;
 
@@ -518,3 +518,11 @@ pub fn ui_search_result_to_rpc(item: SearchResult) -> RpcSearchResult {
         plugin_id: item.plugin_id.to_string(),
     }
 }
+
+pub fn physical_key_from_rpc(key: String) -> PhysicalKey {
+    PhysicalKey::from_value(key)
+}
+
+pub fn physical_key_to_rpc(key: PhysicalKey) -> String {
+    key.to_value()
+ }

@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{ActionShortcut, ActionShortcutKind, EntrypointId, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcRequestViewRenderResponseActionKind, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
+use crate::model::{ActionShortcut, EntrypointId, PhysicalKey, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
-use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
+use crate::rpc::grpc_convert::{physical_key_to_rpc, plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
 
 #[derive(Debug, Clone)]
 pub struct BackendApi {
@@ -57,16 +57,15 @@ impl BackendApi {
             .action_shortcuts
             .into_iter()
             .map(|(id, value)| {
-                let key = value.key;
-                let kind = RpcRequestViewRenderResponseActionKind::try_from(value.kind)
-                    .unwrap();
-
-                let kind = match kind {
-                    RpcRequestViewRenderResponseActionKind::Main => ActionShortcutKind::Main,
-                    RpcRequestViewRenderResponseActionKind::Alternative => ActionShortcutKind::Alternative
+                let action_shortcut = ActionShortcut {
+                    key: PhysicalKey::from_value(value.key),
+                    modifier_shift: value.modifier_shift,
+                    modifier_control: value.modifier_control,
+                    modifier_alt: value.modifier_alt,
+                    modifier_meta: value.modifier_meta,
                 };
 
-                (id, ActionShortcut { key, kind })
+                (id, action_shortcut)
             })
             .collect::<HashMap<_, _>>();
 
@@ -146,7 +145,7 @@ impl BackendApi {
         &mut self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        char: String,
+        key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
@@ -154,7 +153,7 @@ impl BackendApi {
     ) -> anyhow::Result<()> {
         let event = RpcEventKeyboardEvent {
             entrypoint_id: entrypoint_id.to_string(),
-            key: char.to_string(),
+            key: physical_key_to_rpc(key),
             modifier_shift,
             modifier_control,
             modifier_alt,

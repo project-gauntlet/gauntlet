@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context};
 use deno_core::{op, OpState, serde_v8, v8};
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use indexmap::IndexMap;
-use common::model::{EntrypointId, UiPropertyValue, UiWidget};
+use common::model::{EntrypointId, PhysicalKey, UiPropertyValue, UiWidget};
 use component_model::{Component, Property, PropertyType, SharedType};
 use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget};
 use crate::plugins::data_db_repository::DataDbRepository;
@@ -136,7 +136,7 @@ async fn fetch_action_id_for_shortcut(
     let result = repository.get_action_id_for_shortcut(
         &plugin_id.to_string(),
         &entrypoint_id,
-        &key,
+        PhysicalKey::from_value(key),
         modifier_shift,
         modifier_control,
         modifier_alt,

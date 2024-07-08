@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock as StdRwLock};
 
 use global_hotkey::{GlobalHotKeyManager, HotKeyState};
 use iced::{Alignment, Command, Event, event, executor, font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
+use iced::advanced::graphics::core::SmolStr;
 use iced::Application;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
@@ -33,6 +34,7 @@ use utils::channel::{channel, RequestReceiver};
 use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
 use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
+use crate::ui::physical_keys::physical_key_model;
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
 use crate::ui::theme::container::ContainerStyle;
@@ -47,6 +49,7 @@ mod theme;
 mod client_context;
 mod widget_container;
 mod inline_view_container;
+mod physical_keys;
 
 pub struct AppModel {
     // logic
@@ -393,58 +396,56 @@ impl Application for AppModel {
                 let mut backend_client = self.backend_api.clone();
 
                 match event {
-                    keyboard::Event::KeyPressed { key, modifiers, .. } => {
+                    keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                         match key {
                             Key::Named(Named::ArrowUp) => iced::widget::focus_previous(),
                             Key::Named(Named::ArrowDown) => iced::widget::focus_next(),
                             Key::Named(Named::Escape) => self.previous_view(),
-                            Key::Character(char) => {
-                                if let Some(_) = self.plugin_view_data {
+                            Key::Named(Named::Backspace) => {
+                                self.backspace_prompt();
+                                focus(self.search_field_id.clone())
+                            },
+                            _ => {
+                                if self.plugin_view_data.is_none() {
+                                    match text {
+                                        Some(text) => {
+                                            self.append_prompt(text.to_string());
+                                            focus(self.search_field_id.clone())
+                                        }
+                                        None => {
+                                            Command::none()
+                                        }
+                                    }
+                                } else {
                                     let (plugin_id, entrypoint_id) = {
                                         let client_context = self.client_context.read().expect("lock is poisoned");
                                         (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
                                     };
 
-                                    tracing::debug!("key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", char, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
+                                    match physical_key_model(physical_key) {
+                                        Some(name) => {
+                                            tracing::debug!("physical key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", name, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
 
-                                    match char.as_ref() {
-                                        // only stuff that is present on 60% keyboard
-                                        "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "-" | "=" |
-                                        "!" | "@" | "#" | "$" | "%" | "^" | "&" | "*" | "(" | ")" | "_" | "+" |
-                                        "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" |
-                                        "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" |
-                                        "," | "." | "/" | "[" | "]" | ";" | "'" | "\\" |
-                                        "<" | ">" | "?" | "{" | "}" | ":" | "\"" | "|" => {
-                                            Command::perform(async move {
-                                                let char = char.to_string();
-                                                let modifier_shift = modifiers.shift();
-                                                let modifier_control = modifiers.control();
-                                                let modifier_alt = modifiers.alt();
-                                                let modifier_meta = modifiers.logo();
+                                            Command::perform(
+                                                async move {
+                                                    let modifier_shift = modifiers.shift();
+                                                    let modifier_control = modifiers.control();
+                                                    let modifier_alt = modifiers.alt();
+                                                    let modifier_meta = modifiers.logo();
 
-                                                backend_client.send_keyboard_event(plugin_id, entrypoint_id, char, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                                    .await
-                                                    .unwrap(); // TODO proper error handling
-                                            }, |_| AppMsg::Noop)
+                                                    backend_client.send_keyboard_event(plugin_id, entrypoint_id, name, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                        .await
+                                                        .unwrap(); // TODO proper error handling
+                                                },
+                                                |_| AppMsg::Noop,
+                                            )
                                         }
-                                        _ => {
+                                        None => {
                                             Command::none()
                                         }
                                     }
-                                } else {
-                                    self.append_prompt(char.to_string());
-                                    focus(self.search_field_id.clone())
                                 }
                             }
-                            Key::Named(Named::Space) => {
-                                self.append_prompt(" ".to_string());
-                                focus(self.search_field_id.clone())
-                            },
-                            Key::Named(Named::Backspace) => {
-                                self.backspace_prompt();
-                                focus(self.search_field_id.clone())
-                            },
-                            _ => Command::none()
                         }
                     }
                     _ => Command::none()

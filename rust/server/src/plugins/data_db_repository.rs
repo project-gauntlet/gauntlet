@@ -11,9 +11,11 @@ use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 use uuid::Uuid;
-
+use common::model::PhysicalKey;
 use crate::dirs::Dirs;
+use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
+use crate::plugins::loader::PluginManifestActionShortcutKey;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -169,7 +171,10 @@ pub struct DbPluginAction {
 pub struct DbPluginActionUserData {
     pub id: String,
     pub key: String,
-    pub kind: DbPluginActionShortcutKind
+    pub modifier_shift: bool,
+    pub modifier_control: bool,
+    pub modifier_alt: bool,
+    pub modifier_meta: bool
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -431,39 +436,23 @@ impl DataDbRepository {
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
-        key: &str,
+        key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
         modifier_meta: bool
     ) -> anyhow::Result<Option<String>> {
-        let kind = if cfg!(target_os = "macos") {
-            match (modifier_shift, modifier_control, modifier_alt, modifier_meta) {
-                (_, false, false, true) => DbPluginActionShortcutKind::Main,
-                (_, false, true, false) => DbPluginActionShortcutKind::Alternative,
-                _ => return Ok(None)
-            }
-        } else {
-            match (modifier_shift, modifier_control, modifier_alt, modifier_meta) {
-                (_, true, false, false) => DbPluginActionShortcutKind::Main,
-                (_, false, true, false) => DbPluginActionShortcutKind::Alternative,
-                _ => return Ok(None)
-            }
-        };
-
-        let kind = match kind {
-            DbPluginActionShortcutKind::Main => "main".to_owned(),
-            DbPluginActionShortcutKind::Alternative => "alternative".to_owned(),
-        };
-
         // language=SQLite
-        let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions_user_data) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'kind' = ?4"#;
+        let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions_user_data) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'modifier_shift' = ?4 AND json_each.value ->> 'modifier_control' = ?5 AND json_each.value ->> 'modifier_alt' = ?6 AND json_each.value ->> 'modifier_meta' = ?6"#;
 
         let action_id = sqlx::query_as::<_, (String, )>(sql)
             .bind(plugin_id)
             .bind(entrypoint_id)
-            .bind(key)
-            .bind(&kind)
+            .bind(key.to_value())
+            .bind(modifier_shift)
+            .bind(modifier_control)
+            .bind(modifier_alt)
+            .bind(modifier_meta)
             .fetch_optional(&self.pool)
             .await?
             .map(|result| result.0);
@@ -471,13 +460,36 @@ impl DataDbRepository {
         match action_id {
             Some(action_id) => Ok(Some(action_id)),
             None => {
+                let kind = if cfg!(target_os = "macos") {
+                    match (modifier_control, modifier_alt, modifier_meta) {
+                        (false, false, true) => DbPluginActionShortcutKind::Main,
+                        (false, true, false) => DbPluginActionShortcutKind::Alternative,
+                        _ => return Ok(None)
+                    }
+                } else {
+                    match (modifier_control, modifier_alt, modifier_meta) {
+                        (true, false, false) => DbPluginActionShortcutKind::Main,
+                        (false, true, false) => DbPluginActionShortcutKind::Alternative,
+                        _ => return Ok(None)
+                    }
+                };
+
+                let kind = match kind {
+                    DbPluginActionShortcutKind::Main => "main".to_owned(),
+                    DbPluginActionShortcutKind::Alternative => "alternative".to_owned(),
+                };
+
                 // language=SQLite
                 let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'kind' = ?4"#;
+
+                let Some(logical_key) = ActionShortcutKey::from_physical_key(key, modifier_shift) else {
+                    return Ok(None);
+                };
 
                 let action_id = sqlx::query_as::<_, (String, )>(sql)
                     .bind(plugin_id)
                     .bind(entrypoint_id)
-                    .bind(key)
+                    .bind(logical_key.to_value())
                     .bind(&kind)
                     .fetch_optional(&self.pool)
                     .await?

@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use iced::{Alignment, Application, color, Font, Length};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, vertical_space};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, Text, text_input, tooltip, vertical_rule, vertical_space};
 use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
 use iced_aw::{floating_element, GridRow};
@@ -17,11 +17,12 @@ use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
 
-use common::model::{ActionShortcutKind, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
+use common::model::{PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
 
 use crate::model::UiViewEvent;
-use crate::ui::ActionShortcut;
-use crate::ui::theme::{Element, ThemableWidget};
+use crate::ui::{ActionShortcut, AppMsg};
+use crate::ui::physical_keys::physical_key_name;
+use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::date_picker::DatePickerStyle;
@@ -217,61 +218,98 @@ impl ComponentWidgetWrapper {
                     .map(|shortcut| {
                         let mut result = vec![];
 
-                        let modifier: Element<_> = if cfg!(target_os = "macos") {
-                            match shortcut.kind {
-                                ActionShortcutKind::Main => {
-                                    text(icons::Bootstrap::Command)
-                                        .font(icons::BOOTSTRAP_FONT)
-                                        .into()
-                                }
-                                ActionShortcutKind::Alternative => {
+                        let alt_modifier_text = if shortcut.modifier_alt {
+                            if cfg!(target_os = "macos") {
+                                Some(
                                     text(icons::Bootstrap::Option)
                                         .font(icons::BOOTSTRAP_FONT)
-                                        .into()
-                                }
+                                )
+                            } else {
+                                Some(
+                                    text("ALT")
+                                )
                             }
                         } else {
-                            match shortcut.kind {
-                                ActionShortcutKind::Main => {
-                                    text("CTRL")
-                                        .into()
-                                }
-                                ActionShortcutKind::Alternative => {
-                                    text("ALT")
-                                        .into()
-                                }
-                            }
+                            None
                         };
 
-                        let modifier: Element<_> = container(modifier)
-                            .themed(ContainerStyle::ActionShortcutModifier);
-
-                        let modifier: Element<_> = container(modifier)
-                            .themed(ContainerStyle::ActionShortcutModifiersInit);
-
-                        result.push(modifier);
-
-                        let shift = shortcut.key.chars().all(|ch| ch.is_ascii_uppercase() && ch.is_alphabetic());
-                        if shift {
-                            let shift_key: Element<_> = if cfg!(target_os = "macos") {
-                                text(icons::Bootstrap::Shift)
-                                    .font(icons::BOOTSTRAP_FONT)
-                                    .into()
+                        let meta_modifier_text = if shortcut.modifier_meta {
+                            if cfg!(target_os = "macos") {
+                                Some(
+                                    text(icons::Bootstrap::Command)
+                                        .font(icons::BOOTSTRAP_FONT)
+                                )
+                            } else if cfg!(target_os = "windows") {
+                                Some(
+                                    text("WIN") // is it possible to have shortcuts that use win?
+                                        .into()
+                                )
                             } else {
-                                text("SHIFT")
-                                    .into()
-                            };
+                                Some(
+                                    text("SUPER")
+                                        .into()
+                                )
+                            }
+                        } else {
+                            None
+                        };
 
-                            let shift_key: Element<_> = container(shift_key)
-                                .themed(ContainerStyle::ActionShortcutModifier);
+                        let control_modifier_text = if shortcut.modifier_control {
+                            if cfg!(target_os = "macos") {
+                                Some(
+                                    text("^") // TODO bootstrap doesn't have proper macos ctrl icon
+                                        .font(icons::BOOTSTRAP_FONT)
+                                )
+                            } else {
+                                Some(
+                                    text("CTRL")
+                                )
+                            }
+                        } else {
+                            None
+                        };
 
-                            let shift_key: Element<_> = container(shift_key)
-                                .themed(ContainerStyle::ActionShortcutModifiersInit);
+                        let shift_modifier_text = if shortcut.modifier_shift {
+                            if cfg!(target_os = "macos") {
+                                Some(
+                                    text(icons::Bootstrap::Shift)
+                                        .font(icons::BOOTSTRAP_FONT)
+                                        .into()
+                                )
+                            } else {
+                                Some(
+                                    text("SHIFT")
+                                        .into()
+                                )
+                            }
+                        } else {
+                            None
+                        };
 
-                            result.push(shift_key);
+                        fn apply_modifier<'a, 'b>(result: &'a mut Vec<Element<'b, ComponentWidgetEvent>>, modifier: Option<Text<'b, GauntletTheme>>) {
+                            if let Some(modifier) = modifier {
+                                let modifier: Element<_> = container(modifier)
+                                    .themed(ContainerStyle::ActionShortcutModifier);
+
+                                let modifier: Element<_> = container(modifier)
+                                    .themed(ContainerStyle::ActionShortcutModifiersInit);
+
+                                result.push(modifier);
+                            }
                         }
 
-                        let text: Element<_> = text(shortcut.key.to_ascii_uppercase())
+                        let (key_name, show_shift) = physical_key_name(&shortcut.key, shortcut.modifier_shift);
+
+                        apply_modifier(&mut result, meta_modifier_text);
+                        apply_modifier(&mut result, control_modifier_text);
+
+                        if show_shift {
+                            apply_modifier(&mut result, shift_modifier_text);
+                        }
+
+                        apply_modifier(&mut result, alt_modifier_text);
+
+                        let text: Element<_> = text(key_name)
                             .into();
 
                         let text: Element<_> = container(text)
