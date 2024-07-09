@@ -395,7 +395,7 @@ impl GauntletTheme {
                 background_color_hovered: BACKGROUND_2,
                 text_color: TEXT,
                 text_color_placeholder: SUBTITLE_TEXT,
-                selection_color: PRIMARY,
+                selection_color: BACKGROUND_2,
                 border_radius: 4.0,
                 border_width: 1.0,
                 border_color: BACKGROUND_2,
