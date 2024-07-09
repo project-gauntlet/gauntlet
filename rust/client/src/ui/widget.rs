@@ -1227,7 +1227,7 @@ impl Display for SelectItem {
 
 fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
     let label: Element<_> = text(label)
-        .themed(TextStyle::MainListItemSubtext);
+        .themed(TextStyle::MetadataItemLabel);
 
     let label = container(label)
         .themed(ContainerStyle::MetadataItemLabel);

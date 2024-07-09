@@ -69,7 +69,7 @@ pub struct GauntletTheme {
     metadata_inner: ExternalThemePaddingOnly,
     metadata_separator: ExternalThemePaddingOnly,
     metadata_tag_item: ExternalThemePaddingOnly,
-    metadata_item_label: ExternalThemePaddingTextColor,
+    metadata_item_label: ExternalThemePaddingTextColorSize,
     metadata_link_icon: ExternalThemePaddingOnly,
     metadata_tag_item_button: ExternalThemeButton,
     plugin_error_view_description: ExternalThemePaddingOnly,
@@ -110,7 +110,7 @@ impl GauntletTheme {
                 background_color: BACKGROUND_1_5,
             },
             action_panel_title: ExternalThemePaddingOnly {
-                padding: padding_axis(2.0, 8.0),
+                padding: padding(2.0, 8.0, 4.0, 8.0),
             },
             action: ExternalThemeButton {
                 padding: padding_all(8.0),
@@ -137,10 +137,10 @@ impl GauntletTheme {
                 padding: padding_all(8.0)
             },
             metadata_tag_item: ExternalThemePaddingOnly {
-                padding: padding_all(4.0),
+                padding: padding(0.0, 8.0, 4.0, 0.0),
             },
             metadata_tag_item_button: ExternalThemeButton {
-                padding: padding_axis(4.0, 8.0),
+                padding: padding_axis(2.0, 8.0),
                 background_color: PRIMARY,
                 background_color_hovered: PRIMARY_2,
                 text_color: TEXT_DARK,
@@ -149,15 +149,16 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            metadata_item_label: ExternalThemePaddingTextColor {
+            metadata_item_label: ExternalThemePaddingTextColorSize {
                 padding: padding_all(0.0),
                 text_color: SUBTITLE_TEXT,
+                text_size: 14.0,
             },
             metadata_item_value: ExternalThemePaddingOnly {
-                padding: padding_all(4.0),
+                padding: padding_axis(8.0, 0.0),
             },
             metadata_link_icon: ExternalThemePaddingOnly {
-                padding: padding_all(4.0),
+                padding: padding_axis(0.0, 4.0),
             },
             root_bottom_panel: ExternalThemePaddingBackgroundColor {
                 padding: padding_axis(4.0, 8.0),
@@ -613,6 +614,13 @@ pub struct ExternalThemeDatePicker {
 pub struct ExternalThemePaddingTextColor {
     padding: ExternalThemePadding,
     text_color: ExternalThemeColor,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternalThemePaddingTextColorSize {
+    padding: ExternalThemePadding,
+    text_color: ExternalThemeColor,
+    text_size: f32,
 }
 
 #[derive(Debug, Clone)]

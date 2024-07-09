@@ -2,7 +2,7 @@ use iced::Renderer;
 use iced::widget::{Text, text};
 use text::Appearance;
 
-use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
 
 #[derive(Clone, Default)]
 pub enum TextStyle {
@@ -21,7 +21,19 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Re
     type Kind = TextStyle;
 
     fn themed(self, kind: TextStyle) -> Element<'a, Message> {
-        self.style(kind).into()
+        match kind {
+            TextStyle::MetadataItemLabel => {
+                let theme = get_theme();
+
+                self.style(kind)
+                    .size(theme.metadata_item_label.text_size)
+                    .into()
+            }
+            _ => {
+                self.style(kind)
+                    .into()
+            }
+        }
     }
 }
 
