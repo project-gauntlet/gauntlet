@@ -103,11 +103,11 @@ impl GauntletTheme {
                 background_color: BACKGROUND,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_2,
+                border_color: BACKGROUND_LIGHT,
             },
             action_panel: ExternalThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
-                background_color: BACKGROUND_1_5,
+                background_color: BACKGROUND_OVERLAY,
             },
             action_panel_title: ExternalThemePaddingOnly {
                 padding: padding(2.0, 8.0, 4.0, 8.0),
@@ -115,7 +115,7 @@ impl GauntletTheme {
             action: ExternalThemeButton {
                 padding: padding_all(8.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_LIGHT,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -128,7 +128,7 @@ impl GauntletTheme {
             action_shortcut_modifier: ExternalThemeActionShortcutModifier {
                 padding: padding_axis(0.0, 4.0),
                 spacing: 4.0,
-                background_color: BACKGROUND_3,
+                background_color: BACKGROUND_LIGHTER,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -142,7 +142,7 @@ impl GauntletTheme {
             metadata_tag_item_button: ExternalThemeButton {
                 padding: padding_axis(2.0, 8.0),
                 background_color: PRIMARY,
-                background_color_hovered: PRIMARY_2,
+                background_color_hovered: PRIMARY_HOVERED,
                 text_color: TEXT_DARK,
                 text_color_hovered: TEXT_DARK,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -151,7 +151,7 @@ impl GauntletTheme {
             },
             metadata_item_label: ExternalThemePaddingTextColorSize {
                 padding: padding_all(0.0),
-                text_color: SUBTITLE_TEXT,
+                text_color: TEXT_DARKER,
                 text_size: 14.0,
             },
             metadata_item_value: ExternalThemePaddingOnly {
@@ -162,14 +162,14 @@ impl GauntletTheme {
             },
             root_bottom_panel: ExternalThemePaddingBackgroundColor {
                 padding: padding_axis(4.0, 8.0),
-                background_color: BACKGROUND_1_5,
+                background_color: BACKGROUND_OVERLAY,
             },
             root_top_panel: ExternalThemePaddingOnly {
                 padding: padding_all(12.0),
             },
             list_item_subtitle: ExternalThemePaddingTextColor {
                 padding: padding_all(4.0),
-                text_color: SUBTITLE_TEXT,
+                text_color: TEXT_DARKER,
             },
             list_item_title: ExternalThemePaddingOnly {
                 padding: padding_all(4.0),
@@ -196,8 +196,8 @@ impl GauntletTheme {
             },
             grid_item: ExternalThemeButton {
                 padding: padding_all(8.0),
-                background_color: BACKGROUND_2,
-                background_color_hovered: BACKGROUND_3,
+                background_color: BACKGROUND_LIGHT,
+                background_color_hovered: BACKGROUND_LIGHTER,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -209,7 +209,7 @@ impl GauntletTheme {
             },
             content_code_block_text: ExternalThemeCode {
                 padding: padding_axis(4.0, 8.0),
-                background_color: BACKGROUND_2,
+                background_color: BACKGROUND_LIGHT,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -219,8 +219,8 @@ impl GauntletTheme {
             },
             root_top_panel_button: ExternalThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: BACKGROUND_2,
-                background_color_hovered: BACKGROUND_3,
+                background_color: BACKGROUND_LIGHT,
+                background_color_hovered: BACKGROUND_LIGHTER,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: 6.0,
@@ -229,8 +229,8 @@ impl GauntletTheme {
             },
             root_bottom_panel_action_button: ExternalThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: BACKGROUND_2,
-                background_color_hovered: BACKGROUND_3,
+                background_color: BACKGROUND_LIGHT,
+                background_color_hovered: BACKGROUND_LIGHTER,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: 6.0,
@@ -240,7 +240,7 @@ impl GauntletTheme {
             list_item: ExternalThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_LIGHT,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -289,16 +289,16 @@ impl GauntletTheme {
             },
             list_section_title: ExternalThemePaddingTextColor {
                 padding: padding_axis(4.0, 8.0),
-                text_color: SUBTITLE_TEXT,
+                text_color: TEXT_DARKER,
             },
             grid_section_title: ExternalThemePaddingTextColor {
                 padding: padding_axis(4.0, 0.0),
-                text_color: SUBTITLE_TEXT,
+                text_color: TEXT_DARKER,
             },
             main_list_item: ExternalThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_LIGHT,
                 text_color: TEXT,
                 text_color_hovered: TEXT,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -310,7 +310,7 @@ impl GauntletTheme {
             },
             main_list_item_sub_text: ExternalThemePaddingTextColor {
                 padding: padding_axis(4.0, 12.0),
-                text_color: SUBTITLE_TEXT,
+                text_color: TEXT_DARKER,
             },
             main_list_item_icon: ExternalThemePaddingOnly {
                 padding: padding(0.0, 7.0, 0.0, 5.0),
@@ -335,28 +335,28 @@ impl GauntletTheme {
             },
             metadata_link: ExternalThemeLink {
                 text_color: TEXT,
-                text_color_hovered: TEXT_2,
+                text_color_hovered: TEXT_HOVERED,
             },
             empty_view_subtitle: ExternalThemeTextColor {
-                text_color: SUBTITLE_TEXT,
+                text_color: TEXT_DARKER,
             },
             form_input_date_picker: ExternalThemeDatePicker {
                 background_color: BACKGROUND,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_2,
+                border_color: BACKGROUND_LIGHT,
                 text_color: TEXT,
-                text_color_selected: SUBTITLE_TEXT,
-                text_color_hovered: SUBTITLE_TEXT,
+                text_color_selected: TEXT_DARKER,
+                text_color_hovered: TEXT_DARKER,
                 text_attenuated_color: ExternalThemeColor::new(0xCAC2B6, 0.3),
-                day_background_color: BACKGROUND_2,
-                day_background_color_selected: BACKGROUND_2,
-                day_background_color_hovered: BACKGROUND_2,
+                day_background_color: BACKGROUND_LIGHT,
+                day_background_color_selected: BACKGROUND_LIGHT,
+                day_background_color_hovered: BACKGROUND_LIGHT,
             },
             form_input_date_picker_buttons: ExternalThemeButton {
                 padding: padding_all(8.0),
                 background_color: PRIMARY,
-                background_color_hovered: PRIMARY_2,
+                background_color_hovered: PRIMARY_HOVERED,
                 text_color: TEXT_DARK,
                 text_color_hovered: TEXT_DARK,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -366,8 +366,8 @@ impl GauntletTheme {
             form_input_checkbox: ExternalThemeCheckbox {
                 background_color_checked: PRIMARY,
                 background_color_unchecked: BACKGROUND,
-                background_color_checked_hovered: PRIMARY_2,
-                background_color_unchecked_hovered: BACKGROUND_2,
+                background_color_checked_hovered: PRIMARY_HOVERED,
+                background_color_unchecked_hovered: BACKGROUND_LIGHT,
                 border_radius: 4.0,
                 border_width: 1.0,
                 border_color: PRIMARY,
@@ -375,35 +375,35 @@ impl GauntletTheme {
             },
             form_input_select: ExternalThemeSelect {
                 background_color: PRIMARY,
-                background_color_hovered: PRIMARY_2,
+                background_color_hovered: PRIMARY_HOVERED,
                 text_color: TEXT_DARK,
                 text_color_hovered: TEXT_DARK,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_2,
+                border_color: BACKGROUND_LIGHT,
             },
             form_input_select_menu: ExternalThemeSelectMenu {
                 background_color: BACKGROUND,
-                background_color_selected: BACKGROUND_2,
+                background_color_selected: BACKGROUND_LIGHT,
                 text_color: TEXT,
                 text_color_selected: TEXT,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_2,
+                border_color: BACKGROUND_LIGHT,
             },
             form_input_text_field: ExternalThemeTextField {
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_2,
+                background_color_hovered: BACKGROUND_LIGHT,
                 text_color: TEXT,
-                text_color_placeholder: SUBTITLE_TEXT,
-                selection_color: BACKGROUND_2,
+                text_color_placeholder: TEXT_DARKER,
+                selection_color: BACKGROUND_LIGHT,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_2,
-                border_color_hovered: BACKGROUND_2,
+                border_color: BACKGROUND_LIGHT,
+                border_color_hovered: BACKGROUND_LIGHT,
             },
             separator: ExternalThemeSeparator {
-                color: BACKGROUND_2
+                color: BACKGROUND_LIGHT
             },
             scrollbar: ExternalThemeScrollbar {
                 color: PRIMARY,
@@ -413,7 +413,7 @@ impl GauntletTheme {
             },
             tooltip: ExternalThemeTooltip {
                 padding: 8.0,
-                background_color: BACKGROUND_1_5,
+                background_color: BACKGROUND_OVERLAY,
             },
         };
 
@@ -437,15 +437,15 @@ const NOT_INTENDED_TO_BE_USED: ExternalThemeColor = ExternalThemeColor::new(0xAF
 
 const TRANSPARENT: ExternalThemeColor = ExternalThemeColor::new(0x000000, 0.0);
 const BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x2C323A, 1.0);
-const BACKGROUND_1_5: ExternalThemeColor = ExternalThemeColor::new(0x333a42, 1.0);
-const BACKGROUND_2: ExternalThemeColor = ExternalThemeColor::new(0x48505B, 0.5);
-const BACKGROUND_3: ExternalThemeColor = ExternalThemeColor::new(0x626974, 0.3);
+const BACKGROUND_OVERLAY: ExternalThemeColor = ExternalThemeColor::new(0x333a42, 1.0);
+const BACKGROUND_LIGHT: ExternalThemeColor = ExternalThemeColor::new(0x48505B, 0.5);
+const BACKGROUND_LIGHTER: ExternalThemeColor = ExternalThemeColor::new(0x626974, 0.3);
 const TEXT: ExternalThemeColor = ExternalThemeColor::new(0xCAC2B6, 1.0);
-const TEXT_2: ExternalThemeColor = ExternalThemeColor::new(0xE1E0DD, 1.0);
+const TEXT_HOVERED: ExternalThemeColor = ExternalThemeColor::new(0xE1E0DD, 1.0);
+const TEXT_DARKER: ExternalThemeColor = ExternalThemeColor::new(0x848484, 1.0);
 const TEXT_DARK: ExternalThemeColor = ExternalThemeColor::new(0x1D242C, 1.0);
-const SUBTITLE_TEXT: ExternalThemeColor = ExternalThemeColor::new(0x848484, 1.0);
 const PRIMARY: ExternalThemeColor = ExternalThemeColor::new(0xC79F60, 1.0);
-const PRIMARY_2: ExternalThemeColor = ExternalThemeColor::new(0xD7B37A, 1.0);
+const PRIMARY_HOVERED: ExternalThemeColor = ExternalThemeColor::new(0xD7B37A, 1.0);
 
 const BUTTON_BORDER_RADIUS: f32 = 6.0;
 
