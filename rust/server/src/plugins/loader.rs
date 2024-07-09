@@ -747,6 +747,10 @@ pub enum PluginManifestActionShortcutKind {
 pub enum PluginManifestSupportedSystem {
     #[serde(rename = "linux")]
     Linux,
+    #[serde(rename = "windows")]
+    Windows,
+    #[serde(rename = "macos")]
+    MacOS,
 }
 
 #[derive(Debug, Deserialize)]
