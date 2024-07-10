@@ -4,17 +4,21 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::time::Duration;
 
-use iced::{Alignment, Application, color, Command, Element, executor, font, Font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, Theme, time, window};
+use iced::{Alignment, Application, color, Command, executor, font, Font, futures, Length, Padding, Renderer, Settings, Size, Subscription, theme, time, window};
 use iced::font::Weight;
-use iced::theme::Palette;
+use iced::theme::{Palette, palette};
 use iced::widget::{button, checkbox, column, container, horizontal_space, pick_list, row, scrollable, Space, text, text_input, vertical_rule};
 use iced_aw::core::icons;
 use iced_aw::helpers::number_input;
 use iced_table::table;
 
-use common::rpc::backend_api::BackendApi;
-use common::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin};
 use common::{settings_env_data_from_string, SettingsEnvData};
+use common::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin};
+use common::rpc::backend_api::BackendApi;
+
+use crate::theme::{Element, GauntletSettingsTheme};
+use crate::theme::button::ButtonStyle;
+use crate::theme::container::ContainerStyle;
 
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
@@ -22,7 +26,7 @@ pub fn run() {
     ManagementAppModel::run(Settings {
         id: None,
         window: window::Settings {
-            size: Size::new(900.0, 600.0),
+            size: Size::new(1000.0, 600.0),
             ..Default::default()
         },
         ..Default::default()
@@ -183,11 +187,11 @@ enum EnabledItem {
     },
 }
 
-
+//noinspection RsSortImplTraitMembers
 impl Application for ManagementAppModel {
     type Executor = executor::Default;
     type Message = ManagementAppMsg;
-    type Theme = iced::Theme;
+    type Theme = GauntletSettingsTheme;
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
@@ -408,7 +412,7 @@ impl Application for ManagementAppModel {
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message, Self::Theme> {
+    fn view(&self) -> Element<'_, Self::Message> {
         if let None = &self.backend_api {
             let description: Element<_> = text("Unable to connect to server. Please check if you have Gauntlet running on your PC")
                 .into();
@@ -424,6 +428,7 @@ impl Application for ManagementAppModel {
         }
 
         let table: Element<_> = table(self.header.clone(), self.body.clone(), &self.columns, &self.rows, ManagementAppMsg::TableSyncHeader)
+            .cell_padding(0.0)
             .into();
 
         let table: Element<_> = container(table)
@@ -488,7 +493,7 @@ impl Application for ManagementAppModel {
 
                     let remove_button: Element<_> = button(remove_button_text_container)
                         .width(Length::Fill)
-                        .style(theme::Button::Destructive)
+                        .style(ButtonStyle::Destructive)
                         .on_press(ManagementAppMsg::RemovePlugin { plugin_id: plugin.plugin_id.clone() })
                         .into();
 
@@ -642,13 +647,7 @@ impl Application for ManagementAppModel {
     }
 
     fn theme(&self) -> Self::Theme {
-        Theme::custom("gauntlet".to_string(), Palette {
-            background: iced::color!(0x2C323A),
-            text: iced::color!(0xCAC2B6),
-            primary: iced::color!(0xC79F60),
-            success: iced::color!(0x659B5E),
-            danger: iced::color!(0x6C1B1B),
-        })
+        GauntletSettingsTheme::default()
     }
 }
 
@@ -684,7 +683,7 @@ impl Column {
     }
 }
 
-impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
+impl<'a> table::Column<'a, ManagementAppMsg, GauntletSettingsTheme, Renderer> for Column {
     type Row = Row;
 
     fn header(&'a self, _col_index: usize) -> Element<'a, ManagementAppMsg> {
@@ -695,16 +694,19 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
             }
             ColumnKind::Name => {
                 container(text("Name"))
+                    .height(Length::Fixed(30.0))
                     .center_y()
                     .into()
             }
             ColumnKind::Type => {
                 container(text("Type"))
+                    .height(Length::Fixed(30.0))
                     .center_y()
                     .into()
             }
             ColumnKind::EnableToggle => {
                 container(text("Enabled"))
+                    .height(Length::Fixed(30.0))
                     .center_y()
                     .into()
             }
@@ -731,8 +733,11 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                             .into();
 
                         button(icon)
-                            .style(theme::Button::Text)
                             .on_press(ManagementAppMsg::ToggleShowEntrypoints { plugin_id: plugin_id.clone() })
+                            .width(Length::Fill)
+                            .height(Length::Fixed(40.0))
+                            .padding(8.0)
+                            .style(ButtonStyle::TableRow)
                             .into()
                     }
                     Row::Entrypoint { .. } => {
@@ -792,9 +797,11 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                 };
 
                 button(content)
-                    .style(theme::Button::Text)
+                    .style(ButtonStyle::TableRow)
                     .on_press(ManagementAppMsg::SelectItem(msg))
                     .width(Length::Fill)
+                    .height(Length::Fixed(40.0))
+                    .padding(8.0)
                     .into()
             }
             ColumnKind::Type => {
@@ -843,9 +850,11 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
                 };
 
                 button(content)
-                    .style(theme::Button::Text)
+                    .style(ButtonStyle::TableRow)
                     .on_press(ManagementAppMsg::SelectItem(msg))
                     .width(Length::Fill)
+                    .height(Length::Fixed(40.0))
+                    .padding(8.0)
                     .into()
             }
             ColumnKind::EnableToggle => {
@@ -900,6 +909,8 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
 
                 container(checkbox)
                     .width(Length::Fill)
+                    .height(Length::Fixed(40.0))
+                    .center_y()
                     .center_x()
                     .into()
             }
@@ -909,8 +920,8 @@ impl<'a> table::Column<'a, ManagementAppMsg, Theme, Renderer> for Column {
     fn width(&self) -> f32 {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => 35.0,
-            ColumnKind::Name => 400.0,
-            ColumnKind::Type => 100.0,
+            ColumnKind::Name => 350.0,
+            ColumnKind::Type => 200.0,
             ColumnKind::EnableToggle => 75.0
         }
     }
@@ -1126,14 +1137,14 @@ fn preferences_ui<'a>(
                         let item_text = container(item_text)
                             .height(Length::Fixed(30.0))
                             .width(Length::Fill)
-                            .style(theme::Container::Box)
+                            .style(ContainerStyle::Box)
                             .into();
 
                         let remove_icon = text(icons::Bootstrap::Dash)
                             .font(icons::BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
-                            .style(theme::Button::Primary)
+                            .style(ButtonStyle::Primary)
                             .on_press(ManagementAppMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
@@ -1185,7 +1196,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let add_button: Element<_> = button(add_icon)
-                    .style(theme::Button::Primary)
+                    .style(ButtonStyle::Primary)
                     .on_press_maybe(add_msg)
                     .into();
 
@@ -1241,14 +1252,14 @@ fn preferences_ui<'a>(
                         let item_text = container(item_text)
                             .height(Length::Fixed(30.0))
                             .width(Length::Fill)
-                            .style(theme::Container::Box)
+                            .style(ContainerStyle::Box)
                             .into();
 
                         let remove_icon = text(icons::Bootstrap::Dash)
                             .font(icons::BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
-                            .style(theme::Button::Primary)
+                            .style(ButtonStyle::Primary)
                             .on_press(ManagementAppMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
@@ -1286,7 +1297,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let add_button: Element<_> = button(add_icon)
-                    .style(theme::Button::Primary)
+                    .style(ButtonStyle::Primary)
                     .on_press(ManagementAppMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
@@ -1355,14 +1366,14 @@ fn preferences_ui<'a>(
                         let item_text = container(item_text)
                             .height(Length::Fixed(30.0))
                             .width(Length::Fill)
-                            .style(theme::Container::Box)
+                            .style(ContainerStyle::Box)
                             .into();
 
                         let remove_icon = text(icons::Bootstrap::Dash)
                             .font(icons::BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
-                            .style(theme::Button::Primary)
+                            .style(ButtonStyle::Primary)
                             .on_press(ManagementAppMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
@@ -1416,7 +1427,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let add_button: Element<_> = button(add_icon)
-                    .style(theme::Button::Primary)
+                    .style(ButtonStyle::Primary)
                     .on_press_maybe(add_msg)
                     .into();
 

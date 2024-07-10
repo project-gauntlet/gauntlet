@@ -435,6 +435,7 @@ static THEME: once_cell::sync::OnceCell<GauntletTheme> = once_cell::sync::OnceCe
 
 const NOT_INTENDED_TO_BE_USED: ExternalThemeColor = ExternalThemeColor::new(0xAF5BFF, 1.0);
 
+// keep colors more or less in sync with settings ui
 const TRANSPARENT: ExternalThemeColor = ExternalThemeColor::new(0x000000, 0.0);
 const BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x2C323A, 1.0);
 const BACKGROUND_OVERLAY: ExternalThemeColor = ExternalThemeColor::new(0x333a42, 1.0);
