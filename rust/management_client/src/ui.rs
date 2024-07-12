@@ -19,6 +19,7 @@ use common::rpc::backend_api::BackendApi;
 use crate::theme::{Element, GauntletSettingsTheme};
 use crate::theme::button::ButtonStyle;
 use crate::theme::container::ContainerStyle;
+use crate::theme::text::TextStyle;
 
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
@@ -432,7 +433,7 @@ impl Application for ManagementAppModel {
             .into();
 
         let table: Element<_> = container(table)
-            .padding(Padding::new(5.0))
+            .padding(Padding::new(8.0))
             .into();
 
         let sidebar_content: Element<_> = match &self.selected_item {
@@ -441,10 +442,12 @@ impl Application for ManagementAppModel {
                 let text2: Element<_> = text("or").into();
                 let text3: Element<_> = text("Click '+' to add new plugin").into();
 
-                let text_column = column(vec![text1, text2, text3]).align_items(Alignment::Center);
+                let text_column = column(vec![text1, text2, text3])
+                    .align_items(Alignment::Center);
 
                 container(text_column)
                     .center_y()
+                    .center_x()
                     .height(Length::Fill)
                     .width(Length::Fill)
                     .into()
@@ -454,29 +457,30 @@ impl Application for ManagementAppModel {
                 let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                 let name = container(text(&plugin.plugin_name))
-                    .padding(Padding::new(10.0))
-                    .into();
-
-                let description_label: Element<_> = text("Description")
-                    .font(Font {
-                        weight: Weight::Bold,
-                        ..Font::DEFAULT
-                    })
-                    .into();
-
-                let description_label = container(description_label)
-                    .padding(Padding::from([0.0, 0.0, 0.0, 10.0]))
-                    .into();
-
-                let description = container(text(&plugin.plugin_description))
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 let mut column_content = vec![
                     name,
-                    description_label,
-                    description,
                 ];
+
+                if !plugin.plugin_description.is_empty() {
+                    let description_label: Element<_> = text("Description")
+                        .size(14)
+                        .style(TextStyle::Subtitle)
+                        .into();
+
+                    let description_label = container(description_label)
+                        .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                        .into();
+
+                    let description = container(text(&plugin.plugin_description))
+                        .padding(Padding::new(8.0))
+                        .into();
+
+                    column_content.push(description_label);
+                    column_content.push(description);
+                }
 
                 for element in preferences_ui(plugin_id.clone(), None, &plugin.preferences, &self.preference_user_data) {
                     column_content.push(element)
@@ -501,7 +505,7 @@ impl Application for ManagementAppModel {
                 }
 
                 let column: Element<_> = column(column_content)
-                    .padding(Padding::from([0.0, 5.0, 0.0, 0.0]))
+                    .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
                     .into();
 
                 let column: Element<_> = scrollable(column)
@@ -511,7 +515,7 @@ impl Application for ManagementAppModel {
                 container(column)
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .padding(Padding::from([5.0, 0.0]))
+                    .padding(Padding::from([4.0, 0.0]))
                     .into()
             }
             SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
@@ -520,36 +524,37 @@ impl Application for ManagementAppModel {
                 let entrypoint = plugin.entrypoints.get(entrypoint_id).unwrap();
 
                 let name = container(text(&entrypoint.entrypoint_name))
-                    .padding(Padding::new(10.0))
-                    .into();
-
-                let description_label: Element<_> = text("Description")
-                    .font(Font {
-                        weight: Weight::Bold,
-                        ..Font::DEFAULT
-                    })
-                    .into();
-
-                let description_label = container(description_label)
-                    .padding(Padding::from([0.0, 0.0, 0.0, 10.0]))
-                    .into();
-
-                let description = container(text(&entrypoint.entrypoint_description))
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 let mut column_content = vec![
                     name,
-                    description_label,
-                    description,
                 ];
+
+                if !entrypoint.entrypoint_description.is_empty() {
+                    let description_label: Element<_> = text("Description")
+                        .size(14)
+                        .style(TextStyle::Subtitle)
+                        .into();
+
+                    let description_label = container(description_label)
+                        .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                        .into();
+
+                    let description = container(text(&entrypoint.entrypoint_description))
+                        .padding(Padding::new(8.0))
+                        .into();
+
+                    column_content.push(description_label);
+                    column_content.push(description);
+                }
 
                 for element in preferences_ui(plugin_id.clone(), Some(entrypoint_id.clone()), &entrypoint.preferences, &self.preference_user_data) {
                     column_content.push(element)
                 }
 
                 let column: Element<_> = column(column_content)
-                    .padding(Padding::from([0.0, 5.0, 0.0, 0.0]))
+                    .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
                     .into();
 
                 let column: Element<_> = scrollable(column)
@@ -559,7 +564,7 @@ impl Application for ManagementAppModel {
                 container(column)
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .padding(Padding::from([5.0, 0.0]))
+                    .padding(Padding::from([4.0, 0.0]))
                     .into()
             }
             SelectedItem::NewPlugin { repository_url } => {
@@ -575,7 +580,7 @@ impl Application for ManagementAppModel {
                 ]).into();
 
                 container(content)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .center_x()
@@ -627,7 +632,7 @@ impl Application for ManagementAppModel {
         };
 
         let sidebar: Element<_> = column(vec![top_button, sidebar_content, progress_bar_text])
-            .padding(Padding::new(4.0))
+            .padding(Padding::new(8.0))
             .into();
 
         let separator: Element<_> = vertical_rule(1)
@@ -637,7 +642,7 @@ impl Application for ManagementAppModel {
             .into();
 
         container(content)
-            .padding(Padding::new(3.0))
+            .padding(Padding::new(4.0))
             .into()
     }
 
@@ -954,14 +959,12 @@ fn preferences_ui<'a>(
         let preference_name = preference_name.to_owned();
 
         let preference_label: Element<_> = text(&preference_name)
-            .font(Font {
-                weight: Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .size(14)
+            .style(TextStyle::Subtitle)
             .into();
 
         let preference_label = container(preference_label)
-            .padding(Padding::from([0.0, 0.0, 0.0, 10.0]))
+            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
             .into();
 
         column_content.push(preference_label);
@@ -978,7 +981,7 @@ fn preferences_ui<'a>(
 
         if !description.trim().is_empty() {
             let description = container(text(description))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([4.0, 8.0]))
                 .into();
 
             column_content.push(description);
@@ -1012,7 +1015,7 @@ fn preferences_ui<'a>(
 
                 let input_field = container(input_field)
                     .width(Length::Fill)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::from([4.0, 8.0]))
                     .into();
 
                 vec![input_field]
@@ -1040,7 +1043,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let input_field = container(input_field)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 vec![input_field]
@@ -1077,7 +1080,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let input_field = container(input_field)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .width(Length::Fill)
                     .into();
 
@@ -1104,7 +1107,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let input_field = container(input_field)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 vec![input_field]
@@ -1127,17 +1130,9 @@ fn preferences_ui<'a>(
                             value.remove(index);
                         }
 
-                        let item_text: Element<_> = text(value_item)
-                            .into();
-
-                        let item_text: Element<_> = container(item_text)
-                            .padding(Padding::new(4.0))
-                            .into();
-
-                        let item_text = container(item_text)
-                            .height(Length::Fixed(30.0))
+                        let item_text: Element<_> = text_input("", value_item)
                             .width(Length::Fill)
-                            .style(ContainerStyle::Box)
+                            .padding(Padding::new(4.0))
                             .into();
 
                         let remove_icon = text(icons::Bootstrap::Dash)
@@ -1154,13 +1149,18 @@ fn preferences_ui<'a>(
                                     new_value: new_value.clone(),
                                 },
                             })
+                            .padding(Padding::from([5.0, 7.0]))
+                            .into();
+
+                        let remove_button = container(remove_button)
+                            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
                             .into();
 
                         let item: Element<_> = row([item_text, remove_button])
                             .into();
 
                         let item = container(item)
-                            .padding(Padding::from([5.0, 10.0]))
+                            .padding(Padding::from([4.0, 8.0]))
                             .into();
 
                         item
@@ -1198,9 +1198,14 @@ fn preferences_ui<'a>(
                 let add_button: Element<_> = button(add_icon)
                     .style(ButtonStyle::Primary)
                     .on_press_maybe(add_msg)
+                    .padding(Padding::from([5.0, 7.0]))
                     .into();
 
-                let add_text_input: Element<_> = text_input("", &new_value)
+                let add_button: Element<_> = container(add_button)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                    .into();
+
+                let add_text_input: Element<_> = text_input("Enter value...", &new_value)
                     .on_input(move |new_value| ManagementAppMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
@@ -1216,7 +1221,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let add_item: Element<_> = container(add_item)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 items.push(add_item);
@@ -1242,17 +1247,9 @@ fn preferences_ui<'a>(
                             value.remove(index);
                         }
 
-                        let item_text: Element<_> = text(value_item)
-                            .into();
-
-                        let item_text: Element<_> = container(item_text)
-                            .padding(Padding::new(4.0))
-                            .into();
-
-                        let item_text = container(item_text)
-                            .height(Length::Fixed(30.0))
+                        let item_text = text_input("", &format!("{}", value_item))
                             .width(Length::Fill)
-                            .style(ContainerStyle::Box)
+                            .padding(Padding::new(4.0))
                             .into();
 
                         let remove_icon = text(icons::Bootstrap::Dash)
@@ -1269,13 +1266,18 @@ fn preferences_ui<'a>(
                                     new_value: new_value.clone(),
                                 },
                             })
+                            .padding(Padding::from([5.0, 7.0]))
+                            .into();
+
+                        let remove_button = container(remove_button)
+                            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
                             .into();
 
                         let item: Element<_> = row([item_text, remove_button])
                             .into();
 
                         let item = container(item)
-                            .padding(Padding::from([5.0, 10.0]))
+                            .padding(Padding::from([4.0, 8.0]))
                             .into();
 
                         item
@@ -1307,8 +1309,12 @@ fn preferences_ui<'a>(
                             new_value: 0.0,
                         },
                     })
+                    .padding(Padding::from([5.0, 7.0]))
                     .into();
 
+                let add_button: Element<_> = container(add_button)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                    .into();
 
                 let add_number_input: Element<_> = number_input(new_value, f64::MAX, std::convert::identity)
                     .bounds((f64::MIN, f64::MAX))
@@ -1331,7 +1337,7 @@ fn preferences_ui<'a>(
                     .into();
 
                 let add_item: Element<_> = container(add_item)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 items.push(add_item);
@@ -1356,17 +1362,9 @@ fn preferences_ui<'a>(
                             value.remove(index);
                         }
 
-                        let item_text: Element<_> = text(value_item)
-                            .into();
-
-                        let item_text: Element<_> = container(item_text)
-                            .padding(Padding::new(4.0))
-                            .into();
-
-                        let item_text = container(item_text)
-                            .height(Length::Fixed(30.0))
+                        let item_text: Element<_> = text_input("", value_item)
                             .width(Length::Fill)
-                            .style(ContainerStyle::Box)
+                            .padding(Padding::new(4.0))
                             .into();
 
                         let remove_icon = text(icons::Bootstrap::Dash)
@@ -1383,13 +1381,18 @@ fn preferences_ui<'a>(
                                     new_value: new_value.clone(),
                                 },
                             })
+                            .padding(Padding::from([5.0, 7.0]))
+                            .into();
+
+                        let remove_button = container(remove_button)
+                            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
                             .into();
 
                         let item: Element<_> = row([item_text, remove_button])
                             .into();
 
                         let item = container(item)
-                            .padding(Padding::from([5.0, 10.0]))
+                            .padding(Padding::from([4.0, 8.0]))
                             .into();
 
                         item
@@ -1429,6 +1432,11 @@ fn preferences_ui<'a>(
                 let add_button: Element<_> = button(add_icon)
                     .style(ButtonStyle::Primary)
                     .on_press_maybe(add_msg)
+                    .padding(Padding::from([5.0, 7.0]))
+                    .into();
+
+                let add_button: Element<_> = container(add_button)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
                     .into();
 
                 let enum_values: Vec<_> = enum_values.iter()
@@ -1448,15 +1456,15 @@ fn preferences_ui<'a>(
                         },
                     }),
                 )
+                    .placeholder("Select value...")
                     .width(Length::Fill)
                     .into();
-
 
                 let add_item: Element<_> = row([add_enum_input, add_button])
                     .into();
 
                 let add_item: Element<_> = container(add_item)
-                    .padding(Padding::new(10.0))
+                    .padding(Padding::new(8.0))
                     .into();
 
                 items.push(add_item);

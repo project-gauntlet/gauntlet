@@ -1,13 +1,14 @@
 use iced::Border;
 use iced::widget::container;
 
-use crate::theme::{BACKGROUND_OVERLAY, GauntletSettingsTheme};
+use crate::theme::{BACKGROUND_LIGHT, BACKGROUND_OVERLAY, GauntletSettingsTheme};
 
 #[derive(Default)]
 pub enum ContainerStyle {
     #[default]
     Transparent,
-    Box
+    Box,
+    TextInputLike
 }
 
 impl container::StyleSheet for GauntletSettingsTheme {
@@ -18,12 +19,22 @@ impl container::StyleSheet for GauntletSettingsTheme {
             ContainerStyle::Transparent => Default::default(),
             ContainerStyle::Box => {
                 container::Appearance {
-                    text_color: None,
                     background: Some(BACKGROUND_OVERLAY.to_iced().into()), // TODO
                     border: Border {
                         color: BACKGROUND_OVERLAY.to_iced(),
                         radius: 10.0.into(),
                         width: 1.0,
+                    },
+                    ..Default::default()
+                }
+            }
+            ContainerStyle::TextInputLike => {
+                container::Appearance {
+                    background: Some(BACKGROUND_LIGHT.to_iced().into()),
+                    border: Border {
+                        radius: 4.0.into(),
+                        width: 1.0,
+                        color: BACKGROUND_LIGHT.to_iced().into(),
                     },
                     ..Default::default()
                 }

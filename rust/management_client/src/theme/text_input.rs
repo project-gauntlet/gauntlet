@@ -47,11 +47,11 @@ impl text_input::StyleSheet for GauntletSettingsTheme {
 
     fn disabled(&self, _: &Self::Style) -> Appearance {
         Appearance {
-            background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+            background: BACKGROUND_LIGHT.to_iced().into(),
             border: Border {
-                radius: 2.0.into(),
+                radius: 4.0.into(),
                 width: 1.0,
-                color: Color::TRANSPARENT,
+                color: BACKGROUND_LIGHT.to_iced().into(),
             },
             icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
         }

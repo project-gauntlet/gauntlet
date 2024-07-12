@@ -1,7 +1,7 @@
 use iced::{Border, overlay};
 use iced::widget::pick_list;
 
-use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, GauntletSettingsTheme, NOT_INTENDED_TO_BE_USED, PRIMARY, PRIMARY_HOVERED, TEXT, TEXT_DARK};
+use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, BUTTON_BORDER_RADIUS, GauntletSettingsTheme, NOT_INTENDED_TO_BE_USED, PRIMARY, PRIMARY_HOVERED, TEXT, TEXT_DARK};
 
 #[derive(Clone, Default)]
 pub enum PickListStyle {
@@ -46,12 +46,12 @@ fn pick_list_appearance(state: PickListState) -> pick_list::Appearance {
     pick_list::Appearance {
         text_color,
         background: background_color.into(),
-        placeholder_color: NOT_INTENDED_TO_BE_USED.to_iced(),
+        placeholder_color: BACKGROUND_LIGHT.to_iced(),
         handle_color: text_color,
         border: Border {
             color: BACKGROUND_LIGHT.to_iced(),
-            width: 4.0,
-            radius: 1.0.into(),
+            width: 1.0,
+            radius: BUTTON_BORDER_RADIUS.into(),
         },
     }
 }
@@ -64,7 +64,7 @@ impl overlay::menu::StyleSheet for GauntletSettingsTheme {
             text_color: TEXT.to_iced(),
             background: BACKGROUND.to_iced().into(),
             border: Border {
-                radius: 4.0.into(),
+                radius: BUTTON_BORDER_RADIUS.into(),
                 width: 1.0,
                 color: BACKGROUND_LIGHT.to_iced().into(),
             },
