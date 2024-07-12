@@ -277,10 +277,17 @@ impl Application for ManagementAppModel {
                 Command::none()
             }
             ManagementAppMsg::ToggleShowEntrypoints { plugin_id } => {
-                let mut plugin_data = self.plugin_data.borrow_mut();
-                let plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
-                plugin_data.show_entrypoints = !plugin_data.show_entrypoints;
-                Command::none()
+                let plugins = {
+                    let mut plugin_data = self.plugin_data.borrow_mut();
+                    let settings_plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
+                    settings_plugin_data.show_entrypoints = !settings_plugin_data.show_entrypoints;
+
+                    plugin_data.plugins.clone()
+                };
+
+                self.apply_plugin_reload(plugins);
+
+                Command::perform(async {  }, |_| ManagementAppMsg::Noop)
             }
             ManagementAppMsg::PluginsReloaded(plugins) => {
                 self.apply_plugin_reload(plugins);
@@ -1519,16 +1526,16 @@ impl ManagementAppModel {
 
         let mut plugin_refs: Vec<_> = plugin_data.plugins
             .iter()
-            .map(|(_, plugin)| plugin)
+            .map(|(_, plugin)| (plugin, plugin_data.plugins_state.get(&plugin.plugin_id).unwrap()))
             .collect();
 
-        plugin_refs.sort_by_key(|plugin| &plugin.plugin_name);
+        plugin_refs.sort_by_key(|(plugin, _)| &plugin.plugin_name);
 
         let plugin_data = self.plugin_data.clone();
 
         self.rows = plugin_refs
             .iter()
-            .flat_map(|plugin| {
+            .flat_map(|(plugin, plugin_state)| {
                 let mut result = vec![];
 
                 result.push(Row::Plugin {
@@ -1536,25 +1543,27 @@ impl ManagementAppModel {
                     plugin_id: plugin.plugin_id.clone()
                 });
 
-                let mut entrypoints: Vec<_> = plugin.entrypoints
-                    .iter()
-                    .map(|(_, entrypoint)| entrypoint)
-                    .collect();
+                if plugin_state.show_entrypoints {
+                    let mut entrypoints: Vec<_> = plugin.entrypoints
+                        .iter()
+                        .map(|(_, entrypoint)| entrypoint)
+                        .collect();
 
-                entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
+                    entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
 
-                let mut entrypoints: Vec<_> = entrypoints
-                    .iter()
-                    .map(|entrypoint| {
-                        Row::Entrypoint {
-                            plugin_data: plugin_data.clone(),
-                            plugin_id: plugin.plugin_id.clone(),
-                            entrypoint_id: entrypoint.entrypoint_id.clone(),
-                        }
-                    })
-                    .collect();
+                    let mut entrypoints: Vec<_> = entrypoints
+                        .iter()
+                        .map(|entrypoint| {
+                            Row::Entrypoint {
+                                plugin_data: plugin_data.clone(),
+                                plugin_id: plugin.plugin_id.clone(),
+                                entrypoint_id: entrypoint.entrypoint_id.clone(),
+                            }
+                        })
+                        .collect();
 
-                result.append(&mut entrypoints);
+                    result.append(&mut entrypoints);
+                }
 
                 result
             })
