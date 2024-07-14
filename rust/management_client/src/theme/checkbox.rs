@@ -2,7 +2,7 @@ use iced::Border;
 use iced::widget::checkbox;
 use iced::widget::checkbox::Appearance;
 
-use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, BACKGROUND_LIGHTER, BACKGROUND_LIGHTEST, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED};
+use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, BACKGROUND_LIGHTER, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED};
 
 #[derive(Default)]
 pub enum CheckboxStyle {

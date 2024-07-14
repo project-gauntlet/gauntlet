@@ -1,7 +1,7 @@
 use iced::{Border, overlay};
 use iced::widget::pick_list;
 
-use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, BUTTON_BORDER_RADIUS, GauntletSettingsTheme, NOT_INTENDED_TO_BE_USED, PRIMARY, PRIMARY_HOVERED, TEXT, TEXT_DARK};
+use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT, TEXT_DARK};
 
 #[derive(Clone, Default)]
 pub enum PickListStyle {

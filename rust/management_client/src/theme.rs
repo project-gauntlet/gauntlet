@@ -10,6 +10,7 @@ pub mod rule;
 pub mod checkbox;
 pub mod pick_list;
 pub mod scrollable;
+pub mod shortcut_selector;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletSettingsTheme>;
 

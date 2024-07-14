@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use common::{settings_env_data_to_string, SettingsEnvData};
-use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey};
+use common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut};
 use common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
@@ -32,7 +32,7 @@ impl BackendServer for BackendServerImpl {
         result
     }
 
-    async fn request_view_render(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
+    async fn request_view_render(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         self.application_manager.handle_render_view(plugin_id.clone(), entrypoint_id.clone())
             .await;
 

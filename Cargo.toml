@@ -9,6 +9,7 @@ members = [
     "rust/client",
     "rust/server",
     "rust/common",
+    "rust/common_ui",
     "rust/utils",
     "rust/cli",
     "rust/component_model",

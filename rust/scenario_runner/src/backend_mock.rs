@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::backend_server::{BackendServer, start_backend_server};
 
 pub async fn start_screenshot_gen_backend() {
@@ -15,7 +15,7 @@ impl BackendServer for RpcBackendScreenshotGen {
         todo!();
     }
 
-    async fn request_view_render(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
+    async fn request_view_render(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         unreachable!(); // screenshot gen is not interactive
     }
 

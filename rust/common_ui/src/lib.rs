@@ -1,5 +1,92 @@
-use iced::widget::{Text, text};
-use common::model::PhysicalKey;
+use iced::advanced::widget::Text;
+use iced::Element;
+use iced::widget::text;
+use iced_aw::core::icons;
+
+use common::model::{PhysicalKey, PhysicalShortcut};
+
+pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &PhysicalShortcut) -> (Element<'a, Message, Theme>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>) {
+
+    let (key_name, show_shift) = physical_key_name(&shortcut.physical_key, shortcut.modifier_shift);
+
+    let key_name: Element<_, _> = text(key_name)
+        .into();
+
+    let alt_modifier_text = if shortcut.modifier_alt {
+        if cfg!(target_os = "macos") {
+            Some(
+                text(icons::Bootstrap::Option)
+                    .font(icons::BOOTSTRAP_FONT)
+                    .into()
+            )
+        } else {
+            Some(
+                text("ALT")
+                    .into()
+            )
+        }
+    } else {
+        None
+    };
+
+    let meta_modifier_text = if shortcut.modifier_meta {
+        if cfg!(target_os = "macos") {
+            Some(
+                text(icons::Bootstrap::Command)
+                    .font(icons::BOOTSTRAP_FONT)
+                    .into()
+            )
+        } else if cfg!(target_os = "windows") {
+            Some(
+                text("WIN") // is it possible to have shortcuts that use win?
+                    .into()
+            )
+        } else {
+            Some(
+                text("SUPER")
+                    .into()
+            )
+        }
+    } else {
+        None
+    };
+
+    let control_modifier_text = if shortcut.modifier_control {
+        if cfg!(target_os = "macos") {
+            Some(
+                text("^") // TODO bootstrap doesn't have proper macos ctrl icon
+                    .font(icons::BOOTSTRAP_FONT)
+                    .into()
+            )
+        } else {
+            Some(
+                text("CTRL")
+                    .into()
+            )
+        }
+    } else {
+        None
+    };
+
+    let shift_modifier_text = if show_shift && shortcut.modifier_shift {
+        if cfg!(target_os = "macos") {
+            Some(
+                text(icons::Bootstrap::Shift)
+                    .font(icons::BOOTSTRAP_FONT)
+                    .into()
+            )
+        } else {
+            Some(
+                text("SHIFT")
+                    .into()
+            )
+        }
+    } else {
+        None
+    };
+
+    (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text)
+}
 
 pub fn physical_key_model(key: iced::keyboard::key::PhysicalKey) -> Option<PhysicalKey> {
     let model_key = match key {

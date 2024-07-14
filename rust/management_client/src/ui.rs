@@ -7,7 +7,8 @@ use iced_aw::core::icons;
 use common::rpc::backend_api::BackendApi;
 
 use crate::theme::{Element, GauntletSettingsTheme};
-use crate::views::general::{ManagementAppGeneralMsg, ManagementAppGeneralState};
+use crate::theme::button::ButtonStyle;
+use crate::views::general::{ManagementAppGeneralMsgIn, ManagementAppGeneralMsgOut, ManagementAppGeneralState};
 use crate::views::plugins::{ManagementAppPluginMsgIn, ManagementAppPluginMsgOut, ManagementAppPluginsState};
 
 pub fn run() {
@@ -23,6 +24,7 @@ pub fn run() {
 
 struct ManagementAppModel {
     backend_api: Option<BackendApi>,
+    current_settings_view: SettingsView,
     general_state: ManagementAppGeneralState,
     plugins_state: ManagementAppPluginsState
 }
@@ -31,8 +33,15 @@ struct ManagementAppModel {
 #[derive(Debug, Clone)]
 enum ManagementAppMsg {
     FontLoaded(Result<(), font::Error>),
-    General(ManagementAppGeneralMsg),
+    General(ManagementAppGeneralMsgIn),
     Plugin(ManagementAppPluginMsgIn),
+    SwitchView(SettingsView)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SettingsView {
+    General,
+    Plugins
 }
 
 
@@ -53,6 +62,7 @@ impl Application for ManagementAppModel {
         (
             ManagementAppModel {
                 backend_api: backend_api.clone(),
+                current_settings_view: SettingsView::Plugins,
                 general_state: ManagementAppGeneralState::new(backend_api.clone()),
                 plugins_state: ManagementAppPluginsState::new(backend_api.clone()),
             },
@@ -91,11 +101,20 @@ impl Application for ManagementAppModel {
                         }
                     })
             }
+            ManagementAppMsg::General(message) => {
+                self.general_state.update(message)
+                    .map(|msg| {
+                        match msg {
+                        }
+                    })
+            }
             ManagementAppMsg::FontLoaded(result) => {
                 result.expect("unable to load font");
                 Command::none()
             }
-            ManagementAppMsg::General(message) => {
+            ManagementAppMsg::SwitchView(view) => {
+                self.current_settings_view = view;
+
                 Command::none()
             }
         }
@@ -116,8 +135,16 @@ impl Application for ManagementAppModel {
             return content
         }
 
-        let content = self.plugins_state.view()
-            .map(|msg| ManagementAppMsg::Plugin(msg));
+        let content = match self.current_settings_view {
+            SettingsView::General => {
+                self.general_state.view()
+                    .map(|msg| ManagementAppMsg::General(msg))
+            }
+            SettingsView::Plugins => {
+                self.plugins_state.view()
+                    .map(|msg| ManagementAppMsg::Plugin(msg))
+            }
+        };
 
         let icon_general: Element<_> = text(icons::Bootstrap::GearFill)
             .font(icons::BOOTSTRAP_FONT)
@@ -140,15 +167,17 @@ impl Application for ManagementAppModel {
             .into();
 
         let general_button: Element<_> = button(general_button)
+            .on_press(ManagementAppMsg::SwitchView(SettingsView::General))
             .height(Length::Fill)
             .width(80)
+            .style(if self.current_settings_view == SettingsView::General { ButtonStyle::ViewSwitcherSelected } else { ButtonStyle::ViewSwitcher })
             .into();
 
         let general_button: Element<_> = container(general_button)
             .padding(8.0)
             .into();
 
-        let icon_plugins: Element<_> = text(icons::Bootstrap::Cpu)
+        let icon_plugins: Element<_> = text(icons::Bootstrap::PuzzleFill)
             .font(icons::BOOTSTRAP_FONT)
             .height(Length::Fill)
             .width(Length::Fill)
@@ -169,8 +198,10 @@ impl Application for ManagementAppModel {
             .into();
 
         let plugins_button: Element<_> = button(plugins_button)
+            .on_press(ManagementAppMsg::SwitchView(SettingsView::Plugins))
             .height(Length::Fill)
             .width(80)
+            .style(if self.current_settings_view == SettingsView::Plugins { ButtonStyle::ViewSwitcherSelected } else { ButtonStyle::ViewSwitcher })
             .into();
 
         let plugins_button: Element<_> = container(plugins_button)

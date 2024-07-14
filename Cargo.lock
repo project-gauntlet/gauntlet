@@ -1006,6 +1006,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "common",
+ "common-ui",
  "component_model",
  "convert_case 0.6.0",
  "global-hotkey",
@@ -1179,6 +1180,15 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+]
+
+[[package]]
+name = "common-ui"
+version = "0.0.0"
+dependencies = [
+ "common",
+ "iced",
+ "iced_aw",
 ]
 
 [[package]]
@@ -4651,6 +4661,7 @@ dependencies = [
  "anyhow",
  "clap",
  "common",
+ "common-ui",
  "iced",
  "iced_aw",
  "iced_table",

@@ -88,7 +88,7 @@ impl ManagementAppPluginsState {
     }
 
     pub fn update(&mut self, message: ManagementAppPluginMsgIn) -> Command<ManagementAppPluginMsgOut> {
-        let mut backend_api = match &self.backend_api {
+        let backend_api = match &self.backend_api {
             Some(backend_api) => backend_api.clone(),
             None => {
                 return Command::none()

@@ -23,18 +23,18 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{ActionShortcut, EntrypointId, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::wait_for_backend_server;
 use common::rpc::frontend_server::start_frontend_server;
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
+use common_ui::physical_key_model;
 use utils::channel::{channel, RequestReceiver};
 
 use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
 use crate::rpc::FrontendServerImpl;
 use crate::ui::inline_view_container::inline_view_container;
-use crate::ui::physical_keys::physical_key_model;
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
 use crate::ui::theme::container::ContainerStyle;
@@ -49,7 +49,6 @@ mod theme;
 mod client_context;
 mod widget_container;
 mod inline_view_container;
-mod physical_keys;
 
 pub struct AppModel {
     // logic
@@ -77,7 +76,7 @@ struct PluginViewData {
     plugin_name: String,
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
-    action_shortcuts: HashMap<String, ActionShortcut>,
+    action_shortcuts: HashMap<String, PhysicalShortcut>,
     waiting_for_first_render: bool,
 }
 
@@ -138,7 +137,7 @@ pub enum AppMsg {
         entrypoint_id: Option<EntrypointId>,
     },
     SaveActionShortcuts {
-        action_shortcuts: HashMap<String, ActionShortcut>
+        action_shortcuts: HashMap<String, PhysicalShortcut>
     },
     ShowPluginErrorView {
         plugin_id: PluginId,

@@ -4,9 +4,9 @@ use std::sync::{Arc, RwLock};
 use iced::widget::Component;
 use iced::widget::component;
 
-use common::model::{EntrypointId, PluginId, UiRenderLocation};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation};
 
-use crate::ui::{ActionShortcut, AppMsg};
+use crate::ui::{AppMsg};
 use crate::ui::client_context::ClientContext;
 use crate::ui::theme::{Element, GauntletTheme};
 use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent};
@@ -17,7 +17,7 @@ pub struct ViewContainer {
     plugin_name: String,
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
-    action_shortcuts: HashMap<String, ActionShortcut>,
+    action_shortcuts: HashMap<String, PhysicalShortcut>,
 }
 
 pub fn view_container(
@@ -26,7 +26,7 @@ pub fn view_container(
     plugin_name: String,
     entrypoint_id: EntrypointId,
     entrypoint_name: String,
-    action_shortcuts: HashMap<String, ActionShortcut>
+    action_shortcuts: HashMap<String, PhysicalShortcut>
 ) -> ViewContainer {
     ViewContainer {
         client_context,

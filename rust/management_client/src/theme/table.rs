@@ -1,6 +1,7 @@
 use iced::Border;
 use iced::widget::container;
-use crate::theme::{BACKGROUND_LIGHT, BACKGROUND_LIGHTER, BACKGROUND_LIGHTEST, GauntletSettingsTheme, TEXT};
+
+use crate::theme::{BACKGROUND_LIGHT, BACKGROUND_LIGHTEST, GauntletSettingsTheme, TEXT};
 
 #[derive(Default, Clone)]
 pub enum TableStyle {

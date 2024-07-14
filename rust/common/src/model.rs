@@ -77,8 +77,8 @@ pub enum UiRenderLocation {
 }
 
 #[derive(Debug, Clone)]
-pub struct ActionShortcut {
-    pub key: PhysicalKey,
+pub struct PhysicalShortcut {
+    pub physical_key: PhysicalKey,
     pub modifier_shift: bool,
     pub modifier_control: bool,
     pub modifier_alt: bool,

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{ActionShortcut, EntrypointId, PhysicalKey, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::model::{EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{physical_key_to_rpc, plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
@@ -41,7 +41,7 @@ impl BackendApi {
         Ok(search_result)
     }
 
-    pub async fn request_view_render(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
+    pub async fn request_view_render(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         let event = RpcEventRenderView {
             entrypoint_id: entrypoint_id.to_string(),
         };
@@ -57,8 +57,8 @@ impl BackendApi {
             .action_shortcuts
             .into_iter()
             .map(|(id, value)| {
-                let action_shortcut = ActionShortcut {
-                    key: PhysicalKey::from_value(value.key),
+                let action_shortcut = PhysicalShortcut {
+                    physical_key: PhysicalKey::from_value(value.key),
                     modifier_shift: value.modifier_shift,
                     modifier_control: value.modifier_control,
                     modifier_alt: value.modifier_alt,

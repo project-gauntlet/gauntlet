@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use include_dir::{Dir, include_dir};
 
-use common::model::{ActionShortcut, DownloadStatus, EntrypointId, PhysicalKey, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common::rpc::frontend_server::wait_for_frontend_server;
 
@@ -354,7 +354,7 @@ impl ApplicationManager {
             .await
     }
 
-    pub async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, ActionShortcut>> {
+    pub async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         let DbReadPluginEntrypoint { actions, actions_user_data, .. } = self.db_repository.get_entrypoint_by_id(&plugin_id.to_string(), &entrypoint_id.to_string())
             .await?;
 
@@ -368,7 +368,7 @@ impl ApplicationManager {
 
                 let shortcut = match actions_user_data.get(&id) {
                     None => {
-                        let (key, modifier_shift) = match ActionShortcutKey::from_value(&action.key) {
+                        let (physical_key, modifier_shift) = match ActionShortcutKey::from_value(&action.key) {
                             Some(key) => key.to_physical_key(),
                             None => {
                                 return Err(anyhow!("unknown key: {}", &action.key))
@@ -388,8 +388,8 @@ impl ApplicationManager {
                             },
                         };
 
-                        ActionShortcut {
-                            key,
+                        PhysicalShortcut {
+                            physical_key,
                             modifier_shift,
                             modifier_control,
                             modifier_alt,
@@ -397,8 +397,8 @@ impl ApplicationManager {
                         }
                     }
                     Some(&(ref key, modifier_shift, modifier_control, modifier_alt, modifier_meta)) => {
-                        ActionShortcut {
-                            key: PhysicalKey::from_value(key.to_owned()),
+                        PhysicalShortcut {
+                            physical_key: PhysicalKey::from_value(key.to_owned()),
                             modifier_shift,
                             modifier_control,
                             modifier_alt,

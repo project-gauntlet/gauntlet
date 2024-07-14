@@ -1,0 +1,8 @@
+[package]
+name = "common-ui"
+edition = "2021"
+
+[dependencies]
+common = { path = "../common" }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet" }
+iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet", default-features = false, features = ["icons"] }

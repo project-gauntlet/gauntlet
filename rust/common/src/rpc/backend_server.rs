@@ -6,7 +6,7 @@ use tokio::net::TcpStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use crate::model::{ActionShortcut, DownloadStatus, EntrypointId, PhysicalKey, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::model::{DownloadStatus, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 use crate::rpc::grpc_convert::{physical_key_from_rpc, plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc, ui_search_result_to_rpc};
@@ -57,7 +57,7 @@ pub trait BackendServer {
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId
-    ) -> anyhow::Result<HashMap<String, ActionShortcut>>;
+    ) -> anyhow::Result<HashMap<String, PhysicalShortcut>>;
 
     async fn request_view_close(
         &self,
@@ -181,7 +181,7 @@ impl RpcBackend for RpcBackendServerImpl {
         let action_shortcuts = action_shortcuts.into_iter()
             .map(|(id, shortcut)| {
                 let action = RpcRequestViewRenderResponseAction {
-                    key: shortcut.key.to_value(),
+                    key: shortcut.physical_key.to_value(),
                     modifier_shift: shortcut.modifier_shift,
                     modifier_control: shortcut.modifier_control,
                     modifier_alt: shortcut.modifier_alt,
