@@ -121,7 +121,7 @@ impl ManagementAppGeneralState {
             .padding(4)
             .into();
 
-        let after = Space::with_width(Length::FillPortion(3))
+        let after = Space::with_width(Length::FillPortion(2))
             .into();
 
         let content = vec![
