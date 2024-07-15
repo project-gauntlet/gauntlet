@@ -4,7 +4,6 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use global_hotkey::{GlobalHotKeyManager, HotKeyState};
 use iced::{Alignment, Command, Event, event, executor, font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
 use iced::advanced::graphics::core::SmolStr;
 use iced::Application;
@@ -57,7 +56,6 @@ pub struct AppModel {
     search_field_id: text_input::Id,
     scrollable_id: scrollable::Id,
     waiting_for_next_unfocus: bool,
-    _global_hotkey_manager: GlobalHotKeyManager,
     theme: GauntletTheme,
 
     // ephemeral state
@@ -187,8 +185,6 @@ impl Application for AppModel {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let global_hotkey_manager = register_shortcut();
-
         let (context_tx, request_rx) = channel::<UiRequestData, NativeUiResponseData>();
 
         tokio::spawn(async {
@@ -290,7 +286,6 @@ impl Application for AppModel {
                 // logic
                 backend_api,
                 request_rx: Arc::new(TokioRwLock::new(request_rx)),
-                _global_hotkey_manager: global_hotkey_manager,
                 search_field_id: text_input::Id::unique(),
                 scrollable_id: scrollable::Id::unique(),
                 waiting_for_next_unfocus: false,
@@ -806,7 +801,6 @@ impl Application for AppModel {
         let request_rx = self.request_rx.clone();
 
         struct RequestLoop;
-        struct GlobalShortcutListener;
 
         let events_subscription = event::listen_with(|event, status| match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(event)),
@@ -817,17 +811,6 @@ impl Application for AppModel {
         });
 
         Subscription::batch([
-            subscription::channel(
-                std::any::TypeId::of::<GlobalShortcutListener>(),
-                10,
-                |sender| async move {
-                    listen_on_shortcut(sender);
-
-                    std::future::pending::<()>().await;
-
-                    unreachable!()
-                },
-            ),
             events_subscription,
             subscription::channel(
                 std::any::TypeId::of::<RequestLoop>(),
@@ -953,43 +936,6 @@ impl AppModel {
         self.prompt = chars.as_str().to_owned();
     }
 }
-
-fn register_shortcut() -> GlobalHotKeyManager {
-    use global_hotkey::hotkey::{Code, HotKey, Modifiers};
-
-    let manager = GlobalHotKeyManager::new().unwrap();
-
-    let key = if cfg!(target_os = "windows") {
-        HotKey::new(Some(Modifiers::ALT), Code::Space)
-    } else {
-        HotKey::new(Some(Modifiers::META), Code::Space)
-    };
-
-    let result = manager.register(key);
-
-    if let Err(err) = &result {
-        tracing::warn!(target = "rpc", "error occurred when registering shortcut {:?}", err)
-    }
-
-    manager
-}
-
-fn listen_on_shortcut(sender: Sender<AppMsg>) {
-    use global_hotkey::GlobalHotKeyEvent;
-
-    let handle = Handle::current();
-
-    GlobalHotKeyEvent::set_event_handler(Some(move |e: GlobalHotKeyEvent| {
-        let mut sender = sender.clone();
-        if let HotKeyState::Released = e.state() {
-            handle.spawn(async move {
-                sender.send(AppMsg::ShowWindow).await
-                    .unwrap();
-            });
-        }
-    }));
-}
-
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,

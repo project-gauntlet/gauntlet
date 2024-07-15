@@ -35,6 +35,7 @@ uuid = "1.8"
 resvg = { version = "0.41", default-features = false}
 image = "0.25"
 arboard = "3.4.0"
+global-hotkey = "0.4.2"
 
 scenario_runner = { path = "../scenario_runner", optional = true }
 

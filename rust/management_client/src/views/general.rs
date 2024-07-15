@@ -16,12 +16,14 @@ pub struct ManagementAppGeneralState {
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgIn {
-    ShortcutCaptured(PhysicalShortcut)
+    ShortcutCaptured(PhysicalShortcut),
+    SetShortcut(PhysicalShortcut),
+    Noop
 }
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgOut {
-
+    Noop
 }
 
 impl ManagementAppGeneralState {
@@ -41,11 +43,32 @@ impl ManagementAppGeneralState {
     }
 
     pub fn update(&mut self, message: ManagementAppGeneralMsgIn) -> Command<ManagementAppGeneralMsgOut> {
+        let backend_api = match &self.backend_api {
+            Some(backend_api) => backend_api.clone(),
+            None => {
+                return Command::none()
+            }
+        };
+
         match message {
             ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut) => {
-                self.current_shortcut = shortcut;
+                self.current_shortcut = shortcut.clone();
 
+                let mut backend_api = backend_api.clone();
+
+                Command::perform(async move {
+                    backend_api.set_global_shortcut(shortcut)
+                        .await
+                        .unwrap() // TODO proper error handling
+                }, |_| ManagementAppGeneralMsgOut::Noop)
+            }
+            ManagementAppGeneralMsgIn::Noop => {
                 Command::none()
+            }
+            ManagementAppGeneralMsgIn::SetShortcut(shortcut) => {
+                self.current_shortcut = shortcut.clone();
+
+                Command::perform(async move {}, |_| ManagementAppGeneralMsgOut::Noop)
             }
         }
     }

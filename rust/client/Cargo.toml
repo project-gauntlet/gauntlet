@@ -16,7 +16,6 @@ common = { path = "../common" }
 common-ui = { path = "../common_ui" }
 utils = { path = "../utils" }
 tonic = "0.11.0"
-global-hotkey = "0.4.2"
 itertools = "0.12.1"
 component_model = { path = "../component_model" }
 strum = { version = "0.26", features = ["derive"] }

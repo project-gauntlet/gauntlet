@@ -121,6 +121,24 @@ impl BackendServer for BackendServerImpl {
         Ok(())
     }
 
+    async fn set_global_shortcut(&self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+        let result = self.application_manager.set_global_shortcut(shortcut)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(target = "rpc", "error occurred when handling 'set_global_shortcut' request {:?}", err)
+        }
+
+        Ok(())
+    }
+
+    async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+        let result = self.application_manager.get_global_shortcut()
+            .await?;
+
+        Ok(result)
+    }
+
     async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_name: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
         let result = self.application_manager.set_preference_value(plugin_id, entrypoint_id, preference_name, preference_value)
             .await;

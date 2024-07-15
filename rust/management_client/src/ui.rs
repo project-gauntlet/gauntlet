@@ -3,7 +3,7 @@ use std::time::Duration;
 use iced::{Alignment, alignment, Application, Command, executor, font, futures, Length, Settings, Size, Subscription, time, window};
 use iced::widget::{button, column, container, horizontal_rule, row, text};
 use iced_aw::core::icons;
-
+use common::model::PhysicalShortcut;
 use common::rpc::backend_api::BackendApi;
 
 use crate::theme::{Element, GauntletSettingsTheme};
@@ -72,6 +72,26 @@ impl Application for ManagementAppModel {
                     async {},
                     |plugins| ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::RequestPluginReload)
                 ),
+                Command::perform(
+                    async {
+                        match backend_api {
+                            Some(mut backend_api) => {
+                                let shortcut = backend_api.get_global_shortcut()
+                                    .await
+                                    .unwrap(); // TODO proper error handling
+
+                                Some(shortcut)
+                            }
+                            None => None
+                        }
+                    },
+                    |shortcut| {
+                        match shortcut {
+                            None => ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop),
+                            Some(shortcut) => ManagementAppMsg::General(ManagementAppGeneralMsgIn::SetShortcut(shortcut))
+                        }
+                    }
+                ),
             ]),
         )
     }
@@ -105,6 +125,9 @@ impl Application for ManagementAppModel {
                 self.general_state.update(message)
                     .map(|msg| {
                         match msg {
+                            ManagementAppGeneralMsgOut::Noop => {
+                                ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop)
+                            },
                         }
                     })
             }

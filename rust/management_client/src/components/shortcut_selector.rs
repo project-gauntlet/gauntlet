@@ -192,6 +192,8 @@ where
                         keyboard::Event::KeyReleased { physical_key, modifiers, .. } => {
                             match physical_key {
                                 keyboard::key::PhysicalKey::Backspace | keyboard::key::PhysicalKey::Escape => {
+                                    state.is_capturing = false;
+
                                     event::Status::Ignored
                                 }
                                 _ => {

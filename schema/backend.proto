@@ -30,6 +30,9 @@ service RpcBackend {
 
   rpc SetPreferenceValue (RpcSetPreferenceValueRequest) returns (RpcSetPreferenceValueResponse);
 
+  rpc SetGlobalShortcut (RpcSetGlobalShortcutRequest) returns (RpcSetGlobalShortcutResponse);
+  rpc GetGlobalShortcut (RpcGetGlobalShortcutRequest) returns (RpcGetGlobalShortcutResponse);
+
   rpc DownloadPlugin (RpcDownloadPluginRequest) returns (RpcDownloadPluginResponse);
 
   rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
@@ -132,6 +135,28 @@ message RpcSetEntrypointStateRequest {
   bool enabled = 3;
 }
 message RpcSetEntrypointStateResponse {
+}
+
+message RpcSetGlobalShortcutRequest {
+  string physical_key = 1;
+  bool modifier_shift = 2;
+  bool modifier_control = 3;
+  bool modifier_alt = 4;
+  bool modifier_meta = 5;
+}
+
+message RpcSetGlobalShortcutResponse {
+}
+
+message RpcGetGlobalShortcutRequest {
+}
+
+message RpcGetGlobalShortcutResponse {
+  string physical_key = 1;
+  bool modifier_shift = 2;
+  bool modifier_control = 3;
+  bool modifier_alt = 4;
+  bool modifier_meta = 5;
 }
 
 message RpcSetPreferenceValueRequest {

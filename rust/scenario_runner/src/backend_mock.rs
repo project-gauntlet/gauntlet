@@ -56,6 +56,14 @@ impl BackendServer for RpcBackendScreenshotGen {
         unreachable!();
     }
 
+    async fn set_global_shortcut(&self, _shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+        unreachable!();
+    }
+
+    async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+        unreachable!();
+    }
+
     async fn set_preference_value(&self, _plugin_id: PluginId, _entrypoint_id: Option<EntrypointId>, _preference_name: String, _preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
         unreachable!();
     }

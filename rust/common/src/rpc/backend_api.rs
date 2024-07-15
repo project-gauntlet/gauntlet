@@ -4,7 +4,7 @@ use tonic::Request;
 use tonic::transport::Channel;
 
 use crate::model::{EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcGetGlobalShortcutRequest, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{physical_key_to_rpc, plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
 
@@ -265,6 +265,36 @@ impl BackendApi {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn set_global_shortcut(&mut self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+        let request = RpcSetGlobalShortcutRequest {
+            physical_key: shortcut.physical_key.to_value(),
+            modifier_shift: shortcut.modifier_shift,
+            modifier_control: shortcut.modifier_control,
+            modifier_alt: shortcut.modifier_alt,
+            modifier_meta: shortcut.modifier_meta,
+        };
+
+        self.client.set_global_shortcut(Request::new(request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_global_shortcut(&mut self) -> anyhow::Result<PhysicalShortcut> {
+        let response = self.client.get_global_shortcut(Request::new(RpcGetGlobalShortcutRequest::default()))
+            .await?;
+
+        let response = response.into_inner();
+
+        Ok(PhysicalShortcut {
+            physical_key: PhysicalKey::from_value(response.physical_key),
+            modifier_shift: response.modifier_shift,
+            modifier_control: response.modifier_control,
+            modifier_alt: response.modifier_alt,
+            modifier_meta: response.modifier_meta,
+        })
     }
 
     pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, name: String, user_data: PluginPreferenceUserData) -> anyhow::Result<()> {

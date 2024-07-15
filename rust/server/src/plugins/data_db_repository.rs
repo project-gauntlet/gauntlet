@@ -1,17 +1,17 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use anyhow::{Context};
+use anyhow::{anyhow, Context};
 use deno_core::error::AnyError;
 use deno_core::futures;
 use deno_core::futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, Pool, Row, Sqlite, SqlitePool};
+use sqlx::{Error, Executor, Pool, Row, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 use uuid::Uuid;
-use common::model::PhysicalKey;
+use common::model::{PhysicalKey, PhysicalShortcut};
 use crate::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
@@ -171,6 +171,21 @@ pub struct DbPluginAction {
 pub struct DbPluginActionUserData {
     pub id: String,
     pub key: String,
+    pub modifier_shift: bool,
+    pub modifier_control: bool,
+    pub modifier_alt: bool,
+    pub modifier_meta: bool
+}
+
+#[derive(sqlx::FromRow)]
+pub struct DbSettingsData {
+    #[sqlx(json)]
+    pub global_shortcut: DbSettingsGlobalShortcutData,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DbSettingsGlobalShortcutData {
+    pub physical_key: String,
     pub modifier_shift: bool,
     pub modifier_control: bool,
     pub modifier_alt: bool,
@@ -681,6 +696,75 @@ impl DataDbRepository {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn set_global_shortcut(&self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+        // language=SQLite
+        let sql = r#"
+            INSERT INTO settings_data (id, global_shortcut)
+                VALUES(?1, ?2)
+                    ON CONFLICT (id)
+                        DO UPDATE SET global_shortcut = ?2
+        "#;
+
+        let id = "settings_data"; // only one row in the table
+
+        let shortcut_data = DbSettingsGlobalShortcutData {
+            physical_key: shortcut.physical_key.to_value(),
+            modifier_shift: shortcut.modifier_shift,
+            modifier_control: shortcut.modifier_control,
+            modifier_alt: shortcut.modifier_alt,
+            modifier_meta: shortcut.modifier_meta,
+        };
+
+        sqlx::query(sql)
+            .bind(id)
+            .bind(Json(shortcut_data))
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+        // language=SQLite
+        let data = sqlx::query_as::<_, DbSettingsData>("SELECT * FROM settings_data")
+            .fetch_optional(&self.pool)
+            .await;
+
+        match data {
+            Ok(Some(data)) => {
+                let shortcut_data = data.global_shortcut;
+
+                Ok(PhysicalShortcut {
+                    physical_key: PhysicalKey::from_value(shortcut_data.physical_key),
+                    modifier_shift: shortcut_data.modifier_shift,
+                    modifier_control: shortcut_data.modifier_control,
+                    modifier_alt: shortcut_data.modifier_alt,
+                    modifier_meta: shortcut_data.modifier_meta,
+                })
+            },
+            Ok(None) => {
+                if cfg!(target_os = "windows") {
+                    Ok(PhysicalShortcut {
+                        physical_key: PhysicalKey::Space,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: true,
+                        modifier_meta: false,
+                    })
+                } else {
+                    Ok(PhysicalShortcut {
+                        physical_key: PhysicalKey::Space,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: true,
+                    })
+                }
+            }
+            Err(err) => Err(anyhow!("Unable to get global shortcut from db: {:?}", err))
+        }
     }
 
     pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, user_data_name: String, user_data_value: DbPluginPreferenceUserData) -> anyhow::Result<()> {

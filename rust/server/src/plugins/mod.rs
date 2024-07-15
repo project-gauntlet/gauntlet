@@ -1,6 +1,12 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::Mutex;
 use anyhow::anyhow;
+use deno_core::futures::channel::mpsc::Sender;
+use global_hotkey::GlobalHotKeyManager;
+use global_hotkey::hotkey::HotKey;
 use include_dir::{Dir, include_dir};
+use tokio::runtime::Handle;
 
 use common::model::{DownloadStatus, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
@@ -10,6 +16,7 @@ use crate::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
+use crate::plugins::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
 use crate::plugins::loader::PluginLoader;
@@ -25,7 +32,7 @@ mod download_status;
 mod applications;
 mod icon_cache;
 pub(super) mod frecency;
-
+mod global_shortcut;
 
 static BUILTIN_PLUGINS: [(&str, Dir); 3] = [
     ("applications", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/applications/dist")),
@@ -42,6 +49,8 @@ pub struct ApplicationManager {
     run_status_holder: RunStatusHolder,
     icon_cache: IconCache,
     frontend_api: FrontendApi,
+    global_hotkey_manager: GlobalHotKeyManager,
+    current_hotkey: Mutex<Option<HotKey>>
 }
 
 impl ApplicationManager {
@@ -56,10 +65,13 @@ impl ApplicationManager {
         let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
         let search_index = SearchIndex::create_index(frontend_api.clone())?;
+        let global_hotkey_manager = GlobalHotKeyManager::new()?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
-        Ok(Self {
+        register_listener(frontend_api.clone());
+
+        let manager = Self {
             config_reader,
             search_index,
             command_broadcaster,
@@ -68,7 +80,15 @@ impl ApplicationManager {
             run_status_holder,
             icon_cache,
             frontend_api,
-        })
+            global_hotkey_manager,
+            current_hotkey: Mutex::new(None),
+        };
+
+        if let Err(err) = manager.register_global_shortcut().await {
+            tracing::warn!(target = "rpc", "error occurred when registering shortcut {:?}", err)
+        }
+
+        Ok(manager)
     }
 
     pub fn clear_all_icon_cache_dir(&self) -> anyhow::Result<()> {
@@ -207,11 +227,45 @@ impl ApplicationManager {
         Ok(())
     }
 
+    pub async fn set_global_shortcut(&self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+        self.db_repository.set_global_shortcut(shortcut)
+            .await?;
+
+        self.register_global_shortcut()
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+        self.db_repository.get_global_shortcut().await
+    }
+
     pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_name: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
         let user_data = plugin_preference_user_data_to_db(preference_value);
 
         self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_name, user_data)
             .await?;
+
+        Ok(())
+    }
+
+    async fn register_global_shortcut(&self) -> anyhow::Result<()> {
+        let shortcut = self.db_repository.get_global_shortcut().await?;
+
+        tracing::info!("Registering new global shortcut: {:?}", shortcut);
+
+        let mut hotkey_guard = self.current_hotkey.lock()
+            .expect("lock is poisoned");
+
+        if let Some(current_hotkey) = *hotkey_guard {
+            self.global_hotkey_manager.unregister(current_hotkey)?;
+        }
+
+        let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
+        *hotkey_guard = Some(hotkey);
+
+        self.global_hotkey_manager.register(hotkey)?;
 
         Ok(())
     }
