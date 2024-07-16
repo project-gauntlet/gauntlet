@@ -17,14 +17,16 @@ use crate::ui::theme::text::TextStyle;
 
 pub struct SearchList<Message> {
     on_select: Box<dyn Fn(SearchResult) -> Message>,
+    focused_search_result: usize,
     search_results: Vec<SearchResult>,
 }
 
 pub fn search_list<Message>(
     search_results: Vec<SearchResult>,
+    focused_search_result: usize,
     on_select: impl Fn(SearchResult) -> Message + 'static,
 ) -> SearchList<Message> {
-    SearchList::new(search_results, on_select)
+    SearchList::new(search_results, focused_search_result, on_select)
 }
 
 #[derive(Debug, Clone)]
@@ -33,10 +35,12 @@ pub struct SelectItemEvent(SearchResult);
 impl<Message> SearchList<Message> {
     pub fn new(
         search_results: Vec<SearchResult>,
+        focused_search_result: usize,
         on_open_view: impl Fn(SearchResult) -> Message + 'static,
     ) -> Self {
         Self {
             search_results,
+            focused_search_result,
             on_select: Box::new(on_open_view),
         }
     }
@@ -57,7 +61,8 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
     fn view(&self, _state: &Self::State) -> Element<SelectItemEvent> {
         let items: Vec<Element<_>> = self.search_results
             .iter()
-            .map(|search_result| {
+            .enumerate()
+            .map(|(index, search_result)| {
                 let main_text: Element<_> = text(&search_result.entrypoint_name)
                     .into();
                 let main_text: Element<_> = container(main_text)
@@ -100,10 +105,16 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
                     .align_items(Alignment::Center)
                     .into();
 
+                let style = if self.focused_search_result == index {
+                    ButtonStyle::MainListItemFocused
+                } else {
+                    ButtonStyle::MainListItem
+                };
+
                 button(button_content)
                     .width(Length::Fill)
                     .on_press(SelectItemEvent(search_result.clone()))
-                    .themed(ButtonStyle::MainListItem)
+                    .themed(style)
             })
             .collect();
 

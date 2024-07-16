@@ -60,6 +60,8 @@ pub struct AppModel {
 
     // ephemeral state
     prompt: String,
+    focused_search_result: usize,
+    search_result_offset: usize,
 
     // state
     client_context: Arc<StdRwLock<ClientContext>>,
@@ -293,6 +295,8 @@ impl Application for AppModel {
 
                 // ephemeral state
                 prompt: "".to_string(),
+                focused_search_result: 0,
+                search_result_offset: 0,
 
                 // state
                 client_context: Arc::new(StdRwLock::new(client_context)),
@@ -392,8 +396,8 @@ impl Application for AppModel {
                 match event {
                     keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                         match key {
-                            Key::Named(Named::ArrowUp) => iced::widget::focus_previous(),
-                            Key::Named(Named::ArrowDown) => iced::widget::focus_next(),
+                            Key::Named(Named::ArrowUp) => self.focus_previous(),
+                            Key::Named(Named::ArrowDown) => self.focus_next(),
                             Key::Named(Named::Escape) => self.previous_view(),
                             Key::Named(Named::Backspace) => {
                                 self.backspace_prompt();
@@ -722,6 +726,7 @@ impl Application for AppModel {
 
                 let search_list = search_list(
                     search_results,
+                    self.focused_search_result,
                     AppMsg::SelectSearchItem
                 );
 
@@ -825,6 +830,8 @@ impl Application for AppModel {
     }
 }
 
+const ESTIMATED_ITEM_SIZE: f32 = 38.8;
+
 impl AppModel {
     fn hide_window(&mut self) -> Command<AppMsg> {
         let mut commands = vec![
@@ -853,12 +860,51 @@ impl AppModel {
     }
 
     fn reset_window_state(&mut self) -> Command<AppMsg> {
+        self.focused_search_result = 0;
+        self.search_result_offset = 0;
+
         Command::batch([
             window::gain_focus(window::Id::MAIN),
             scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
         ])
+    }
+
+    fn focus_next(&mut self) -> Command<AppMsg> {
+        self.search_result_offset = if self.search_result_offset < 8 {
+            self.search_result_offset + 1
+        } else {
+            8
+        };
+
+        if self.focused_search_result < self.search_results.len() - 1 {
+            self.focused_search_result = self.focused_search_result + 1;
+
+            let pos_y = self.focused_search_result as f32 * ESTIMATED_ITEM_SIZE - (self.search_result_offset as f32 * ESTIMATED_ITEM_SIZE);
+
+            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
+        } else {
+            Command::none()
+        }
+    }
+
+    fn focus_previous(&mut self) -> Command<AppMsg> {
+        self.search_result_offset = if self.search_result_offset > 1 {
+            self.search_result_offset - 1
+        } else {
+            1
+        };
+
+        if self.focused_search_result > 0 {
+            self.focused_search_result = self.focused_search_result - 1;
+
+            let pos_y = self.focused_search_result as f32 * ESTIMATED_ITEM_SIZE - (self.search_result_offset as f32 * ESTIMATED_ITEM_SIZE);
+
+            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
+        } else {
+            Command::none()
+        }
     }
 
     fn close_error_view(&mut self) {

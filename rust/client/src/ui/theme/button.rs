@@ -15,6 +15,7 @@ pub enum ButtonStyle {
     GridItem,
     ListItem,
     MainListItem,
+    MainListItemFocused,
     MetadataLink,
     RootBottomPanelActionButton,
     RootTopPanelBackButton,
@@ -56,7 +57,7 @@ impl ButtonStyle {
 
                 theme.padding.to_iced()
             }
-            ButtonStyle::MainListItem => {
+            ButtonStyle::MainListItem | ButtonStyle::MainListItemFocused => {
                 let theme = &theme.main_list_item;
 
                 theme.padding.to_iced()
@@ -102,6 +103,10 @@ impl ButtonStyle {
             ButtonStyle::MainListItem => {
                 let theme = &theme.main_list_item;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+            }
+            ButtonStyle::MainListItemFocused => {
+                let theme = &theme.main_list_item;
+                (Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::MetadataLink => {
                 let theme = &theme.metadata_link;
