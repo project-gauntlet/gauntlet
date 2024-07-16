@@ -131,8 +131,4 @@ impl button::StyleSheet for GauntletSettingsTheme {
             }
         }
     }
-
-    fn focused(&self, style: &Self::Style, _is_active: bool) -> Appearance {
-        self.hovered(style)
-    }
 }
