@@ -368,7 +368,7 @@ impl Application for AppModel {
                 }, AppMsg::SetSearchResults)
             }
             AppMsg::PromptSubmit => {
-                if let Some(search_item) = self.search_results.first() {
+                if let Some(search_item) = self.search_results.get(self.focused_search_result) {
                     let search_item = search_item.clone();
                     Command::perform(async {}, |_| AppMsg::SelectSearchItem(search_item))
                 } else {
