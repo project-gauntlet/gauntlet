@@ -346,6 +346,8 @@ impl Application for AppModel {
                     new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
                     self.prompt = new_prompt.clone();
+                    self.focused_search_result = 0;
+                    self.search_result_offset = 0;
 
                     let mut backend_api = self.backend_api.clone();
 
