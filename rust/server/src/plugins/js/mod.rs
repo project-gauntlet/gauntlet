@@ -9,6 +9,7 @@ mod clipboard;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs::File;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -21,6 +22,7 @@ use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::futures::executor::block_on;
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use deno_runtime::deno_core::ModuleSpecifier;
+use deno_runtime::deno_io::{Stdio, StdioPipe};
 use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
@@ -34,7 +36,7 @@ use tokio::net::TcpStream;
 use common::model::{EntrypointId, PluginId, UiRenderLocation, UiPropertyValue, UiWidget, UiWidgetId, SearchResultEntrypointType, PhysicalKey};
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
-
+use crate::dirs::Dirs;
 use crate::model::{IntermediateUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::applications::{DesktopEntry, get_apps};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
@@ -63,6 +65,7 @@ pub struct PluginRuntimeData {
     pub search_index: SearchIndex,
     pub icon_cache: IconCache,
     pub frontend_api: FrontendApi,
+    pub dirs: Dirs,
 }
 
 pub struct PluginCode {
@@ -230,6 +233,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                     data.db_repository,
                     data.search_index,
                     data.icon_cache.clone(),
+                    data.dirs.clone()
                 ).await;
 
                 if let Err(err) = data.icon_cache.clear_plugin_icon_cache_dir(&data.uuid) {
@@ -266,6 +270,7 @@ async fn start_js_runtime(
     repository: DataDbRepository,
     search_index: SearchIndex,
     icon_cache: IconCache,
+    dirs: Dirs,
 ) -> anyhow::Result<()> {
     let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
         allow_env: if permissions.environment.is_empty() { None } else { Some(permissions.environment) },
@@ -286,6 +291,22 @@ async fn start_js_runtime(
         deny_write: None,
         prompt: false,
     })?);
+
+    let stdout_to_file = plugin_id.to_string().starts_with("file://");
+
+    let (stdout, stderr) = if stdout_to_file {
+        let (out_log_file, err_log_file) = dirs.plugin_log_files(&plugin_uuid);
+
+        std::fs::create_dir_all(out_log_file.parent().unwrap())?;
+        std::fs::create_dir_all(err_log_file.parent().unwrap())?;
+
+        let out_log_file = File::create(out_log_file)?;
+        let err_log_file = File::create(err_log_file)?;
+
+        (StdioPipe::File(out_log_file), StdioPipe::File(err_log_file))
+    } else {
+        (StdioPipe::Inherit, StdioPipe::Inherit)
+    };
 
     // let _inspector_server = Arc::new(
     //     InspectorServer::new(
@@ -317,6 +338,11 @@ async fn start_js_runtime(
             maybe_inspector_server: None,
             should_wait_for_inspector_session: false,
             should_break_on_first_statement: false,
+            stdio: Stdio {
+                stdin: StdioPipe::Inherit,
+                stdout,
+                stderr,
+            },
             ..Default::default()
         },
     );

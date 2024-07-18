@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
 
@@ -59,5 +60,29 @@ impl Dirs {
         };
 
         cache_dir
+    }
+
+    pub fn plugin_log_files(&self, plugin_uuid: &str) -> (PathBuf, PathBuf) {
+        let plugin_dir = self.state_dir().join("logs").join(&plugin_uuid);
+
+        let out_log_file = plugin_dir.join("stdout");
+        let err_log_file = plugin_dir.join("stderr");
+
+        (out_log_file, err_log_file)
+    }
+
+    pub fn state_dir(&self) -> PathBuf {
+        let state_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
+            let dir = match self.inner.state_dir() {
+                Some(dir) => dir,
+                None => self.inner.data_local_dir(),
+            };
+
+            dir.to_path_buf()
+        } else {
+            Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/state")).to_owned()
+        };
+
+        state_dir
     }
 }

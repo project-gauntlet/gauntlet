@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use common::{settings_env_data_to_string, SettingsEnvData};
-use common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut};
+use common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut, LocalSaveData};
 use common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
@@ -207,14 +207,10 @@ impl BackendServer for BackendServerImpl {
         Ok(())
     }
 
-    async fn save_local_plugin(&self, path: String) -> anyhow::Result<()> {
+    async fn save_local_plugin(&self, path: String) -> anyhow::Result<LocalSaveData> {
         let result = self.application_manager.save_local_plugin(&path)
-            .await;
+            .await?;
 
-        if let Err(err) = &result {
-            tracing::warn!(target = "rpc", "error occurred when handling 'save_local_plugin' request {:?}", err)
-        }
-
-        Ok(())
+        Ok(result)
     }
 }

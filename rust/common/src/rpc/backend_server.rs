@@ -6,7 +6,7 @@ use tokio::net::TcpStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use crate::model::{DownloadStatus, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowPreferencesResponse, RpcOpenSettingsWindowRequest, RpcOpenSettingsWindowResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcRequestRunCommandRequest, RpcRequestRunCommandResponse, RpcRequestRunGeneratedCommandRequest, RpcRequestRunGeneratedCommandResponse, RpcRequestViewCloseRequest, RpcRequestViewCloseResponse, RpcRequestViewRenderRequest, RpcRequestViewRenderResponse, RpcRequestViewRenderResponseAction, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSearchRequest, RpcSearchResponse, RpcSendKeyboardEventRequest, RpcSendKeyboardEventResponse, RpcSendOpenEventRequest, RpcSendOpenEventResponse, RpcSendViewEventRequest, RpcSendViewEventResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 use crate::rpc::grpc_convert::{physical_key_from_rpc, plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_from_rpc, ui_search_result_to_rpc};
@@ -147,7 +147,7 @@ pub trait BackendServer {
 
     async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()>;
 
-    async fn save_local_plugin(&self, path: String) -> anyhow::Result<()>;
+    async fn save_local_plugin(&self, path: String) -> anyhow::Result<LocalSaveData>;
 }
 
 
@@ -525,10 +525,13 @@ impl RpcBackend for RpcBackendServerImpl {
         let request = request.into_inner();
         let path = request.path;
 
-        self.server.save_local_plugin(path)
+        let local_save_data = self.server.save_local_plugin(path)
             .await
             .map_err(|err| Status::internal(err.to_string()))?;
 
-        Ok(Response::new(RpcSaveLocalPluginResponse::default()))
+        Ok(Response::new(RpcSaveLocalPluginResponse {
+            stdout_file_path: local_save_data.stdout_file_path,
+            stderr_file_path: local_save_data.stderr_file_path,
+        }))
     }
 }

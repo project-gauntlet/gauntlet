@@ -178,6 +178,8 @@ message RpcSaveLocalPluginRequest {
   string path = 1;
 }
 message RpcSaveLocalPluginResponse {
+  string stdout_file_path = 1;
+  string stderr_file_path = 2;
 }
 
 message RpcDownloadStatusRequest {

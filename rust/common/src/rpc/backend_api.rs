@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::model::{EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcGetGlobalShortcutRequest, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcUiWidgetId};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{physical_key_to_rpc, plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
@@ -372,12 +372,16 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn save_local_plugin(&mut self, path: String) -> anyhow::Result<()> {
+    pub async fn save_local_plugin(&mut self, path: String) -> anyhow::Result<LocalSaveData> {
         let request = RpcSaveLocalPluginRequest { path };
 
-        self.client.save_local_plugin(Request::new(request))
-            .await?;
+        let response = self.client.save_local_plugin(Request::new(request))
+            .await?
+            .into_inner();
 
-        Ok(())
+        Ok(LocalSaveData {
+            stdout_file_path: response.stdout_file_path,
+            stderr_file_path: response.stderr_file_path,
+        })
     }
 }

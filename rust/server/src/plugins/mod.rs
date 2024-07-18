@@ -8,7 +8,7 @@ use global_hotkey::hotkey::HotKey;
 use include_dir::{Dir, include_dir};
 use tokio::runtime::Handle;
 
-use common::model::{DownloadStatus, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common::rpc::frontend_server::wait_for_frontend_server;
 
@@ -50,7 +50,8 @@ pub struct ApplicationManager {
     icon_cache: IconCache,
     frontend_api: FrontendApi,
     global_hotkey_manager: GlobalHotKeyManager,
-    current_hotkey: Mutex<Option<HotKey>>
+    current_hotkey: Mutex<Option<HotKey>>,
+    dirs: Dirs
 }
 
 impl ApplicationManager {
@@ -82,6 +83,7 @@ impl ApplicationManager {
             frontend_api,
             global_hotkey_manager,
             current_hotkey: Mutex::new(None),
+            dirs
         };
 
         if let Err(err) = manager.register_global_shortcut().await {
@@ -111,14 +113,22 @@ impl ApplicationManager {
     pub async fn save_local_plugin(
         &self,
         path: &str,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<LocalSaveData> {
         tracing::info!(target = "plugin", "Saving local plugin at path: {:?}", path);
 
         let plugin_id = self.plugin_downloader.save_local_plugin(path).await?;
 
-        self.reload_plugin(plugin_id).await?;
+        let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())
+            .await?;
 
-        Ok(())
+        self.reload_plugin(plugin_id.clone()).await?;
+
+        let (stdout_file_path, stderr_file_path) = self.dirs.plugin_log_files(&plugin.uuid);
+
+        Ok(LocalSaveData {
+            stdout_file_path: stdout_file_path.into_os_string().into_string().map_err(|_| anyhow!("non uft8 paths are not supported"))?,
+            stderr_file_path: stderr_file_path.into_os_string().into_string().map_err(|_| anyhow!("non uft8 paths are not supported"))?,
+        })
     }
 
     pub async fn load_builtin_plugins(&self) -> anyhow::Result<()> {
@@ -499,7 +509,8 @@ impl ApplicationManager {
             db_repository: self.db_repository.clone(),
             search_index: self.search_index.clone(),
             icon_cache: self.icon_cache.clone(),
-            frontend_api: self.frontend_api.clone()
+            frontend_api: self.frontend_api.clone(),
+            dirs: self.dirs.clone()
         };
 
         self.start_plugin_runtime(data);

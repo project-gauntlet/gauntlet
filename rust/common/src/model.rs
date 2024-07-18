@@ -86,6 +86,12 @@ pub struct PhysicalShortcut {
 }
 
 #[derive(Debug, Clone)]
+pub struct LocalSaveData {
+    pub stdout_file_path: String,
+    pub stderr_file_path: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     pub plugin_id: PluginId,
     pub plugin_name: String,

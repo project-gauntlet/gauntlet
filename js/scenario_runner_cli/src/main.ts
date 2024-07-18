@@ -61,6 +61,7 @@ async function runScenarios(expectedPlugin: string | undefined) {
                 XDG_DATA_HOME: path.join(scenariosRun, "data"),
                 XDG_CONFIG_HOME: path.join(scenariosRun, "config"),
                 XDG_CACHE_HOME: path.join(scenariosRun, "cache"),
+                XDG_STATE_HOME: path.join(scenariosRun, "state"),
             })
         })
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::model::{DownloadStatus, EntrypointId, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::backend_server::{BackendServer, start_backend_server};
 
 pub async fn start_screenshot_gen_backend() {
@@ -88,7 +88,7 @@ impl BackendServer for RpcBackendScreenshotGen {
         unreachable!();
     }
 
-    async fn save_local_plugin(&self, _path: String) -> anyhow::Result<()> {
+    async fn save_local_plugin(&self, _path: String) -> anyhow::Result<LocalSaveData> {
         unreachable!();
     }
 }
