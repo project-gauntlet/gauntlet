@@ -71,7 +71,6 @@ pub struct DbCode {
 
 pub struct DbWritePlugin {
     pub id: String,
-    pub uuid: String,
     pub name: String,
     pub description: String,
     pub enabled: bool,
@@ -85,7 +84,6 @@ pub struct DbWritePlugin {
 
 pub struct DbWritePluginEntrypoint {
     pub id: String,
-    pub uuid: String,
     pub name: String,
     pub description: String,
     pub icon_path: Option<String>,
@@ -829,9 +827,9 @@ impl DataDbRepository {
     pub async fn save_plugin(&self, new_plugin: DbWritePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
-        let (enabled, preferences_user_data) = self.get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx).await?
-            .map(|plugin| (plugin.enabled, plugin.preferences_user_data))
-            .unwrap_or((new_plugin.enabled, HashMap::new()));
+        let (uuid, enabled, preferences_user_data) = self.get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx).await?
+            .map(|plugin| (plugin.uuid, plugin.enabled, plugin.preferences_user_data))
+            .unwrap_or((Uuid::new_v4().to_string(), new_plugin.enabled, HashMap::new()));
 
         // language=SQLite
         let sql = r#"
@@ -851,7 +849,7 @@ impl DataDbRepository {
             .bind(Json(preferences_user_data))
             .bind(new_plugin.description)
             .bind(new_plugin.plugin_type)
-            .bind(new_plugin.uuid)
+            .bind(uuid)
             .execute(&mut *tx)
             .await?;
 
@@ -863,9 +861,9 @@ impl DataDbRepository {
         for new_entrypoint in new_plugin.entrypoints {
             old_entrypoint_ids.remove(&new_entrypoint.id);
 
-            let (preferences_user_data, actions_user_data, enabled) = self.get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut *tx).await?
-                .map(|entrypoint| (entrypoint.preferences_user_data, entrypoint.actions_user_data, entrypoint.enabled))
-                .unwrap_or((HashMap::new(), vec![], true));
+            let (uuid, preferences_user_data, actions_user_data, enabled) = self.get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut *tx).await?
+                .map(|entrypoint| (entrypoint.uuid, entrypoint.preferences_user_data, entrypoint.actions_user_data, entrypoint.enabled))
+                .unwrap_or((Uuid::new_v4().to_string(), HashMap::new(), vec![], true));
 
             // language=SQLite
             sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data, icon_path, uuid) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)")
@@ -880,7 +878,7 @@ impl DataDbRepository {
                 .bind(Json(new_entrypoint.actions))
                 .bind(Json(actions_user_data))
                 .bind(Json(new_entrypoint.icon_path))
-                .bind(new_entrypoint.uuid)
+                .bind(uuid)
                 .execute(&mut *tx)
                 .await?;
         }

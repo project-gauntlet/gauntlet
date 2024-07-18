@@ -51,7 +51,6 @@ impl PluginLoader {
 
                 data_db_repository.save_plugin(DbWritePlugin {
                     id: plugin_data.id,
-                    uuid: Uuid::new_v4().to_string(),
                     name: plugin_data.name,
                     description: plugin_data.description,
                     enabled: false,
@@ -110,7 +109,6 @@ impl PluginLoader {
 
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
-            uuid: Uuid::new_v4().to_string(),
             name: plugin_data.name,
             description: plugin_data.description,
             enabled: true,
@@ -137,7 +135,6 @@ impl PluginLoader {
 
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
-            uuid: Uuid::new_v4().to_string(),
             name: plugin_data.name,
             description: plugin_data.description,
             enabled: true,
@@ -238,7 +235,6 @@ impl PluginLoader {
             .into_iter()
             .map(|entrypoint| DbWritePluginEntrypoint {
                 id: entrypoint.id,
-                uuid: Uuid::new_v4().to_string(),
                 name: entrypoint.name,
                 description: entrypoint.description,
                 icon_path: entrypoint.icon,

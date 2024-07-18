@@ -62,6 +62,8 @@ export default function DetailView(): ReactElement {
 
     const logoData = assetData("logo.png");
 
+    console.error("DetailView error")
+
     useEffect(() => {
         return () => {
             console.log("DetailView useEffect destructor called")
