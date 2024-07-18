@@ -65,8 +65,8 @@ impl Dirs {
     pub fn plugin_log_files(&self, plugin_uuid: &str) -> (PathBuf, PathBuf) {
         let plugin_dir = self.state_dir().join("logs").join(&plugin_uuid);
 
-        let out_log_file = plugin_dir.join("stdout");
-        let err_log_file = plugin_dir.join("stderr");
+        let out_log_file = plugin_dir.join("stdout.txt");
+        let err_log_file = plugin_dir.join("stderr.txt");
 
         (out_log_file, err_log_file)
     }
