@@ -2,7 +2,7 @@ import { ReactElement, useEffect, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail, Icons } from "@project-gauntlet/api/components";
 import { useNavigation } from "@project-gauntlet/api/hooks";
-import { assetData, pluginPreferences, entrypointPreferences, Clipboard } from "@project-gauntlet/api/helpers";
+import { Clipboard, entrypointPreferences, pluginPreferences } from "@project-gauntlet/api/helpers";
 
 async function readFile(url: string): Promise<Blob> {
     const res = await fetch(url);
@@ -112,6 +112,7 @@ export default function DetailView(): ReactElement {
                 <Detail.Content.H5>H5 Title</Detail.Content.H5>
                 <Detail.Content.H6>H6 Title</Detail.Content.H6>
                 <Detail.Content.Image source={{ asset: "logo.png" }}/>
+                <Detail.Content.Image source={{ url: "https://github.com/project-gauntlet/gauntlet/blob/main/docs/logo.png?raw=true" }}/>
                 <Detail.Content.CodeBlock>Code block Test</Detail.Content.CodeBlock>
                 <Detail.Content.HorizontalBreak/>
                 <Detail.Content.Paragraph>

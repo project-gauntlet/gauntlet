@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io::Read;
 use std::rc::Rc;
 use anyhow::{anyhow, Context};
 use deno_core::{op, OpState, serde_v8, v8};
@@ -281,8 +282,6 @@ fn convert(
                             convert_object(state.clone(), scope, name, value, &object_name, shared_types)
                         }
                         (Some(PropertyType::ImageSource), None) => {
-                            println!("test: {}", debug_object_to_json(scope, value.clone()));
-
                             let source: ImageSource = serde_v8::from_v8(scope, value)?;
                             convert_image_source(state.clone(), name, source)
                         }
@@ -399,10 +398,15 @@ fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: Image
             Ok((name, UiPropertyValue::Bytes(bytes::Bytes::from(bytes))))
         }
         ImageSource::Url { url } => {
-            // FIXME implement error handling properly
+            // FIXME implement error handling so it doesn't error whole view
             // TODO implement caching
-            let response = reqwest::blocking::get(url).expect("unable to get image");
-            let bytes = response.bytes().expect("unable to get image: unable to read bytes from response");
+
+            let bytes: bytes::Bytes = ureq::get(&url)
+                .call()?
+                .into_reader()
+                .bytes()
+                .collect::<std::io::Result<Vec<u8>>>()?
+                .into();
 
             Ok((name, UiPropertyValue::Bytes(bytes)))
         }
