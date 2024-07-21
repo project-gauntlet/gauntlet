@@ -1,12 +1,16 @@
-use common::model::{UiRequestData, UiResponseData};
+use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
-use utils::channel::RequestReceiver;
+use utils::channel::{RequestReceiver, RequestSender};
 
 pub(in crate) mod ui;
 pub(in crate) mod model;
 
-pub fn start_client(minimized: bool, request_receiver: RequestReceiver<UiRequestData, UiResponseData>) {
-    ui::run(minimized, request_receiver);
+pub fn start_client(
+    minimized: bool,
+    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+) {
+    ui::run(minimized, frontend_receiver, backend_sender);
 }
 
 pub fn open_window() {

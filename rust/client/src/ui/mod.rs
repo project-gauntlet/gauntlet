@@ -22,9 +22,8 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
-use common::rpc::backend_api::BackendApi;
-use common::rpc::backend_server::wait_for_backend_server;
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
+use common::rpc::backend_api::{BackendApi, BackendForFrontendApi};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
 use common_ui::physical_key_model;
@@ -49,8 +48,8 @@ mod inline_view_container;
 
 pub struct AppModel {
     // logic
-    backend_api: BackendApi,
-    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
+    backend_api: BackendForFrontendApi,
+    frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     search_field_id: text_input::Id,
     scrollable_id: scrollable::Id,
     waiting_for_next_unfocus: bool,
@@ -156,7 +155,8 @@ pub enum AppMsg {
 }
 
 pub struct AppFlags {
-    request_receiver: RequestReceiver<UiRequestData, UiResponseData>
+    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 }
 
 impl Default for AppFlags {
@@ -180,14 +180,19 @@ fn window_settings(minimized: bool) -> iced::window::Settings {
     }
 }
 
-pub fn run(minimized: bool, request_receiver: RequestReceiver<UiRequestData, UiResponseData>) {
+pub fn run(
+    minimized: bool,
+    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+) {
     let default_settings: Settings<()> = Settings::default();
 
     AppModel::run(Settings {
         id: None,
         window: window_settings(minimized),
         flags: AppFlags {
-            request_receiver,
+            frontend_receiver,
+            backend_sender,
         },
         fonts: default_settings.fonts,
         default_font: default_settings.default_font,
@@ -203,13 +208,10 @@ impl Application for AppModel {
     type Flags = AppFlags;
 
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let request_rx= flags.request_receiver;
+        let frontend_receiver = flags.frontend_receiver;
+        let backend_sender = flags.backend_sender;
 
-        let backend_api = futures::executor::block_on(async {
-            wait_for_backend_server().await;
-
-            BackendApi::new().await
-        }).unwrap();
+        let backend_api = BackendForFrontendApi::new(backend_sender);
 
         let mut commands = vec![
             change_level(window::Id::MAIN, Level::AlwaysOnTop),
@@ -299,7 +301,7 @@ impl Application for AppModel {
             AppModel {
                 // logic
                 backend_api,
-                request_rx: Arc::new(TokioRwLock::new(request_rx)),
+                frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
                 search_field_id: text_input::Id::unique(),
                 scrollable_id: scrollable::Id::unique(),
                 waiting_for_next_unfocus: false,
@@ -817,7 +819,7 @@ impl Application for AppModel {
 
     fn subscription(&self) -> Subscription<AppMsg> {
         let client_context = self.client_context.clone();
-        let request_rx = self.request_rx.clone();
+        let frontend_receiver = self.frontend_receiver.clone();
 
         struct RequestLoop;
 
@@ -835,7 +837,7 @@ impl Application for AppModel {
                 std::any::TypeId::of::<RequestLoop>(),
                 100,
                 |sender| async move {
-                    request_loop(client_context, request_rx, sender).await;
+                    request_loop(client_context, frontend_receiver, sender).await;
 
                     panic!("request_rx was unexpectedly closed")
                 },
@@ -999,12 +1001,12 @@ impl AppModel {
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
+    frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
-    let mut request_rx = request_rx.write().await;
+    let mut frontend_receiver = frontend_receiver.write().await;
     loop {
-        let (request_data, responder) = request_rx.recv().await;
+        let (request_data, responder) = frontend_receiver.recv().await;
 
         let app_msg = {
             let mut client_context = client_context.write().expect("lock is poisoned");

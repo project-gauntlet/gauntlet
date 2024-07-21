@@ -10,6 +10,7 @@ use tokio::runtime::Handle;
 
 use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
+use common::{settings_env_data_to_string, SettingsEnvData};
 use utils::channel::RequestSender;
 use crate::dirs::Dirs;
 use crate::model::ActionShortcutKey;
@@ -21,6 +22,7 @@ use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode,
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::search::SearchIndex;
+use crate::SETTINGS_ENV;
 
 pub mod js;
 mod data_db_repository;
@@ -102,9 +104,15 @@ impl ApplicationManager {
         self.plugin_downloader.download_status()
     }
 
-    pub fn search(&self, text: &str) -> anyhow::Result<Vec<SearchResult>> {
-        self.search_index.create_handle()
-            .search(&text)
+    pub fn search(&self, text: &str, render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
+        let result = self.search_index.create_handle()
+            .search(&text);
+
+        if render_inline_view {
+            self.handle_inline_view(&text);
+        }
+
+        result
     }
 
     pub async fn show_window(&self) -> anyhow::Result<()> {
@@ -287,7 +295,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn reload_all_plugins(&mut self) -> anyhow::Result<()> {
+    pub async fn reload_all_plugins(&self) -> anyhow::Result<()> {
         tracing::info!("Reloading all plugins");
 
         self.reload_config().await?;
@@ -349,7 +357,7 @@ impl ApplicationManager {
         self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub async fn handle_render_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    pub async fn handle_render_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
             data: OnePluginCommandData::RenderView {
@@ -357,7 +365,11 @@ impl ApplicationManager {
             }
         });
 
-        self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
+        self.mark_entrypoint_frecency(plugin_id.clone(), entrypoint_id.clone()).await;
+
+        let shortcuts = self.action_shortcuts(plugin_id, entrypoint_id).await?;
+
+        Ok(shortcuts)
     }
 
     pub fn handle_view_close(&self, plugin_id: PluginId) {
@@ -399,6 +411,46 @@ impl ApplicationManager {
         })
     }
 
+    pub fn handle_open(&self, href: String) {
+        match open::that(&href) {
+            Ok(()) => tracing::info!("Opened '{}' successfully.", href),
+            Err(err) => tracing::error!("An error occurred when opening '{}': {}", href, err),
+        }
+    }
+
+    pub fn handle_open_settings_window(&self){
+        let current_exe = std::env::current_exe()
+            .expect("unable to get current_exe");
+
+        std::process::Command::new(current_exe)
+            .args(["settings"])
+            .spawn()
+            .expect("failed to execute settings process");
+
+    }
+
+    pub fn handle_open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) {
+        let data = if let Some(entrypoint_id) = entrypoint_id {
+            SettingsEnvData::OpenEntrypointPreferences {
+                plugin_id: plugin_id.to_string(),
+                entrypoint_id: entrypoint_id.to_string(),
+            }
+        } else {
+            SettingsEnvData::OpenPluginPreferences {
+                plugin_id: plugin_id.to_string()
+            }
+        };
+
+        let current_exe = std::env::current_exe()
+            .expect("unable to get current_exe");
+
+        std::process::Command::new(current_exe)
+            .args(["settings"])
+            .env(SETTINGS_ENV, settings_env_data_to_string(data))
+            .spawn()
+            .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by frontend compilation
+    }
+
     async fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Reloading plugin with id: {:?}", plugin_id);
 
@@ -419,7 +471,7 @@ impl ApplicationManager {
             .await
     }
 
-    pub async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
+    async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         let DbReadPluginEntrypoint { actions, actions_user_data, .. } = self.db_repository.get_entrypoint_by_id(&plugin_id.to_string(), &entrypoint_id.to_string())
             .await?;
 

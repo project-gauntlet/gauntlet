@@ -1,7 +1,11 @@
+use std::rc::Rc;
+use std::sync::Arc;
+use freedesktop_icons::lookup;
 use client::{open_window, start_client};
-use common::model::{UiRequestData, UiResponseData};
+use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::start_backend_server;
+use common::{settings_env_data_to_string, SettingsEnvData};
 use utils::channel::{channel, RequestReceiver, RequestSender};
 use crate::plugins::ApplicationManager;
 use crate::rpc::BackendServerImpl;
@@ -24,13 +28,14 @@ pub fn start(minimized: bool) {
         if is_server_running() {
             open_window()
         } else {
-            let (sender, receiver) = channel::<UiRequestData, UiResponseData>();
+            let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
+            let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
 
             std::thread::spawn(|| {
-                start_server(sender);
+                start_server(frontend_sender, backend_receiver);
             });
 
-            start_client(minimized, receiver)
+            start_client(minimized, frontend_receiver, backend_sender)
         }
     }
 }
@@ -42,18 +47,23 @@ fn run_scenario_runner() {
 
     match runner_type.as_str() {
         "screenshot_gen" => {
-            let (_, receiver) = channel::<UiRequestData, UiResponseData>();
+            let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
+            let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
 
-            start_client(false, receiver)
+            start_client(false, frontend_receiver, backend_sender);
+
+            drop(frontend_sender);
+            drop(backend_receiver);
         }
         "scenario_runner" => {
-            let (sender, receiver) = channel::<UiRequestData, UiResponseData>();
+            let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
+            let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
 
             std::thread::spawn(|| {
-                start_server(sender)
+                start_server(frontend_sender, backend_receiver)
             });
 
-            start_frontend_mock(receiver)
+            start_frontend_mock(frontend_receiver, backend_sender)
         }
         _ => panic!("unknown type")
     }
@@ -78,31 +88,36 @@ fn is_server_running() -> bool {
         })
 }
 
-fn start_server(request_sender: RequestSender<UiRequestData, UiResponseData>) {
+fn start_server(request_sender: RequestSender<UiRequestData, UiResponseData>, backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
-            run_server(request_sender).await
+            run_server(request_sender, backend_receiver).await
         })
         .unwrap();
 }
 
 #[cfg(feature = "scenario_runner")]
-fn start_frontend_mock(request_receiver: RequestReceiver<UiRequestData, UiResponseData>) {
+fn start_frontend_mock(
+    request_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("unable to start frontend mock tokio runtime")
         .block_on(async {
-            scenario_runner::run_scenario_runner_frontend_mock(request_receiver).await
+            scenario_runner::run_scenario_runner_frontend_mock(request_receiver, backend_sender).await
         })
         .unwrap();
 }
 
-async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData>) -> anyhow::Result<()> {
-    let mut application_manager = ApplicationManager::create(frontend_sender).await?;
+async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData>, mut backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>) -> anyhow::Result<()> {
+    let application_manager = ApplicationManager::create(frontend_sender).await?;
+
+    let mut application_manager = Arc::new(application_manager);
 
     application_manager.clear_all_icon_cache_dir()?;
 
@@ -124,11 +139,93 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
 
     application_manager.reload_all_plugins().await?; // TODO do not fail here ?
 
-    tokio::spawn(async {
-        start_backend_server(Box::new(BackendServerImpl::new(application_manager))).await
+    tokio::spawn({
+        let application_manager = application_manager.clone();
+
+        async move {
+            start_backend_server(Box::new(BackendServerImpl::new(application_manager.clone()))).await
+        }
     });
 
-    std::future::pending::<()>().await;
+    loop {
+        let (request_data, responder) = backend_receiver.recv().await;
 
-    Ok(())
+        let response_data = handle_request(application_manager.clone(), request_data)
+            .await
+            .unwrap(); // TODO error handling
+
+        responder.respond(response_data);
+    }
+}
+
+async fn handle_request(application_manager: Arc<ApplicationManager>, request_data: BackendRequestData) -> anyhow::Result<BackendResponseData> {
+    let response_data = match request_data {
+        BackendRequestData::Search { text, render_inline_view } => {
+            let results = application_manager.search(&text, render_inline_view)?;
+
+            BackendResponseData::Search {
+                results,
+            }
+        }
+        BackendRequestData::RequestViewRender { plugin_id, entrypoint_id } => {
+            let shortcuts = application_manager.handle_render_view(plugin_id.clone(), entrypoint_id.clone())
+                .await?;
+
+            BackendResponseData::RequestViewRender {
+                shortcuts
+            }
+        }
+        BackendRequestData::RequestViewClose { plugin_id } => {
+            application_manager.handle_view_close(plugin_id);
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::RequestRunCommand { plugin_id, entrypoint_id } => {
+            application_manager.handle_run_command(plugin_id, entrypoint_id)
+                .await;
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::RequestRunGeneratedCommand { plugin_id, entrypoint_id } => {
+            application_manager.handle_run_generated_command(plugin_id, entrypoint_id)
+                .await;
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::SendViewEvent { plugin_id, widget_id, event_name, event_arguments } => {
+            application_manager.handle_view_event(plugin_id, widget_id, event_name, event_arguments);
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::SendKeyboardEvent { plugin_id, entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+            application_manager.handle_keyboard_event(
+                plugin_id,
+                entrypoint_id,
+                key,
+                modifier_shift,
+                modifier_control,
+                modifier_alt,
+                modifier_meta,
+            );
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::SendOpenEvent { plugin_id: _, href } => {
+            application_manager.handle_open(href);
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::OpenSettingsWindow => {
+            application_manager.handle_open_settings_window();
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::OpenSettingsWindowPreferences { plugin_id, entrypoint_id } => {
+            application_manager.handle_open_settings_window_preferences(plugin_id, entrypoint_id);
+
+            BackendResponseData::Nothing
+        }
+    };
+
+    Ok(response_data)
 }

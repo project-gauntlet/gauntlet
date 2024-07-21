@@ -1,16 +1,19 @@
 use std::fs;
 use std::path::Path;
 
-use common::model::{EntrypointId, PluginId, UiRequestData, UiResponseData};
-use common::rpc::backend_api::BackendApi;
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PluginId, UiRequestData, UiResponseData};
+use common::rpc::backend_api::{BackendApi, BackendForFrontendApi};
 use common::rpc::backend_server::wait_for_backend_server;
 use common::scenario_convert::{ui_render_location_to_scenario, ui_widget_to_scenario};
 use common::scenario_model::ScenarioFrontendEvent;
-use utils::channel::RequestReceiver;
+use utils::channel::{RequestReceiver, RequestSender};
 
 use crate::model::ScenarioBackendEvent;
 
-pub async fn start_scenario_runner_frontend(request_receiver: RequestReceiver<UiRequestData, UiResponseData>) -> anyhow::Result<()> {
+pub async fn start_scenario_runner_frontend(
+    request_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+) -> anyhow::Result<()> {
     let scenario_dir = std::env::var("GAUNTLET_SCENARIOS_DIR")
         .expect("Unable to read GAUNTLET_SCENARIOS_DIR");
 
@@ -53,11 +56,12 @@ pub async fn start_scenario_runner_frontend(request_receiver: RequestReceiver<Ui
 
     println!("backend started");
 
-    let mut client = BackendApi::new().await?;
+    let mut backend_for_frontend_client = BackendForFrontendApi::new(backend_sender);
+    let mut backend_client = BackendApi::new().await?;
 
     println!("saving local plugin");
 
-    client.save_local_plugin(scenario_plugin_dir.clone()).await?;
+    backend_client.save_local_plugin(scenario_plugin_dir.clone()).await?;
 
     println!("local plugin saved");
 
@@ -94,13 +98,13 @@ pub async fn start_scenario_runner_frontend(request_receiver: RequestReceiver<Ui
 
             match event {
                 ScenarioBackendEvent::Search { text } => {
-                    client.search(text, true).await?;
+                    backend_for_frontend_client.search(text, true).await?;
                 }
                 ScenarioBackendEvent::RequestViewRender => {
                     let plugin_id = PluginId::from_string(format!("file://{scenario_plugin_dir}"));
                     let entrypoint_id = EntrypointId::from_string(&entrypoint_name);
 
-                    client.request_view_render(plugin_id, entrypoint_id).await?;
+                    backend_for_frontend_client.request_view_render(plugin_id, entrypoint_id).await?;
                 }
             }
 

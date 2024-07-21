@@ -3,10 +3,173 @@ use std::collections::HashMap;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::model::{EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcEventKeyboardEvent, RpcEventRenderView, RpcEventRunCommand, RpcEventRunGeneratedCommand, RpcEventViewEvent, RpcGetGlobalShortcutRequest, RpcOpenSettingsWindowPreferencesRequest, RpcOpenSettingsWindowRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcRequestRunCommandRequest, RpcRequestRunGeneratedCommandRequest, RpcRequestViewCloseRequest, RpcRequestViewRenderRequest, RpcSaveLocalPluginRequest, RpcSearchRequest, RpcSendKeyboardEventRequest, RpcSendOpenEventRequest, RpcSendViewEventRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowWindowRequest, RpcUiWidgetId};
+use utils::channel::RequestSender;
+
+use crate::model::{BackendRequestData, BackendResponseData, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
-use crate::rpc::grpc_convert::{physical_key_to_rpc, plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc, ui_property_value_to_rpc, ui_search_result_from_rpc};
+use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
+
+#[derive(Debug, Clone)]
+pub struct BackendForFrontendApi {
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+}
+
+impl BackendForFrontendApi {
+    pub fn new(backend_sender: RequestSender<BackendRequestData, BackendResponseData>) -> Self {
+        Self {
+            backend_sender
+        }
+    }
+
+    pub async fn search(&mut self, text: String, render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
+        let request = BackendRequestData::Search {
+            text,
+            render_inline_view,
+        };
+
+        let BackendResponseData::Search { results } = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(results)
+    }
+
+    pub async fn request_view_render(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
+        let request = BackendRequestData::RequestViewRender {
+            plugin_id,
+            entrypoint_id,
+        };
+
+        let BackendResponseData::RequestViewRender { shortcuts } = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(shortcuts)
+    }
+
+    pub async fn request_view_close(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
+        let request = BackendRequestData::RequestViewClose {
+            plugin_id,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn request_run_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
+        let request = BackendRequestData::RequestRunCommand {
+            plugin_id,
+            entrypoint_id,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
+        let request = BackendRequestData::RequestRunGeneratedCommand {
+            plugin_id,
+            entrypoint_id,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn send_view_event(
+        &mut self,
+        plugin_id: PluginId,
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<UiPropertyValue>
+    ) -> anyhow::Result<()> {
+        let request = BackendRequestData::SendViewEvent {
+            plugin_id,
+            widget_id,
+            event_name,
+            event_arguments,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn send_keyboard_event(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool
+    ) -> anyhow::Result<()> {
+        let request = BackendRequestData::SendKeyboardEvent {
+            plugin_id,
+            entrypoint_id,
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn send_open_event(&mut self, plugin_id: PluginId, href: String) -> anyhow::Result<()> {
+        let request = BackendRequestData::SendOpenEvent {
+            plugin_id,
+            href,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn open_settings_window(&mut self, ) -> anyhow::Result<()> {
+        let request = BackendRequestData::OpenSettingsWindow;
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn open_settings_window_preferences(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) -> anyhow::Result<()> {
+        let request = BackendRequestData::OpenSettingsWindowPreferences {
+            plugin_id,
+            entrypoint_id,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct BackendApi {
@@ -33,162 +196,6 @@ impl BackendApi {
 
         Ok(())
     }
-
-    pub async fn search(&mut self, text: String, render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
-        let request = RpcSearchRequest { text, render_inline_view };
-
-        let search_result = self.client.search(Request::new(request))
-            .await?
-            .into_inner()
-            .results
-            .into_iter()
-            .map(|search_result| ui_search_result_from_rpc(search_result))
-            .collect();
-
-        Ok(search_result)
-    }
-
-    pub async fn request_view_render(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
-        let event = RpcEventRenderView {
-            entrypoint_id: entrypoint_id.to_string(),
-        };
-
-        let request = RpcRequestViewRenderRequest {
-            plugin_id: plugin_id.to_string(),
-            event: Some(event),
-        };
-
-        let action_shortcuts = self.client.request_view_render(Request::new(request))
-            .await?
-            .into_inner()
-            .action_shortcuts
-            .into_iter()
-            .map(|(id, value)| {
-                let action_shortcut = PhysicalShortcut {
-                    physical_key: PhysicalKey::from_value(value.key),
-                    modifier_shift: value.modifier_shift,
-                    modifier_control: value.modifier_control,
-                    modifier_alt: value.modifier_alt,
-                    modifier_meta: value.modifier_meta,
-                };
-
-                (id, action_shortcut)
-            })
-            .collect::<HashMap<_, _>>();
-
-        Ok(action_shortcuts)
-    }
-
-    pub async fn request_view_close(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
-        let request = RpcRequestViewCloseRequest {
-            plugin_id: plugin_id.to_string(),
-        };
-
-        self.client.request_view_close(Request::new(request)).await?;
-
-        Ok(())
-    }
-
-    pub async fn request_run_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
-        let event = RpcEventRunCommand {
-            entrypoint_id: entrypoint_id.to_string(),
-        };
-
-        let request = RpcRequestRunCommandRequest {
-            plugin_id: plugin_id.to_string(),
-            event: Some(event),
-        };
-
-        self.client.request_run_command(Request::new(request)).await?;
-
-        Ok(())
-    }
-
-    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<()> {
-        let event = RpcEventRunGeneratedCommand {
-            entrypoint_id: entrypoint_id.to_string(),
-        };
-
-        let request = RpcRequestRunGeneratedCommandRequest {
-            plugin_id: plugin_id.to_string(),
-            event: Some(event),
-        };
-
-        self.client.request_run_generated_command(Request::new(request)).await?;
-
-        Ok(())
-    }
-
-    pub async fn send_view_event(
-        &mut self,
-        plugin_id: PluginId,
-        widget_id: UiWidgetId,
-        event_name: String,
-        event_arguments: Vec<UiPropertyValue>
-    ) -> anyhow::Result<()> {
-        let widget_id = RpcUiWidgetId { value: widget_id };
-        let event_arguments = event_arguments
-            .into_iter()
-            .map(|value| ui_property_value_to_rpc(value))
-            .collect();
-
-        let event = RpcEventViewEvent {
-            widget_id: Some(widget_id),
-            event_name,
-            event_arguments,
-        };
-
-        let request = RpcSendViewEventRequest {
-            plugin_id: plugin_id.to_string(),
-            event: Some(event),
-        };
-
-        self.client.send_view_event(Request::new(request)).await?;
-
-        Ok(())
-    }
-
-    pub async fn send_keyboard_event(
-        &mut self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        key: PhysicalKey,
-        modifier_shift: bool,
-        modifier_control: bool,
-        modifier_alt: bool,
-        modifier_meta: bool
-    ) -> anyhow::Result<()> {
-        let event = RpcEventKeyboardEvent {
-            entrypoint_id: entrypoint_id.to_string(),
-            key: physical_key_to_rpc(key),
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta,
-        };
-
-        let request = RpcSendKeyboardEventRequest {
-            plugin_id: plugin_id.to_string(),
-            event: Some(event),
-        };
-
-        self.client.send_keyboard_event(Request::new(request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn send_open_event(&mut self, plugin_id: PluginId, href: String) -> anyhow::Result<()> {
-        let request = RpcSendOpenEventRequest {
-            plugin_id: plugin_id.to_string(),
-            href,
-        };
-
-        self.client.send_open_event(Request::new(request)).await?;
-
-        Ok(())
-    }
-
     pub async fn plugins(&mut self) -> anyhow::Result<HashMap<PluginId, SettingsPlugin>> {
         let plugins = self.client.plugins(Request::new(RpcPluginsRequest::default()))
             .await?
@@ -348,26 +355,6 @@ impl BackendApi {
             .collect::<Vec<_>>();
 
         Ok(plugins)
-    }
-
-    pub async fn open_settings_window(&mut self, ) -> anyhow::Result<()> {
-        self.client.open_settings_window(Request::new(RpcOpenSettingsWindowRequest::default()))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn open_settings_window_preferences(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) -> anyhow::Result<()> {
-        let request = RpcOpenSettingsWindowPreferencesRequest {
-            plugin_id: plugin_id.to_string(),
-            entrypoint_id: entrypoint_id.map(|val| val.to_string()).unwrap_or_default(),
-        };
-
-        self.client.open_settings_window_preferences(Request::new(request))
-            .await?;
-
-        Ok(())
-
     }
 
     pub async fn remove_plugin(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {

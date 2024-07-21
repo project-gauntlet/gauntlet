@@ -28,7 +28,7 @@ impl FrontendApi {
         top_level_view: bool,
         container: UiWidget,
     ) -> anyhow::Result<()> {
-        let data = UiRequestData::ReplaceView {
+        let request = UiRequestData::ReplaceView {
             plugin_id,
             entrypoint_id,
             render_location,
@@ -36,23 +36,23 @@ impl FrontendApi {
             container,
         };
 
-        let _ = self.frontend_sender.send_receive(data).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
 
         Ok(())
     }
 
     pub async fn clear_inline_view(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
-        let data = UiRequestData::ClearInlineView {
+        let request = UiRequestData::ClearInlineView {
             plugin_id,
         };
 
-        let _ = self.frontend_sender.send_receive(data).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
 
         Ok(())
     }
 
     pub async fn show_window(&self) -> anyhow::Result<()> {
-        let _ = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await;
 
         Ok(())
     }
@@ -64,14 +64,14 @@ impl FrontendApi {
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
     ) -> anyhow::Result<()> {
-        let data = UiRequestData::ShowPreferenceRequiredView {
+        let request = UiRequestData::ShowPreferenceRequiredView {
             plugin_id,
             entrypoint_id,
             plugin_preferences_required,
             entrypoint_preferences_required,
         };
 
-        let _ = self.frontend_sender.send_receive(data).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
 
         Ok(())
     }
@@ -82,13 +82,13 @@ impl FrontendApi {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation,
     ) -> anyhow::Result<()> {
-        let data = UiRequestData::ShowPluginErrorView {
+        let request = UiRequestData::ShowPluginErrorView {
             plugin_id,
             entrypoint_id,
             render_location,
         };
 
-        let _ = self.frontend_sender.send_receive(data).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
 
         Ok(())
     }

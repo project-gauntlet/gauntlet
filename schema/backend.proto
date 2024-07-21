@@ -6,21 +6,6 @@ service RpcBackend {
   // ping
   rpc Ping (RpcPingRequest) returns (RpcPingResponse);
 
-  // search
-  rpc Search (RpcSearchRequest) returns (RpcSearchResponse);
-
-  // ui
-  rpc RequestViewRender (RpcRequestViewRenderRequest) returns (RpcRequestViewRenderResponse);
-  rpc RequestViewClose (RpcRequestViewCloseRequest) returns (RpcRequestViewCloseResponse);
-
-  rpc RequestRunCommand (RpcRequestRunCommandRequest) returns (RpcRequestRunCommandResponse);
-
-  rpc RequestRunGeneratedCommand (RpcRequestRunGeneratedCommandRequest) returns (RpcRequestRunGeneratedCommandResponse);
-
-  rpc SendViewEvent (RpcSendViewEventRequest) returns (RpcSendViewEventResponse);
-  rpc SendKeyboardEvent (RpcSendKeyboardEventRequest) returns (RpcSendKeyboardEventResponse);
-  rpc SendOpenEvent (RpcSendOpenEventRequest) returns (RpcSendOpenEventResponse);
-
   // cli
   rpc ShowWindow (RpcShowWindowRequest) returns (RpcShowWindowResponse);
 
@@ -40,9 +25,6 @@ service RpcBackend {
 
   rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
 
-  rpc OpenSettingsWindow (RpcOpenSettingsWindowRequest) returns (RpcOpenSettingsWindowResponse);
-  rpc OpenSettingsWindowPreferences (RpcOpenSettingsWindowPreferencesRequest) returns (RpcOpenSettingsWindowPreferencesResponse);
-
   rpc RemovePlugin (RpcRemovePluginRequest) returns (RpcRemovePluginResponse);
 
   // dev tools
@@ -57,71 +39,6 @@ message RpcShowWindowResponse {
 message RpcPingRequest {
 }
 message RpcPingResponse {
-}
-
-message RpcSearchRequest {
-  string text = 1;
-  bool render_inline_view = 2;
-}
-message RpcSearchResponse {
-  repeated RpcSearchResult results = 1;
-}
-
-message RpcRequestViewRenderRequest {
-  string plugin_id = 1;
-  RpcEventRenderView event = 2;
-}
-message RpcRequestViewRenderResponse {
-  map<string, RpcRequestViewRenderResponseAction> action_shortcuts = 1;
-}
-
-message RpcRequestViewCloseRequest {
-  string plugin_id = 1;
-}
-message RpcRequestViewCloseResponse {
-}
-
-message RpcRequestViewRenderResponseAction {
-  string key = 1;
-  bool modifier_shift = 2;
-  bool modifier_control = 3;
-  bool modifier_alt = 4;
-  bool modifier_meta = 5;
-}
-
-message RpcRequestRunCommandRequest {
-  string plugin_id = 1;
-  RpcEventRunCommand event = 2;
-}
-message RpcRequestRunCommandResponse {
-}
-
-message RpcRequestRunGeneratedCommandRequest {
-  string plugin_id = 1;
-  RpcEventRunGeneratedCommand event = 2;
-}
-message RpcRequestRunGeneratedCommandResponse {
-}
-
-message RpcSendViewEventRequest {
-  string plugin_id = 1;
-  RpcEventViewEvent event = 2;
-}
-message RpcSendViewEventResponse {
-}
-
-message RpcSendKeyboardEventRequest {
-  string plugin_id = 1;
-  RpcEventKeyboardEvent event = 2;
-}
-message RpcSendKeyboardEventResponse {
-}
-
-message RpcSendOpenEventRequest {
-  string plugin_id = 1;
-  string href = 2;
-}
-message RpcSendOpenEventResponse {
 }
 
 message RpcPluginsRequest {
@@ -194,19 +111,6 @@ message RpcDownloadStatusRequest {
 }
 message RpcDownloadStatusResponse {
   map<string, RpcDownloadStatusValue> status_per_plugin = 1;
-}
-
-
-message RpcOpenSettingsWindowRequest {
-}
-message RpcOpenSettingsWindowResponse {
-}
-
-message RpcOpenSettingsWindowPreferencesRequest {
-  string plugin_id = 1;
-  string entrypoint_id = 2;
-}
-message RpcOpenSettingsWindowPreferencesResponse {
 }
 
 message RpcRemovePluginRequest {

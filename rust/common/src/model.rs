@@ -140,6 +140,64 @@ pub enum UiRequestData {
     RequestSearchResultUpdate
 }
 
+#[derive(Debug)]
+pub enum BackendResponseData {
+    Nothing,
+    Search {
+        results: Vec<SearchResult>
+    },
+    RequestViewRender {
+        shortcuts: HashMap<String, PhysicalShortcut>
+    },
+}
+
+#[derive(Debug)]
+pub enum BackendRequestData {
+    Search {
+        text: String,
+        render_inline_view: bool
+    },
+    RequestViewRender {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId
+    },
+    RequestViewClose {
+        plugin_id: PluginId,
+    },
+    RequestRunCommand {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId
+    },
+    RequestRunGeneratedCommand {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId
+    },
+    SendViewEvent {
+        plugin_id: PluginId,
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<UiPropertyValue>
+    },
+    SendKeyboardEvent {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool
+    },
+    SendOpenEvent {
+        plugin_id: PluginId,
+        href: String
+    },
+    OpenSettingsWindow,
+    OpenSettingsWindowPreferences {
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>
+    },
+}
+
 #[derive(Debug, Clone)]
 pub struct UiWidget {
     pub widget_id: UiWidgetId,
