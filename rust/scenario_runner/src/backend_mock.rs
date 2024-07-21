@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use common::rpc::backend_server::{BackendServer, start_backend_server};
 
 pub async fn start_screenshot_gen_backend() {
@@ -35,7 +35,7 @@ impl BackendServer for RpcBackendScreenshotGen {
         unreachable!(); // screenshot gen is not interactive
     }
 
-    async fn send_keyboard_event(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId, _key: String, _modifier_shift: bool, _modifier_control: bool, _modifier_alt: bool, _modifier_meta: bool) -> anyhow::Result<()> {
+    async fn send_keyboard_event(&self, _plugin_id: PluginId, _entrypoint_id: EntrypointId, _key: PhysicalKey, _modifier_shift: bool, _modifier_control: bool, _modifier_alt: bool, _modifier_meta: bool) -> anyhow::Result<()> {
         unreachable!(); // screenshot gen is not interactive
     }
 
