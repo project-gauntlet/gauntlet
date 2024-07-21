@@ -241,6 +241,31 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
     const root = modelInput.find((component): component is RootComponent => component.type === "root");
     if (root != null) {
+        // image special case
+        // export type ImageSource = { asset: string } | { url: string };
+
+        const imageSourceDeclaration = ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+            ts.factory.createIdentifier("ImageSource"),
+            undefined,
+            ts.factory.createUnionTypeNode([
+                ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature(
+                    undefined,
+                    ts.factory.createIdentifier("asset"),
+                    undefined,
+                    ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+                )]),
+                // ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature( // TODO implement url imagesource
+                //     undefined,
+                //     ts.factory.createIdentifier("url"),
+                //     undefined,
+                //     ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+                // )])
+            ])
+        );
+
+        publicDeclarations.push(imageSourceDeclaration)
+
         for (const [name, sharedType] of Object.entries(root.sharedTypes)) {
 
             switch (sharedType.type) {
@@ -633,9 +658,9 @@ function makeType(type: PropertyType): ts.TypeNode {
                 ]
             )
         }
-        case "image_data": {
+        case "image_source": {
             return ts.factory.createTypeReferenceNode(
-                ts.factory.createIdentifier("ArrayBuffer"),
+                ts.factory.createIdentifier("ImageSource"),
                 undefined
             )
         }

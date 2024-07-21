@@ -177,7 +177,7 @@ fn main() -> anyhow::Result<()> {
                             PropertyType::Component { .. } => {
                                 // component properties are found in a children array
                             }
-                            PropertyType::ImageData => {
+                            PropertyType::ImageSource => {
                                 if prop.optional {
                                     output.push_str(&format!("            {}: parse_bytes_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 } else {
@@ -520,7 +520,7 @@ fn generate_required_type(property_type: &PropertyType, union_name: String) -> S
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Function { .. } => panic!("client doesn't know about functions in properties"),
         PropertyType::Component { .. } => panic!("component properties are found in children array"),
-        PropertyType::ImageData => "Vec<u8>".to_owned(),
+        PropertyType::ImageSource => "Vec<u8>".to_owned(),
         PropertyType::Union { .. } => union_name,
         PropertyType::Object { name } => name.to_owned(),
         PropertyType::Enum { name } => name.to_owned()

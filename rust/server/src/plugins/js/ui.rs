@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use anyhow::{anyhow, Context};
 use deno_core::{op, OpState, serde_v8, v8};
+use deno_core::futures::executor::block_on;
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use indexmap::IndexMap;
+use serde::Deserialize;
 use common::model::{EntrypointId, PhysicalKey, UiPropertyValue, UiWidget};
 use component_model::{Component, Property, PropertyType, SharedType};
 use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget};
@@ -88,7 +90,7 @@ fn op_react_replace_view(
         entrypoint_id: EntrypointId::from_string(entrypoint_id),
         render_location,
         top_level_view,
-        container: from_js_to_intermediate_widget(scope, container, component_model, shared_types)?,
+        container: from_js_to_intermediate_widget(state.clone(), scope, container, component_model, shared_types)?,
     };
 
     match make_request(&state, data).context("ReplaceView frontend response")? {
@@ -146,9 +148,9 @@ async fn fetch_action_id_for_shortcut(
     Ok(result)
 }
 
-fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<UiWidget> {
+fn from_js_to_intermediate_widget(state: Rc<RefCell<OpState>>, scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<UiWidget> {
     let children = ui_widget.widget_children.into_iter()
-        .map(|child| from_js_to_intermediate_widget(scope, child, component_model, shared_types))
+        .map(|child| from_js_to_intermediate_widget(state.clone(), scope, child, component_model, shared_types))
         .collect::<anyhow::Result<Vec<UiWidget>>>()?;
 
     let component = component_model.components
@@ -167,7 +169,7 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
         .map(|prop| (&prop.name, &prop.property_type))
         .collect::<HashMap<_, _>>();
 
-    let properties = from_js_to_intermediate_properties(scope, ui_widget.widget_properties, &props, shared_types);
+    let properties = from_js_to_intermediate_properties(state.clone(), scope, ui_widget.widget_properties, &props, shared_types);
 
     Ok(UiWidget {
         widget_id: ui_widget.widget_id,
@@ -178,6 +180,7 @@ fn from_js_to_intermediate_widget(scope: &mut v8::HandleScope, ui_widget: JsUiWi
 }
 
 fn from_js_to_intermediate_properties(
+    state: Rc<RefCell<OpState>>,
     scope: &mut v8::HandleScope,
     v8_properties: HashMap<String, serde_v8::Value>,
     component_props: &HashMap<&String, &PropertyType>,
@@ -193,7 +196,7 @@ fn from_js_to_intermediate_properties(
                 return Err(anyhow!("unknown property encountered {:?}", name))
             };
 
-            convert(scope, property_type, name, val, shared_types)
+            convert(state.clone(), scope, property_type, name, val, shared_types)
         })
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;
 
@@ -201,6 +204,7 @@ fn from_js_to_intermediate_properties(
 }
 
 fn convert(
+    state: Rc<RefCell<OpState>>,
     scope: &mut v8::HandleScope,
     property_type: &PropertyType,
     name: String,
@@ -235,16 +239,13 @@ fn convert(
         PropertyType::Function { .. } => {
             panic!("functions are filtered out")
         }
-        PropertyType::ImageData => {
-            if value.is_array() { // TODO arraybuffer? fix when migrating to deno's op2
-                convert_bytes(scope, name, value)
-            } else {
-                invalid_type_err(name, value, property_type)
-            }
+        PropertyType::ImageSource => {
+            let source: ImageSource = serde_v8::from_v8(scope, value)?;
+            convert_image_source(state.clone(), name, source)
         }
         PropertyType::Object { name: object_name } => {
             if value.is_object() {
-                convert_object(scope, name, value, object_name, shared_types)
+                convert_object(state.clone(), scope, name, value, object_name, shared_types)
             } else {
                 invalid_type_err(name, value, property_type)
             }
@@ -265,21 +266,34 @@ fn convert(
                     None => invalid_type_err(name, value, property_type),
                     Some(_) => convert_boolean(scope, name, value)
                 }
-            } else if value.is_array() { // TODO arraybuffer? fix when migrating to deno's op2
-                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::ImageData)) {
-                    None => invalid_type_err(name, value, property_type),
-                    Some(_) => convert_bytes(scope, name, value)
-                }
-            } else if value.is_object() {
-                match items.iter().find(|prop_type| matches!(prop_type, PropertyType::Object { .. })) {
-                    None => invalid_type_err(name, value, property_type),
-                    Some(PropertyType::Object { name: object_name }) => {
-                        convert_object(scope, name, value, object_name, shared_types)
-                    },
-                    _ => unreachable!()
-                }
             } else {
-                invalid_type_err(name, value, property_type)
+                if !value.is_object() {
+                    invalid_type_err(name, value, property_type)
+                } else {
+                    let image_source = items.iter().find(|prop_type| matches!(prop_type, PropertyType::ImageSource));
+                    let object = items.iter().find(|prop_type| matches!(prop_type, PropertyType::Object { .. }));
+
+                    match (image_source, object) {
+                        (Some(PropertyType::ImageSource), Some(PropertyType::Object { .. })) => {
+                            panic!("image_source and object is conflicting prop_types")
+                        }
+                        (None, Some(PropertyType::Object { name: object_name })) => {
+                            convert_object(state.clone(), scope, name, value, &object_name, shared_types)
+                        }
+                        (Some(PropertyType::ImageSource), None) => {
+                            println!("test: {}", debug_object_to_json(scope, value.clone()));
+
+                            let source: ImageSource = serde_v8::from_v8(scope, value)?;
+                            convert_image_source(state.clone(), name, source)
+                        }
+                        (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
+                            unreachable!()
+                        }
+                        (None, None) => {
+                            invalid_type_err(name, value, property_type)
+                        }
+                    }
+                }
             }
         }
     }
@@ -297,11 +311,14 @@ fn convert_boolean(scope: &mut v8::HandleScope, name: String, value: v8::Local<v
     Ok((name, UiPropertyValue::Bool(value.boolean_value(scope))))
 }
 
-fn convert_bytes(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>) -> anyhow::Result<(String, UiPropertyValue)> {
-    Ok((name, UiPropertyValue::Bytes(serde_v8::from_v8(scope, value)?)))
-}
-
-fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8::Value>, object_name: &str, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<(String, UiPropertyValue)> {
+fn convert_object(
+    state: Rc<RefCell<OpState>>,
+    scope: &mut v8::HandleScope,
+    name: String,
+    value: v8::Local<v8::Value>,
+    object_name: &str,
+    shared_types: &IndexMap<String, SharedType>
+) -> anyhow::Result<(String, UiPropertyValue)> {
     let object: v8::Local<v8::Object> = value.try_into().context(format!("error while reading property {}", name))?;
 
     let props = object
@@ -324,7 +341,7 @@ fn convert_object(scope: &mut v8::HandleScope, name: String, value: v8::Local<v8
             SharedType::Object { items } => items.get(&key).unwrap()
         };
 
-        let (key, value) = convert(scope, property_type, key, value, shared_types)?;
+        let (key, value) = convert(state.clone(), scope, property_type, key, value, shared_types)?;
 
         result_obj.insert(key, value);
     }
@@ -347,7 +364,7 @@ fn expected_type(prop_type: &PropertyType) -> String {
         PropertyType::Function { .. } => {
             panic!("functions are filtered out")
         }
-        PropertyType::ImageData => "bytearray".to_owned(),
+        PropertyType::ImageSource => "ImageSource".to_owned(),
         PropertyType::Enum { .. } => "enum".to_owned(),
         PropertyType::Union { items } => {
             items.into_iter()
@@ -357,4 +374,66 @@ fn expected_type(prop_type: &PropertyType) -> String {
         },
         PropertyType::Object { .. } => "object".to_owned(),
     }
+}
+
+fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: ImageSource) -> anyhow::Result<(String, UiPropertyValue)> {
+    match source {
+        ImageSource::Asset { asset } => {
+            let bytes = {
+                let state = state.borrow();
+
+                let plugin_id = state
+                    .borrow::<PluginData>()
+                    .plugin_id()
+                    .clone();
+
+                let repository = state
+                    .borrow::<DataDbRepository>()
+                    .clone();
+
+                block_on(async {
+                    repository.get_asset_data(&plugin_id.to_string(), &asset).await
+                })?
+            };
+
+            Ok((name, UiPropertyValue::Bytes(bytes)))
+        }
+        // ImageSource::Url { url } => { TODO implement url imagesource
+        //     Ok((name, UiPropertyValue::Bytes()))
+        // }
+    }
+}
+
+fn debug_object_to_json(
+    scope: &mut v8::HandleScope,
+    val: v8::Local<v8::Value>
+) -> String {
+    let local = scope.get_current_context();
+    let global = local.global(scope);
+    let json_string = v8::String::new(scope, "Deno").expect("Unable to create Deno string");
+    let json_object = global.get(scope, json_string.into()).expect("Global Deno object not found");
+    let json_object: v8::Local<v8::Object> = json_object.try_into().expect("Deno value is not an object");
+    let inspect_string = v8::String::new(scope, "inspect").expect("Unable to create inspect string");
+    let inspect_object = json_object.get(scope, inspect_string.into()).expect("Unable to get inspect on global Deno object");
+    let stringify_fn: v8::Local<v8::Function> = inspect_object.try_into().expect("inspect value is not a function");;
+    let undefined = v8::undefined(scope).into();
+
+    let json_object = stringify_fn.call(scope, undefined, &[val]).expect("Unable to get serialize prop");
+    let json_string: v8::Local<v8::String> = json_object.try_into().expect("result is not a string");
+
+    let result = json_string.to_rust_string_lossy(scope);
+
+    result
+}
+
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ImageSource {
+    Asset {
+        asset: String
+    },
+    // Url { TODO implement url imagesource
+    //     url: String
+    // }
 }

@@ -60,8 +60,6 @@ export default function DetailView(): ReactElement {
     const env = Deno.env.get("RUST_LOG");
     console.log("RUST_LOG:", env);
 
-    const logoData = assetData("logo.png");
-
     console.error("DetailView error")
 
     useEffect(() => {
@@ -113,7 +111,7 @@ export default function DetailView(): ReactElement {
                 <Detail.Content.H4>H4 Title</Detail.Content.H4>
                 <Detail.Content.H5>H5 Title</Detail.Content.H5>
                 <Detail.Content.H6>H6 Title</Detail.Content.H6>
-                <Detail.Content.Image source={{ data: logoData }}/>
+                <Detail.Content.Image source={{ asset: "logo.png" }}/>
                 <Detail.Content.CodeBlock>Code block Test</Detail.Content.CodeBlock>
                 <Detail.Content.HorizontalBreak/>
                 <Detail.Content.Paragraph>

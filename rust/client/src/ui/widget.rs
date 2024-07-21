@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use iced::{Alignment, Application, Font, Length};
+use iced::{Alignment, Font, Length};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule};
@@ -435,8 +435,17 @@ impl ComponentWidgetWrapper {
             ComponentWidget::Image { source } => {
                 let centered = context.is_content_centered();
 
-                let content: Element<_> = image(Handle::from_memory(source.data.clone())) // FIXME really expensive clone
-                    .into();
+                let content: Element<_> = match source {
+                    ImageSource::_0(bytes) => {
+                        image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                            .into()
+                    }
+                    ImageSource::_1(icon) => {
+                        text(icon_to_bootstrap(icon))
+                            .font(icons::BOOTSTRAP_FONT) // TODO size, height and width
+                            .into()
+                    }
+                };
 
                 let mut content = container(content)
                     .width(Length::Fill);
@@ -828,11 +837,20 @@ impl ComponentWidgetWrapper {
 
                 content
             }
-            ComponentWidget::EmptyView { title, description, image } => {
-                let image: Option<Element<_>> = image.as_ref()
-                    .map(|image| {
-                        iced::widget::image(Handle::from_memory(image.data.clone()))  // FIXME really expensive clone
-                            .themed(ImageStyle::EmptyViewImage)
+            ComponentWidget::EmptyView { title, description, image: empty_view_image } => {
+                let image: Option<Element<_>> = empty_view_image.as_ref()
+                    .map(|empty_view_image| {
+                        match empty_view_image {
+                            EmptyViewImage::_0(bytes) => {
+                                image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                                    .themed(ImageStyle::EmptyViewImage)
+                            }
+                            EmptyViewImage::_1(icon) => {
+                                text(icon_to_bootstrap(icon))
+                                    .font(icons::BOOTSTRAP_FONT) // TODO size, height and width
+                                    .into()
+                            }
+                        }
                     });
 
                 let title: Element<_> = text(title)
@@ -875,7 +893,7 @@ impl ComponentWidgetWrapper {
                     .map(|icon| {
                         match icon {
                             ListItemIcon::_0(bytes) => {
-                                image(Handle::from_memory(bytes.data.clone())) // FIXME really expensive clone
+                                image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
                                     .into()
                             },
                             ListItemIcon::_1(icon) => {
@@ -1916,23 +1934,37 @@ impl UiPropertyValueToEnum for ListItemIcon {
     fn convert(value: &UiPropertyValue) -> anyhow::Result<ListItemIcon> {
         match value {
             UiPropertyValue::String(value) => Ok(ListItemIcon::_1(Icons::from_str(value)?)),
+            UiPropertyValue::Bytes(value) => Ok(ListItemIcon::_0(value.clone())), // FIXME really expensive clone
             UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
             UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
-            UiPropertyValue::Bytes(_) => Err(anyhow!("unexpected type bytes for ListItemIcon")),
-            UiPropertyValue::Object(value) => {
-                Ok(ListItemIcon::_0(ImageSource {
-                    data: parse_bytes(value, "data")?,
-                }))
-            }
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
             UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
         }
     }
 }
 
-impl UiPropertyValueToStruct for ImageSource {
-    fn convert(value: &HashMap<String, UiPropertyValue>) -> anyhow::Result<ImageSource> {
-        Ok(ImageSource {
-            data: parse_bytes(value, "data")?,
-        })
+impl UiPropertyValueToEnum for EmptyViewImage {
+    fn convert(value: &UiPropertyValue) -> anyhow::Result<EmptyViewImage> {
+        match value {
+            UiPropertyValue::String(value) => Ok(EmptyViewImage::_1(Icons::from_str(value)?)),
+            UiPropertyValue::Bytes(value) => Ok(EmptyViewImage::_0(value.clone())), // FIXME really expensive clone
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
+        }
+    }
+}
+
+impl UiPropertyValueToEnum for ImageSource {
+    fn convert(value: &UiPropertyValue) -> anyhow::Result<ImageSource> {
+        match value {
+            UiPropertyValue::String(value) => Ok(ImageSource::_1(Icons::from_str(value)?)),
+            UiPropertyValue::Bytes(value) => Ok(ImageSource::_0(value.clone())), // FIXME really expensive clone
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
+        }
     }
 }

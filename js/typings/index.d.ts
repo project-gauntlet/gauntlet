@@ -182,7 +182,7 @@ type ComponentRef = {
     componentName: string,
 }
 
-type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeComponent | TypeFunction | TypeImageData | TypeImageEnum | TypeImageUnion | TypeImageObject
+type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeComponent | TypeFunction | TypeImageSource | TypeImageEnum | TypeImageUnion | TypeImageObject
 
 type TypeString = {
     type: "string"
@@ -201,8 +201,8 @@ type TypeFunction = {
     type: "function"
     arguments: Property[]
 }
-type TypeImageData = {
-    type: "image_data"
+type TypeImageSource = {
+    type: "image_source"
 }
 type TypeImageEnum = {
     type: "enum"

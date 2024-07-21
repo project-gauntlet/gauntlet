@@ -82,8 +82,8 @@ pub enum PropertyType {
     Function {
         arguments: Vec<Property>
     },
-    #[serde(rename = "image_data")]
-    ImageData,
+    #[serde(rename = "image_source")]
+    ImageSource,
     #[serde(rename = "enum")]
     Enum {
         name: String
@@ -477,10 +477,6 @@ fn root(children: &[&Component]) -> Component {
 
                 ].into_iter().map(|s| s.to_string()).collect()
             }),
-            (
-                "ImageSource".to_owned(),
-                SharedType::Object { items: IndexMap::from([("data".to_owned(), PropertyType::ImageData)]) }
-            )
         ]),
     }
 }
@@ -639,7 +635,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/image/description.md"),
         "Image",
         [
-            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::Object { name: "ImageSource".to_owned() })
+            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] })
         ],
         children_none(),
     );
@@ -917,7 +913,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/empty_view/props/title.md"),false, PropertyType::String),
             property("description", mark_doc!("/empty_view/props/description.md"),true, PropertyType::String),
-            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::Object { name: "ImageSource".to_owned() }),
+            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
         ],
         children_none(),
     );
@@ -930,7 +926,7 @@ pub fn create_component_model() -> Vec<Component> {
             property("id", mark_doc!("/list_item/props/id.md"),false, PropertyType::String),
             property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
-            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::Object { name: "ImageSource".to_owned() }, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
             // accessories
         ],
         children_none(),

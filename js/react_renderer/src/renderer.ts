@@ -116,49 +116,9 @@ export function getEntrypointPreferences(): Record<string, any> {
 }
 
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
-    const component = hostContext.componentModel[type];
-    const rootComponent = hostContext.componentModel["gauntlet:root"] as RootComponent;
-    const sharedTypes = rootComponent.sharedTypes;
-
     const props = Object.fromEntries(
         Object.entries(properties)
             .filter(([key, _]) => key !== "children")
-            .map(([key, value]) => {
-                if (component.type === "standard" && !!value) {
-                    const prop = component.props.find(prop => prop.name === key)
-
-                    if (prop) {
-                        switch (prop.type.type) {
-                            case "image_data": {
-                                return [key, Array.from(new Uint8Array(value))]
-                            }
-                            case "object": {
-                                // TODO nested objects?
-                                const sharedType = sharedTypes[prop.type.name]!!;
-                                if (sharedType.type !== "object" || typeof value !== "object") {
-                                    throw new Error(key + " property is expected to be an object")
-                                }
-
-                                const object = Object.fromEntries(
-                                    Object.entries(value)
-                                        .map(([key, value]) => {
-                                            const prop = sharedType.items[key]
-                                            if (prop.type === "image_data") {
-                                                return [key, Array.from(new Uint8Array(value as any))] // TODO arraybuffer? fix when migrating to deno's op2
-                                            }
-
-                                            return [key, value]
-                                        })
-                                );
-
-                                return [key, object]
-                            }
-                        }
-                    }
-                }
-
-                return [key, value]
-            })
     );
 
     const instance: Instance = {

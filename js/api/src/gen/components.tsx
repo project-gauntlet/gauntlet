@@ -42,7 +42,7 @@ declare global {
                 children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
             };
             ["gauntlet:image"]: {
-                source: ImageSource;
+                source: ImageSource | Icons;
             };
             ["gauntlet:h1"]: {
                 children?: StringComponent;
@@ -119,7 +119,7 @@ declare global {
             ["gauntlet:empty_view"]: {
                 title: string;
                 description?: string;
-                image?: ImageSource;
+                image?: ImageSource | Icons;
             };
             ["gauntlet:list_item"]: {
                 id: string;
@@ -163,6 +163,9 @@ export type EmptyNode = boolean | null | undefined;
 export type ElementComponent<Comp extends FC<any>> = Element<Comp> | EmptyNode | Iterable<ElementComponent<Comp>>;
 export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>;
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
+export type ImageSource = {
+    asset: string;
+};
 export enum Icons {
     PersonAdd = "PersonAdd",
     Airplane = "Airplane",
@@ -336,9 +339,6 @@ export enum Icons {
     Indent = "Indent",
     Unindent = "Unindent"
 }
-export type ImageSource = {
-    data: ArrayBuffer;
-};
 export interface ActionProps {
     id?: string;
     title: string;
@@ -429,7 +429,7 @@ Metadata.Value = MetadataValue;
 Metadata.Icon = MetadataIcon;
 Metadata.Separator = MetadataSeparator;
 export interface ImageProps {
-    source: ImageSource;
+    source: ImageSource | Icons;
 }
 export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
     return <gauntlet:image source={props.source}></gauntlet:image>;
@@ -623,7 +623,7 @@ Inline.Center = Content;
 export interface EmptyViewProps {
     title: string;
     description?: string;
-    image?: ImageSource;
+    image?: ImageSource | Icons;
 }
 export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
     return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}></gauntlet:empty_view>;
