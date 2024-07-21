@@ -8,10 +8,9 @@ use global_hotkey::hotkey::HotKey;
 use include_dir::{Dir, include_dir};
 use tokio::runtime::Handle;
 
-use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
-use common::rpc::frontend_server::wait_for_frontend_server;
-
+use utils::channel::RequestSender;
 use crate::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::config_reader::ConfigReader;
@@ -55,10 +54,8 @@ pub struct ApplicationManager {
 }
 
 impl ApplicationManager {
-    pub async fn create() -> anyhow::Result<Self> {
-        wait_for_frontend_server().await;
-
-        let frontend_api = FrontendApi::new().await?;
+    pub async fn create(frontend_sender: RequestSender<UiRequestData, UiResponseData>) -> anyhow::Result<Self> {
+        let frontend_api = FrontendApi::new(frontend_sender);
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
@@ -108,6 +105,10 @@ impl ApplicationManager {
     pub fn search(&self, text: &str) -> anyhow::Result<Vec<SearchResult>> {
         self.search_index.create_handle()
             .search(&text)
+    }
+
+    pub async fn show_window(&self) -> anyhow::Result<()> {
+        self.frontend_api.show_window().await
     }
 
     pub async fn save_local_plugin(

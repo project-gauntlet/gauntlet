@@ -1,15 +1,16 @@
 use std::fs;
 use std::path::Path;
 
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
+use common::model::{EntrypointId, PluginId, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
-use common::rpc::frontend_server::{FrontendServer, start_frontend_server, wait_for_frontend_server};
+use common::rpc::backend_server::wait_for_backend_server;
 use common::scenario_convert::{ui_render_location_to_scenario, ui_widget_to_scenario};
 use common::scenario_model::ScenarioFrontendEvent;
+use utils::channel::RequestReceiver;
 
 use crate::model::ScenarioBackendEvent;
 
-pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
+pub async fn start_scenario_runner_frontend(request_receiver: RequestReceiver<UiRequestData, UiResponseData>) -> anyhow::Result<()> {
     let scenario_dir = std::env::var("GAUNTLET_SCENARIOS_DIR")
         .expect("Unable to read GAUNTLET_SCENARIOS_DIR");
 
@@ -43,14 +44,22 @@ pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
     let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
 
     tokio::spawn(async move {
-        start_frontend_server(Box::new(RpcFrontendSaveToJson::new(sender))).await;
+        request_loop(request_receiver, sender).await
     });
 
-    wait_for_frontend_server().await;
+    println!("waiting for backend");
+
+    wait_for_backend_server().await;
+
+    println!("backend started");
 
     let mut client = BackendApi::new().await?;
 
+    println!("saving local plugin");
+
     client.save_local_plugin(scenario_plugin_dir.clone()).await?;
+
+    println!("local plugin saved");
 
     for entrypoint in fs::read_dir(&scenario_data_dir)? {
         let entrypoint = entrypoint?;
@@ -63,6 +72,8 @@ pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
             .expect("entrypoint name is invalid UTF-8")
             .to_string();
 
+        println!("entrypoint: {}", &entrypoint_name);
+
         for scenario in fs::read_dir(&entrypoint.path())? {
             let scenario = scenario?;
             if !scenario.metadata()?.is_file() {
@@ -70,6 +81,8 @@ pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
             }
 
             let scenario_path = scenario.path();
+
+            println!("scenario: {:?}", &scenario_path);
 
             let scenario_name = scenario_path.file_stem().unwrap().to_str().unwrap().to_string();
 
@@ -91,12 +104,18 @@ pub async fn start_scenario_runner_frontend() -> anyhow::Result<()> {
                 }
             }
 
+            println!("waiting for scenario to finish");
+
             match receiver.recv().await {
                 None => unreachable!(),
                 Some(event) => save_event(&scenario_out_dir, scenario_name, event)
             }
+
+            println!("scenario finished");
         }
     }
+
+    println!("all scenarios done");
 
     std::process::exit(0)
 }
@@ -124,66 +143,52 @@ fn save_event(scenario_out_dir: &Path, scenario_name: String, event: ScenarioFro
         .expect("unable to write scenario event to file");
 }
 
-struct RpcFrontendSaveToJson {
-    scenario_sender: tokio::sync::mpsc::Sender<ScenarioFrontendEvent>,
-}
+async fn request_loop(mut request_receiver: RequestReceiver<UiRequestData, UiResponseData>, scenario_sender: tokio::sync::mpsc::Sender<ScenarioFrontendEvent>) {
+    loop {
+        let (request_data, responder) = request_receiver.recv().await;
 
-impl RpcFrontendSaveToJson {
-    fn new(scenario_sender: tokio::sync::mpsc::Sender<ScenarioFrontendEvent>) -> Self {
-        Self {
-            scenario_sender,
+        match request_data {
+            UiRequestData::ShowWindow | UiRequestData::ClearInlineView { .. } => {
+                unreachable!()
+            }
+            UiRequestData::RequestSearchResultUpdate => {
+                // noop
+            }
+            UiRequestData::ReplaceView { plugin_id: _, entrypoint_id, render_location, top_level_view, container } => {
+                let event = ScenarioFrontendEvent::ReplaceView {
+                    entrypoint_id: entrypoint_id.to_string(),
+                    render_location: ui_render_location_to_scenario(render_location),
+                    top_level_view,
+                    container: ui_widget_to_scenario(container),
+                };
+
+                scenario_sender.send(event)
+                    .await
+                    .expect("send failed")
+            }
+            UiRequestData::ShowPluginErrorView { plugin_id: _, entrypoint_id, render_location } => {
+                let event = ScenarioFrontendEvent::ShowPluginErrorView {
+                    entrypoint_id: entrypoint_id.to_string(),
+                    render_location: ui_render_location_to_scenario(render_location)
+                };
+
+                scenario_sender.send(event)
+                    .await
+                    .expect("send failed")
+            }
+            UiRequestData::ShowPreferenceRequiredView { plugin_id: _, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
+                let event = ScenarioFrontendEvent::ShowPreferenceRequiredView {
+                    entrypoint_id: entrypoint_id.to_string(),
+                    plugin_preferences_required,
+                    entrypoint_preferences_required,
+                };
+
+                scenario_sender.send(event)
+                    .await
+                    .expect("send failed")
+            }
         }
-    }
 
-    async fn save_event(&self, event: ScenarioFrontendEvent) {
-        self.scenario_sender.send(event)
-            .await
-            .expect("send failed")
+        responder.respond(UiResponseData::Nothing);
     }
 }
-
-#[tonic::async_trait]
-impl FrontendServer for RpcFrontendSaveToJson {
-    async fn request_search_results_update(&self) {
-        unreachable!()
-    }
-
-    async fn replace_view(&self, _plugin_id: PluginId, entrypoint_id: EntrypointId, container: UiWidget, top_level_view: bool, render_location: UiRenderLocation) {
-        let event = ScenarioFrontendEvent::ReplaceView {
-            entrypoint_id: entrypoint_id.to_string(),
-            render_location: ui_render_location_to_scenario(render_location),
-            top_level_view,
-            container: ui_widget_to_scenario(container),
-        };
-
-        self.save_event(event).await;
-    }
-
-    async fn clear_inline_view(&self, _plugin_id: PluginId) {
-        unreachable!()
-    }
-
-    async fn show_window(&self) {
-        unreachable!()
-    }
-
-    async fn show_preference_required_view(&self, _plugin_id: PluginId, entrypoint_id: EntrypointId, plugin_preferences_required: bool, entrypoint_preferences_required: bool) {
-        let event = ScenarioFrontendEvent::ShowPreferenceRequiredView {
-            entrypoint_id: entrypoint_id.to_string(),
-            plugin_preferences_required,
-            entrypoint_preferences_required,
-        };
-
-        self.save_event(event).await;
-    }
-
-    async fn show_plugin_error_view(&self, _plugin_id: PluginId, entrypoint_id: EntrypointId, render_location: UiRenderLocation) {
-        let event = ScenarioFrontendEvent::ShowPluginErrorView {
-            entrypoint_id: entrypoint_id.to_string(),
-            render_location: ui_render_location_to_scenario(render_location)
-        };
-
-        self.save_event(event).await;
-    }
-}
-

@@ -108,6 +108,38 @@ pub enum SearchResultEntrypointType {
     GeneratedCommand,
 }
 
+#[derive(Debug)]
+pub enum UiResponseData {
+    Nothing,
+}
+
+#[derive(Debug)]
+pub enum UiRequestData {
+    ShowWindow,
+    ClearInlineView {
+        plugin_id: PluginId
+    },
+    ReplaceView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        render_location: UiRenderLocation,
+        top_level_view: bool,
+        container: UiWidget,
+    },
+    ShowPreferenceRequiredView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool,
+    },
+    ShowPluginErrorView {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        render_location: UiRenderLocation,
+    },
+    RequestSearchResultUpdate
+}
+
 #[derive(Debug, Clone)]
 pub struct UiWidget {
     pub widget_id: UiWidgetId,

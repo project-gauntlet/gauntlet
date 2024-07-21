@@ -1,6 +1,8 @@
 use client::{open_window, start_client};
+use common::model::{UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::start_backend_server;
+use utils::channel::{channel, RequestReceiver, RequestSender};
 use crate::plugins::ApplicationManager;
 use crate::rpc::BackendServerImpl;
 use crate::search::SearchIndex;
@@ -22,11 +24,13 @@ pub fn start(minimized: bool) {
         if is_server_running() {
             open_window()
         } else {
+            let (sender, receiver) = channel::<UiRequestData, UiResponseData>();
+
             std::thread::spawn(|| {
-                start_server();
+                start_server(sender);
             });
 
-            start_client(minimized)
+            start_client(minimized, receiver)
         }
     }
 }
@@ -38,22 +42,18 @@ fn run_scenario_runner() {
 
     match runner_type.as_str() {
         "screenshot_gen" => {
-            std::thread::spawn(|| {
-                tokio::runtime::Builder::new_multi_thread()
-                    .enable_all()
-                    .build()
-                    .expect("unable to start server tokio runtime")
-                    .block_on(async {
-                        if let Err(err) = scenario_runner::run_screenshot_gen_backend().await {
-                            tracing::error!("error running screenshot gen backend: {:?}", err);
-                        }
-                    });
-            });
+            let (_, receiver) = channel::<UiRequestData, UiResponseData>();
 
-            start_client(false)
+            start_client(false, receiver)
         }
         "scenario_runner" => {
-            start_server()
+            let (sender, receiver) = channel::<UiRequestData, UiResponseData>();
+
+            std::thread::spawn(|| {
+                start_server(sender)
+            });
+
+            start_frontend_mock(receiver)
         }
         _ => panic!("unknown type")
     }
@@ -78,20 +78,31 @@ fn is_server_running() -> bool {
         })
 }
 
-
-fn start_server() {
+fn start_server(request_sender: RequestSender<UiRequestData, UiResponseData>) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
-            run_server().await
+            run_server(request_sender).await
         })
         .unwrap();
 }
 
-async fn run_server() -> anyhow::Result<()> {
-    let mut application_manager = ApplicationManager::create().await?;
+#[cfg(feature = "scenario_runner")]
+fn start_frontend_mock(request_receiver: RequestReceiver<UiRequestData, UiResponseData>) {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("unable to start frontend mock tokio runtime")
+        .block_on(async {
+            scenario_runner::run_scenario_runner_frontend_mock(request_receiver).await
+        })
+        .unwrap();
+}
+
+async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData>) -> anyhow::Result<()> {
+    let mut application_manager = ApplicationManager::create(frontend_sender).await?;
 
     application_manager.clear_all_icon_cache_dir()?;
 
@@ -99,13 +110,6 @@ async fn run_server() -> anyhow::Result<()> {
     if let Err(err) = application_manager.load_builtin_plugins().await {
         tracing::error!("error loading bundled plugin(s): {:?}", err);
     }
-
-    #[cfg(feature = "scenario_runner")]
-    tokio::spawn(async {
-        if let Err(err) = scenario_runner::run_scenario_runner_frontend().await {
-            tracing::error!("error running scenario runner frontend: {:?}", err);
-        }
-    });
 
     #[cfg(not(any(feature = "scenario_runner", feature = "release")))]
     {

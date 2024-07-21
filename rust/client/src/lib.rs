@@ -1,11 +1,12 @@
-use common::rpc::frontend_api::FrontendApi;
+use common::model::{UiRequestData, UiResponseData};
+use common::rpc::backend_api::BackendApi;
+use utils::channel::RequestReceiver;
 
-pub(in crate) mod rpc;
 pub(in crate) mod ui;
 pub(in crate) mod model;
 
-pub fn start_client(minimized: bool) {
-    ui::run(minimized);
+pub fn start_client(minimized: bool, request_receiver: RequestReceiver<UiRequestData, UiResponseData>) {
+    ui::run(minimized, request_receiver);
 }
 
 pub fn open_window() {
@@ -14,9 +15,9 @@ pub fn open_window() {
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
-            let mut frontend_client = FrontendApi::new().await?;
+            let mut backend_api = BackendApi::new().await?;
 
-            frontend_client.show_window().await?;
+            backend_api.show_window().await?;
 
             anyhow::Ok(())
         })

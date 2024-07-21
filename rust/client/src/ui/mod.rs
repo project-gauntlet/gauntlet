@@ -4,7 +4,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use iced::{Alignment, Command, Event, event, executor, font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
+use iced::{Alignment, Command, Event, event, executor, font, Font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
 use iced::advanced::graphics::core::SmolStr;
 use iced::Application;
 use iced::futures::channel::mpsc::Sender;
@@ -22,17 +22,15 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::wait_for_backend_server;
-use common::rpc::frontend_server::start_frontend_server;
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
 use common_ui::physical_key_model;
-use utils::channel::{channel, RequestReceiver};
+use utils::channel::{channel, RequestReceiver, RequestSender};
 
-use crate::model::{NativeUiResponseData, UiRequestData, UiViewEvent};
-use crate::rpc::FrontendServerImpl;
+use crate::model::UiViewEvent;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
@@ -52,7 +50,7 @@ mod inline_view_container;
 pub struct AppModel {
     // logic
     backend_api: BackendApi,
-    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     search_field_id: text_input::Id,
     scrollable_id: scrollable::Id,
     waiting_for_next_unfocus: bool,
@@ -157,6 +155,16 @@ pub enum AppMsg {
     ResetWindowState,
 }
 
+pub struct AppFlags {
+    request_receiver: RequestReceiver<UiRequestData, UiResponseData>
+}
+
+impl Default for AppFlags {
+    fn default() -> Self {
+        panic!("not needed")
+    }
+}
+
 const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
@@ -172,11 +180,19 @@ fn window_settings(minimized: bool) -> iced::window::Settings {
     }
 }
 
-pub fn run(minimized: bool) {
+pub fn run(minimized: bool, request_receiver: RequestReceiver<UiRequestData, UiResponseData>) {
+    let default_settings: Settings<()> = Settings::default();
+
     AppModel::run(Settings {
         id: None,
         window: window_settings(minimized),
-        ..Default::default()
+        flags: AppFlags {
+            request_receiver,
+        },
+        fonts: default_settings.fonts,
+        default_font: default_settings.default_font,
+        default_text_size: default_settings.default_text_size,
+        antialiasing: default_settings.antialiasing,
     }).unwrap();
 }
 
@@ -184,14 +200,10 @@ impl Application for AppModel {
     type Executor = executor::Default;
     type Message = AppMsg;
     type Theme = GauntletTheme;
-    type Flags = ();
+    type Flags = AppFlags;
 
-    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let (context_tx, request_rx) = channel::<UiRequestData, NativeUiResponseData>();
-
-        tokio::spawn(async {
-            start_frontend_server(Box::new(FrontendServerImpl::new(context_tx))).await;
-        });
+    fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        let request_rx= flags.request_receiver;
 
         let backend_api = futures::executor::block_on(async {
             wait_for_backend_server().await;
@@ -987,7 +999,7 @@ impl AppModel {
 
 async fn request_loop(
     client_context: Arc<StdRwLock<ClientContext>>,
-    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, NativeUiResponseData>>>,
+    request_rx: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
     let mut request_rx = request_rx.write().await;
@@ -1001,7 +1013,7 @@ async fn request_loop(
                 UiRequestData::ReplaceView { plugin_id, entrypoint_id, render_location, top_level_view, container } => {
                     client_context.replace_view(render_location, container, &plugin_id, &entrypoint_id);
 
-                    responder.respond(NativeUiResponseData::Nothing);
+                    responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ReplaceView {
                         top_level_view
@@ -1010,12 +1022,12 @@ async fn request_loop(
                 UiRequestData::ClearInlineView { plugin_id } => {
                     client_context.clear_inline_view(&plugin_id);
 
-                    responder.respond(NativeUiResponseData::Nothing);
+                    responder.respond(UiResponseData::Nothing);
 
                     AppMsg::Noop // refresh ui
                 }
                 UiRequestData::ShowWindow => {
-                    responder.respond(NativeUiResponseData::Nothing);
+                    responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ShowWindow
                 }
@@ -1025,7 +1037,7 @@ async fn request_loop(
                     plugin_preferences_required,
                     entrypoint_preferences_required
                 } => {
-                    responder.respond(NativeUiResponseData::Nothing);
+                    responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ShowPreferenceRequiredView {
                         plugin_id,
@@ -1035,7 +1047,7 @@ async fn request_loop(
                     }
                 }
                 UiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
-                    responder.respond(NativeUiResponseData::Nothing);
+                    responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ShowPluginErrorView {
                         plugin_id,
@@ -1044,7 +1056,7 @@ async fn request_loop(
                     }
                 }
                 UiRequestData::RequestSearchResultUpdate => {
-                    responder.respond(NativeUiResponseData::Nothing);
+                    responder.respond(UiResponseData::Nothing);
 
                     AppMsg::RequestSearchResultUpdate
                 }

@@ -142,6 +142,9 @@ function buildServer(projectRoot: string) {
     const serverBuildResult = spawnSync('cargo', ['build', '--features', 'scenario_runner'], {
         stdio: "inherit",
         cwd: projectRoot,
+        env: Object.assign(process.env, {
+            RUST_BACKTRACE: "1"
+        })
     });
 
     if (serverBuildResult.status !== 0) {

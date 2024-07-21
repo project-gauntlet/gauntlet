@@ -413,6 +413,7 @@ fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: Image
     }
 }
 
+#[allow(unused)]
 fn debug_object_to_json(
     scope: &mut v8::HandleScope,
     val: v8::Local<v8::Value>

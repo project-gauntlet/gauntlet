@@ -21,6 +21,9 @@ service RpcBackend {
   rpc SendKeyboardEvent (RpcSendKeyboardEventRequest) returns (RpcSendKeyboardEventResponse);
   rpc SendOpenEvent (RpcSendOpenEventRequest) returns (RpcSendOpenEventResponse);
 
+  // cli
+  rpc ShowWindow (RpcShowWindowRequest) returns (RpcShowWindowResponse);
+
   // settings
   rpc Plugins (RpcPluginsRequest) returns (RpcPluginsResponse);
 
@@ -44,6 +47,11 @@ service RpcBackend {
 
   // dev tools
   rpc SaveLocalPlugin (RpcSaveLocalPluginRequest) returns (RpcSaveLocalPluginResponse);
+}
+
+message RpcShowWindowRequest {
+}
+message RpcShowWindowResponse {
 }
 
 message RpcPingRequest {

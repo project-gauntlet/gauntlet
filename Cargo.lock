@@ -1181,6 +1181,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+ "utils",
 ]
 
 [[package]]
@@ -6956,6 +6957,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tonic",
+ "utils",
 ]
 
 [[package]]

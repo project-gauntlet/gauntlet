@@ -1,30 +1,23 @@
-use tonic::Request;
-use tonic::transport::Channel;
+use utils::channel::RequestSender;
 
-use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
-use crate::rpc::grpc::{RpcClearInlineViewRequest, RpcRenderLocation, RpcReplaceViewRequest, RpcRequestSearchResultsUpdateRequest, RpcShowPluginErrorViewRequest, RpcShowPreferenceRequiredViewRequest, RpcShowWindowRequest};
-use crate::rpc::grpc::rpc_frontend_client::RpcFrontendClient;
-use crate::rpc::grpc_convert::ui_widget_to_rpc;
+use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiResponseData, UiWidget};
 
 #[derive(Debug, Clone)]
 pub struct FrontendApi {
-    client: RpcFrontendClient<Channel>,
+    frontend_sender: RequestSender<UiRequestData, UiResponseData>,
 }
 
 impl FrontendApi {
-    pub async fn new() -> anyhow::Result<Self> {
-        Ok(Self {
-            client: RpcFrontendClient::connect("http://127.0.0.1:42321").await?
-        })
+    pub fn new(frontend_sender: RequestSender<UiRequestData, UiResponseData>) -> Self {
+        Self {
+            frontend_sender
+        }
     }
 
     pub async fn request_search_results_update(&mut self) -> anyhow::Result<()> {
-        let request = RpcRequestSearchResultsUpdateRequest {};
+        let _ = self.frontend_sender.send_receive(UiRequestData::RequestSearchResultUpdate).await;
 
-        self.client.request_search_results_update(Request::new(request))
-            .await
-            .map(|_| ())
-            .map_err(|err| err.into())
+        Ok(())
     }
 
     pub async fn replace_view(
@@ -35,41 +28,33 @@ impl FrontendApi {
         top_level_view: bool,
         container: UiWidget,
     ) -> anyhow::Result<()> {
-        let render_location = match render_location {
-            UiRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
-            UiRenderLocation::View => RpcRenderLocation::ViewLocation,
+        let data = UiRequestData::ReplaceView {
+            plugin_id,
+            entrypoint_id,
+            render_location,
+            top_level_view,
+            container,
         };
 
-        let request = Request::new(RpcReplaceViewRequest {
-            top_level_view,
-            plugin_id: plugin_id.to_string(),
-            entrypoint_id: entrypoint_id.to_string(),
-            render_location: render_location.into(),
-            container: Some(ui_widget_to_rpc(container)),
-        });
+        let _ = self.frontend_sender.send_receive(data).await;
 
-        self.client.replace_view(request)
-            .await
-            .map(|_| ())
-            .map_err(|err| err.into())
+        Ok(())
     }
 
     pub async fn clear_inline_view(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
-        let request = Request::new(RpcClearInlineViewRequest {
-            plugin_id: plugin_id.to_string()
-        });
+        let data = UiRequestData::ClearInlineView {
+            plugin_id,
+        };
 
-        self.client.clear_inline_view(request)
-            .await
-            .map(|_| ())
-            .map_err(|err| err.into())
+        let _ = self.frontend_sender.send_receive(data).await;
+
+        Ok(())
     }
 
-    pub async fn show_window(&mut self) -> anyhow::Result<()> {
-        self.client.show_window(Request::new(RpcShowWindowRequest::default()))
-            .await
-            .map(|_| ())
-            .map_err(|err| err.into())
+    pub async fn show_window(&self) -> anyhow::Result<()> {
+        let _ = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await;
+
+        Ok(())
     }
 
     pub async fn show_preference_required_view(
@@ -79,17 +64,16 @@ impl FrontendApi {
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
     ) -> anyhow::Result<()> {
-        let request = Request::new(RpcShowPreferenceRequiredViewRequest {
-            plugin_id: plugin_id.to_string(),
-            entrypoint_id: entrypoint_id.to_string(),
+        let data = UiRequestData::ShowPreferenceRequiredView {
+            plugin_id,
+            entrypoint_id,
             plugin_preferences_required,
             entrypoint_preferences_required,
-        });
+        };
 
-        self.client.show_preference_required_view(request)
-            .await
-            .map(|_| ())
-            .map_err(|err| err.into())
+        let _ = self.frontend_sender.send_receive(data).await;
+
+        Ok(())
     }
 
     pub async fn show_plugin_error_view(
@@ -98,20 +82,14 @@ impl FrontendApi {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation,
     ) -> anyhow::Result<()> {
-        let render_location = match render_location {
-            UiRenderLocation::InlineView => RpcRenderLocation::InlineViewLocation,
-            UiRenderLocation::View => RpcRenderLocation::ViewLocation,
+        let data = UiRequestData::ShowPluginErrorView {
+            plugin_id,
+            entrypoint_id,
+            render_location,
         };
 
-        let request = Request::new(RpcShowPluginErrorViewRequest {
-            plugin_id: plugin_id.to_string(),
-            entrypoint_id: entrypoint_id.to_string(),
-            render_location: render_location.into(),
-        });
+        let _ = self.frontend_sender.send_receive(data).await;
 
-        self.client.show_plugin_error_view(request)
-            .await
-            .map(|_| ())
-            .map_err(|err| err.into())
+        Ok(())
     }
 }
