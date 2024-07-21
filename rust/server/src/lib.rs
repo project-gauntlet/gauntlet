@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::sync::Arc;
-use freedesktop_icons::lookup;
 use client::{open_window, start_client};
 use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
