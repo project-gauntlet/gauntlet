@@ -51,7 +51,7 @@ pub(crate) fn ui_property_value_to_rpc(value: UiPropertyValue) -> RpcUiPropertyV
         UiPropertyValue::String(value) => RpcUiPropertyValue { value: Some(Value::String(value)) },
         UiPropertyValue::Number(value) => RpcUiPropertyValue { value: Some(Value::Number(value)) },
         UiPropertyValue::Bool(value) => RpcUiPropertyValue { value: Some(Value::Bool(value)) },
-        UiPropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value)) },
+        UiPropertyValue::Bytes(value) => RpcUiPropertyValue { value: Some(Value::Bytes(value.to_vec())) },
         UiPropertyValue::Object(value) => {
             let value: HashMap<String, _> = value.into_iter()
                 .map(|(name, value)| (name, ui_property_value_to_rpc(value)))
@@ -83,7 +83,7 @@ pub fn ui_property_value_from_rpc(value: RpcUiPropertyValue) -> anyhow::Result<U
         Value::String(value) => UiPropertyValue::String(value),
         Value::Number(value) => UiPropertyValue::Number(value),
         Value::Bool(value) => UiPropertyValue::Bool(value),
-        Value::Bytes(value) => UiPropertyValue::Bytes(value),
+        Value::Bytes(value) => UiPropertyValue::Bytes(bytes::Bytes::from(value)),
         Value::Object(value) => UiPropertyValue::Object(ui_property_values_from_rpc(value.value)?)
     };
 

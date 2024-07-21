@@ -437,7 +437,7 @@ impl ComponentWidgetWrapper {
 
                 let content: Element<_> = match source {
                     ImageSource::_0(bytes) => {
-                        image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                        image(Handle::from_memory(bytes.clone()))
                             .into()
                     }
                     ImageSource::_1(icon) => {
@@ -842,7 +842,7 @@ impl ComponentWidgetWrapper {
                     .map(|empty_view_image| {
                         match empty_view_image {
                             EmptyViewImage::_0(bytes) => {
-                                image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                                image(Handle::from_memory(bytes.clone()))
                                     .themed(ImageStyle::EmptyViewImage)
                             }
                             EmptyViewImage::_1(icon) => {
@@ -893,7 +893,7 @@ impl ComponentWidgetWrapper {
                     .map(|icon| {
                         match icon {
                             ListItemIcon::_0(bytes) => {
-                                image(Handle::from_memory(bytes.clone())) // FIXME really expensive clone
+                                image(Handle::from_memory(bytes.clone()))
                                     .into()
                             },
                             ListItemIcon::_1(icon) => {
@@ -1934,7 +1934,7 @@ impl UiPropertyValueToEnum for ListItemIcon {
     fn convert(value: &UiPropertyValue) -> anyhow::Result<ListItemIcon> {
         match value {
             UiPropertyValue::String(value) => Ok(ListItemIcon::_1(Icons::from_str(value)?)),
-            UiPropertyValue::Bytes(value) => Ok(ListItemIcon::_0(value.clone())), // FIXME really expensive clone
+            UiPropertyValue::Bytes(value) => Ok(ListItemIcon::_0(value.clone())),
             UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
             UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
             UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
@@ -1947,7 +1947,7 @@ impl UiPropertyValueToEnum for EmptyViewImage {
     fn convert(value: &UiPropertyValue) -> anyhow::Result<EmptyViewImage> {
         match value {
             UiPropertyValue::String(value) => Ok(EmptyViewImage::_1(Icons::from_str(value)?)),
-            UiPropertyValue::Bytes(value) => Ok(EmptyViewImage::_0(value.clone())), // FIXME really expensive clone
+            UiPropertyValue::Bytes(value) => Ok(EmptyViewImage::_0(value.clone())),
             UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
             UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
             UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
@@ -1960,7 +1960,7 @@ impl UiPropertyValueToEnum for ImageSource {
     fn convert(value: &UiPropertyValue) -> anyhow::Result<ImageSource> {
         match value {
             UiPropertyValue::String(value) => Ok(ImageSource::_1(Icons::from_str(value)?)),
-            UiPropertyValue::Bytes(value) => Ok(ImageSource::_0(value.clone())), // FIXME really expensive clone
+            UiPropertyValue::Bytes(value) => Ok(ImageSource::_0(value.clone())),
             UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
             UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
             UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),

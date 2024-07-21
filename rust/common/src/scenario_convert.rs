@@ -33,7 +33,7 @@ fn ui_property_value_to_scenario(value: UiPropertyValue) -> ScenarioUiPropertyVa
         UiPropertyValue::String(value) => ScenarioUiPropertyValue::String(value),
         UiPropertyValue::Number(value) => ScenarioUiPropertyValue::Number(value),
         UiPropertyValue::Bool(value) => ScenarioUiPropertyValue::Bool(value),
-        UiPropertyValue::Bytes(value) => ScenarioUiPropertyValue::Bytes(value),
+        UiPropertyValue::Bytes(value) => ScenarioUiPropertyValue::Bytes(value.to_vec()),
         UiPropertyValue::Object(value) => {
             let value: HashMap<String, _> = value.into_iter()
                 .map(|(name, value)| (name, ui_property_value_to_scenario(value)))
@@ -69,7 +69,7 @@ fn ui_property_value_from_scenario(value: ScenarioUiPropertyValue) -> UiProperty
         ScenarioUiPropertyValue::String(value) => UiPropertyValue::String(value),
         ScenarioUiPropertyValue::Number(value) => UiPropertyValue::Number(value),
         ScenarioUiPropertyValue::Bool(value) => UiPropertyValue::Bool(value),
-        ScenarioUiPropertyValue::Bytes(value) => UiPropertyValue::Bytes(value),
+        ScenarioUiPropertyValue::Bytes(value) => UiPropertyValue::Bytes(bytes::Bytes::from(value)),
         ScenarioUiPropertyValue::Object(value) => {
             let value: HashMap<String, _> = value.into_iter()
                 .map(|(name, value)| (name, ui_property_value_from_scenario(value)))

@@ -165,6 +165,8 @@ export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
 export type ImageSource = {
     asset: string;
+} | {
+    url: string;
 };
 export enum Icons {
     PersonAdd = "PersonAdd",

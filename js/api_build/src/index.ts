@@ -255,12 +255,12 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                     undefined,
                     ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
                 )]),
-                // ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature( // TODO implement url imagesource
-                //     undefined,
-                //     ts.factory.createIdentifier("url"),
-                //     undefined,
-                //     ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
-                // )])
+                ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature(
+                    undefined,
+                    ts.factory.createIdentifier("url"),
+                    undefined,
+                    ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+                )])
             ])
         );
 

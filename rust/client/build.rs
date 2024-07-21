@@ -520,7 +520,7 @@ fn generate_required_type(property_type: &PropertyType, union_name: String) -> S
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Function { .. } => panic!("client doesn't know about functions in properties"),
         PropertyType::Component { .. } => panic!("component properties are found in children array"),
-        PropertyType::ImageSource => "Vec<u8>".to_owned(),
+        PropertyType::ImageSource => "bytes::Bytes".to_owned(),
         PropertyType::Union { .. } => union_name,
         PropertyType::Object { name } => name.to_owned(),
         PropertyType::Enum { name } => name.to_owned()

@@ -121,7 +121,7 @@ pub enum UiPropertyValue {
     String(String),
     Number(f64),
     Bool(bool),
-    Bytes(Vec<u8>),
+    Bytes(bytes::Bytes),
     Object(HashMap<String, UiPropertyValue>),
     Undefined,
 }

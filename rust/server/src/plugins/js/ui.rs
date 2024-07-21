@@ -396,11 +396,16 @@ fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: Image
                 })?
             };
 
+            Ok((name, UiPropertyValue::Bytes(bytes::Bytes::from(bytes))))
+        }
+        ImageSource::Url { url } => {
+            // FIXME implement error handling properly
+            // TODO implement caching
+            let response = reqwest::blocking::get(url).expect("unable to get image");
+            let bytes = response.bytes().expect("unable to get image: unable to read bytes from response");
+
             Ok((name, UiPropertyValue::Bytes(bytes)))
         }
-        // ImageSource::Url { url } => { TODO implement url imagesource
-        //     Ok((name, UiPropertyValue::Bytes()))
-        // }
     }
 }
 
@@ -433,7 +438,7 @@ enum ImageSource {
     Asset {
         asset: String
     },
-    // Url { TODO implement url imagesource
-    //     url: String
-    // }
+    Url {
+        url: String
+    }
 }
