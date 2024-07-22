@@ -210,7 +210,7 @@ async function runLoop() {
                 break;
             }
             case "StopPlugin": {
-                console.log("Received plugin stop command")
+                InternalApi.op_log_info("plugin_loop", "Received plugin stop command")
                 return;
             }
             case "ReloadSearchIndex": {
