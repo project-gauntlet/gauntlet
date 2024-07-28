@@ -858,7 +858,7 @@ dependencies = [
  "calloop",
  "rustix",
  "wayland-backend",
- "wayland-client",
+ "wayland-client 0.31.2",
 ]
 
 [[package]]
@@ -1052,7 +1052,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "003f886bc4e2987729d10c1db3424e7f80809f3fc22dbc16c685738887cb37b8"
 dependencies = [
- "smithay-clipboard",
+ "smithay-clipboard 0.7.1",
 ]
 
 [[package]]
@@ -1781,7 +1781,7 @@ dependencies = [
  "fs3",
  "libc",
  "log",
- "nix",
+ "nix 0.26.2",
  "rand",
  "serde",
  "tokio",
@@ -2054,7 +2054,7 @@ dependencies = [
  "libc",
  "log",
  "netif",
- "nix",
+ "nix 0.26.2",
  "notify",
  "ntapi",
  "once_cell",
@@ -2590,6 +2590,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum-repr"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bad30c9c0fa1aaf1ae5010dab11f1117b15d35faf62cda4bbbc53b9987950f18"
+dependencies = [
+ "proc-macro2 1.0.80",
+ "quote 1.0.36",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2826,6 +2837,9 @@ name = "float-cmp"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "flume"
@@ -3735,11 +3749,13 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "iced_core",
  "iced_futures",
  "iced_renderer",
+ "iced_runtime",
+ "iced_sctk",
  "iced_widget",
  "iced_winit",
  "image 0.24.9",
@@ -3762,7 +3778,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "bitflags 2.5.0",
  "glam",
@@ -3770,6 +3786,7 @@ dependencies = [
  "num-traits",
  "palette",
  "raw-window-handle",
+ "smithay-client-toolkit 0.18.0",
  "smol_str",
  "thiserror",
  "web-time",
@@ -3779,7 +3796,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "futures",
  "iced_core",
@@ -3792,7 +3809,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "bitflags 2.5.0",
  "bytemuck",
@@ -3814,7 +3831,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3826,18 +3843,45 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "iced_core",
  "iced_futures",
  "raw-window-handle",
+ "smithay-client-toolkit 0.18.0",
  "thiserror",
+]
+
+[[package]]
+name = "iced_sctk"
+version = "0.1.0"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
+dependencies = [
+ "enum-repr",
+ "float-cmp",
+ "futures",
+ "iced_futures",
+ "iced_graphics",
+ "iced_renderer",
+ "iced_runtime",
+ "iced_style",
+ "itertools 0.12.1",
+ "lazy_static",
+ "raw-window-handle",
+ "smithay-client-toolkit 0.18.0",
+ "smithay-clipboard 0.6.6",
+ "thiserror",
+ "tracing",
+ "wayland-backend",
+ "wayland-protocols 0.31.2",
+ "xkbcommon-dl",
+ "xkeysym",
 ]
 
 [[package]]
 name = "iced_style"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "iced_core",
  "once_cell",
@@ -3857,7 +3901,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3873,7 +3917,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "bitflags 2.5.0",
  "bytemuck",
@@ -3890,7 +3934,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -3904,7 +3948,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.12.3"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#e5d0cfe9b09d0363fc909f56f7c232f8ac293bfb"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet#411e37928635a91f701ef4ac5368b72dc30e201c"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -4790,6 +4834,15 @@ checksum = "a64a92489e2744ce060c349162be1c5f33c6969234104dbd99ddb5feb08b8c15"
 
 [[package]]
 name = "memoffset"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
@@ -4953,6 +5006,18 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nix"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa52e972a9a719cecb6864fb88568781eb706bac2cd1d4f04a648542dbf78069"
+dependencies = [
+ "bitflags 1.3.2",
+ "cfg-if",
+ "libc",
+ "memoffset 0.6.5",
+]
+
+[[package]]
+name = "nix"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
@@ -4960,7 +5025,7 @@ dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
  "libc",
- "memoffset",
+ "memoffset 0.7.1",
  "pin-utils",
  "static_assertions",
 ]
@@ -7012,7 +7077,7 @@ dependencies = [
  "ab_glyph",
  "log",
  "memmap2 0.9.4",
- "smithay-client-toolkit",
+ "smithay-client-toolkit 0.18.1",
  "tiny-skia",
 ]
 
@@ -7416,6 +7481,51 @@ dependencies = [
 
 [[package]]
 name = "smithay-client-toolkit"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "870427e30b8f2cbe64bf43ec4b86e88fe39b0a84b3f15efd9c9c2d020bc86eb9"
+dependencies = [
+ "bitflags 1.3.2",
+ "dlib",
+ "lazy_static",
+ "log",
+ "memmap2 0.5.10",
+ "nix 0.24.3",
+ "pkg-config",
+ "wayland-client 0.29.5",
+ "wayland-cursor 0.29.5",
+ "wayland-protocols 0.29.5",
+]
+
+[[package]]
+name = "smithay-client-toolkit"
+version = "0.18.0"
+source = "git+https://github.com/smithay/client-toolkit?rev=2e9bf9f#2e9bf9f31698851ca373e5f1e7ba3e6e804e4db1"
+dependencies = [
+ "bitflags 2.5.0",
+ "bytemuck",
+ "calloop",
+ "calloop-wayland-source",
+ "cursor-icon",
+ "libc",
+ "log",
+ "memmap2 0.9.4",
+ "pkg-config",
+ "rustix",
+ "thiserror",
+ "wayland-backend",
+ "wayland-client 0.31.2",
+ "wayland-csd-frame",
+ "wayland-cursor 0.31.1",
+ "wayland-protocols 0.31.2",
+ "wayland-protocols-wlr",
+ "wayland-scanner 0.31.1",
+ "xkbcommon",
+ "xkeysym",
+]
+
+[[package]]
+name = "smithay-client-toolkit"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "922fd3eeab3bd820d76537ce8f582b1cf951eceb5475c28500c7457d9d17f53a"
@@ -7430,13 +7540,23 @@ dependencies = [
  "rustix",
  "thiserror",
  "wayland-backend",
- "wayland-client",
+ "wayland-client 0.31.2",
  "wayland-csd-frame",
- "wayland-cursor",
- "wayland-protocols",
+ "wayland-cursor 0.31.1",
+ "wayland-protocols 0.31.2",
  "wayland-protocols-wlr",
- "wayland-scanner",
+ "wayland-scanner 0.31.1",
  "xkeysym",
+]
+
+[[package]]
+name = "smithay-clipboard"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a345c870a1fae0b1b779085e81b51e614767c239e93503588e54c5b17f4b0e8"
+dependencies = [
+ "smithay-client-toolkit 0.16.1",
+ "wayland-client 0.29.5",
 ]
 
 [[package]]
@@ -7446,7 +7566,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c091e7354ea8059d6ad99eace06dd13ddeedbb0ac72d40a9a6e7ff790525882d"
 dependencies = [
  "libc",
- "smithay-client-toolkit",
+ "smithay-client-toolkit 0.18.1",
  "wayland-backend",
 ]
 
@@ -7493,8 +7613,8 @@ dependencies = [
  "tiny-xlib",
  "wasm-bindgen",
  "wayland-backend",
- "wayland-client",
- "wayland-sys",
+ "wayland-client 0.31.2",
+ "wayland-sys 0.31.1",
  "web-sys",
  "windows-sys 0.52.0",
  "x11rb",
@@ -9550,7 +9670,23 @@ dependencies = [
  "rustix",
  "scoped-tls",
  "smallvec",
- "wayland-sys",
+ "wayland-sys 0.31.1",
+]
+
+[[package]]
+name = "wayland-client"
+version = "0.29.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f3b068c05a039c9f755f881dc50f01732214f5685e379829759088967c46715"
+dependencies = [
+ "bitflags 1.3.2",
+ "downcast-rs",
+ "libc",
+ "nix 0.24.3",
+ "scoped-tls",
+ "wayland-commons",
+ "wayland-scanner 0.29.5",
+ "wayland-sys 0.29.5",
 ]
 
 [[package]]
@@ -9562,7 +9698,19 @@ dependencies = [
  "bitflags 2.5.0",
  "rustix",
  "wayland-backend",
- "wayland-scanner",
+ "wayland-scanner 0.31.1",
+]
+
+[[package]]
+name = "wayland-commons"
+version = "0.29.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8691f134d584a33a6606d9d717b95c4fa20065605f798a3f350d78dced02a902"
+dependencies = [
+ "nix 0.24.3",
+ "once_cell",
+ "smallvec",
+ "wayland-sys 0.29.5",
 ]
 
 [[package]]
@@ -9578,13 +9726,36 @@ dependencies = [
 
 [[package]]
 name = "wayland-cursor"
+version = "0.29.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6865c6b66f13d6257bef1cd40cbfe8ef2f150fb8ebbdb1e8e873455931377661"
+dependencies = [
+ "nix 0.24.3",
+ "wayland-client 0.29.5",
+ "xcursor",
+]
+
+[[package]]
+name = "wayland-cursor"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71ce5fa868dd13d11a0d04c5e2e65726d0897be8de247c0c5a65886e283231ba"
 dependencies = [
  "rustix",
- "wayland-client",
+ "wayland-client 0.31.2",
  "xcursor",
+]
+
+[[package]]
+name = "wayland-protocols"
+version = "0.29.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b950621f9354b322ee817a23474e479b34be96c2e909c14f7bc0100e9a970bc6"
+dependencies = [
+ "bitflags 1.3.2",
+ "wayland-client 0.29.5",
+ "wayland-commons",
+ "wayland-scanner 0.29.5",
 ]
 
 [[package]]
@@ -9595,8 +9766,8 @@ checksum = "8f81f365b8b4a97f422ac0e8737c438024b5951734506b0e1d775c73030561f4"
 dependencies = [
  "bitflags 2.5.0",
  "wayland-backend",
- "wayland-client",
- "wayland-scanner",
+ "wayland-client 0.31.2",
+ "wayland-scanner 0.31.1",
 ]
 
 [[package]]
@@ -9607,9 +9778,9 @@ checksum = "23803551115ff9ea9bce586860c5c5a971e360825a0309264102a9495a5ff479"
 dependencies = [
  "bitflags 2.5.0",
  "wayland-backend",
- "wayland-client",
- "wayland-protocols",
- "wayland-scanner",
+ "wayland-client 0.31.2",
+ "wayland-protocols 0.31.2",
+ "wayland-scanner 0.31.1",
 ]
 
 [[package]]
@@ -9620,9 +9791,20 @@ checksum = "ad1f61b76b6c2d8742e10f9ba5c3737f6530b4c243132c2a2ccc8aa96fe25cd6"
 dependencies = [
  "bitflags 2.5.0",
  "wayland-backend",
- "wayland-client",
- "wayland-protocols",
- "wayland-scanner",
+ "wayland-client 0.31.2",
+ "wayland-protocols 0.31.2",
+ "wayland-scanner 0.31.1",
+]
+
+[[package]]
+name = "wayland-scanner"
+version = "0.29.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f4303d8fa22ab852f789e75a967f0a2cdc430a607751c0499bada3e451cbd53"
+dependencies = [
+ "proc-macro2 1.0.80",
+ "quote 1.0.36",
+ "xml-rs",
 ]
 
 [[package]]
@@ -9634,6 +9816,17 @@ dependencies = [
  "proc-macro2 1.0.80",
  "quick-xml",
  "quote 1.0.36",
+]
+
+[[package]]
+name = "wayland-sys"
+version = "0.29.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be12ce1a3c39ec7dba25594b97b42cb3195d54953ddb9d3d95a7c3902bc6e9d4"
+dependencies = [
+ "dlib",
+ "lazy_static",
+ "pkg-config",
 ]
 
 [[package]]
@@ -10134,14 +10327,14 @@ dependencies = [
  "redox_syscall 0.3.5",
  "rustix",
  "sctk-adwaita",
- "smithay-client-toolkit",
+ "smithay-client-toolkit 0.18.1",
  "smol_str",
  "unicode-segmentation",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wayland-backend",
- "wayland-client",
- "wayland-protocols",
+ "wayland-client 0.31.2",
+ "wayland-protocols 0.31.2",
  "wayland-protocols-plasma",
  "web-sys",
  "web-time",
@@ -10271,6 +10464,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213b7324336b53d2414b2db8537e56544d981803139155afa84f76eeebb7a546"
 
 [[package]]
+name = "xkbcommon"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13867d259930edc7091a6c41b4ce6eee464328c6ff9659b7e4c668ca20d4c91e"
+dependencies = [
+ "libc",
+ "memmap2 0.8.0",
+ "xkeysym",
+]
+
+[[package]]
 name = "xkbcommon-dl"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10288,6 +10492,9 @@ name = "xkeysym"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "054a8e68b76250b253f671d1268cb7f1ae089ec35e195b2efb2a4e9a836d0621"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "xml-rs"

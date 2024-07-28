@@ -15,6 +15,13 @@ members = [
     "rust/component_model",
     "rust/scenario_runner",
 ]
+[workspace.dependencies]
+#iced = { version = "0.12.4", features = ["tokio", "lazy", "advanced", "image", "wayland", "multi-window"] }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet", features = ["tokio", "lazy", "advanced", "image", "wayland", "multi-window"] }
+#iced_aw = { version = "0.9.0", features = ["icons", "date_picker", "floating_element", "wrap", "number_input", "grid"] }
+iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet", default-features = false, features = ["icons", "date_picker", "floating_element", "wrap", "number_input", "grid"] }
+#iced_table = "0.13.0"
+iced_table =  { git = "https://github.com/project-gauntlet/iced_table.git", branch = "gauntlet" }
 
 [dependencies]
 cli = { path = "rust/cli" }

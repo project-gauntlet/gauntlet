@@ -7,12 +7,9 @@ tokio = "1.28.1"
 clap = { version = "4.3.22", features = ["derive"] }
 anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1.0.48"
-#iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced"] }
-iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet", features = ["tokio", "lazy", "advanced"] }
-#iced_table = "0.12.0"
-iced_table =  { git = "https://github.com/project-gauntlet/iced_table.git", branch = "gauntlet" }
-#iced_aw = { git = "https://github.com/iced-rs/iced_aw.git", rev = "687fe55689517c82d289af311bc6a17d9d08c01a", default-features = false, features = ["icons", "number_input] }
-iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet", default-features = false, features = ["icons", "number_input"] }
+iced.workspace = true
+iced_aw.workspace = true
+iced_table.workspace = true
 tracing = "0.1"
 tracing-subscriber = "0.3"
 common = { path = "../common" }

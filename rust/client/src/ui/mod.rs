@@ -6,15 +6,21 @@ use std::sync::{Arc, RwLock as StdRwLock};
 
 use iced::{Alignment, Command, Event, event, executor, font, Font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
 use iced::advanced::graphics::core::SmolStr;
-use iced::Application;
+use iced::advanced::layout::Limits;
+use iced::multi_window::Application;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
+use iced::wayland::commands::layer_surface::{Anchor, KeyboardInteractivity, Layer};
+use iced::wayland::core::event::{PlatformSpecific, wayland};
+use iced::wayland::core::event::wayland::LayerEvent;
+use iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings;
+use iced::wayland::settings::InitialSurface;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, Space, text, text_input};
 use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
-use iced::window::{change_level, Level, Position, Screenshot};
+use iced::window::{Level, Position, Screenshot};
 use iced_aw::core::icons;
 use serde::Deserialize;
 use tokio::runtime::Handle;
@@ -54,6 +60,7 @@ pub struct AppModel {
     scrollable_id: scrollable::Id,
     waiting_for_next_unfocus: bool,
     theme: GauntletTheme,
+    wayland: bool,
 
     // ephemeral state
     prompt: String,
@@ -157,6 +164,7 @@ pub enum AppMsg {
 pub struct AppFlags {
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
     backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    wayland: bool,
 }
 
 impl Default for AppFlags {
@@ -168,15 +176,19 @@ impl Default for AppFlags {
 const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
-fn window_settings(minimized: bool) -> iced::window::Settings {
-    iced::window::Settings {
-        size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-        position: Position::Centered,
-        resizable: false,
-        decorations: false,
-        transparent: true,
-        visible: !minimized,
-        ..Default::default()
+fn layer_shell_settings() -> SctkLayerSurfaceSettings {
+    SctkLayerSurfaceSettings {
+        id: window::Id::MAIN,
+        layer: Layer::Overlay,
+        keyboard_interactivity: KeyboardInteractivity::Exclusive,
+        pointer_interactivity: true,
+        anchor: Anchor::empty(),
+        output: Default::default(),
+        namespace: "Gauntlet".to_string(),
+        margin: Default::default(),
+        exclusive_zone: 0,
+        size: Some((Some(WINDOW_WIDTH as u32), Some(WINDOW_HEIGHT as u32))),
+        size_limits: Limits::new(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT), Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
     }
 }
 
@@ -187,18 +199,41 @@ pub fn run(
 ) {
     let default_settings: Settings<()> = Settings::default();
 
-    AppModel::run(Settings {
+    let wayland = std::env::var("WAYLAND_DISPLAY")
+        .or_else(|_| std::env::var("WAYLAND_SOCKET"))
+        .is_ok();
+
+    let flags = AppFlags {
+        frontend_receiver,
+        backend_sender,
+        wayland
+    };
+
+    let settings = Settings {
         id: None,
-        window: window_settings(minimized),
-        flags: AppFlags {
-            frontend_receiver,
-            backend_sender,
+        window: window::Settings {
+            size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+            position: Position::Centered,
+            resizable: false,
+            decorations: false,
+            transparent: true,
+            visible: !minimized,
+            ..Default::default()
         },
+        initial_surface: InitialSurface::LayerSurface(layer_shell_settings()),
+        flags,
         fonts: default_settings.fonts,
         default_font: default_settings.default_font,
         default_text_size: default_settings.default_text_size,
         antialiasing: default_settings.antialiasing,
-    }).unwrap();
+        exit_on_close_request: false,
+    };
+
+    if wayland {
+        AppModel::run_wayland(settings).unwrap();
+    } else {
+        AppModel::run(settings).unwrap();
+    }
 }
 
 impl Application for AppModel {
@@ -210,14 +245,20 @@ impl Application for AppModel {
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let frontend_receiver = flags.frontend_receiver;
         let backend_sender = flags.backend_sender;
+        let wayland = flags.wayland;
 
         let backend_api = BackendForFrontendApi::new(backend_sender);
 
         let mut commands = vec![
-            change_level(window::Id::MAIN, Level::AlwaysOnTop),
             Command::perform(async {}, |_| AppMsg::ResetWindowState),
             font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
         ];
+
+        if !wayland {
+            commands.push(
+                window::change_level(window::Id::MAIN, Level::AlwaysOnTop),
+            )
+        }
 
         let (client_context, plugin_view_data, error_view) = if cfg!(feature = "scenario_runner") {
             let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
@@ -306,6 +347,7 @@ impl Application for AppModel {
                 scrollable_id: scrollable::Id::unique(),
                 waiting_for_next_unfocus: false,
                 theme: GauntletTheme::new(),
+                wayland,
 
                 // ephemeral state
                 prompt: "".to_string(),
@@ -322,7 +364,7 @@ impl Application for AppModel {
         )
     }
 
-    fn title(&self) -> String {
+    fn title(&self, _window: window::Id) -> String {
         "Gauntlet".to_owned()
     }
 
@@ -465,17 +507,22 @@ impl Application for AppModel {
                     _ => Command::none()
                 }
             }
-            AppMsg::IcedEvent(Event::Window(_, iced::window::Event::Unfocused)) => {
-                // for some reason (on both macos and linux) Unfocused fires right at the application start
-                // and second time on actual window unfocus
-                if self.waiting_for_next_unfocus {
-                    if cfg!(target_os = "linux") { // gnome requires double global shortcut press (probably gnome bug, because works on kde).
-                        self.waiting_for_next_unfocus = false;
-                    }
+            AppMsg::IcedEvent(Event::Window(_, window::Event::Unfocused))
+            | AppMsg::IcedEvent(Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Layer(LayerEvent::Unfocused, _, _)))) => {
+                if self.wayland {
                     self.hide_window()
                 } else {
-                    self.waiting_for_next_unfocus = true;
-                    Command::none()
+                    // for some reason (on both macos and linux x11) Unfocused fires right at the application start
+                    // and second time on actual window unfocus
+                    if self.waiting_for_next_unfocus {
+                        if cfg!(target_os = "linux") { // gnome requires double global shortcut press (probably gnome bug, because works on kde).
+                            self.waiting_for_next_unfocus = false;
+                        }
+                        self.hide_window()
+                    } else {
+                        self.waiting_for_next_unfocus = true;
+                        Command::none()
+                    }
                 }
             }
             AppMsg::IcedEvent(_) => Command::none(),
@@ -616,11 +663,17 @@ impl Application for AppModel {
                     |_| AppMsg::Close,
                 )
             }
-            AppMsg::Close => window::close(window::Id::MAIN)
+            AppMsg::Close => {
+                if self.wayland {
+                    iced::wayland::commands::window::close_window(window::Id::MAIN)
+                } else {
+                    window::close(window::Id::MAIN)
+                }
+            }
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message> {
+    fn view(&self, _window: window::Id) -> Element<'_, Self::Message> {
         if let Some(view_data) = &self.error_view {
             return match view_data {
                 ErrorViewData::PreferenceRequiredViewData { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
@@ -813,7 +866,7 @@ impl Application for AppModel {
         }
     }
 
-    fn theme(&self) -> Self::Theme {
+    fn theme(&self, _window: window::Id) -> Self::Theme {
         self.theme.clone()
     }
 
@@ -850,9 +903,20 @@ const ESTIMATED_ITEM_SIZE: f32 = 38.8;
 
 impl AppModel {
     fn hide_window(&mut self) -> Command<AppMsg> {
-        let mut commands = vec![
-            window::change_mode(window::Id::MAIN, window::Mode::Hidden)
-        ];
+        let mut commands = vec![];
+
+        if self.wayland {
+            commands.push(
+                iced::wayland::commands::layer_surface::destroy_layer_surface(window::Id::MAIN),
+            );
+            commands.push(
+                iced::wayland::commands::layer_surface::set_keyboard_interactivity(window::Id::MAIN, KeyboardInteractivity::None),
+            );
+        } else {
+            commands.push(
+                window::change_mode(window::Id::MAIN, window::Mode::Hidden)
+            );
+        };
 
         if let Some(PluginViewData { plugin_id, .. }) = &self.plugin_view_data {
             commands.push(self.close_view(plugin_id.clone()));
@@ -869,22 +933,45 @@ impl AppModel {
     fn show_window(&mut self) -> Command<AppMsg> {
         self.close_error_view();
 
-        Command::batch([
-            window::change_mode(window::Id::MAIN, window::Mode::Windowed),
+        let mut commands = vec![];
+
+        if self.wayland {
+            commands.push(
+                iced::wayland::commands::layer_surface::get_layer_surface(layer_shell_settings()),
+            );
+            commands.push(
+                iced::wayland::commands::layer_surface::set_keyboard_interactivity(window::Id::MAIN, KeyboardInteractivity::Exclusive),
+            );
+        } else {
+            commands.push(
+                window::change_mode(window::Id::MAIN, window::Mode::Windowed)
+            );
+        };
+
+        commands.push(
             self.reset_window_state()
-        ])
+        );
+
+        Command::batch(commands)
     }
 
     fn reset_window_state(&mut self) -> Command<AppMsg> {
         self.focused_search_result = 0;
         self.search_result_offset = 0;
 
-        Command::batch([
-            window::gain_focus(window::Id::MAIN),
+        let mut commands = vec![
             scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
-        ])
+        ];
+
+        if !self.wayland {
+            commands.push(
+                window::gain_focus(window::Id::MAIN),
+            );
+        }
+
+        Command::batch(commands)
     }
 
     fn focus_next(&mut self) -> Command<AppMsg> {
