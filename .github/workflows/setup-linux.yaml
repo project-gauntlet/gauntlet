@@ -16,6 +16,9 @@ jobs:
       - run: sudo apt-get update
       - run: sudo apt-get install -y protobuf-compiler
 
+      # needed for wayland
+      - run: sudo apt-get install -y libxkbcommon-dev
+
       - uses: actions/checkout@v4
       - run: git pull
       - uses: actions/setup-node@v4
