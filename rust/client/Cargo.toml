@@ -6,7 +6,6 @@ edition = "2021"
 tokio = "1.28.1"
 anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1"
-iced.workspace = true
 iced_aw.workspace = true
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -22,6 +21,13 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 once_cell = "1.19"
 bytes = "1.6.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+iced.workspace = true
+iced.features = ["wayland"]
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+iced.workspace = true
 
 [build-dependencies]
 component_model = { path = "../component_model" }

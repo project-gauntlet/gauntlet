@@ -12,11 +12,6 @@ use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
-use iced::wayland::commands::layer_surface::{Anchor, KeyboardInteractivity, Layer};
-use iced::wayland::core::event::{PlatformSpecific, wayland};
-use iced::wayland::core::event::wayland::LayerEvent;
-use iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings;
-use iced::wayland::settings::InitialSurface;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, Space, text, text_input};
 use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
@@ -176,13 +171,14 @@ impl Default for AppFlags {
 const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
-fn layer_shell_settings() -> SctkLayerSurfaceSettings {
-    SctkLayerSurfaceSettings {
+#[cfg(target_os = "linux")]
+fn layer_shell_settings() -> iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings {
+    iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings {
         id: window::Id::MAIN,
-        layer: Layer::Overlay,
-        keyboard_interactivity: KeyboardInteractivity::Exclusive,
+        layer: iced::wayland::commands::layer_surface::Layer::Overlay,
+        keyboard_interactivity: iced::wayland::commands::layer_surface::KeyboardInteractivity::Exclusive,
         pointer_interactivity: true,
-        anchor: Anchor::empty(),
+        anchor: iced::wayland::commands::layer_surface::Anchor::empty(),
         output: Default::default(),
         namespace: "Gauntlet".to_string(),
         margin: Default::default(),
@@ -199,9 +195,13 @@ pub fn run(
 ) {
     let default_settings: Settings<()> = Settings::default();
 
+    #[cfg(target_os = "linux")]
     let wayland = std::env::var("WAYLAND_DISPLAY")
         .or_else(|_| std::env::var("WAYLAND_SOCKET"))
         .is_ok();
+
+    #[cfg(not(target_os = "linux"))]
+    let wayland = false;
 
     let flags = AppFlags {
         frontend_receiver,
@@ -220,20 +220,26 @@ pub fn run(
             visible: !minimized,
             ..Default::default()
         },
-        initial_surface: InitialSurface::LayerSurface(layer_shell_settings()),
+        #[cfg(target_os = "linux")]
+        initial_surface: iced::wayland::settings::InitialSurface::LayerSurface(layer_shell_settings()),
         flags,
         fonts: default_settings.fonts,
         default_font: default_settings.default_font,
         default_text_size: default_settings.default_text_size,
         antialiasing: default_settings.antialiasing,
+        #[cfg(target_os = "linux")]
         exit_on_close_request: false,
     };
 
+    #[cfg(target_os = "linux")]
     if wayland {
         AppModel::run_wayland(settings).unwrap();
     } else {
         AppModel::run(settings).unwrap();
     }
+
+    #[cfg(not(target_os = "linux"))]
+    AppModel::run(settings).unwrap();
 }
 
 impl Application for AppModel {
@@ -507,23 +513,22 @@ impl Application for AppModel {
                     _ => Command::none()
                 }
             }
-            AppMsg::IcedEvent(Event::Window(_, window::Event::Unfocused))
-            | AppMsg::IcedEvent(Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Layer(LayerEvent::Unfocused, _, _)))) => {
-                if self.wayland {
-                    self.hide_window()
-                } else {
-                    // for some reason (on both macos and linux x11) Unfocused fires right at the application start
-                    // and second time on actual window unfocus
-                    if self.waiting_for_next_unfocus {
-                        if cfg!(target_os = "linux") { // gnome requires double global shortcut press (probably gnome bug, because works on kde).
-                            self.waiting_for_next_unfocus = false;
-                        }
-                        self.hide_window()
-                    } else {
-                        self.waiting_for_next_unfocus = true;
-                        Command::none()
-                    }
-                }
+            AppMsg::IcedEvent(Event::Window(_, window::Event::Unfocused)) => {
+                self.on_unfocused()
+            }
+            #[cfg(target_os = "linux")]
+            AppMsg::IcedEvent(
+                Event::PlatformSpecific(
+                    iced::wayland::core::event::PlatformSpecific::Wayland(
+                        iced::wayland::core::event::wayland::Event::Layer(
+                            iced::wayland::core::event::wayland::LayerEvent::Unfocused,
+                            _,
+                            _
+                        )
+                    )
+                )
+            ) => {
+                self.on_unfocused()
             }
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
@@ -664,11 +669,15 @@ impl Application for AppModel {
                 )
             }
             AppMsg::Close => {
+                #[cfg(target_os = "linux")]
                 if self.wayland {
                     iced::wayland::commands::window::close_window(window::Id::MAIN)
                 } else {
                     window::close(window::Id::MAIN)
                 }
+
+                #[cfg(not(target_os = "linux"))]
+                window::close(window::Id::MAIN)
             }
         }
     }
@@ -902,10 +911,31 @@ impl Application for AppModel {
 const ESTIMATED_ITEM_SIZE: f32 = 38.8;
 
 impl AppModel {
+    fn on_unfocused(&mut self) -> Command<AppMsg> {
+        if self.wayland {
+            self.hide_window()
+        } else {
+            // for some reason (on both macos and linux x11) Unfocused fires right at the application start
+            // and second time on actual window unfocus
+            if self.waiting_for_next_unfocus {
+                if cfg!(target_os = "linux") { // gnome requires double global shortcut press (probably gnome bug, because works on kde).
+                    self.waiting_for_next_unfocus = false;
+                }
+                self.hide_window()
+            } else {
+                self.waiting_for_next_unfocus = true;
+                Command::none()
+            }
+        }
+    }
+
     fn hide_window(&mut self) -> Command<AppMsg> {
         let mut commands = vec![];
 
+        #[cfg(target_os = "linux")]
         if self.wayland {
+            use iced::wayland::commands::layer_surface::KeyboardInteractivity;
+
             commands.push(
                 iced::wayland::commands::layer_surface::destroy_layer_surface(window::Id::MAIN),
             );
@@ -917,6 +947,11 @@ impl AppModel {
                 window::change_mode(window::Id::MAIN, window::Mode::Hidden)
             );
         };
+
+        #[cfg(not(target_os = "linux"))]
+        commands.push(
+            window::change_mode(window::Id::MAIN, window::Mode::Hidden)
+        );
 
         if let Some(PluginViewData { plugin_id, .. }) = &self.plugin_view_data {
             commands.push(self.close_view(plugin_id.clone()));
@@ -935,7 +970,10 @@ impl AppModel {
 
         let mut commands = vec![];
 
+        #[cfg(target_os = "linux")]
         if self.wayland {
+            use iced::wayland::commands::layer_surface::KeyboardInteractivity;
+
             commands.push(
                 iced::wayland::commands::layer_surface::get_layer_surface(layer_shell_settings()),
             );
@@ -947,6 +985,11 @@ impl AppModel {
                 window::change_mode(window::Id::MAIN, window::Mode::Windowed)
             );
         };
+
+        #[cfg(not(target_os = "linux"))]
+        commands.push(
+            window::change_mode(window::Id::MAIN, window::Mode::Windowed)
+        );
 
         commands.push(
             self.reset_window_state()
