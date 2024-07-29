@@ -25,11 +25,12 @@ jobs:
           node-version: 18
           registry-url: "https://registry.npmjs.org"
           scope: '@project-gauntlet'
-      - uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
+
+      - uses: dtolnay/rust-toolchain@stable
 
       - run: brew install protobuf
       - run: brew install create-dmg
