@@ -3,18 +3,21 @@ use std::time::Duration;
 
 use iced::{Alignment, alignment, Application, color, Command, executor, font, futures, Length, Padding, Settings, Size, Subscription, time, window};
 use iced::advanced::Widget;
-use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, text};
+use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text};
+use iced_aw::{floating_element, Spinner};
 use iced_aw::core::icons;
-use iced_aw::Spinner;
+use iced_aw::floating_element::{Anchor, Offset};
+use itertools::Itertools;
+
 use common::model::{DownloadStatus, PhysicalShortcut, PluginId};
 use common::rpc::backend_api::{BackendApi, BackendApiError};
 
 use crate::theme::{Element, GauntletSettingsTheme};
 use crate::theme::button::ButtonStyle;
+use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
 use crate::views::general::{ManagementAppGeneralMsgIn, ManagementAppGeneralMsgOut, ManagementAppGeneralState};
-use crate::views::plugins::{DownloadInfo, ManagementAppPluginMsgIn, ManagementAppPluginMsgOut, ManagementAppPluginsState};
+use crate::views::plugins::{ManagementAppPluginMsgIn, ManagementAppPluginMsgOut, ManagementAppPluginsState};
 
 pub fn run() {
     ManagementAppModel::run(Settings {
@@ -31,6 +34,7 @@ struct ManagementAppModel {
     backend_api: Option<BackendApi>,
     error_view: Option<ErrorView>,
     downloads_info: HashMap<PluginId, DownloadInfo>,
+    download_info_shown: bool,
     current_settings_view: SettingsView,
     general_state: ManagementAppGeneralState,
     plugins_state: ManagementAppPluginsState
@@ -48,6 +52,7 @@ enum ManagementAppMsg {
     CheckDownloadStatus,
     DownloadPlugin { plugin_id: PluginId },
     Noop,
+    ToggleDownloadInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +67,15 @@ enum ErrorView {
         display: String
     },
     Timeout,
+}
+
+#[derive(PartialOrd, Ord, PartialEq, Eq, Clone)] // ordering used in sorting items in ui
+pub enum DownloadInfo {
+    InProgress,
+    Error {
+        message: String
+    },
+    Successful,
 }
 
 //noinspection RsSortImplTraitMembers
@@ -83,6 +97,7 @@ impl Application for ManagementAppModel {
                 backend_api: backend_api.clone(),
                 error_view: None,
                 downloads_info: HashMap::new(),
+                download_info_shown: false,
                 current_settings_view: SettingsView::Plugins,
                 general_state: ManagementAppGeneralState::new(backend_api.clone()),
                 plugins_state: ManagementAppPluginsState::new(backend_api.clone()),
@@ -250,7 +265,11 @@ impl Application for ManagementAppModel {
                     )
                 }
             }
-            ManagementAppMsg::Noop => Command::none()
+            ManagementAppMsg::Noop => Command::none(),
+            ManagementAppMsg::ToggleDownloadInfo => {
+                self.download_info_shown = !self.download_info_shown;
+                Command::none()
+            }
         }
     }
 
@@ -429,7 +448,7 @@ impl Application for ManagementAppModel {
 
         let top_bar_buttons: Element<_> = container(top_bar_buttons)
             .width(Length::Fill)
-            .align_x(Horizontal::Center)
+            .align_x(alignment::Horizontal::Center)
             .into();
 
         let top_bar_left_space: Element<_> = horizontal_space()
@@ -469,7 +488,7 @@ impl Application for ManagementAppModel {
 
                 let text: Element<_> = text(in_progress_count)
                     .height(Length::Fill)
-                    .vertical_alignment(Vertical::Center)
+                    .vertical_alignment(alignment::Vertical::Center)
                     .into();
 
                 let spinner: Element<_> = row(vec![text, spinner])
@@ -481,7 +500,7 @@ impl Application for ManagementAppModel {
             if successful_count > 0 {
                 let icon: Element<_> = text(icons::Bootstrap::PatchCheckFill)
                     .size(16)
-                    .vertical_alignment(Vertical::Center)
+                    .vertical_alignment(alignment::Vertical::Center)
                     .font(icons::BOOTSTRAP_FONT)
                     .height(Length::Fill)
                     .style(TextStyle::Positive)
@@ -493,7 +512,7 @@ impl Application for ManagementAppModel {
 
                 let text: Element<_> = text(successful_count)
                     .height(Length::Fill)
-                    .vertical_alignment(Vertical::Center)
+                    .vertical_alignment(alignment::Vertical::Center)
                     .into();
 
                 let icon: Element<_> = row(vec![text, icon])
@@ -506,7 +525,7 @@ impl Application for ManagementAppModel {
                 let icon: Element<_> = text(icons::Bootstrap::ExclamationTriangleFill)
                     .font(icons::BOOTSTRAP_FONT)
                     .height(Length::Fill)
-                    .vertical_alignment(Vertical::Center)
+                    .vertical_alignment(alignment::Vertical::Center)
                     .size(16)
                     .style(TextStyle::Destructive)
                     .into();
@@ -517,7 +536,7 @@ impl Application for ManagementAppModel {
 
                 let text: Element<_> = text(error_count)
                     .height(Length::Fill)
-                    .vertical_alignment(Vertical::Center)
+                    .vertical_alignment(alignment::Vertical::Center)
                     .into();
 
                 let icon: Element<_> = row(vec![text, icon])
@@ -527,33 +546,39 @@ impl Application for ManagementAppModel {
                 download_info_icons.push(icon);
             }
 
-            let top_bar_right: Element<_> = row(download_info_icons)
-                .spacing(12.0)
-                .height(Length::Fill)
-                .align_items(Alignment::Center)
-                .into();
+            if download_info_icons.is_empty() {
+                horizontal_space()
+                    .width(Length::Fill)
+                    .into()
+            } else {
+                let top_bar_right: Element<_> = row(download_info_icons)
+                    .spacing(12.0)
+                    .height(Length::Fill)
+                    .align_items(Alignment::Center)
+                    .into();
 
-            let top_bar_right: Element<_> = button(top_bar_right)
-                .style(ButtonStyle::DownloadInfo)
-                .on_press(ManagementAppMsg::Noop)
-                .padding(Padding::from([4, 8]))
-                .height(Length::Fill)
-                .into();
+                let top_bar_right: Element<_> = button(top_bar_right)
+                    .style(ButtonStyle::DownloadInfo)
+                    .on_press(ManagementAppMsg::ToggleDownloadInfo)
+                    .padding(Padding::from([4, 8]))
+                    .height(Length::Fill)
+                    .into();
 
-            top_bar_right
+                let top_bar_right: Element<_> = container(top_bar_right)
+                    .height(Length::Fill)
+                    .padding(Padding::from([18.0, 12.0]))
+                    .into();
+
+                let top_bar_right: Element<_> = container(top_bar_right)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_y()
+                    .align_x(alignment::Horizontal::Right)
+                    .into();
+
+                top_bar_right
+            }
         };
-
-        let top_bar_right: Element<_> = container(top_bar_right)
-            .height(Length::Fill)
-            .padding(Padding::from([18.0, 12.0]))
-            .into();
-
-        let top_bar_right: Element<_> = container(top_bar_right)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_y()
-            .align_x(Horizontal::Right)
-            .into();
 
         let top_bar: Element<_> = row(vec![top_bar_left_space, top_bar_buttons, top_bar_right])
             .width(Length::Fill)
@@ -573,7 +598,148 @@ impl Application for ManagementAppModel {
         let content: Element<_> = column(vec![top_bar, separator, content])
             .into();
 
-        container(content)
+        let download_info_panel: Element<_> = {
+            let downloads: Vec<Element<_>> = self.downloads_info.iter()
+                .sorted_by_key(|(_, info)| info.clone())
+                .map(|(plugin_id, info)| {
+                    match info {
+                        DownloadInfo::InProgress => {
+                            let kind_text: Element<_> = text("Download in progress")
+                                .into();
+
+                            let kind_text: Element<_> = container(kind_text)
+                                .padding(Padding::from([16, 0, 8, 0]))
+                                .into();
+
+                            let plugin_id: Element<_> = text(plugin_id.to_string())
+                                .style(TextStyle::Subtitle)
+                                .size(14)
+                                .into();
+
+                            let plugin_id: Element<_> = container(plugin_id)
+                                .padding(Padding::from([0, 0, 16, 0]))
+                                .into();
+
+                            let spinner: Element<_> = Spinner::new()
+                                .width(Length::Fixed(32.0))
+                                .into();
+
+                            let spinner: Element<_> = container(spinner)
+                                .padding(16)
+                                .into();
+
+                            let content: Element<_> = column(vec![kind_text, plugin_id])
+                                .into();
+
+                            let content: Element<_> = row(vec![spinner, content])
+                                .into();
+
+                            container(content)
+                                .width(Length::Fill)
+                                .into()
+                        }
+                        DownloadInfo::Error { message } => {
+                            let kind_text: Element<_> = text("Download failed")
+                                .into();
+
+                            let kind_text: Element<_> = container(kind_text)
+                                .padding(Padding::from([16, 0, 8, 0]))
+                                .into();
+
+                            let plugin_id: Element<_> = text(plugin_id.to_string())
+                                .style(TextStyle::Subtitle)
+                                .size(14)
+                                .into();
+
+                            let icon: Element<_> = text(icons::Bootstrap::ExclamationTriangleFill)
+                                .font(icons::BOOTSTRAP_FONT)
+                                .vertical_alignment(alignment::Vertical::Center)
+                                .size(32)
+                                .style(TextStyle::Destructive)
+                                .into();
+
+                            let icon: Element<_> = container(icon)
+                                .padding(16)
+                                .into();
+
+                            let message: Element<_> = text(message.to_string())
+                                .into();
+
+                            let message: Element<_> = container(message)
+                                .padding(Padding::from([8, 0, 16, 0]))
+                                .into();
+
+                            let content: Element<_> = column(vec![kind_text, plugin_id, message])
+                                .into();
+
+                            let content: Element<_> = row(vec![icon, content])
+                                .into();
+
+                            container(content)
+                                .width(Length::Fill)
+                                .into()
+                        }
+                        DownloadInfo::Successful => {
+                            let kind_text: Element<_> = text("Download successful")
+                                .into();
+
+                            let kind_text: Element<_> = container(kind_text)
+                                .padding(Padding::from([16, 0, 8, 0]))
+                                .into();
+
+                            let plugin_id: Element<_> = text(plugin_id.to_string())
+                                .size(14)
+                                .style(TextStyle::Subtitle)
+                                .into();
+
+                            let plugin_id: Element<_> = container(plugin_id)
+                                .padding(Padding::from([0, 0, 16, 0]))
+                                .into();
+
+                            let icon: Element<_> = text(icons::Bootstrap::PatchCheckFill)
+                                .size(32)
+                                .vertical_alignment(alignment::Vertical::Center)
+                                .font(icons::BOOTSTRAP_FONT)
+                                .style(TextStyle::Positive)
+                                .into();
+
+                            let icon: Element<_> = container(icon)
+                                .padding(16)
+                                .into();
+
+                            let content: Element<_> = column(vec![kind_text, plugin_id])
+                                .into();
+
+                            let content: Element<_> = row(vec![icon, content])
+                                .into();
+
+                            container(content)
+                                .width(Length::Fill)
+                                .into()
+                        }
+                    }
+                })
+                .intersperse_with(|| horizontal_rule(1).into())
+                .collect();
+
+            let downloads: Element<_> = column(downloads)
+                .into();
+
+            let downloads: Element<_> = scrollable(downloads)
+                .width(Length::Fill)
+                .into();
+
+            container(downloads)
+                .padding(4)
+                .width(Length::Fixed(400.0))
+                .style(ContainerStyle::Box)
+                .into()
+        };
+
+        floating_element(content, download_info_panel)
+            .offset(Offset::from([8.0, 60.0]))
+            .anchor(Anchor::NorthEast)
+            .hide(!self.download_info_shown)
             .into()
     }
 

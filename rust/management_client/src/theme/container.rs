@@ -19,9 +19,9 @@ impl container::StyleSheet for GauntletSettingsTheme {
             ContainerStyle::Transparent => Default::default(),
             ContainerStyle::Box => {
                 container::Appearance {
-                    background: Some(BACKGROUND_OVERLAY.to_iced().into()), // TODO
+                    background: Some(BACKGROUND_OVERLAY.to_iced().into()),
                     border: Border {
-                        color: BACKGROUND_OVERLAY.to_iced(),
+                        color: BACKGROUND_LIGHT.to_iced(),
                         radius: 10.0.into(),
                         width: 1.0,
                     },

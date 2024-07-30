@@ -73,7 +73,7 @@ impl PluginLoader {
                     },
                     Err(err) => {
                         tracing::warn!("Download of plugin {:?} returned an error {:?}", plugin_id, err);
-                        download_status_guard.download_failed(format!("{:?}", err))
+                        download_status_guard.download_failed(format!("{}", err))
                     }
                 }
             })

@@ -45,14 +45,6 @@ pub enum ManagementAppPluginMsgOut {
     Noop
 }
 
-pub enum DownloadInfo {
-    Successful,
-    InProgress,
-    Error {
-        message: String
-    },
-}
-
 pub struct ManagementAppPluginsState {
     backend_api: Option<BackendApi>,
     table_state: PluginTableState,

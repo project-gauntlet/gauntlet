@@ -14,4 +14,5 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 common = { path = "../common" }
 common-ui = { path = "../common_ui" }
+itertools = "0.12.1"
 tonic = "0.11.0"
