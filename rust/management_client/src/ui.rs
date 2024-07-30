@@ -68,7 +68,7 @@ impl Application for ManagementAppModel {
         let backend_api = futures::executor::block_on(async {
             anyhow::Ok(BackendApi::new().await?)
         })
-            .inspect_err(|err| tracing::error!("Unable to connect to backend: {:?}", err))
+            .inspect_err(|err| tracing::error!("Unable to connect to server: {:?}", err))
             .ok();
 
         (

@@ -8,7 +8,7 @@ pub(in crate) mod model;
 pub fn start_client(
     minimized: bool,
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 ) {
     ui::run(minimized, frontend_receiver, backend_sender);
 }
@@ -19,11 +19,17 @@ pub fn open_window() {
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
-            let mut backend_api = BackendApi::new().await?;
+            let result = BackendApi::new().await;
 
-            backend_api.show_window().await?;
-
-            anyhow::Ok(())
+            match result {
+                Ok(mut backend_api) => {
+                    backend_api.show_window()
+                        .await
+                        .expect("Unknown error")
+                }
+                Err(_) => {
+                    tracing::error!("Unable to connect to server. Please check if you have Gauntlet running on your PC")
+                }
+            }
         })
-        .unwrap();
 }
