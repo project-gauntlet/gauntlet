@@ -6,7 +6,7 @@ use tonic::transport::Channel;
 
 use utils::channel::{RequestError, RequestSender};
 
-use crate::model::{BackendRequestData, BackendResponseData, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
@@ -209,6 +209,14 @@ impl From<tonic::Status> for BackendApiError {
     }
 }
 
+impl From<prost::DecodeError> for BackendApiError {
+    fn from(error: prost::DecodeError) -> BackendApiError {
+        BackendApiError::Internal {
+            display: format!("{}", error)
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BackendApi {
     client: RpcBackendClient<Channel>
@@ -374,23 +382,24 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn download_status(&mut self) -> Result<Vec<PluginId>, BackendApiError> {
+    pub async fn download_status(&mut self) -> Result<HashMap<PluginId, DownloadStatus>, BackendApiError> {
         let plugins = self.client.download_status(Request::new(RpcDownloadStatusRequest::default()))
             .await?
             .into_inner()
             .status_per_plugin
             .into_iter()
-            .filter_map(|(plugin_id, status)| {
-                let status: RpcDownloadStatus = status.status.try_into()
-                    .expect("download status failed");
+            .map(|(plugin_id, status)| {
+                let plugin_id = PluginId::from_string(plugin_id);
 
-                match status {
-                    RpcDownloadStatus::InProgress => None,
-                    RpcDownloadStatus::Done => Some(PluginId::from_string(plugin_id)),
-                    RpcDownloadStatus::Failed => Some(PluginId::from_string(plugin_id))
-                }
+                let status = match status.status.try_into()? {
+                    RpcDownloadStatus::InProgress => DownloadStatus::InProgress,
+                    RpcDownloadStatus::Done => DownloadStatus::Done,
+                    RpcDownloadStatus::Failed => DownloadStatus::Failed { message: status.message },
+                };
+
+                Ok::<(PluginId, DownloadStatus), BackendApiError>((plugin_id, status))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<HashMap<_, _>, _>>()?;
 
         Ok(plugins)
     }

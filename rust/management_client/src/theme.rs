@@ -11,6 +11,7 @@ pub mod checkbox;
 pub mod pick_list;
 pub mod scrollable;
 pub mod shortcut_selector;
+mod spinner;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletSettingsTheme>;
 
@@ -49,6 +50,7 @@ pub const BUTTON_BORDER_RADIUS: f32 = 6.0;
 // settings specific colors
 pub const SUCCESS: ThemeColor = ThemeColor::new(0x659B5E, 1.0);
 pub const DANGER: ThemeColor = ThemeColor::new(0x6C1B1B, 1.0);
+pub const DANGER_BRIGHT: ThemeColor = ThemeColor::new(0xC20000, 1.0);
 
 
 #[derive(Clone, Debug)]

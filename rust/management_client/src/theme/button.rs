@@ -13,6 +13,7 @@ pub enum ButtonStyle {
     TableRow,
     ViewSwitcher,
     ViewSwitcherSelected,
+    DownloadInfo,
 }
 
 //noinspection RsSortImplTraitMembers
@@ -45,6 +46,17 @@ impl button::StyleSheet for GauntletSettingsTheme {
             ButtonStyle::ViewSwitcherSelected => {
                 return Appearance {
                     background: Some(BACKGROUND_LIGHT.to_iced().into()),
+                    text_color: TEXT.to_iced(),
+                    border: Border {
+                        radius: BUTTON_BORDER_RADIUS.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }
+            }
+            ButtonStyle::DownloadInfo => {
+                return Appearance {
+                    background: None,
                     text_color: TEXT.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
@@ -90,6 +102,17 @@ impl button::StyleSheet for GauntletSettingsTheme {
                 }
             }
             ButtonStyle::ViewSwitcherSelected => {
+                return Appearance {
+                    background: Some(BACKGROUND_LIGHTER.to_iced().into()),
+                    text_color: TEXT.to_iced(),
+                    border: Border {
+                        radius: BUTTON_BORDER_RADIUS.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }
+            }
+            ButtonStyle::DownloadInfo => {
                 return Appearance {
                     background: Some(BACKGROUND_LIGHTER.to_iced().into()),
                     text_color: TEXT.to_iced(),

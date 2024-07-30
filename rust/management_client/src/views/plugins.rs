@@ -1,9 +1,9 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use iced::{Alignment, Command, Length, Padding};
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, text_input, vertical_rule};
+use iced::widget::{button, column, container, row, scrollable, text, text_input, vertical_rule};
 use iced_aw::core::icons;
 
 use common::{settings_env_data_from_string, SettingsEnvData};
@@ -25,15 +25,11 @@ pub enum ManagementAppPluginMsgIn {
     PluginPreferenceMsg(PluginPreferencesMsg),
     RequestPluginReload,
     PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
-    AddPlugin {
-        plugin_id: PluginId,
-    },
     RemovePlugin {
         plugin_id: PluginId
     },
-    CheckDownloadStatus,
-    DownloadStatus {
-        plugins: Vec<PluginId>,
+    DownloadPlugin {
+        plugin_id: PluginId,
     },
     SelectItem(SelectedItem),
     Noop
@@ -41,12 +37,20 @@ pub enum ManagementAppPluginMsgIn {
 
 pub enum ManagementAppPluginMsgOut {
     PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
-    DownloadStatus {
-        plugins: Vec<PluginId>,
-    },
     SelectedItem(SelectedItem),
+    DownloadPlugin {
+        plugin_id: PluginId,
+    },
     HandleBackendError(BackendApiError),
     Noop
+}
+
+pub enum DownloadInfo {
+    Successful,
+    InProgress,
+    Error {
+        message: String
+    },
 }
 
 pub struct ManagementAppPluginsState {
@@ -55,7 +59,6 @@ pub struct ManagementAppPluginsState {
     plugin_data: Rc<RefCell<PluginDataContainer>>,
     preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>,
     selected_item: SelectedItem,
-    running_downloads: HashSet<PluginId>,
 }
 
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
@@ -84,7 +87,6 @@ impl ManagementAppPluginsState {
             preference_user_data: HashMap::new(),
             selected_item: select_item,
             table_state: PluginTableState::new(),
-            running_downloads: HashSet::new(),
         }
     }
 
@@ -192,24 +194,6 @@ impl ManagementAppPluginsState {
 
                 Command::none()
             }
-            ManagementAppPluginMsgIn::AddPlugin { plugin_id } => {
-                let mut backend_client = backend_api.clone();
-
-                let exists = self.running_downloads.insert(plugin_id.clone());
-                if !exists {
-                    panic!("already downloading this plugins") // TODO proper error handling
-                }
-
-                Command::perform(
-                    async move {
-                        backend_client.download_plugin(plugin_id)
-                            .await?;
-
-                        Ok(())
-                    },
-                    |result| handle_backend_error(result, |()| ManagementAppPluginMsgOut::Noop)
-                )
-            }
             ManagementAppPluginMsgIn::RemovePlugin { plugin_id } => {
                 self.selected_item = SelectedItem::None;
 
@@ -228,38 +212,10 @@ impl ManagementAppPluginsState {
                     |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                 )
             }
-            ManagementAppPluginMsgIn::CheckDownloadStatus => {
-                if self.running_downloads.is_empty() {
-                    Command::none()
-                } else {
-                    let mut backend_client = backend_api.clone();
-
-                    Command::perform(
-                        async move {
-                            let plugins = backend_client.download_status()
-                                .await?;
-
-                            Ok(plugins)
-                        },
-                        |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::DownloadStatus { plugins }),
-                    )
-                }
-            }
-            ManagementAppPluginMsgIn::DownloadStatus { plugins } => {
-                for plugin in plugins {
-                    self.running_downloads.remove(&plugin);
-                }
-
-                let mut backend_api = backend_api.clone();
-
+            ManagementAppPluginMsgIn::DownloadPlugin { plugin_id } => {
                 Command::perform(
-                    async move {
-                        let plugins = backend_api.plugins()
-                            .await?;
-
-                        Ok(plugins)
-                    },
-                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                    async {  },
+                    |_| ManagementAppPluginMsgOut::DownloadPlugin { plugin_id }
                 )
             }
             ManagementAppPluginMsgIn::SelectItem(selected_item) => {
@@ -463,7 +419,7 @@ impl ManagementAppPluginsState {
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
                     .on_input(|value| ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: value }))
-                    .on_submit(ManagementAppPluginMsgIn::AddPlugin { plugin_id: PluginId::from_string(repository_url) })
+                    .on_submit(ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: PluginId::from_string(repository_url) })
                     .into();
 
                 let content: Element<_> = column(vec![
@@ -506,7 +462,7 @@ impl ManagementAppPluginsState {
             .into();
 
         let top_button_action = match plugin_url {
-            Some(plugin_url) => ManagementAppPluginMsgIn::AddPlugin { plugin_id: PluginId::from_string(plugin_url) },
+            Some(plugin_url) => ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: PluginId::from_string(plugin_url) },
             None => ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: Default::default() })
         };
 
@@ -515,16 +471,7 @@ impl ManagementAppPluginsState {
             .on_press(top_button_action)
             .into();
 
-        let progress_bar_text: Element<_> = if self.running_downloads.is_empty() {
-            horizontal_space()
-                .into()
-        } else {
-            let multiple = if self.running_downloads.len() > 1 { "s" } else { "" };
-            text(format!("{} plugin{} downloading...", self.running_downloads.len(), multiple))
-                .into()
-        };
-
-        let sidebar: Element<_> = column(vec![top_button, sidebar_content, progress_bar_text])
+        let sidebar: Element<_> = column(vec![top_button, sidebar_content])
             .padding(Padding::new(8.0))
             .into();
 
