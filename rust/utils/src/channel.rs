@@ -1,5 +1,17 @@
-use thiserror::Error;
+use std::time::Duration;
+
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::error::Elapsed;
+
+pub enum RequestError {
+    TimeoutError,
+}
+
+impl From<Elapsed> for RequestError {
+    fn from(_: Elapsed) -> RequestError {
+        RequestError::TimeoutError
+    }
+}
 
 pub type Payload<Req, Res> = (Req, Responder<Res>);
 
@@ -46,9 +58,14 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
         ResponseReceiver::new(response_receiver)
     }
 
-    pub async fn send_receive(&self, request: Req) -> Res {
+    pub async fn send_receive(&self, request: Req) -> Result<Res, RequestError> {
         let mut receiver = self.send(request);
-        receiver.recv().await
+
+        let duration = Duration::from_secs(30);
+
+        let result = tokio::time::timeout(duration, receiver.recv()).await?;
+
+        Ok(result)
     }
 }
 
@@ -93,30 +110,6 @@ impl<Res: std::fmt::Debug> Responder<Res> {
 #[derive(Debug)]
 pub struct Responder<Res> {
     response_sender: oneshot::Sender<Res>,
-}
-
-#[derive(Error, Debug, Copy, Clone, PartialEq)]
-pub enum RequestError<T> {
-    #[error("Recv error")]
-    RecvError,
-    #[error("send error")]
-    SendError(T),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct RespondError<T>(pub T);
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ReceiveError {
-    RecvError,
-}
-
-impl<T> From<ReceiveError> for RequestError<T> {
-    fn from(err: ReceiveError) -> RequestError<T> {
-        match err {
-            ReceiveError::RecvError => RequestError::RecvError,
-        }
-    }
 }
 
 pub fn channel<Req: std::fmt::Debug, Res: std::fmt::Debug>() -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {

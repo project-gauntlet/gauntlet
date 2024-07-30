@@ -1,9 +1,10 @@
+use std::sync::Arc;
 use iced::{Alignment, Command, Length};
 use iced::alignment::Horizontal;
 use iced::widget::{column, container, row, Space, text};
 
 use common::model::{PhysicalKey, PhysicalShortcut};
-use common::rpc::backend_api::BackendApi;
+use common::rpc::backend_api::{BackendApi, BackendApiError};
 
 use crate::components::shortcut_selector::ShortcutSelector;
 use crate::theme::Element;
@@ -23,7 +24,8 @@ pub enum ManagementAppGeneralMsgIn {
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgOut {
-    Noop
+    Noop,
+    HandleBackendError(BackendApiError)
 }
 
 impl ManagementAppGeneralState {
@@ -58,9 +60,10 @@ impl ManagementAppGeneralState {
 
                 Command::perform(async move {
                     backend_api.set_global_shortcut(shortcut)
-                        .await
-                        .unwrap() // TODO proper error handling
-                }, |_| ManagementAppGeneralMsgOut::Noop)
+                        .await?;
+
+                    Ok(())
+                }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
             }
             ManagementAppGeneralMsgIn::Noop => {
                 Command::none()
@@ -136,5 +139,12 @@ impl ManagementAppGeneralState {
             .into();
 
         row
+    }
+}
+
+pub fn handle_backend_error<T>(result: Result<T, BackendApiError>, convert: impl FnOnce(T) -> ManagementAppGeneralMsgOut) -> ManagementAppGeneralMsgOut {
+    match result {
+        Ok(val) => convert(val),
+        Err(err) => ManagementAppGeneralMsgOut::HandleBackendError(err)
     }
 }

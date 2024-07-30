@@ -13,6 +13,7 @@ tokio = "1.37.0"
 base64 = "0.22"
 utils = { path = "../utils" }
 bytes = "1.6.0"
+thiserror = "1"
 
 [build-dependencies]
 tonic-build = "0.11.0"

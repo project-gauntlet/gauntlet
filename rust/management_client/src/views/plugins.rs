@@ -8,7 +8,7 @@ use iced_aw::core::icons;
 
 use common::{settings_env_data_from_string, SettingsEnvData};
 use common::model::{EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin};
-use common::rpc::backend_api::BackendApi;
+use common::rpc::backend_api::{BackendApi, BackendApiError};
 
 use crate::theme::button::ButtonStyle;
 use crate::theme::Element;
@@ -45,6 +45,7 @@ pub enum ManagementAppPluginMsgOut {
         plugins: Vec<PluginId>,
     },
     SelectedItem(SelectedItem),
+    HandleBackendError(BackendApiError),
     Noop
 }
 
@@ -107,12 +108,14 @@ impl ManagementAppPluginsState {
                                 Command::perform(
                                     async move {
                                         backend_client.set_plugin_state(plugin_id, enabled)
-                                            .await
-                                            .unwrap(); // TODO proper error handling
+                                            .await?;
 
-                                        reload_plugins(backend_client).await
+                                        let plugins = backend_client.plugins()
+                                            .await?;
+
+                                        Ok(plugins)
                                     },
-                                    ManagementAppPluginMsgOut::PluginsReloaded,
+                                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                                 )
                             }
                             PluginTableMsgOut::SetEntrypointState { enabled, plugin_id, entrypoint_id } => {
@@ -121,12 +124,14 @@ impl ManagementAppPluginsState {
                                 Command::perform(
                                     async move {
                                         backend_client.set_entrypoint_state(plugin_id, entrypoint_id, enabled)
-                                            .await
-                                            .unwrap(); // TODO proper error handling
+                                            .await?;
 
-                                        reload_plugins(backend_client).await
+                                        let plugins = backend_client.plugins()
+                                            .await?;
+
+                                        Ok(plugins)
                                     },
-                                    ManagementAppPluginMsgOut::PluginsReloaded,
+                                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                                 )
                             }
                             PluginTableMsgOut::SelectItem(selected_item) => {
@@ -155,25 +160,31 @@ impl ManagementAppPluginsState {
                         self.preference_user_data
                             .insert((plugin_id.clone(), entrypoint_id.clone(), name.clone()), user_data.clone());
 
-                        let mut backend_client = backend_api.clone();
+                        let mut backend_api = backend_api.clone();
 
                         Command::perform(
                             async move {
-                                backend_client.set_preference_value(plugin_id, entrypoint_id, name, user_data.to_user_data())
-                                    .await
-                                    .unwrap(); // TODO proper error handling
+                                backend_api.set_preference_value(plugin_id, entrypoint_id, name, user_data.to_user_data())
+                                    .await?;
+
+                                Ok(())
                             },
-                            |_| ManagementAppPluginMsgOut::Noop,
+                            |result| handle_backend_error(result, |()| ManagementAppPluginMsgOut::Noop)
                         )
                     }
                 }
             }
             ManagementAppPluginMsgIn::RequestPluginReload => {
+                let mut backend_api = backend_api.clone();
+
                 Command::perform(
                     async move {
-                        reload_plugins(backend_api.clone()).await
+                        let plugins = backend_api.plugins()
+                            .await?;
+
+                        Ok(plugins)
                     },
-                    ManagementAppPluginMsgOut::PluginsReloaded,
+                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                 )
             }
             ManagementAppPluginMsgIn::PluginsReloaded(plugins) => {
@@ -192,10 +203,11 @@ impl ManagementAppPluginsState {
                 Command::perform(
                     async move {
                         backend_client.download_plugin(plugin_id)
-                            .await
-                            .unwrap() // TODO proper error handling
+                            .await?;
+
+                        Ok(())
                     },
-                    |_| ManagementAppPluginMsgOut::Noop,
+                    |result| handle_backend_error(result, |()| ManagementAppPluginMsgOut::Noop)
                 )
             }
             ManagementAppPluginMsgIn::RemovePlugin { plugin_id } => {
@@ -206,12 +218,14 @@ impl ManagementAppPluginsState {
                 Command::perform(
                     async move {
                         backend_client.remove_plugin(plugin_id)
-                            .await
-                            .unwrap(); // TODO proper error handling
+                            .await?;
 
-                        reload_plugins(backend_client).await
+                        let plugins = backend_client.plugins()
+                            .await?;
+
+                        Ok(plugins)
                     },
-                    ManagementAppPluginMsgOut::PluginsReloaded,
+                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                 )
             }
             ManagementAppPluginMsgIn::CheckDownloadStatus => {
@@ -222,11 +236,12 @@ impl ManagementAppPluginsState {
 
                     Command::perform(
                         async move {
-                            backend_client.download_status()
-                                .await
-                                .unwrap() // TODO proper error handling
+                            let plugins = backend_client.download_status()
+                                .await?;
+
+                            Ok(plugins)
                         },
-                        |plugins| ManagementAppPluginMsgOut::DownloadStatus { plugins }
+                        |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::DownloadStatus { plugins }),
                     )
                 }
             }
@@ -234,12 +249,17 @@ impl ManagementAppPluginsState {
                 for plugin in plugins {
                     self.running_downloads.remove(&plugin);
                 }
-                let backend_api = backend_api.clone();
+
+                let mut backend_api = backend_api.clone();
+
                 Command::perform(
-                    async {
-                        reload_plugins(backend_api).await
+                    async move {
+                        let plugins = backend_api.plugins()
+                            .await?;
+
+                        Ok(plugins)
                     },
-                    ManagementAppPluginMsgOut::PluginsReloaded,
+                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                 )
             }
             ManagementAppPluginMsgIn::SelectItem(selected_item) => {
@@ -623,8 +643,9 @@ impl PluginPreferenceUserDataState {
     }
 }
 
-async fn reload_plugins(mut backend_api: BackendApi) -> HashMap<PluginId, SettingsPlugin> {
-    backend_api.plugins()
-        .await
-        .unwrap() // TODO proper error handling
+pub fn handle_backend_error<T>(result: Result<T, BackendApiError>, convert: impl FnOnce(T) -> ManagementAppPluginMsgOut) -> ManagementAppPluginMsgOut {
+    match result {
+        Ok(val) => convert(val),
+        Err(err) => ManagementAppPluginMsgOut::HandleBackendError(err)
+    }
 }

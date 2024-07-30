@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 use anyhow::anyhow;
 use deno_core::futures::channel::mpsc::Sender;
 use global_hotkey::GlobalHotKeyManager;
@@ -116,7 +118,9 @@ impl ApplicationManager {
     }
 
     pub async fn show_window(&self) -> anyhow::Result<()> {
-        self.frontend_api.show_window().await
+        self.frontend_api.show_window().await?;
+
+        Ok(())
     }
 
     pub async fn save_local_plugin(

@@ -25,7 +25,7 @@ impl ClientContext {
         self.inline_views.iter()
             .find(|(id, _)| id == plugin_id)
             .map(|(_, container)| container)
-            .unwrap()
+            .expect("there should always be container for plugin at this point")
     }
 
     pub fn get_mut_inline_view_container(&mut self, plugin_id: &PluginId) -> &mut PluginWidgetContainer {
@@ -34,7 +34,7 @@ impl ClientContext {
             container
         } else {
             self.inline_views.push((plugin_id.clone(), PluginWidgetContainer::new()));
-            let (_, container) = self.inline_views.last_mut().unwrap();
+            let (_, container) = self.inline_views.last_mut().expect("getting just pushed item");
             container
         }
     }

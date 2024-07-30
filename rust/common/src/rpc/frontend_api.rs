@@ -1,6 +1,21 @@
-use utils::channel::RequestSender;
+use thiserror::Error;
+use utils::channel::{RequestError, RequestSender};
 
 use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiResponseData, UiWidget};
+
+#[derive(Error, Debug, Clone)]
+pub enum FrontendApiError {
+    #[error("Frontend wasn't able to process request in a timely manner")]
+    TimeoutError,
+}
+
+impl From<RequestError> for FrontendApiError {
+    fn from(error: RequestError) -> FrontendApiError {
+        match error {
+            RequestError::TimeoutError => FrontendApiError::TimeoutError,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct FrontendApi {
@@ -14,7 +29,7 @@ impl FrontendApi {
         }
     }
 
-    pub async fn request_search_results_update(&mut self) -> anyhow::Result<()> {
+    pub async fn request_search_results_update(&mut self) -> Result<(), FrontendApiError> {
         let _ = self.frontend_sender.send_receive(UiRequestData::RequestSearchResultUpdate).await;
 
         Ok(())
@@ -27,7 +42,7 @@ impl FrontendApi {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: UiWidget,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
             plugin_id,
             entrypoint_id,
@@ -36,23 +51,23 @@ impl FrontendApi {
             container,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
 
         Ok(())
     }
 
-    pub async fn clear_inline_view(&mut self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub async fn clear_inline_view(&mut self, plugin_id: PluginId) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ClearInlineView {
             plugin_id,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
 
         Ok(())
     }
 
-    pub async fn show_window(&self) -> anyhow::Result<()> {
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await;
+    pub async fn show_window(&self) -> Result<(), FrontendApiError> {
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await?;
 
         Ok(())
     }
@@ -63,7 +78,7 @@ impl FrontendApi {
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ShowPreferenceRequiredView {
             plugin_id,
             entrypoint_id,
@@ -71,7 +86,7 @@ impl FrontendApi {
             entrypoint_preferences_required,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
 
         Ok(())
     }
@@ -81,14 +96,14 @@ impl FrontendApi {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ShowPluginErrorView {
             plugin_id,
             entrypoint_id,
             render_location,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
 
         Ok(())
     }

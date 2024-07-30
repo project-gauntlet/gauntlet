@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
-
+use anyhow::anyhow;
 use iced::{Alignment, Command, Event, event, executor, font, Font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
 use iced::advanced::graphics::core::SmolStr;
 use iced::advanced::layout::Limits;
@@ -24,7 +24,7 @@ use tonic::transport::Server;
 
 use client_context::ClientContext;
 use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
-use common::rpc::backend_api::{BackendApi, BackendForFrontendApi};
+use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
 use common_ui::physical_key_model;
@@ -80,15 +80,19 @@ struct PluginViewData {
 }
 
 enum ErrorViewData {
-    PreferenceRequiredViewData {
+    PreferenceRequired {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
     },
-    PluginErrorViewData {
+    PluginError {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
+    },
+    BackendTimeout,
+    UnknownError {
+        display: String
     }
 }
 
@@ -154,6 +158,7 @@ pub enum AppMsg {
     },
     Close,
     ResetWindowState,
+    HandleBackendError(BackendForFrontendApiError),
 }
 
 pub struct AppFlags {
@@ -232,14 +237,16 @@ pub fn run(
     };
 
     #[cfg(target_os = "linux")]
-    if wayland {
-        AppModel::run_wayland(settings).unwrap();
+    let result = if wayland {
+        AppModel::run_wayland(settings)
     } else {
-        AppModel::run(settings).unwrap();
-    }
+        AppModel::run(settings)
+    };
 
     #[cfg(not(target_os = "linux"))]
-    AppModel::run(settings).unwrap();
+    let result = AppModel::run(settings);
+
+    result.expect("Unable to start application")
 }
 
 impl Application for AppModel {
@@ -322,7 +329,7 @@ impl Application for AppModel {
                     (context, plugin_view_data, None)
                 }
                 ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
-                    let error_view = Some(ErrorViewData::PreferenceRequiredViewData {
+                    let error_view = Some(ErrorViewData::PreferenceRequired {
                         plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
                         entrypoint_id: EntrypointId::from_string(entrypoint_id),
                         plugin_preferences_required,
@@ -332,7 +339,7 @@ impl Application for AppModel {
                     (ClientContext::new(), None, error_view)
                 }
                 ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, render_location: _ } => {
-                    let error_view = Some(ErrorViewData::PluginErrorViewData {
+                    let error_view = Some(ErrorViewData::PluginError {
                         plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
                         entrypoint_id: EntrypointId::from_string(entrypoint_id),
                     });
@@ -414,10 +421,11 @@ impl Application for AppModel {
                     let mut backend_api = self.backend_api.clone();
 
                     Command::perform(async move {
-                        backend_api.search(new_prompt, true)
-                            .await
-                            .unwrap() // TODO proper error handling
-                    }, AppMsg::SetSearchResults)
+                        let search_results = backend_api.search(new_prompt, true)
+                            .await?;
+
+                        Ok(search_results)
+                    }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
                 }
             }
             AppMsg::UpdateSearchResults => {
@@ -426,10 +434,11 @@ impl Application for AppModel {
                 let mut backend_api = self.backend_api.clone();
 
                 Command::perform(async move {
-                    backend_api.search(prompt, false)
-                        .await
-                        .unwrap() // TODO proper error handling
-                }, AppMsg::SetSearchResults)
+                    let search_results = backend_api.search(prompt, false)
+                        .await?;
+
+                    Ok(search_results)
+                }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
             }
             AppMsg::PromptSubmit => {
                 if let Some(search_item) = self.search_results.get(self.focused_search_result) {
@@ -496,10 +505,11 @@ impl Application for AppModel {
                                                     let modifier_meta = modifiers.logo();
 
                                                     backend_client.send_keyboard_event(plugin_id, entrypoint_id, name, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                                        .await
-                                                        .unwrap(); // TODO proper error handling
+                                                        .await?;
+
+                                                    Ok(())
                                                 },
-                                                |_| AppMsg::Noop,
+                                                |result| handle_backend_error(result, |()| AppMsg::Noop),
                                             )
                                         }
                                         None => {
@@ -546,17 +556,17 @@ impl Application for AppModel {
                         match event {
                             UiViewEvent::View { widget_id, event_name, event_arguments } => {
                                 backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
-                                    .await
-                                    .unwrap(); // TODO proper error handling
+                                    .await?;
                             }
                             UiViewEvent::Open { href } => {
                                 backend_client.send_open_event(plugin_id, href)
-                                    .await
-                                    .unwrap(); // TODO proper error handling
+                                    .await?;
                             }
                         }
-                    };
-                }, |_| AppMsg::Noop)
+                    }
+
+                    Ok(())
+                }, |result| handle_backend_error(result, |()| AppMsg::Noop))
             }
             AppMsg::Noop => Command::none(),
             AppMsg::FontLoaded(result) => {
@@ -572,7 +582,7 @@ impl Application for AppModel {
                 plugin_preferences_required,
                 entrypoint_preferences_required
             } => {
-                self.error_view = Some(ErrorViewData::PreferenceRequiredViewData {
+                self.error_view = Some(ErrorViewData::PreferenceRequired {
                     plugin_id,
                     entrypoint_id,
                     plugin_preferences_required,
@@ -581,7 +591,7 @@ impl Application for AppModel {
                 Command::none()
             }
             AppMsg::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
-                self.error_view = Some(ErrorViewData::PluginErrorViewData {
+                self.error_view = Some(ErrorViewData::PluginError {
                     plugin_id,
                     entrypoint_id,
                 });
@@ -592,9 +602,10 @@ impl Application for AppModel {
 
                 Command::perform(async move {
                     backend_api.open_settings_window_preferences(plugin_id, entrypoint_id)
-                        .await
-                        .unwrap(); // TODO proper error handling
-                }, |_| AppMsg::Noop)
+                        .await?;
+
+                    Ok(())
+                }, |result| handle_backend_error(result, |()| AppMsg::Noop))
             }
             AppMsg::SaveActionShortcuts { action_shortcuts } => {
                 if let Some(data) = self.plugin_view_data.as_mut() {
@@ -679,13 +690,20 @@ impl Application for AppModel {
                 #[cfg(not(target_os = "linux"))]
                 window::close(window::Id::MAIN)
             }
+            AppMsg::HandleBackendError(err) => {
+                self.error_view = Some(match err {
+                    BackendForFrontendApiError::TimeoutError => ErrorViewData::BackendTimeout,
+                });
+
+                Command::none()
+            }
         }
     }
 
     fn view(&self, _window: window::Id) -> Element<'_, Self::Message> {
         if let Some(view_data) = &self.error_view {
             return match view_data {
-                ErrorViewData::PreferenceRequiredViewData { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
+                ErrorViewData::PreferenceRequired { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
 
                     let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
                         (true, true) => {
@@ -744,7 +762,7 @@ impl Application for AppModel {
 
                     content
                 }
-                ErrorViewData::PluginErrorViewData { plugin_id, entrypoint_id } => {
+                ErrorViewData::PluginError { plugin_id, entrypoint_id } => {
                     let description: Element<_> = text("Error occurred in plugin when trying to show the view")
                         .into();
 
@@ -754,6 +772,106 @@ impl Application for AppModel {
                         .themed(ContainerStyle::PluginErrorViewTitle);
 
                     let sub_description: Element<_> = text("Please report this to plugin author")
+                        .into();
+
+                    let sub_description = container(sub_description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .themed(ContainerStyle::PluginErrorViewDescription);
+
+                    let button_label: Element<_> = text("Close")
+                        .into();
+
+                    let button: Element<_> = button(button_label)
+                        .on_press(AppMsg::HideWindow)
+                        .into();
+
+                    let button = container(button)
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let content: Element<_> = column([
+                        description,
+                        sub_description,
+                        button
+                    ]).into();
+
+                    let content: Element<_> = container(content)
+                        .center_x()
+                        .center_y()
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .themed(ContainerStyle::Main);
+
+                    content
+                }
+                ErrorViewData::UnknownError { display } => {
+                    let description: Element<_> = text("Unknown error occurred")
+                        .into();
+
+                    let description = container(description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .themed(ContainerStyle::PluginErrorViewTitle);
+
+                    let sub_description: Element<_> = text("Please report") // TODO link
+                        .into();
+
+                    let sub_description = container(sub_description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .themed(ContainerStyle::PluginErrorViewDescription);
+
+                    let error_description: Element<_> = text(display)
+                        .into();
+
+                    let error_description = container(error_description)
+                        .width(Length::Fill)
+                        .themed(ContainerStyle::PluginErrorViewDescription);
+
+                    let error_description = scrollable(error_description)
+                        .width(Length::Fill)
+                        .into();
+
+                    let button_label: Element<_> = text("Close")
+                        .into();
+
+                    let button: Element<_> = button(button_label)
+                        .on_press(AppMsg::HideWindow)
+                        .into();
+
+                    let button = container(button)
+                        .width(Length::Fill)
+                        .center_x()
+                        .into();
+
+                    let content: Element<_> = column([
+                        description,
+                        sub_description,
+                        error_description,
+                        button
+                    ]).into();
+
+                    let content: Element<_> = container(content)
+                        .center_x()
+                        .center_y()
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .themed(ContainerStyle::Main);
+
+                    content
+                }
+                ErrorViewData::BackendTimeout => {
+                    let description: Element<_> = text("Error occurred")
+                        .into();
+
+                    let description = container(description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .themed(ContainerStyle::PluginErrorViewTitle);
+
+                    let sub_description: Element<_> = text("Backend was unable to process message in a timely manner")
                         .into();
 
                     let sub_description = container(sub_description)
@@ -1082,10 +1200,11 @@ impl AppModel {
         let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
-            backend_client.request_view_render(plugin_id, entrypoint_id)
-                .await
-                .unwrap() // TODO proper error handling
-        }, |action_shortcuts| AppMsg::SaveActionShortcuts { action_shortcuts })
+            let result = backend_client.request_view_render(plugin_id, entrypoint_id)
+                .await?;
+
+            Ok(result)
+        }, |result| handle_backend_error(result, |action_shortcuts| AppMsg::SaveActionShortcuts { action_shortcuts }))
     }
 
     fn close_view(&self, plugin_id: PluginId) -> Command<AppMsg> {
@@ -1093,9 +1212,10 @@ impl AppModel {
 
         Command::perform(async move {
             backend_client.request_view_close(plugin_id)
-                .await
-                .unwrap() // TODO proper error handling
-        }, |_| AppMsg::Noop)
+                .await?;
+
+            Ok(())
+        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
@@ -1103,9 +1223,10 @@ impl AppModel {
 
         Command::perform(async move {
             backend_client.request_run_command(plugin_id, entrypoint_id)
-                .await
-                .unwrap(); // TODO proper error handling
-        }, |_| AppMsg::Noop)
+                .await?;
+
+            Ok(())
+        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
     fn run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
@@ -1113,9 +1234,10 @@ impl AppModel {
 
         Command::perform(async move {
             backend_client.request_run_generated_command(plugin_id, entrypoint_id)
-                .await
-                .unwrap(); // TODO proper error handling
-        }, |_| AppMsg::Noop)
+                .await?;
+
+            Ok(())
+        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
     fn append_prompt(&mut self, value: String) {
@@ -1126,6 +1248,13 @@ impl AppModel {
         let mut chars = self.prompt.chars();
         chars.next_back();
         self.prompt = chars.as_str().to_owned();
+    }
+}
+
+fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, convert: impl FnOnce(T) -> AppMsg) -> AppMsg {
+    match result {
+        Ok(val) => convert(val),
+        Err(err) => AppMsg::HandleBackendError(err)
     }
 }
 

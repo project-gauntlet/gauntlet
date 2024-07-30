@@ -1,10 +1,13 @@
+use std::fmt::format;
+use std::sync::Arc;
 use std::time::Duration;
 
 use iced::{Alignment, alignment, Application, Command, executor, font, futures, Length, Settings, Size, Subscription, time, window};
 use iced::widget::{button, column, container, horizontal_rule, row, text};
 use iced_aw::core::icons;
+
 use common::model::PhysicalShortcut;
-use common::rpc::backend_api::BackendApi;
+use common::rpc::backend_api::{BackendApi, BackendApiError};
 
 use crate::theme::{Element, GauntletSettingsTheme};
 use crate::theme::button::ButtonStyle;
@@ -19,11 +22,12 @@ pub fn run() {
             ..Default::default()
         },
         ..Default::default()
-    }).unwrap();
+    }).expect("Unable to start settings application");
 }
 
 struct ManagementAppModel {
     backend_api: Option<BackendApi>,
+    error_view: Option<ErrorView>,
     current_settings_view: SettingsView,
     general_state: ManagementAppGeneralState,
     plugins_state: ManagementAppPluginsState
@@ -35,7 +39,8 @@ enum ManagementAppMsg {
     FontLoaded(Result<(), font::Error>),
     General(ManagementAppGeneralMsgIn),
     Plugin(ManagementAppPluginMsgIn),
-    SwitchView(SettingsView)
+    SwitchView(SettingsView),
+    HandleBackendError(BackendApiError)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +49,13 @@ enum SettingsView {
     Plugins
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ErrorView {
+    UnknownError {
+        display: String
+    },
+    Timeout,
+}
 
 //noinspection RsSortImplTraitMembers
 impl Application for ManagementAppModel {
@@ -62,6 +74,7 @@ impl Application for ManagementAppModel {
         (
             ManagementAppModel {
                 backend_api: backend_api.clone(),
+                error_view: None,
                 current_settings_view: SettingsView::Plugins,
                 general_state: ManagementAppGeneralState::new(backend_api.clone()),
                 plugins_state: ManagementAppPluginsState::new(backend_api.clone()),
@@ -77,8 +90,7 @@ impl Application for ManagementAppModel {
                         match backend_api {
                             Some(mut backend_api) => {
                                 let shortcut = backend_api.get_global_shortcut()
-                                    .await
-                                    .unwrap(); // TODO proper error handling
+                                    .await;
 
                                 Some(shortcut)
                             }
@@ -88,7 +100,12 @@ impl Application for ManagementAppModel {
                     |shortcut| {
                         match shortcut {
                             None => ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop),
-                            Some(shortcut) => ManagementAppMsg::General(ManagementAppGeneralMsgIn::SetShortcut(shortcut))
+                            Some(shortcut) => {
+                                match shortcut {
+                                    Ok(shortcut) => ManagementAppMsg::General(ManagementAppGeneralMsgIn::SetShortcut(shortcut)),
+                                    Err(err) => ManagementAppMsg::HandleBackendError(err)
+                                }
+                            }
                         }
                     }
                 ),
@@ -118,6 +135,9 @@ impl Application for ManagementAppModel {
                             ManagementAppPluginMsgOut::SelectedItem(selected_item) => {
                                 ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::SelectItem(selected_item))
                             }
+                            ManagementAppPluginMsgOut::HandleBackendError(err) => {
+                                ManagementAppMsg::HandleBackendError(err)
+                            }
                         }
                     })
             }
@@ -128,6 +148,9 @@ impl Application for ManagementAppModel {
                             ManagementAppGeneralMsgOut::Noop => {
                                 ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop)
                             },
+                            ManagementAppGeneralMsgOut::HandleBackendError(err) => {
+                                ManagementAppMsg::HandleBackendError(err)
+                            }
                         }
                     })
             }
@@ -137,6 +160,14 @@ impl Application for ManagementAppModel {
             }
             ManagementAppMsg::SwitchView(view) => {
                 self.current_settings_view = view;
+
+                Command::none()
+            }
+            ManagementAppMsg::HandleBackendError(err) => {
+                self.error_view = Some(match err {
+                    BackendApiError::Timeout => ErrorView::Timeout,
+                    BackendApiError::Internal { display } => ErrorView::UnknownError { display }
+                });
 
                 Command::none()
             }
@@ -157,6 +188,88 @@ impl Application for ManagementAppModel {
 
             return content
         }
+
+        if let Some(err) = &self.error_view {
+            return match err {
+                ErrorView::Timeout => {
+                    let description: Element<_> = text("Error occurred")
+                        .into();
+
+                    let description = container(description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .padding(12)
+                        .into();
+
+                    let sub_description: Element<_> = text("Backend was unable to process message in a timely manner")
+                        .into();
+
+                    let sub_description = container(sub_description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .padding(12)
+                        .into();
+
+                    let content: Element<_> = column([
+                        description,
+                        sub_description,
+                    ]).into();
+
+                    let content: Element<_> = container(content)
+                        .center_x()
+                        .center_y()
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into();
+
+                    content
+                }
+                ErrorView::UnknownError { display } => {
+                    let description: Element<_> = text("Unknown error occurred")
+                        .into();
+
+                    let description = container(description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .padding(12)
+                        .into();
+
+                    let sub_description: Element<_> = text("Please report")
+                        .into();
+
+                    let sub_description = container(sub_description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .padding(12)
+                        .into();
+
+                    let error_description: Element<_> = text(display)
+                        .into();
+
+                    let error_description = container(error_description)
+                        .width(Length::Fill)
+                        .center_x()
+                        .padding(12)
+                        .into();
+
+                    let content: Element<_> = column([
+                        description,
+                        sub_description,
+                        error_description,
+                    ]).into();
+
+                    let content: Element<_> = container(content)
+                        .center_x()
+                        .center_y()
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into();
+
+                    content
+                }
+            }
+        }
+
 
         let content = match self.current_settings_view {
             SettingsView::General => {
