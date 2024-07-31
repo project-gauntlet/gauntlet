@@ -29,3 +29,6 @@ cli = { path = "rust/cli" }
 [features]
 release = ["cli/release"]
 scenario_runner = ["cli/scenario_runner"]
+
+[profile.release]
+opt-level = 1 # something at opt-level 2 breaks deno
