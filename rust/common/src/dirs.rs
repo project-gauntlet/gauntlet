@@ -2,7 +2,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
 
-use directories::ProjectDirs;
+use directories::{BaseDirs, ProjectDirs};
 
 #[derive(Clone)]
 pub struct Dirs {
@@ -10,10 +10,22 @@ pub struct Dirs {
 }
 
 impl Dirs {
+
+}
+
+impl Dirs {
     pub fn new() -> Self {
         Self {
             inner: ProjectDirs::from("dev", "project-gauntlet", "Gauntlet").unwrap()
         }
+    }
+
+    pub fn home_dir(&self) -> Option<PathBuf> {
+        let path = BaseDirs::new()?
+            .home_dir()
+            .to_path_buf();
+
+        Some(path)
     }
 
     pub fn data_db_file(&self) -> anyhow::Result<PathBuf> {
@@ -36,6 +48,14 @@ impl Dirs {
 
     pub fn config_file(&self) -> PathBuf {
         self.config_dir().join("config.toml")
+    }
+
+    pub fn theme_file(&self) -> PathBuf {
+        self.config_dir().join("theme.json")
+    }
+
+    pub fn theme_color_file(&self) -> PathBuf {
+        self.config_dir().join("color_theme.json")
     }
 
     pub fn config_dir(&self) -> PathBuf {

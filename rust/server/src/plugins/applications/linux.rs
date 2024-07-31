@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use std::env;
 use std::path::{PathBuf};
 
-use directories::BaseDirs;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use image::ImageFormat;
 use image::imageops::FilterType;
 use serde::Serialize;
 use walkdir::WalkDir;
+use common::dirs::Dirs;
 use crate::plugins::applications::{DesktopEntry, resize_icon};
 
 fn find_application_dirs() -> Option<Vec<PathBuf>> {
@@ -18,8 +18,8 @@ fn find_application_dirs() -> Option<Vec<PathBuf>> {
             PathBuf::from(val)
         },
         None => {
-            let base_dirs = BaseDirs::new()?;
-            let home = base_dirs.home_dir();
+            let dirs = Dirs::new();
+            let home = dirs.home_dir()?;
             home.join(".local/share")
         }
     };

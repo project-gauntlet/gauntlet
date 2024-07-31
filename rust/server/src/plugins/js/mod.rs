@@ -36,7 +36,7 @@ use tokio::net::TcpStream;
 use common::model::{EntrypointId, PluginId, UiRenderLocation, UiPropertyValue, UiWidget, UiWidgetId, SearchResultEntrypointType, PhysicalKey};
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
-use crate::dirs::Dirs;
+use common::dirs::Dirs;
 use crate::model::{IntermediateUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::applications::{DesktopEntry, get_apps};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};

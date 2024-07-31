@@ -14,7 +14,6 @@ pub mod rpc;
 pub(in crate) mod search;
 pub(in crate) mod plugins;
 pub(in crate) mod model;
-mod dirs;
 
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 

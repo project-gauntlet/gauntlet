@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use crate::dirs::Dirs;
+use common::dirs::Dirs;
 
 #[derive(Clone)]
 pub struct IconCache {

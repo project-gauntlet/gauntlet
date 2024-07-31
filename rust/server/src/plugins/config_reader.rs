@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::dirs::Dirs;
+use common::dirs::Dirs;
 use crate::plugins::data_db_repository::{DataDbRepository, DbWritePendingPlugin};
 
 pub struct ConfigReader {

@@ -7,7 +7,6 @@ serde = { version = "1.0", features = ["derive"] }
 deno_core = { version = "0.204.0" }
 deno_runtime = { version = "0.126.0" }
 tokio = "1.28.1"
-directories = "5.0"
 toml = "0.8.10"
 tantivy = "0.20.2"
 zstd-sys = "=2.0.9" # TODO REMOVE https://github.com/gyscos/zstd-rs/issues/270
@@ -51,5 +50,5 @@ plist = "1.6.1"
 icns = "0.3.1"
 
 [features]
-release = []
-scenario_runner = ["dep:scenario_runner"]
+release = ["common/release"]
+scenario_runner = ["dep:scenario_runner", "common/scenario_runner"]

@@ -4,6 +4,7 @@ pub mod model;
 pub mod rpc;
 pub mod scenario_convert;
 pub mod scenario_model;
+pub mod dirs;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]

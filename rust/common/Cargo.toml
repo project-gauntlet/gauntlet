@@ -14,6 +14,11 @@ base64 = "0.22"
 utils = { path = "../utils" }
 bytes = "1.6.0"
 thiserror = "1"
+directories = "5.0"
 
 [build-dependencies]
 tonic-build = "0.11.0"
+
+[features]
+release = []
+scenario_runner = []

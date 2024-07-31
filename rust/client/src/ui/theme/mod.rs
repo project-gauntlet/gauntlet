@@ -1,4 +1,10 @@
+use std::io::ErrorKind;
+use std::path::PathBuf;
 use iced::{application, Color, Padding};
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde_json::Error;
+use common::dirs::Dirs;
 
 pub mod button;
 pub mod text_input;
@@ -17,73 +23,93 @@ pub mod tooltip;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
-#[derive(Debug, Clone)]
+const CURRENT_COLOR_THEME_VERSION: u64 = 1;
+const CURRENT_THEME_VERSION: u64 = 1;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GauntletColorTheme {
+    version: u64,
+    background_color: ThemeColor,
+    background_overlay_color: ThemeColor,
+    background_light_color: ThemeColor,
+    background_lighter_color: ThemeColor,
+    text_color: ThemeColor,
+    text_hovered_color: ThemeColor,
+    text_darker_color: ThemeColor,
+    text_dark_color: ThemeColor,
+    primary_color: ThemeColor,
+    primary_hovered_color: ThemeColor,
+    date_picker_text_darker: ThemeColor
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct GauntletTheme {
-    text: ExternalThemeColor,
-    root: ExternalThemeRoot,
-    action: ExternalThemeButton,
-    action_panel: ExternalThemePaddingBackgroundColor,
-    action_panel_title: ExternalThemePaddingOnly,
-    action_shortcut: ExternalThemePaddingOnly,
-    action_shortcut_modifier: ExternalThemeActionShortcutModifier,
-    content_code_block: ExternalThemePaddingOnly,
-    content_code_block_text: ExternalThemeCode,
-    content_horizontal_break: ExternalThemePaddingOnly,
-    content_image: ExternalThemeImage,
-    content_paragraph: ExternalThemePaddingOnly,
-    detail_content: ExternalThemePaddingOnly,
-    detail_metadata: ExternalThemePaddingOnly,
-    empty_view_image: ExternalThemePaddingSize,
-    empty_view_subtitle: ExternalThemeTextColor,
-    form: ExternalThemePaddingOnly,
-    form_inner: ExternalThemePaddingOnly,
-    form_input: ExternalThemePaddingOnly,
-    form_input_label: ExternalThemePaddingOnly,
-    form_input_date_picker: ExternalThemeDatePicker,
-    form_input_date_picker_buttons: ExternalThemeButton,
-    form_input_checkbox: ExternalThemeCheckbox,
-    form_input_select: ExternalThemeSelect,
-    form_input_select_menu: ExternalThemeSelectMenu,
-    form_input_text_field: ExternalThemeTextField,
+    version: u64,
+    text: ThemeColor,
+    root: ThemeRoot,
+    action: ThemeButton,
+    action_panel: ThemePaddingBackgroundColor,
+    action_panel_title: ThemePaddingOnly,
+    action_shortcut: ThemePaddingOnly,
+    action_shortcut_modifier: ThemeActionShortcutModifier,
+    content_code_block: ThemePaddingOnly,
+    content_code_block_text: ThemeCode,
+    content_horizontal_break: ThemePaddingOnly,
+    content_image: ThemeImage,
+    content_paragraph: ThemePaddingOnly,
+    detail_content: ThemePaddingOnly,
+    detail_metadata: ThemePaddingOnly,
+    empty_view_image: ThemePaddingSize,
+    empty_view_subtitle: ThemeTextColor,
+    form: ThemePaddingOnly,
+    form_inner: ThemePaddingOnly,
+    form_input: ThemePaddingOnly,
+    form_input_label: ThemePaddingOnly,
+    form_input_date_picker: ThemeDatePicker,
+    form_input_date_picker_buttons: ThemeButton,
+    form_input_checkbox: ThemeCheckbox,
+    form_input_select: ThemeSelect,
+    form_input_select_menu: ThemeSelectMenu,
+    form_input_text_field: ThemeTextField,
     grid: ExternalThemeGrid,
-    grid_inner: ExternalThemePaddingOnly,
-    list: ExternalThemePaddingOnly,
-    list_inner: ExternalThemePaddingOnly,
-    grid_item: ExternalThemeButton,
-    grid_section_title: ExternalThemePaddingTextColor,
-    inline: ExternalThemePaddingOnly,
-    list_item: ExternalThemeButton,
-    list_item_subtitle: ExternalThemePaddingTextColor,
-    list_item_title: ExternalThemePaddingOnly,
-    list_item_icon: ExternalThemePaddingOnly,
-    list_section_title: ExternalThemePaddingTextColor,
-    main_list: ExternalThemePaddingOnly,
-    main_list_inner: ExternalThemePaddingOnly,
-    main_list_item: ExternalThemeButton,
-    main_list_item_icon: ExternalThemePaddingOnly,
-    main_list_item_sub_text: ExternalThemePaddingTextColor,
-    main_list_item_text: ExternalThemePaddingOnly,
-    main_search_bar: ExternalThemePaddingOnly,
-    metadata_item_value: ExternalThemePaddingOnly,
-    metadata_content_inner: ExternalThemePaddingOnly,
-    metadata_inner: ExternalThemePaddingOnly,
-    metadata_separator: ExternalThemePaddingOnly,
-    metadata_tag_item: ExternalThemePaddingOnly,
-    metadata_item_label: ExternalThemePaddingTextColorSize,
-    metadata_link_icon: ExternalThemePaddingOnly,
-    metadata_tag_item_button: ExternalThemeButton,
-    plugin_error_view_description: ExternalThemePaddingOnly,
-    plugin_error_view_title: ExternalThemePaddingOnly,
-    preference_required_view_description: ExternalThemePaddingOnly,
-    root_bottom_panel: ExternalThemePaddingBackgroundColor,
-    root_bottom_panel_action_button: ExternalThemeButton,
-    root_content: ExternalThemePaddingOnly,
-    root_top_panel: ExternalThemePaddingOnly,
-    root_top_panel_button: ExternalThemeButton,
-    metadata_link: ExternalThemeLink,
-    separator: ExternalThemeSeparator,
-    scrollbar: ExternalThemeScrollbar,
-    tooltip: ExternalThemeTooltip,
+    grid_inner: ThemePaddingOnly,
+    list: ThemePaddingOnly,
+    list_inner: ThemePaddingOnly,
+    grid_item: ThemeButton,
+    grid_section_title: ThemePaddingTextColor,
+    inline: ThemePaddingOnly,
+    list_item: ThemeButton,
+    list_item_subtitle: ThemePaddingTextColor,
+    list_item_title: ThemePaddingOnly,
+    list_item_icon: ThemePaddingOnly,
+    list_section_title: ThemePaddingTextColor,
+    main_list: ThemePaddingOnly,
+    main_list_inner: ThemePaddingOnly,
+    main_list_item: ThemeButton,
+    main_list_item_icon: ThemePaddingOnly,
+    main_list_item_sub_text: ThemePaddingTextColor,
+    main_list_item_text: ThemePaddingOnly,
+    main_search_bar: ThemePaddingOnly,
+    metadata_item_value: ThemePaddingOnly,
+    metadata_content_inner: ThemePaddingOnly,
+    metadata_inner: ThemePaddingOnly,
+    metadata_separator: ThemePaddingOnly,
+    metadata_tag_item: ThemePaddingOnly,
+    metadata_item_label: ThemePaddingTextColorSize,
+    metadata_link_icon: ThemePaddingOnly,
+    metadata_tag_item_button: ThemeButton,
+    plugin_error_view_description: ThemePaddingOnly,
+    plugin_error_view_title: ThemePaddingOnly,
+    preference_required_view_description: ThemePaddingOnly,
+    root_bottom_panel: ThemePaddingBackgroundColor,
+    root_bottom_panel_action_button: ThemeButton,
+    root_content: ThemePaddingOnly,
+    root_top_panel: ThemePaddingOnly,
+    root_top_panel_button: ThemeButton,
+    metadata_link: ThemeLink,
+    separator: ThemeSeparator,
+    scrollbar: ThemeScrollbar,
+    tooltip: ThemeTooltip,
 }
 
 impl Default for GauntletTheme {
@@ -97,329 +123,430 @@ impl Default for GauntletTheme {
 
 impl GauntletTheme {
     pub fn new() -> Self {
-        let theme = Self {
-            text: TEXT,
-            root: ExternalThemeRoot {
-                background_color: BACKGROUND,
+        let dirs = Dirs::new();
+
+        let theme = GauntletTheme::parse_file(dirs.theme_file(), "theme")
+            .unwrap_or_else(|| {
+                let color_theme = GauntletTheme::parse_file(dirs.theme_color_file(), "color theme")
+                    .unwrap_or_else(|| GauntletTheme::default_color_theme());
+
+                GauntletTheme::default_theme(color_theme)
+            });
+
+        init_theme(theme.clone());
+
+        theme
+    }
+
+    fn parse_file<T: DeserializeOwned>(theme_file: PathBuf, theme_name: &str) -> Option<T> {
+        match std::fs::read_to_string(theme_file) {
+            Ok(value) => {
+                let result = serde_json::from_str::<serde_json::Value>(&value);
+
+                match result {
+                    Ok(value) => {
+                        match value.get("version") {
+                            Some(serde_json::Value::Number(number)) => {
+                                match number.as_u64() {
+                                    None => {
+                                        tracing::warn!("Version of read {} file is invalid", theme_name);
+                                        None
+                                    }
+                                    Some(CURRENT_COLOR_THEME_VERSION) => {
+                                        match serde_json::from_value::<T>(value) {
+                                            Ok(value) => Some(value),
+                                            Err(err) => {
+                                                tracing::warn!("Unable to parse {} file: {}", theme_name, err);
+                                                None
+                                            }
+                                        }
+                                    }
+                                    Some(_) => {
+                                        tracing::warn!("Version of read {} file doesn't match expected, theme: {}, expected: {}", theme_name, number, CURRENT_COLOR_THEME_VERSION);
+                                        None
+                                    }
+                                }
+                            }
+                            _ => {
+                                tracing::warn!("Version of read {} file is not a number", theme_name);
+                                None
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!("Unable to parse {} file: {}", theme_name, err);
+                        None
+                    }
+                }
+            }
+            Err(err) => {
+                match err.kind() {
+                    ErrorKind::NotFound => {
+                        tracing::debug!("No {} file was found", theme_name);
+                        None
+                    }
+                    err @ _ => {
+                        tracing::warn!("Unable to read {} file: {}", theme_name, err);
+                        None
+                    }
+                }
+            }
+        }
+    }
+
+    fn default_color_theme() -> GauntletColorTheme {
+        GauntletColorTheme {
+            version: CURRENT_COLOR_THEME_VERSION,
+            background_color: BACKGROUND,
+            background_overlay_color: BACKGROUND_OVERLAY,
+            background_light_color: BACKGROUND_LIGHT,
+            background_lighter_color: BACKGROUND_LIGHTER,
+            text_color: TEXT,
+            text_hovered_color: TEXT_HOVERED,
+            text_darker_color: TEXT_DARKER,
+            text_dark_color: TEXT_DARK,
+            primary_color: PRIMARY,
+            primary_hovered_color: PRIMARY_HOVERED,
+            date_picker_text_darker: DATE_PICKER_TEXT_DARKER
+        }
+    }
+
+    fn default_theme(color_theme: GauntletColorTheme) -> GauntletTheme {
+        let GauntletColorTheme {
+            version: _,
+            background_color,
+            background_overlay_color,
+            background_light_color,
+            background_lighter_color,
+            text_color,
+            text_hovered_color,
+            text_darker_color,
+            text_dark_color,
+            primary_color,
+            primary_hovered_color,
+            date_picker_text_darker
+        } = color_theme;
+
+        GauntletTheme {
+            version: CURRENT_THEME_VERSION,
+            text: text_color,
+            root: ThemeRoot {
+                background_color,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_LIGHT,
+                border_color: background_light_color,
             },
-            action_panel: ExternalThemePaddingBackgroundColor {
+            action_panel: ThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
-                background_color: BACKGROUND_OVERLAY,
+                background_color: background_overlay_color,
             },
-            action_panel_title: ExternalThemePaddingOnly {
+            action_panel_title: ThemePaddingOnly {
                 padding: padding(2.0, 8.0, 4.0, 8.0),
             },
-            action: ExternalThemeButton {
+            action: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_LIGHT,
-                text_color: TEXT,
-                text_color_hovered: TEXT,
+                background_color_hovered: background_light_color,
+                text_color,
+                text_color_hovered: text_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            action_shortcut: ExternalThemePaddingOnly {
+            action_shortcut: ThemePaddingOnly {
                 padding: padding_all(0.0)
             },
-            action_shortcut_modifier: ExternalThemeActionShortcutModifier {
+            action_shortcut_modifier: ThemeActionShortcutModifier {
                 padding: padding_axis(0.0, 4.0),
                 spacing: 4.0,
-                background_color: BACKGROUND_LIGHTER,
+                background_color: background_lighter_color,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            form_input: ExternalThemePaddingOnly {
+            form_input: ThemePaddingOnly {
                 padding: padding_all(8.0)
             },
-            metadata_tag_item: ExternalThemePaddingOnly {
+            metadata_tag_item: ThemePaddingOnly {
                 padding: padding(0.0, 8.0, 4.0, 0.0),
             },
-            metadata_tag_item_button: ExternalThemeButton {
+            metadata_tag_item_button: ThemeButton {
                 padding: padding_axis(2.0, 8.0),
-                background_color: PRIMARY,
-                background_color_hovered: PRIMARY_HOVERED,
-                text_color: TEXT_DARK,
-                text_color_hovered: TEXT_DARK,
+                background_color: primary_color,
+                background_color_hovered: primary_hovered_color,
+                text_color: text_dark_color,
+                text_color_hovered: text_dark_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            metadata_item_label: ExternalThemePaddingTextColorSize {
+            metadata_item_label: ThemePaddingTextColorSize {
                 padding: padding_all(0.0),
-                text_color: TEXT_DARKER,
+                text_color: text_darker_color,
                 text_size: 14.0,
             },
-            metadata_item_value: ExternalThemePaddingOnly {
+            metadata_item_value: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
-            metadata_link_icon: ExternalThemePaddingOnly {
+            metadata_link_icon: ThemePaddingOnly {
                 padding: padding_axis(0.0, 4.0),
             },
-            root_bottom_panel: ExternalThemePaddingBackgroundColor {
+            root_bottom_panel: ThemePaddingBackgroundColor {
                 padding: padding_axis(4.0, 8.0),
-                background_color: BACKGROUND_OVERLAY,
+                background_color: background_overlay_color,
             },
-            root_top_panel: ExternalThemePaddingOnly {
+            root_top_panel: ThemePaddingOnly {
                 padding: padding_all(12.0),
             },
-            list_item_subtitle: ExternalThemePaddingTextColor {
+            list_item_subtitle: ThemePaddingTextColor {
                 padding: padding_all(4.0),
-                text_color: TEXT_DARKER,
+                text_color: text_darker_color,
             },
-            list_item_title: ExternalThemePaddingOnly {
+            list_item_title: ThemePaddingOnly {
                 padding: padding_all(4.0),
             },
-            content_paragraph: ExternalThemePaddingOnly {
+            content_paragraph: ThemePaddingOnly {
                 padding: padding_all(8.0)
             },
-            content_code_block: ExternalThemePaddingOnly {
+            content_code_block: ThemePaddingOnly {
                 padding: padding_all(0.0),
             },
-            content_image: ExternalThemeImage {
+            content_image: ThemeImage {
                 padding: padding_all(0.0),
                 border_radius: 6.0,
             },
-            inline: ExternalThemePaddingOnly {
+            inline: ThemePaddingOnly {
                 padding: padding_all(8.0)
             },
-            empty_view_image: ExternalThemePaddingSize {
+            empty_view_image: ThemePaddingSize {
                 padding: padding_all(8.0),
                 size: ExternalThemeSize {
                     width: 100.0,
                     height: 100.0,
                 },
             },
-            grid_item: ExternalThemeButton {
+            grid_item: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: BACKGROUND_LIGHT,
-                background_color_hovered: BACKGROUND_LIGHTER,
-                text_color: TEXT,
-                text_color_hovered: TEXT,
+                background_color: background_light_color,
+                background_color_hovered: background_lighter_color,
+                text_color,
+                text_color_hovered: text_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            content_horizontal_break: ExternalThemePaddingOnly {
+            content_horizontal_break: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
-            content_code_block_text: ExternalThemeCode {
+            content_code_block_text: ThemeCode {
                 padding: padding_axis(4.0, 8.0),
-                background_color: BACKGROUND_LIGHT,
+                background_color: background_light_color,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            metadata_separator: ExternalThemePaddingOnly {
+            metadata_separator: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
-            root_top_panel_button: ExternalThemeButton {
+            root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: BACKGROUND_LIGHT,
-                background_color_hovered: BACKGROUND_LIGHTER,
-                text_color: TEXT,
-                text_color_hovered: TEXT,
+                background_color: background_light_color,
+                background_color_hovered: background_lighter_color,
+                text_color,
+                text_color_hovered: text_color,
                 border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            root_bottom_panel_action_button: ExternalThemeButton {
+            root_bottom_panel_action_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: BACKGROUND_LIGHT,
-                background_color_hovered: BACKGROUND_LIGHTER,
-                text_color: TEXT,
-                text_color_hovered: TEXT,
+                background_color: background_light_color,
+                background_color_hovered: background_lighter_color,
+                text_color,
+                text_color_hovered: text_color,
                 border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            list_item: ExternalThemeButton {
+            list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_LIGHT,
-                text_color: TEXT,
-                text_color_hovered: TEXT,
+                background_color_hovered: background_light_color,
+                text_color,
+                text_color_hovered: text_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            list_item_icon: ExternalThemePaddingOnly {
+            list_item_icon: ThemePaddingOnly {
                 padding: padding_axis(0.0, 4.0)
             },
-            root_content: ExternalThemePaddingOnly {
+            root_content: ThemePaddingOnly {
                 padding: padding_all(0.0), // TODO hardcode this?
             },
-            detail_metadata: ExternalThemePaddingOnly {
+            detail_metadata: ThemePaddingOnly {
                 padding: padding_axis(0.0, 12.0),
             },
-            metadata_inner: ExternalThemePaddingOnly {
+            metadata_inner: ThemePaddingOnly {
                 padding: padding_axis(12.0, 0.0),
             },
-            detail_content: ExternalThemePaddingOnly {
+            detail_content: ThemePaddingOnly {
                 padding: padding_axis(0.0, 12.0),
             },
-            metadata_content_inner: ExternalThemePaddingOnly {
+            metadata_content_inner: ThemePaddingOnly {
                 padding: padding_axis(12.0, 0.0),
             },
-            form: ExternalThemePaddingOnly {
+            form: ThemePaddingOnly {
                 padding: padding_axis(0.0, 12.0),
             },
-            form_inner: ExternalThemePaddingOnly {
+            form_inner: ThemePaddingOnly {
                 padding: padding_axis(12.0, 0.0),
             },
             grid: ExternalThemeGrid {
                 spacing: 8.0,
                 padding: padding_axis(0.0, 12.0),
             },
-            grid_inner: ExternalThemePaddingOnly {
+            grid_inner: ThemePaddingOnly {
                 padding: padding_axis(12.0, 0.0),
             },
-            list: ExternalThemePaddingOnly {
+            list: ThemePaddingOnly {
                 padding: padding_axis(0.0, 8.0),
             },
-            list_inner: ExternalThemePaddingOnly {
+            list_inner: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
-            form_input_label: ExternalThemePaddingOnly {
+            form_input_label: ThemePaddingOnly {
                 padding: padding_axis(4.0, 12.0),
             },
-            list_section_title: ExternalThemePaddingTextColor {
+            list_section_title: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 8.0),
-                text_color: TEXT_DARKER,
+                text_color: text_darker_color,
             },
-            grid_section_title: ExternalThemePaddingTextColor {
+            grid_section_title: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 0.0),
-                text_color: TEXT_DARKER,
+                text_color: text_darker_color,
             },
-            main_list_item: ExternalThemeButton {
+            main_list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_LIGHT,
-                text_color: TEXT,
-                text_color_hovered: TEXT,
+                background_color_hovered: background_light_color,
+                text_color,
+                text_color_hovered: text_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            main_list_item_text: ExternalThemePaddingOnly {
+            main_list_item_text: ThemePaddingOnly {
                 padding: padding_all(4.0),
             },
-            main_list_item_sub_text: ExternalThemePaddingTextColor {
+            main_list_item_sub_text: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 12.0),
-                text_color: TEXT_DARKER,
+                text_color: text_darker_color,
             },
-            main_list_item_icon: ExternalThemePaddingOnly {
+            main_list_item_icon: ThemePaddingOnly {
                 padding: padding(0.0, 7.0, 0.0, 5.0),
             },
-            main_list: ExternalThemePaddingOnly {
+            main_list: ThemePaddingOnly {
                 padding: padding_axis(0.0, 8.0),
             },
-            main_list_inner: ExternalThemePaddingOnly {
+            main_list_inner: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
-            main_search_bar: ExternalThemePaddingOnly {
+            main_search_bar: ThemePaddingOnly {
                 padding: padding_all(12.0),
             },
-            plugin_error_view_title: ExternalThemePaddingOnly {
+            plugin_error_view_title: ThemePaddingOnly {
                 padding: padding_all(12.0),
             },
-            plugin_error_view_description: ExternalThemePaddingOnly {
+            plugin_error_view_description: ThemePaddingOnly {
                 padding: padding_all(12.0),
             },
-            preference_required_view_description: ExternalThemePaddingOnly {
+            preference_required_view_description: ThemePaddingOnly {
                 padding: padding_all(12.0),
             },
-            metadata_link: ExternalThemeLink {
-                text_color: TEXT,
-                text_color_hovered: TEXT_HOVERED,
+            metadata_link: ThemeLink {
+                text_color,
+                text_color_hovered: text_hovered_color,
             },
-            empty_view_subtitle: ExternalThemeTextColor {
-                text_color: TEXT_DARKER,
+            empty_view_subtitle: ThemeTextColor {
+                text_color: text_darker_color,
             },
-            form_input_date_picker: ExternalThemeDatePicker {
-                background_color: BACKGROUND,
+            form_input_date_picker: ThemeDatePicker {
+                background_color,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_LIGHT,
-                text_color: TEXT,
-                text_color_selected: TEXT_DARKER,
-                text_color_hovered: TEXT_DARKER,
-                text_attenuated_color: ExternalThemeColor::new(0xCAC2B6, 0.3),
-                day_background_color: BACKGROUND_LIGHT,
-                day_background_color_selected: BACKGROUND_LIGHT,
-                day_background_color_hovered: BACKGROUND_LIGHT,
+                border_color: background_light_color,
+                text_color,
+                text_color_selected: text_darker_color,
+                text_color_hovered: text_darker_color,
+                text_attenuated_color: date_picker_text_darker,
+                day_background_color: background_light_color,
+                day_background_color_selected: background_light_color,
+                day_background_color_hovered: background_light_color,
             },
-            form_input_date_picker_buttons: ExternalThemeButton {
+            form_input_date_picker_buttons: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: PRIMARY,
-                background_color_hovered: PRIMARY_HOVERED,
-                text_color: TEXT_DARK,
-                text_color_hovered: TEXT_DARK,
+                background_color: primary_color,
+                background_color_hovered: primary_hovered_color,
+                text_color: text_dark_color,
+                text_color_hovered: text_dark_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            form_input_checkbox: ExternalThemeCheckbox {
-                background_color_checked: PRIMARY,
-                background_color_unchecked: BACKGROUND,
-                background_color_checked_hovered: PRIMARY_HOVERED,
-                background_color_unchecked_hovered: BACKGROUND_LIGHT,
+            form_input_checkbox: ThemeCheckbox {
+                background_color_checked: primary_color,
+                background_color_unchecked: background_color,
+                background_color_checked_hovered: primary_hovered_color,
+                background_color_unchecked_hovered: background_light_color,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: PRIMARY,
-                icon_color: BACKGROUND,
+                border_color: primary_color,
+                icon_color: background_color,
             },
-            form_input_select: ExternalThemeSelect {
-                background_color: PRIMARY,
-                background_color_hovered: PRIMARY_HOVERED,
-                text_color: TEXT_DARK,
-                text_color_hovered: TEXT_DARK,
+            form_input_select: ThemeSelect {
+                background_color: primary_color,
+                background_color_hovered: primary_hovered_color,
+                text_color: text_dark_color,
+                text_color_hovered: text_dark_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 1.0,
-                border_color: BACKGROUND_LIGHT,
+                border_color: background_light_color,
             },
-            form_input_select_menu: ExternalThemeSelectMenu {
-                background_color: BACKGROUND,
-                background_color_selected: BACKGROUND_LIGHT,
-                text_color: TEXT,
-                text_color_selected: TEXT,
+            form_input_select_menu: ThemeSelectMenu {
+                background_color,
+                background_color_selected: background_light_color,
+                text_color,
+                text_color_selected: text_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 1.0,
-                border_color: BACKGROUND_LIGHT,
+                border_color: background_light_color,
             },
-            form_input_text_field: ExternalThemeTextField {
+            form_input_text_field: ThemeTextField {
                 background_color: TRANSPARENT,
-                background_color_hovered: BACKGROUND_LIGHT,
-                text_color: TEXT,
-                text_color_placeholder: TEXT_DARKER,
-                selection_color: BACKGROUND_LIGHT,
+                background_color_hovered: background_light_color,
+                text_color,
+                text_color_placeholder: text_darker_color,
+                selection_color: background_light_color,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: BACKGROUND_LIGHT,
-                border_color_hovered: BACKGROUND_LIGHT,
+                border_color: background_light_color,
+                border_color_hovered: background_light_color,
             },
-            separator: ExternalThemeSeparator {
+            separator: ThemeSeparator {
                 color: BACKGROUND_LIGHT
             },
-            scrollbar: ExternalThemeScrollbar {
-                color: PRIMARY,
+            scrollbar: ThemeScrollbar {
+                color: primary_color,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            tooltip: ExternalThemeTooltip {
+            tooltip: ThemeTooltip {
                 padding: 8.0,
-                background_color: BACKGROUND_OVERLAY,
+                background_color: background_overlay_color,
             },
-        };
-
-        init_theme(theme.clone());
-
-        theme
+        }
     }
 }
 
@@ -433,25 +560,26 @@ fn get_theme() -> &'static GauntletTheme {
 
 static THEME: once_cell::sync::OnceCell<GauntletTheme> = once_cell::sync::OnceCell::new();
 
-const NOT_INTENDED_TO_BE_USED: ExternalThemeColor = ExternalThemeColor::new(0xAF5BFF, 1.0);
+const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
 
 // keep colors more or less in sync with settings ui
-const TRANSPARENT: ExternalThemeColor = ExternalThemeColor::new(0x000000, 0.0);
-const BACKGROUND: ExternalThemeColor = ExternalThemeColor::new(0x2C323A, 1.0);
-const BACKGROUND_OVERLAY: ExternalThemeColor = ExternalThemeColor::new(0x333a42, 1.0);
-const BACKGROUND_LIGHT: ExternalThemeColor = ExternalThemeColor::new(0x48505B, 0.5);
-const BACKGROUND_LIGHTER: ExternalThemeColor = ExternalThemeColor::new(0x626974, 0.3);
-const TEXT: ExternalThemeColor = ExternalThemeColor::new(0xBFC5CB, 1.0);
-const TEXT_HOVERED: ExternalThemeColor = ExternalThemeColor::new(0xDDDFE1, 1.0);
-const TEXT_DARKER: ExternalThemeColor = ExternalThemeColor::new(0x6B7785, 1.0);
-const TEXT_DARK: ExternalThemeColor = ExternalThemeColor::new(0x1D242C, 1.0);
-const PRIMARY: ExternalThemeColor = ExternalThemeColor::new(0xC79F60, 1.0);
-const PRIMARY_HOVERED: ExternalThemeColor = ExternalThemeColor::new(0xD7B37A, 1.0);
+const TRANSPARENT: ThemeColor = ThemeColor::new(0x000000, 0.0);
+const BACKGROUND: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
+const BACKGROUND_OVERLAY: ThemeColor = ThemeColor::new(0x333a42, 1.0);
+const BACKGROUND_LIGHT: ThemeColor = ThemeColor::new(0x48505B, 0.5);
+const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x626974, 0.3);
+const TEXT: ThemeColor = ThemeColor::new(0xBFC5CB, 1.0);
+const TEXT_HOVERED: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
+const TEXT_DARKER: ThemeColor = ThemeColor::new(0x6B7785, 1.0);
+const TEXT_DARK: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
+const PRIMARY: ThemeColor = ThemeColor::new(0xC79F60, 1.0);
+const PRIMARY_HOVERED: ThemeColor = ThemeColor::new(0xD7B37A, 1.0);
+const DATE_PICKER_TEXT_DARKER: ThemeColor =  ThemeColor::new(0xCAC2B6, 0.3);
 
 const BUTTON_BORDER_RADIUS: f32 = 6.0;
 
-const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ExternalThemePadding {
-    ExternalThemePadding {
+const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ThemePadding {
+    ThemePadding::Each {
         top,
         right,
         bottom,
@@ -459,257 +587,282 @@ const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ExternalThemeP
     }
 }
 
-const fn padding_all(value: f32) -> ExternalThemePadding {
-    ExternalThemePadding {
-        top: value,
-        right: value,
-        bottom: value,
-        left: value,
+const fn padding_all(value: f32) -> ThemePadding {
+    ThemePadding::All {
+        all: value
     }
 }
 
-const fn padding_axis(vertical: f32, horizontal: f32) -> ExternalThemePadding {
-    ExternalThemePadding {
-        top: vertical,
-        right: horizontal,
-        bottom: vertical,
-        left: horizontal,
+const fn padding_axis(vertical: f32, horizontal: f32) -> ThemePadding {
+    ThemePadding::Axis {
+        vertical,
+        horizontal,
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeButton {
-    padding: ExternalThemePadding,
-    background_color: ExternalThemeColor,
-    background_color_hovered: ExternalThemeColor,
-    text_color: ExternalThemeColor,
-    text_color_hovered: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeButton {
+    padding: ThemePadding,
+    background_color: ThemeColor,
+    background_color_hovered: ThemeColor,
+    text_color: ThemeColor,
+    text_color_hovered: ThemeColor,
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeCheckbox {
-    background_color_checked: ExternalThemeColor,
-    background_color_unchecked: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeCheckbox {
+    background_color_checked: ThemeColor,
+    background_color_unchecked: ThemeColor,
 
-    background_color_checked_hovered: ExternalThemeColor,
-    background_color_unchecked_hovered: ExternalThemeColor,
-
-    border_radius: f32,
-    border_width: f32,
-    border_color: ExternalThemeColor,
-
-    icon_color: ExternalThemeColor
-}
-
-#[derive(Debug, Clone)]
-pub struct ExternalThemeSelect {
-    background_color: ExternalThemeColor,
-    background_color_hovered: ExternalThemeColor,
-
-    text_color: ExternalThemeColor,
-    text_color_hovered: ExternalThemeColor,
+    background_color_checked_hovered: ThemeColor,
+    background_color_unchecked_hovered: ThemeColor,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
+
+    icon_color: ThemeColor
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeSelectMenu {
-    background_color: ExternalThemeColor,
-    background_color_selected: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeSelect {
+    background_color: ThemeColor,
+    background_color_hovered: ThemeColor,
 
-    text_color: ExternalThemeColor,
-    text_color_selected: ExternalThemeColor,
+    text_color: ThemeColor,
+    text_color_hovered: ThemeColor,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeTextField {
-    background_color: ExternalThemeColor,
-    background_color_hovered: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeSelectMenu {
+    background_color: ThemeColor,
+    background_color_selected: ThemeColor,
 
-    text_color: ExternalThemeColor,
-    text_color_placeholder: ExternalThemeColor,
-
-    selection_color: ExternalThemeColor,
+    text_color: ThemeColor,
+    text_color_selected: ThemeColor,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
-    border_color_hovered: ExternalThemeColor,
+    border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeSeparator {
-    color: ExternalThemeColor,
-}
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeTextField {
+    background_color: ThemeColor,
+    background_color_hovered: ThemeColor,
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeScrollbar {
-    color: ExternalThemeColor,
+    text_color: ThemeColor,
+    text_color_placeholder: ThemeColor,
+
+    selection_color: ThemeColor,
+
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
+    border_color_hovered: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeRoot {
-    background_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeSeparator {
+    color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeScrollbar {
+    color: ThemeColor,
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeActionShortcutModifier {
-    padding: ExternalThemePadding,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeRoot {
+    background_color: ThemeColor,
+    border_radius: f32,
+    border_width: f32,
+    border_color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeActionShortcutModifier {
+    padding: ThemePadding,
     spacing: f32,
-    background_color: ExternalThemeColor,
+    background_color: ThemeColor,
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeLink {
-    text_color: ExternalThemeColor,
-    text_color_hovered: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeLink {
+    text_color: ThemeColor,
+    text_color_hovered: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeCode {
-    padding: ExternalThemePadding,
-    background_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeCode {
+    padding: ThemePadding,
+    background_color: ThemeColor,
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeDatePicker {
-    background_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeDatePicker {
+    background_color: ThemeColor,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ExternalThemeColor,
+    border_color: ThemeColor,
 
-    text_color: ExternalThemeColor,
-    text_color_selected: ExternalThemeColor,
-    text_color_hovered: ExternalThemeColor,
+    text_color: ThemeColor,
+    text_color_selected: ThemeColor,
+    text_color_hovered: ThemeColor,
 
-    text_attenuated_color: ExternalThemeColor,
+    text_attenuated_color: ThemeColor,
 
-    day_background_color: ExternalThemeColor,
-    day_background_color_selected: ExternalThemeColor,
-    day_background_color_hovered: ExternalThemeColor
+    day_background_color: ThemeColor,
+    day_background_color_selected: ThemeColor,
+    day_background_color_hovered: ThemeColor
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemePaddingTextColor {
-    padding: ExternalThemePadding,
-    text_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemePaddingTextColor {
+    padding: ThemePadding,
+    text_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemePaddingTextColorSize {
-    padding: ExternalThemePadding,
-    text_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemePaddingTextColorSize {
+    padding: ThemePadding,
+    text_color: ThemeColor,
     text_size: f32,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemePaddingBackgroundColor {
-    padding: ExternalThemePadding,
-    background_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemePaddingBackgroundColor {
+    padding: ThemePadding,
+    background_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeTooltip {
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeTooltip {
     padding: f32, // TODO for some reason padding on tooltip is a single number in iced-rs
-    background_color: ExternalThemeColor,
+    background_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemePaddingOnly {
-    padding: ExternalThemePadding,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemePaddingOnly {
+    padding: ThemePadding,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeImage {
-    padding: ExternalThemePadding,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeImage {
+    padding: ThemePadding,
 
     border_radius: f32,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemeTextColor {
-    text_color: ExternalThemeColor,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemeTextColor {
+    text_color: ThemeColor,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemePaddingSize {
-    padding: ExternalThemePadding,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThemePaddingSize {
+    padding: ThemePadding,
     size: ExternalThemeSize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ExternalThemeGrid {
-    padding: ExternalThemePadding,
+    padding: ThemePadding,
     spacing: f32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ExternalThemeSize {
     width: f32,
     height: f32,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalThemePadding {
-    top: f32,
-    right: f32,
-    bottom: f32,
-    left: f32,
+#[derive(Debug, Clone, Deserialize)]
+pub enum ThemePadding {
+    Each {
+        top: f32,
+        right: f32,
+        bottom: f32,
+        left: f32,
+    },
+    Axis {
+        vertical: f32,
+        horizontal: f32,
+    },
+    All {
+        all: f32,
+    },
 }
 
-impl ExternalThemePadding {
+impl ThemePadding {
     fn to_iced(&self) -> Padding {
-        Padding {
-            top: self.top,
-            right: self.right,
-            bottom: self.bottom,
-            left: self.left,
+        match self {
+            ThemePadding::Each { top, right, bottom, left } => {
+                Padding {
+                    top: *top,
+                    right: *right,
+                    bottom: *bottom,
+                    left: *left,
+                }
+            }
+            ThemePadding::Axis { vertical, horizontal } => {
+                Padding {
+                    top: *vertical,
+                    right: *horizontal,
+                    bottom: *vertical,
+                    left: *horizontal,
+                }
+            }
+            ThemePadding::All { all } => {
+                Padding {
+                    top: *all,
+                    right: *all,
+                    bottom: *all,
+                    left: *all,
+                }
+            }
         }
     }
 }
 
 
-#[derive(Clone, Debug)]
-pub struct ExternalThemeColor {
-    hex: u32,
+#[derive(Clone, Debug, Copy, Deserialize)]
+pub struct ThemeColor {
+    r: u8,
+    g: u8,
+    b: u8,
     a: f32,
 }
 
-impl ExternalThemeColor {
+impl ThemeColor {
+    #[allow(unused_parens)]
     const fn new(hex: u32, a: f32) -> Self {
-        Self { hex, a }
+        let r = ((hex & 0xff0000) >> 16) as u8;
+        let g = ((hex & 0xff00) >> 8) as u8;
+        let b = (hex & 0xff) as u8;
+
+        Self { r, g, b, a }
     }
 
-    #[allow(unused_parens)]
     pub fn to_iced(&self) -> Color {
-        let hex = self.hex;
-        let r = (hex & 0xff0000) >> 16;
-        let g = (hex & 0xff00) >> 8;
-        let b = (hex & 0xff);
-
-        Color::from_rgba8(r as u8, g as u8, b as u8, self.a)
+        Color::from_rgba8(self.r, self.g, self.b, self.a)
     }
 }
 

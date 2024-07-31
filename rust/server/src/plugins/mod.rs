@@ -14,7 +14,7 @@ use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, Ph
 use common::rpc::frontend_api::FrontendApi;
 use common::{settings_env_data_to_string, SettingsEnvData};
 use utils::channel::RequestSender;
-use crate::dirs::Dirs;
+use common::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};

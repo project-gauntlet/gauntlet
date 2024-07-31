@@ -12,7 +12,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 use uuid::Uuid;
 use common::model::{PhysicalKey, PhysicalShortcut};
-use crate::dirs::Dirs;
+use common::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
 use crate::plugins::loader::PluginManifestActionShortcutKey;
