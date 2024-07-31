@@ -141,7 +141,7 @@ function build(projectRoot: string, check: boolean, arch: string) {
     }
 
     console.log("Building rust...")
-    const cargoBuildResult = spawnSync('cargo', ['build', '--features', 'release', '--target', arch], {
+    const cargoBuildResult = spawnSync('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
         stdio: "inherit",
         cwd: projectRoot
     });
@@ -259,7 +259,7 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
 }
 
 function packageForLinux(projectRoot: string, arch: string): { filePath: string; fileName: string } {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'debug');
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
     const executableFileName = 'gauntlet';
     const archiveFileName = "gauntlet-x86_64-linux.tar.gz"
     const archiveFilePath = path.join(releaseDirPath, archiveFileName);
@@ -280,7 +280,7 @@ function packageForLinux(projectRoot: string, arch: string): { filePath: string;
 }
 
 async function packageForMacos(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'debug');
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
