@@ -2,7 +2,7 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use iced::{application, Color, Padding};
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Error;
 use common::dirs::Dirs;
 
@@ -26,7 +26,7 @@ pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 const CURRENT_COLOR_THEME_VERSION: u64 = 1;
 const CURRENT_THEME_VERSION: u64 = 1;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletColorTheme {
     version: u64,
     background_color: ThemeColor,
@@ -42,7 +42,7 @@ pub struct GauntletColorTheme {
     date_picker_text_darker: ThemeColor
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletTheme {
     version: u64,
     text: ThemeColor,
@@ -138,7 +138,7 @@ impl GauntletTheme {
         theme
     }
 
-    fn parse_file<T: DeserializeOwned>(theme_file: PathBuf, theme_name: &str) -> Option<T> {
+    fn parse_file<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_name: &str) -> Option<T> {
         match std::fs::read_to_string(theme_file) {
             Ok(value) => {
                 let result = serde_json::from_str::<serde_json::Value>(&value);
@@ -194,7 +194,7 @@ impl GauntletTheme {
         }
     }
 
-    fn default_color_theme() -> GauntletColorTheme {
+    pub fn default_color_theme() -> GauntletColorTheme {
         GauntletColorTheme {
             version: CURRENT_COLOR_THEME_VERSION,
             background_color: BACKGROUND,
@@ -211,7 +211,7 @@ impl GauntletTheme {
         }
     }
 
-    fn default_theme(color_theme: GauntletColorTheme) -> GauntletTheme {
+    pub fn default_theme(color_theme: GauntletColorTheme) -> GauntletTheme {
         let GauntletColorTheme {
             version: _,
             background_color,
@@ -600,7 +600,7 @@ const fn padding_axis(vertical: f32, horizontal: f32) -> ThemePadding {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeButton {
     padding: ThemePadding,
     background_color: ThemeColor,
@@ -612,7 +612,7 @@ pub struct ThemeButton {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeCheckbox {
     background_color_checked: ThemeColor,
     background_color_unchecked: ThemeColor,
@@ -627,7 +627,7 @@ pub struct ThemeCheckbox {
     icon_color: ThemeColor
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeSelect {
     background_color: ThemeColor,
     background_color_hovered: ThemeColor,
@@ -640,7 +640,7 @@ pub struct ThemeSelect {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeSelectMenu {
     background_color: ThemeColor,
     background_color_selected: ThemeColor,
@@ -653,7 +653,7 @@ pub struct ThemeSelectMenu {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeTextField {
     background_color: ThemeColor,
     background_color_hovered: ThemeColor,
@@ -669,12 +669,12 @@ pub struct ThemeTextField {
     border_color_hovered: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeSeparator {
     color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeScrollbar {
     color: ThemeColor,
     border_radius: f32,
@@ -682,7 +682,7 @@ pub struct ThemeScrollbar {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeRoot {
     background_color: ThemeColor,
     border_radius: f32,
@@ -690,7 +690,7 @@ pub struct ThemeRoot {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeActionShortcutModifier {
     padding: ThemePadding,
     spacing: f32,
@@ -700,13 +700,13 @@ pub struct ThemeActionShortcutModifier {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeLink {
     text_color: ThemeColor,
     text_color_hovered: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeCode {
     padding: ThemePadding,
     background_color: ThemeColor,
@@ -715,7 +715,7 @@ pub struct ThemeCode {
     border_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeDatePicker {
     background_color: ThemeColor,
 
@@ -734,67 +734,68 @@ pub struct ThemeDatePicker {
     day_background_color_hovered: ThemeColor
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemePaddingTextColor {
     padding: ThemePadding,
     text_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemePaddingTextColorSize {
     padding: ThemePadding,
     text_color: ThemeColor,
     text_size: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemePaddingBackgroundColor {
     padding: ThemePadding,
     background_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeTooltip {
     padding: f32, // TODO for some reason padding on tooltip is a single number in iced-rs
     background_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemePaddingOnly {
     padding: ThemePadding,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeImage {
     padding: ThemePadding,
 
     border_radius: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeTextColor {
     text_color: ThemeColor,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemePaddingSize {
     padding: ThemePadding,
     size: ExternalThemeSize,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalThemeGrid {
     padding: ThemePadding,
     spacing: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalThemeSize {
     width: f32,
     height: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum ThemePadding {
     Each {
         top: f32,
@@ -843,7 +844,7 @@ impl ThemePadding {
 }
 
 
-#[derive(Clone, Debug, Copy, Deserialize)]
+#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 pub struct ThemeColor {
     r: u8,
     g: u8,

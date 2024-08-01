@@ -33,7 +33,7 @@ use utils::channel::{channel, RequestReceiver, RequestSender};
 use crate::model::UiViewEvent;
 use crate::ui::inline_view_container::inline_view_container;
 use crate::ui::search_list::search_list;
-use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
+use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::view_container::view_container;
@@ -46,6 +46,8 @@ mod theme;
 mod client_context;
 mod widget_container;
 mod inline_view_container;
+
+pub use theme::GauntletTheme;
 
 pub struct AppModel {
     // logic

@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
 
@@ -7,10 +6,6 @@ use directories::{BaseDirs, ProjectDirs};
 #[derive(Clone)]
 pub struct Dirs {
     inner: ProjectDirs
-}
-
-impl Dirs {
-
 }
 
 impl Dirs {
@@ -56,6 +51,14 @@ impl Dirs {
 
     pub fn theme_color_file(&self) -> PathBuf {
         self.config_dir().join("color_theme.json")
+    }
+
+    pub fn sample_theme_file(&self) -> PathBuf {
+        self.config_dir().join("theme.sample.json")
+    }
+
+    pub fn sample_theme_color_file(&self) -> PathBuf {
+        self.config_dir().join("color_theme.sample.json")
     }
 
     pub fn config_dir(&self) -> PathBuf {

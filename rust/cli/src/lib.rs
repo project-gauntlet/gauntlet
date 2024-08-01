@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 
-use client::open_window;
+use client::{generate_color_theme_sample, generate_theme_sample, open_window};
 use management_client::start_management_client;
 use server::start;
 
@@ -18,6 +18,8 @@ struct Cli {
 enum Commands {
     Open,
     Settings,
+    GenerateSampleTheme,
+    GenerateSampleColorTheme,
 }
 
 pub fn init() {
@@ -46,6 +48,8 @@ pub fn init() {
             match command {
                 Commands::Open => open_window(),
                 Commands::Settings => start_management_client(),
+                Commands::GenerateSampleTheme => generate_theme_sample().expect("Unable to generate sample theme"),
+                Commands::GenerateSampleColorTheme => generate_color_theme_sample().expect("Unable to generate sample color theme")
             };
         }
     }
