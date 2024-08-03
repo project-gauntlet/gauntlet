@@ -193,6 +193,33 @@ impl ComponentWidgetWrapper {
             .map(|widget| widget.clone())
     }
 
+    pub fn show_action_panel(&self) {
+        {
+            let (_, ref mut state) = &mut *self.get_mut();
+
+            match state {
+                ComponentWidgetState::Detail { show_action_panel } => {
+                    *show_action_panel = !*show_action_panel;
+                },
+                ComponentWidgetState::Form { show_action_panel } => {
+                    *show_action_panel = !*show_action_panel;
+                },
+                ComponentWidgetState::List { show_action_panel } => {
+                    *show_action_panel = !*show_action_panel;
+                },
+                ComponentWidgetState::Grid { show_action_panel } => {
+                    *show_action_panel = !*show_action_panel;
+                },
+                _ => {}
+            };
+        }
+
+        self.get_children()
+            .unwrap_or(vec![])
+            .iter()
+            .for_each(|child| child.show_action_panel());
+    }
+
     fn get(&self) -> RwLockReadGuard<'_, (ComponentWidget, ComponentWidgetState)> {
         self.inner.read().expect("lock is poisoned")
     }

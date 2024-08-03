@@ -23,7 +23,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -490,29 +490,40 @@ impl Application for AppModel {
                                         }
                                     }
                                 } else {
-                                    let (plugin_id, entrypoint_id) = {
-                                        let client_context = self.client_context.read().expect("lock is poisoned");
-                                        (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
-                                    };
-
                                     match physical_key_model(physical_key) {
                                         Some(name) => {
                                             tracing::debug!("physical key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", name, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
 
-                                            Command::perform(
-                                                async move {
-                                                    let modifier_shift = modifiers.shift();
-                                                    let modifier_control = modifiers.control();
-                                                    let modifier_alt = modifiers.alt();
-                                                    let modifier_meta = modifiers.logo();
+                                            let modifier_shift = modifiers.shift();
+                                            let modifier_control = modifiers.control();
+                                            let modifier_alt = modifiers.alt();
+                                            let modifier_meta = modifiers.logo();
 
-                                                    backend_client.send_keyboard_event(plugin_id, entrypoint_id, name, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                                        .await?;
+                                            match (&name, modifier_shift, modifier_control, modifier_alt, modifier_meta) {
+                                                (PhysicalKey::KeyK, false, false, true, false) => {
+                                                    let client_context = self.client_context.read().expect("lock is poisoned");
 
-                                                    Ok(())
-                                                },
-                                                |result| handle_backend_error(result, |()| AppMsg::Noop),
-                                            )
+                                                    client_context.show_action_panel();
+
+                                                    Command::none()
+                                                }
+                                                (_, _, _, _, _) => {
+                                                    let (plugin_id, entrypoint_id) = {
+                                                        let client_context = self.client_context.read().expect("lock is poisoned");
+                                                        (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+                                                    };
+
+                                                    Command::perform(
+                                                        async move {
+                                                            backend_client.send_keyboard_event(plugin_id, entrypoint_id, name, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                                .await?;
+
+                                                            Ok(())
+                                                        },
+                                                        |result| handle_backend_error(result, |()| AppMsg::Noop),
+                                                    )
+                                                }
+                                            }
                                         }
                                         None => {
                                             Command::none()

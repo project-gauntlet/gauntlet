@@ -74,4 +74,8 @@ impl ClientContext {
             UiRenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)
         }
     }
+
+    pub fn show_action_panel(&self) {
+        self.view.show_action_panel()
+    }
 }

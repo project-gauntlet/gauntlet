@@ -64,4 +64,8 @@ impl PluginWidgetContainer {
 
         event.handle(plugin_id, widget)
     }
+
+    pub fn show_action_panel(&self) {
+        self.root_widget.show_action_panel()
+    }
 }
