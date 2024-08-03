@@ -100,7 +100,7 @@ impl RpcBackend for RpcBackendServerImpl {
     async fn show_window(&self, _request: Request<RpcShowWindowRequest>) -> Result<Response<RpcShowWindowResponse>, Status> {
         self.server.show_window()
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcShowWindowResponse::default()))
     }
@@ -108,7 +108,7 @@ impl RpcBackend for RpcBackendServerImpl {
     async fn plugins(&self, _: Request<RpcPluginsRequest>) -> Result<Response<RpcPluginsResponse>, Status> {
         let plugins = self.server.plugins()
             .await
-            .map_err(|err| Status::internal(err.to_string()))?
+            .map_err(|err| Status::internal(format!("{:#}", err)))?
             .into_iter()
             .map(|plugin| {
                 let entrypoints = plugin.entrypoints
@@ -161,7 +161,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.server.set_plugin_state(plugin_id, enabled)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetPluginStateResponse::default()))
     }
@@ -177,7 +177,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.server.set_entrypoint_state(plugin_id, entrypoint_id, enabled)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetEntrypointStateResponse::default()))
     }
@@ -198,7 +198,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.server.set_preference_value(plugin_id, entrypoint_id, preference_name, plugin_preference_user_data_from_rpc(preference_value))
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetPreferenceValueResponse::default()))
     }
@@ -221,7 +221,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.server.set_global_shortcut(shortcut)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetGlobalShortcutResponse::default()))
     }
@@ -229,7 +229,7 @@ impl RpcBackend for RpcBackendServerImpl {
     async fn get_global_shortcut(&self, _request: Request<RpcGetGlobalShortcutRequest>) -> Result<Response<RpcGetGlobalShortcutResponse>, Status> {
         let shortcut = self.server.get_global_shortcut()
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcGetGlobalShortcutResponse {
             physical_key: shortcut.physical_key.to_value(),
@@ -248,7 +248,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.server.download_plugin(plugin_id)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcDownloadPluginResponse::default()))
     }
@@ -256,7 +256,7 @@ impl RpcBackend for RpcBackendServerImpl {
     async fn download_status(&self, _: Request<RpcDownloadStatusRequest>) -> Result<Response<RpcDownloadStatusResponse>, Status> {
         let status_per_plugin = self.server.download_status()
             .await
-            .map_err(|err| Status::internal(err.to_string()))?
+            .map_err(|err| Status::internal(format!("{:#}", err)))?
             .into_iter()
             .map(|(plugin_id, status)| {
                 let (status, message) = match status {
@@ -284,7 +284,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         self.server.remove_plugin(plugin_id)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcRemovePluginResponse::default()))
     }
@@ -295,7 +295,7 @@ impl RpcBackend for RpcBackendServerImpl {
 
         let local_save_data = self.server.save_local_plugin(path)
             .await
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSaveLocalPluginResponse {
             stdout_file_path: local_save_data.stdout_file_path,
