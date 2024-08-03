@@ -86,20 +86,10 @@ impl PluginLoader {
     pub async fn save_local_plugin(&self, path: &str) -> anyhow::Result<PluginId> {
         let path  = PathBuf::from(path);
 
-        let file_name = path.file_name().ok_or(anyhow!("unable to get file name"))?;
-
-        let path = if file_name == "dist" {
-            path
-                .into_os_string()
-                .into_string()
-                .map_err(|_| anyhow!("non uft8 paths are not supported"))?
-        } else {
-            path
-                .join("dist")
-                .into_os_string()
-                .into_string()
-                .map_err(|_| anyhow!("non uft8 paths are not supported"))?
-        };
+        let path = path
+            .into_os_string()
+            .into_string()
+            .map_err(|_| anyhow!("non uft8 paths are not supported"))?;
 
         let plugin_id = PluginId::from_string(format!("file://{}", &path));
         let plugin_dir = plugin_id.try_to_path()?;
