@@ -16,6 +16,7 @@ use iced::widget::{button, column, container, horizontal_rule, horizontal_space,
 use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
 use iced::widget::text_input::focus;
 use iced::window::{Level, Position, Screenshot};
+use iced::window::settings::PlatformSpecific;
 use iced_aw::core::icons;
 use serde::Deserialize;
 use tokio::runtime::Handle;
@@ -225,6 +226,12 @@ pub fn run(
             decorations: false,
             transparent: true,
             visible: !minimized,
+            #[cfg(target_os = "macos")]
+            platform_specific: PlatformSpecific {
+                activation_policy: window::settings::ActivationPolicy::Accessory,
+                activate_ignoring_other_apps: false,
+                ..Default::default()
+            },
             ..Default::default()
         },
         #[cfg(target_os = "linux")]
