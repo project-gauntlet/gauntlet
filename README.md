@@ -340,19 +340,17 @@ You will need:
 
 To build dev run:
 ```bash
+git submodule update --init
 npm ci
 npm run build
-cd ./dev_plugin
-npm ci
-npm run build
-cd ..
 cargo build
 ```
 In dev (without "release" feature) application will use only directories inside project directory to store state or cache.
 
 To build release run:
 ```bash
-npm install
+git submodule update --init
+npm ci
 npm run build
 cargo build --release --features release
 ```
