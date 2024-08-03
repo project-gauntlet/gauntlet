@@ -10,7 +10,8 @@ use include_dir::Dir;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use walkdir::WalkDir;
-
+use itertools::Itertools;
+use tracing_subscriber::fmt::format;
 use common::model::{DownloadStatus, PluginId};
 use crate::model::ActionShortcutKey;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
@@ -105,7 +106,7 @@ impl PluginLoader {
 
         let plugin_data = PluginLoader::read_plugin_dir(plugin_dir.as_path(), plugin_id.clone())
             .await
-            .context("Unable to read plugin directory")?;
+            .context(format!("Unable to read plugin: {}", &plugin_id.to_string()))?;
 
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
@@ -131,7 +132,7 @@ impl PluginLoader {
 
         let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
             .await
-            .context("Unable to read plugin directory")?;
+            .context(format!("Unable to read plugin: {}", &plugin_id.to_string()))?;
 
         self.db_repository.save_plugin(DbWritePlugin {
             id: plugin_data.id,
@@ -227,6 +228,35 @@ impl PluginLoader {
             .context("Unable to read plugin manifest")?;
 
         tracing::debug!("Plugin config read: {:?}", plugin_manifest);
+
+        let permissions = &plugin_manifest.permissions;
+
+        let env_exists = !permissions.environment.is_empty();
+        let ffi_exists = !permissions.ffi.is_empty();
+        let fs_read_exists = !permissions.fs_read_access.is_empty();
+        let fs_write_exists = !permissions.fs_write_access.is_empty();
+        let run_exists = !permissions.run_subprocess.is_empty();
+        let system_exists = !permissions.system.is_empty();
+
+        let os_required = env_exists || ffi_exists || fs_read_exists || fs_write_exists || run_exists || system_exists;
+
+        if os_required {
+            let current_system = if cfg!(target_os = "linux") {
+                PluginManifestSupportedSystem::Linux
+            } else if cfg!(target_os = "macos") {
+                PluginManifestSupportedSystem::MacOS
+            } else if cfg!(target_os = "windows") {
+                PluginManifestSupportedSystem::Windows
+            } else {
+                panic!("OS not supported")
+            };
+
+            let supported_system = &plugin_manifest.supported_system;
+            if !supported_system.contains(&current_system) {
+                let supported_system = supported_system.iter().format(", ");
+                return Err(anyhow!("Plugin doesn't support current operating system. Operating systems supported by plugin: [{}]", supported_system))
+            }
+        }
 
         let plugin_name = plugin_manifest.gauntlet.name;
         let plugin_description = plugin_manifest.gauntlet.description;
@@ -755,7 +785,7 @@ pub enum PluginManifestActionShortcutKind {
     Alternative,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(tag = "os")]
 pub enum PluginManifestSupportedSystem {
     #[serde(rename = "linux")]
@@ -764,6 +794,16 @@ pub enum PluginManifestSupportedSystem {
     Windows,
     #[serde(rename = "macos")]
     MacOS,
+}
+
+impl std::fmt::Display for PluginManifestSupportedSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PluginManifestSupportedSystem::Linux => write!(f, "Linux"),
+            PluginManifestSupportedSystem::Windows => write!(f, "Windows"),
+            PluginManifestSupportedSystem::MacOS => write!(f, "MacOS"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

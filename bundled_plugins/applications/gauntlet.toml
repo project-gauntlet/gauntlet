@@ -11,3 +11,9 @@ description = ''
 
 [[supported_system]]
 os = 'linux'
+
+[[supported_system]]
+os = 'macos'
+
+[[supported_system]]
+os = 'windows'

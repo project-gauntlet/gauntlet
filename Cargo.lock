@@ -7291,6 +7291,7 @@ dependencies = [
  "image 0.25.1",
  "include_dir",
  "indexmap 2.2.6",
+ "itertools 0.10.5",
  "numbat",
  "once_cell",
  "open",
