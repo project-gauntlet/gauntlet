@@ -5,7 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project doesn't adhere to Semantic Versioning, see [Versioning](./README.md#versioning)
 
+For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://github.com/project-gauntlet/tools/blob/main/CHANGELOG.md)
+
 ## [Unreleased]
+
+### Big things
+- Wayland support
+  - Requires LayerShell protocol `zwlr_layer_shell_v1` to be supported by window manager
+    - `zwlr_layer_shell_v1` is implemented by most window managers with the exception of Gnome 
+  - Global Shortcut on Wayland is not yet implemented, please use `gauntlet open` CLI command to open main window 
+- Style changes
+  - Settings UI overhaul
+  - Slightly tweaked colors
+  - Changed text selection color to make text more visible
+  - Other minor style changes
+- Theming support
+  - 2 types of themes
+    - Color only
+    - Everything: Color, paddings, borders, etc
+  - Theming is only applied to main window
+  - Versioned
+    - Because of internally invasive nature of the themes, it is perpetually unstable feature.
+Themes are versioned and only one version is supported at the same time by application, the theme will stop working as soon as version is incremented
+      - This may change in the future
+  - See [THEME.md](./docs/THEME.md) for details
+- It is now possible to change global shortcut for opening main window in settings
+- Plugin shortcuts are now matched based on physical keycode, which means shortcuts now work regardless of selected keyboard layout
+- It is now possible to show/hide action panel using <kbd>ALT</kbd> + <kbd>K</kbd> on Windows and Linux or <kbd>OPT</kbd> + <kbd>K</kbd> on macOS
+  - At the moment it is not possible to change this shortcut to different keys
+- **BREAKING CHANGE**: Implemented actual validation of `supported_system` plugin manifest property.
+  - If OS was not specified in `supported_system` plugin manifest property, plugin will stop loading on that OS unless plugin is cross-platform (it doesn't have `environment`, `ffi`, `fs_read_access`, `fs_write_access`, `run_subprocess` or `system` permission) 
+
+### Plugin Development
+- Local plugin stdout `console.log` and stderr `console.error` logs are now saved to file to be able to show them in tools dev server CLI
+- Added `windows` and `macos` values to plugins manifest `supported_system` property
+- **BREAKING CHANGE**: For local development plugins, `dist` suffix is now automatically added to plugin ID. Please update `@project-gauntlet/tools` to `0.6.0`
+- **BREAKING CHANGE**: Image source properties how accept path to asset, url or icon instead of byte array
+  - Url source at the moment is not cached, so the image is downloaded every time the view is opened
+
+### `Applications` plugin
+- On Linux `.desktop` files are now opened using `gtk-launch` instead of custom implementation, fixing several edge cases
+
+### UI Improvements and Fixes
+- Main window list is now scrolled automatically when using keyboard navigation to keep focused item visible
+- Better feedback about in-progress/failed/successful plugin downloads with information about errors in settings
+
+### General fixes
+- Fix plugin toggle button to hide/show entrypoints in settings not doing anything
+- Fix settings app being always on top of other windows on macOS
+
+### Internal Improvements
+- Removed the need to have `42321` TCP port
+  - Note: port `42320` is still being used
 
 ## [5] - 2024-07-07
 
