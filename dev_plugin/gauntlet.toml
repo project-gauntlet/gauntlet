@@ -1,5 +1,5 @@
 [gauntlet]
-name = 'Interesting Plugin Name'
+name = 'Dev Plugin'
 description = """
 A reasonably long plugin description that doesn't contain any usefull information
 """
@@ -130,6 +130,12 @@ description = ''
 
 [[supported_system]]
 os = 'linux'
+
+[[supported_system]]
+os = 'macos'
+
+[[supported_system]]
+os = 'windows'
 
 [permissions]
 environment = ["RUST_LOG"]
