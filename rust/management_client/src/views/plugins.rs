@@ -73,6 +73,8 @@ impl ManagementAppPluginsState {
             },
         };
 
+        tracing::debug!("Opening selected item: {:?}", select_item);
+
         Self {
             backend_api,
             plugin_data: Rc::new(RefCell::new(PluginDataContainer::new())),
@@ -292,121 +294,153 @@ impl ManagementAppPluginsState {
             }
             SelectedItem::Plugin { plugin_id } => {
                 let plugin_data = self.plugin_data.borrow();
-                let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
-                let name = container(text(&plugin.plugin_name))
-                    .padding(Padding::new(8.0))
-                    .into();
+                let plugin = plugin_data.plugins.get(&plugin_id);
 
-                let mut column_content = vec![
-                    name,
-                ];
+                match plugin {
+                    None => {
+                        let loading_text: Element<_> = text("Loading...").into();
 
-                if !plugin.plugin_description.is_empty() {
-                    let description_label: Element<_> = text("Description")
-                        .size(14)
-                        .style(TextStyle::Subtitle)
-                        .into();
+                        container(loading_text)
+                            .center_y()
+                            .center_x()
+                            .height(Length::Fill)
+                            .width(Length::Fill)
+                            .into()
+                    }
+                    Some(plugin) => {
+                        let name = container(text(&plugin.plugin_name))
+                            .padding(Padding::new(8.0))
+                            .into();
 
-                    let description_label = container(description_label)
-                        .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
-                        .into();
+                        let mut column_content = vec![
+                            name,
+                        ];
 
-                    let description = container(text(&plugin.plugin_description))
-                        .padding(Padding::new(8.0))
-                        .into();
+                        if !plugin.plugin_description.is_empty() {
+                            let description_label: Element<_> = text("Description")
+                                .size(14)
+                                .style(TextStyle::Subtitle)
+                                .into();
 
-                    column_content.push(description_label);
-                    column_content.push(description);
+                            let description_label = container(description_label)
+                                .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                                .into();
+
+                            let description = container(text(&plugin.plugin_description))
+                                .padding(Padding::new(8.0))
+                                .into();
+
+                            column_content.push(description_label);
+                            column_content.push(description);
+                        }
+
+                        column_content.push(
+                            preferences_ui(plugin_id.clone(), None, &plugin.preferences, &self.preference_user_data)
+                                .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
+                        );
+
+                        if !plugin.plugin_id.to_string().starts_with("builtin://") {
+                            let remove_text: Element<_> = text("Remove plugin")
+                                .into();
+
+                            let remove_button_text_container: Element<_> = container(remove_text)
+                                .width(Length::Fill)
+                                .center_y()
+                                .center_x()
+                                .into();
+
+                            let remove_button: Element<_> = button(remove_button_text_container)
+                                .width(Length::Fill)
+                                .style(ButtonStyle::Destructive)
+                                .on_press(ManagementAppPluginMsgIn::RemovePlugin { plugin_id: plugin.plugin_id.clone() })
+                                .into();
+
+                            column_content.push(remove_button);
+                        }
+
+                        let column: Element<_> = column(column_content)
+                            .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
+                            .into();
+
+                        let column: Element<_> = scrollable(column)
+                            .width(Length::Fill)
+                            .into();
+
+                        container(column)
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .padding(Padding::from([4.0, 0.0]))
+                            .into()
+                    }
                 }
-
-                column_content.push(
-                    preferences_ui(plugin_id.clone(), None, &plugin.preferences, &self.preference_user_data)
-                        .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
-                );
-
-                if !plugin.plugin_id.to_string().starts_with("builtin://") {
-                    let remove_text: Element<_> = text("Remove plugin")
-                        .into();
-
-                    let remove_button_text_container: Element<_> = container(remove_text)
-                        .width(Length::Fill)
-                        .center_y()
-                        .center_x()
-                        .into();
-
-                    let remove_button: Element<_> = button(remove_button_text_container)
-                        .width(Length::Fill)
-                        .style(ButtonStyle::Destructive)
-                        .on_press(ManagementAppPluginMsgIn::RemovePlugin { plugin_id: plugin.plugin_id.clone() })
-                        .into();
-
-                    column_content.push(remove_button);
-                }
-
-                let column: Element<_> = column(column_content)
-                    .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
-                    .into();
-
-                let column: Element<_> = scrollable(column)
-                    .width(Length::Fill)
-                    .into();
-
-                container(column)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(Padding::from([4.0, 0.0]))
-                    .into()
             }
             SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
                 let plugin_data = self.plugin_data.borrow();
-                let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
-                let entrypoint = plugin.entrypoints.get(entrypoint_id).unwrap();
 
-                let name = container(text(&entrypoint.entrypoint_name))
-                    .padding(Padding::new(8.0))
-                    .into();
+                let entrypoint = plugin_data.plugins
+                    .get(&plugin_id)
+                    .map(|plugin| plugin.entrypoints.get(entrypoint_id))
+                    .flatten();
 
-                let mut column_content = vec![
-                    name,
-                ];
+                match entrypoint {
+                    None => {
+                        let loading_text: Element<_> = text("Loading...").into();
 
-                if !entrypoint.entrypoint_description.is_empty() {
-                    let description_label: Element<_> = text("Description")
-                        .size(14)
-                        .style(TextStyle::Subtitle)
-                        .into();
+                        container(loading_text)
+                            .center_y()
+                            .center_x()
+                            .height(Length::Fill)
+                            .width(Length::Fill)
+                            .into()
+                    }
+                    Some(entrypoint) => {
+                        let name = container(text(&entrypoint.entrypoint_name))
+                            .padding(Padding::new(8.0))
+                            .into();
 
-                    let description_label = container(description_label)
-                        .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
-                        .into();
+                        let mut column_content = vec![
+                            name,
+                        ];
 
-                    let description = container(text(&entrypoint.entrypoint_description))
-                        .padding(Padding::new(8.0))
-                        .into();
+                        if !entrypoint.entrypoint_description.is_empty() {
+                            let description_label: Element<_> = text("Description")
+                                .size(14)
+                                .style(TextStyle::Subtitle)
+                                .into();
 
-                    column_content.push(description_label);
-                    column_content.push(description);
+                            let description_label = container(description_label)
+                                .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                                .into();
+
+                            let description = container(text(&entrypoint.entrypoint_description))
+                                .padding(Padding::new(8.0))
+                                .into();
+
+                            column_content.push(description_label);
+                            column_content.push(description);
+                        }
+
+                        column_content.push(
+                            preferences_ui(plugin_id.clone(), Some(entrypoint_id.clone()), &entrypoint.preferences, &self.preference_user_data)
+                                .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
+                        );
+
+                        let column: Element<_> = column(column_content)
+                            .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
+                            .into();
+
+                        let column: Element<_> = scrollable(column)
+                            .width(Length::Fill)
+                            .into();
+
+                        container(column)
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .padding(Padding::from([4.0, 0.0]))
+                            .into()
+                    }
                 }
-
-                column_content.push(
-                    preferences_ui(plugin_id.clone(), Some(entrypoint_id.clone()), &entrypoint.preferences, &self.preference_user_data)
-                        .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
-                );
-
-                let column: Element<_> = column(column_content)
-                    .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
-                    .into();
-
-                let column: Element<_> = scrollable(column)
-                    .width(Length::Fill)
-                    .into();
-
-                container(column)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(Padding::from([4.0, 0.0]))
-                    .into()
             }
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
