@@ -13,7 +13,7 @@ Web-first cross-platform application launcher with React-based plugins.
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
-https://github.com/project-gauntlet/gauntlet/assets/16986685/c63402f4-b0ca-49c8-8125-5b51f1420ee3
+https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 
 ## Features
 
