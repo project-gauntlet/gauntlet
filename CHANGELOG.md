@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [6] - 2024-08-04
+
 ### Big things
 - Wayland support
   - Requires LayerShell protocol `zwlr_layer_shell_v1` to be supported by window manager
