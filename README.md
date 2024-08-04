@@ -29,27 +29,30 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/c63402f4-b0ca-49c8-
         - Applications: provides list of applications
         - Calculator: shows result of mathematical operations directly under main search bar
         - Settings: open Gauntlet Settings from Gauntlet itself
-    - Plugins are distributed as separate branch in git repository, meaning plugin distribution doesn't need any central
+    - Plugins are distributed as separate branch in Git repository, meaning plugin distribution doesn't need any central
       server
-    - Plugins are installed using Git Repository URL
+    - Plugins IDs are just Git Repository URLs
 - [React](https://github.com/facebook/react)-based UI for plugins
-    - Implemented using custom React Reconciler
-    - iced-rs is used for UI
+    - Implemented using custom React Reconciler (no Electron)
+    - [iced-rs](https://github.com/iced-rs/iced) is used for UI
 - [Deno JavaScript Runtime](https://github.com/denoland/deno)
     - Deno allows us to sandbox JavaScript code for better security
     - Plugins are required to explicitly specify what permissions they need to work
-    - NodeJS is still used to run tooling
+    - NodeJS is used to run plugin tooling
 - Frecency-based search result ordering
+   - Frecency is a combination of frequency and recency
+   - More often the item is used the higher in the result list it will be, but items used a lot in the past will be ranked lower than items used the same amount of times recently
 - Designed with cross-platform in mind
     - Permissions
+        - By default, plugins do not have access to host system
         - If plugin asked for access to filesystem, env variables, FFI or running commands, it is required to specify
           which operating systems it supports.
         - If plugin doesn't use filesystem, env variables, ffi or running commands and just uses network and/or UI, it
           is cross-platform
     - Shortcuts
-        - Plugins are allowed to use only limited set of keys for shortcuts
-        - Only upper and lower-case letters, symbols and numbers
-        - Shortcut can have either `"main"` or `"alternative"` kind
+        - Plugins are allowed to use only limited set of keys for shortcuts to support widest possible range of keyboards 
+            - Only upper and lower-case letters, symbols and numbers
+        - Shortcut can have either `"main"` or `"alternative"` kind so plugins do not need to specify shortcut separately for each OS
             - `"main"` shortcut requires following modifiers
                 - Windows and Linux: <kbd>CTRL</kbd>
                 - macOS: <kbd>CMD</kbd>
@@ -63,13 +66,16 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/c63402f4-b0ca-49c8-
 
 ###### Implemented
 
-- <img src="https://img.icons8.com/ios-filled/50/linux.png" width="18" height="18" /> Linux
-- <img src="https://img.icons8.com/ios-glyphs/30/mac-os.png" width="18" height="18" /> macOS
+- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux
+   - Both X11 and Wayland (via LayerShell protocol) are supported
+- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
 
 ###### Planned
 
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
-    - already works (excluding built-in "Applications" plugin) but, at the moment, needs to be build manually 
+    - already works
+    - publish process is not yet implemented, so application needs to be build manually
+    - built-in "Applications" plugin is not yet implemented
 
 ##### UI
 
@@ -83,13 +89,12 @@ https://github.com/project-gauntlet/gauntlet/assets/16986685/c63402f4-b0ca-49c8-
 - Separate settings window
 - Stack-based Navigation
 - Action Shortcuts
+- Theming
 
 ###### Planned
 
 - Toast popups
 - Keyboard only navigation in plugin-views
-- Theming
-- Themable icons
 - Vim motions
 
 ##### APIs
@@ -146,6 +151,17 @@ xattr -d com.apple.quarantine ./gauntlet-aarch64-macos.dmg
 > so you have to download it from the [GitHub Releases](https://github.com/project-gauntlet/gauntlet/releases)
 
 Be the first one to create a package. See [Application packaging for Linux](#application-packaging-for-Linux)
+
+### Global Shortcut
+Main window can be opened using global shortcut or CLI command:
+- Shortcut:
+    - Windows: <kbd>ALT</kbd> + <kbd>Space</kbd>
+    - Linux X11: <kbd>Super</kbd> + <kbd>Space</kbd>
+    - Linux Wayland: No global shortcut. Please use CLI command
+    - macOS: <kbd>CMD</kbd> + <kbd>Space</kbd>
+    - Can be changed in Settings
+- CLI command:
+    - `gauntlet open`
 
 ## Configuration
 
@@ -215,7 +231,7 @@ run_subprocess = ["program"] # array of strings, if specified requires supported
 system = ["apiName"] # array of strings, if specified requires supported_system to be specified as well
 
 [[supported_system]]
-os = 'linux' # currently only 'linux'
+os = 'linux' # 'linux', 'windows' or 'macos'
 
 ```
 
@@ -230,9 +246,11 @@ Located at `$XDG_CONFIG_HOME/gauntlet/config.toml` for Linux. Not used at the mo
 The Application has a simple command line interface
 
 - `gauntlet` - starts server
-  - `gauntlet --minimized` to start server but not open main window 
+  - `gauntlet --minimized` - starts server without opening main window 
 - `gauntlet open` - opens application window, can be used instead of global shortcut
 - `gauntlet settings` - settings, plugin installation and removal, preferences, etc
+- `gauntlet generate-sample-color-theme` - generate sample color theme. See: [THEME.md](./docs/THEME.md)
+- `gauntlet generate-sample-theme` - generate sample theme. See: [THEME.md](./docs/THEME.md)
 
 ### Dev Tools
 
@@ -249,6 +267,10 @@ development purposes. It has following commands:
       workflow
 
 [Plugin template](https://github.com/project-gauntlet/plugin-template) has nice `npm run` wrappers for them.
+
+## Theming
+
+See [THEME.md](./docs/THEME.md)
 
 ## Architecture
 
@@ -300,11 +322,11 @@ If something is missing, please [create an issue](https://github.com/project-gau
 
 Gauntlet executable consists of three applications:
 
-- `$ path/to/gauntlet/executable --minimized`
+- `$ path/to/gauntlet --minimized`
     - Needs to be started when user logs in
-- `$ path/to/gauntlet/executable open`
+- `$ path/to/gauntlet open`
     - Expected to be run on demand using launcher or system provided global shortcut
-- `$ path/to/gauntlet/executable settings`
+- `$ path/to/gauntlet settings`
     - Started on demand from the list of available applications (will vary depending on desktop environment or window
       manager chosen) or from Gauntlet itself
 
@@ -337,6 +359,7 @@ You will need:
 - NodeJS v18
 - Rust
 - Protobuf Compiler
+- On Linux: `libxkbcommon-dev` (note: name may differ depending on used distribution)
 
 To build dev run:
 ```bash
