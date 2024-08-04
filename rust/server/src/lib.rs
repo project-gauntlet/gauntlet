@@ -126,7 +126,7 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
 
     #[cfg(not(any(feature = "scenario_runner", feature = "release")))]
     {
-        let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin/dist").to_owned();
+        let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin").to_owned();
         let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
         let plugin_path = plugin_path.to_str().expect("valid utf8");
 
