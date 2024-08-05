@@ -20,7 +20,7 @@ export function entrypointPreferences<T extends Record<string, any>>(): T {
 export interface GeneratedCommand {
     id: string
     name: string
-    icon: ArrayBuffer | undefined
+    icon?: ArrayBuffer
     fn: () => void
 }
 

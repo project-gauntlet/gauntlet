@@ -1,8 +1,4 @@
-interface GeneratedCommand { // TODO Add this type to api
-    id: string
-    name: string
-    fn: () => void
-}
+import { GeneratedCommand } from "@project-gauntlet/api/helpers";
 
 export default function CommandGenerator(): GeneratedCommand[] {
     return [
