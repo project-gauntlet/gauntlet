@@ -4,6 +4,7 @@
   "scripts": {
     "build-all": "npm run build --workspace tools && npm run build --workspaces --if-present",
     "build-scenarios": "npm run build --workspace tools && npm run build --workspace scenarios --if-present",
+    "build-dev-plugin": "npm run build --workspace tools && npm run build --workspace dev_plugin",
     "build": "npm run build --workspace tools && npm run build --workspace js --workspace bundled_plugins --if-present",
     "run-scenarios": "npm run run-scenarios --workspace js/scenario_runner_cli",
     "run-screenshot-gen": "npm run run-screenshot-gen --workspace js/scenario_runner_cli"
