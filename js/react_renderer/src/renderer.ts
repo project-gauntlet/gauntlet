@@ -6,6 +6,13 @@ import { DefaultEventPriority } from 'react-reconciler/constants';
 const denoCore: DenoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
+// Usage of MessageChannel seems to block Deno runtime from exiting
+// causing plugin to be in stuck state where it is disabled but still have running runtime
+//
+// For some reason React prefers MessageChannel to setTimeout but
+// will fall back on setTimeout if MessageChannel is not present
+globalThis.MessageChannel = undefined as any;
+
 class HostContext {
     constructor(public nextId: number, public componentModel: Record<string, Component>) {
     }
