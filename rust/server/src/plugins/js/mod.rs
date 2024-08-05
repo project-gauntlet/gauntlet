@@ -292,9 +292,9 @@ async fn start_js_runtime(
         prompt: false,
     })?);
 
-    let stdout_to_file = plugin_id.to_string().starts_with("file://");
+    let dev_plugin = plugin_id.to_string().starts_with("file://");
 
-    let (stdout, stderr) = if stdout_to_file {
+    let (stdout, stderr) = if dev_plugin {
         let (out_log_file, err_log_file) = dirs.plugin_log_files(&plugin_uuid);
 
         std::fs::create_dir_all(out_log_file.parent().unwrap())?;
@@ -322,7 +322,7 @@ async fn start_js_runtime(
         unused_url,
         permissions_container,
         WorkerOptions {
-            module_loader: Rc::new(CustomModuleLoader::new(code)),
+            module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
                 PluginData::new(plugin_id, plugin_uuid, inline_view_entrypoint_id),
@@ -356,16 +356,18 @@ async fn start_js_runtime(
 pub struct CustomModuleLoader {
     code: PluginCode,
     static_loader: StaticModuleLoader,
+    dev_plugin: bool,
 }
 
 impl CustomModuleLoader {
-    fn new(code: PluginCode) -> Self {
+    fn new(code: PluginCode, dev_plugin: bool) -> Self {
         let module_map: HashMap<_, _> = MODULES.iter()
             .map(|(key, value)| (key.parse().expect("provided key is not valid url"), FastString::from_static(value)))
             .collect();
         Self {
             code,
             static_loader: StaticModuleLoader::new(module_map),
+            dev_plugin
         }
     }
 }
@@ -404,11 +406,13 @@ impl ModuleLoader for CustomModuleLoader {
             }
         }
 
+        let prod_react = cfg!(feature = "release") && !self.dev_plugin;
+
         let specifier = match (specifier, referrer) {
             ("gauntlet:core", _) => "gauntlet:core",
-            ("gauntlet:renderer", _) => if cfg!(feature = "release") { "gauntlet:renderer:prod" } else { "gauntlet:renderer:dev" },
-            ("react", _) => if cfg!(feature = "release") { "gauntlet:react:prod" } else { "gauntlet:react:dev" },
-            ("react/jsx-runtime", _) => if cfg!(feature = "release") { "gauntlet:react-jsx-runtime:prod" } else { "gauntlet:react-jsx-runtime:dev" },
+            ("gauntlet:renderer", _) => if prod_react { "gauntlet:renderer:prod" } else { "gauntlet:renderer:dev" },
+            ("react", _) => if prod_react { "gauntlet:react:prod" } else { "gauntlet:react:dev" },
+            ("react/jsx-runtime", _) => if prod_react { "gauntlet:react-jsx-runtime:prod" } else { "gauntlet:react-jsx-runtime:dev" },
             ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
             ("@project-gauntlet/api/hooks", _) => "gauntlet:api-hooks",
             ("@project-gauntlet/api/helpers", _) => "gauntlet:api-helpers",
