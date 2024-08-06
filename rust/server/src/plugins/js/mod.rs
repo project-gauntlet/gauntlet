@@ -1,12 +1,3 @@
-mod ui;
-mod plugins;
-mod logs;
-mod assets;
-mod preferences;
-mod search;
-mod command_generators;
-mod clipboard;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
@@ -27,25 +18,26 @@ use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOp
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use indexmap::IndexMap;
-
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
+use tokio_util::sync::CancellationToken;
 
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiPropertyValue, UiWidget, UiWidgetId, SearchResultEntrypointType, PhysicalKey};
+use common::dirs::Dirs;
+use common::model::{EntrypointId, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidget, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
-use common::dirs::Dirs;
-use crate::model::{IntermediateUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiEvent, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
+
+use crate::model::{IntermediateUiEvent, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::applications::{DesktopEntry, get_apps};
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::plugins::applications::{list_applications, open_application};
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
 use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
 use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
+use crate::plugins::js::plugins::applications::{list_applications, open_application};
 use crate::plugins::js::plugins::numbat::run_numbat;
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
@@ -53,6 +45,15 @@ use crate::plugins::js::search::load_search_index;
 use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_plugin_error_view, show_preferences_required_view};
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem};
+
+mod ui;
+mod plugins;
+mod logs;
+mod assets;
+mod preferences;
+mod search;
+mod command_generators;
+mod clipboard;
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -96,7 +97,6 @@ pub enum PluginCommand {
 
 #[derive(Clone, Debug)]
 pub enum OnePluginCommandData {
-    Stop,
     RenderView {
         entrypoint_id: EntrypointId,
     },
@@ -151,9 +151,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                         None
                     } else {
                         match data {
-                            OnePluginCommandData::Stop => {
-                                Some(IntermediateUiEvent::StopPlugin)
-                            }
                             OnePluginCommandData::RenderView { entrypoint_id } => {
                                 Some(IntermediateUiEvent::OpenView {
                                     entrypoint_id,
@@ -211,42 +208,55 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     let event_stream = Box::pin(event_stream);
 
-    let thread_fn = move || {
-        let _run_status_guard = run_status_guard;
+    let cache = data.icon_cache.clone();
+    let plugin_uuid = data.uuid.clone();
+    let plugin_id = data.id.clone();
 
-        let result_plugin_id = data.id.clone();
-        let result = tokio::runtime::Builder::new_current_thread()
+    let thread_fn = move || {
+        let plugin_id = data.id.clone();
+
+        tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("unable to start tokio runtime for plugin")
-            .block_on(tokio::task::unconstrained(async move {
-                let result_plugin_id = data.id.clone();
-                let result = start_js_runtime(
-                    data.id,
-                    data.uuid.clone(),
-                    data.code,
-                    data.permissions,
-                    data.inline_view_entrypoint_id,
-                    event_stream,
-                    data.frontend_api,
-                    component_model,
-                    data.db_repository,
-                    data.search_index,
-                    data.icon_cache.clone(),
-                    data.dirs.clone()
-                ).await;
+            .block_on({
+                let plugin_id = data.id.clone();
 
-                if let Err(err) = data.icon_cache.clear_plugin_icon_cache_dir(&data.uuid) {
-                    tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", result_plugin_id, err)
+                async move {
+                    tokio::select! {
+                        _ = run_status_guard.stopped() => {
+                            tracing::info!(target = "plugin", "Plugin runtime has been stopped {:?}", plugin_id)
+                        }
+                        result @ _ = {
+                            tokio::task::unconstrained(async move {
+                                 start_js_runtime(
+                                     data.id.clone(),
+                                     data.uuid,
+                                     data.code,
+                                     data.permissions,
+                                     data.inline_view_entrypoint_id,
+                                     event_stream,
+                                     data.frontend_api,
+                                     component_model,
+                                     data.db_repository,
+                                     data.search_index,
+                                     data.icon_cache,
+                                     data.dirs
+                                 ).await
+                            })
+                        } => {
+                            if let Err(err) = result {
+                                tracing::error!(target = "plugin", "Plugin runtime has failed {:?} - {:?}", plugin_id, err)
+                            } else {
+                                tracing::error!(target = "plugin", "Plugin runtime has stopped unexpectedly {:?}", plugin_id)
+                            }
+                        }
+                    }
                 }
+            });
 
-                result
-            }));
-
-        if let Err(err) = result {
-            tracing::error!(target = "plugin", "Plugin runtime failed {:?} - {:?}", result_plugin_id, err)
-        } else {
-            tracing::info!(target = "plugin", "Plugin runtime stopped {:?}", result_plugin_id)
+        if let Err(err) = cache.clear_plugin_icon_cache_dir(&plugin_uuid) {
+            tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", plugin_id, err)
         }
     };
 
@@ -647,7 +657,6 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                 modifier_meta
             }
         }
-        IntermediateUiEvent::StopPlugin => JsUiEvent::StopPlugin,
         IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text },
         IntermediateUiEvent::ReloadSearchIndex => JsUiEvent::ReloadSearchIndex,
     }

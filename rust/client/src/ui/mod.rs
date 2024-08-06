@@ -1054,13 +1054,11 @@ const ESTIMATED_ITEM_SIZE: f32 = 38.8;
 
 impl AppModel {
     fn on_focused(&mut self) -> Command<AppMsg> {
-        tracing::info!("on_focused");
         self.focused = true;
         Command::none()
     }
 
     fn on_unfocused(&mut self) -> Command<AppMsg> {
-        tracing::info!("on_unfocused: {}", self.focused);
         // for some reason (on both macos and linux x11) duplicate Unfocused fires right before Focus event
         if self.focused {
             self.focused = false;

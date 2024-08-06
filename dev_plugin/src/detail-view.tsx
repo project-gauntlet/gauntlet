@@ -68,6 +68,17 @@ export default function DetailView(): ReactElement {
         };
     }, []);
 
+    // promise that takes a long time to resolve
+    // to test that plugin can be stopped even though there is a pending promise somewhere
+    new Promise(resolve => {
+        setTimeout(
+            () => {
+                resolve("Promise resolved after 10 minutes!");
+            },
+            10 * 60 * 1000
+        );
+    })
+
     return (
         <Detail
             actions={

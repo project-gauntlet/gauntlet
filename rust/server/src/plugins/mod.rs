@@ -578,12 +578,7 @@ impl ApplicationManager {
     async fn stop_plugin(&self, plugin_id: PluginId) {
         tracing::info!(target = "plugin", "Stopping plugin with id: {:?}", plugin_id);
 
-        let data = PluginCommand::One {
-            id: plugin_id,
-            data: OnePluginCommandData::Stop,
-        };
-
-        self.send_command(data)
+        self.run_status_holder.stop_plugin(&plugin_id)
     }
 
     fn start_plugin_runtime(&self, data: PluginRuntimeData) {

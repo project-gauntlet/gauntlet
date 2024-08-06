@@ -7,6 +7,7 @@ serde = { version = "1.0", features = ["derive"] }
 deno_core = { version = "0.204.0" }
 deno_runtime = { version = "0.126.0" }
 tokio = "1.28.1"
+tokio-util = "0.7.11"
 toml = "0.8.10"
 tantivy = "0.20.2"
 zstd-sys = "=2.0.9" # TODO REMOVE https://github.com/gyscos/zstd-rs/issues/270

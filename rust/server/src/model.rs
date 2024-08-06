@@ -73,7 +73,6 @@ pub enum JsUiEvent {
         #[serde(rename = "modifierMeta")]
         modifier_meta: bool
     },
-    StopPlugin,
     OpenInlineView {
         #[serde(rename = "text")]
         text: String,
@@ -134,7 +133,6 @@ pub enum IntermediateUiEvent {
         modifier_alt: bool,
         modifier_meta: bool
     },
-    StopPlugin,
     OpenInlineView {
         text: String,
     },

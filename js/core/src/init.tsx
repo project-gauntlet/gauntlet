@@ -124,6 +124,8 @@ async function checkRequiredPreferencesAndAsk(entrypointId: string): Promise<boo
 }
 
 async function runLoop() {
+    // runtime is stopped using tokio cancellation
+    // noinspection InfiniteLoopJS
     while (true) {
         InternalApi.op_log_trace("plugin_loop", "Waiting for next plugin event...")
         const pluginEvent = await denoCore.opAsync("op_plugin_get_pending_event");
@@ -208,10 +210,6 @@ async function runLoop() {
                     }
                 }
                 break;
-            }
-            case "StopPlugin": {
-                // break the loop
-                return;
             }
             case "ReloadSearchIndex": {
                 try {
