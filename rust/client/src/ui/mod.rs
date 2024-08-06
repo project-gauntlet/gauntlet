@@ -56,7 +56,7 @@ pub struct AppModel {
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     search_field_id: text_input::Id,
     scrollable_id: scrollable::Id,
-    waiting_for_next_unfocus: bool,
+    focused: bool,
     theme: GauntletTheme,
     wayland: bool,
 
@@ -367,7 +367,7 @@ impl Application for AppModel {
                 frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
                 search_field_id: text_input::Id::unique(),
                 scrollable_id: scrollable::Id::unique(),
-                waiting_for_next_unfocus: false,
+                focused: false,
                 theme: GauntletTheme::new(),
                 wayland,
 
@@ -543,6 +543,9 @@ impl Application for AppModel {
                     _ => Command::none()
                 }
             }
+            AppMsg::IcedEvent(Event::Window(_, window::Event::Focused)) => {
+                self.on_focused()
+            }
             AppMsg::IcedEvent(Event::Window(_, window::Event::Unfocused)) => {
                 self.on_unfocused()
             }
@@ -558,7 +561,8 @@ impl Application for AppModel {
                     )
                 )
             ) => {
-                self.on_unfocused()
+                // wayland layer shell doesn't have the same unfocused problem as the other platforms
+                self.hide_window()
             }
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
@@ -1049,21 +1053,20 @@ impl Application for AppModel {
 const ESTIMATED_ITEM_SIZE: f32 = 38.8;
 
 impl AppModel {
+    fn on_focused(&mut self) -> Command<AppMsg> {
+        tracing::info!("on_focused");
+        self.focused = true;
+        Command::none()
+    }
+
     fn on_unfocused(&mut self) -> Command<AppMsg> {
-        if self.wayland {
+        tracing::info!("on_unfocused: {}", self.focused);
+        // for some reason (on both macos and linux x11) duplicate Unfocused fires right before Focus event
+        if self.focused {
+            self.focused = false;
             self.hide_window()
         } else {
-            // for some reason (on both macos and linux x11) Unfocused fires right at the application start
-            // and second time on actual window unfocus
-            if self.waiting_for_next_unfocus {
-                if cfg!(target_os = "linux") { // gnome requires double global shortcut press (probably gnome bug, because works on kde).
-                    self.waiting_for_next_unfocus = false;
-                }
-                self.hide_window()
-            } else {
-                self.waiting_for_next_unfocus = true;
-                Command::none()
-            }
+            Command::none()
         }
     }
 
