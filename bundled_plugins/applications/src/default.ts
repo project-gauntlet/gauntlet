@@ -11,12 +11,12 @@ const denoCore: DenoCore = Deno[Deno.internal].core;
 const InternalApi: InternalApi = denoCore.ops;
 
 interface InternalApi {
-    list_applications(): DesktopEntry[]
+    list_applications(): Promise<DesktopEntry[]>
     open_application(command: string[]): void
 }
 
-export default function Default(): GeneratedCommand[] {
-    return InternalApi.list_applications()
+export default async function Default(): Promise<GeneratedCommand[]> {
+    return (await InternalApi.list_applications())
         .map(value => ({
             id: `${value.name}-${value.command.join("-")}`,
             name: value.name,
@@ -24,5 +24,5 @@ export default function Default(): GeneratedCommand[] {
             fn: () => {
                 InternalApi.open_application(value.command)
             }
-        }))
+        }));
 }

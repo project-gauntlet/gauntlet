@@ -375,6 +375,7 @@ To build release run:
 git submodule update --init
 npm ci
 npm run build
+npm run build-dev-plugin
 cargo build --release --features release
 ```
 But the new version release needs to be done via GitHub Actions

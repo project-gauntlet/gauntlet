@@ -1,10 +1,13 @@
 use std::path::Path;
+
 use deno_core::op;
+use tokio::task::spawn_blocking;
+
 use crate::plugins::applications::{DesktopEntry, get_apps};
 
 #[op]
-fn list_applications() -> Vec<DesktopEntry> {
-    get_apps()
+async fn list_applications() -> anyhow::Result<Vec<DesktopEntry>> {
+    Ok(spawn_blocking(|| get_apps()).await?)
 }
 
 #[op]

@@ -212,26 +212,17 @@ async function runLoop() {
                 break;
             }
             case "ReloadSearchIndex": {
-                try {
-                    await runCommandGenerators();
-                    await loadSearchIndex(false);
-                } catch (e) {
-                    console.error("Error occurred when reloading search index", e)
-                }
+                runCommandGenerators()
+                    .then(() => loadSearchIndex(false));
                 break;
             }
         }
     }
 }
 
-try {
-    await runCommandGenerators();
-    await loadSearchIndex(true);
-} catch (e) {
-    console.error("Error occurred when reloading search index", e)
-}
+runCommandGenerators()
+    .then(() => loadSearchIndex(true));
 
 (async () => {
     await runLoop()
-    InternalApi.op_log_info("plugin_loop", "Event loop was stopped")
 })();

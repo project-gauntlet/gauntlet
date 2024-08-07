@@ -2,24 +2,28 @@
 const denoCore: DenoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
-interface GeneratedCommand { // TODO Add this type to api
+interface GeneratedCommand { // TODO is it possible to import api here
     id: string
     name: string
-    icon: ArrayBuffer | undefined
+    icon?: ArrayBuffer
     fn: () => void
 }
 
-let storedGeneratedCommands: (GeneratedCommand & { lookupId: string, uuid: string })[] = []
+type ProcessedGeneratedCommand = GeneratedCommand & { lookupId: string, uuid: string };
+
+let storedGeneratedCommands: ProcessedGeneratedCommand[] = []
 
 export async function runCommandGenerators(): Promise<void> {
-    storedGeneratedCommands = []
+    let localGeneratedCommands: ProcessedGeneratedCommand[] = []
 
     const entrypointIds = await InternalApi.get_command_generator_entrypoint_ids();
     for (const generatorEntrypointId of entrypointIds) {
         try {
-            const generator: () => GeneratedCommand[] = (await import(`gauntlet:entrypoint?${generatorEntrypointId}`)).default;
+            const generator: () => Promise<GeneratedCommand[]> = (await import(`gauntlet:entrypoint?${generatorEntrypointId}`)).default;
 
-            const generatedCommands = generator()
+            InternalApi.op_log_info("command_generator", `Running command generator for entrypoint ${generatorEntrypointId}`)
+
+            const generatedCommands = (await generator())
                 .map(value => {
                     return {
                         lookupId: generatorEntrypointId + ":" + value.id,
@@ -28,11 +32,15 @@ export async function runCommandGenerators(): Promise<void> {
                     }
                 });
 
-            storedGeneratedCommands.push(...generatedCommands)
+            InternalApi.op_log_info("command_generator", `Finished running command generator for entrypoint ${generatorEntrypointId}, amount: ${generatedCommands.length}`)
+
+            localGeneratedCommands.push(...generatedCommands)
         } catch (e) {
             console.error("Error occurred when calling command generator for entrypoint: " + generatorEntrypointId, e)
         }
     }
+
+    storedGeneratedCommands = localGeneratedCommands
 }
 
 export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
