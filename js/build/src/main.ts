@@ -284,8 +284,9 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
-    const sourceInfoFilePath = path.join(projectRoot, 'assets', 'Info.plist');
-    const sourceIconFilePath = path.join(projectRoot, 'assets', 'AppIcon.icns');
+    const sourceInfoFilePath = path.join(projectRoot, 'assets', 'macos', 'Info.plist');
+    const sourceIconFilePath = path.join(projectRoot, 'assets', 'macos', 'AppIcon.icns');
+    const dmgBackground = path.join(projectRoot, 'assets', 'macos', 'dmg-background.png');
 
     const bundleDir = path.join(releaseDirPath, 'Gauntlet.app');
     const contentsDir = path.join(bundleDir, 'Contents');
@@ -294,8 +295,6 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const targetExecutableFilePath = path.join(macosContentsDir, 'Gauntlet');
     const targetInfoFilePath = path.join(contentsDir, 'Info.plist');
     const targetIconFilePath = path.join(resourcesContentsDir, 'AppIcon.icns');
-
-    const dmgBackground = path.join(projectRoot, 'assets', 'dmg-background.png');
 
     const version = await readVersion(projectRoot)
 
