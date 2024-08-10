@@ -19,7 +19,7 @@ export async function runCommandGenerators(): Promise<void> {
     const entrypointIds = await InternalApi.get_command_generator_entrypoint_ids();
     for (const generatorEntrypointId of entrypointIds) {
         try {
-            const generator: () => Promise<GeneratedCommand[]> = (await import(`gauntlet:entrypoint?${generatorEntrypointId}`)).default;
+            const generator: () => Promise<GeneratedCommand[]> | GeneratedCommand[] = (await import(`gauntlet:entrypoint?${generatorEntrypointId}`)).default;
 
             InternalApi.op_log_info("command_generator", `Running command generator for entrypoint ${generatorEntrypointId}`)
 

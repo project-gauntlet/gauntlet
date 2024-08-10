@@ -172,7 +172,7 @@ async function runLoop() {
                         break;
                     }
 
-                    const command: () => void = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
+                    const command: () => Promise<void> | void = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
                     command()
                 } catch (e) {
                     console.error("Error occurred when running a command", pluginEvent.entrypointId, e)
