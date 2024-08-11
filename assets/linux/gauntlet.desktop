@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=Gauntlet
+Comment=Application launcher
+Exec=gauntlet
+NoDisplay=true
+Icon=gauntlet
+Terminal=false
+Type=Application
+Actions=settings;
+
+[Desktop Action settings]
+Name=Gauntlet Settings
+Exec=gauntlet settings

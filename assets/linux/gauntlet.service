@@ -1,0 +1,12 @@
+[Unit]
+Description=Gauntlet
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=exec
+Restart=on-failure
+ExecStart=/usr/bin/gauntlet --minimized
+
+[Install]
+WantedBy=graphical-session.target

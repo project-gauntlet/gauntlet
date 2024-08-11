@@ -47,10 +47,9 @@ program.command('build-macos')
 
 await program.parseAsync(process.argv);
 
-async function doBuild(arch: string) {
+async function doBuild(projectRoot: string, arch: string) {
     console.log("Building Gauntlet...")
 
-    const projectRoot = getProjectRoot();
     build(projectRoot, true, arch)
 }
 
@@ -79,7 +78,11 @@ async function doPublishLinux() {
 }
 
 async function doBuildLinux() {
-    await doBuild('x86_64-unknown-linux-gnu')
+    const arch = 'x86_64-unknown-linux-gnu';
+    const projectRoot = getProjectRoot();
+
+    await doBuild(projectRoot, arch)
+    packageForLinux(projectRoot, arch)
 }
 
 async function doPublishMacOS() {
@@ -95,7 +98,11 @@ async function doPublishMacOS() {
 }
 
 async function doBuildMacOS() {
-    await doBuild('aarch64-apple-darwin')
+    const projectRoot = getProjectRoot();
+    const arch = 'aarch64-apple-darwin';
+
+    await doBuild(projectRoot, arch)
+    await packageForMacos(projectRoot, arch)
 }
 
 async function undraftRelease() {
@@ -260,13 +267,40 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
 
 function packageForLinux(projectRoot: string, arch: string): { filePath: string; fileName: string } {
     const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
-    const executableFileName = 'gauntlet';
-    const archiveFileName = "gauntlet-x86_64-linux.tar.gz"
-    const archiveFilePath = path.join(releaseDirPath, archiveFileName);
+    const assetsDirPath = path.join(projectRoot, 'assets', 'linux');
 
-    const tarResult = spawnSync(`tar`, ['-czvf', archiveFileName, executableFileName], {
+    const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
+    const sourceDesktopFilePath = path.join(assetsDirPath, 'gauntlet.desktop');
+    const sourceServiceFilePath = path.join(assetsDirPath, 'gauntlet.service');
+    const sourceLogoFilePath = path.join(assetsDirPath, 'icon_256.png');
+
+    const bundleDir = path.join(releaseDirPath, 'archive');
+
+    const targetExecutableFileName = 'gauntlet';
+    const targetExecutableFilePath = path.join(bundleDir, targetExecutableFileName);
+
+    const targetDesktopFileName = 'gauntlet.desktop';
+    const targetDesktopFilePath = path.join(bundleDir, targetDesktopFileName);
+
+    const targetServiceFileName = 'gauntlet.service';
+    const targetServiceFilePath = path.join(bundleDir, targetServiceFileName);
+
+    const targetLogoFileName = 'gauntlet.png';
+    const targetLogoFilePath = path.join(bundleDir, targetLogoFileName);
+
+    const archiveFileName = 'gauntlet-x86_64-linux.tar.gz';
+    const archiveFilePath = path.join(bundleDir, archiveFileName);
+
+    mkdirSync(bundleDir)
+
+    copyFileSync(sourceExecutableFilePath, targetExecutableFilePath)
+    copyFileSync(sourceDesktopFilePath, targetDesktopFilePath)
+    copyFileSync(sourceServiceFilePath, targetServiceFilePath)
+    copyFileSync(sourceLogoFilePath, targetLogoFilePath)
+
+    const tarResult = spawnSync(`tar`, ['-czvf', archiveFileName, targetExecutableFileName, targetDesktopFileName, targetServiceFileName, targetLogoFileName], {
         stdio: "inherit",
-        cwd: releaseDirPath
+        cwd: bundleDir
     })
 
     if (tarResult.status !== 0) {
@@ -284,9 +318,11 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
-    const sourceInfoFilePath = path.join(projectRoot, 'assets', 'macos', 'Info.plist');
-    const sourceIconFilePath = path.join(projectRoot, 'assets', 'macos', 'AppIcon.icns');
-    const dmgBackground = path.join(projectRoot, 'assets', 'macos', 'dmg-background.png');
+
+    const assetsDirPath = path.join(projectRoot, 'assets', 'macos');
+    const sourceInfoFilePath = path.join(assetsDirPath, 'Info.plist');
+    const sourceIconFilePath = path.join(assetsDirPath, 'AppIcon.icns');
+    const dmgBackground = path.join(assetsDirPath, 'dmg-background.png');
 
     const bundleDir = path.join(releaseDirPath, 'Gauntlet.app');
     const contentsDir = path.join(bundleDir, 'Contents');
