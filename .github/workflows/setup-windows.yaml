@@ -24,7 +24,7 @@ jobs:
           scope: '@project-gauntlet'
       - uses: dtolnay/rust-toolchain@stable
 
-      - run: cargo install cargo-wix
+      - run: choco install protoc
 
       - uses: Swatinem/rust-cache@v2
         with:
