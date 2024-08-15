@@ -132,7 +132,7 @@ async function doBuildWindows() {
     const projectRoot = getProjectRoot();
     const arch = 'x86_64-pc-windows-msvc';
 
-    // await doBuild(projectRoot, arch)
+    await doBuild(projectRoot, arch)
     await packageForWindows(projectRoot, arch)
 }
 
