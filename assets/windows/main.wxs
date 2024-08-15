@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+    <Package Name="Gauntlet"
+             Manufacturer="Exidex"
+             Version="$(TargetVersion)"
+             Scope="perMachine"
+             UpgradeCode="6b67d3fa-38c5-4d1a-a8f3-d27268c05091">
+
+        <MediaTemplate EmbedCab="yes"/>
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
+
+        <Icon Id="Gauntlet.exe" SourceFile="$(TargetIconPath)"/>
+        <Property Id="ARPPRODUCTICON" Value="Gauntlet.exe"/>
+
+        <Property Id='ARPURLINFOABOUT' Value='https://github.com/project-gauntlet/gauntlet'/>
+
+        <StandardDirectory Id="ProgramFiles64Folder">
+            <Directory Name="Gauntlet">
+                <File Name="Gauntlet.exe" Source="$(TargetBinaryPath)">
+                    <Shortcut Name="Gauntlet"
+                              Description="Open-source cross-platform application launcher"
+                              Directory="ProgramMenuFolder"
+                              Icon="Gauntlet.exe"/>
+                </File>
+            </Directory>
+        </StandardDirectory>
+
+        <util:RestartResource ProcessName="Gauntlet.exe"/>
+    </Package>
+</Wix>

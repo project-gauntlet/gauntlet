@@ -33,6 +33,14 @@ jobs:
       command: npm run publish-linux-project --workspace @project-gauntlet/build
       github-release-id: ${{ needs.publish-init.outputs.github-release-id }}
 
+  publish-windows:
+    needs:
+      - publish-init
+    uses: ./.github/workflows/setup-windows.yaml
+    with:
+      command: npm run publish-windows-project --workspace @project-gauntlet/build
+      github-release-id: ${{ needs.publish-init.outputs.github-release-id }}
+
   publish-macos:
     needs:
       - publish-init
@@ -45,6 +53,7 @@ jobs:
     needs:
       - publish-linux
       - publish-macos
+      - publish-windows
       - publish-init
     uses: ./.github/workflows/setup-linux.yaml
     with:

@@ -4,9 +4,11 @@
     "build-this": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript",
     "build-linux-project": "npm run build-this && node dist/main.js build-linux",
     "build-macos-project": "npm run build-this && node dist/main.js build-macos",
+    "build-windows-project": "npm run build-this && node dist/main.js build-windows",
     "publish-init-project": "npm run build-this && node dist/main.js publish-init",
     "publish-linux-project": "npm run build-this && node dist/main.js publish-linux",
     "publish-macos-project": "npm run build-this && node dist/main.js publish-macos",
+    "publish-windows-project": "npm run build-this && node dist/main.js publish-windows",
     "publish-final-project": "npm run build-this && node dist/main.js publish-final"
   },
   "type": "module",
@@ -14,13 +16,15 @@
     "@actions/core": "^1.10.1",
     "commander": "^11.1.0",
     "octokit": "^3.1.2",
-    "simple-git": "^3.22.0"
+    "simple-git": "^3.22.0",
+    "cross-spawn": "^7.0.3"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",
     "@types/node": "^18.17.1",
+    "@types/cross-spawn": "^6.0.6",
     "tslib": "^2.6.2",
     "typescript": "^5.3.3"
   }

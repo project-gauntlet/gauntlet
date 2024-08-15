@@ -3,11 +3,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { simpleGit } from 'simple-git';
 import { EOL } from "node:os";
 import { Octokit } from 'octokit';
-import { spawnSync } from "node:child_process";
+import { sync as spawnSync } from "cross-spawn";
 import path from "node:path";
 import { mkdirSync, readFileSync } from "fs";
 import { copyFileSync, writeFileSync } from "node:fs";
 import * as core from '@actions/core';
+import { SpawnSyncOptions } from "child_process";
 
 const program = new Command();
 
@@ -30,6 +31,11 @@ program.command('publish-macos')
         await doPublishMacOS()
     });
 
+program.command('publish-windows')
+    .action(async () => {
+        await doPublishWindows()
+    });
+
 program.command('publish-final')
     .action(async () => {
         await doPublishFinal()
@@ -45,12 +51,17 @@ program.command('build-macos')
         await doBuildMacOS()
     });
 
+program.command('build-windows')
+    .action(async () => {
+        await doBuildWindows()
+    });
+
 await program.parseAsync(process.argv);
 
 async function doBuild(projectRoot: string, arch: string) {
     console.log("Building Gauntlet...")
 
-    build(projectRoot, true, arch)
+    build(projectRoot, arch)
 }
 
 async function doPublishInit() {
@@ -70,7 +81,7 @@ async function doPublishLinux() {
 
     const arch = 'x86_64-unknown-linux-gnu';
 
-    build(projectRoot, false, arch)
+    build(projectRoot, arch)
 
     const { fileName, filePath } = packageForLinux(projectRoot, arch)
 
@@ -90,7 +101,7 @@ async function doPublishMacOS() {
 
     const arch = 'aarch64-apple-darwin';
 
-    build(projectRoot, false, arch)
+    build(projectRoot, arch)
 
     const { fileName, filePath } = await packageForMacos(projectRoot, arch)
 
@@ -103,6 +114,26 @@ async function doBuildMacOS() {
 
     await doBuild(projectRoot, arch)
     await packageForMacos(projectRoot, arch)
+}
+
+async function doPublishWindows() {
+    const projectRoot = getProjectRoot();
+
+    const arch = 'x86_64-pc-windows-msvc';
+
+    build(projectRoot, arch)
+
+    const { fileName, filePath } = await packageForWindows(projectRoot, arch)
+
+    await addFileToRelease(filePath, fileName)
+}
+
+async function doBuildWindows() {
+    const projectRoot = getProjectRoot();
+    const arch = 'x86_64-pc-windows-msvc';
+
+    // await doBuild(projectRoot, arch)
+    await packageForWindows(projectRoot, arch)
 }
 
 async function undraftRelease() {
@@ -132,39 +163,18 @@ async function doPublishFinal() {
     await undraftRelease()
 }
 
-function build(projectRoot: string, check: boolean, arch: string) {
+function build(projectRoot: string, arch: string) {
     buildJs(projectRoot)
 
-    if (check) {
-        console.log("Checking rust...")
-        const cargoCheckResult = spawnSync('cargo', ['check', '--features', 'release', '--target', arch], {
-            stdio: "inherit",
-            cwd: projectRoot
-        });
-
-        if (cargoCheckResult.status !== 0) {
-            throw new Error(`Unable to check, status: ${JSON.stringify(cargoCheckResult)}`);
-        }
-    }
-
     console.log("Building rust...")
-    const cargoBuildResult = spawnSync('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
-        stdio: "inherit",
+    spawnWithErrors('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
         cwd: projectRoot
     });
-
-    if (cargoBuildResult.status !== 0) {
-        throw new Error(`Unable to build rust, status: ${JSON.stringify(cargoBuildResult)}`);
-    }
 }
 
 function buildJs(projectRoot: string) {
     console.log("Building js...")
-    const npmRunResult = spawnSync('npm', ['run', 'build'], { stdio: "inherit", cwd: projectRoot });
-
-    if (npmRunResult.status !== 0) {
-        throw new Error(`Unable to build js, status: ${JSON.stringify(npmRunResult)}`);
-    }
+    spawnWithErrors('npm', ['run', 'build'], { cwd: projectRoot });
 }
 
 function getProjectRoot(): string {
@@ -233,11 +243,7 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
     await writeFile(changelogFilePath, newChangelog.join(EOL))
 
     const bumpNpmPackage = (packageDir: string) => {
-        const npmVersionResult = spawnSync('npm', ['version', `0.${newVersion}.0`], { stdio: "inherit", cwd: packageDir })
-
-        if (npmVersionResult.status !== 0) {
-            throw new Error(`Unable to run npm version, status: ${JSON.stringify(npmVersionResult)}`);
-        }
+        spawnWithErrors('npm', ['version', `0.${newVersion}.0`], { cwd: packageDir })
     }
 
     console.log("Bump version for deno subproject...")
@@ -298,14 +304,9 @@ function packageForLinux(projectRoot: string, arch: string): { filePath: string;
     copyFileSync(sourceServiceFilePath, targetServiceFilePath)
     copyFileSync(sourceLogoFilePath, targetLogoFilePath)
 
-    const tarResult = spawnSync(`tar`, ['-czvf', archiveFileName, targetExecutableFileName, targetDesktopFileName, targetServiceFileName, targetLogoFileName], {
-        stdio: "inherit",
+    spawnWithErrors(`tar`, ['-czvf', archiveFileName, targetExecutableFileName, targetDesktopFileName, targetServiceFileName, targetLogoFileName], {
         cwd: bundleDir
     })
-
-    if (tarResult.status !== 0) {
-        throw new Error(`Unable to package for linux, status: ${JSON.stringify(tarResult)}`);
-    }
 
     return {
         filePath: archiveFilePath,
@@ -347,7 +348,7 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const infoResult = infoSource.replace('__VERSION__', `${version}.0.0`);
     writeFileSync(targetInfoFilePath, infoResult,'utf8');
 
-    const createDmgResult = spawnSync(`create-dmg`, [
+    spawnWithErrors(`create-dmg`, [
         '--volname', 'Gauntlet Installer',
         '--window-size', '660', '400',
         '--background', dmgBackground,
@@ -358,13 +359,8 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
         outFileName,
         bundleDir
     ], {
-        stdio: "inherit",
         cwd: releaseDirPath
     })
-
-    if (createDmgResult.status !== 0) {
-        throw new Error(`Unable to package for macos, status: ${JSON.stringify(createDmgResult)}`);
-    }
 
     return {
         filePath: outFilePath,
@@ -372,22 +368,55 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     }
 }
 
+async function packageForWindows(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
+    const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet.exe');
+    const outFileName = "gauntlet-x86_64-windows.msi"
+    const outFilePath = path.join(releaseDirPath, outFileName);
+
+    const assetsDirPath = path.join(projectRoot, 'assets', 'windows');
+    const sourceWxsFilePath = path.join(assetsDirPath, 'main.wxs');
+    const iconFilePath = path.join(projectRoot, 'assets', 'linux', 'icon_256.png');
+
+    const targetWxsFilePath = path.join(releaseDirPath, 'main.wxs');
+    const targetIconFilePath = path.join(releaseDirPath, 'icon.ico');
+
+    const version = await readVersion(projectRoot)
+
+    copyFileSync(sourceWxsFilePath, targetWxsFilePath)
+
+    spawnWithErrors("magick.exe", [iconFilePath, '-define', 'icon:auto-resize=256,128,48,32,16', targetIconFilePath], {
+        cwd: releaseDirPath
+    })
+
+    spawnWithErrors("wix", [
+        'build',
+        targetWxsFilePath,
+        '-out', outFilePath,
+        '-define', `TargetBinaryPath=${sourceExecutableFilePath}`,
+        '-define', `TargetIconPath=${targetIconFilePath}`,
+        '-define', `TargetVersion=${version}.0`,
+        '-ext', "WixToolset.Util.wixext",
+        '-arch', "x64",
+    ], {
+        cwd: releaseDirPath
+    })
+
+    return {
+        filePath: outFilePath,
+        fileName: outFileName
+    }
+}
+
+
 function publishNpmPackage(projectRoot: string) {
     console.log("Publishing npm deno package...")
     const denoProjectPath = path.join(projectRoot, "js", "deno");
-    const denoNpmPublish = spawnSync('npm', ['publish'], { stdio: "inherit", cwd: denoProjectPath })
-
-    if (denoNpmPublish.status !== 0) {
-        throw new Error(`Unable to publish deno package, status: ${JSON.stringify(denoNpmPublish)}`);
-    }
+    spawnWithErrors('npm', ['publish'], { cwd: denoProjectPath })
 
     console.log("Publishing npm api package...")
     const apiProjectPath = path.join(projectRoot, "js", "api");
-    const apiNpmPublish = spawnSync('npm', ['publish'], { stdio: "inherit", cwd: apiProjectPath })
-
-    if (apiNpmPublish.status !== 0) {
-        throw new Error(`Unable to publish api package, status: ${JSON.stringify(apiNpmPublish)}`);
-    }
+    spawnWithErrors('npm', ['publish'], { cwd: apiProjectPath })
 }
 
 async function createRelease(newVersion: number, releaseNotes: string) {
@@ -455,4 +484,19 @@ async function readVersion(projectRoot: string): Promise<number> {
 async function writeVersion(projectRoot: string, version: number) {
     const versionFilePath = path.join(projectRoot, "VERSION");
     await writeFile(versionFilePath, `${version}`)
+}
+
+function spawnWithErrors(command: string, args: string[], options: SpawnSyncOptions) {
+    console.log(`running ${command} ${args}`)
+
+    const npmRunResult = spawnSync(command, args, { ...options, encoding: "utf-8" });
+
+    if (npmRunResult.status !== 0) {
+        throw new Error(`Unable to run ${command} ${args}, status: ${JSON.stringify(npmRunResult, null, 2)}`);
+    } else {
+        console.log("stdout: ")
+        console.log(npmRunResult.stdout)
+        console.log("stderr: ")
+        console.log(npmRunResult.stderr)
+    }
 }

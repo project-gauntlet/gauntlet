@@ -1,0 +1,39 @@
+name: setup windows
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        required: true
+        type: string
+      github-release-id:
+        type: string
+
+jobs:
+  run-on-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - run: git pull
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
+          scope: '@project-gauntlet'
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo install cargo-wix
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - run: npm ci
+
+      - run: ${{ inputs.command }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+          GITHUB_RELEASE_ID: ${{ inputs.github-release-id }}

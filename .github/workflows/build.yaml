@@ -16,3 +16,8 @@ jobs:
     uses: ./.github/workflows/setup-macos.yaml
     with:
       command: npm run build-macos-project --workspace @project-gauntlet/build
+
+  build-windows:
+    uses: ./.github/workflows/setup-windows.yaml
+    with:
+      command: npm run build-windows-project --workspace @project-gauntlet/build
