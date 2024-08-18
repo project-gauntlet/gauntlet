@@ -1,9 +1,8 @@
+use image::ImageFormat;
+use image::imageops::FilterType;
 
 #[cfg(target_os = "linux")]
 mod linux;
-
-use image::ImageFormat;
-use image::imageops::FilterType;
 #[cfg(target_os = "linux")]
 pub use linux::get_apps;
 

@@ -416,7 +416,7 @@ impl ApplicationManager {
     }
 
     pub fn handle_open(&self, href: String) {
-        match open::that(&href) {
+        match open::that_detached(&href) {
             Ok(()) => tracing::info!("Opened '{}' successfully.", href),
             Err(err) => tracing::error!("An error occurred when opening '{}': {}", href, err),
         }

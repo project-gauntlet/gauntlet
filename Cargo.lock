@@ -7292,6 +7292,7 @@ dependencies = [
  "include_dir",
  "indexmap 2.2.6",
  "itertools 0.10.5",
+ "libc",
  "numbat",
  "once_cell",
  "open",
