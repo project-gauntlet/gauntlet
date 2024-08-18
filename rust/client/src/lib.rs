@@ -25,6 +25,8 @@ pub fn open_window() {
 
             match result {
                 Ok(mut backend_api) => {
+                    tracing::info!("Server is already running, opening window...");
+
                     backend_api.show_window()
                         .await
                         .expect("Unknown error")
