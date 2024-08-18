@@ -11,9 +11,16 @@ mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::get_apps;
 
-#[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+pub use windows::get_apps;
+#[cfg(target_os = "windows")]
+pub use windows::spawn_detached;
+
+#[cfg(all(not(target_os = "linux"), not(target_os = "macos"), not(target_os = "windows")))]
 mod other;
-#[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+#[cfg(all(not(target_os = "linux"), not(target_os = "macos"), not(target_os = "windows")))]
 pub use other::get_apps;
 
 use serde::Serialize;

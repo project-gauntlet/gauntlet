@@ -12,6 +12,9 @@ fn open_application(command: Vec<String>) -> anyhow::Result<()> {
     let path = &command[0];
     let args = &command[1..];
 
+    #[cfg(windows)]
+    crate::plugins::applications::spawn_detached(path, args)?;
+
     #[cfg(not(windows))]
     spawn_detached(path, args)?;
 
