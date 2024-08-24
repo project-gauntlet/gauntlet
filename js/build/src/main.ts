@@ -69,9 +69,19 @@ async function doPublishInit() {
 
     const projectRoot = getProjectRoot()
 
-    const { newVersion, releaseNotes } = await makeRepoChanges(projectRoot);
+    const githubReleaseId = process.env.PROVIDED_GITHUB_RELEASE_ID;
 
-    await createRelease(newVersion, releaseNotes)
+    if (githubReleaseId) {
+        core.setOutput("github-release-id", `${githubReleaseId}`)
+    } else {
+        const { newVersion, releaseNotes } = await makeRepoChanges(projectRoot);
+
+        const releaseId = await createRelease(newVersion, releaseNotes);
+
+        console.log(`GitHub release id: ${releaseId}`)
+
+        core.setOutput("github-release-id", `${releaseId}`)
+    }
 }
 
 async function doPublishLinux() {
@@ -136,31 +146,13 @@ async function doBuildWindows() {
     await packageForWindows(projectRoot, arch)
 }
 
-async function undraftRelease() {
-    const octokit = getOctokit();
-
-    const response = await octokit.rest.repos.getRelease({
-        ...getGithubRepo(),
-        release_id: getGithubReleaseId(),
-    });
-
-    await octokit.rest.repos.updateRelease({
-        ...getGithubRepo(),
-        release_id: response.data.id,
-        origin: response.data.upload_url,
-        draft: false
-    });
-}
-
 async function doPublishFinal() {
-    console.log("Publishing Gauntlet... Finishing up...")
+    console.log("Publishing Gauntlet npm packages...")
     const projectRoot = getProjectRoot()
 
     buildJs(projectRoot)
 
     publishNpmPackage(projectRoot)
-
-    await undraftRelease()
 }
 
 function build(projectRoot: string, arch: string) {
@@ -257,7 +249,7 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
     console.log("git add all files...")
     await git.raw('add', '-A')
     console.log("git commit...")
-    await git.commit(`Release v${newVersion}`);
+    await git.commit(`Prepare for v${newVersion} release`);
     console.log("git add version tag...")
     await git.addTag(`v${newVersion}`)
     console.log("git push...")
@@ -419,7 +411,7 @@ function publishNpmPackage(projectRoot: string) {
     spawnWithErrors('npm', ['publish'], { cwd: apiProjectPath })
 }
 
-async function createRelease(newVersion: number, releaseNotes: string) {
+async function createRelease(newVersion: number, releaseNotes: string): Promise<number> {
     const octokit = getOctokit();
 
     console.log("Creating github release...")
@@ -430,10 +422,10 @@ async function createRelease(newVersion: number, releaseNotes: string) {
         target_commitish: 'main',
         name: `v${newVersion}`,
         body: releaseNotes,
-        draft: true
+        draft: true // release needs to be undrafted manually after each release
     });
 
-    core.setOutput("github-release-id", `${response.data.id}`)
+    return response.data.id;
 }
 
 async function addFileToRelease(filePath: string, fileName: string) {

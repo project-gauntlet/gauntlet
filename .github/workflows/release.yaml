@@ -1,6 +1,27 @@
 name: release
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      provided-github-release-id:
+        type: string
+        description: Providing this value will reuse previous version and github release, use only in case of failed previous release
+      do-npm-publish:
+        type: boolean
+        default: true
+        description: Providing false will skip `npm publish`, use only in case of failed previous release
+      do-linux-build:
+        type: boolean
+        default: true
+        description: Providing false will skip linux build, use only in case of failed previous release
+      do-macos-build:
+        type: boolean
+        default: true
+        description: Providing false will skip macos build, use only in case of failed previous release
+      do-windows-build:
+        type: boolean
+        default: true
+        description: Providing false will skip windows build, use only in case of failed previous release
 
 jobs:
   publish-init:
@@ -24,10 +45,12 @@ jobs:
         id: init-step
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDED_GITHUB_RELEASE_ID: ${{ inputs.provided-github-release-id }}
 
   publish-linux:
     needs:
       - publish-init
+    if:  ${{ inputs.do-linux-build }}
     uses: ./.github/workflows/setup-linux.yaml
     with:
       command: npm run publish-linux-project --workspace @project-gauntlet/build
@@ -36,6 +59,7 @@ jobs:
   publish-windows:
     needs:
       - publish-init
+    if:  ${{ inputs.do-windows-build }}
     uses: ./.github/workflows/setup-windows.yaml
     with:
       command: npm run publish-windows-project --workspace @project-gauntlet/build
@@ -44,6 +68,7 @@ jobs:
   publish-macos:
     needs:
       - publish-init
+    if:  ${{ inputs.do-macos-build }}
     uses: ./.github/workflows/setup-macos.yaml
     with:
       command: npm run publish-macos-project --workspace @project-gauntlet/build
@@ -55,6 +80,7 @@ jobs:
       - publish-macos
       - publish-windows
       - publish-init
+    if:  ${{ inputs.do-npm-publish }}
     uses: ./.github/workflows/setup-linux.yaml
     with:
       command: npm run publish-final-project --workspace @project-gauntlet/build
