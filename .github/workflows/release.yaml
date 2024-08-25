@@ -73,6 +73,7 @@ jobs:
     with:
       command: npm run publish-macos-project --workspace @project-gauntlet/build
       github-release-id: ${{ needs.publish-init.outputs.github-release-id }}
+    secrets: inherit
 
   publish-final:
     needs:

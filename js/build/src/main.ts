@@ -113,7 +113,7 @@ async function doPublishMacOS() {
 
     build(projectRoot, arch)
 
-    const { fileName, filePath } = await packageForMacos(projectRoot, arch)
+    const { fileName, filePath } = await packageForMacos(projectRoot, arch, true, true)
 
     await addFileToRelease(filePath, fileName)
 }
@@ -123,7 +123,7 @@ async function doBuildMacOS() {
     const arch = 'aarch64-apple-darwin';
 
     await doBuild(projectRoot, arch)
-    await packageForMacos(projectRoot, arch)
+    await packageForMacos(projectRoot, arch, true, false)
 }
 
 async function doPublishWindows() {
@@ -306,7 +306,7 @@ function packageForLinux(projectRoot: string, arch: string): { filePath: string;
     }
 }
 
-async function packageForMacos(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
+async function packageForMacos(projectRoot: string, arch: string, sign: boolean, notarize: boolean): Promise<{ filePath: string; fileName: string }> {
     const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
@@ -316,6 +316,7 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const sourceInfoFilePath = path.join(assetsDirPath, 'Info.plist');
     const sourceIconFilePath = path.join(assetsDirPath, 'AppIcon.icns');
     const dmgBackground = path.join(assetsDirPath, 'dmg-background.png');
+    const entitlementsPath = path.join(assetsDirPath, 'entitlements.plist');
 
     const bundleDir = path.join(releaseDirPath, 'Gauntlet.app');
     const contentsDir = path.join(bundleDir, 'Contents');
@@ -340,6 +341,33 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     const infoResult = infoSource.replace('__VERSION__', `${version}.0.0`);
     writeFileSync(targetInfoFilePath, infoResult,'utf8');
 
+    const signKeyPath = path.join(releaseDirPath, 'signKey.pem');
+    const signCertPath = path.join(releaseDirPath, 'signCert.pem');
+    const connectApiKeyPath = path.join(releaseDirPath, 'connectApiKey.json');
+
+    const signKeyContent = process.env.APPLE_SIGNING_KEY_PEM;
+    const signCertContent = process.env.APPLE_SIGNING_CERT_PEM;
+    const connectApiKeyContent = process.env.APP_STORE_CONNECT_KEY;
+
+    if (sign) {
+        writeFileSync(signKeyPath, signKeyContent!!);
+        writeFileSync(signCertPath, signCertContent!!);
+
+        spawnWithErrors(`rcodesign`, [
+            'sign',
+            '--pem-file',
+            signKeyPath,
+            '--pem-file',
+            signCertPath,
+            '--for-notarization',
+            '--entitlements-xml-file',
+            entitlementsPath,
+            bundleDir
+        ], {
+            cwd: releaseDirPath
+        })
+    }
+
     spawnWithErrors(`create-dmg`, [
         '--volname', 'Gauntlet Installer',
         '--window-size', '660', '400',
@@ -353,6 +381,34 @@ async function packageForMacos(projectRoot: string, arch: string): Promise<{ fil
     ], {
         cwd: releaseDirPath
     })
+
+    if (sign) {
+        spawnWithErrors(`rcodesign`, [
+            'sign',
+            '--pem-file',
+            signKeyPath,
+            '--pem-file',
+            signCertPath,
+            '--for-notarization',
+            outFilePath
+        ], {
+            cwd: releaseDirPath
+        })
+    }
+
+    if (notarize) {
+        writeFileSync(connectApiKeyPath, connectApiKeyContent!!);
+
+        spawnWithErrors(`rcodesign`, [
+            'notary-submit',
+            '--api-key-file',
+            connectApiKeyPath,
+            '--staple',
+            outFilePath
+        ], {
+            cwd: releaseDirPath
+        })
+    }
 
     return {
         filePath: outFilePath,
