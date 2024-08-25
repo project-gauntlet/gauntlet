@@ -48,6 +48,12 @@ pub fn generate_theme_sample() -> anyhow::Result<()> {
 
     let string = serde_json::to_string_pretty(&theme)?;
 
+    let sample_theme_parent = sample_theme_file
+        .parent()
+        .expect("no parent?");
+
+    std::fs::create_dir_all(sample_theme_parent)?;
+
     std::fs::write(&sample_theme_file, string)?;
 
     println!("Created sample using default theme at {:?}", sample_theme_file);
@@ -65,6 +71,12 @@ pub fn generate_color_theme_sample() -> anyhow::Result<()> {
     let theme = GauntletTheme::default_color_theme();
 
     let string = serde_json::to_string_pretty(&theme)?;
+
+    let sample_theme_parent = sample_theme_color_file
+        .parent()
+        .expect("no parent?");
+
+    std::fs::create_dir_all(sample_theme_parent)?;
 
     std::fs::write(&sample_theme_color_file, string)?;
 
