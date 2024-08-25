@@ -7,7 +7,7 @@ use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -48,6 +48,8 @@ impl RpcBackendServerImpl {
 #[tonic::async_trait]
 pub trait BackendServer {
     async fn show_window(&self) -> anyhow::Result<()>;
+
+    async fn show_settings_window(&self) -> anyhow::Result<()>;
 
     async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>>;
 
@@ -103,6 +105,14 @@ impl RpcBackend for RpcBackendServerImpl {
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcShowWindowResponse::default()))
+    }
+
+    async fn show_settings_window(&self, _request: Request<RpcShowSettingsWindowRequest>) -> Result<Response<RpcShowSettingsWindowResponse>, Status> {
+        self.server.show_settings_window()
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        Ok(Response::new(RpcShowSettingsWindowResponse::default()))
     }
 
     async fn plugins(&self, _: Request<RpcPluginsRequest>) -> Result<Response<RpcPluginsResponse>, Status> {

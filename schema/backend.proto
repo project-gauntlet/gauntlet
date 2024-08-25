@@ -8,6 +8,7 @@ service RpcBackend {
 
   // cli
   rpc ShowWindow (RpcShowWindowRequest) returns (RpcShowWindowResponse);
+  rpc ShowSettingsWindow (RpcShowSettingsWindowRequest) returns (RpcShowSettingsWindowResponse);
 
   // settings
   rpc Plugins (RpcPluginsRequest) returns (RpcPluginsResponse);
@@ -34,6 +35,11 @@ service RpcBackend {
 message RpcShowWindowRequest {
 }
 message RpcShowWindowResponse {
+}
+
+message RpcShowSettingsWindowRequest {
+}
+message RpcShowSettingsWindowResponse {
 }
 
 message RpcPingRequest {

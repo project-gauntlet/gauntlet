@@ -7,7 +7,7 @@ use tonic::transport::Channel;
 use utils::channel::{RequestError, RequestSender};
 
 use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowWindowRequest};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -242,6 +242,14 @@ impl BackendApi {
 
         Ok(())
     }
+
+    pub async fn show_settings_window(&mut self) -> Result<(), BackendApiError> {
+        let _ = self.client.show_settings_window(Request::new(RpcShowSettingsWindowRequest::default()))
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn plugins(&mut self) -> Result<HashMap<PluginId, SettingsPlugin>, BackendApiError> {
         let plugins = self.client.plugins(Request::new(RpcPluginsRequest::default()))
             .await?

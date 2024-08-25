@@ -28,6 +28,12 @@ impl BackendServer for BackendServerImpl {
         self.application_manager.show_window().await
     }
 
+    async fn show_settings_window(&self) -> anyhow::Result<()> {
+        self.application_manager.handle_open_settings_window();
+
+        Ok(())
+    }
+
     async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>> {
         let result = self.application_manager.plugins()
             .await;

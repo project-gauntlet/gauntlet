@@ -422,7 +422,7 @@ impl ApplicationManager {
         }
     }
 
-    pub fn handle_open_settings_window(&self){
+    pub fn handle_open_settings_window(&self) {
         let current_exe = std::env::current_exe()
             .expect("unable to get current_exe");
 
@@ -430,7 +430,6 @@ impl ApplicationManager {
             .args(["settings"])
             .spawn()
             .expect("failed to execute settings process");
-
     }
 
     pub fn handle_open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) {

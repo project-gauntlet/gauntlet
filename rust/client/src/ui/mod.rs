@@ -47,6 +47,8 @@ mod theme;
 mod client_context;
 mod widget_container;
 mod inline_view_container;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod sys_tray;
 
 pub use theme::GauntletTheme;
 
@@ -59,6 +61,8 @@ pub struct AppModel {
     focused: bool,
     theme: GauntletTheme,
     wayland: bool,
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    tray_icon: tray_icon::TrayIcon,
 
     // ephemeral state
     prompt: String,
@@ -370,6 +374,8 @@ impl Application for AppModel {
                 focused: false,
                 theme: GauntletTheme::new(),
                 wayland,
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
+                tray_icon: sys_tray::create_tray(),
 
                 // ephemeral state
                 prompt: "".to_string(),

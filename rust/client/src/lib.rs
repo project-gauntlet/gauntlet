@@ -38,6 +38,27 @@ pub fn open_window() {
         })
 }
 
+pub fn open_settings_window() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("unable to start server tokio runtime")
+        .block_on(async {
+            let result = BackendApi::new().await;
+
+            match result {
+                Ok(mut backend_api) => {
+                    backend_api.show_settings_window()
+                        .await
+                        .expect("Unknown error")
+                }
+                Err(_) => {
+                    tracing::error!("Unable to connect to server. Please check if you have Gauntlet running on your PC")
+                }
+            }
+        })
+}
+
 pub fn generate_theme_sample() -> anyhow::Result<()> {
     let dirs = Dirs::new();
 
