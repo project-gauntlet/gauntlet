@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use iced::{Alignment, alignment, Application, color, Command, executor, font, futures, Length, Padding, Settings, Size, Subscription, time, window};
 use iced::advanced::Widget;
-use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text};
+use iced::widget::{button, column, container, horizontal_rule, horizontal_space, mouse_area, row, scrollable, text};
 use iced_aw::{floating_element, Spinner};
 use iced_aw::core::icons;
 use iced_aw::floating_element::{Anchor, Offset};
@@ -733,6 +733,14 @@ impl Application for ManagementAppModel {
                 .padding(4)
                 .width(Length::Fixed(400.0))
                 .style(ContainerStyle::Box)
+                .into()
+        };
+
+        let content = if !self.download_info_shown {
+            content
+        } else {
+            mouse_area(content)
+                .on_press(ManagementAppMsg::ToggleDownloadInfo)
                 .into()
         };
 

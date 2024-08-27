@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use iced::{Alignment, Font, Length};
 use iced::alignment::Horizontal;
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, mouse_area};
 use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
 use iced_aw::{floating_element, GridRow};
@@ -1332,6 +1332,14 @@ fn render_root<'a>(
 
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_panel])
         .into();
+
+    let content = if hide_action_panel {
+        content
+    } else {
+        mouse_area(content)
+            .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
+            .into()
+    };
 
     floating_element(content, action_panel_element)
         .offset(Offset::from([8.0, 40.0])) // TODO calculate based on theme
