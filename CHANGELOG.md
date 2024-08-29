@@ -9,6 +9,29 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### Big things
+- Bundling improvements
+  - `.dmg` file is now signed, notarized and stapled, removing the need for manual manipulations on `.dmg` file to be able to install Gauntlet
+  - `.msi` installer for Windows is now available
+  - `.tar.gz` archive for Linux now contains default `systemd` service, `.desktop` and `.png` icon file
+- Added system tray icon on Windows and macOS with ability to open main or settings window, see version or quit Gauntlet
+- Local plugins now always use development React bundle for better error messages at the expense of performance.
+
+### General fixes
+- Fix being unable to stop plugin in various situations including when there is unresolved pending promise
+- Fix `generate-sample-theme` and `generate-sample-color-theme` CLI commands failing if config folder doesn't exist
+- Fix console window popping up when starting Gauntlet on Windows
+
+### `Applications` plugin
+- On macOS and Linux, applications are now started detached from main process, fixing situations when other applications blocked Gauntlet from exiting 
+
+### UI Improvements
+- Action panel and download information panel in settings are now closed when clicking outside of panel on background
+
+### API changes
+- Type of `GeneratedCommand`'s `icon` field changed from `icon: ArrayBuffer | undefined` to `icon?: ArrayBuffer` 
+- Default function returned from `command` and `command-generator` entrypoints can now be `async`
+
 ## [6] - 2024-08-04
 
 ### Big things
