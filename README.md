@@ -2,14 +2,12 @@
 
 [![Discord](https://discord.com/api/guilds/1205606511603359785/widget.png?style=shield)](https://discord.gg/gFTqYUkBrW)
 
-<img align="right" width="100" height="100" src="docs/logo.png">
+<img align="right" width="100" height="100" src="assets/linux/icon_256.png">
 
 Web-first cross-platform application launcher with React-based plugins.
 
 > [!NOTE]
 > Launcher is in active development, expect bugs, missing features, incomplete ux, etc.
->
-> At the moment, it may not yet be ready for daily usage.
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
@@ -69,13 +67,8 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux
    - Both X11 and Wayland (via LayerShell protocol) are supported
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
-
-###### Planned
-
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
-    - already works
-    - publish process is not yet implemented, so application needs to be build manually
-    - built-in "Applications" plugin is not yet implemented
+    - built-in "Applications" plugin is not yet implemented. See [#9](https://github.com/project-gauntlet/gauntlet/issues/9)
 
 ##### UI
 
@@ -93,7 +86,8 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 
 ###### Planned
 
-- Toast popups
+See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
+
 - Keyboard only navigation in plugin-views
 - Vim motions
 
@@ -107,8 +101,7 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 
 ###### Planned
 
-- Local Storage
-- OAuth PKCE flow support
+See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
 
 ## Getting Started
 
@@ -121,14 +114,14 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
     - You can configure plugin using [Plugin manifest](#plugin-manifest)
     - Documentation is, at the moment, basically non-existent but TypeScript declarations in `@project-gauntlet/api`
       and `@project-gauntlet/deno` should help
-    - See Dev Plugin for examples ![here](dev_plugin)
+    - For examples see [Dev Plugin](dev_plugin). It is very busy because it is used for Gauntlet development, but it has examples of pretty much every available API 
 - Push changes to GitHub
 - Run `publish` GitHub Actions workflow to publish plugin to `gauntlet/release` branch
 - Profit!
 
 ### Install plugin
 
-Plugins are installed in Settings UI. Use Git repository name of the plugin to install it. 
+Plugins are installed in Settings UI. Use Git repository url of the plugin to install it. 
 
 ![](docs/settings_ui.png)
 
@@ -136,21 +129,38 @@ Plugins are installed in Settings UI. Use Git repository name of the plugin to i
 
 #### macOS
 
-Download `.dmg` file from [Releases](https://github.com/project-gauntlet/gauntlet/releases) section and install application from it.
-At the moment, the application is not notarized by Apple and if plain installation is attempted 
-the "Is Damaged and Can’t Be Opened. You Should Move It To The Trash" error will appear.
-To workaround this problem (given that you trust the application) you can remove `com.apple.quarantine` attribute from the `.dmg` file in terminal:
-```bash
-xattr -d com.apple.quarantine ./gauntlet-aarch64-macos.dmg
+Download `.dmg` file from [Releases](https://github.com/project-gauntlet/gauntlet/releases) section and install application from it. Brew package is WIP
+
+#### Windows
+
+Although it is possible to install Gauntlet by using `.msi` directly, application doesn't have auto-update functionality so it is recommended to install using `chocolatey` package manager.
+
+Chocolatey package: [link](https://community.chocolatey.org/packages/gauntlet)
+
+To install run:
+```
+choco install gauntlet
 ```
 
-#### Linux
+To start, manually open application.
 
-> [!NOTE]
-> At the moment application is not published anywhere,
-> so you have to download it from the [GitHub Releases](https://github.com/project-gauntlet/gauntlet/releases)
+#### Arch Linux
 
-Be the first one to create a package. See [Application packaging for Linux](#application-packaging-for-Linux)
+AUR package: [link](https://aur.archlinux.org/packages/gauntlet-bin)
+
+To install run:
+```
+yay -S gauntlet-bin
+```
+
+To start `systemd` service run: 
+```
+systemctl --user enable --now gauntlet.service
+```
+
+#### Other Linux Distributions
+
+At the moment application is only available for Arch Linux. If you want to create a package for other distributions see [Application packaging for Linux](#application-packaging-for-Linux)
 
 ### Global Shortcut
 Main window can be opened using global shortcut or CLI command:
@@ -320,18 +330,20 @@ This section contains a list of things
 that could be useful for someone who wants to package application for Linux distribution.
 If something is missing, please [create an issue](https://github.com/project-gauntlet/gauntlet/issues).
 
-Gauntlet executable consists of three applications:
+Application is already packaged for Arch Linux so you can use it as example, see [Arch Linux](#arch-linux)
 
-- `$ path/to/gauntlet --minimized`
-    - Needs to be started when user logs in
-- `$ path/to/gauntlet open`
-    - Expected to be run on demand using launcher or system provided global shortcut
-- `$ path/to/gauntlet settings`
-    - Started on demand from the list of available applications (will vary depending on desktop environment or window
-      manager chosen) or from Gauntlet itself
+Relevant CLI commands:
 
-Settings application expects Server to always be running.
-Recommended way of ensuring that is running Server as SystemD service.
+- `$ gauntlet --minimized`
+    - Server needs to be started when user logs in, e.g. using `systemd` service
+- `$ gauntlet open`
+    - Main windows is usually opened using [global shortcut](#global-shortcut), this CLI command can be used in cases where global shortcut functionality is not available 
+- `$ gauntlet settings`
+    - Settings are usually started on demand from Gauntlet itself
+
+`.desktop` sample file can be found [here](assets/linux/gauntlet.desktop)
+
+`systemd` service sample file can be found [here](assets/linux/gauntlet.service)
 
 ###### Directories used
 
@@ -342,7 +354,9 @@ Recommended way of ensuring that is running Server as SystemD service.
 - config dir - `$XDG_CONFIG_HOME/gauntlet` or `$HOME/.config/gauntlet`
     - contains application config `config.toml`
     - application will never do changes to config file
-- `.desktop` file at locations defined by [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
+- state dir - `$XDG_STATE_HOME/gauntlet` or `$HOME/.local/state/gauntlet`
+    - contains log files created by plugin development 
+- `.desktop` files at locations defined by [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
 
 Application and Dev Tools use temporary directories:
 
@@ -352,7 +366,7 @@ Application and Dev Tools use temporary directories:
 X11 API is used to add global shortcut
 
 Client and Setting applications have GUI and therefore use all the usual graphics-related stuff from X11.
-Wayland is not supported at the moment.
+Wayland support requires LayerShell protocol `zwlr_layer_shell_v1`.
 
 ## Building Gauntlet
 You will need:
