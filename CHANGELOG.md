@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [7] - 2024-08-30
+
 ### Big things
 - Bundling improvements
   - `.dmg` file is now signed, notarized and stapled, removing the need for manual manipulations on `.dmg` file to be able to install Gauntlet
