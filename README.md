@@ -129,7 +129,16 @@ Plugins are installed in Settings UI. Use Git repository url of the plugin to in
 
 #### macOS
 
-Download `.dmg` file from [Releases](https://github.com/project-gauntlet/gauntlet/releases) section and install application from it. Brew package is WIP
+Although it is possible to install Gauntlet by using `.dmg` directly, application doesn't have auto-update functionality so it is recommended to install using `brew` package manager.
+
+Brew package: [link](https://formulae.brew.sh/cask/gauntlet)
+
+To install run:
+```
+brew install --cask gauntlet
+```
+
+To start, manually open application.
 
 #### Windows
 
