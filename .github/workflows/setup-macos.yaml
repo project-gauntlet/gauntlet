@@ -46,6 +46,7 @@ jobs:
 
       - run: ${{ inputs.command }}
         env:
+          MACOSX_DEPLOYMENT_TARGET: 11
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
           GITHUB_RELEASE_ID: ${{ inputs.github-release-id }}
