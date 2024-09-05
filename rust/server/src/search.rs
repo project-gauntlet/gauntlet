@@ -71,6 +71,9 @@ impl SearchIndex {
     }
 
     pub fn remove_for_plugin(&self, plugin_id: PluginId) -> tantivy::Result<()> {
+        // writer panics if another writer exists
+        let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
+
         let mut index_writer = self.index.writer(5_000_000)?;
 
         index_writer.delete_query(Box::new(
@@ -294,12 +297,12 @@ impl QueryParser {
         let entrypoint_name_terms = terms_fn(self.entrypoint_name);
         let plugin_name_terms = terms_fn(self.plugin_name);
 
-        return Box::new(
+        Box::new(
             BooleanQuery::union(vec![
                 Box::new(entrypoint_name_terms),
                 Box::new(plugin_name_terms),
             ]),
-        );
+        )
     }
 
     fn tokenize(&self, query: &str) -> Vec<String> {
