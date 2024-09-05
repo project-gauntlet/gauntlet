@@ -41,7 +41,7 @@ use crate::plugins::js::plugins::applications::{list_applications, open_applicat
 use crate::plugins::js::plugins::numbat::run_numbat;
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
-use crate::plugins::js::search::load_search_index;
+use crate::plugins::js::search::reload_search_index;
 use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_plugin_error_view, show_preferences_required_view};
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem};
@@ -121,6 +121,7 @@ pub enum OnePluginCommandData {
         modifier_meta: bool,
     },
     ReloadSearchIndex,
+    RefreshSearchIndex,
 }
 
 #[derive(Clone, Debug)]
@@ -188,6 +189,9 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                             }
                             OnePluginCommandData::ReloadSearchIndex => {
                                 Some(IntermediateUiEvent::ReloadSearchIndex)
+                            }
+                            OnePluginCommandData::RefreshSearchIndex => {
+                                Some(IntermediateUiEvent::RefreshSearchIndex)
                             }
                         }
                     }
@@ -500,7 +504,7 @@ deno_core::extension!(
         entrypoint_preferences_required,
 
         // search
-        load_search_index,
+        reload_search_index,
 
         // clipboard
         clipboard_read_text,
@@ -659,6 +663,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         }
         IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text },
         IntermediateUiEvent::ReloadSearchIndex => JsUiEvent::ReloadSearchIndex,
+        IntermediateUiEvent::RefreshSearchIndex => JsUiEvent::RefreshSearchIndex,
     }
 }
 

@@ -4,6 +4,6 @@ import { generatedCommandSearchIndex } from "./command-generator";
 const denoCore: DenoCore = Deno[Deno.internal].core;
 const InternalApi = denoCore.ops;
 
-export async function loadSearchIndex(refreshSearchList: boolean) {
-    await InternalApi.load_search_index(generatedCommandSearchIndex(), refreshSearchList);
+export async function reloadSearchIndex(refreshSearchList: boolean) {
+    await InternalApi.reload_search_index(generatedCommandSearchIndex(), refreshSearchList);
 }

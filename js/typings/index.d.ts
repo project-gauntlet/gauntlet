@@ -6,7 +6,7 @@ interface DenoCore {
     ops: InternalApi
 }
 
-type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | CloseView | OpenInlineView | ReloadSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | CloseView | OpenInlineView | ReloadSearchIndex | RefreshSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -55,6 +55,10 @@ type ReloadSearchIndex = {
     type: "ReloadSearchIndex"
 }
 
+type RefreshSearchIndex = {
+    type: "RefreshSearchIndex"
+}
+
 type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined
 type PropertyValueString = { type: "String", value: string }
 type PropertyValueNumber = { type: "Number", value: number }
@@ -99,7 +103,7 @@ interface InternalApi {
     entrypoint_preferences_required(entrypointId: string): Promise<boolean>;
     show_preferences_required_view(entrypointId: string, pluginPreferencesRequired: boolean, entrypointPreferencesRequired: boolean): void;
 
-    load_search_index(searchItems: AdditionalSearchItem[], refreshSearchList: boolean): Promise<void>;
+    reload_search_index(searchItems: AdditionalSearchItem[], refreshSearchList: boolean): Promise<void>;
 
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: UiWidget): void;
     show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;

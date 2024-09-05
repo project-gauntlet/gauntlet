@@ -78,6 +78,7 @@ pub enum JsUiEvent {
         text: String,
     },
     ReloadSearchIndex,
+    RefreshSearchIndex,
 }
 
 // FIXME this could have been serde_v8::AnyValue but it doesn't support undefined, make a pr?
@@ -137,6 +138,7 @@ pub enum IntermediateUiEvent {
         text: String,
     },
     ReloadSearchIndex,
+    RefreshSearchIndex,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

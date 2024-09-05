@@ -415,6 +415,13 @@ impl ApplicationManager {
         })
     }
 
+    pub fn request_search_index_refresh(&self, plugin_id: PluginId) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id,
+            data: OnePluginCommandData::RefreshSearchIndex
+        })
+    }
+
     pub fn handle_open(&self, href: String) {
         match open::that_detached(&href) {
             Ok(()) => tracing::info!("Opened '{}' successfully.", href),
@@ -603,7 +610,7 @@ impl ApplicationManager {
             tracing::warn!(target = "rpc", "error occurred when marking entrypoint frecency {:?}", err)
         }
 
-        self.request_search_index_reload(plugin_id);
+        self.request_search_index_refresh(plugin_id);
     }
 }
 

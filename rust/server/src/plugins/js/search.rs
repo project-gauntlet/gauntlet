@@ -11,7 +11,7 @@ use crate::plugins::js::PluginData;
 use crate::search::{SearchIndex, SearchIndexItem};
 
 #[op]
-async fn load_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
     let (plugin_id, plugin_uuid, repository, mut search_index, icon_cache) = {
         let state = state.borrow();
 

@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { runCommandGenerators, runGeneratedCommand } from "./command-generator";
-import { loadSearchIndex } from "./search-index";
+import { reloadSearchIndex } from "./search-index";
 import { clearRenderer } from "gauntlet:renderer";
 
 // @ts-expect-error does typescript support such symbol declarations?
@@ -213,7 +213,12 @@ async function runLoop() {
             }
             case "ReloadSearchIndex": {
                 runCommandGenerators()
-                    .then(() => loadSearchIndex(false));
+                    .then(() => reloadSearchIndex(false));
+                break;
+            }
+            case "RefreshSearchIndex": {
+                // noinspection ES6MissingAwait
+                reloadSearchIndex(false)
                 break;
             }
         }
@@ -221,7 +226,7 @@ async function runLoop() {
 }
 
 runCommandGenerators()
-    .then(() => loadSearchIndex(true));
+    .then(() => reloadSearchIndex(true));
 
 (async () => {
     await runLoop()
