@@ -50,6 +50,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
           GITHUB_RELEASE_ID: ${{ inputs.github-release-id }}
-          APPLE_SIGNING_KEY_PEM: ${{ secrets.APPLE_SIGNING_KEY_PEM && fromJson(secrets.APPLE_SIGNING_KEY_PEM).content }}
-          APPLE_SIGNING_CERT_PEM: ${{ secrets.APPLE_SIGNING_CERT_PEM && fromJson(secrets.APPLE_SIGNING_CERT_PEM).content }}
+          APPLE_SIGNING_KEY_PEM: ${{ secrets.APPLE_SIGNING_KEY_PEM }}
+          APPLE_SIGNING_CERT_PEM: ${{ secrets.APPLE_SIGNING_CERT_PEM }}
           APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}

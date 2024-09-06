@@ -350,8 +350,11 @@ async function packageForMacos(projectRoot: string, arch: string, sign: boolean,
     const connectApiKeyContent = process.env.APP_STORE_CONNECT_KEY;
 
     if (sign) {
-        writeFileSync(signKeyPath, signKeyContent!!);
-        writeFileSync(signCertPath, signCertContent!!);
+        const key = JSON.parse(signKeyContent!!).content;
+        const cert = JSON.parse(signCertContent!!).content;
+
+        writeFileSync(signKeyPath, key);
+        writeFileSync(signCertPath, cert);
 
         spawnWithErrors(`rcodesign`, [
             'sign',
