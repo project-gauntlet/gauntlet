@@ -537,14 +537,9 @@ async function writeVersion(projectRoot: string, version: number) {
 function spawnWithErrors(command: string, args: string[], options: SpawnSyncOptions) {
     console.log(`running ${command} ${args}`)
 
-    const npmRunResult = spawnSync(command, args, { ...options, encoding: "utf-8" });
+    const npmRunResult = spawnSync(command, args, { ...options, stdio: "inherit", });
 
     if (npmRunResult.status !== 0) {
         throw new Error(`Unable to run ${command} ${args}, status: ${JSON.stringify(npmRunResult, null, 2)}`);
-    } else {
-        console.log("stdout: ")
-        console.log(npmRunResult.stdout)
-        console.log("stderr: ")
-        console.log(npmRunResult.stderr)
     }
 }
