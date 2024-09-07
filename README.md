@@ -36,7 +36,7 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 - [Deno JavaScript Runtime](https://github.com/denoland/deno)
     - Deno allows us to sandbox JavaScript code for better security
     - Plugins are required to explicitly specify what permissions they need to work
-    - NodeJS is used to run plugin tooling
+    - NodeJS is used to run plugin tooling, but as a plugin developer you will always write code that runs on Deno
 - Frecency-based search result ordering
    - Frecency is a combination of frequency and recency
    - More often the item is used the higher in the result list it will be, but items used a lot in the past will be ranked lower than items used the same amount of times recently
