@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [8] - 2024-09-07
+
 ### Plugin API
 - Command Generator functions are no longer needlessly called after every entrypoint click in main window
 
