@@ -9,6 +9,17 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### Plugin API
+- Command Generator functions are no longer needlessly called after every entrypoint click in main window
+
+### Fixes
+- Fixed crash on Arch Linux if using AMD GPU with Vulkan not setup properly
+  - Still if Vulkan is not setup properly it can result in low FPS when scrolling 
+  - In some cases installing [vulkan-radeon](https://archlinux.org/packages/extra/x86_64/vulkan-radeon/) package resolves the FPS problem
+  - Alternatively setting `WGPU_BACKEND=gl` environment variable may also resolve the FPS problem
+- Reduced minimal required version of macOS to 11 (Big Sur)
+- Fix panic when spamming enable/disable plugin or entrypoint checkbox in settings 
+
 ## [7] - 2024-08-30
 
 ### Big things
