@@ -34,7 +34,7 @@ impl RunStatusHolder {
         let mut running_plugins = self.running_plugins.lock().expect("lock is poisoned");
 
         running_plugins
-            .get(plugin_id)
+            .remove(plugin_id)
             .expect("value should always exist for specified id")
             .cancel()
     }
@@ -54,12 +54,5 @@ impl RunStatusGuard {
             .expect("value should always exist for specified id")
             .clone()
             .cancelled_owned()
-    }
-}
-
-impl Drop for RunStatusGuard {
-    fn drop(&mut self) {
-        let mut running_plugins = self.running_plugins.lock().expect("lock is poisoned");
-        running_plugins.remove(&self.id);
     }
 }
