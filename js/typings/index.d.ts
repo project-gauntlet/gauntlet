@@ -3,8 +3,11 @@
 
 interface DenoCore {
     opAsync: (op: "op_plugin_get_pending_event") => Promise<PluginEvent>
+    setPromiseRejectCallback: (cb: PromiseRejectCallback) => undefined | PromiseRejectCallback;
     ops: InternalApi
 }
+
+type PromiseRejectCallback = (type: number, promise: Promise<unknown>, reason: any) => void;
 
 type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | CloseView | OpenInlineView | ReloadSearchIndex | RefreshSearchIndex
 type RenderLocation = "InlineView" | "View"

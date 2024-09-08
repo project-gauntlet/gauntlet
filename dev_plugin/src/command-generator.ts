@@ -6,6 +6,10 @@ export default function CommandGenerator(): GeneratedCommand[] {
             id: 'generated-test-1',
             name: 'Generated Item 1',
             fn: () => {
+                new Promise(() => {
+                    throw new Error("gen")
+                })
+
                 console.log('generated-test-1')
             }
         },

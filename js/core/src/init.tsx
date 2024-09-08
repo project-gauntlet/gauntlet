@@ -225,6 +225,10 @@ async function runLoop() {
     }
 }
 
+denoCore.setPromiseRejectCallback((_type, _promise, reason) => {
+    console.error("Uncaught exception in promise", reason)
+})
+
 runCommandGenerators()
     .then(() => reloadSearchIndex(true));
 
