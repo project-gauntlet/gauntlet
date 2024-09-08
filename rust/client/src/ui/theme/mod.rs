@@ -20,11 +20,12 @@ pub mod rule;
 pub mod space;
 pub mod grid;
 pub mod tooltip;
+mod loading_bar;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
 const CURRENT_COLOR_THEME_VERSION: u64 = 1;
-const CURRENT_THEME_VERSION: u64 = 1;
+const CURRENT_THEME_VERSION: u64 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletColorTheme {
@@ -110,6 +111,7 @@ pub struct GauntletTheme {
     separator: ThemeSeparator,
     scrollbar: ThemeScrollbar,
     tooltip: ThemeTooltip,
+    loading_bar: ThemeLoadingBar,
 }
 
 impl Default for GauntletTheme {
@@ -534,7 +536,7 @@ impl GauntletTheme {
                 border_color_hovered: background_light_color,
             },
             separator: ThemeSeparator {
-                color: BACKGROUND_LIGHT
+                color: background_light_color
             },
             scrollbar: ThemeScrollbar {
                 color: primary_color,
@@ -545,6 +547,10 @@ impl GauntletTheme {
             tooltip: ThemeTooltip {
                 padding: 8.0,
                 background_color: background_overlay_color,
+            },
+            loading_bar: ThemeLoadingBar {
+                loading_bar_color: primary_color,
+                background_color: background_light_color,
             },
         }
     }
@@ -698,6 +704,12 @@ pub struct ThemeActionShortcutModifier {
     border_radius: f32,
     border_width: f32,
     border_color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeLoadingBar {
+    loading_bar_color: ThemeColor,
+    background_color: ThemeColor,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

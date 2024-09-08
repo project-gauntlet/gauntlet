@@ -74,6 +74,7 @@ declare global {
             };
             ["gauntlet:detail"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof Metadata | typeof Content>;
+                isLoading?: boolean;
             };
             ["gauntlet:text_field"]: {
                 label?: string;
@@ -109,6 +110,7 @@ declare global {
             ["gauntlet:separator"]: {};
             ["gauntlet:form"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+                isLoading?: boolean;
             };
             ["gauntlet:inline_separator"]: {
                 icon?: Icons;
@@ -134,6 +136,7 @@ declare global {
             };
             ["gauntlet:list"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+                isLoading?: boolean;
                 onSelectionChange?: (id: string) => void;
             };
             ["gauntlet:grid_item"]: {
@@ -150,6 +153,7 @@ declare global {
             };
             ["gauntlet:grid"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof GridItem | typeof GridSection>;
+                isLoading?: boolean;
                 columns?: number;
                 onSelectionChange?: (id: string) => void;
             };
@@ -516,13 +520,14 @@ Content.HorizontalBreak = HorizontalBreak;
 Content.CodeBlock = CodeBlock;
 export interface DetailProps {
     children?: ElementComponent<typeof Metadata | typeof Content>;
+    isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
 }
 export const Detail: FC<DetailProps> & {
     Metadata: typeof Metadata;
     Content: typeof Content;
 } = (props: DetailProps): ReactNode => {
-    return <gauntlet:detail>{props.actions as any}{props.children}</gauntlet:detail>;
+    return <gauntlet:detail isLoading={props.isLoading}>{props.actions as any}{props.children}</gauntlet:detail>;
 };
 Detail.Metadata = Metadata;
 Detail.Content = Content;
@@ -583,6 +588,7 @@ export const Separator: FC = (): ReactNode => {
 };
 export interface FormProps {
     children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+    isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
 }
 export const Form: FC<FormProps> & {
@@ -593,7 +599,7 @@ export const Form: FC<FormProps> & {
     Select: typeof Select;
     Separator: typeof Separator;
 } = (props: FormProps): ReactNode => {
-    return <gauntlet:form>{props.actions as any}{props.children}</gauntlet:form>;
+    return <gauntlet:form isLoading={props.isLoading}>{props.actions as any}{props.children}</gauntlet:form>;
 };
 Form.TextField = TextField;
 Form.PasswordField = PasswordField;
@@ -653,6 +659,7 @@ ListSection.Item = ListItem;
 export interface ListProps {
     children?: ElementComponent<typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
     actions?: ElementComponent<typeof ActionPanel>;
+    isLoading?: boolean;
     onSelectionChange?: (id: string) => void;
 }
 export const List: FC<ListProps> & {
@@ -661,7 +668,7 @@ export const List: FC<ListProps> & {
     Item: typeof ListItem;
     Section: typeof ListSection;
 } = (props: ListProps): ReactNode => {
-    return <gauntlet:list onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:list>;
+    return <gauntlet:list isLoading={props.isLoading} onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:list>;
 };
 List.EmptyView = EmptyView;
 List.Detail = Detail;
@@ -693,6 +700,7 @@ export const GridSection: FC<GridSectionProps> & {
 GridSection.Item = GridItem;
 export interface GridProps {
     children?: ElementComponent<typeof EmptyView | typeof GridItem | typeof GridSection>;
+    isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
     onSelectionChange?: (id: string) => void;
@@ -702,7 +710,7 @@ export const Grid: FC<GridProps> & {
     Item: typeof GridItem;
     Section: typeof GridSection;
 } = (props: GridProps): ReactNode => {
-    return <gauntlet:grid columns={props.columns} onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:grid>;
+    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns} onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
 Grid.EmptyView = EmptyView;
 Grid.Item = GridItem;

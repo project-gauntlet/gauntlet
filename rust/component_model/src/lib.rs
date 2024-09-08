@@ -750,6 +750,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/detail/description.md"),
         "Detail",
         [
+            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
             property("actions", mark_doc!("/detail/props/actions.md"), true, component_ref(&action_panel_component))
         ],
         children_members([
@@ -869,6 +870,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/form/description.md"),
         "Form",
         [
+            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
             property("actions", mark_doc!("/form/props/actions.md"), true, component_ref(&action_panel_component)),
         ],
         children_members([
@@ -951,6 +953,7 @@ pub fn create_component_model() -> Vec<Component> {
         "List",
         [
             property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component)),
+            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
             event("onSelectionChange", mark_doc!("/list/props/onSelectionChange.md"), true, [
                 property("id", "".to_string(), false, PropertyType::String)
             ]),
@@ -1000,6 +1003,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid/description.md"),
         "Grid",
         [
+            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
             property("actions", mark_doc!("/grid/props/actions.md"),true, component_ref(&action_panel_component)),
             // property("aspectRatio", true, PropertyType::String),
             property("columns", mark_doc!("/grid/props/columns.md"),true, PropertyType::Number), // TODO default

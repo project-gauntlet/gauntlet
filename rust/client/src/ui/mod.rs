@@ -49,6 +49,7 @@ mod widget_container;
 mod inline_view_container;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod sys_tray;
+mod custom_widgets;
 
 pub use theme::GauntletTheme;
 

@@ -21,6 +21,7 @@ use common::model::{PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValue
 use common_ui::shortcut_to_text;
 
 use crate::model::UiViewEvent;
+use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
@@ -536,7 +537,7 @@ impl ComponentWidgetWrapper {
                     content
                 }
             }
-            ComponentWidget::Detail { children } => {
+            ComponentWidget::Detail { children, isLoading: is_loading } => {
                 let ComponentWidgetState::Detail { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
@@ -607,7 +608,7 @@ impl ComponentWidgetWrapper {
                 if is_in_list {
                     content
                 } else {
-                    render_root(show_action_panel, widget_id, children, content, context)
+                    render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
                 }
             }
             ComponentWidget::Root { children } => {
@@ -717,7 +718,7 @@ impl ComponentWidgetWrapper {
                 horizontal_rule(1)
                     .into()
             }
-            ComponentWidget::Form { children } => {
+            ComponentWidget::Form { children, isLoading: is_loading } => {
                 let ComponentWidgetState::Form { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
@@ -794,7 +795,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .themed(ContainerStyle::Form);
 
-                render_root(show_action_panel, widget_id, children, content, context)
+                render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::InlineSeparator { icon } => {
                 match icon {
@@ -971,7 +972,7 @@ impl ComponentWidgetWrapper {
 
                 render_section(content, Some(title), subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle)
             }
-            ComponentWidget::List { children } => {
+            ComponentWidget::List { children, isLoading: is_loading } => {
                 let ComponentWidgetState::List { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
@@ -1057,7 +1058,7 @@ impl ComponentWidgetWrapper {
                     .height(Length::Fill)
                     .into();
 
-                render_root(show_action_panel, widget_id, children, content, context)
+                render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::GridItem { children, id, title, subtitle } => {
                 let ComponentRenderContext::Grid { widget_id: grid_widget_id } = context else {
@@ -1093,7 +1094,7 @@ impl ComponentWidgetWrapper {
 
                 render_section(content, Some(title), subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle)
             }
-            ComponentWidget::Grid { children, columns } => {
+            ComponentWidget::Grid { children, columns, isLoading: is_loading } => {
                 let ComponentWidgetState::Grid { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
@@ -1145,7 +1146,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .themed(ContainerStyle::Grid);
 
-                render_root(show_action_panel, widget_id, children, content, context)
+                render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
         }
     }
@@ -1281,7 +1282,8 @@ fn render_root<'a>(
     widget_id: UiWidgetId,
     children: &[ComponentWidgetWrapper],
     content: Element<'a, ComponentWidgetEvent>,
-    context: ComponentRenderContext
+    context: ComponentRenderContext,
+    is_loading: bool
 ) -> Element<'a, ComponentWidgetEvent>  {
     let ComponentRenderContext::Root { entrypoint_name, action_shortcuts } = context else {
         panic!("not supposed to be passed to root item: {:?}", context)
@@ -1322,8 +1324,13 @@ fn render_root<'a>(
         .width(Length::Fill)
         .themed(ContainerStyle::RootBottomPanel);
 
-    let top_separator = horizontal_rule(1)
-        .into();
+    let top_separator = if is_loading {
+        LoadingBar::new()
+            .into()
+    } else {
+        horizontal_rule(1)
+            .into()
+    };
 
     let content: Element<_> = container(content)
         .width(Length::Fill)
