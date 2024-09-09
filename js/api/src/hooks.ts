@@ -47,7 +47,7 @@ export type MutatePromiseFn<T, R> = (
     },
 ) => Promise<R>;
 
-export function useAsync<T extends (...args: any[]) => Promise<any>, R>(
+export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
     fn: T,
     args?: Parameters<T>,
     options?: {

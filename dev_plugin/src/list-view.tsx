@@ -1,17 +1,17 @@
 import { Icons, List } from "@project-gauntlet/api/components";
 import { ReactElement, useRef, useState } from "react";
-import { useAsync } from "@project-gauntlet/api/hooks";
+import { usePromise } from "@project-gauntlet/api/hooks";
 
 export default function ListView(): ReactElement {
-    // return useAsyncTestBasic()
-    // return useAsyncTestExecuteFalse()
-    // return useAsyncTestRevalidate()
-    // return useAsyncTestAbortableRevalidate()
-    // return useAsyncTestMutate()
-    // return useAsyncTestMutateOptimistic()
-    // return useAsyncTestMutateOptimisticRollback()
-    // return useAsyncTestMutateNoRevalidate()
-    // return useAsyncTestThrow()
+    // return usePromiseTestBasic()
+    // return usePromiseTestExecuteFalse()
+    // return usePromiseTestRevalidate()
+    // return usePromiseTestAbortableRevalidate()
+    // return usePromiseTestMutate()
+    // return usePromiseTestMutateOptimistic()
+    // return usePromiseTestMutateOptimisticRollback()
+    // return usePromiseTestMutateNoRevalidate()
+    // return usePromiseTestThrow()
 
     const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     const [id, setId] = useState("default");
@@ -40,8 +40,8 @@ export default function ListView(): ReactElement {
     )
 }
 
-function useAsyncTestBasic(): ReactElement {
-    const { data, error, isLoading } = useAsync(
+function usePromiseTestBasic(): ReactElement {
+    const { data, error, isLoading } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3]
     );
@@ -55,8 +55,8 @@ function useAsyncTestBasic(): ReactElement {
     )
 }
 
-function useAsyncTestExecuteFalse(): ReactElement {
-    const { data, error, isLoading } = useAsync(
+function usePromiseTestExecuteFalse(): ReactElement {
+    const { data, error, isLoading } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3],
         {
@@ -73,8 +73,8 @@ function useAsyncTestExecuteFalse(): ReactElement {
     )
 }
 
-function useAsyncTestRevalidate(): ReactElement {
-    const { data, error, isLoading, revalidate } = useAsync(
+function usePromiseTestRevalidate(): ReactElement {
+    const { data, error, isLoading, revalidate } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3],
     );
@@ -88,10 +88,10 @@ function useAsyncTestRevalidate(): ReactElement {
     )
 }
 
-function useAsyncTestAbortableRevalidate(): ReactElement {
+function usePromiseTestAbortableRevalidate(): ReactElement {
     const abortable = useRef<AbortController>();
 
-    const { data, error, isLoading, revalidate } = useAsync(
+    const { data, error, isLoading, revalidate } = usePromise(
         async (one, two, three) => {
             await inNSec(5)
         },
@@ -110,8 +110,8 @@ function useAsyncTestAbortableRevalidate(): ReactElement {
     )
 }
 
-function useAsyncTestMutate(): ReactElement {
-    const { data, error, isLoading, mutate } = useAsync(
+function usePromiseTestMutate(): ReactElement {
+    const { data, error, isLoading, mutate } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3],
     );
@@ -125,8 +125,8 @@ function useAsyncTestMutate(): ReactElement {
     )
 }
 
-function useAsyncTestMutateOptimistic(): ReactElement {
-    const { data, error, isLoading, mutate } = useAsync(
+function usePromiseTestMutateOptimistic(): ReactElement {
+    const { data, error, isLoading, mutate } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3],
     );
@@ -147,8 +147,8 @@ function useAsyncTestMutateOptimistic(): ReactElement {
     )
 }
 
-function useAsyncTestMutateOptimisticRollback(): ReactElement {
-    const { data, error, isLoading, mutate } = useAsync(
+function usePromiseTestMutateOptimisticRollback(): ReactElement {
+    const { data, error, isLoading, mutate } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3],
     );
@@ -177,8 +177,8 @@ function useAsyncTestMutateOptimisticRollback(): ReactElement {
     )
 }
 
-function useAsyncTestMutateNoRevalidate(): ReactElement {
-    const { data, error, isLoading, mutate } = useAsync(
+function usePromiseTestMutateNoRevalidate(): ReactElement {
+    const { data, error, isLoading, mutate } = usePromise(
         async (one, two, three) => await inNSec(5),
         [1, 2, 3],
     );
@@ -199,8 +199,8 @@ function useAsyncTestMutateNoRevalidate(): ReactElement {
     )
 }
 
-function useAsyncTestThrow(): ReactElement {
-    const { data, error, isLoading } = useAsync(
+function usePromiseTestThrow(): ReactElement {
+    const { data, error, isLoading } = usePromise(
         async (one, two, three) => {
             throw new Error("test")
         },
