@@ -226,7 +226,7 @@ async function runLoop() {
 }
 
 denoCore.setPromiseRejectCallback((_type, _promise, reason) => {
-    console.error("Uncaught exception in promise", reason)
+    console.error("Rejected promise", reason)
 })
 
 runCommandGenerators()
