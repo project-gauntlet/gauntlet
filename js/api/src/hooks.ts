@@ -95,6 +95,10 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
             if (promise === promiseRef.current) {
                 setState({ error, isLoading: false })
 
+                if (options && options.abortable) {
+                    options.abortable.current = undefined;
+                }
+
                 options?.onError?.(error);
             }
             return
@@ -104,6 +108,10 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
         // this approach helps to avoid race conditions
         if (promise === promiseRef.current) {
             setState({ data: promiseResult, isLoading: false });
+
+            if (options && options.abortable) {
+                options.abortable.current = undefined;
+            }
 
             options?.onData?.(promiseResult)
         }
