@@ -322,6 +322,8 @@ async fn start_js_runtime(
         (StdioPipe::Inherit, StdioPipe::Inherit)
     };
 
+    let local_storage_dir = dirs.plugin_local_storage(&plugin_uuid);
+
     // let _inspector_server = Arc::new(
     //     InspectorServer::new(
     //         "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
@@ -352,6 +354,7 @@ async fn start_js_runtime(
             maybe_inspector_server: None,
             should_wait_for_inspector_session: false,
             should_break_on_first_statement: false,
+            origin_storage_dir: Some(local_storage_dir),
             stdio: Stdio {
                 stdin: StdioPipe::Inherit,
                 stdout,

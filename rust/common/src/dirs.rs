@@ -94,6 +94,10 @@ impl Dirs {
         (out_log_file, err_log_file)
     }
 
+    pub fn plugin_local_storage(&self, plugin_uuid: &str) -> PathBuf {
+        self.state_dir().join("local_storage").join(&plugin_uuid)
+    }
+
     pub fn state_dir(&self) -> PathBuf {
         let state_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
             let dir = match self.inner.state_dir() {

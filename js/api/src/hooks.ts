@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState, useCallback, useEffect, MutableRefObject } from 'react';
+import { ReactNode, useRef, useState, useCallback, useEffect, MutableRefObject, Dispatch, SetStateAction } from 'react';
 // @ts-ignore TODO how to add declaration for this?
 import { useGauntletContext } from "gauntlet:renderer";
 
@@ -202,4 +202,46 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
         },
         ...state
     };
+}
+
+// persistent, uses localStorage under the hood
+export function useStorage<T>(key: string, initialState: T | (() => T)): [T, Dispatch<SetStateAction<T>>] {
+    return useWebStorage(key, initialState, localStorage)
+}
+
+// ephemeral, uses sessionStorage under the hood
+export function useCache<T>(key: string, initialState: T | (() => T)): [T, Dispatch<SetStateAction<T>>] {
+    return useWebStorage(key, initialState, sessionStorage)
+}
+
+// keys are shared per plugin, across all entrypoints
+// uses JSON.serialize
+function useWebStorage<T>(
+    key: string,
+    initialState: T | (() => T),
+    storageObject: Storage
+): [T, Dispatch<SetStateAction<T>>] {
+
+    const [value, setValue] = useState<T>(() => {
+        const jsonValue = storageObject.getItem(key)
+
+        if (jsonValue != null) {
+            return JSON.parse(jsonValue) as T
+        }
+
+        if (initialState instanceof Function) {
+            return initialState()
+        } else {
+            return initialState
+        }
+    })
+
+    useEffect(() => {
+        if (value === undefined) {
+            return storageObject.removeItem(key)
+        }
+        storageObject.setItem(key, JSON.stringify(value))
+    }, [key, value, storageObject])
+
+    return [value, setValue]
 }

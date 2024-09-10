@@ -18,6 +18,12 @@ export default function CommandGenerator(): GeneratedCommand[] {
             name: 'Generated Item 2',
             fn: () => {
                 console.log('generated-test-2')
+
+                sessionStorage.setItem("test", "test")
+                console.dir(sessionStorage.getItem("test"))
+
+                localStorage.setItem("test", "test")
+                console.dir(localStorage.getItem("test"))
             }
         },
         {
