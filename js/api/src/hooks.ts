@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState, useCallback, useEffect, MutableRefObject, Dispatch, SetStateAction } from 'react';
+import { ReactNode, useRef, useId, useState, useCallback, useEffect, MutableRefObject, Dispatch, SetStateAction } from 'react';
 // @ts-ignore TODO how to add declaration for this?
 import { useGauntletContext } from "gauntlet:renderer";
 
@@ -47,38 +47,110 @@ export type MutatePromiseFn<T, R> = (
     },
 ) => Promise<R>;
 
+export type UsePromiseOptions<T extends (...args: any[]) => Promise<any>> = {
+    abortable?: MutableRefObject<AbortController | undefined>;
+    execute?: boolean;
+    onError?: (error: unknown) => void;
+    onData?: (data: Awaited<ReturnType<T>>) => void;
+    onWillExecute?: (...args: Parameters<T>) => void;
+}
+
 export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
     fn: T,
     args?: Parameters<T>,
-    options?: {
-        abortable?: MutableRefObject<AbortController | undefined>;
-        execute?: boolean;
-        onError?: (error: unknown) => void;
-        onData?: (data: Awaited<ReturnType<T>>) => void;
-        onWillExecute?: (...args: Parameters<T>) => void;
-    },
+    options?: UsePromiseOptions<T>,
+): AsyncState<Awaited<ReturnType<T>>> & {
+    revalidate: () => void;
+    mutate: MutatePromiseFn<Awaited<ReturnType<T>>, R>;
+} {
+    const execute = options?.execute !== false; // execute by default
+
+    const [state, setState] = useState<AsyncState<Awaited<ReturnType<T>>>>({ isLoading: execute });
+
+    return usePromiseInternal(
+        fn,
+        state,
+        setState,
+        args || ([] as any),
+        execute,
+        options?.abortable,
+        options?.onError,
+        options?.onData,
+        options?.onWillExecute
+    )
+}
+
+export function useCachedPromise<T extends (...args: any[]) => Promise<any>, R>(
+    fn: T,
+    args?: Parameters<T>,
+    options?: UsePromiseOptions<T> & { initialState?: Awaited<ReturnType<T>> | (() => Awaited<ReturnType<T>>) },
+): AsyncState<Awaited<ReturnType<T>>> & {
+    revalidate: () => void;
+    mutate: MutatePromiseFn<Awaited<ReturnType<T>>, R>;
+} {
+    const execute = options?.execute !== false; // execute by default
+
+    const id = useId();
+
+    const { entrypointId }: { entrypointId: () => string } = useGauntletContext();
+
+    // same store is fetched and updated between command runs
+    const [state, setState] = useCache<AsyncState<Awaited<ReturnType<T>>>>("useCachedPromise" + entrypointId() + id, () => {
+        const initialState = options?.initialState;
+        if (initialState) {
+            if (initialState instanceof Function) {
+                return { isLoading: execute, data: initialState() }
+            } else {
+                return { isLoading: execute, data: initialState }
+            }
+        } else {
+             return { isLoading: execute }
+        }
+    });
+
+    return usePromiseInternal(
+        fn,
+        state,
+        setState,
+        args || ([] as any),
+        execute,
+        options?.abortable,
+        options?.onError,
+        options?.onData,
+        options?.onWillExecute
+    )
+}
+
+function usePromiseInternal<T extends (...args: any[]) => Promise<any>, R>(
+    fn: T,
+    state: AsyncState<Awaited<ReturnType<T>>>,
+    setState: Dispatch<SetStateAction<AsyncState<Awaited<ReturnType<T>>>>>,
+    args: Parameters<T>,
+    execute: boolean,
+    abortable?: MutableRefObject<AbortController | undefined>,
+    onError?: (error: unknown) => void,
+    onData?: (data: Awaited<ReturnType<T>>) => void,
+    onWillExecute?: (...args: Parameters<T>) => void,
 ): AsyncState<Awaited<ReturnType<T>>> & {
     revalidate: () => void; // will execute even if options.execute is false
     mutate: MutatePromiseFn<Awaited<ReturnType<T>>, R>; // will execute even if options.execute is false
 } {
-    const execute = options?.execute !== false; // execute by default
 
     const promiseRef = useRef<Promise<any>>();
-    const [state, setState] = useState<AsyncState<Awaited<ReturnType<T>>>>({ isLoading: execute });
 
     useEffect(() => {
         return () => {
-            options?.abortable?.current?.abort();
+            abortable?.current?.abort();
         };
-    }, [options?.abortable]);
+    }, [abortable]);
 
     const callback = useCallback(async (...args: Parameters<T>): Promise<void> => {
-        if (options && options.abortable) {
-            options.abortable.current?.abort();
-            options.abortable.current = new AbortController()
+        if (abortable) {
+            abortable.current?.abort();
+            abortable.current = new AbortController()
         }
 
-        options?.onWillExecute?.(...args);
+        onWillExecute?.(...args);
 
         const promise = fn(...args);
 
@@ -95,11 +167,11 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
             if (promise === promiseRef.current) {
                 setState({ error, isLoading: false })
 
-                if (options && options.abortable) {
-                    options.abortable.current = undefined;
+                if (abortable) {
+                    abortable.current = undefined;
                 }
 
-                options?.onError?.(error);
+                onError?.(error);
             }
             return
         }
@@ -109,23 +181,23 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
         if (promise === promiseRef.current) {
             setState({ data: promiseResult, isLoading: false });
 
-            if (options && options.abortable) {
-                options.abortable.current = undefined;
+            if (abortable) {
+                abortable.current = undefined;
             }
 
-            options?.onData?.(promiseResult)
+            onData?.(promiseResult)
         }
-    }, args || []);
+    }, args);
 
     useEffect(() => {
         if (execute) {
-            callback(...(args || ([] as any)));
+            callback(...args);
         }
     }, [callback, execute]);
 
     return {
         revalidate: () => {
-            callback(...(args || ([] as any)));
+            callback(...args);
         },
         mutate: async (
             asyncUpdate: Promise<R>,
@@ -149,7 +221,7 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
                     const asyncUpdateResult = await asyncUpdate;
 
                     if (shouldRevalidateAfter) {
-                        callback(...(args || ([] as any)));
+                        callback(...args);
                     } else {
                         // set loading false, only when not revalidating, because revalidate will unset it itself
                         setState(prevState => ({ ...prevState, isLoading: false }));
@@ -191,7 +263,7 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
                 const asyncUpdateResult = await asyncUpdate;
 
                 if (shouldRevalidateAfter) {
-                    callback(...(args || ([] as any)));
+                    callback(...args);
                 } else {
                     // set loading false, only when not revalidating, because revalidate will unset it itself
                     setState(prevState => ({ ...prevState, isLoading: false }));

@@ -108,6 +108,13 @@ type = 'view'
 description = ''
 
 [[entrypoint]]
+id = 'hooks-view'
+name = 'Hooks view'
+path = 'src/hooks-view.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
 id = 'command-a'
 name = 'Command A'
 path = 'src/command-a.ts'

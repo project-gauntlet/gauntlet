@@ -52,19 +52,19 @@ class GauntletContextValue {
         this._navStack.push(view)
     }
 
-    renderLocation(): RenderLocation {
+    renderLocation = (): RenderLocation => {
         return this._renderLocation!!
     }
 
-    isBottommostView() {
+    isBottommostView = () => {
         return this._navStack.length === 1
     }
 
-    topmostView() {
+    topmostView = () => {
         return this._navStack[this._navStack.length - 1]
     }
 
-    entrypointId() {
+    entrypointId = () => {
         return this._entrypointId!!
     }
 
