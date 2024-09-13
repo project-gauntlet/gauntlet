@@ -85,7 +85,9 @@ function UsePromiseTestBasic(): ReactElement {
             isLoading={isLoading}
             onSelectionChange={onSelectionChangeHandler(popView)}
         >
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+               <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -152,7 +154,9 @@ function UsePromiseTestExecuteFalse(): ReactElement {
             isLoading={isLoading}
             onSelectionChange={onSelectionChangeHandler(popView)}
         >
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -172,8 +176,10 @@ function UsePromiseTestRevalidate(): ReactElement {
             isLoading={isLoading}
             onSelectionChange={onSelectionChangeHandler(popView, () => revalidate())}
         >
-            <List.Item id="run" title="Run" icon={Icons.Sun}/>
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -199,8 +205,10 @@ function UsePromiseTestAbortableRevalidate(): ReactElement {
             isLoading={isLoading}
             onSelectionChange={onSelectionChangeHandler(popView, () => revalidate())}
         >
-            <List.Item id="run" title="Run" icon={Icons.Sun}/>
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -221,8 +229,10 @@ function UsePromiseTestMutate(): ReactElement {
                 await mutate(inNSec(5))
             })}
         >
-            <List.Item id="run" title="Run" icon={Icons.Sun}/>
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -248,8 +258,10 @@ function UsePromiseTestMutateOptimistic(): ReactElement {
                 )
             })}
         >
-            <List.Item id="run" title="Run" icon={Icons.Sun}/>
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -283,8 +295,10 @@ function UsePromiseTestMutateOptimisticRollback(): ReactElement {
                 );
             })}
         >
-            <List.Item id="run" title={"Run " + data} icon={Icons.Sun}/>
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="run" title={"Run " + data} icon={Icons.Sun}/>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -310,8 +324,10 @@ function UsePromiseTestMutateNoRevalidate(): ReactElement {
                 )
             })}
         >
-            <List.Item id="run" title="Run" icon={Icons.Sun}/>
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
@@ -332,7 +348,9 @@ function UsePromiseTestThrow(): ReactElement {
             isLoading={isLoading}
             onSelectionChange={onSelectionChangeHandler(popView)}
         >
-            <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            <List.Section title={"Data " + data}>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
         </List>
     )
 }
