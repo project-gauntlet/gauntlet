@@ -15,28 +15,11 @@ export function useNavigation(): { popView: () => void, pushView: (component: Re
     }
 }
 
-export type AsyncStateInitial = {
-    isLoading: boolean; // false if options.execute is false, otherwise true
-    error?: undefined;
-    data?: undefined;
-};
-export type AsyncStateLoading<T> = {
-    isLoading: true;
-    error?: unknown | undefined;
+export type AsyncState<T> = {
+    isLoading: boolean;
+    error?: unknown;
     data?: T;
 };
-export type AsyncStateError = {
-    isLoading: false;
-    error: unknown;
-    data?: undefined;
-};
-export type AsyncStateSuccess<T> = {
-    isLoading: false;
-    error?: undefined;
-    data: T;
-};
-
-export type AsyncState<T> = AsyncStateInitial | AsyncStateLoading<T> | AsyncStateError | AsyncStateSuccess<T>;
 
 export type MutatePromiseFn<T, R> = (
     asyncUpdate: Promise<R>,
@@ -47,25 +30,23 @@ export type MutatePromiseFn<T, R> = (
     },
 ) => Promise<R>;
 
-export type UsePromiseOptions<T extends (...args: any[]) => Promise<any>> = {
-    abortable?: MutableRefObject<AbortController | undefined>;
-    execute?: boolean;
-    onError?: (error: unknown) => void;
-    onData?: (data: Awaited<ReturnType<T>>) => void;
-    onWillExecute?: (...args: Parameters<T>) => void;
-}
-
-export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
-    fn: T,
-    args?: Parameters<T>,
-    options?: UsePromiseOptions<T>,
-): AsyncState<Awaited<ReturnType<T>>> & {
+export function usePromise<Return, Args extends unknown[], R = unknown>(
+    fn: (...args: Args) => Promise<Return>,
+    args?: Args,
+    options?: {
+        abortable?: MutableRefObject<AbortController | undefined>;
+        execute?: boolean;
+        onError?: (error: unknown) => void;
+        onData?: (data: Return) => void;
+        onWillExecute?: (...args: Args) => void;
+    },
+): AsyncState<Return> & {
     revalidate: () => void;
-    mutate: MutatePromiseFn<Awaited<ReturnType<T>>, R>;
+    mutate: MutatePromiseFn<Return, R>;
 } {
     const execute = options?.execute !== false; // execute by default
 
-    const [state, setState] = useState<AsyncState<Awaited<ReturnType<T>>>>({ isLoading: execute });
+    const [state, setState] = useState<AsyncState<Return>>({ isLoading: execute });
 
     return usePromiseInternal(
         fn,
@@ -80,13 +61,20 @@ export function usePromise<T extends (...args: any[]) => Promise<any>, R>(
     )
 }
 
-export function useCachedPromise<T extends (...args: any[]) => Promise<any>, R>(
-    fn: T,
-    args?: Parameters<T>,
-    options?: UsePromiseOptions<T> & { initialState?: Awaited<ReturnType<T>> | (() => Awaited<ReturnType<T>>) },
-): AsyncState<Awaited<ReturnType<T>>> & {
+export function useCachedPromise<Return, Args extends unknown[], R = unknown>(
+    fn: (...args: Args) => Promise<Return>,
+    args?: Args,
+    options?: {
+        initialState?: Return | (() => Return),
+        abortable?: MutableRefObject<AbortController | undefined>;
+        execute?: boolean;
+        onError?: (error: unknown) => void;
+        onData?: (data: Return) => void;
+        onWillExecute?: (...args: Args) => void;
+    },
+): AsyncState<Return> & {
     revalidate: () => void;
-    mutate: MutatePromiseFn<Awaited<ReturnType<T>>, R>;
+    mutate: MutatePromiseFn<Return, R>;
 } {
     const execute = options?.execute !== false; // execute by default
 
@@ -95,7 +83,7 @@ export function useCachedPromise<T extends (...args: any[]) => Promise<any>, R>(
     const { entrypointId }: { entrypointId: () => string } = useGauntletContext();
 
     // same store is fetched and updated between command runs
-    const [state, setState] = useCache<AsyncState<Awaited<ReturnType<T>>>>("useCachedPromise" + entrypointId() + id, () => {
+    const [state, setState] = useCache<AsyncState<Return>>("useCachedPromise" + entrypointId() + id, (): AsyncState<Return> => {
         const initialState = options?.initialState;
         if (initialState) {
             if (initialState instanceof Function) {
@@ -121,19 +109,19 @@ export function useCachedPromise<T extends (...args: any[]) => Promise<any>, R>(
     )
 }
 
-function usePromiseInternal<T extends (...args: any[]) => Promise<any>, R>(
-    fn: T,
-    state: AsyncState<Awaited<ReturnType<T>>>,
-    setState: Dispatch<SetStateAction<AsyncState<Awaited<ReturnType<T>>>>>,
-    args: Parameters<T>,
+function usePromiseInternal<Return, Args extends unknown[], R = unknown>(
+    fn: (...args: Args) => Promise<Return>,
+    state: AsyncState<Return>,
+    setState: Dispatch<SetStateAction<AsyncState<Return>>>,
+    args: Args,
     execute: boolean,
     abortable?: MutableRefObject<AbortController | undefined>,
     onError?: (error: unknown) => void,
-    onData?: (data: Awaited<ReturnType<T>>) => void,
-    onWillExecute?: (...args: Parameters<T>) => void,
-): AsyncState<Awaited<ReturnType<T>>> & {
+    onData?: (data: Return) => void,
+    onWillExecute?: (...args: Args) => void,
+): AsyncState<Return> & {
     revalidate: () => void; // will execute even if options.execute is false
-    mutate: MutatePromiseFn<Awaited<ReturnType<T>>, R>; // will execute even if options.execute is false
+    mutate: MutatePromiseFn<Return, R>; // will execute even if options.execute is false
 } {
 
     const promiseRef = useRef<Promise<any>>();
@@ -144,7 +132,7 @@ function usePromiseInternal<T extends (...args: any[]) => Promise<any>, R>(
         };
     }, [abortable]);
 
-    const callback = useCallback(async (...args: Parameters<T>): Promise<void> => {
+    const callback = useCallback(async (...args: Args): Promise<void> => {
         if (abortable) {
             abortable.current?.abort();
             abortable.current = new AbortController()
@@ -158,7 +146,7 @@ function usePromiseInternal<T extends (...args: any[]) => Promise<any>, R>(
 
         promiseRef.current = promise;
 
-        let promiseResult: Awaited<ReturnType<T>>;
+        let promiseResult: Return;
         try {
             promiseResult = await promise;
         } catch (error) {
@@ -202,8 +190,8 @@ function usePromiseInternal<T extends (...args: any[]) => Promise<any>, R>(
         mutate: async (
             asyncUpdate: Promise<R>,
             options?: {
-                optimisticUpdate?: (data: Awaited<ReturnType<T>> | undefined) => Awaited<ReturnType<T>>;
-                rollbackOnError?: boolean | ((data: Awaited<ReturnType<T>> | undefined) => Awaited<ReturnType<T>>);
+                optimisticUpdate?: (data: Return | undefined) => Return;
+                rollbackOnError?: boolean | ((data: Return | undefined) => Return);
                 shouldRevalidateAfter?: boolean;
             },
         ): Promise<R> => {
@@ -231,20 +219,12 @@ function usePromiseInternal<T extends (...args: any[]) => Promise<any>, R>(
                 } catch (e) {
                     switch (typeof rollbackOnError) {
                         case "undefined": {
-                            if (prevData === undefined) {
-                                setState({ data: prevData, isLoading: false })
-                            } else {
-                                setState({ data: prevData, isLoading: false })
-                            }
+                            setState({ data: prevData, isLoading: false })
                             break;
                         }
                         case "boolean": {
                             if (rollbackOnError) {
-                                if (prevData === undefined) {
-                                    setState({ data: prevData, isLoading: false })
-                                } else {
-                                    setState({ data: prevData, isLoading: false })
-                                }
+                                setState({ data: prevData, isLoading: false })
                             }
                             break;
                         }
@@ -316,4 +296,92 @@ function useWebStorage<T>(
     }, [key, value, storageObject])
 
     return [value, setValue]
+}
+
+export function useFetch<T, R = unknown>(
+    url: RequestInfo | URL,
+    options?: {
+        request?: RequestInit,
+        parse?: (response: Response) => T | Promise<T>;
+        initialState?: T | (() => T),
+        execute?: boolean;
+        onError?: (error: unknown) => void;
+        onData?: (data: T) => void;
+        onWillExecute?: (input: RequestInfo | URL, init?: RequestInit) => void;
+    },
+): AsyncState<T> & {
+    revalidate: () => void;
+    mutate: MutatePromiseFn<T, R>;
+};
+export function useFetch<V, T, R = unknown>(
+    url: RequestInfo | URL,
+    options: {
+        request?: RequestInit,
+        parse?: (response: Response) => V | Promise<V>;
+        map: (result: V) => T | Promise<T>;
+        initialState?: T | (() => T),
+        execute?: boolean;
+        onError?: (error: unknown) => void;
+        onData?: (data: T) => void;
+        onWillExecute?: (input: RequestInfo | URL, init?: RequestInit) => void;
+    },
+): AsyncState<T> & {
+    revalidate: () => void;
+    mutate: MutatePromiseFn<T, R>;
+};
+export function useFetch<V, T, R = unknown>(
+    url: RequestInfo | URL,
+    options?: {
+        request?: RequestInit,
+        parse?: (response: Response) => V | Promise<V>;
+        map?: (result: V) => T | Promise<T>;
+        initialState?: T | V | (() => T | V),
+        execute?: boolean;
+        onError?: (error: unknown) => void;
+        onData?: (data: T | V) => void;
+        onWillExecute?: (input: RequestInfo | URL, init?: RequestInit) => void;
+    },
+): AsyncState<T | V> & {
+    revalidate: () => void;
+    mutate: MutatePromiseFn<T | V, R>;
+} {
+    const abortable = useRef<AbortController>();
+
+    return useCachedPromise(
+        async (inputParam: RequestInfo | URL): Promise<T | V> => {
+            const response = await fetch(inputParam, { ...options?.request, signal: abortable.current?.signal });
+
+            if (options?.parse) {
+                const parsed: V = await options?.parse(response)
+
+                if (options?.map) {
+                    return options?.map(parsed)
+                } else {
+                    return parsed
+                }
+            } else {
+                const content = response.headers.get("content-type");
+                if (!content || !content.includes("application/json")) {
+                    throw new Error("Content-Type is not 'application/json', please specify custom options.parse")
+                }
+
+                const parsed: V = await response.json()
+
+                if (options?.map) {
+                    return options?.map(parsed)
+                } else {
+                    return parsed
+                }
+            }
+        },
+        [url],
+        {
+            initialState: options?.initialState,
+            abortable,
+            execute: options?.execute,
+            onError: options?.onError,
+            onData: options?.onData,
+            onWillExecute: options?.onWillExecute,
+        }
+    )
 }

@@ -1,6 +1,6 @@
 import { Icons, List } from "@project-gauntlet/api/components";
 import React, { ReactElement, useRef } from "react";
-import { useCachedPromise, useNavigation, usePromise } from "@project-gauntlet/api/hooks";
+import { useCachedPromise, useFetch, useNavigation, usePromise } from "@project-gauntlet/api/hooks";
 
 export default function ListView(): ReactElement {
     const { pushView } = useNavigation();
@@ -53,6 +53,14 @@ export default function ListView(): ReactElement {
                         pushView(<UseCachedPromiseInitialState/>)
                         break;
                     }
+                    case "UseFetchBasic": {
+                        pushView(<UseFetchBasic/>)
+                        break;
+                    }
+                    case "UseFetchMap": {
+                        pushView(<UseFetchMap/>)
+                        break;
+                    }
                 }
             }}
         >
@@ -67,6 +75,8 @@ export default function ListView(): ReactElement {
             <List.Item id="UsePromiseTestThrow" title="UsePromiseTestThrow"/>
             <List.Item id="UseCachedPromiseBasic" title="UseCachedPromiseBasic"/>
             <List.Item id="UseCachedPromiseInitialState" title="UseCachedPromiseInitialState"/>
+            <List.Item id="UseFetchBasic" title="UseFetchBasic"/>
+            <List.Item id="UseFetchMap" title="UseFetchMap"/>
         </List>
     )
 }
@@ -339,6 +349,58 @@ function UsePromiseTestThrow(): ReactElement {
             throw new Error("test")
         },
         [1, 2, 3],
+    );
+
+    printState(data, error, isLoading)
+
+    return (
+        <List
+            isLoading={isLoading}
+            onSelectionChange={onSelectionChangeHandler(popView)}
+        >
+            <List.Section title={"Data " + data}>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
+        </List>
+    )
+}
+
+function UseFetchBasic(): ReactElement {
+    const { popView } = useNavigation();
+
+    interface GithubLatestRelease {
+
+    }
+
+    const { data, error, isLoading } = useFetch<GithubLatestRelease>(
+        "https://api.github.com/repos/project-gauntlet/gauntlet/releases/latest"
+    );
+
+    printState(data, error, isLoading)
+
+    return (
+        <List
+            isLoading={isLoading}
+            onSelectionChange={onSelectionChangeHandler(popView)}
+        >
+            <List.Section title={"Data " + data}>
+                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+            </List.Section>
+        </List>
+    )
+}
+
+function UseFetchMap(): ReactElement {
+    interface GithubLatestRelease {
+        url: string
+    }
+
+    const { popView } = useNavigation();
+    const { data, error, isLoading } = useFetch<GithubLatestRelease, string>(
+        "https://api.github.com/repos/project-gauntlet/gauntlet/releases/latest",
+        {
+            map: result => result.url
+        }
     );
 
     printState(data, error, isLoading)

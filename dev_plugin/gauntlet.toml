@@ -147,4 +147,4 @@ os = 'windows'
 [permissions]
 environment = ["RUST_LOG"]
 system = ["systemMemoryInfo"]
-network = ["upload.wikimedia.org"]
+network = ["upload.wikimedia.org", "api.github.com"]
