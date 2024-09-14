@@ -38,7 +38,7 @@ use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_r
 use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::plugins::applications::{list_applications, open_application};
-use crate::plugins::js::plugins::numbat::run_numbat;
+use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
 use crate::plugins::js::search::reload_search_index;
@@ -334,6 +334,12 @@ async fn start_js_runtime(
     let core_url = "gauntlet:core".parse().expect("should be valid");
     let unused_url = "gauntlet:unused".parse().expect("should be valid");
 
+    let numbat_context = if plugin_id.to_string() == "builtin://calculator" {
+        Some(NumbatContext::new())
+    } else {
+        None
+    };
+
     let mut worker = MainWorker::bootstrap_from_options(
         unused_url,
         permissions_container,
@@ -347,6 +353,7 @@ async fn start_js_runtime(
                 repository,
                 search_index,
                 icon_cache,
+                numbat_context
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -534,6 +541,7 @@ deno_core::extension!(
         db_repository: DataDbRepository,
         search_index: SearchIndex,
         icon_cache: IconCache,
+        numbat_context: Option<NumbatContext>,
     },
     state = |state, options| {
         state.put(options.event_receiver);
@@ -543,6 +551,7 @@ deno_core::extension!(
         state.put(options.db_repository);
         state.put(options.search_index);
         state.put(options.icon_cache);
+        state.put(options.numbat_context);
     },
 );
 
