@@ -44,6 +44,7 @@ pub enum ContainerStyle {
     PreferenceRequiredViewDescription,
     Root,
     RootBottomPanel,
+    RootBottomPanelActionButtonText,
     RootInner,
     RootTopPanel,
     Grid,
@@ -351,6 +352,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::ListInner => {
                 self.padding(theme.list_inner.padding.to_iced())
+            }
+            ContainerStyle::RootBottomPanelActionButtonText => {
+                self.padding(theme.root_bottom_panel_action_button_text.padding.to_iced())
             }
         }.into()
     }

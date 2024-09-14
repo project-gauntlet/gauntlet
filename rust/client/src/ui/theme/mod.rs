@@ -24,7 +24,7 @@ mod loading_bar;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
-const CURRENT_COLOR_THEME_VERSION: u64 = 1;
+const CURRENT_COLOR_THEME_VERSION: u64 = 2;
 const CURRENT_THEME_VERSION: u64 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +104,7 @@ pub struct GauntletTheme {
     preference_required_view_description: ThemePaddingOnly,
     root_bottom_panel: ThemePaddingBackgroundColor,
     root_bottom_panel_action_button: ThemeButton,
+    root_bottom_panel_action_button_text: ThemePaddingOnly,
     root_content: ThemePaddingOnly,
     root_top_panel: ThemePaddingOnly,
     root_top_panel_button: ThemeButton,
@@ -259,8 +260,8 @@ impl GauntletTheme {
                 padding: padding_all(0.0)
             },
             action_shortcut_modifier: ThemeActionShortcutModifier {
-                padding: padding_axis(0.0, 4.0),
-                spacing: 4.0,
+                padding: padding_axis(0.0, 8.0),
+                spacing: 8.0,
                 background_color: background_lighter_color,
                 border_radius: 4.0,
                 border_width: 0.0,
@@ -292,13 +293,6 @@ impl GauntletTheme {
             },
             metadata_link_icon: ThemePaddingOnly {
                 padding: padding_axis(0.0, 4.0),
-            },
-            root_bottom_panel: ThemePaddingBackgroundColor {
-                padding: padding_axis(4.0, 8.0),
-                background_color: background_overlay_color,
-            },
-            root_top_panel: ThemePaddingOnly {
-                padding: padding_all(12.0),
             },
             list_item_subtitle: ThemePaddingTextColor {
                 padding: padding_all(4.0),
@@ -350,6 +344,9 @@ impl GauntletTheme {
             metadata_separator: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
+            root_top_panel: ThemePaddingOnly {
+                padding: padding_all(12.0),
+            },
             root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: background_light_color,
@@ -360,15 +357,22 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
+            root_bottom_panel: ThemePaddingBackgroundColor {
+                padding: padding_axis(6.0, 8.0),
+                background_color: background_overlay_color,
+            },
             root_bottom_panel_action_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: background_light_color,
-                background_color_hovered: background_lighter_color,
+                background_color: TRANSPARENT,
+                background_color_hovered: background_light_color,
                 text_color,
                 text_color_hovered: text_color,
                 border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
+            },
+            root_bottom_panel_action_button_text: ThemePaddingOnly {
+                padding: padding(0.0, 8.0, 0.0, 4.0),
             },
             list_item: ThemeButton {
                 padding: padding_all(5.0),

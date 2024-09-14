@@ -17,7 +17,7 @@ use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use itertools::Itertools;
 
-use common::model::{PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
+use common::model::{PhysicalKey, PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
 use common_ui::shortcut_to_text;
 
 use crate::model::UiViewEvent;
@@ -242,36 +242,7 @@ impl ComponentWidgetWrapper {
                 let shortcut_element: Option<Element<_>> = id.as_ref()
                     .map(|id| action_shortcuts.get(id))
                     .flatten()
-                    .map(|shortcut| {
-                        let mut result = vec![];
-
-                        let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) = shortcut_to_text(shortcut);
-
-                        fn apply_modifier<'a, 'b>(result: &'a mut Vec<Element<'b, ComponentWidgetEvent>>, modifier: Option<Element<'b, ComponentWidgetEvent>>) {
-                            if let Some(modifier) = modifier {
-                                let modifier: Element<_> = container(modifier)
-                                    .themed(ContainerStyle::ActionShortcutModifier);
-
-                                let modifier: Element<_> = container(modifier)
-                                    .themed(ContainerStyle::ActionShortcutModifiersInit);
-
-                                result.push(modifier);
-                            }
-                        }
-
-                        apply_modifier(&mut result, meta_modifier_text);
-                        apply_modifier(&mut result, control_modifier_text);
-                        apply_modifier(&mut result, shift_modifier_text);
-                        apply_modifier(&mut result, alt_modifier_text);
-
-                        let key_name: Element<_> = container(key_name)
-                            .themed(ContainerStyle::ActionShortcutModifier);
-
-                        result.push(key_name);
-
-                        row(result)
-                            .themed(RowStyle::ActionShortcut)
-                    });
+                    .map(|shortcut| render_shortcut(shortcut));
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
                     let text: Element<_> = text(title)
@@ -1296,7 +1267,24 @@ fn render_root<'a>(
         .ok();
 
     let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
-        let action_panel_toggle: Element<_> = button(text("Actions"))
+        let actions_text: Element<_> = text("Actions")
+            .into();
+
+        let actions_text: Element<_> = container(actions_text)
+            .themed(ContainerStyle::RootBottomPanelActionButtonText);
+
+        let shortcut = render_shortcut(&PhysicalShortcut {
+            physical_key: PhysicalKey::KeyK,
+            modifier_shift: false,
+            modifier_control: false,
+            modifier_alt: true,
+            modifier_meta: false,
+        });
+
+        let action_panel_toggle_content: Element<_> = row(vec![actions_text, shortcut])
+            .into();
+
+        let action_panel_toggle: Element<_> = button(action_panel_toggle_content)
             .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
             .themed(ButtonStyle::RootBottomPanelActionButton);
 
@@ -1384,6 +1372,46 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
     }
 
     text.into()
+}
+
+fn render_shortcut<'a>(shortcut: &PhysicalShortcut) -> Element<'a, ComponentWidgetEvent> {
+    let mut result = vec![];
+
+    let (
+        key_name,
+        alt_modifier_text,
+        meta_modifier_text,
+        control_modifier_text,
+        shift_modifier_text
+    ) = shortcut_to_text(shortcut);
+
+    fn apply_modifier<'result, 'element>(
+        result: &'result mut Vec<Element<'element, ComponentWidgetEvent>>,
+        modifier: Option<Element<'element, ComponentWidgetEvent>>
+    ) {
+        if let Some(modifier) = modifier {
+            let modifier: Element<_> = container(modifier)
+                .themed(ContainerStyle::ActionShortcutModifier);
+
+            let modifier: Element<_> = container(modifier)
+                .themed(ContainerStyle::ActionShortcutModifiersInit);
+
+            result.push(modifier);
+        }
+    }
+
+    apply_modifier(&mut result, meta_modifier_text);
+    apply_modifier(&mut result, control_modifier_text);
+    apply_modifier(&mut result, shift_modifier_text);
+    apply_modifier(&mut result, alt_modifier_text);
+
+    let key_name: Element<_> = container(key_name)
+        .themed(ContainerStyle::ActionShortcutModifier);
+
+    result.push(key_name);
+
+    row(result)
+        .themed(RowStyle::ActionShortcut)
 }
 
 fn render_children_string<'a>(
