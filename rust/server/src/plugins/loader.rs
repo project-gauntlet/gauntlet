@@ -14,7 +14,7 @@ use itertools::Itertools;
 use tracing_subscriber::fmt::format;
 use common::model::{DownloadStatus, PluginId};
 use crate::model::ActionShortcutKey;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions};
 use crate::plugins::download_status::DownloadStatusHolder;
 
 pub struct PluginLoader {
@@ -242,6 +242,18 @@ impl PluginLoader {
             }
         }
 
+        let has_inline_view = plugin_manifest.entrypoint
+            .iter()
+            .find(|entrypoint| matches!(entrypoint.entrypoint_type, PluginManifestEntrypointTypes::InlineView))
+            .is_some();
+
+        if has_inline_view {
+            let main_search_bar = &permissions.main_search_bar;
+            if !main_search_bar.contains(&PluginManifestMainSearchBarPermissions::Read) {
+                return Err(anyhow!("Plugin uses entrypoint type 'inline-view' but doesn't specify main search bar 'read' permission"))
+            }
+        }
+
         let plugin_name = plugin_manifest.gauntlet.name;
         let plugin_description = plugin_manifest.gauntlet.description;
 
@@ -333,6 +345,16 @@ impl PluginLoader {
             })
             .collect();
 
+        let main_search_bar = plugin_manifest.permissions
+            .main_search_bar
+            .into_iter()
+            .map(|permission| {
+                match permission {
+                    PluginManifestMainSearchBarPermissions::Read => DbPluginMainSearchBarPermissions::Read,
+                }
+            })
+            .collect();
+
         let permissions = DbPluginPermissions {
             environment: plugin_manifest.permissions.environment,
             high_resolution_time: plugin_manifest.permissions.high_resolution_time,
@@ -343,6 +365,7 @@ impl PluginLoader {
             run_subprocess: plugin_manifest.permissions.run_subprocess,
             system: plugin_manifest.permissions.system,
             clipboard,
+            main_search_bar,
         };
 
         Ok(PluginDownloadData {
@@ -829,6 +852,8 @@ pub struct PluginManifestPermissions {
     system: Vec<String>,
     #[serde(default)]
     clipboard: Vec<PluginManifestClipboardPermissions>,
+    #[serde(default)]
+    main_search_bar: Vec<PluginManifestMainSearchBarPermissions>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -840,3 +865,10 @@ pub enum PluginManifestClipboardPermissions {
     #[serde(rename = "clear")]
     Clear
 }
+
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+pub enum PluginManifestMainSearchBarPermissions {
+    #[serde(rename = "read")]
+    Read,
+}
+

@@ -9,3 +9,5 @@ path = 'src/default.tsx'
 type = 'inline-view'
 description = ''
 
+[permissions]
+main_search_bar = ["read"]

@@ -83,6 +83,7 @@ pub struct PluginPermissions {
     pub run_subprocess: Vec<String>,
     pub system: Vec<String>,
     pub clipboard: Vec<PluginClipboardPermissions>,
+    pub main_search_bar: Vec<PluginMainSearchBarPermissions>,
 }
 
 #[derive(Clone, Debug)]
@@ -95,6 +96,11 @@ pub enum PluginClipboardPermissions {
     Read,
     Write,
     Clear
+}
+
+#[derive(Clone, Debug)]
+pub enum PluginMainSearchBarPermissions {
+    Read,
 }
 
 

@@ -132,6 +132,8 @@ pub struct DbPluginPermissions {
     pub system: Vec<String>,
     #[serde(default)]
     pub clipboard: Vec<DbPluginClipboardPermissions>,
+    #[serde(default)]
+    pub main_search_bar: Vec<DbPluginMainSearchBarPermissions>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -142,6 +144,12 @@ pub enum DbPluginClipboardPermissions {
     Write,
     #[serde(rename = "clear")]
     Clear
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum DbPluginMainSearchBarPermissions {
+    #[serde(rename = "read")]
+    Read,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
