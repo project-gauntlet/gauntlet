@@ -1,11 +1,13 @@
+use std::cell::RefCell;
 use std::io::Cursor;
-
+use std::rc::Rc;
 use anyhow::anyhow;
 use arboard::ImageData;
-use deno_core::op;
+use deno_core::{op, OpState};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
+use crate::plugins::js::{PluginClipboardPermissions, PluginData};
 
 fn unknown_err_clipboard(err: arboard::Error) -> anyhow::Error {
     anyhow!("UNKNOWN_ERROR: {:?}", err)
@@ -26,7 +28,21 @@ struct ClipboardData {
 }
 
 #[op]
-async fn clipboard_read() -> anyhow::Result<ClipboardData> {
+async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<ClipboardData> {
+    {
+        let state = state.borrow();
+
+        let allow = state
+            .borrow::<PluginData>()
+            .permissions()
+            .clipboard
+            .contains(&PluginClipboardPermissions::Read);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+        }
+    }
+
     spawn_blocking(|| {
         let mut clipboard = arboard::Clipboard::new()
             .map_err(|err| unknown_err_clipboard(err))?;
@@ -74,7 +90,21 @@ async fn clipboard_read() -> anyhow::Result<ClipboardData> {
 
 
 #[op]
-async fn clipboard_read_text() -> anyhow::Result<Option<String>> {
+async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Option<String>> {
+    {
+        let state = state.borrow();
+
+        let allow = state
+            .borrow::<PluginData>()
+            .permissions()
+            .clipboard
+            .contains(&PluginClipboardPermissions::Read);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+        }
+    }
+
     spawn_blocking(|| {
         let mut clipboard = arboard::Clipboard::new()
             .map_err(|err| unknown_err_clipboard(err))?;
@@ -96,7 +126,21 @@ async fn clipboard_read_text() -> anyhow::Result<Option<String>> {
 }
 
 #[op]
-async fn clipboard_write(data: ClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
+async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
+    {
+        let state = state.borrow();
+
+        let allow = state
+            .borrow::<PluginData>()
+            .permissions()
+            .clipboard
+            .contains(&PluginClipboardPermissions::Write);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+        }
+    }
+
     spawn_blocking(|| {
         let mut clipboard = arboard::Clipboard::new()
             .map_err(|err| unknown_err_clipboard(err))?;
@@ -134,7 +178,21 @@ async fn clipboard_write(data: ClipboardData) -> anyhow::Result<()> { // TODO de
 }
 
 #[op]
-async fn clipboard_write_text(data: String) -> anyhow::Result<()> {
+async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyhow::Result<()> {
+    {
+        let state = state.borrow();
+
+        let allow = state
+            .borrow::<PluginData>()
+            .permissions()
+            .clipboard
+            .contains(&PluginClipboardPermissions::Write);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+        }
+    }
+
     spawn_blocking(|| {
         let mut clipboard = arboard::Clipboard::new()
             .map_err(|err| unknown_err_clipboard(err))?;
@@ -147,7 +205,21 @@ async fn clipboard_write_text(data: String) -> anyhow::Result<()> {
 }
 
 #[op]
-async fn clipboard_clear() -> anyhow::Result<()> {
+async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+    {
+        let state = state.borrow();
+
+        let allow = state
+            .borrow::<PluginData>()
+            .permissions()
+            .clipboard
+            .contains(&PluginClipboardPermissions::Clear);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard"));
+        }
+    }
+
     spawn_blocking(|| {
         let mut clipboard = arboard::Clipboard::new()
             .map_err(|err| unknown_err_clipboard(err))?;

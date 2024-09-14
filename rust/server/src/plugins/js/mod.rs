@@ -31,7 +31,7 @@ use component_model::{Children, Component, create_component_model, Property, Pro
 
 use crate::model::{IntermediateUiEvent, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::applications::{DesktopEntry, get_apps};
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint, DbPluginClipboardPermissions};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
 use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
@@ -82,7 +82,21 @@ pub struct PluginPermissions {
     pub fs_write_access: Vec<PathBuf>,
     pub run_subprocess: Vec<String>,
     pub system: Vec<String>,
+    pub clipboard: Vec<PluginClipboardPermissions>,
 }
+
+#[derive(Clone, Debug)]
+pub struct PluginRuntimePermissions {
+    pub clipboard: Vec<PluginClipboardPermissions>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PluginClipboardPermissions {
+    Read,
+    Write,
+    Clear
+}
+
 
 #[derive(Clone, Debug)]
 pub enum PluginCommand {
@@ -340,6 +354,10 @@ async fn start_js_runtime(
         None
     };
 
+    let runtime_permissions = PluginRuntimePermissions {
+        clipboard: permissions.clipboard,
+    };
+
     let mut worker = MainWorker::bootstrap_from_options(
         unused_url,
         permissions_container,
@@ -347,7 +365,7 @@ async fn start_js_runtime(
             module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
-                PluginData::new(plugin_id, plugin_uuid, inline_view_entrypoint_id),
+                PluginData::new(plugin_id, plugin_uuid, inline_view_entrypoint_id, runtime_permissions),
                 frontend_api,
                 ComponentModel::new(component_model),
                 repository,
@@ -682,15 +700,17 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
 pub struct PluginData {
     plugin_id: PluginId,
     plugin_uuid: String,
-    inline_view_entrypoint_id: Option<String>
+    inline_view_entrypoint_id: Option<String>,
+    permissions: PluginRuntimePermissions
 }
 
 impl PluginData {
-    fn new(plugin_id: PluginId, plugin_uuid: String, inline_view_entrypoint_id: Option<String>) -> Self {
+    fn new(plugin_id: PluginId, plugin_uuid: String, inline_view_entrypoint_id: Option<String>, permissions: PluginRuntimePermissions) -> Self {
         Self {
             plugin_id,
             plugin_uuid,
-            inline_view_entrypoint_id
+            inline_view_entrypoint_id,
+            permissions
         }
     }
 
@@ -704,6 +724,10 @@ impl PluginData {
 
     fn inline_view_entrypoint_id(&self) -> Option<String> {
         self.inline_view_entrypoint_id.clone()
+    }
+
+    fn permissions(&self) -> &PluginRuntimePermissions {
+        &self.permissions
     }
 }
 

@@ -17,10 +17,10 @@ use utils::channel::RequestSender;
 use common::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint, DbPluginClipboardPermissions};
 use crate::plugins::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime};
+use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime, PluginClipboardPermissions};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::search::SearchIndex;
@@ -553,6 +553,17 @@ impl ApplicationManager {
             .await?;
 
         let receiver = self.command_broadcaster.subscribe();
+
+        let clipboard_permissions = plugin.permissions
+            .clipboard
+            .into_iter()
+            .map(|permission| match permission {
+                DbPluginClipboardPermissions::Read => PluginClipboardPermissions::Read,
+                DbPluginClipboardPermissions::Write => PluginClipboardPermissions::Write,
+                DbPluginClipboardPermissions::Clear => PluginClipboardPermissions::Clear,
+            })
+            .collect();
+
         let data = PluginRuntimeData {
             id: plugin_id,
             uuid: plugin.uuid,
@@ -566,7 +577,8 @@ impl ApplicationManager {
                 fs_read_access: plugin.permissions.fs_read_access,
                 fs_write_access: plugin.permissions.fs_write_access,
                 run_subprocess: plugin.permissions.run_subprocess,
-                system: plugin.permissions.system
+                system: plugin.permissions.system,
+                clipboard: clipboard_permissions,
             },
             command_receiver: receiver,
             db_repository: self.db_repository.clone(),

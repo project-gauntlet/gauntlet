@@ -148,3 +148,4 @@ os = 'windows'
 environment = ["RUST_LOG"]
 system = ["systemMemoryInfo"]
 network = ["upload.wikimedia.org", "api.github.com"]
+clipboard = ["read", "write", "clear"]

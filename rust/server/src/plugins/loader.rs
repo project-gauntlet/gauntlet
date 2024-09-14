@@ -14,7 +14,7 @@ use itertools::Itertools;
 use tracing_subscriber::fmt::format;
 use common::model::{DownloadStatus, PluginId};
 use crate::model::ActionShortcutKey;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions};
 use crate::plugins::download_status::DownloadStatusHolder;
 
 pub struct PluginLoader {
@@ -321,6 +321,18 @@ impl PluginLoader {
             })
             .collect();
 
+        let clipboard = plugin_manifest.permissions
+            .clipboard
+            .into_iter()
+            .map(|permission| {
+                match permission {
+                    PluginManifestClipboardPermissions::Read => DbPluginClipboardPermissions::Read,
+                    PluginManifestClipboardPermissions::Write => DbPluginClipboardPermissions::Write,
+                    PluginManifestClipboardPermissions::Clear => DbPluginClipboardPermissions::Clear,
+                }
+            })
+            .collect();
+
         let permissions = DbPluginPermissions {
             environment: plugin_manifest.permissions.environment,
             high_resolution_time: plugin_manifest.permissions.high_resolution_time,
@@ -330,6 +342,7 @@ impl PluginLoader {
             fs_write_access: plugin_manifest.permissions.fs_write_access,
             run_subprocess: plugin_manifest.permissions.run_subprocess,
             system: plugin_manifest.permissions.system,
+            clipboard,
         };
 
         Ok(PluginDownloadData {
@@ -814,4 +827,16 @@ pub struct PluginManifestPermissions {
     run_subprocess: Vec<String>,
     #[serde(default)]
     system: Vec<String>,
+    #[serde(default)]
+    clipboard: Vec<PluginManifestClipboardPermissions>,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum PluginManifestClipboardPermissions {
+    #[serde(rename = "read")]
+    Read,
+    #[serde(rename = "write")]
+    Write,
+    #[serde(rename = "clear")]
+    Clear
 }

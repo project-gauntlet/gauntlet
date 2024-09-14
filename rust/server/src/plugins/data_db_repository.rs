@@ -114,14 +114,34 @@ pub enum DbPluginType {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DbPluginPermissions {
+    #[serde(default)]
     pub environment: Vec<String>,
+    #[serde(default)]
     pub high_resolution_time: bool,
+    #[serde(default)]
     pub network: Vec<String>,
+    #[serde(default)]
     pub ffi: Vec<PathBuf>,
+    #[serde(default)]
     pub fs_read_access: Vec<PathBuf>,
+    #[serde(default)]
     pub fs_write_access: Vec<PathBuf>,
+    #[serde(default)]
     pub run_subprocess: Vec<String>,
+    #[serde(default)]
     pub system: Vec<String>,
+    #[serde(default)]
+    pub clipboard: Vec<DbPluginClipboardPermissions>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum DbPluginClipboardPermissions {
+    #[serde(rename = "read")]
+    Read,
+    #[serde(rename = "write")]
+    Write,
+    #[serde(rename = "clear")]
+    Clear
 }
 
 #[derive(Debug, Deserialize, Serialize)]
