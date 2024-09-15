@@ -13,8 +13,8 @@ theme will stop working until it is updated.
 This may change in the future
 
 Current theme version:
-- Color: `1` 
-- Everything: `1`
+- Color: `2`
+- Everything: `2`
 
 Theming is only applied to main window and doesn't affect settings
 

@@ -62,8 +62,6 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 
 ##### OS Support
 
-###### Implemented
-
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux
    - Both X11 and Wayland (via LayerShell protocol) are supported
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
@@ -79,8 +77,10 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 - Action Panel
 - List
 - Grid
-- Separate settings window
-- Stack-based Navigation
+- Inline
+  - View directly under main search bar
+  - Requires separate permission to be explicitly specified in manifest because it reads everything user enters in main search bar
+- Settings window
 - Action Shortcuts
 - Theming
 
@@ -88,16 +88,36 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
 
 See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
 
-- Keyboard only navigation in plugin-views
-- Vim motions
-
 ##### APIs
 
-###### Implemented
-
+- Stack-based Navigation
+- Assets
+  - Files placed into `assets` directory in root of plugin repository are accessible at plugin runtime using `assetData` function 
 - Preferences
-- Inline views under main search bar
+  - Preferences defined in plugin manifest can be set by user and are accessible at plugin runtime using `pluginPreferences` and `entrypointPreferences` functions
 - Clipboard
+  - Accessible via `Clipboard` api
+  - Requires separate permission to be explicitly specified in manifest
+- React Helper Hooks
+    - `usePromise`
+        - Helper to run promises in a context of React view
+        - Returns `AsyncState` object which contains `isLoading`, `error` and `data` properties
+    - `useStorage`
+        - Helper to store data between entrypoint, plugin and application runs
+        - Follows API similar to `useState` built-in React Hook
+        - Uses `localStorage` internally
+    - `useCache`
+        - Helper to store data between entrypoint runs but will be reset when plugin or application is restarted
+        - Follows API similar to `useState` built-in React Hook
+        - Uses `sessionStorage` internally
+    - `useCachedPromise`
+        - Helper to run promises with caching done automatically
+        - Follows `stale-while-revalidate` caching strategy
+        - Uses `usePromise` and `useCache` Hooks internally
+    - `useFetch`
+        - Helper to run `fetch()` with caching done automatically
+        - Follows `stale-while-revalidate` caching strategy
+        - Uses `useCachedPromise` Hook internally
 
 ###### Planned
 
@@ -301,8 +321,7 @@ In plugin manifest it is possible to configure permissions which will allow plug
 network, environment variables, ffi or subprocess execution.
 Server saves plugins themselves and state of plugins into SQLite database.
 
-Frontend is GUI application that uses [iced-rs](https://github.com/iced-rs/iced) as a GUI framework.
-It is also exposes gRPC server that is used by server to render views
+Frontend is GUI module that uses [iced-rs](https://github.com/iced-rs/iced) as a GUI framework. It is run in the same process as a server.
 
 Plugins can create UI using [React](https://github.com/facebook/react).
 Server implements custom React Reconciler (similar to React Native) which renders GUI components to frontend.

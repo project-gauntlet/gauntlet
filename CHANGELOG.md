@@ -9,6 +9,58 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### Plugin API
+- New React Hooks
+  - `usePromise`
+    - Helper to run promises in a context of React view
+    - Returns `AsyncState` object which contains `isLoading`, `error` and `data` properties
+  - `useStorage`
+    - Helper to store data between entrypoint, plugin and application runs
+    - Follows API similar to `useState` built-in React Hook
+    - Uses `localStorage` internally
+  - `useCache`
+    - Helper to store data between entrypoint runs but will be reset when plugin or application is restarted 
+    - Follows API similar to `useState` built-in React Hook
+    - Uses `sessionStorage` internally
+  - `useCachedPromise`
+    - Helper to run promises with caching done automatically
+    - Follows `stale-while-revalidate` caching strategy
+    - Uses `usePromise` and `useCache` Hooks internally
+  - `useFetch`
+    - Helper to run `fetch()` with caching done automatically
+    - Follows `stale-while-revalidate` caching strategy
+    - Uses `useCachedPromise` Hook internally
+- Add `isLoading` property on `<Detail/>`, `<Form/>`, `<Grid/>` and `<List/>`
+  - If passed `true` the loading indicator will be shown above view content
+- **BREAKING CHANGE**: To use `Clipboard` api, new permission `permissions.clipboard` is required to be specified in plugin manifest
+  - `permissions.clipboard` manifest property accepts a list that can include one or multiple of `"read"`, `"write"` or `"clear"` values
+- **BREAKING CHANGE**: To use plugin entrypoint of type `inline-view`, new permission `permissions.main_search_bar` is required to be specified in plugin manifest
+  - `permissions.main_search_bar` manifest property accepts a list that can include `"read"` value
+- **BREAKING CHANGE**: Plugin and Entrypoint Preference `name` properties in plugin manifest was split into 2 properties
+  - `preferences.name` is split into `preferences.name` and `preferences.id` 
+  - `entrypoint.preferences.name` is split into `entrypoint.preferences.name` and `entrypoint.preferences.id`
+  - To preserve value set by user in settings please set the previous value of `name` to `id`
+- **BREAKING CHANGE**: Replaced `onSelectionChange` and `id` properties on `<Grid/>` and `<List/>` with `onClick` on `<Grid.Item/>` and `<List.Item/>`
+
+### UI/UX Improvements
+- Added <kbd>ALT</kbd> + <kbd>K</kbd> (<kbd>OPT</kbd> + <kbd>K</kbd> on macOS) label to Action Panel button in bottom panel in plugin views
+  - Refined styling to accommodate this change
+  - **BREAKING CHANGE**: Current color theme version increased to `2` 
+  - **BREAKING CHANGE**: Current everything theme version increased to `2` 
+  
+### `Applications` plugin
+- Add System settings items like Sound, Network, etc
+  - Both pre- and post-Ventura macOS settings are supported
+- Fixed macOS applications, that are nested more than one directory level deep in `Applications` directory, not being added 
+
+### `Calculator` plugin
+- Updated `numbat` dependency to [1.13.0](https://github.com/sharkdp/numbat/releases/tag/v1.13.0)
+- Enabled currency exchange rate module
+
+### Fixes
+- Fix application crash when refreshing plugin via `npm run dev` from tools
+- Fix plugin runtime shutting down when exception is thrown inside a promise handler
+
 ## [8] - 2024-09-07
 
 ### Plugin API
