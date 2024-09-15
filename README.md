@@ -26,6 +26,7 @@ https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
     - Currently, 3 bundled plugins are provided
         - Applications: provides list of applications
         - Calculator: shows result of mathematical operations directly under main search bar
+          - Powered by [Numbat](https://github.com/sharkdp/numbat)
         - Settings: open Gauntlet Settings from Gauntlet itself
     - Plugins are distributed as separate branch in Git repository, meaning plugin distribution doesn't need any central
       server
