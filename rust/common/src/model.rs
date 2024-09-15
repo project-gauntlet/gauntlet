@@ -325,31 +325,38 @@ pub enum PluginPreferenceUserData {
 #[derive(Debug, Clone)]
 pub enum PluginPreference {
     Number {
+        name: String,
         default: Option<f64>,
         description: String,
     },
     String {
+        name: String,
         default: Option<String>,
         description: String,
     },
     Enum {
+        name: String,
         default: Option<String>,
         description: String,
         enum_values: Vec<PreferenceEnumValue>,
     },
     Bool {
+        name: String,
         default: Option<bool>,
         description: String,
     },
     ListOfStrings {
+        name: String,
         default: Option<Vec<String>>,
         description: String,
     },
     ListOfNumbers {
+        name: String,
         default: Option<Vec<f64>>,
         description: String,
     },
     ListOfEnums {
+        name: String,
         default: Option<Vec<String>>,
         enum_values: Vec<PreferenceEnumValue>,
         description: String,

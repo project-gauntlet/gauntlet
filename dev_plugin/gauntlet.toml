@@ -5,7 +5,8 @@ A reasonably long plugin description that doesn't contain any usefull informatio
 """
 
 [[preferences]]
-name = 'testBool'
+id = 'testBool'
+name = 'Test Boolean'
 type = 'bool'
 default = true
 description = "test bool description"
@@ -31,42 +32,49 @@ description = "test action description 2"
 shortcut = { key = 'B', kind = 'main'}
 
 [[entrypoint.preferences]]
-name = 'testBool'
+id = 'testBool'
+name = 'Test Boolean'
 type = 'bool'
 default = true
 description = "test bool description"
 
 [[entrypoint.preferences]]
-name = 'testEnum'
+id = 'testEnum'
+name = 'Test Enum'
 type = 'enum'
 default = 'item'
 enum_values = [{ label = 'Item', value = 'item'}, { label = 'Item 2', value = 'item_2'}]
 description = "test enum description"
 
 [[entrypoint.preferences]]
-name = 'testListOfStrings'
+id = 'testListOfStrings'
+name = 'Test List of Strings'
 type = 'list_of_strings'
 description = "test list of strings description"
 
 [[entrypoint.preferences]]
-name = 'testListOfNumbers'
+id = 'testListOfNumbers'
+name = 'Test List of Numbers'
 type = 'list_of_numbers'
 description = "test list of numbers description"
 
 [[entrypoint.preferences]]
-name = 'testListOfEnums'
+id = 'testListOfEnums'
+name = 'Test List of Enums'
 type = 'list_of_enums'
 description = "test list of enums description"
 enum_values = [{ label = 'Item', value = 'item'}, { label = 'Item 2', value = 'item_2'}]
 
 [[entrypoint.preferences]]
-name = 'testNum'
+id = 'testNum'
+name = 'Test Num'
 type = 'number'
 default = 2
 description = "test number description"
 
 [[entrypoint.preferences]]
-name = 'testStr'
+id = 'testStr'
+name = 'Test Str'
 type = 'string'
 default = 'test_value'
 description = "test string description"

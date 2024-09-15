@@ -231,37 +231,44 @@ pub enum DbPluginActionShortcutKind {
 pub enum DbPluginPreference {
     #[serde(rename = "number")]
     Number {
+        name: Option<String>, // option for db backwards compatibility, in settings id will be shown
         default: Option<f64>,
         description: String,
     },
     #[serde(rename = "string")]
     String {
+        name: Option<String>,
         default: Option<String>,
         description: String,
     },
     #[serde(rename = "enum")]
     Enum {
+        name: Option<String>,
         default: Option<String>,
         description: String,
         enum_values: Vec<DbPreferenceEnumValue>,
     },
     #[serde(rename = "bool")]
     Bool {
+        name: Option<String>,
         default: Option<bool>,
         description: String,
     },
     #[serde(rename = "list_of_strings")]
     ListOfStrings {
+        name: Option<String>,
         default: Option<Vec<String>>,
         description: String,
     },
     #[serde(rename = "list_of_numbers")]
     ListOfNumbers {
+        name: Option<String>,
         default: Option<Vec<f64>>,
         description: String,
     },
     #[serde(rename = "list_of_enums")]
     ListOfEnums {
+        name: Option<String>,
         default: Option<Vec<String>>,
         enum_values: Vec<DbPreferenceEnumValue>,
         description: String,
@@ -793,7 +800,7 @@ impl DataDbRepository {
         }
     }
 
-    pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, user_data_name: String, user_data_value: DbPluginPreferenceUserData) -> anyhow::Result<()> {
+    pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, preference_id: String, value: DbPluginPreferenceUserData) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
         match entrypoint_id {
@@ -802,7 +809,7 @@ impl DataDbRepository {
                     .await?
                     .preferences_user_data;
 
-                user_data.insert(user_data_name, user_data_value);
+                user_data.insert(preference_id, value);
 
                 // language=SQLite
                 sqlx::query("UPDATE plugin SET preferences_user_data = ?1 WHERE id = ?2")
@@ -816,7 +823,7 @@ impl DataDbRepository {
                     .await?
                     .preferences_user_data;
 
-                user_data.insert(user_data_name, user_data_value);
+                user_data.insert(preference_id, value);
 
                 // language=SQLite
                 sqlx::query("UPDATE plugin_entrypoint SET preferences_user_data = ?1 WHERE id = ?2 AND plugin_id = ?3")

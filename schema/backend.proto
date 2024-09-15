@@ -93,7 +93,7 @@ message RpcGetGlobalShortcutResponse {
 message RpcSetPreferenceValueRequest {
   string plugin_id = 1;
   string entrypoint_id = 2;
-  string preference_name = 3;
+  string preference_id = 3;
   RpcPluginPreferenceUserData preference_value = 4;
 }
 message RpcSetPreferenceValueResponse {
@@ -215,6 +215,7 @@ message RpcPluginPreference {
   bool default_list_exists = 4;
   string description = 5;
   repeated RpcEnumValue enum_values = 6;
+  string name = 7;
 }
 
 message RpcEnumValue {

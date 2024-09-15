@@ -79,7 +79,7 @@ pub trait BackendServer {
         &self,
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
-        preference_name: String,
+        preference_id: String,
         preference_value: PluginPreferenceUserData
     ) -> anyhow::Result<()>;
 
@@ -203,10 +203,10 @@ impl RpcBackend for RpcBackendServerImpl {
             Some(EntrypointId::from_string(request.entrypoint_id))
         };
 
-        let preference_name = request.preference_name;
+        let preference_id = request.preference_id;
         let preference_value = request.preference_value.unwrap();
 
-        self.server.set_preference_value(plugin_id, entrypoint_id, preference_name, plugin_preference_user_data_from_rpc(preference_value))
+        self.server.set_preference_value(plugin_id, entrypoint_id, preference_id, plugin_preference_user_data_from_rpc(preference_value))
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 

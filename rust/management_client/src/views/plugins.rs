@@ -152,15 +152,15 @@ impl ManagementAppPluginsState {
             }
             ManagementAppPluginMsgIn::PluginPreferenceMsg(msg) => {
                 match msg {
-                    PluginPreferencesMsg::UpdatePreferenceValue { plugin_id, entrypoint_id, name, user_data } => {
+                    PluginPreferencesMsg::UpdatePreferenceValue { plugin_id, entrypoint_id, id, user_data } => {
                         self.preference_user_data
-                            .insert((plugin_id.clone(), entrypoint_id.clone(), name.clone()), user_data.clone());
+                            .insert((plugin_id.clone(), entrypoint_id.clone(), id.clone()), user_data.clone());
 
                         let mut backend_api = backend_api.clone();
 
                         Command::perform(
                             async move {
-                                backend_api.set_preference_value(plugin_id, entrypoint_id, name, user_data.to_user_data())
+                                backend_api.set_preference_value(plugin_id, entrypoint_id, id, user_data.to_user_data())
                                     .await?;
 
                                 Ok(())
@@ -228,13 +228,13 @@ impl ManagementAppPluginsState {
             .map(|(plugin_id, plugin)| {
                 let mut result = vec![];
 
-                for (name, user_data) in &plugin.preferences_user_data {
-                    result.push(((plugin_id.clone(), None, name.clone()), PluginPreferenceUserDataState::from_user_data(user_data.clone())))
+                for (id, user_data) in &plugin.preferences_user_data {
+                    result.push(((plugin_id.clone(), None, id.clone()), PluginPreferenceUserDataState::from_user_data(user_data.clone())))
                 }
 
                 for (entrypoint_id, entrypoint) in &plugin.entrypoints {
-                    for (name, user_data) in &entrypoint.preferences_user_data {
-                        result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), name.clone()), PluginPreferenceUserDataState::from_user_data(user_data.clone())))
+                    for (id, user_data) in &entrypoint.preferences_user_data {
+                        result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), id.clone()), PluginPreferenceUserDataState::from_user_data(user_data.clone())))
                     }
                 }
 

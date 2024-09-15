@@ -365,11 +365,11 @@ impl BackendApi {
         })
     }
 
-    pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, name: String, user_data: PluginPreferenceUserData) -> Result<(), BackendApiError> {
+    pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, id: String, user_data: PluginPreferenceUserData) -> Result<(), BackendApiError> {
         let request = RpcSetPreferenceValueRequest {
             plugin_id: plugin_id.to_string(),
             entrypoint_id: entrypoint_id.map(|id| id.to_string()).unwrap_or_default(),
-            preference_name: name,
+            preference_id: id,
             preference_value: Some(plugin_preference_user_data_to_rpc(user_data)),
         };
 

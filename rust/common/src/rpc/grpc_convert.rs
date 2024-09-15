@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 
-use crate::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, UiPropertyValue, SearchResult, SearchResultEntrypointType, UiWidget};
-use crate::rpc::grpc::{rpc_ui_property_value, RpcEntrypointTypeSearchResult, RpcEnumValue, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcSearchResult, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
+use crate::model::{EntrypointId, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SearchResultEntrypointType, UiPropertyValue, UiWidget};
 use crate::rpc::grpc::rpc_ui_property_value::Value;
+use crate::rpc::grpc::{RpcEntrypointTypeSearchResult, RpcEnumValue, RpcPluginPreference, RpcPluginPreferenceUserData, RpcPluginPreferenceValueType, RpcSearchResult, RpcUiPropertyValue, RpcUiPropertyValueObject, RpcUiWidget, RpcUiWidgetId};
 
 pub(crate) fn ui_widget_to_rpc(value: UiWidget) -> RpcUiWidget {
     let children = value.widget_children.into_iter()
@@ -276,26 +276,29 @@ pub fn plugin_preference_user_data_to_rpc(value: PluginPreferenceUserData) -> Rp
 
 pub fn plugin_preference_to_rpc(value: PluginPreference) -> RpcPluginPreference {
     match value {
-        PluginPreference::Number { default, description } => {
+        PluginPreference::Number { name, default, description } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::Number.into(),
-                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Number(value)) }),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(Value::Number(value)) }),
+                name,
                 description,
                 ..RpcPluginPreference::default()
             }
         }
-        PluginPreference::String { default, description } => {
+        PluginPreference::String { name, default, description } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::String.into(),
-                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(Value::String(value)) }),
+                name,
                 description,
                 ..RpcPluginPreference::default()
             }
         }
-        PluginPreference::Enum { default, description, enum_values } => {
+        PluginPreference::Enum { name, default, description, enum_values } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::Enum.into(),
-                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(Value::String(value)) }),
+                name,
                 description,
                 enum_values: enum_values.into_iter()
                     .map(|value| RpcEnumValue { label: value.label, value: value.value })
@@ -303,34 +306,38 @@ pub fn plugin_preference_to_rpc(value: PluginPreference) -> RpcPluginPreference 
                 ..RpcPluginPreference::default()
             }
         }
-        PluginPreference::Bool { default, description } => {
+        PluginPreference::Bool { name, default, description } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::Bool.into(),
-                default: default.map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Bool(value)) }),
+                default: default.map(|value| RpcUiPropertyValue { value: Some(Value::Bool(value)) }),
+                name,
                 description,
                 ..RpcPluginPreference::default()
             }
         }
-        PluginPreference::ListOfStrings { default, description } => {
+        PluginPreference::ListOfStrings { name, default, description } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::ListOfStrings.into(),
-                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }).collect()).unwrap_or(vec![]),
+                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(Value::String(value)) }).collect()).unwrap_or(vec![]),
+                name,
                 description,
                 ..RpcPluginPreference::default()
             }
         }
-        PluginPreference::ListOfNumbers { default, description } => {
+        PluginPreference::ListOfNumbers { name, default, description } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::ListOfNumbers.into(),
-                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::Number(value)) }).collect()).unwrap_or(vec![]),
+                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(Value::Number(value)) }).collect()).unwrap_or(vec![]),
+                name,
                 description,
                 ..RpcPluginPreference::default()
             }
         }
-        PluginPreference::ListOfEnums { default, enum_values, description } => {
+        PluginPreference::ListOfEnums { name, default, enum_values, description } => {
             RpcPluginPreference {
                 r#type: RpcPluginPreferenceValueType::ListOfEnums.into(),
-                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(rpc_ui_property_value::Value::String(value)) }).collect()).unwrap_or(vec![]),
+                default_list: default.map(|value| value.into_iter().map(|value| RpcUiPropertyValue { value: Some(Value::String(value)) }).collect()).unwrap_or(vec![]),
+                name,
                 description,
                 enum_values: enum_values.into_iter()
                     .map(|value| RpcEnumValue { label: value.label, value: value.value })
@@ -355,6 +362,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::Number {
                 default,
+                name: value.name,
                 description: value.description,
             }
         }
@@ -369,6 +377,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::String {
                 default,
+                name: value.name,
                 description: value.description,
             }
         }
@@ -383,6 +392,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::Enum {
                 default,
+                name: value.name,
                 description: value.description,
                 enum_values: value.enum_values.into_iter()
                     .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
@@ -400,6 +410,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::Bool {
                 default,
+                name: value.name,
                 description: value.description,
             }
         }
@@ -423,6 +434,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::ListOfStrings {
                 default: default_list,
+                name: value.name,
                 description: value.description,
             }
         }
@@ -446,6 +458,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::ListOfNumbers {
                 default: default_list,
+                name: value.name,
                 description: value.description,
             }
         }
@@ -469,6 +482,7 @@ pub fn plugin_preference_from_rpc(value: RpcPluginPreference) -> PluginPreferenc
 
             PluginPreference::ListOfEnums {
                 default: default_list,
+                name: value.name,
                 enum_values: value.enum_values.into_iter()
                     .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
                     .collect(),

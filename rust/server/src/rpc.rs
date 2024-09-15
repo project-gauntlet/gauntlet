@@ -85,8 +85,8 @@ impl BackendServer for BackendServerImpl {
         Ok(result)
     }
 
-    async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_name: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
-        let result = self.application_manager.set_preference_value(plugin_id, entrypoint_id, preference_name, preference_value)
+    async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
+        let result = self.application_manager.set_preference_value(plugin_id, entrypoint_id, preference_id, preference_value)
             .await;
 
         if let Err(err) = &result {

@@ -15,7 +15,7 @@ pub enum PluginPreferencesMsg {
     UpdatePreferenceValue {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
-        name: String,
+        id: String,
         user_data: PluginPreferenceUserDataState
     },
 }
@@ -46,13 +46,25 @@ pub fn preferences_ui<'a>(
 
     preferences.sort_by_key(|(&ref key, _)| key);
 
-    for (preference_name, preference) in preferences {
+    for (preference_id, preference) in preferences {
         let plugin_id = plugin_id.clone();
         let entrypoint_id = entrypoint_id.clone();
 
-        let user_data = preference_user_data.get(&(plugin_id.clone(), entrypoint_id.clone(), preference_name.clone()));
+        let user_data = preference_user_data.get(&(plugin_id.clone(), entrypoint_id.clone(), preference_id.clone()));
 
+        let (preference_name, description) = match preference {
+            PluginPreference::Number { name, description, .. } => (name, description),
+            PluginPreference::String { name, description, .. } => (name, description),
+            PluginPreference::Enum { name, description, .. } => (name, description),
+            PluginPreference::Bool { name, description, .. } => (name, description),
+            PluginPreference::ListOfStrings { name, description, .. } => (name, description),
+            PluginPreference::ListOfNumbers { name, description, .. } => (name, description),
+            PluginPreference::ListOfEnums { name, description, .. } => (name, description),
+        };
+
+        let preference_id = preference_id.to_owned();
         let preference_name = preference_name.to_owned();
+        let description = description.to_owned();
 
         let preference_label: Element<_> = text(&preference_name)
             .size(14)
@@ -64,16 +76,6 @@ pub fn preferences_ui<'a>(
             .into();
 
         column_content.push(preference_label);
-
-        let description = match preference {
-            PluginPreference::Number { description, .. } => description,
-            PluginPreference::String { description, .. } => description,
-            PluginPreference::Enum { description, .. } => description,
-            PluginPreference::Bool { description, .. } => description,
-            PluginPreference::ListOfStrings { description, .. } => description,
-            PluginPreference::ListOfNumbers { description, .. } => description,
-            PluginPreference::ListOfEnums { description, .. } => description,
-        };
 
         if !description.trim().is_empty() {
             let description = container(text(description))
@@ -102,7 +104,7 @@ pub fn preferences_ui<'a>(
                     PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::Number {
                             value: Some(value),
                         },
@@ -130,7 +132,7 @@ pub fn preferences_ui<'a>(
                         PluginPreferencesMsg::UpdatePreferenceValue {
                             plugin_id: plugin_id.clone(),
                             entrypoint_id: entrypoint_id.clone(),
-                            name: preference_name.to_owned(),
+                            id: preference_id.to_owned(),
                             user_data: PluginPreferenceUserDataState::String {
                                 value: Some(value),
                             },
@@ -166,7 +168,7 @@ pub fn preferences_ui<'a>(
                     Box::new(move |item: SelectItem| PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::Enum {
                             value: Some(item.value),
                         },
@@ -194,7 +196,7 @@ pub fn preferences_ui<'a>(
                         PluginPreferencesMsg::UpdatePreferenceValue {
                             plugin_id: plugin_id.clone(),
                             entrypoint_id: entrypoint_id.clone(),
-                            name: preference_name.to_owned(),
+                            id: preference_id.to_owned(),
                             user_data: PluginPreferenceUserDataState::Bool {
                                 value: Some(value),
                             },
@@ -239,7 +241,7 @@ pub fn preferences_ui<'a>(
                             .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
-                                name: preference_name.to_owned(),
+                                id: preference_id.to_owned(),
                                 user_data: PluginPreferenceUserDataState::ListOfStrings {
                                     value,
                                     new_value: new_value.clone(),
@@ -279,7 +281,7 @@ pub fn preferences_ui<'a>(
                     Some(PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::ListOfStrings {
                             value: Some(save_value),
                             new_value: "".to_owned(),
@@ -305,7 +307,7 @@ pub fn preferences_ui<'a>(
                     .on_input(move |new_value| PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::ListOfStrings {
                             value: value.clone(),
                             new_value,
@@ -356,7 +358,7 @@ pub fn preferences_ui<'a>(
                             .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
-                                name: preference_name.to_owned(),
+                                id: preference_id.to_owned(),
                                 user_data: PluginPreferenceUserDataState::ListOfNumbers {
                                     value,
                                     new_value: new_value.clone(),
@@ -399,7 +401,7 @@ pub fn preferences_ui<'a>(
                     .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::ListOfNumbers {
                             value: Some(save_value),
                             new_value: 0.0,
@@ -421,7 +423,7 @@ pub fn preferences_ui<'a>(
                     PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::ListOfNumbers {
                             value: value.clone(),
                             new_value,
@@ -471,7 +473,7 @@ pub fn preferences_ui<'a>(
                             .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
-                                name: preference_name.to_owned(),
+                                id: preference_id.to_owned(),
                                 user_data: PluginPreferenceUserDataState::ListOfEnums {
                                     value,
                                     new_value: new_value.clone(),
@@ -511,7 +513,7 @@ pub fn preferences_ui<'a>(
                         Some(PluginPreferencesMsg::UpdatePreferenceValue {
                             plugin_id: plugin_id.clone(),
                             entrypoint_id: entrypoint_id.clone(),
-                            name: preference_name.to_owned(),
+                            id: preference_id.to_owned(),
                             user_data: PluginPreferenceUserDataState::ListOfEnums {
                                 value: Some(save_value),
                                 new_value: None,
@@ -545,7 +547,7 @@ pub fn preferences_ui<'a>(
                     Box::new(move |new_value: SelectItem| PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
-                        name: preference_name.to_owned(),
+                        id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::ListOfEnums {
                             value: value.clone(),
                             new_value: Some(new_value),

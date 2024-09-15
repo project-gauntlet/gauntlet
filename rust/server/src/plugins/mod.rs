@@ -179,7 +179,10 @@ impl ApplicationManager {
                                 DbPluginEntrypointType::CommandGenerator => SettingsEntrypointType::CommandGenerator,
                             }.into(),
                             preferences: entrypoint.preferences.into_iter()
-                                .map(|(key, value)| (key, plugin_preference_from_db(value)))
+                                .map(|(key, value)| {
+                                    let preference = plugin_preference_from_db(&key, value);
+                                    (key, preference)
+                                })
                                 .collect(),
                             preferences_user_data: entrypoint.preferences_user_data.into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_from_db(value)))
@@ -197,7 +200,10 @@ impl ApplicationManager {
                     enabled: plugin.enabled,
                     entrypoints,
                     preferences: plugin.preferences.into_iter()
-                        .map(|(key, value)| (key, plugin_preference_from_db(value)))
+                        .map(|(key, value)| {
+                            let preference = plugin_preference_from_db(&key, value);
+                            (key, preference)
+                        })
                         .collect(),
                     preferences_user_data: plugin.preferences_user_data.into_iter()
                         .map(|(key, value)| (key, plugin_preference_user_data_from_db(value)))
@@ -264,10 +270,10 @@ impl ApplicationManager {
         self.db_repository.get_global_shortcut().await
     }
 
-    pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_name: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
+    pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
         let user_data = plugin_preference_user_data_to_db(preference_value);
 
-        self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_name, user_data)
+        self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_id, user_data)
             .await?;
 
         Ok(())
@@ -635,26 +641,66 @@ impl ApplicationManager {
     }
 }
 
-fn plugin_preference_from_db(value: DbPluginPreference) -> PluginPreference {
+fn plugin_preference_from_db(id: &str, value: DbPluginPreference) -> PluginPreference {
     match value {
-        DbPluginPreference::Number { default, description } => PluginPreference::Number { default, description },
-        DbPluginPreference::String { default, description } => PluginPreference::String { default, description },
-        DbPluginPreference::Enum { default, description, enum_values } => {
-            let enum_values = enum_values.into_iter()
-                .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
-                .collect();
-
-            PluginPreference::Enum { default, description, enum_values }
+        DbPluginPreference::Number { name, default, description } => {
+            PluginPreference::Number {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                description
+            }
         },
-        DbPluginPreference::Bool { default, description } => PluginPreference::Bool { default, description },
-        DbPluginPreference::ListOfStrings { default, description } => PluginPreference::ListOfStrings { default, description },
-        DbPluginPreference::ListOfNumbers { default, description } => PluginPreference::ListOfNumbers { default, description },
-        DbPluginPreference::ListOfEnums { default, enum_values, description } => {
+        DbPluginPreference::String { name, default, description } => {
+            PluginPreference::String {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                description
+            }
+        },
+        DbPluginPreference::Enum { name, default, description, enum_values } => {
             let enum_values = enum_values.into_iter()
                 .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
                 .collect();
 
-            PluginPreference::ListOfEnums { default, enum_values, description }
+            PluginPreference::Enum {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                description,
+                enum_values
+            }
+        },
+        DbPluginPreference::Bool { name, default, description } => {
+            PluginPreference::Bool {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                description
+            }
+        },
+        DbPluginPreference::ListOfStrings { name, default, description } => {
+            PluginPreference::ListOfStrings {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                description
+            }
+        },
+        DbPluginPreference::ListOfNumbers { name, default, description } => {
+            PluginPreference::ListOfNumbers {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                description
+            }
+        },
+        DbPluginPreference::ListOfEnums { name, default, enum_values, description } => {
+            let enum_values = enum_values.into_iter()
+                .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
+                .collect();
+
+            PluginPreference::ListOfEnums {
+                name: name.unwrap_or_else(|| id.to_string()),
+                default,
+                enum_values,
+                description
+            }
         },
     }
 }
