@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [9] - 2024-09-15
+
 ### Plugin API
 - New React Hooks
   - `usePromise`
