@@ -124,10 +124,10 @@ declare global {
                 image?: ImageSource | Icons;
             };
             ["gauntlet:list_item"]: {
-                id: string;
                 title: string;
                 subtitle?: string;
                 icon?: ImageSource | Icons;
+                onClick?: () => void;
             };
             ["gauntlet:list_section"]: {
                 children?: ElementComponent<typeof ListItem>;
@@ -137,13 +137,12 @@ declare global {
             ["gauntlet:list"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
                 isLoading?: boolean;
-                onSelectionChange?: (id: string) => void;
             };
             ["gauntlet:grid_item"]: {
                 children?: ElementComponent<typeof Content>;
-                id: string;
                 title: string;
                 subtitle?: string;
+                onClick?: () => void;
             };
             ["gauntlet:grid_section"]: {
                 children?: ElementComponent<typeof GridItem>;
@@ -155,7 +154,6 @@ declare global {
                 children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof GridItem | typeof GridSection>;
                 isLoading?: boolean;
                 columns?: number;
-                onSelectionChange?: (id: string) => void;
             };
         }
     }
@@ -637,13 +635,13 @@ export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode 
     return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}></gauntlet:empty_view>;
 };
 export interface ListItemProps {
-    id: string;
     title: string;
     subtitle?: string;
     icon?: ImageSource | Icons;
+    onClick?: () => void;
 }
 export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
-    return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}></gauntlet:list_item>;
+    return <gauntlet:list_item title={props.title} subtitle={props.subtitle} icon={props.icon} onClick={props.onClick}></gauntlet:list_item>;
 };
 export interface ListSectionProps {
     children?: ElementComponent<typeof ListItem>;
@@ -660,7 +658,6 @@ export interface ListProps {
     children?: ElementComponent<typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
     actions?: ElementComponent<typeof ActionPanel>;
     isLoading?: boolean;
-    onSelectionChange?: (id: string) => void;
 }
 export const List: FC<ListProps> & {
     EmptyView: typeof EmptyView;
@@ -668,7 +665,7 @@ export const List: FC<ListProps> & {
     Item: typeof ListItem;
     Section: typeof ListSection;
 } = (props: ListProps): ReactNode => {
-    return <gauntlet:list isLoading={props.isLoading} onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:list>;
+    return <gauntlet:list isLoading={props.isLoading}>{props.actions as any}{props.children}</gauntlet:list>;
 };
 List.EmptyView = EmptyView;
 List.Detail = Detail;
@@ -676,14 +673,14 @@ List.Item = ListItem;
 List.Section = ListSection;
 export interface GridItemProps {
     children?: ElementComponent<typeof Content>;
-    id: string;
     title: string;
     subtitle?: string;
+    onClick?: () => void;
 }
 export const GridItem: FC<GridItemProps> & {
     Content: typeof Content;
 } = (props: GridItemProps): ReactNode => {
-    return <gauntlet:grid_item id={props.id} title={props.title} subtitle={props.subtitle}>{props.children}</gauntlet:grid_item>;
+    return <gauntlet:grid_item title={props.title} subtitle={props.subtitle} onClick={props.onClick}>{props.children}</gauntlet:grid_item>;
 };
 GridItem.Content = Content;
 export interface GridSectionProps {
@@ -703,14 +700,13 @@ export interface GridProps {
     isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
-    onSelectionChange?: (id: string) => void;
 }
 export const Grid: FC<GridProps> & {
     EmptyView: typeof EmptyView;
     Item: typeof GridItem;
     Section: typeof GridSection;
 } = (props: GridProps): ReactNode => {
-    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns} onSelectionChange={props.onSelectionChange}>{props.actions as any}{props.children}</gauntlet:grid>;
+    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
 Grid.EmptyView = EmptyView;
 Grid.Item = GridItem;

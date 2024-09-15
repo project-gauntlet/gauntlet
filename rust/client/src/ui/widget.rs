@@ -883,11 +883,7 @@ impl ComponentWidgetWrapper {
                     .center_y()
                     .into()
             }
-            ComponentWidget::ListItem { id, title, subtitle, icon } => {
-                let ComponentRenderContext::List { widget_id: list_widget_id } = context else {
-                    panic!("not supposed to be passed to list item: {:?}", context)
-                };
-
+            ComponentWidget::ListItem { title, subtitle, icon } => {
                 let icon: Option<Element<_>> = icon.as_ref()
                     .map(|icon| {
                         match icon {
@@ -931,7 +927,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 button(content)
-                    .on_press(ComponentWidgetEvent::SelectListItem { list_widget_id, item_id: id.to_owned() })
+                    .on_press(ComponentWidgetEvent::ListItemClick { widget_id })
                     .width(Length::Fill)
                     .themed(ButtonStyle::ListItem)
             }
@@ -1031,11 +1027,7 @@ impl ComponentWidgetWrapper {
 
                 render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
-            ComponentWidget::GridItem { children, id, title, subtitle } => {
-                let ComponentRenderContext::Grid { widget_id: grid_widget_id } = context else {
-                    panic!("not supposed to be passed to grid item: {:?}", context)
-                };
-
+            ComponentWidget::GridItem { children, title, subtitle } => {
                 let content: Element<_> = column(render_children(children, ComponentRenderContext::GridItem))
                     .height(130) // TODO dynamic height
                     .into();
@@ -1055,7 +1047,7 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 let content: Element<_> = button(content)
-                    .on_press(ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id: id.to_owned() })
+                    .on_press(ComponentWidgetEvent::GridItemClick { widget_id })
                     .themed(ButtonStyle::GridItem);
 
                 content
@@ -1521,13 +1513,11 @@ pub enum ComponentWidgetEvent {
     ToggleActionPanel {
         widget_id: UiWidgetId,
     },
-    SelectListItem {
-        list_widget_id: UiWidgetId,
-        item_id: String,
+    ListItemClick {
+        widget_id: UiWidgetId,
     },
-    SelectGridItem {
-        grid_widget_id: UiWidgetId,
-        item_id: String,
+    GridItemClick {
+        widget_id: UiWidgetId,
     },
     PreviousView,
 }
@@ -1639,11 +1629,11 @@ impl ComponentWidgetEvent {
 
                 None
             }
-            ComponentWidgetEvent::SelectListItem { list_widget_id, item_id } => {
-                Some(create_list_on_selection_change_event(list_widget_id, item_id))
+            ComponentWidgetEvent::ListItemClick { widget_id } => {
+                Some(create_list_item_on_click_event(widget_id))
             }
-            ComponentWidgetEvent::SelectGridItem { grid_widget_id, item_id } => {
-                Some(create_grid_on_selection_change_event(grid_widget_id, item_id))
+            ComponentWidgetEvent::GridItemClick { widget_id } => {
+                Some(create_grid_item_on_click_event(widget_id))
             }
             ComponentWidgetEvent::PreviousView => {
                 panic!("handle event on PreviousView event is not supposed to be called")
@@ -1664,8 +1654,8 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::OnChangeTextField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
-            ComponentWidgetEvent::SelectListItem { list_widget_id, .. } => list_widget_id,
-            ComponentWidgetEvent::SelectGridItem { grid_widget_id, .. } => grid_widget_id,
+            ComponentWidgetEvent::ListItemClick { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::GridItemClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::PreviousView => panic!("widget_id on PreviousView event is not supposed to be called"),
         }.to_owned()
     }

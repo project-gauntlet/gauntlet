@@ -925,11 +925,11 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/list_item/description.md"),
         "ListItem",
         [
-            property("id", mark_doc!("/list_item/props/id.md"),false, PropertyType::String),
             property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
             property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
             // accessories
+            event("onClick", mark_doc!("/list_item/props/onClick.md"), true, [])
         ],
         children_none(),
     );
@@ -954,9 +954,6 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component)),
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            event("onSelectionChange", mark_doc!("/list/props/onSelectionChange.md"), true, [
-                property("id", "".to_string(), false, PropertyType::String)
-            ]),
         ],
         children_members([
             member("EmptyView", &empty_view_component),
@@ -971,10 +968,10 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid_item/description.md"),
         "GridItem",
         [
-            property("id", mark_doc!("/grid_item/props/id.md"), false, PropertyType::String),
             property("title", mark_doc!("/grid_item/props/title.md"), false, PropertyType::String),
             property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
             // accessories
+            event("onClick", mark_doc!("/grid_item/props/onClick.md"), true, [])
         ],
         children_members([
             member("Content", &content_component),
@@ -1009,9 +1006,6 @@ pub fn create_component_model() -> Vec<Component> {
             property("columns", mark_doc!("/grid/props/columns.md"),true, PropertyType::Number), // TODO default
             // fit
             // inset
-            event("onSelectionChange", mark_doc!("/grid/props/onSelectionChange.md"), true, [
-                property("id", "".to_string(), false, PropertyType::String)
-            ]),
         ],
         children_members([
             member("EmptyView", &empty_view_component),

@@ -11,10 +11,10 @@ export default function GridView(): ReactElement {
     const [val4, setValue4] = useStorage<string>("test", "");
 
     return (
-        <Grid onSelectionChange={id => {}}>
+        <Grid>
             {
                 numbers.map(value => (
-                    <Grid.Item id={"id" + value} title={"Title " + value}>
+                    <Grid.Item title={"Title " + value}>
                         <Grid.Item.Content>
                             <Grid.Item.Content.Paragraph>
                                 Test Paragraph {value}
@@ -24,7 +24,7 @@ export default function GridView(): ReactElement {
                 ))
             }
             <Grid.Section title="Section 1">
-                <Grid.Item id="id section 1 1" title="Title Section 1 1">
+                <Grid.Item title="Title Section 1 1">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 1 1
@@ -33,14 +33,14 @@ export default function GridView(): ReactElement {
                 </Grid.Item>
             </Grid.Section>
             <Grid.Section title="Section 2">
-                <Grid.Item id="id section 2 1" title="Title Section 2 1">
+                <Grid.Item title="Title Section 2 1">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 1
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="id section 2 2" title="Title Section 2 2">
+                <Grid.Item title="Title Section 2 2">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 2

@@ -1,0 +1,1 @@
+Function that will be called when user selects an item on the grid.

@@ -6,77 +6,20 @@ export default function ListView(): ReactElement {
     const { pushView } = useNavigation();
 
     return (
-        <List
-            onSelectionChange={id => {
-                switch (id) {
-                    case "UsePromiseTestBasic": {
-                        pushView(<UsePromiseTestBasic/>)
-                        break;
-                    }
-                    case "UsePromiseTestExecuteFalse": {
-                        pushView(<UsePromiseTestExecuteFalse/>)
-                        break;
-                    }
-                    case "UsePromiseTestRevalidate": {
-                        pushView(<UsePromiseTestRevalidate/>)
-                        break;
-                    }
-                    case "UsePromiseTestAbortableRevalidate": {
-                        pushView(<UsePromiseTestAbortableRevalidate/>)
-                        break;
-                    }
-                    case "UsePromiseTestMutate": {
-                        pushView(<UsePromiseTestMutate/>)
-                        break;
-                    }
-                    case "UsePromiseTestMutateOptimistic": {
-                        pushView(<UsePromiseTestMutateOptimistic/>)
-                        break;
-                    }
-                    case "UsePromiseTestMutateOptimisticRollback": {
-                        pushView(<UsePromiseTestMutateOptimisticRollback/>)
-                        break;
-                    }
-                    case "UsePromiseTestMutateNoRevalidate": {
-                        pushView(<UsePromiseTestMutateNoRevalidate/>)
-                        break;
-                    }
-                    case "UsePromiseTestThrow": {
-                        pushView(<UsePromiseTestThrow/>)
-                        break;
-                    }
-                    case "UseCachedPromiseBasic": {
-                        pushView(<UseCachedPromiseBasic/>)
-                        break;
-                    }
-                    case "UseCachedPromiseInitialState": {
-                        pushView(<UseCachedPromiseInitialState/>)
-                        break;
-                    }
-                    case "UseFetchBasic": {
-                        pushView(<UseFetchBasic/>)
-                        break;
-                    }
-                    case "UseFetchMap": {
-                        pushView(<UseFetchMap/>)
-                        break;
-                    }
-                }
-            }}
-        >
-            <List.Item id="UsePromiseTestBasic" title="UsePromiseTestBasic"/>
-            <List.Item id="UsePromiseTestExecuteFalse" title="UsePromiseTestExecuteFalse"/>
-            <List.Item id="UsePromiseTestRevalidate" title="UsePromiseTestRevalidate"/>
-            <List.Item id="UsePromiseTestAbortableRevalidate" title="UsePromiseTestAbortableRevalidate"/>
-            <List.Item id="UsePromiseTestMutate" title="UsePromiseTestMutate"/>
-            <List.Item id="UsePromiseTestMutateOptimistic" title="UsePromiseTestMutateOptimistic"/>
-            <List.Item id="UsePromiseTestMutateOptimisticRollback" title="UsePromiseTestMutateOptimisticRollback"/>
-            <List.Item id="UsePromiseTestMutateNoRevalidate" title="UsePromiseTestMutateNoRevalidate"/>
-            <List.Item id="UsePromiseTestThrow" title="UsePromiseTestThrow"/>
-            <List.Item id="UseCachedPromiseBasic" title="UseCachedPromiseBasic"/>
-            <List.Item id="UseCachedPromiseInitialState" title="UseCachedPromiseInitialState"/>
-            <List.Item id="UseFetchBasic" title="UseFetchBasic"/>
-            <List.Item id="UseFetchMap" title="UseFetchMap"/>
+        <List>
+            <List.Item title="UsePromiseTestBasic" onClick={() => pushView(<UsePromiseTestBasic/>)}/>
+            <List.Item title="UsePromiseTestExecuteFalse" onClick={() => pushView(<UsePromiseTestExecuteFalse/>)}/>
+            <List.Item title="UsePromiseTestRevalidate" onClick={() => pushView(<UsePromiseTestRevalidate/>)}/>
+            <List.Item title="UsePromiseTestAbortableRevalidate" onClick={() => pushView(<UsePromiseTestAbortableRevalidate/>)}/>
+            <List.Item title="UsePromiseTestMutate" onClick={() => pushView(<UsePromiseTestMutate/>)}/>
+            <List.Item title="UsePromiseTestMutateOptimistic" onClick={() => pushView(<UsePromiseTestMutateOptimistic/>)}/>
+            <List.Item title="UsePromiseTestMutateOptimisticRollback" onClick={() => pushView(<UsePromiseTestMutateOptimisticRollback/>)}/>
+            <List.Item title="UsePromiseTestMutateNoRevalidate" onClick={() => pushView(<UsePromiseTestMutateNoRevalidate/>)}/>
+            <List.Item title="UsePromiseTestThrow" onClick={() => pushView(<UsePromiseTestThrow/>)}/>
+            <List.Item title="UseCachedPromiseBasic" onClick={() => pushView(<UseCachedPromiseBasic/>)}/>
+            <List.Item title="UseCachedPromiseInitialState" onClick={() => pushView(<UseCachedPromiseInitialState/>)}/>
+            <List.Item title="UseFetchBasic" onClick={() => pushView(<UseFetchBasic/>)}/>
+            <List.Item title="UseFetchMap" onClick={() => pushView(<UseFetchMap/>)}/>
         </List>
     )
 }
@@ -91,12 +34,9 @@ function UsePromiseTestBasic(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-               <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -112,12 +52,9 @@ function UseCachedPromiseBasic(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -136,12 +73,9 @@ function UseCachedPromiseInitialState(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -160,12 +94,9 @@ function UsePromiseTestExecuteFalse(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -182,13 +113,10 @@ function UsePromiseTestRevalidate(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView, () => revalidate())}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="run" title="Run" icon={Icons.Sun}/>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Run" icon={Icons.Sun} onClick={() => revalidate()}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -211,13 +139,10 @@ function UsePromiseTestAbortableRevalidate(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView, () => revalidate())}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="run" title="Run" icon={Icons.Sun}/>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Run" icon={Icons.Sun} onClick={() => revalidate()}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -232,16 +157,14 @@ function UsePromiseTestMutate(): ReactElement {
 
     printState(data, error, isLoading)
 
+    const onClick = async () => {
+        await mutate(inNSec(5))
+    };
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView, async () => {
-                await mutate(inNSec(5))
-            })}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="run" title="Run" icon={Icons.Sun}/>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Run" icon={Icons.Sun} onClick={onClick}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -256,21 +179,20 @@ function UsePromiseTestMutateOptimistic(): ReactElement {
 
     printState(data, error, isLoading)
 
+    const onClick = async () => {
+        await mutate(
+            inNSec(5),
+            {
+                optimisticUpdate: data1 => data1 + " optimistic",
+            }
+        )
+    };
+
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView, async () => {
-                await mutate(
-                    inNSec(5),
-                    {
-                        optimisticUpdate: data1 => data1 + " optimistic",
-                    }
-                )
-            })}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="run" title="Run" icon={Icons.Sun}/>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Run" icon={Icons.Sun} onClick={onClick}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -285,29 +207,28 @@ function UsePromiseTestMutateOptimisticRollback(): ReactElement {
 
     printState(data, error, isLoading)
 
-    return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView, async () => {
-                await mutate(
-                    new Promise<string>((_resolve, reject) => {
-                        setTimeout(
-                            () => {
-                                reject("fail")
-                            },
-                            5 * 1000
-                        );
-                    }),
-                    {
-                        optimisticUpdate: data1 => data1 + " optimistic",
-                        rollbackOnError:  data1 => data1 + " failed",
-                    }
+    const onClick = async () => {
+        await mutate(
+            new Promise<string>((_resolve, reject) => {
+                setTimeout(
+                    () => {
+                        reject("fail")
+                    },
+                    5 * 1000
                 );
-            })}
-        >
+            }),
+            {
+                optimisticUpdate: data1 => data1 + " optimistic",
+                rollbackOnError:  data1 => data1 + " failed",
+            }
+        );
+    };
+
+    return (
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="run" title={"Run " + data} icon={Icons.Sun}/>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Run" icon={Icons.Sun} onClick={onClick}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -323,20 +244,17 @@ function UsePromiseTestMutateNoRevalidate(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView, async () => {
-                await mutate(
-                    inNSec(5),
-                    {
-                        shouldRevalidateAfter: false,
-                    }
-                )
-            })}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="run" title="Run" icon={Icons.Sun}/>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Run" icon={Icons.Sun} onClick={() => async () => {
+                    await mutate(
+                        inNSec(5),
+                        {
+                            shouldRevalidateAfter: false,
+                        }
+                    )
+                }}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -354,12 +272,9 @@ function UsePromiseTestThrow(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -379,12 +294,9 @@ function UseFetchBasic(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
@@ -406,30 +318,12 @@ function UseFetchMap(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List
-            isLoading={isLoading}
-            onSelectionChange={onSelectionChangeHandler(popView)}
-        >
+        <List isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item id="back" title="Go Back" icon={Icons.Clipboard}/>
+                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
             </List.Section>
         </List>
     )
-}
-
-function onSelectionChangeHandler(popView: () => void, handler?: () => void): (id: string) => void {
-    return (id) => {
-        switch (id) {
-            case "back": {
-                popView()
-                break;
-            }
-            case "run": {
-                handler?.()
-                break;
-            }
-        }
-    }
 }
 
 async function inNSec(n: number): Promise<string> {
