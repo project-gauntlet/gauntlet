@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -5,44 +6,56 @@ use cacao::filesystem::{FileManager, SearchPathDirectory, SearchPathDomainMask};
 use cacao::url::Url;
 use deno_runtime::deno_http::compressible::is_content_compressible;
 use plist::Dictionary;
+use regex::Regex;
 use serde::Deserialize;
 use crate::plugins::applications::{DesktopEntry, resize_icon};
 
 pub fn get_apps() -> Vec<DesktopEntry> {
     let file_manager = FileManager::default();
 
+    let all_items = [
+        get_settings(&file_manager),
+        get_applications(&file_manager)
+    ];
+
+    all_items
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+fn get_applications(file_manager: &FileManager) -> Vec<DesktopEntry> {
+
     let finder_application = vec![PathBuf::from("/System/Library/CoreServices/Finder.app")];
     let finder_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/Applications"));
 
     let core_services_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Applications"));
 
-    let user_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::User);
-    let local_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Local);
-    let system_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Domain);
-
-    // these are covered by recursion
+    // these are covered by recursion on SearchPathDirectory::Applications
     // let user_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::User);
     // let local_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Local);
     // let system_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Domain);
 
-    let user_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::User);
-    let local_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Local);
-    let system_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Domain);
+    let user_applications_dir = get_applications_with_kind(file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::User);
+    let local_applications_dir = get_applications_with_kind(file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Local);
+    let system_applications_dir = get_applications_with_kind(file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Domain);
 
     let all_applications = [
         finder_application,
         finder_applications,
         core_services_applications,
-        user_pref_panes_dir,
-        local_pref_panes_dir,
-        system_pref_panes_dir,
         // user_admin_applications_dir,
         // local_admin_applications_dir,
         // system_admin_applications_dir,
         user_applications_dir,
         local_applications_dir,
         system_applications_dir
-    ].concat();
+    ];
+
+    let all_applications: Vec<_> = all_applications
+        .into_iter()
+        .flatten()
+        .collect();
 
     tracing::debug!("Found following macOS applications: {:?}", all_applications);
 
@@ -72,6 +85,123 @@ pub fn get_apps() -> Vec<DesktopEntry> {
         .collect::<Vec<_>>();
 
     all_applications
+}
+
+fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
+    let system_version: SystemVersion = plist::from_file("/System/Library/CoreServices/SystemVersion.plist")
+        .expect("SystemVersion.plist doesn't follow expected format");
+
+    let regex = Regex::new(r"^(?<major>\d+).\d+.\d+$")
+        .expect("This regex cannot be invalid");
+
+    let captures = regex.captures(&system_version.product_version)
+        .expect("SystemVersion.plist ProductVersion doesn't match expected format");
+
+    let major_version: u8 = captures["major"]
+        .parse()
+        .expect("SystemVersion.plist ProductVersion major doesn't match expected format");
+
+    if major_version >= 13 {  // Ventura and higher
+        let sidebar: Vec<SidebarSection> = plist::from_file("/System/Applications/System Settings.app/Contents/Resources/Sidebar.plist")
+            .expect("Sidebar.plist doesn't follow expected format");
+
+        let preferences_ids: Vec<_> = sidebar.into_iter()
+            .flat_map(|section| match section {
+                SidebarSection::Content { content } => content,
+                SidebarSection::Title { .. } => vec![]
+            })
+            .collect();
+
+        tracing::debug!("Found following macOS setting preference ids: {:?}", &preferences_ids);
+
+        let extensions: HashMap<_, _> = get_extensions_in_dir(PathBuf::from("/System/Library/ExtensionKit/Extensions"))
+            .into_iter()
+            .map(|path| {
+                let name = path.file_stem()
+                    .expect(&format!("invalid path: {:?}", path))
+                    .to_string_lossy()
+                    .to_string();
+
+                let info_path = path.join("Contents").join("Info.plist");
+
+                let info = plist::from_file::<PathBuf, Info>(info_path)
+                    .expect("Unexpected Info.plist for System Extensions");
+
+                let name = info.bundle_display_name
+                    .clone()
+                    .or_else(|| info.bundle_name.clone())
+                    .unwrap_or(name);
+
+                (info.bundle_id, name)
+            })
+            .collect();
+
+        tracing::debug!("Found following macOS setting extensions: {:?}", &preferences_ids);
+
+        preferences_ids.into_iter()
+            .filter_map(|preferences_id| {
+                match extensions.get(&preferences_id) {
+                    None => {
+                        // todo some settings panel items return none here
+                        tracing::debug!("Unknown preference id found: {}", &preferences_id);
+
+                        None
+                    }
+                    Some(name) => {
+                        Some(
+                            DesktopEntry {
+                                name: name.to_string(),
+                                icon: None,
+                                command: vec![
+                                    "open".to_string(),
+                                    format!("x-apple.systempreferences:{}", preferences_id)
+                                ],
+                            }
+                        )
+                    }
+                }
+            })
+            .collect()
+    } else {
+        let user_pref_panes_dir = get_pref_panes_with_kind(file_manager, SearchPathDirectory::Library, SearchPathDomainMask::User);
+        let local_pref_panes_dir = get_pref_panes_with_kind(file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Local);
+        let system_pref_panes_dir = get_pref_panes_with_kind(file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Domain);
+
+        let all_settings = [
+            user_pref_panes_dir,
+            local_pref_panes_dir,
+            system_pref_panes_dir,
+        ];
+
+        let all_settings: Vec<_> = all_settings
+            .into_iter()
+            .flatten()
+            .collect();
+
+        tracing::debug!("Found following macOS settings: {:?}", all_settings);
+
+        let all_settings = all_settings.into_iter()
+            .map(|path| {
+                let name = path.file_stem() // TODO is there a proper way?
+                    .expect(&format!("invalid path: {:?}", path))
+                    .to_string_lossy()
+                    .to_string();
+
+                DesktopEntry {
+                    name,
+                    icon: None,
+                    command: vec![
+                        "open".to_string(),
+                        "-b".to_string(),
+                        "com.apple.systempreferences".to_string(),
+                        path.to_string_lossy().to_string()
+                    ],
+                }
+            })
+            .collect();
+
+        all_settings
+    }
 }
 
 fn get_pref_panes_with_kind(file_manager: &FileManager, directory: SearchPathDirectory, mask: SearchPathDomainMask) -> Vec<PathBuf> {
@@ -118,6 +248,10 @@ fn get_pref_panes_in_dir(path: PathBuf) -> Vec<PathBuf> {
 
 fn get_applications_in_dir(path: PathBuf) -> Vec<PathBuf> {
     get_items_in_dir(path, "app")
+}
+
+fn get_extensions_in_dir(path: PathBuf) -> Vec<PathBuf> {
+    get_items_in_dir(path, "appex")
 }
 
 fn get_items_in_dir(path: PathBuf, extension: &str) -> Vec<PathBuf> {
@@ -208,6 +342,9 @@ fn get_png_from_icon_path(icon_path: PathBuf) -> Option<Vec<u8>> {
 
 #[derive(Deserialize)]
 struct Info {
+    #[serde(rename = "CFBundleIdentifier")]
+    bundle_id: String,
+
     #[serde(rename = "CFBundleDisplayName")]
     bundle_display_name: Option<String>,
     #[serde(rename = "CFBundleName")]
@@ -218,4 +355,21 @@ struct Info {
     bundle_icon_file: Option<String>,
     #[serde(rename = "CFBundleIconName")]
     bundle_icon_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SystemVersion {
+    #[serde(rename = "ProductVersion")]
+    product_version: String,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SidebarSection {
+    Content {
+        content: Vec<String>
+    },
+    Title {
+        title: String
+    }
 }
