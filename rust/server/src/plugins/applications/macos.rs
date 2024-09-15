@@ -16,6 +16,10 @@ pub fn get_apps() -> Vec<DesktopEntry> {
 
     let core_services_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Applications"));
 
+    let user_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::User);
+    let local_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Local);
+    let system_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Domain);
+
     // these are covered by recursion
     // let user_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::User);
     // let local_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Local);
@@ -29,6 +33,9 @@ pub fn get_apps() -> Vec<DesktopEntry> {
         finder_application,
         finder_applications,
         core_services_applications,
+        user_pref_panes_dir,
+        local_pref_panes_dir,
+        system_pref_panes_dir,
         // user_admin_applications_dir,
         // local_admin_applications_dir,
         // system_admin_applications_dir,
@@ -67,15 +74,35 @@ pub fn get_apps() -> Vec<DesktopEntry> {
     all_applications
 }
 
+fn get_pref_panes_with_kind(file_manager: &FileManager, directory: SearchPathDirectory, mask: SearchPathDomainMask) -> Vec<PathBuf> {
+    get_items_with_kind(file_manager, directory, mask, Some("PreferencePanes"), |dir| get_pref_panes_in_dir(dir))
+}
+
 fn get_applications_with_kind(file_manager: &FileManager, directory: SearchPathDirectory, mask: SearchPathDomainMask) -> Vec<PathBuf> {
+    get_items_with_kind(file_manager, directory, mask, None, |dir| get_applications_in_dir(dir))
+}
+
+fn get_items_with_kind<F>(
+    file_manager: &FileManager,
+    directory: SearchPathDirectory,
+    mask: SearchPathDomainMask,
+    suffix: Option<&'static str>,
+    read_fn: F
+) -> Vec<PathBuf> where F: Fn(PathBuf) -> Vec<PathBuf>
+{
     match file_manager.get_directory(directory.clone(), mask.clone()) {
         Ok(url) => {
             let applications_dir = url.to_file_path()
                 .expect("returned application url is not a file path");
 
+            let applications_dir = match suffix {
+                Some(suffix) => applications_dir.join(suffix),
+                None => applications_dir
+            };
+
             tracing::debug!("reading {:?} {:?} directory: {:?}", directory, mask, &applications_dir);
 
-            get_applications_in_dir(applications_dir)
+            read_fn(applications_dir)
         }
         Err(err) => {
             tracing::error!("error reading {:?} {:?} directory: {:?}", directory, mask, err);
@@ -85,7 +112,15 @@ fn get_applications_with_kind(file_manager: &FileManager, directory: SearchPathD
     }
 }
 
+fn get_pref_panes_in_dir(path: PathBuf) -> Vec<PathBuf> {
+    get_items_in_dir(path, "prefPane")
+}
+
 fn get_applications_in_dir(path: PathBuf) -> Vec<PathBuf> {
+    get_items_in_dir(path, "app")
+}
+
+fn get_items_in_dir(path: PathBuf, extension: &str) -> Vec<PathBuf> {
     match path.read_dir() {
         Ok(read_dir) => {
             read_dir
@@ -95,10 +130,10 @@ fn get_applications_in_dir(path: PathBuf) -> Vec<PathBuf> {
                 .map(|entry| entry.path())
                 .flat_map(|entry_path| {
                     if entry_path.is_dir() {
-                        if entry_path.extension() == Some(OsStr::new("app")) {
+                        if entry_path.extension() == Some(OsStr::new(extension)) {
                             vec![entry_path]
                         } else {
-                            get_applications_in_dir(entry_path)
+                            get_items_in_dir(entry_path, extension)
                         }
                     } else {
                         vec![]
