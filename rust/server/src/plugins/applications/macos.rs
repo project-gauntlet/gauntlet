@@ -16,9 +16,10 @@ pub fn get_apps() -> Vec<DesktopEntry> {
 
     let core_services_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Applications"));
 
-    let user_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::User);
-    let local_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Local);
-    let system_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Domain);
+    // these are covered by recursion
+    // let user_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::User);
+    // let local_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Local);
+    // let system_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Domain);
 
     let user_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::User);
     let local_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Local);
@@ -28,9 +29,9 @@ pub fn get_apps() -> Vec<DesktopEntry> {
         finder_application,
         finder_applications,
         core_services_applications,
-        user_admin_applications_dir,
-        local_admin_applications_dir,
-        system_admin_applications_dir,
+        // user_admin_applications_dir,
+        // local_admin_applications_dir,
+        // system_admin_applications_dir,
         user_applications_dir,
         local_applications_dir,
         system_applications_dir
@@ -72,6 +73,8 @@ fn get_applications_with_kind(file_manager: &FileManager, directory: SearchPathD
             let applications_dir = url.to_file_path()
                 .expect("returned application url is not a file path");
 
+            tracing::debug!("reading {:?} {:?} directory: {:?}", directory, mask, &applications_dir);
+
             get_applications_in_dir(applications_dir)
         }
         Err(err) => {
@@ -90,7 +93,17 @@ fn get_applications_in_dir(path: PathBuf) -> Vec<PathBuf> {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|entry| entry.path())
-                .filter(|entry_path| entry_path.is_dir() && entry_path.extension() == Some(OsStr::new("app")))
+                .flat_map(|entry_path| {
+                    if entry_path.is_dir() {
+                        if entry_path.extension() == Some(OsStr::new("app")) {
+                            vec![entry_path]
+                        } else {
+                            get_applications_in_dir(entry_path)
+                        }
+                    } else {
+                        vec![]
+                    }
+                })
                 .collect::<Vec<_>>()
         }
         Err(_) => vec![]
