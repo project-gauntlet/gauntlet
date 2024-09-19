@@ -51,7 +51,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
   - **BREAKING CHANGE**: Current everything theme version increased to `2` 
   
 ### `Applications` plugin
-- Add System settings items like Sound, Network, etc
+- Add macOS System settings items like Sound, Network, etc
   - Both pre- and post-Ventura macOS settings are supported
 - Fixed macOS applications, that are nested more than one directory level deep in `Applications` directory, not being added 
 
