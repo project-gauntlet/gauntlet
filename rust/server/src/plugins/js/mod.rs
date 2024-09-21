@@ -320,7 +320,7 @@ async fn start_js_runtime(
         None
     };
 
-    let permissions_container = permissions_to_deno(&permissions);
+    let permissions_container = permissions_to_deno(&permissions, &dirs, &plugin_uuid)?;
 
     let runtime_permissions = PluginRuntimePermissions {
         clipboard: permissions.clipboard,

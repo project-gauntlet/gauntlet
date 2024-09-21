@@ -160,7 +160,14 @@ clipboard = ["read", "write", "clear"]
 main_search_bar = ["read"]
 
 [permissions.filesystem]
-read = ["C:\\ProgramFiles", "C:/ProgramFiles", "/home/exidex"]
+read = [
+    "C:\\ProgramFiles\\test",
+    "C:/ProgramFiles/test",
+    "{windows:user-home}\\test",
+    "{windows:user-home}/test",
+    "{linux:user-home}/test",
+    "/etc/test"
+]
 write = ["/home/exidex/.test"]
 
 [permissions.exec]

@@ -19,8 +19,10 @@ fn find_application_dirs() -> Option<Vec<PathBuf>> {
         },
         None => {
             let dirs = Dirs::new();
-            let home = dirs.home_dir()?;
-            home.join(".local/share")
+
+            dirs.home_dir()
+                .join(".local")
+                .join("share")
         }
     };
     let extra_data_dirs = match env::var_os("XDG_DATA_DIRS") {

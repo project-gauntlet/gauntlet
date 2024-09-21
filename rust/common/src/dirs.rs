@@ -15,17 +15,22 @@ impl Dirs {
         }
     }
 
-    pub fn home_dir(&self) -> Option<PathBuf> {
-        let path = BaseDirs::new()?
+    pub fn home_dir(&self) -> PathBuf {
+        let path = BaseDirs::new()
+            .expect("System didn't report any home directory")
             .home_dir()
             .to_path_buf();
 
-        Some(path)
+        path
     }
 
     pub fn data_db_file(&self) -> anyhow::Result<PathBuf> {
         let path = self.data_dir()?.join("data.db");
         Ok(path)
+    }
+
+    pub fn plugin_data(&self, plugin_uuid: &str) -> anyhow::Result<PathBuf> {
+        Ok(self.data_dir()?.join("plugins").join(&plugin_uuid))
     }
 
     pub fn data_dir(&self) -> anyhow::Result<PathBuf> {
@@ -73,6 +78,10 @@ impl Dirs {
 
     pub fn icon_cache_dir(&self) -> PathBuf {
         self.cache_dir().join("icons")
+    }
+
+    pub fn plugin_cache(&self, plugin_uuid: &str) -> PathBuf {
+        self.cache_dir().join("plugins").join(&plugin_uuid)
     }
 
     pub fn cache_dir(&self) -> PathBuf {

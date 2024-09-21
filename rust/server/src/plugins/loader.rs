@@ -12,8 +12,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use walkdir::WalkDir;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
+use regex::{Match, Regex};
 use tracing_subscriber::fmt::format;
-use typed_path::{TypedPathBuf, Utf8TypedPath, Utf8UnixComponent, Utf8WindowsComponent};
+use typed_path::{TypedPathBuf, Utf8TypedPath, Utf8UnixComponent, Utf8WindowsComponent, Utf8WindowsPrefix, Utf8WindowsPrefixComponent};
 use common::model::{DownloadStatus, PluginId};
 use crate::model::ActionShortcutKey;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions, DbPluginPermissionsFileSystem, DbPluginPermissionsExec};
@@ -24,6 +26,8 @@ pub struct PluginLoader {
     db_repository: DataDbRepository,
     download_status_holder: DownloadStatusHolder
 }
+
+pub static VARIABLE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
 
 impl PluginLoader {
     pub fn new(db_repository: DataDbRepository) -> Self {
@@ -216,7 +220,6 @@ impl PluginLoader {
 
         tracing::debug!("Plugin config read: {:?}", plugin_manifest);
 
-        // todo path permissions variables
         Self::validate_manifest(&plugin_manifest)?;
 
         let plugin_name = plugin_manifest.gauntlet.name;
@@ -420,7 +423,57 @@ impl PluginLoader {
                 Err(anyhow!("Empty path is not allowed in permissions"))?
             }
 
-            let path = Utf8TypedPath::derive(path);
+            // TODO custom parser for fun? for better error reporting, that will include cross-platform path parser
+
+            let matches = VARIABLE_PATTERN.captures_iter(path).collect::<Vec<_>>();
+            let augmented_path = match matches.as_slice() {
+                [] => path.to_owned(),
+                [variable] => {
+                    // TODO replace when https://github.com/rust-lang/regex/issues/1146 is resolved
+                    let pattern_match = variable.get(0).unwrap();
+
+                    if pattern_match.start() != 0 {
+                        Err(anyhow!("Variable can only be used in the beginning of the path: {}", path))?
+                    }
+
+                    let mut path_bytes = path.bytes();
+                    path_bytes.nth(pattern_match.end() - 1).expect("end of match should always exist");
+
+                    let windows_like_path = match path_bytes.next() {
+                        Some(b'\\') => true,
+                        Some(b'/') | None => false,
+                        Some(byte) => {
+                            // this is done to prohibit "{linux:user-home}test" which for variable "/home/user" would result into "/home/usertest"
+                            Err(anyhow!("Variable should always be followed with a slash or end of string, instead followed with {}, path: {}", byte as char, path))?
+                        }
+                    };
+
+                    let namespace = &variable["namespace"];
+                    let name = &variable["name"];
+
+                    let windows_like_path = match (namespace, name) {
+                        ("macos", "user-home") => false,
+                        ("linux", "user-home") => false,
+                        ("windows", "user-home") => windows_like_path,
+                        ("common", "plugin-data") => windows_like_path,
+                        ("common", "plugin-cache") => windows_like_path,
+                        (namespace, name) => {
+                            Err(anyhow!("Unknown variable namespace and name combination in path in permissions: {}:{}", namespace, name))?
+                        }
+                    };
+
+                    if windows_like_path {
+                        VARIABLE_PATTERN.replace(path, "C:\\dummy-root").to_string()
+                    } else {
+                        VARIABLE_PATTERN.replace(path, "/dummy-root").to_string()
+                    }
+                }
+                [_, ..] => {
+                    Err(anyhow!("Path includes more than one variable: {}", path))?
+                }
+            };
+
+            let path = Utf8TypedPath::derive(&augmented_path);
 
             if !path.is_absolute() {
                 Err(anyhow!("Relative path is not allowed in permissions: {}", path))?
@@ -457,7 +510,19 @@ impl PluginLoader {
                         Err(anyhow!("Path is not valid: {}", path))?
                     }
 
-                    for component in path.components() {
+                    let components = path.components();
+
+                    let prefix = components.prefix()
+                        .expect("prefix should always be present for absolute paths");
+
+                    match prefix.kind() {
+                        Utf8WindowsPrefix::Disk('C') => {}
+                        _ => {
+                            Err(anyhow!("Only C:/ drive prefix in windows paths is supported, prefix: {}", prefix.as_str()))?
+                        }
+                    }
+
+                    for component in components {
                         match component {
                             Utf8WindowsComponent::Normal(_) | Utf8WindowsComponent::RootDir | Utf8WindowsComponent::Prefix(_) => {}
                             Utf8WindowsComponent::CurDir => {
