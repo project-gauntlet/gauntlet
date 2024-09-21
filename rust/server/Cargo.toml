@@ -38,6 +38,7 @@ arboard = "3.4.0"
 global-hotkey = "0.4.2"
 ureq = "2.10.0"
 bytes = "1.6.0"
+typed-path = "0.9"
 
 scenario_runner = { path = "../scenario_runner", optional = true }
 itertools = "0.10.5"

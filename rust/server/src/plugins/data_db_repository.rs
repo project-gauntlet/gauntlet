@@ -10,6 +10,7 @@ use sqlx::{Error, Executor, Pool, Row, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
+use typed_path::TypedPathBuf;
 use uuid::Uuid;
 use common::model::{PhysicalKey, PhysicalShortcut};
 use common::dirs::Dirs;
@@ -117,23 +118,33 @@ pub struct DbPluginPermissions {
     #[serde(default)]
     pub environment: Vec<String>,
     #[serde(default)]
-    pub high_resolution_time: bool,
-    #[serde(default)]
     pub network: Vec<String>,
     #[serde(default)]
-    pub ffi: Vec<PathBuf>,
+    pub filesystem: DbPluginPermissionsFileSystem,
     #[serde(default)]
-    pub fs_read_access: Vec<PathBuf>,
-    #[serde(default)]
-    pub fs_write_access: Vec<PathBuf>,
-    #[serde(default)]
-    pub run_subprocess: Vec<String>,
+    pub exec: DbPluginPermissionsExec,
     #[serde(default)]
     pub system: Vec<String>,
     #[serde(default)]
     pub clipboard: Vec<DbPluginClipboardPermissions>,
     #[serde(default)]
     pub main_search_bar: Vec<DbPluginMainSearchBarPermissions>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct DbPluginPermissionsFileSystem {
+    #[serde(default)]
+    pub read: Vec<String>,
+    #[serde(default)]
+    pub write: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct DbPluginPermissionsExec {
+    #[serde(default)]
+    pub command: Vec<String>,
+    #[serde(default)]
+    pub executable: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

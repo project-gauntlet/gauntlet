@@ -1,20 +1,23 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hash;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use deno_core::{FastString, futures, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, op, OpState, ResolutionKind, serde_v8, StaticModuleLoader, v8};
-use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::futures::executor::block_on;
+use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
+use deno_core::{futures, op, serde_v8, v8, FastString, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, OpState, ResolutionKind, StaticModuleLoader};
+use deno_runtime::BootstrapOptions;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::deno_io::{Stdio, StdioPipe};
-use deno_runtime::permissions::{Permissions, PermissionsContainer, PermissionsOptions};
+use deno_runtime::permissions::{Descriptor, EnvDescriptor, NetDescriptor, Permissions, PermissionsContainer, PermissionsOptions, ReadDescriptor, UnaryPermission, WriteDescriptor};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use indexmap::IndexMap;
@@ -27,16 +30,17 @@ use tokio_util::sync::CancellationToken;
 use common::dirs::Dirs;
 use common::model::{EntrypointId, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidget, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
-use component_model::{Children, Component, create_component_model, Property, PropertyType, SharedType};
+use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
 use crate::model::{IntermediateUiEvent, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
-use crate::plugins::applications::{DesktopEntry, get_apps};
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint, DbPluginClipboardPermissions};
+use crate::plugins::applications::{get_apps, DesktopEntry};
+use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
 use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
 use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
+use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
 use crate::plugins::js::plugins::applications::{list_applications, open_application};
 use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::js::plugins::settings::open_settings;
@@ -54,6 +58,7 @@ mod preferences;
 mod search;
 mod command_generators;
 mod clipboard;
+pub mod permissions;
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -73,36 +78,10 @@ pub struct PluginCode {
     pub js: HashMap<String, String>,
 }
 
-pub struct PluginPermissions {
-    pub environment: Vec<String>,
-    pub high_resolution_time: bool,
-    pub network: Vec<String>,
-    pub ffi: Vec<PathBuf>,
-    pub fs_read_access: Vec<PathBuf>,
-    pub fs_write_access: Vec<PathBuf>,
-    pub run_subprocess: Vec<String>,
-    pub system: Vec<String>,
-    pub clipboard: Vec<PluginClipboardPermissions>,
-    pub main_search_bar: Vec<PluginMainSearchBarPermissions>,
-}
-
 #[derive(Clone, Debug)]
 pub struct PluginRuntimePermissions {
-    pub clipboard: Vec<PluginClipboardPermissions>,
+    pub clipboard: Vec<PluginPermissionsClipboard>,
 }
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PluginClipboardPermissions {
-    Read,
-    Write,
-    Clear
-}
-
-#[derive(Clone, Debug)]
-pub enum PluginMainSearchBarPermissions {
-    Read,
-}
-
 
 #[derive(Clone, Debug)]
 pub enum PluginCommand {
@@ -306,25 +285,6 @@ async fn start_js_runtime(
     icon_cache: IconCache,
     dirs: Dirs,
 ) -> anyhow::Result<()> {
-    let permissions_container = PermissionsContainer::new(Permissions::from_options(&PermissionsOptions {
-        allow_env: if permissions.environment.is_empty() { None } else { Some(permissions.environment) },
-        deny_env: None,
-        allow_hrtime: permissions.high_resolution_time,
-        deny_hrtime: false,
-        allow_net: if permissions.network.is_empty() { None } else { Some(permissions.network) },
-        deny_net: None,
-        allow_ffi: if permissions.ffi.is_empty() { None } else { Some(permissions.ffi) },
-        deny_ffi: None,
-        allow_read: if permissions.fs_read_access.is_empty() { None } else { Some(permissions.fs_read_access) },
-        deny_read: None,
-        allow_run: if permissions.run_subprocess.is_empty() { None } else { Some(permissions.run_subprocess) },
-        deny_run: None,
-        allow_sys: if permissions.system.is_empty() { None } else { Some(permissions.system) },
-        deny_sys: None,
-        allow_write: if permissions.fs_write_access.is_empty() { None } else { Some(permissions.fs_write_access) },
-        deny_write: None,
-        prompt: false,
-    })?);
 
     let dev_plugin = plugin_id.to_string().starts_with("file://");
 
@@ -360,6 +320,8 @@ async fn start_js_runtime(
         None
     };
 
+    let permissions_container = permissions_to_deno(&permissions);
+
     let runtime_permissions = PluginRuntimePermissions {
         clipboard: permissions.clipboard,
     };
@@ -368,6 +330,10 @@ async fn start_js_runtime(
         unused_url,
         permissions_container,
         WorkerOptions {
+            bootstrap: BootstrapOptions {
+                is_tty: false,
+                ..Default::default()
+            },
             module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),

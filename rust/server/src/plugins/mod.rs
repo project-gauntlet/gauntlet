@@ -20,7 +20,8 @@ use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions};
 use crate::plugins::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginPermissions, PluginRuntimeData, start_plugin_runtime, PluginClipboardPermissions, PluginMainSearchBarPermissions};
+use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginRuntimeData, start_plugin_runtime};
+use crate::plugins::js::permissions::{PluginPermissions, PluginPermissionsClipboard, PluginPermissionsExec, PluginPermissionsFileSystem, PluginPermissionsMainSearchBar};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::search::SearchIndex;
@@ -564,9 +565,9 @@ impl ApplicationManager {
             .clipboard
             .into_iter()
             .map(|permission| match permission {
-                DbPluginClipboardPermissions::Read => PluginClipboardPermissions::Read,
-                DbPluginClipboardPermissions::Write => PluginClipboardPermissions::Write,
-                DbPluginClipboardPermissions::Clear => PluginClipboardPermissions::Clear,
+                DbPluginClipboardPermissions::Read => PluginPermissionsClipboard::Read,
+                DbPluginClipboardPermissions::Write => PluginPermissionsClipboard::Write,
+                DbPluginClipboardPermissions::Clear => PluginPermissionsClipboard::Clear,
             })
             .collect();
 
@@ -574,7 +575,7 @@ impl ApplicationManager {
             .main_search_bar
             .into_iter()
             .map(|permission| match permission {
-                DbPluginMainSearchBarPermissions::Read => PluginMainSearchBarPermissions::Read,
+                DbPluginMainSearchBarPermissions::Read => PluginPermissionsMainSearchBar::Read,
             })
             .collect();
 
@@ -585,12 +586,15 @@ impl ApplicationManager {
             inline_view_entrypoint_id,
             permissions: PluginPermissions {
                 environment: plugin.permissions.environment,
-                high_resolution_time: plugin.permissions.high_resolution_time,
                 network: plugin.permissions.network,
-                ffi: plugin.permissions.ffi,
-                fs_read_access: plugin.permissions.fs_read_access,
-                fs_write_access: plugin.permissions.fs_write_access,
-                run_subprocess: plugin.permissions.run_subprocess,
+                filesystem: PluginPermissionsFileSystem {
+                    read: plugin.permissions.filesystem.read,
+                    write: plugin.permissions.filesystem.write,
+                },
+                exec: PluginPermissionsExec {
+                    command: plugin.permissions.exec.command,
+                    executable: plugin.permissions.exec.executable,
+                },
                 system: plugin.permissions.system,
                 clipboard: clipboard_permissions,
                 main_search_bar: main_search_bar_permissions

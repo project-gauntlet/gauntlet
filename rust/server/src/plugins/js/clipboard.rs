@@ -7,7 +7,8 @@ use deno_core::{op, OpState};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
-use crate::plugins::js::{PluginClipboardPermissions, PluginData};
+use crate::plugins::js::permissions::PluginPermissionsClipboard;
+use crate::plugins::js::PluginData;
 
 fn unknown_err_clipboard(err: arboard::Error) -> anyhow::Error {
     anyhow!("UNKNOWN_ERROR: {:?}", err)
@@ -36,7 +37,7 @@ async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<Clipboard
             .borrow::<PluginData>()
             .permissions()
             .clipboard
-            .contains(&PluginClipboardPermissions::Read);
+            .contains(&PluginPermissionsClipboard::Read);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
@@ -98,7 +99,7 @@ async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Opti
             .borrow::<PluginData>()
             .permissions()
             .clipboard
-            .contains(&PluginClipboardPermissions::Read);
+            .contains(&PluginPermissionsClipboard::Read);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
@@ -134,7 +135,7 @@ async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> an
             .borrow::<PluginData>()
             .permissions()
             .clipboard
-            .contains(&PluginClipboardPermissions::Write);
+            .contains(&PluginPermissionsClipboard::Write);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
@@ -186,7 +187,7 @@ async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyh
             .borrow::<PluginData>()
             .permissions()
             .clipboard
-            .contains(&PluginClipboardPermissions::Write);
+            .contains(&PluginPermissionsClipboard::Write);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
@@ -213,7 +214,7 @@ async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
             .borrow::<PluginData>()
             .permissions()
             .clipboard
-            .contains(&PluginClipboardPermissions::Clear);
+            .contains(&PluginPermissionsClipboard::Clear);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard"));

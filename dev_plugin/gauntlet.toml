@@ -158,3 +158,11 @@ system = ["systemMemoryInfo"]
 network = ["upload.wikimedia.org", "api.github.com"]
 clipboard = ["read", "write", "clear"]
 main_search_bar = ["read"]
+
+[permissions.filesystem]
+read = ["C:\\ProgramFiles", "C:/ProgramFiles", "/home/exidex"]
+write = ["/home/exidex/.test"]
+
+[permissions.exec]
+command = ["ls"]
+executable = ["/usr/bin/ls"]

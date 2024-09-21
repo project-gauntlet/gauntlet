@@ -6,16 +6,19 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use anyhow::{anyhow, Context};
+use deno_core::url;
 use include_dir::Dir;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use walkdir::WalkDir;
 use itertools::Itertools;
 use tracing_subscriber::fmt::format;
+use typed_path::{TypedPathBuf, Utf8TypedPath, Utf8UnixComponent, Utf8WindowsComponent};
 use common::model::{DownloadStatus, PluginId};
 use crate::model::ActionShortcutKey;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions};
+use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions, DbPluginPermissionsFileSystem, DbPluginPermissionsExec};
 use crate::plugins::download_status::DownloadStatusHolder;
+use crate::plugins::js::permissions::{PluginPermissionsExec, PluginPermissionsFileSystem};
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
@@ -213,46 +216,8 @@ impl PluginLoader {
 
         tracing::debug!("Plugin config read: {:?}", plugin_manifest);
 
-        let permissions = &plugin_manifest.permissions;
-
-        let env_exists = !permissions.environment.is_empty();
-        let ffi_exists = !permissions.ffi.is_empty();
-        let fs_read_exists = !permissions.fs_read_access.is_empty();
-        let fs_write_exists = !permissions.fs_write_access.is_empty();
-        let run_exists = !permissions.run_subprocess.is_empty();
-        let system_exists = !permissions.system.is_empty();
-
-        let os_required = env_exists || ffi_exists || fs_read_exists || fs_write_exists || run_exists || system_exists;
-
-        if os_required {
-            let current_system = if cfg!(target_os = "linux") {
-                PluginManifestSupportedSystem::Linux
-            } else if cfg!(target_os = "macos") {
-                PluginManifestSupportedSystem::MacOS
-            } else if cfg!(target_os = "windows") {
-                PluginManifestSupportedSystem::Windows
-            } else {
-                panic!("OS not supported")
-            };
-
-            let supported_system = &plugin_manifest.supported_system;
-            if !supported_system.contains(&current_system) {
-                let supported_system = supported_system.iter().format(", ");
-                return Err(anyhow!("Plugin doesn't support current operating system. Operating systems supported by plugin: [{}]", supported_system))
-            }
-        }
-
-        let has_inline_view = plugin_manifest.entrypoint
-            .iter()
-            .find(|entrypoint| matches!(entrypoint.entrypoint_type, PluginManifestEntrypointTypes::InlineView))
-            .is_some();
-
-        if has_inline_view {
-            let main_search_bar = &permissions.main_search_bar;
-            if !main_search_bar.contains(&PluginManifestMainSearchBarPermissions::Read) {
-                return Err(anyhow!("Plugin uses entrypoint type 'inline-view' but doesn't specify main search bar 'read' permission"))
-            }
-        }
+        // todo path permissions variables
+        Self::validate_manifest(&plugin_manifest)?;
 
         let plugin_name = plugin_manifest.gauntlet.name;
         let plugin_description = plugin_manifest.gauntlet.description;
@@ -357,12 +322,15 @@ impl PluginLoader {
 
         let permissions = DbPluginPermissions {
             environment: plugin_manifest.permissions.environment,
-            high_resolution_time: plugin_manifest.permissions.high_resolution_time,
             network: plugin_manifest.permissions.network,
-            ffi: plugin_manifest.permissions.ffi,
-            fs_read_access: plugin_manifest.permissions.fs_read_access,
-            fs_write_access: plugin_manifest.permissions.fs_write_access,
-            run_subprocess: plugin_manifest.permissions.run_subprocess,
+            filesystem: DbPluginPermissionsFileSystem {
+                read: plugin_manifest.permissions.filesystem.read,
+                write: plugin_manifest.permissions.filesystem.write,
+            },
+            exec: DbPluginPermissionsExec {
+                command: plugin_manifest.permissions.exec.command,
+                executable: plugin_manifest.permissions.exec.executable,
+            },
             system: plugin_manifest.permissions.system,
             clipboard,
             main_search_bar,
@@ -381,6 +349,162 @@ impl PluginLoader {
             preferences: plugin_preferences,
             preferences_user_data: HashMap::new()
         })
+    }
+
+    fn validate_manifest(plugin_manifest: &PluginManifest) -> anyhow::Result<()> {
+        let supported_systems = &plugin_manifest.supported_system;
+        let supported_systems_str = supported_systems.iter().format(", ");
+
+        let supports_linux = &supported_systems.iter().any(|system| matches!(system, PluginManifestSupportedSystem::Linux));
+        let supports_macos = &supported_systems.iter().any(|system| matches!(system, PluginManifestSupportedSystem::MacOS));
+        let supports_windows = &supported_systems.iter().any(|system| matches!(system, PluginManifestSupportedSystem::Windows));
+
+        let permissions = &plugin_manifest.permissions;
+
+        Self::validate_string_permissions(&permissions.environment)?;
+        Self::validate_network_permissions(&permissions.network)?;
+        Self::validate_path_permissions(&permissions.filesystem.read, supports_linux, supports_macos, supports_windows)?;
+        Self::validate_path_permissions(&permissions.filesystem.write, supports_linux, supports_macos, supports_windows)?;
+        Self::validate_string_permissions(&permissions.exec.command)?;
+        Self::validate_path_permissions(&permissions.exec.executable, supports_linux, supports_macos, supports_windows)?;
+
+        // even though system accepts a list of predefined values
+        // unknown values are ignored to allow for easier
+        // adoption to breaking changes in deno
+        // TODO do a warning
+        Self::validate_string_permissions(&permissions.system)?;
+
+        let env_exists = !permissions.environment.is_empty();
+        let fs_read_exists = !permissions.filesystem.read.is_empty();
+        let fs_write_exists = !permissions.filesystem.write.is_empty();
+        let command_exists = !permissions.exec.command.is_empty();
+        let executable_exists = !permissions.exec.executable.is_empty();
+        let system_exists = !permissions.system.is_empty();
+
+        let os_required = env_exists || fs_read_exists || fs_write_exists || command_exists || executable_exists || system_exists;
+
+        if os_required {
+            let current_system = if cfg!(target_os = "linux") {
+                PluginManifestSupportedSystem::Linux
+            } else if cfg!(target_os = "macos") {
+                PluginManifestSupportedSystem::MacOS
+            } else if cfg!(target_os = "windows") {
+                PluginManifestSupportedSystem::Windows
+            } else {
+                panic!("OS not supported")
+            };
+
+            if !supported_systems.contains(&current_system) {
+                return Err(anyhow!("Plugin doesn't support current operating system. Operating systems supported by plugin: [{}]", supported_systems_str))
+            }
+        }
+
+        let has_inline_view = plugin_manifest.entrypoint
+            .iter()
+            .find(|entrypoint| matches!(entrypoint.entrypoint_type, PluginManifestEntrypointTypes::InlineView))
+            .is_some();
+
+        if has_inline_view {
+            let main_search_bar = &permissions.main_search_bar;
+            if !main_search_bar.contains(&PluginManifestMainSearchBarPermissions::Read) {
+                return Err(anyhow!("Plugin uses entrypoint type 'inline-view' but doesn't specify main search bar 'read' permission"))
+            }
+        }
+
+        Ok(())
+    }
+
+    fn validate_path_permissions(paths: &[String], supports_linux: &bool, supports_macos: &bool, supports_windows: &bool) -> anyhow::Result<()> {
+        for path in paths {
+            if path.is_empty() {
+                Err(anyhow!("Empty path is not allowed in permissions"))?
+            }
+
+            let path = Utf8TypedPath::derive(path);
+
+            if !path.is_absolute() {
+                Err(anyhow!("Relative path is not allowed in permissions: {}", path))?
+            }
+
+            match path {
+                Utf8TypedPath::Unix(path) => {
+                    if !supports_macos && !supports_linux {
+                        Err(anyhow!("When using unix-style path in permissions, plugin is required to include \"linux\" or \"macos\" in \"supported_system\" manifest property: {}", path))?
+                    }
+
+                    if !path.is_valid() {
+                        Err(anyhow!("Path is not valid: {}", path))?
+                    }
+
+                    for component in path.components() {
+                        match component {
+                            Utf8UnixComponent::Normal(_) | Utf8UnixComponent::RootDir => {}
+                            Utf8UnixComponent::CurDir => {
+                                Err(anyhow!("Current directory '.' segment is not allowed in permission path: {}", path))?
+                            }
+                            Utf8UnixComponent::ParentDir => {
+                                Err(anyhow!("Parent directory '..' segment is not allowed in permission path: {}", path))?
+                            }
+                        }
+                    }
+                }
+                Utf8TypedPath::Windows(path) => {
+                    if !supports_windows {
+                        Err(anyhow!("When using windows-style path in permissions, plugin is required to include \"windows\" in \"supported_system\" manifest property: {}", path))?
+                    }
+
+                    if !path.is_valid() {
+                        Err(anyhow!("Path is not valid: {}", path))?
+                    }
+
+                    for component in path.components() {
+                        match component {
+                            Utf8WindowsComponent::Normal(_) | Utf8WindowsComponent::RootDir | Utf8WindowsComponent::Prefix(_) => {}
+                            Utf8WindowsComponent::CurDir => {
+                                Err(anyhow!("Current directory '.' segment is not allowed in permission path: {}", path))?
+                            }
+                            Utf8WindowsComponent::ParentDir => {
+                                Err(anyhow!("Parent directory '..' segment is not allowed in permission path: {}", path))?
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn validate_string_permissions(values: &[String]) -> anyhow::Result<()> {
+        for value in values {
+            if value.is_empty() {
+                Err(anyhow!("Empty string value is not allowed in permissions"))?
+            }
+        }
+
+        Ok(())
+    }
+
+    fn validate_network_permissions(values: &[String]) -> anyhow::Result<()> {
+        for value in values {
+            if value.is_empty() {
+                Err(anyhow!("Empty string value is not allowed in permissions"))?
+            }
+
+            let url = url::Url::parse(&format!("http://{value}"))?;
+
+            let contains_username = !url.username().is_empty();
+            let contains_password = matches!(url.password(), Some(_));
+            let contains_path = url.path() != "/";
+            let contains_query = matches!(url.query(), Some(_));
+            let contains_fragment = matches!(url.fragment(), Some(_));
+
+            // allow only domain and optional port
+            if contains_username || contains_password || contains_path || contains_query || contains_fragment {
+                Err(anyhow!("Network permission can only contain domain and optionally port: {}", value))?
+            }
+        }
+        Ok(())
     }
 }
 
@@ -844,23 +968,33 @@ pub struct PluginManifestPermissions {
     #[serde(default)]
     environment: Vec<String>,
     #[serde(default)]
-    high_resolution_time: bool,
-    #[serde(default)]
     network: Vec<String>,
     #[serde(default)]
-    ffi: Vec<PathBuf>,
+    filesystem: PluginManifestPermissionsFileSystem,
     #[serde(default)]
-    fs_read_access: Vec<PathBuf>,
-    #[serde(default)]
-    fs_write_access: Vec<PathBuf>,
-    #[serde(default)]
-    run_subprocess: Vec<String>,
+    exec: PluginManifestPermissionsExec,
     #[serde(default)]
     system: Vec<String>,
     #[serde(default)]
     clipboard: Vec<PluginManifestClipboardPermissions>,
     #[serde(default)]
     main_search_bar: Vec<PluginManifestMainSearchBarPermissions>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct PluginManifestPermissionsFileSystem {
+    #[serde(default)]
+    pub read: Vec<String>,
+    #[serde(default)]
+    pub write: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct PluginManifestPermissionsExec {
+    #[serde(default)]
+    pub command: Vec<String>,
+    #[serde(default)]
+    pub executable: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
