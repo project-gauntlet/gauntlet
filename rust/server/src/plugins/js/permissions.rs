@@ -186,7 +186,7 @@ fn augment_path(path: &String, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result
                 }
             },
             ("common", "plugin-data") => Some(dirs.plugin_data(plugin_uuid)?),
-            ("common", "plugin-cache") => Some(dirs.plugin_cache(plugin_uuid)),
+            ("common", "plugin-cache") => Some(dirs.plugin_cache(plugin_uuid)?),
             (_, _) => {
                 Err(anyhow!("Trying to load plugin with unknown variable in path in manifest permissions: {}", path))?
             }

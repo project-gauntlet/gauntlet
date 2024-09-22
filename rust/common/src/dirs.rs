@@ -30,7 +30,12 @@ impl Dirs {
     }
 
     pub fn plugin_data(&self, plugin_uuid: &str) -> anyhow::Result<PathBuf> {
-        Ok(self.data_dir()?.join("plugins").join(&plugin_uuid))
+        let plugin_data_dir = self.data_dir()?.join("plugins").join(&plugin_uuid);
+
+        std::fs::create_dir_all(&plugin_data_dir)
+            .context("Unable to create plugin data directory")?;
+
+        Ok(plugin_data_dir)
     }
 
     pub fn data_dir(&self) -> anyhow::Result<PathBuf> {
@@ -80,8 +85,13 @@ impl Dirs {
         self.cache_dir().join("icons")
     }
 
-    pub fn plugin_cache(&self, plugin_uuid: &str) -> PathBuf {
-        self.cache_dir().join("plugins").join(&plugin_uuid)
+    pub fn plugin_cache(&self, plugin_uuid: &str) -> anyhow::Result<PathBuf> {
+        let plugin_cache_dir = self.cache_dir().join("plugins").join(&plugin_uuid);
+
+        std::fs::create_dir_all(&plugin_cache_dir)
+            .context("Unable to create plugin cache directory")?;
+
+        Ok(plugin_cache_dir)
     }
 
     pub fn cache_dir(&self) -> PathBuf {
