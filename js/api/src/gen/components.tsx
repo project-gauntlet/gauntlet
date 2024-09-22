@@ -140,7 +140,7 @@ declare global {
             };
             ["gauntlet:grid_item"]: {
                 children?: ElementComponent<typeof Content>;
-                title: string;
+                title?: string;
                 subtitle?: string;
                 onClick?: () => void;
             };
@@ -673,7 +673,7 @@ List.Item = ListItem;
 List.Section = ListSection;
 export interface GridItemProps {
     children?: ElementComponent<typeof Content>;
-    title: string;
+    title?: string;
     subtitle?: string;
     onClick?: () => void;
 }

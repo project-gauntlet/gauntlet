@@ -968,7 +968,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid_item/description.md"),
         "GridItem",
         [
-            property("title", mark_doc!("/grid_item/props/title.md"), false, PropertyType::String),
+            property("title", mark_doc!("/grid_item/props/title.md"), true, PropertyType::String),
             property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
             // accessories
             event("onClick", mark_doc!("/grid_item/props/onClick.md"), true, [])

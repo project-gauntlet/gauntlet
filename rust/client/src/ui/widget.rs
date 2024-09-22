@@ -1032,13 +1032,16 @@ impl ComponentWidgetWrapper {
                     .height(130) // TODO dynamic height
                     .into();
 
-                let title: Element<_> = text(title)
-                    .into();
+                let title: Option<Element<_>> = title.as_ref()
+                    .map(|title| text(title).into());
 
                 let subtitle: Option<Element<_>> = subtitle.as_ref()
                     .map(|subtitle| text(subtitle).into());
 
-                let mut content = vec![content, title];
+                let mut content = vec![content];
+                if let Some(title) = title {
+                    content.push(title);
+                }
                 if let Some(subtitle) = subtitle {
                     content.push(subtitle);
                 }
