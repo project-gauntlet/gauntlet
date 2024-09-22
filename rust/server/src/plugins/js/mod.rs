@@ -641,7 +641,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                     UiPropertyValue::Number(value) => JsUiPropertyValue::Number { value },
                     UiPropertyValue::Bool(value) => JsUiPropertyValue::Bool { value },
                     UiPropertyValue::Undefined => JsUiPropertyValue::Undefined,
-                    UiPropertyValue::Bytes(_) | UiPropertyValue::Object(_)  => {
+                    UiPropertyValue::Array(_) | UiPropertyValue::Bytes(_) | UiPropertyValue::Object(_)  => {
                         todo!()
                     }
                 })

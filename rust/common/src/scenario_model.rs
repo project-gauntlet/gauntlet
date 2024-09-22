@@ -24,6 +24,7 @@ pub enum ScenarioUiPropertyValue {
     #[serde(with="base64")]
     Bytes(Vec<u8>),
     Object(HashMap<String, ScenarioUiPropertyValue>),
+    Array(Vec<ScenarioUiPropertyValue>),
     Undefined,
 }
 

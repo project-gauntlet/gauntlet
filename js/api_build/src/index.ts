@@ -354,7 +354,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
         const properties = component.props
             .map(prop => {
-                if (prop.type.type === "component") {
+                if (!isInProperty(prop.type)) {
                     return null
                 }
 
@@ -372,22 +372,23 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
             .filter((prop): prop is ts.JsxAttribute => prop != null);
 
         const children = []
-        if (component.children.type != "none") {
-            const componentProps = component.props.filter(prop => prop.type.type === "component");
-            if (componentProps.length !== 0) {
-                children.push(
-                    ...componentProps.map(prop => (
-                        ts.factory.createAsExpression(
-                            ts.factory.createPropertyAccessExpression(
-                                ts.factory.createIdentifier("props"),
-                                ts.factory.createIdentifier(prop.name)
-                            ),
-                            ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
-                        )
-                    ))
-                );
-            }
 
+        const componentProps = component.props.filter(prop => !isInProperty(prop.type));
+        if (componentProps.length !== 0) {
+            children.push(
+                ...componentProps.map(prop => (
+                    ts.factory.createAsExpression(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier("props"),
+                            ts.factory.createIdentifier(prop.name)
+                        ),
+                        ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+                    )
+                ))
+            );
+        }
+
+        if (component.children.type != "none") {
             children.push(ts.factory.createPropertyAccessExpression(
                 ts.factory.createIdentifier("props"),
                 ts.factory.createIdentifier("children")
@@ -545,7 +546,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
 function makePropertyTypes(component: StandardComponent, componentPropsInChildren: boolean): ts.TypeElement[] {
     const props = component.props
-        .filter(property => property.type.type === "component" ? !componentPropsInChildren : true)
+        .filter(property => !isInProperty(property.type) ? !componentPropsInChildren : true)
         .map(property => {
             return ts.factory.createPropertySignature(
                 undefined,
@@ -555,12 +556,16 @@ function makePropertyTypes(component: StandardComponent, componentPropsInChildre
             )
         });
 
-    const additionalComponentRefs = component.props
-        .map(property => property.type)
-        .filter((type): type is TypeComponent => componentPropsInChildren && type.type === "component")
-        .map(type => type.reference)
+    let additionalComponentRefs: ComponentRef[];
+    if (componentPropsInChildren) {
+        additionalComponentRefs = component.props
+            .map(property => property.type)
+            .flatMap(type => collectAllComponentRefs(type));
+    } else {
+        additionalComponentRefs = [];
+    }
 
-    if (component.children.type != "none") {
+    if (component.children.type != "none" || additionalComponentRefs.length > 0) {
         props.unshift(ts.factory.createPropertySignature(
             undefined,
             ts.factory.createIdentifier("children"),
@@ -612,7 +617,23 @@ function makeChildrenType(type: Children, additionalComponentRefs: ComponentRef[
             )
         }
         case "none": {
-            throw new Error("Cannot construct none children")
+            if (additionalComponentRefs.length > 0) {
+                return ts.factory.createTypeReferenceNode(
+                    ts.factory.createIdentifier("ElementComponent"),
+                    [
+                        ts.factory.createUnionTypeNode(
+                            additionalComponentRefs.map(member => (
+                                ts.factory.createTypeQueryNode(
+                                    ts.factory.createIdentifier(member.componentName),
+                                    undefined
+                                )
+                            ))
+                        )
+                    ]
+                )
+            } else {
+                throw new Error("Cannot construct none children")
+            }
         }
     }
 }
@@ -664,6 +685,9 @@ function makeType(type: PropertyType): ts.TypeNode {
                 undefined
             )
         }
+        case "array": {
+            return ts.factory.createArrayTypeNode(makeType(type.item))
+        }
         case "enum": {
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier(type.name),
@@ -684,6 +708,88 @@ function makeType(type: PropertyType): ts.TypeNode {
         }
     }
 
+}
+
+function isInProperty(propertyType: PropertyType) {
+    switch (propertyType.type) {
+        case "boolean": {
+            return true
+        }
+        case "number": {
+            return true
+        }
+        case "string": {
+            return true
+        }
+        case "function": {
+            return true // different from the rust side
+        }
+        case "component": {
+            return false
+        }
+        case "image_source": {
+            return true
+        }
+        case "array": {
+            return isInProperty(propertyType.item)
+        }
+        case "enum": {
+            return true
+        }
+        case "object": {
+            return true
+        }
+        case "union": {
+            if (propertyType.items.every(value => isInProperty(value))) {
+                return true
+            } else if (propertyType.items.every(value => !isInProperty(value))) {
+                return false
+            } else {
+                throw new Error("")
+            }
+        }
+        default: {
+            throw new Error(`unsupported type ${JSON.stringify(propertyType)}`)
+        }
+    }
+}
+
+function collectAllComponentRefs(propertyType: PropertyType): ComponentRef[] {
+    switch (propertyType.type) {
+        case "boolean": {
+            return []
+        }
+        case "number": {
+            return []
+        }
+        case "string": {
+            return []
+        }
+        case "function": {
+            return []
+        }
+        case "component": {
+            return [propertyType.reference]
+        }
+        case "image_source": {
+            return []
+        }
+        case "array": {
+            return collectAllComponentRefs(propertyType.item)
+        }
+        case "enum": {
+            return []
+        }
+        case "object": {
+            return []
+        }
+        case "union": {
+            return propertyType.items.flatMap(value => collectAllComponentRefs(value))
+        }
+        default: {
+            throw new Error(`unsupported type ${JSON.stringify(propertyType)}`)
+        }
+    }
 }
 
 const genDir = "../api/src/gen";

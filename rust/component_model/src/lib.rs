@@ -92,10 +92,76 @@ pub enum PropertyType {
     Union {
         items: Vec<PropertyType>
     },
+    #[serde(rename = "array")]
+    Array {
+        item: Box<PropertyType>
+    },
     #[serde(rename = "object")]
     Object {
         name: String,
     },
+}
+
+impl PropertyType {
+    pub fn is_in_children(&self) -> bool {
+        match self {
+            PropertyType::String => false,
+            PropertyType::Number => false,
+            PropertyType::Boolean => false,
+            PropertyType::Component { .. } => true,
+            PropertyType::Function { .. } => false,
+            PropertyType::ImageSource => false,
+            PropertyType::Enum { .. } => false,
+            PropertyType::Union { items } => {
+                let all_in = items.iter().all(|prop_type| prop_type.is_in_children());
+                let any_in = items.iter().any(|prop_type| prop_type.is_in_children());
+
+                if all_in && any_in {
+                    true
+                } else {
+                    let all_not_in = items.iter().all(|prop_type| !prop_type.is_in_children());
+                    let any_not_in = items.iter().any(|prop_type| !prop_type.is_in_children());
+                    if all_not_in && any_not_in {
+                        false
+                    } else {
+                        panic!("all items in union should be of the same kind")
+                    }
+                }
+            }
+            PropertyType::Array { item } => item.is_in_children(),
+            PropertyType::Object { .. } => false,
+        }
+    }
+
+    pub fn is_in_property(&self) -> bool {
+        match self {
+            PropertyType::String => true,
+            PropertyType::Number => true,
+            PropertyType::Boolean => true,
+            PropertyType::Component { .. } => false,
+            PropertyType::Function { .. } => false,
+            PropertyType::ImageSource => true,
+            PropertyType::Enum { .. } => true,
+            PropertyType::Union { items } => {
+                let all_in = items.iter().all(|prop_type| prop_type.is_in_property());
+                let any_in = items.iter().any(|prop_type| prop_type.is_in_property());
+
+                if all_in && any_in {
+                    true
+                } else {
+                    let all_not_in = items.iter().all(|prop_type| !prop_type.is_in_property());
+                    let any_not_in = items.iter().any(|prop_type| !prop_type.is_in_property());
+                    if all_not_in && any_not_in {
+                        false
+                    } else {
+                        panic!("all items in union should be of the same kind")
+                    }
+                }
+            }
+            PropertyType::Array { item } => item.is_in_property(),
+            PropertyType::Object { .. } => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -920,6 +986,29 @@ pub fn create_component_model() -> Vec<Component> {
         children_none(),
     );
 
+    let accessory_text_component = component(
+        "accessory_text",
+        mark_doc!("/accessory_text/description.md"),
+        "TextAccessory",
+        [
+            property("text", mark_doc!("/accessory_text/props/text.md"),false, PropertyType::String),
+            property("icon", mark_doc!("/accessory_text/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("tooltip", mark_doc!("/accessory_text/props/tooltip.md"),true, PropertyType::String),
+        ],
+        children_none(),
+    );
+
+    let accessory_icon_component = component(
+        "accessory_icon",
+        mark_doc!("/accessory_icon/description.md"),
+        "IconAccessory",
+        [
+            property("icon", mark_doc!("/accessory_icon/props/icon.md"),false, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("tooltip", mark_doc!("/accessory_icon/props/tooltip.md"),true, PropertyType::String),
+        ],
+        children_none(),
+    );
+
     let list_item_component = component(
         "list_item",
         mark_doc!("/list_item/description.md"),
@@ -928,7 +1017,7 @@ pub fn create_component_model() -> Vec<Component> {
             property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
             property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
-            // accessories
+            property("accessories", mark_doc!("/list_item/props/accessories.md"),true, PropertyType::Array { item: Box::new(PropertyType::Union { items: vec![component_ref(&accessory_text_component), component_ref(&accessory_icon_component)]}) }),
             event("onClick", mark_doc!("/list_item/props/onClick.md"), true, [])
         ],
         children_none(),
@@ -970,7 +1059,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/grid_item/props/title.md"), true, PropertyType::String),
             property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
-            // accessories
+            property("accessory", mark_doc!("/grid_item/props/accessory.md"),true, component_ref(&accessory_icon_component)),
             event("onClick", mark_doc!("/grid_item/props/onClick.md"), true, [])
         ],
         children_members([
@@ -1129,6 +1218,10 @@ pub fn create_component_model() -> Vec<Component> {
         inline_component,
 
         empty_view_component,
+
+        accessory_icon_component,
+        accessory_text_component,
+
         list_item_component,
         list_section_component,
         list_component,

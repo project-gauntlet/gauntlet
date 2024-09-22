@@ -1,4 +1,4 @@
-import { Icons, List } from "@project-gauntlet/api/components";
+import { IconAccessory, Icons, List, TextAccessory } from "@project-gauntlet/api/components";
 import { ReactElement, useState } from "react";
 
 export default function ListView(): ReactElement {
@@ -17,13 +17,21 @@ export default function ListView(): ReactElement {
                     <List.Item title={"Title " + value} onClick={onClick}/>
                 ))
             }
-            <List.Section title={"Selected id: " + id}>
+            <List.Section title={"Selected id: " + id} subtitle="Test subtitle">
                 <List.Section.Item title="Title Section 1" icon={Icons.Clipboard} onClick={onClick}/>
             </List.Section>
             <List.Section title="Section 2">
                 <List.Section.Item title="Title Section 2 1" subtitle="Subtitle 2 1" onClick={onClick}/>
                 <List.Section.Item title="Title Section 2 2" onClick={onClick}/>
-                <List.Section.Item title="Title Section 2 3" subtitle="Subtitle 2 3" onClick={onClick}/>
+                <List.Section.Item
+                    title="Title Section 2 3"
+                    subtitle="Subtitle 2 3"
+                    onClick={onClick}
+                    accessories={[
+                        <TextAccessory text="Accessory" icon={Icons.Alarm} tooltip={"Tooltip"}/>,
+                        <IconAccessory icon={Icons.CloudSnow} tooltip={"Tooltip"}/>
+                    ]}
+                />
             </List.Section>
         </List>
     )

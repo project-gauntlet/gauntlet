@@ -7,6 +7,7 @@ pub enum RowStyle {
     FormInput,
     ListSectionTitle,
     GridSectionTitle,
+    GridItemTitle,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletTheme, Renderer> {
@@ -27,6 +28,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletT
             }
             RowStyle::GridSectionTitle => {
                 self.padding(theme.grid_section_title.padding.to_iced())
+            }
+            RowStyle::GridItemTitle => {
+                self.padding(theme.grid_item_title.padding.to_iced())
             }
         }.into()
     }

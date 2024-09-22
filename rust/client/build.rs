@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
             Component::Standard { name, props, children, .. } => {
                 output.push_str(&format!("    {}", name));
 
-                let has_children = !matches!(children, Children::None);
+                let has_children = !matches!(children, Children::None) || props.iter().any(|prop| prop.property_type.is_in_children());
 
                 if !props.is_empty() || has_children {
                     output.push_str(" {\n");
@@ -33,23 +33,21 @@ fn main() -> anyhow::Result<()> {
                             Children::StringOrMembers { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
                             Children::Members { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
                             Children::String { .. } => "Vec<ComponentWidgetWrapper>".to_owned(),
-                            Children::None => panic!("cannot create type for Children::None")
+                            Children::None => {
+                                if props.iter().any(|prop| prop.property_type.is_in_children()) {
+                                    "Vec<ComponentWidgetWrapper>".to_owned()
+                                } else {
+                                    panic!("cannot create type for Children::None")
+                                }
+                            }
                         };
 
                         output.push_str(&format!("        children: {},\n", string));
                     }
 
                     for prop in props {
-                        match prop.property_type {
-                            PropertyType::Function { .. } => {
-                                // client know about functions in properties
-                            }
-                            PropertyType::Component { .. } => {
-                                // component properties are found in children array
-                            }
-                            _ => {
-                                output.push_str(&format!("        {}: {},\n", prop.name, generate_type(&prop, name)));
-                            }
+                        if prop.property_type.is_in_property() {
+                            output.push_str(&format!("        {}: {},\n", prop.name, generate_type(&prop, name)));
                         }
                     }
                     output.push_str("    },\n");
@@ -83,6 +81,10 @@ fn main() -> anyhow::Result<()> {
                             output.push_str(&format!("enum {}{} {{\n", component_name, prop.name.to_case(Case::Pascal)));
 
                             for (index, property_type) in items.iter().enumerate() {
+                                if !property_type.is_in_property() {
+                                    continue
+                                }
+
                                 match property_type {
                                     PropertyType::Union { .. } => panic!("nested union should not be used"),
                                     _ => {
@@ -139,7 +141,7 @@ fn main() -> anyhow::Result<()> {
             Component::Standard { internal_name, name, props, children, .. } => {
                 output.push_str(&format!("        \"gauntlet:{}\" => ComponentWidget::{}", internal_name, name));
 
-                let has_children = !matches!(children, Children::None);
+                let has_children = !matches!(children, Children::None) || props.iter().any(|prop| prop.property_type.is_in_children());
 
                 if !props.is_empty() || has_children {
                     output.push_str(&" {\n");
@@ -149,7 +151,11 @@ fn main() -> anyhow::Result<()> {
                     }
 
                     for prop in props {
-                        match prop.property_type {
+                        if !prop.property_type.is_in_property() {
+                            continue
+                        }
+
+                        match &prop.property_type {
                             PropertyType::String => {
                                 if prop.optional {
                                     output.push_str(&format!("            {}: parse_optional_string(&properties, \"{}\")?,\n", prop.name, prop.name));
@@ -171,12 +177,6 @@ fn main() -> anyhow::Result<()> {
                                     output.push_str(&format!("            {}: parse_boolean(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 }
                             },
-                            PropertyType::Function { .. } => {
-                                // client know about functions in properties
-                            }
-                            PropertyType::Component { .. } => {
-                                // component properties are found in a children array
-                            }
                             PropertyType::ImageSource => {
                                 if prop.optional {
                                     output.push_str(&format!("            {}: parse_bytes_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
@@ -204,6 +204,16 @@ fn main() -> anyhow::Result<()> {
                                 } else {
                                     output.push_str(&format!("            {}: parse_object(&properties, \"{}\")?,\n", prop.name, prop.name));
                                 }
+                            }
+                            PropertyType::Array { .. } => {
+                                if prop.optional {
+                                    output.push_str(&format!("            {}: parse_array_optional(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                } else {
+                                    output.push_str(&format!("            {}: parse_array(&properties, \"{}\")?,\n", prop.name, prop.name));
+                                }
+                            }
+                            _ => {
+                                unreachable!()
                             }
                         };
                     }
@@ -519,10 +529,11 @@ fn generate_required_type(property_type: &PropertyType, union_name: String) -> S
         PropertyType::Number => "f64".to_owned(),
         PropertyType::Boolean => "bool".to_owned(),
         PropertyType::Function { .. } => panic!("client doesn't know about functions in properties"),
-        PropertyType::Component { .. } => panic!("component properties are found in children array"),
+        PropertyType::Component { .. } => panic!("component should not be present in properties"),
         PropertyType::ImageSource => "bytes::Bytes".to_owned(),
         PropertyType::Union { .. } => union_name,
         PropertyType::Object { name } => name.to_owned(),
-        PropertyType::Enum { name } => name.to_owned()
+        PropertyType::Enum { name } => name.to_owned(),
+        PropertyType::Array { item } => format!("Vec<{}>", generate_required_type(item, "SHOULD NOT BE USED".to_string()))
     }
 }

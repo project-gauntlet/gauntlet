@@ -1,0 +1,1 @@
+An icon that is displayed to the left side of the text

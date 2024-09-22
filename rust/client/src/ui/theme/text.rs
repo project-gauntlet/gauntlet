@@ -15,6 +15,10 @@ pub enum TextStyle {
     GridSectionTitle,
     MainListItemSubtext,
     MetadataItemLabel,
+    TextAccessory,
+    IconAccessory,
+    GridItemTitle,
+    GridItemSubTitle,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Renderer> {
@@ -60,6 +64,18 @@ impl text::StyleSheet for GauntletTheme {
             },
             TextStyle::MetadataItemLabel => Appearance {
                 color: Some(self.metadata_item_label.text_color.to_iced()),
+            },
+            TextStyle::TextAccessory => Appearance {
+                color: Some(self.text_accessory.text_color.to_iced()),
+            },
+            TextStyle::IconAccessory => Appearance {
+                color: Some(self.icon_accessory.icon_color.to_iced()),
+            },
+            TextStyle::GridItemTitle => Appearance {
+                color: Some(self.grid_item_title.text_color.to_iced()),
+            },
+            TextStyle::GridItemSubTitle => Appearance {
+                color: Some(self.grid_item_subtitle.text_color.to_iced()),
             }
         }
     }

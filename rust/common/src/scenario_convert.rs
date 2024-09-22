@@ -41,6 +41,13 @@ fn ui_property_value_to_scenario(value: UiPropertyValue) -> ScenarioUiPropertyVa
 
             ScenarioUiPropertyValue::Object(value)
         }
+        UiPropertyValue::Array(values) => {
+            let value: Vec<_> = values.into_iter()
+                .map(|value| ui_property_value_to_scenario(value))
+                .collect();
+
+            ScenarioUiPropertyValue::Array(value)
+        }
         UiPropertyValue::Undefined => ScenarioUiPropertyValue::Undefined,
     }
 }
@@ -76,6 +83,13 @@ fn ui_property_value_from_scenario(value: ScenarioUiPropertyValue) -> UiProperty
                 .collect();
 
             UiPropertyValue::Object(value)
+        }
+        ScenarioUiPropertyValue::Array(values) => {
+            let value: Vec<_> = values.into_iter()
+                .map(|value| ui_property_value_from_scenario(value))
+                .collect();
+
+            UiPropertyValue::Array(value)
         }
         ScenarioUiPropertyValue::Undefined => UiPropertyValue::Undefined,
     }

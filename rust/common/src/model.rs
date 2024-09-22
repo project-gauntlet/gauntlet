@@ -212,6 +212,7 @@ pub enum UiPropertyValue {
     Number(f64),
     Bool(bool),
     Bytes(bytes::Bytes),
+    Array(Vec<UiPropertyValue>),
     Object(HashMap<String, UiPropertyValue>),
     Undefined,
 }
@@ -244,6 +245,11 @@ impl UiPropertyValue {
         } else {
             None
         }
+    }
+    pub fn as_array<T>(&self) -> Option<Vec<T>> {
+        // currently array is only used for component refs which are not properties
+        // implement if needed
+        unimplemented!()
     }
     pub fn as_object<T: UiPropertyValueToStruct>(&self) -> Option<T> {
         if let UiPropertyValue::Object(val) = self {

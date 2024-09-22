@@ -51,6 +51,9 @@ pub enum ContainerStyle {
     GridInner,
     List,
     ListInner,
+    TextAccessory,
+    TextAccessoryIcon,
+    IconAccessory,
 }
 
 #[derive(Default)]
@@ -355,6 +358,16 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::RootBottomPanelActionButtonText => {
                 self.padding(theme.root_bottom_panel_action_button_text.padding.to_iced())
+            }
+            ContainerStyle::TextAccessory => {
+                self.padding(theme.text_accessory.padding.to_iced())
+            }
+            ContainerStyle::TextAccessoryIcon => {
+                let horizontal_spacing = theme.text_accessory.spacing;
+                self.padding(Padding::from([0.0, horizontal_spacing, 0.0, 0.0]))
+            }
+            ContainerStyle::IconAccessory => {
+                self.padding(theme.icon_accessory.padding.to_iced())
             }
         }.into()
     }

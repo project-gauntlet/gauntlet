@@ -1,0 +1,1 @@
+Text of the accessory

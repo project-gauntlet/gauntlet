@@ -197,6 +197,10 @@ fn from_js_to_intermediate_properties(
                 return Err(anyhow!("unknown property encountered {:?}", name))
             };
 
+            if !property_type.is_in_property() {
+                return Err(anyhow!("unknown property encountered {:?}", name))
+            }
+
             convert(state.clone(), scope, property_type, name, val, shared_types)
         })
         .collect::<anyhow::Result<Vec<(_, _)>>>()?;
@@ -295,6 +299,9 @@ fn convert(
                 }
             }
         }
+        PropertyType::Array { .. } => {
+            unimplemented!()
+        }
     }
 }
 
@@ -372,6 +379,9 @@ fn expected_type(prop_type: &PropertyType) -> String {
                 .join(", ")
         },
         PropertyType::Object { .. } => "object".to_owned(),
+        PropertyType::Array { .. } => {
+            unimplemented!()
+        }
     }
 }
 

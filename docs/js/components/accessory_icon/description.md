@@ -1,0 +1,1 @@
+An accessory with icon and optional tooltip 

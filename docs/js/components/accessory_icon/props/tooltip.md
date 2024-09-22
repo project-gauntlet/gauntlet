@@ -1,0 +1,1 @@
+A tooltip shown when the accessory is hovered.

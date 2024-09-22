@@ -1,0 +1,1 @@
+List of accessories displayed on the right side of the list item

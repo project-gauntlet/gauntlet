@@ -4,17 +4,17 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use iced::{Alignment, Font, Length};
-use iced::alignment::Horizontal;
+use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, pick_list, row, scrollable, Space, text, text_input, tooltip, vertical_rule, mouse_area};
 use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
-use iced_aw::{floating_element, GridRow};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
+use iced::{Alignment, Font, Length};
 use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
+use iced_aw::{floating_element, GridRow};
 use itertools::Itertools;
 
 use common::model::{PhysicalKey, PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
@@ -22,7 +22,6 @@ use common_ui::shortcut_to_text;
 
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
-use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::date_picker::DatePickerStyle;
@@ -34,6 +33,7 @@ use crate::ui::theme::rule::RuleStyle;
 use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
+use crate::ui::theme::{Element, ThemableWidget};
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -883,7 +883,89 @@ impl ComponentWidgetWrapper {
                     .center_y()
                     .into()
             }
-            ComponentWidget::ListItem { title, subtitle, icon } => {
+            ComponentWidget::IconAccessory { icon, tooltip: tooltip_text } => {
+                let icon: Element<_> = match icon {
+                    IconAccessoryIcon::_0(bytes) => {
+                        image(Handle::from_memory(bytes.clone()))
+                            .into()
+                    },
+                    IconAccessoryIcon::_1(icon) => {
+                        text(icon_to_bootstrap(icon))
+                            .font(icons::BOOTSTRAP_FONT)
+                            .themed(TextStyle::IconAccessory)
+                    }
+                };
+
+                let content = container(icon)
+                    .center_x()
+                    .center_y()
+                    .themed(ContainerStyle::IconAccessory);
+
+                match tooltip_text.as_ref() {
+                    None => content,
+                    Some(tooltip_text) => {
+                        let tooltip_text: Element<_> = text(tooltip_text)
+                            .into();
+
+                        tooltip(content, tooltip_text, Position::Top)
+                            .themed(TooltipStyle::Tooltip)
+                    }
+                }
+            },
+            ComponentWidget::TextAccessory { text: text_value, icon, tooltip: tooltip_text } => {
+                let icon: Option<Element<_>> = icon.as_ref()
+                    .map(|icon| {
+                        match icon {
+                            TextAccessoryIcon::_0(bytes) => {
+                                image(Handle::from_memory(bytes.clone()))
+                                    .into()
+                            },
+                            TextAccessoryIcon::_1(icon) => {
+                                let icon = icon.to_owned();
+                                text(icon_to_bootstrap(icon))
+                                    .font(icons::BOOTSTRAP_FONT)
+                                    .themed(TextStyle::TextAccessory)
+                            }
+                        }
+                    });
+
+                let text_content: Element<_> = text(text_value)
+                    .themed(TextStyle::TextAccessory);
+
+                let mut content: Vec<Element<_>> = vec![];
+
+                if let Some(icon) = icon {
+                    let icon: Element<_> = container(icon)
+                        .themed(ContainerStyle::TextAccessoryIcon);
+
+                    content.push(icon)
+                }
+
+                content.push(text_content);
+
+                let content: Element<_> = row(content)
+                    .align_items(Alignment::Center)
+                    .into();
+
+                let content = container(content)
+                    .center_x()
+                    .center_y()
+                    .themed(ContainerStyle::TextAccessory);
+
+                match tooltip_text.as_ref() {
+                    None => content,
+                    Some(tooltip_text) => {
+                        let tooltip_text: Element<_> = text(tooltip_text)
+                            .into();
+
+                        tooltip(content, tooltip_text, Position::Top)
+                            .themed(TooltipStyle::Tooltip)
+                    }
+                }
+            },
+            ComponentWidget::ListItem { title, subtitle, icon, children } => {
+                let accessories = render_children_by_type(children, |widget| matches!(widget, ComponentWidget::TextAccessory { .. } | ComponentWidget::IconAccessory { .. }), ComponentRenderContext::None);
+
                 let icon: Option<Element<_>> = icon.as_ref()
                     .map(|icon| {
                         match icon {
@@ -922,6 +1004,18 @@ impl ComponentWidgetWrapper {
 
                     content.push(subtitle)
                 }
+
+                if accessories.len() > 0 {
+                    let accessories: Element<_> = row(accessories)
+                        .into();
+
+                    let space = horizontal_space()
+                        .into();
+
+                    content.push(space);
+                    content.push(accessories);
+                }
+
                 let content: Element<_> = row(content)
                     .align_items(Alignment::Center)
                     .into();
@@ -1028,30 +1122,57 @@ impl ComponentWidgetWrapper {
                 render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::GridItem { children, title, subtitle } => {
-                let content: Element<_> = column(render_children(children, ComponentRenderContext::GridItem))
+                // TODO should be just one
+                let accessories = render_children_by_type(children, |widget| matches!(widget, ComponentWidget::IconAccessory { .. }), ComponentRenderContext::None);
+
+                let content: Element<_> = column(render_children_by_type(children, |widget| matches!(widget, ComponentWidget::Content { .. }), ComponentRenderContext::GridItem))
                     .height(130) // TODO dynamic height
-                    .into();
-
-                let title: Option<Element<_>> = title.as_ref()
-                    .map(|title| text(title).into());
-
-                let subtitle: Option<Element<_>> = subtitle.as_ref()
-                    .map(|subtitle| text(subtitle).into());
-
-                let mut content = vec![content];
-                if let Some(title) = title {
-                    content.push(title);
-                }
-                if let Some(subtitle) = subtitle {
-                    content.push(subtitle);
-                }
-
-                let content: Element<_> = column(content)
                     .into();
 
                 let content: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::GridItemClick { widget_id })
+                    .width(Length::Fill)
                     .themed(ButtonStyle::GridItem);
+
+                let mut sub_content_left = vec![];
+
+                if let Some(title) = title {
+                    // TODO text truncation when iced supports it
+                    let title = text(title)
+                        .themed(TextStyle::GridItemTitle);
+
+                    sub_content_left.push(title);
+                }
+
+                if let Some(subtitle) = subtitle {
+                    let subtitle = text(subtitle)
+                        .themed(TextStyle::GridItemSubTitle);
+
+                    sub_content_left.push(subtitle);
+                }
+
+                let mut sub_content_right = vec![];
+                if accessories.len() > 0 {
+                    let accessories: Element<_> = row(accessories)
+                        .into();
+
+                    sub_content_right.push(accessories);
+                }
+
+                let sub_content_left: Element<_> = column(sub_content_left)
+                    .width(Length::Fill)
+                    .into();
+
+                let sub_content_right: Element<_> = column(sub_content_right)
+                    .width(Length::Shrink)
+                    .into();
+
+                let sub_content: Element<_> = row(vec![sub_content_left, sub_content_right])
+                    .themed(RowStyle::GridItemTitle);
+
+                let content: Element<_> = column(vec![content, sub_content])
+                    .width(Length::Fill)
+                    .into();
 
                 content
             }
@@ -1204,6 +1325,7 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&
 
     let grid: Element<_> = grid(rows)
         .width(Length::Fill)
+        .vertical_alignment(Vertical::Top)
         .themed(GridStyle::Default);
 
     grid
@@ -1746,7 +1868,7 @@ fn parse_object_optional<T: UiPropertyValueToStruct>(properties: &HashMap<String
     match properties.get(name) {
         None => Ok(None),
         Some(value) => {
-            let value = value.as_object().ok_or(anyhow::anyhow!("{} has to be a object", name))?;
+            let value = value.as_object().ok_or(anyhow::anyhow!("{} has to be an object", name))?;
 
             Ok(Some(value))
         },
@@ -1755,6 +1877,21 @@ fn parse_object_optional<T: UiPropertyValueToStruct>(properties: &HashMap<String
 
 fn parse_object<T: UiPropertyValueToStruct>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<T> {
     parse_object_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
+}
+
+fn parse_array_optional<T: UiPropertyValueToStruct>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<Vec<T>>> {
+    match properties.get(name) {
+        None => Ok(None),
+        Some(value) => {
+            let value = value.as_array().ok_or(anyhow::anyhow!("{} has to be an array", name))?;
+
+            Ok(Some(value))
+        },
+    }
+}
+
+fn parse_array<T: UiPropertyValueToStruct>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Vec<T>> {
+    parse_array_optional(properties, name)?.ok_or(anyhow::anyhow!("{} is required", name))
 }
 
 fn parse_union_optional<T: UiPropertyValueToEnum>(properties: &HashMap<String, UiPropertyValue>, name: &str) -> anyhow::Result<Option<T>> {
@@ -1998,10 +2135,11 @@ impl UiPropertyValueToEnum for ListItemIcon {
         match value {
             UiPropertyValue::String(value) => Ok(ListItemIcon::_1(Icons::from_str(value)?)),
             UiPropertyValue::Bytes(value) => Ok(ListItemIcon::_0(value.clone())),
-            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
-            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
-            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
-            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object")),
+            UiPropertyValue::Array(_) => Err(anyhow!("unexpected type undefined")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined"))
         }
     }
 }
@@ -2011,10 +2149,11 @@ impl UiPropertyValueToEnum for EmptyViewImage {
         match value {
             UiPropertyValue::String(value) => Ok(EmptyViewImage::_1(Icons::from_str(value)?)),
             UiPropertyValue::Bytes(value) => Ok(EmptyViewImage::_0(value.clone())),
-            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
-            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
-            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
-            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object")),
+            UiPropertyValue::Array(_) => Err(anyhow!("unexpected type undefined")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined"))
         }
     }
 }
@@ -2024,10 +2163,39 @@ impl UiPropertyValueToEnum for ImageSource {
         match value {
             UiPropertyValue::String(value) => Ok(ImageSource::_1(Icons::from_str(value)?)),
             UiPropertyValue::Bytes(value) => Ok(ImageSource::_0(value.clone())),
-            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number for ListItemIcon")),
-            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool for ListItemIcon")),
-            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object for ListItemIcon")),
-            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined for ListItemIcon"))
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object")),
+            UiPropertyValue::Array(_) => Err(anyhow!("unexpected type undefined")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined"))
+        }
+    }
+}
+
+impl UiPropertyValueToEnum for IconAccessoryIcon {
+    fn convert(value: &UiPropertyValue) -> anyhow::Result<IconAccessoryIcon> {
+        match value {
+            UiPropertyValue::String(value) => Ok(IconAccessoryIcon::_1(Icons::from_str(value)?)),
+            UiPropertyValue::Bytes(value) => Ok(IconAccessoryIcon::_0(value.clone())),
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object")),
+            UiPropertyValue::Array(_) => Err(anyhow!("unexpected type undefined")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined")),
+        }
+    }
+}
+
+impl UiPropertyValueToEnum for TextAccessoryIcon {
+    fn convert(value: &UiPropertyValue) -> anyhow::Result<TextAccessoryIcon> {
+        match value {
+            UiPropertyValue::String(value) => Ok(TextAccessoryIcon::_1(Icons::from_str(value)?)),
+            UiPropertyValue::Bytes(value) => Ok(TextAccessoryIcon::_0(value.clone())),
+            UiPropertyValue::Number(_) => Err(anyhow!("unexpected type number")),
+            UiPropertyValue::Bool(_) => Err(anyhow!("unexpected type bool")),
+            UiPropertyValue::Object(_) => Err(anyhow!("unexpected type object")),
+            UiPropertyValue::Array(_) => Err(anyhow!("unexpected type undefined")),
+            UiPropertyValue::Undefined => Err(anyhow!("unexpected type undefined"))
         }
     }
 }

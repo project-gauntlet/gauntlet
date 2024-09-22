@@ -123,7 +123,17 @@ declare global {
                 description?: string;
                 image?: ImageSource | Icons;
             };
+            ["gauntlet:accessory_icon"]: {
+                icon: ImageSource | Icons;
+                tooltip?: string;
+            };
+            ["gauntlet:accessory_text"]: {
+                text: string;
+                icon?: ImageSource | Icons;
+                tooltip?: string;
+            };
             ["gauntlet:list_item"]: {
+                children?: ElementComponent<typeof TextAccessory | typeof IconAccessory>;
                 title: string;
                 subtitle?: string;
                 icon?: ImageSource | Icons;
@@ -139,7 +149,7 @@ declare global {
                 isLoading?: boolean;
             };
             ["gauntlet:grid_item"]: {
-                children?: ElementComponent<typeof Content>;
+                children?: ElementComponent<typeof IconAccessory | typeof Content>;
                 title?: string;
                 subtitle?: string;
                 onClick?: () => void;
@@ -634,14 +644,30 @@ export interface EmptyViewProps {
 export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
     return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}></gauntlet:empty_view>;
 };
+export interface IconAccessoryProps {
+    icon: ImageSource | Icons;
+    tooltip?: string;
+}
+export const IconAccessory: FC<IconAccessoryProps> = (props: IconAccessoryProps): ReactNode => {
+    return <gauntlet:accessory_icon icon={props.icon} tooltip={props.tooltip}></gauntlet:accessory_icon>;
+};
+export interface TextAccessoryProps {
+    text: string;
+    icon?: ImageSource | Icons;
+    tooltip?: string;
+}
+export const TextAccessory: FC<TextAccessoryProps> = (props: TextAccessoryProps): ReactNode => {
+    return <gauntlet:accessory_text text={props.text} icon={props.icon} tooltip={props.tooltip}></gauntlet:accessory_text>;
+};
 export interface ListItemProps {
     title: string;
     subtitle?: string;
     icon?: ImageSource | Icons;
+    accessories?: (ElementComponent<typeof TextAccessory> | ElementComponent<typeof IconAccessory>)[];
     onClick?: () => void;
 }
 export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
-    return <gauntlet:list_item title={props.title} subtitle={props.subtitle} icon={props.icon} onClick={props.onClick}></gauntlet:list_item>;
+    return <gauntlet:list_item title={props.title} subtitle={props.subtitle} icon={props.icon} onClick={props.onClick}>{props.accessories as any}</gauntlet:list_item>;
 };
 export interface ListSectionProps {
     children?: ElementComponent<typeof ListItem>;
@@ -675,12 +701,13 @@ export interface GridItemProps {
     children?: ElementComponent<typeof Content>;
     title?: string;
     subtitle?: string;
+    accessory?: ElementComponent<typeof IconAccessory>;
     onClick?: () => void;
 }
 export const GridItem: FC<GridItemProps> & {
     Content: typeof Content;
 } = (props: GridItemProps): ReactNode => {
-    return <gauntlet:grid_item title={props.title} subtitle={props.subtitle} onClick={props.onClick}>{props.children}</gauntlet:grid_item>;
+    return <gauntlet:grid_item title={props.title} subtitle={props.subtitle} onClick={props.onClick}>{props.accessory as any}{props.children}</gauntlet:grid_item>;
 };
 GridItem.Content = Content;
 export interface GridSectionProps {

@@ -1,4 +1,4 @@
-import { Grid } from "@project-gauntlet/api/components";
+import { Grid, IconAccessory, Icons, TextAccessory } from "@project-gauntlet/api/components";
 import { ReactElement } from "react";
 import { useStorage } from "@project-gauntlet/api/hooks";
 
@@ -40,14 +40,18 @@ export default function GridView(): ReactElement {
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section 2 2" subtitle="Test subtitle">
+                <Grid.Item
+                    title="Title Section"
+                    subtitle="Test subtitle"
+                    accessory={<IconAccessory icon={Icons.Wallet} tooltip="Tooltip"/>}
+                >
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 2
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item>
+                <Grid.Item accessory={<IconAccessory icon={Icons.Sun} tooltip="Tooltip"/>}>
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 2

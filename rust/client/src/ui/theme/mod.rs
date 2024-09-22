@@ -25,7 +25,7 @@ mod loading_bar;
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
 const CURRENT_COLOR_THEME_VERSION: u64 = 2;
-const CURRENT_THEME_VERSION: u64 = 2;
+const CURRENT_THEME_VERSION: u64 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletColorTheme {
@@ -77,6 +77,8 @@ pub struct GauntletTheme {
     list: ThemePaddingOnly,
     list_inner: ThemePaddingOnly,
     grid_item: ThemeButton,
+    grid_item_title: ThemePaddingTextColor,
+    grid_item_subtitle: ThemeTextColor,
     grid_section_title: ThemePaddingTextColor,
     inline: ThemePaddingOnly,
     list_item: ThemeButton,
@@ -113,6 +115,8 @@ pub struct GauntletTheme {
     scrollbar: ThemeScrollbar,
     tooltip: ThemeTooltip,
     loading_bar: ThemeLoadingBar,
+    text_accessory: ThemeTextAccessory,
+    icon_accessory: ThemeIconAccessory,
 }
 
 impl Default for GauntletTheme {
@@ -331,6 +335,13 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
+            grid_item_title: ThemePaddingTextColor {
+                padding: padding_axis(4.0, 0.0),
+                text_color,
+            },
+            grid_item_subtitle: ThemeTextColor {
+                text_color: text_darker_color,
+            },
             content_horizontal_break: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
@@ -425,11 +436,11 @@ impl GauntletTheme {
                 padding: padding_axis(4.0, 12.0),
             },
             list_section_title: ThemePaddingTextColor {
-                padding: padding_axis(4.0, 8.0),
+                padding: padding(12.0, 8.0, 4.0, 8.0),
                 text_color: text_darker_color,
             },
             grid_section_title: ThemePaddingTextColor {
-                padding: padding_axis(4.0, 0.0),
+                padding: padding(12.0, 0.0, 4.0, 0.0),
                 text_color: text_darker_color,
             },
             main_list_item: ThemeButton {
@@ -555,6 +566,15 @@ impl GauntletTheme {
             loading_bar: ThemeLoadingBar {
                 loading_bar_color: primary_color,
                 background_color: background_light_color,
+            },
+            text_accessory: ThemeTextAccessory {
+                padding: padding(4.0, 4.0, 4.0, 16.0),
+                text_color: text_darker_color,
+                spacing: 8.0,
+            },
+            icon_accessory: ThemeIconAccessory {
+                padding: padding(4.0, 4.0, 4.0, 16.0),
+                icon_color: text_darker_color,
             },
         }
     }
@@ -801,6 +821,19 @@ pub struct ThemePaddingSize {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalThemeGrid {
     padding: ThemePadding,
+    spacing: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeIconAccessory {
+    padding: ThemePadding,
+    icon_color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeTextAccessory {
+    padding: ThemePadding,
+    text_color: ThemeColor,
     spacing: f32,
 }
 

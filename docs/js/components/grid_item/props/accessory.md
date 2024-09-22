@@ -1,0 +1,1 @@
+Accessory displayed on the right bottom of the grid item
