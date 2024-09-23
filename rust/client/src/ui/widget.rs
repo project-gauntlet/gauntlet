@@ -1031,7 +1031,7 @@ impl ComponentWidgetWrapper {
                 let content = column(content)
                     .into();
 
-                render_section(content, Some(title), subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle)
+                render_section(content, Some(title), subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle, TextStyle::ListSectionSubtitle)
             }
             ComponentWidget::List { children, isLoading: is_loading } => {
                 let ComponentWidgetState::List { show_action_panel } = *state else {
@@ -1179,7 +1179,7 @@ impl ComponentWidgetWrapper {
             ComponentWidget::GridSection { children, title, subtitle, columns } => {
                 let content = render_grid(children, columns, context);
 
-                render_section(content, Some(title), subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle)
+                render_section(content, Some(title), subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle, TextStyle::GridSectionSubtitle)
             }
             ComponentWidget::Grid { children, columns, isLoading: is_loading } => {
                 let ComponentWidgetState::Grid { show_action_panel } = *state else {
@@ -1331,13 +1331,13 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&
     grid
 }
 
-fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>, theme_kind_title: RowStyle, theme_kind_title_text: TextStyle) -> Element<'a, ComponentWidgetEvent> {
+fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>, theme_kind_title: RowStyle, theme_kind_title_text: TextStyle, theme_kind_subtitle_text: TextStyle) -> Element<'a, ComponentWidgetEvent> {
     let mut title_content = vec![];
 
     if let Some(title) = title {
         let title: Element<_> = text(title)
             .size(15)
-            .themed(theme_kind_title_text.clone());
+            .themed(theme_kind_title_text);
 
         title_content.push(title)
     }
@@ -1345,7 +1345,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     if let Some(subtitle) = subtitle { // TODO remove ?
         let subtitle: Element<_> = text(subtitle)
             .size(15)
-            .themed(theme_kind_title_text);
+            .themed(theme_kind_subtitle_text);
 
         title_content.push(subtitle)
     }
@@ -1454,7 +1454,7 @@ fn render_root<'a>(
     };
 
     floating_element(content, action_panel_element)
-        .offset(Offset::from([8.0, 40.0])) // TODO calculate based on theme
+        .offset(Offset::from([8.0, 48.0])) // TODO calculate based on theme
         .hide(hide_action_panel)
         .into()
 }

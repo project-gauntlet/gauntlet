@@ -82,7 +82,7 @@ export default function DetailView(): ReactElement {
     return (
         <Detail
             actions={
-                <ActionPanel title={"Action panel"}>
+                <ActionPanel>
                     <Action
                         title={"Action 1"}
                         onAction={() => {

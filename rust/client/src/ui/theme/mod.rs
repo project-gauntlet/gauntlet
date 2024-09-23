@@ -24,20 +24,20 @@ mod loading_bar;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
-const CURRENT_COLOR_THEME_VERSION: u64 = 2;
+const CURRENT_COLOR_THEME_VERSION: u64 = 3;
 const CURRENT_THEME_VERSION: u64 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletColorTheme {
     version: u64,
-    background_color: ThemeColor,
-    background_overlay_color: ThemeColor,
-    background_light_color: ThemeColor,
+    background_darkest_color: ThemeColor,
+    background_darker_color: ThemeColor,
     background_lighter_color: ThemeColor,
-    text_color: ThemeColor,
-    text_hovered_color: ThemeColor,
+    background_lightest_color: ThemeColor,
+    text_lightest_color: ThemeColor,
+    text_lighter_color: ThemeColor,
     text_darker_color: ThemeColor,
-    text_dark_color: ThemeColor,
+    text_darkest_color: ThemeColor,
     primary_color: ThemeColor,
     primary_hovered_color: ThemeColor,
     date_picker_text_darker: ThemeColor
@@ -79,13 +79,15 @@ pub struct GauntletTheme {
     grid_item: ThemeButton,
     grid_item_title: ThemePaddingTextColor,
     grid_item_subtitle: ThemeTextColor,
-    grid_section_title: ThemePaddingTextColor,
+    grid_section_title: ThemePaddingTextColorSpacing,
+    grid_section_subtitle: ThemeTextColor,
     inline: ThemePaddingOnly,
     list_item: ThemeButton,
     list_item_subtitle: ThemePaddingTextColor,
     list_item_title: ThemePaddingOnly,
     list_item_icon: ThemePaddingOnly,
-    list_section_title: ThemePaddingTextColor,
+    list_section_title: ThemePaddingTextColorSpacing,
+    list_section_subtitle: ThemeTextColor,
     main_list: ThemePaddingOnly,
     main_list_inner: ThemePaddingOnly,
     main_list_item: ThemeButton,
@@ -115,7 +117,7 @@ pub struct GauntletTheme {
     scrollbar: ThemeScrollbar,
     tooltip: ThemeTooltip,
     loading_bar: ThemeLoadingBar,
-    text_accessory: ThemeTextAccessory,
+    text_accessory: ThemePaddingTextColorSpacing,
     icon_accessory: ThemeIconAccessory,
 }
 
@@ -204,14 +206,14 @@ impl GauntletTheme {
     pub fn default_color_theme() -> GauntletColorTheme {
         GauntletColorTheme {
             version: CURRENT_COLOR_THEME_VERSION,
-            background_color: BACKGROUND,
-            background_overlay_color: BACKGROUND_OVERLAY,
-            background_light_color: BACKGROUND_LIGHT,
+            background_lightest_color: BACKGROUND_LIGHTEST,
             background_lighter_color: BACKGROUND_LIGHTER,
-            text_color: TEXT,
-            text_hovered_color: TEXT_HOVERED,
+            background_darker_color: BACKGROUND_DARKER,
+            background_darkest_color: BACKGROUND_DARKEST,
+            text_lightest_color: TEXT_LIGHTEST,
+            text_lighter_color: TEXT_LIGHTER,
             text_darker_color: TEXT_DARKER,
-            text_dark_color: TEXT_DARK,
+            text_darkest_color: TEXT_DARKEST,
             primary_color: PRIMARY,
             primary_hovered_color: PRIMARY_HOVERED,
             date_picker_text_darker: DATE_PICKER_TEXT_DARKER
@@ -221,14 +223,15 @@ impl GauntletTheme {
     pub fn default_theme(color_theme: GauntletColorTheme) -> GauntletTheme {
         let GauntletColorTheme {
             version: _,
-            background_color,
-            background_overlay_color,
-            background_light_color,
+            // background_darkest_2_color,
+            background_darkest_color,
+            background_darker_color,
             background_lighter_color,
-            text_color,
-            text_hovered_color,
+            background_lightest_color,
+            text_lightest_color,
+            text_lighter_color,
             text_darker_color,
-            text_dark_color,
+            text_darkest_color,
             primary_color,
             primary_hovered_color,
             date_picker_text_darker
@@ -236,16 +239,16 @@ impl GauntletTheme {
 
         GauntletTheme {
             version: CURRENT_THEME_VERSION,
-            text: text_color,
+            text: text_lightest_color,
             root: ThemeRoot {
-                background_color,
+                background_color: background_darkest_color,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: background_light_color,
+                border_color: background_lighter_color,
             },
             action_panel: ThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
-                background_color: background_overlay_color,
+                background_color: background_darker_color,
             },
             action_panel_title: ThemePaddingOnly {
                 padding: padding(2.0, 8.0, 4.0, 8.0),
@@ -253,9 +256,9 @@ impl GauntletTheme {
             action: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: background_light_color,
-                text_color,
-                text_color_hovered: text_color,
+                background_color_hovered: background_lighter_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -266,7 +269,7 @@ impl GauntletTheme {
             action_shortcut_modifier: ThemeActionShortcutModifier {
                 padding: padding_axis(0.0, 8.0),
                 spacing: 8.0,
-                background_color: background_lighter_color,
+                background_color: background_lightest_color,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -281,8 +284,8 @@ impl GauntletTheme {
                 padding: padding_axis(2.0, 8.0),
                 background_color: primary_color,
                 background_color_hovered: primary_hovered_color,
-                text_color: text_dark_color,
-                text_color_hovered: text_dark_color,
+                text_color: text_darkest_color,
+                text_color_hovered: text_darkest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -300,7 +303,7 @@ impl GauntletTheme {
             },
             list_item_subtitle: ThemePaddingTextColor {
                 padding: padding_all(4.0),
-                text_color: text_darker_color,
+                text_color: text_lighter_color,
             },
             list_item_title: ThemePaddingOnly {
                 padding: padding_all(4.0),
@@ -327,27 +330,27 @@ impl GauntletTheme {
             },
             grid_item: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: background_light_color,
-                background_color_hovered: background_lighter_color,
-                text_color,
-                text_color_hovered: text_color,
+                background_color: background_lighter_color,
+                background_color_hovered: background_lightest_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             grid_item_title: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 0.0),
-                text_color,
+                text_color: text_lightest_color,
             },
             grid_item_subtitle: ThemeTextColor {
-                text_color: text_darker_color,
+                text_color: text_lighter_color,
             },
             content_horizontal_break: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
             content_code_block_text: ThemeCode {
                 padding: padding_axis(4.0, 8.0),
-                background_color: background_light_color,
+                background_color: background_lighter_color,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -360,24 +363,24 @@ impl GauntletTheme {
             },
             root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: background_light_color,
-                background_color_hovered: background_lighter_color,
-                text_color,
-                text_color_hovered: text_color,
+                background_color: background_lighter_color,
+                background_color_hovered: background_lightest_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lightest_color,
                 border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             root_bottom_panel: ThemePaddingBackgroundColor {
                 padding: padding_axis(6.0, 8.0),
-                background_color: background_overlay_color,
+                background_color: background_darker_color,
             },
             root_bottom_panel_action_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: background_light_color,
-                text_color,
-                text_color_hovered: text_color,
+                background_color_hovered: background_lighter_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lightest_color,
                 border_radius: 6.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -388,9 +391,9 @@ impl GauntletTheme {
             list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: background_light_color,
-                text_color,
-                text_color_hovered: text_color,
+                background_color_hovered: background_lighter_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -435,20 +438,28 @@ impl GauntletTheme {
             form_input_label: ThemePaddingOnly {
                 padding: padding_axis(4.0, 12.0),
             },
-            list_section_title: ThemePaddingTextColor {
+            list_section_title: ThemePaddingTextColorSpacing {
                 padding: padding(12.0, 8.0, 4.0, 8.0),
-                text_color: text_darker_color,
+                text_color: text_lighter_color,
+                spacing: 8.0,
             },
-            grid_section_title: ThemePaddingTextColor {
+            list_section_subtitle: ThemeTextColor {
+                text_color: text_darker_color
+            },
+            grid_section_title: ThemePaddingTextColorSpacing {
                 padding: padding(12.0, 0.0, 4.0, 0.0),
-                text_color: text_darker_color,
+                text_color: text_lighter_color,
+                spacing: 8.0,
+            },
+            grid_section_subtitle: ThemeTextColor {
+                text_color: text_darker_color
             },
             main_list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: background_light_color,
-                text_color,
-                text_color_hovered: text_color,
+                background_color_hovered: background_lighter_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -482,76 +493,76 @@ impl GauntletTheme {
                 padding: padding_all(12.0),
             },
             metadata_link: ThemeLink {
-                text_color,
-                text_color_hovered: text_hovered_color,
+                text_color: text_lightest_color,
+                text_color_hovered: text_lighter_color,
             },
             empty_view_subtitle: ThemeTextColor {
                 text_color: text_darker_color,
             },
             form_input_date_picker: ThemeDatePicker {
-                background_color,
+                background_color: background_darkest_color,
                 border_radius: 10.0,
                 border_width: 1.0,
-                border_color: background_light_color,
-                text_color,
+                border_color: background_lighter_color,
+                text_color: text_lightest_color,
                 text_color_selected: text_darker_color,
                 text_color_hovered: text_darker_color,
                 text_attenuated_color: date_picker_text_darker,
-                day_background_color: background_light_color,
-                day_background_color_selected: background_light_color,
-                day_background_color_hovered: background_light_color,
+                day_background_color: background_lighter_color,
+                day_background_color_selected: background_lighter_color,
+                day_background_color_hovered: background_lighter_color,
             },
             form_input_date_picker_buttons: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: primary_color,
                 background_color_hovered: primary_hovered_color,
-                text_color: text_dark_color,
-                text_color_hovered: text_dark_color,
+                text_color: text_darkest_color,
+                text_color_hovered: text_darkest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             form_input_checkbox: ThemeCheckbox {
                 background_color_checked: primary_color,
-                background_color_unchecked: background_color,
+                background_color_unchecked: background_darkest_color,
                 background_color_checked_hovered: primary_hovered_color,
-                background_color_unchecked_hovered: background_light_color,
+                background_color_unchecked_hovered: background_lighter_color,
                 border_radius: 4.0,
                 border_width: 1.0,
                 border_color: primary_color,
-                icon_color: background_color,
+                icon_color: background_darkest_color,
             },
             form_input_select: ThemeSelect {
                 background_color: primary_color,
                 background_color_hovered: primary_hovered_color,
-                text_color: text_dark_color,
-                text_color_hovered: text_dark_color,
+                text_color: text_darkest_color,
+                text_color_hovered: text_darkest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 1.0,
-                border_color: background_light_color,
+                border_color: background_lighter_color,
             },
             form_input_select_menu: ThemeSelectMenu {
-                background_color,
-                background_color_selected: background_light_color,
-                text_color,
-                text_color_selected: text_color,
+                background_color: background_darkest_color,
+                background_color_selected: background_lighter_color,
+                text_color: text_lightest_color,
+                text_color_selected: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
                 border_width: 1.0,
-                border_color: background_light_color,
+                border_color: background_lighter_color,
             },
             form_input_text_field: ThemeTextField {
                 background_color: TRANSPARENT,
-                background_color_hovered: background_light_color,
-                text_color,
+                background_color_hovered: background_lighter_color,
+                text_color: text_lightest_color,
                 text_color_placeholder: text_darker_color,
-                selection_color: background_light_color,
+                selection_color: background_lighter_color,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: background_light_color,
-                border_color_hovered: background_light_color,
+                border_color: background_lighter_color,
+                border_color_hovered: background_lighter_color,
             },
             separator: ThemeSeparator {
-                color: background_light_color
+                color: background_lighter_color
             },
             scrollbar: ThemeScrollbar {
                 color: primary_color,
@@ -561,20 +572,20 @@ impl GauntletTheme {
             },
             tooltip: ThemeTooltip {
                 padding: 8.0,
-                background_color: background_overlay_color,
+                background_color: background_darker_color,
             },
             loading_bar: ThemeLoadingBar {
                 loading_bar_color: primary_color,
-                background_color: background_light_color,
+                background_color: background_lighter_color,
             },
-            text_accessory: ThemeTextAccessory {
+            text_accessory: ThemePaddingTextColorSpacing {
                 padding: padding(4.0, 4.0, 4.0, 16.0),
-                text_color: text_darker_color,
+                text_color: text_lighter_color,
                 spacing: 8.0,
             },
             icon_accessory: ThemeIconAccessory {
                 padding: padding(4.0, 4.0, 4.0, 16.0),
-                icon_color: text_darker_color,
+                icon_color: text_lighter_color,
             },
         }
     }
@@ -594,14 +605,14 @@ const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
 
 // keep colors more or less in sync with settings ui
 const TRANSPARENT: ThemeColor = ThemeColor::new(0x000000, 0.0);
-const BACKGROUND: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
-const BACKGROUND_OVERLAY: ThemeColor = ThemeColor::new(0x333a42, 1.0);
-const BACKGROUND_LIGHT: ThemeColor = ThemeColor::new(0x48505B, 0.5);
-const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x626974, 0.3);
-const TEXT: ThemeColor = ThemeColor::new(0xBFC5CB, 1.0);
-const TEXT_HOVERED: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
+const BACKGROUND_LIGHTEST: ThemeColor = ThemeColor::new(0x626974, 0.3);
+const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x48505B, 0.5);
+const BACKGROUND_DARKER: ThemeColor = ThemeColor::new(0x333a42, 1.0);
+const BACKGROUND_DARKEST: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
+const TEXT_LIGHTEST: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
+const TEXT_LIGHTER: ThemeColor = ThemeColor::new(0x9AA0A6, 1.0);
 const TEXT_DARKER: ThemeColor = ThemeColor::new(0x6B7785, 1.0);
-const TEXT_DARK: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
+const TEXT_DARKEST: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
 const PRIMARY: ThemeColor = ThemeColor::new(0xC79F60, 1.0);
 const PRIMARY_HOVERED: ThemeColor = ThemeColor::new(0xD7B37A, 1.0);
 const DATE_PICKER_TEXT_DARKER: ThemeColor =  ThemeColor::new(0xCAC2B6, 0.3);
@@ -831,7 +842,7 @@ pub struct ThemeIconAccessory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ThemeTextAccessory {
+pub struct ThemePaddingTextColorSpacing {
     padding: ThemePadding,
     text_color: ThemeColor,
     spacing: f32,

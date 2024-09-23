@@ -25,9 +25,11 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletT
             }
             RowStyle::ListSectionTitle => {
                 self.padding(theme.list_section_title.padding.to_iced())
+                    .spacing(theme.list_section_title.spacing)
             }
             RowStyle::GridSectionTitle => {
                 self.padding(theme.grid_section_title.padding.to_iced())
+                    .spacing(theme.grid_section_title.spacing)
             }
             RowStyle::GridItemTitle => {
                 self.padding(theme.grid_item_title.padding.to_iced())

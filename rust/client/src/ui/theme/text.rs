@@ -12,7 +12,9 @@ pub enum TextStyle {
     EmptyViewSubtitle,
     ListItemSubtitle,
     ListSectionTitle,
+    ListSectionSubtitle,
     GridSectionTitle,
+    GridSectionSubtitle,
     MainListItemSubtext,
     MetadataItemLabel,
     TextAccessory,
@@ -56,8 +58,14 @@ impl text::StyleSheet for GauntletTheme {
             TextStyle::ListSectionTitle => Appearance {
                 color: Some(self.list_section_title.text_color.to_iced()),
             },
+            TextStyle::ListSectionSubtitle => Appearance {
+                color: Some(self.list_section_subtitle.text_color.to_iced()),
+            },
             TextStyle::GridSectionTitle => Appearance {
                 color: Some(self.grid_section_title.text_color.to_iced()),
+            },
+            TextStyle::GridSectionSubtitle => Appearance{
+                color: Some(self.grid_section_subtitle.text_color.to_iced()),
             },
             TextStyle::MainListItemSubtext => Appearance {
                 color: Some(self.main_list_item_sub_text.text_color.to_iced()),
