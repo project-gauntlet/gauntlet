@@ -399,9 +399,10 @@ Wayland support requires LayerShell protocol `zwlr_layer_shell_v1`.
 
 ## Building Gauntlet
 You will need:
-- NodeJS v18
+- NodeJS
 - Rust
 - Protobuf Compiler
+- CMake (not used by the project itself, but is required by a dependency)
 - On Linux: `libxkbcommon-dev` (note: name may differ depending on used distribution)
 
 To build dev run:
@@ -422,6 +423,21 @@ npm run build
 cargo build --release --features release
 ```
 But the new version release needs to be done via GitHub Actions
+
+## Contributing
+
+If you'd like to help build Gauntlet you can do it in more ways than just contributing code:
+- Reporting a bug or UI/UX problem
+- Creating a plugin
+- Creating and contributing a theme - see [#16](https://github.com/project-gauntlet/gauntlet/issues/16)
+
+If you are looking for things to do see pinned [issues](https://github.com/project-gauntlet/gauntlet/issues).
+
+For simple problems feel free to open an issue or PR and tackle it yourself!
+
+For more significant changes please contact creators on Discord (invite link on top of README) and discuss first.
+
+All and any contributions are welcome.
 
 ## Versioning
 
