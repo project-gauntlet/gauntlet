@@ -332,7 +332,10 @@ impl ApplicationManager {
     pub async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Removing plugin with id: {:?}", plugin_id);
 
-        self.stop_plugin(plugin_id.clone()).await;
+        let running = self.run_status_holder.is_plugin_running(&plugin_id);
+        if running {
+            self.stop_plugin(plugin_id.clone()).await;
+        }
         self.db_repository.remove_plugin(&plugin_id.to_string()).await?;
         self.search_index.remove_for_plugin(plugin_id)?;
         Ok(())
