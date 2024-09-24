@@ -559,6 +559,12 @@ impl ApplicationManager {
         let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str)
             .await?;
 
+        let entrypoint_names = self.db_repository.get_entrypoints_by_plugin_id(&plugin_id_str)
+            .await?
+            .into_iter()
+            .map(|entrypoint| (EntrypointId::from_string(entrypoint.id), entrypoint.name))
+            .collect::<HashMap<EntrypointId, String>>();
+
         let inline_view_entrypoint_id = self.db_repository.get_inline_view_entrypoint_id_for_plugin(&plugin_id_str)
             .await?;
 
@@ -585,6 +591,8 @@ impl ApplicationManager {
         let data = PluginRuntimeData {
             id: plugin_id,
             uuid: plugin.uuid,
+            name: plugin.name,
+            entrypoint_names,
             code: PluginCode { js: plugin.code.js },
             inline_view_entrypoint_id,
             permissions: PluginPermissions {

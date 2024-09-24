@@ -26,15 +26,15 @@ export default function Default(props: { text: string }): ReactNode | undefined 
         return (
             <Inline>
                 <Inline.Left>
-                    <Content.Paragraph>
+                    <Content.H3>
                         {left}
-                    </Content.Paragraph>
+                    </Content.H3>
                 </Inline.Left>
                 <Inline.Separator icon={Icons.ArrowRight}/>
                 <Inline.Right>
-                    <Content.Paragraph>
+                    <Content.H3>
                         {right}
-                    </Content.Paragraph>
+                    </Content.H3>
                 </Inline.Right>
             </Inline>
         )

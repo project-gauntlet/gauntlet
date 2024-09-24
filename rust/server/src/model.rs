@@ -14,6 +14,7 @@ pub enum JsUiResponseData {
 pub enum JsUiRequestData {
     ReplaceView {
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: UiWidget,

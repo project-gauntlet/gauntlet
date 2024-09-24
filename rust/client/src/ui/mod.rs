@@ -322,7 +322,9 @@ impl Application for AppModel {
                         ui_render_location_from_scenario(render_location),
                         ui_widget_from_scenario(container),
                         &plugin_id,
-                        &entrypoint_id
+                        "Screenshot Plugin",
+                        &entrypoint_id,
+                        "Screenshot Entrypoint",
                     );
 
                     commands.push(Command::perform(async move { top_level_view }, |top_level_view| AppMsg::ReplaceView { top_level_view }));
@@ -1299,8 +1301,23 @@ async fn request_loop(
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
-                UiRequestData::ReplaceView { plugin_id, entrypoint_id, render_location, top_level_view, container } => {
-                    client_context.replace_view(render_location, container, &plugin_id, &entrypoint_id);
+                UiRequestData::ReplaceView {
+                    plugin_id,
+                    plugin_name,
+                    entrypoint_id,
+                    entrypoint_name,
+                    render_location,
+                    top_level_view,
+                    container
+                } => {
+                    client_context.replace_view(
+                        render_location,
+                        container,
+                        &plugin_id,
+                        &plugin_name,
+                        &entrypoint_id,
+                        &entrypoint_name
+                    );
 
                     responder.respond(UiResponseData::Nothing);
 

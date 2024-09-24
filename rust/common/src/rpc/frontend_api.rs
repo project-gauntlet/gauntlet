@@ -38,14 +38,18 @@ impl FrontendApi {
     pub async fn replace_view(
         &mut self,
         plugin_id: PluginId,
+        plugin_name: String,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: UiWidget,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
             plugin_id,
+            plugin_name,
             entrypoint_id,
+            entrypoint_name,
             render_location,
             top_level_view,
             container,

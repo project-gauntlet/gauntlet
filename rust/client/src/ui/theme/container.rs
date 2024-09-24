@@ -54,6 +54,8 @@ pub enum ContainerStyle {
     TextAccessory,
     TextAccessoryIcon,
     IconAccessory,
+    InlineInner,
+    InlineName,
 }
 
 #[derive(Default)]
@@ -70,6 +72,7 @@ pub enum ContainerStyleInner {
     Root,
     ContentImage,
     RootBottomPanel,
+    InlineInner,
 }
 
 
@@ -202,6 +205,19 @@ impl container::StyleSheet for GauntletTheme {
                     ..Appearance::default()
                 }
             }
+            ContainerStyleInner::InlineInner => {
+                let theme = &self.inline_inner;
+
+                Appearance {
+                    background: Some(theme.background_color.to_iced().into()),
+                    border: Border {
+                        radius: theme.border_radius.into(),
+                        width: theme.border_width,
+                        color: theme.border_color.to_iced(),
+                    },
+                    ..Appearance::default()
+                }
+            }
         }
     }
 }
@@ -297,10 +313,17 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.form_input_label.padding.to_iced())
             }
             ContainerStyle::Inline => {
+                self.padding(theme.inline.padding.to_iced())
+            }
+            ContainerStyle::InlineInner => {
                 self
-                    .padding(theme.inline.padding.to_iced())
-                    .height(100)
-                    .max_height(100)
+                    .height(120)
+                    .max_height(120)
+                    .padding(theme.inline_inner.padding.to_iced())
+                    .style(ContainerStyleInner::InlineInner)
+            }
+            ContainerStyle::InlineName => {
+                self.padding(theme.inline_name.padding.to_iced())
             }
             ContainerStyle::EmptyViewImage => {
                 self.padding(theme.empty_view_image.padding.to_iced())

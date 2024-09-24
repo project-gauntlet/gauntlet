@@ -21,6 +21,8 @@ pub enum TextStyle {
     IconAccessory,
     GridItemTitle,
     GridItemSubTitle,
+    InlineName,
+    InlineSeparator,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Renderer> {
@@ -33,6 +35,11 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Re
 
                 self.style(kind)
                     .size(theme.metadata_item_label.text_size)
+                    .into()
+            }
+            TextStyle::InlineName => {
+                self.size(15)
+                    .style(kind)
                     .into()
             }
             _ => {
@@ -84,6 +91,12 @@ impl text::StyleSheet for GauntletTheme {
             },
             TextStyle::GridItemSubTitle => Appearance {
                 color: Some(self.grid_item_subtitle.text_color.to_iced()),
+            },
+            TextStyle::InlineName => Appearance {
+                color: Some(self.inline_name.text_color.to_iced()),
+            },
+            TextStyle::InlineSeparator => Appearance {
+                color: Some(self.inline_separator.text_color.to_iced()),
             }
         }
     }

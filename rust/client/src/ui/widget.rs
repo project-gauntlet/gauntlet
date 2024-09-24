@@ -4,6 +4,8 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
+use common::model::{PhysicalKey, PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
+use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
 use iced::widget::image::Handle;
@@ -16,9 +18,6 @@ use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use iced_aw::{floating_element, GridRow};
 use itertools::Itertools;
-
-use common::model::{PhysicalKey, PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
-use common_ui::shortcut_to_text;
 
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
@@ -130,6 +129,10 @@ pub enum ComponentRenderContext {
     H4,
     H5,
     H6,
+    InlineRoot {
+        plugin_name: String,
+        entrypoint_name: String,
+    },
     Inline,
     GridItem,
     List {
@@ -781,8 +784,8 @@ impl ComponentWidgetWrapper {
 
                         let icon = text(icon_to_bootstrap(icon))
                             .font(icons::BOOTSTRAP_FONT)
-                            .size(30)
-                            .into();
+                            .size(45)
+                            .themed(TextStyle::InlineSeparator);
 
                         let bot_rule: Element<_> = vertical_rule(1)
                             .into();
@@ -798,6 +801,16 @@ impl ComponentWidgetWrapper {
                 }
             }
             ComponentWidget::Inline { children } => {
+                let ComponentRenderContext::InlineRoot { plugin_name, entrypoint_name } = context else {
+                    panic!("not supposed to be passed to root item: {:?}", context)
+                };
+
+                let name: Element<_> = text(format!("{} - {}", plugin_name, entrypoint_name))
+                    .themed(TextStyle::InlineName);
+
+                let name: Element<_> = container(name)
+                    .themed(ContainerStyle::InlineName);
+
                 let content: Vec<Element<_>> = children
                     .into_iter()
                     .map(|child| {
@@ -823,16 +836,15 @@ impl ComponentWidgetWrapper {
                     .into();
 
                 let content: Element<_> = container(content)
-                    .center_x()
-                    .center_y()
-                    .themed(ContainerStyle::Inline);
+                    .themed(ContainerStyle::InlineInner);
 
-                let rule: Element<_> = horizontal_rule(1)
-                    .into();
-
-                let content: Element<_> = column([content, rule])
+                let content: Element<_> = column(vec![name, content])
                     .width(Length::Fill)
                     .into();
+
+                let content: Element<_> = container(content)
+                    .width(Length::Fill)
+                    .themed(ContainerStyle::Inline);
 
                 content
             }
@@ -1474,7 +1486,8 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
         ComponentRenderContext::ActionPanel { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Action { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Inline => panic!("not supposed to be passed to text part"),
-        ComponentRenderContext::GridItem => panic!("not supposed to be passed to text part")
+        ComponentRenderContext::GridItem => panic!("not supposed to be passed to text part"),
+        ComponentRenderContext::InlineRoot { .. } => panic!("not supposed to be passed to text part")
     };
 
     let mut text = text(value);

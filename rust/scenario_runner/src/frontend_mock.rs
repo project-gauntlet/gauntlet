@@ -158,7 +158,7 @@ async fn request_loop(mut request_receiver: RequestReceiver<UiRequestData, UiRes
             UiRequestData::RequestSearchResultUpdate => {
                 // noop
             }
-            UiRequestData::ReplaceView { plugin_id: _, entrypoint_id, render_location, top_level_view, container } => {
+            UiRequestData::ReplaceView { plugin_id: _, plugin_name: _, entrypoint_id, entrypoint_name: _, render_location, top_level_view, container } => {
                 let event = ScenarioFrontendEvent::ReplaceView {
                     entrypoint_id: entrypoint_id.to_string(),
                     render_location: ui_render_location_to_scenario(render_location),

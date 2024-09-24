@@ -82,13 +82,22 @@ fn op_react_replace_view(
 
     let comp_state = state.borrow();
     let component_model = comp_state.borrow::<ComponentModel>();
+    let entrypoint_names = comp_state.borrow::<PluginData>();
+
+    let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
+    let entrypoint_name = entrypoint_names.entrypoint_names
+        .get(&entrypoint_id)
+        .expect("entrypoint name for id should always exist")
+        .to_string();
 
     let Component::Root { shared_types, .. } = component_model.components.get("gauntlet:root").unwrap() else {
         unreachable!()
     };
 
     let data = JsUiRequestData::ReplaceView {
-        entrypoint_id: EntrypointId::from_string(entrypoint_id),
+        entrypoint_id,
+        entrypoint_name,
         render_location,
         top_level_view,
         container: from_js_to_intermediate_widget(state.clone(), scope, container, component_model, shared_types)?,

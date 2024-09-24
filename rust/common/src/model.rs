@@ -121,7 +121,9 @@ pub enum UiRequestData {
     },
     ReplaceView {
         plugin_id: PluginId,
+        plugin_name: String,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: UiWidget,

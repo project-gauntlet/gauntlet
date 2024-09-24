@@ -63,6 +63,8 @@ pub mod permissions;
 pub struct PluginRuntimeData {
     pub id: PluginId,
     pub uuid: String,
+    pub name: String,
+    pub entrypoint_names: HashMap<EntrypointId, String>,
     pub code: PluginCode,
     pub inline_view_entrypoint_id: Option<String>,
     pub permissions: PluginPermissions,
@@ -235,6 +237,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                  start_js_runtime(
                                      data.id.clone(),
                                      data.uuid,
+                                     data.name,
+                                     data.entrypoint_names,
                                      data.code,
                                      data.permissions,
                                      data.inline_view_entrypoint_id,
@@ -274,6 +278,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 async fn start_js_runtime(
     plugin_id: PluginId,
     plugin_uuid: String,
+    plugin_name: String,
+    entrypoint_names: HashMap<EntrypointId, String>,
     code: PluginCode,
     permissions: PluginPermissions,
     inline_view_entrypoint_id: Option<String>,
@@ -337,7 +343,7 @@ async fn start_js_runtime(
             module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
-                PluginData::new(plugin_id, plugin_uuid, inline_view_entrypoint_id, runtime_permissions),
+                PluginData::new(plugin_id, plugin_uuid, plugin_name, entrypoint_names, inline_view_entrypoint_id, runtime_permissions),
                 frontend_api,
                 ComponentModel::new(component_model),
                 repository,
@@ -565,7 +571,7 @@ async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Res
 }
 
 fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
-    let (plugin_id, mut frontend_api) = {
+    let (plugin_id, plugin_name, mut frontend_api) = {
         let state = state.borrow();
 
         let plugin_id = state
@@ -573,27 +579,32 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
             .plugin_id()
             .clone();
 
+        let plugin_name = state
+            .borrow::<PluginData>()
+            .plugin_name()
+            .to_string();
+
         let frontend_api = state
             .borrow::<FrontendApi>()
             .clone();
 
-        (plugin_id, frontend_api)
+        (plugin_id, plugin_name, frontend_api)
     };
 
     block_on(async {
-        make_request_async(plugin_id, &mut frontend_api, data).await
+        make_request_async(plugin_id, plugin_name, &mut frontend_api, data).await
     })
 }
 
-async fn make_request_async(plugin_id: PluginId, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
+async fn make_request_async(plugin_id: PluginId, plugin_name: String, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id } => {
+        JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id, entrypoint_name } => {
             let render_location = match render_location { // TODO into?
                 JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
                 JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
-            frontend_api.replace_view(plugin_id, entrypoint_id, render_location, top_level_view, container).await?;
+            frontend_api.replace_view(plugin_id, plugin_name, entrypoint_id, entrypoint_name, render_location, top_level_view, container).await?;
 
             Ok(JsUiResponseData::Nothing)
         }
@@ -672,15 +683,26 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
 pub struct PluginData {
     plugin_id: PluginId,
     plugin_uuid: String,
+    plugin_name: String,
+    entrypoint_names: HashMap<EntrypointId, String>,
     inline_view_entrypoint_id: Option<String>,
     permissions: PluginRuntimePermissions
 }
 
 impl PluginData {
-    fn new(plugin_id: PluginId, plugin_uuid: String, inline_view_entrypoint_id: Option<String>, permissions: PluginRuntimePermissions) -> Self {
+    fn new(
+        plugin_id: PluginId,
+        plugin_uuid: String,
+        plugin_name: String,
+        entrypoint_names: HashMap<EntrypointId, String>,
+        inline_view_entrypoint_id: Option<String>,
+        permissions: PluginRuntimePermissions
+    ) -> Self {
         Self {
             plugin_id,
             plugin_uuid,
+            plugin_name,
+            entrypoint_names,
             inline_view_entrypoint_id,
             permissions
         }
@@ -692,6 +714,10 @@ impl PluginData {
 
     fn plugin_uuid(&self) -> &str {
         &self.plugin_uuid
+    }
+
+    fn plugin_name(&self) -> &str {
+        &self.plugin_name
     }
 
     fn inline_view_entrypoint_id(&self) -> Option<String> {

@@ -58,8 +58,10 @@ impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
         let containers = client_context.get_all_inline_view_containers();
 
         if let Some((_, container)) = &containers.get(state.current_plugin) {
-            container.render_widget(ComponentRenderContext::None)
-                .map(InlineViewContainerEvent::WidgetEvent)
+            container.render_widget(ComponentRenderContext::InlineRoot {
+                plugin_name: container.get_plugin_name(),
+                entrypoint_name: container.get_entrypoint_name(),
+            }).map(InlineViewContainerEvent::WidgetEvent)
         } else {
             horizontal_space()
                 .into()

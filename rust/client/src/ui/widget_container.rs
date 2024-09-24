@@ -7,7 +7,9 @@ use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent, ComponentW
 pub struct PluginWidgetContainer {
     root_widget: ComponentWidgetWrapper,
     plugin_id: Option<PluginId>,
-    entrypoint_id: Option<EntrypointId>
+    plugin_name: Option<String>,
+    entrypoint_id: Option<EntrypointId>,
+    entrypoint_name: Option<String>
 }
 
 impl PluginWidgetContainer {
@@ -15,7 +17,9 @@ impl PluginWidgetContainer {
         Self {
             root_widget: ComponentWidgetWrapper::root(0),
             plugin_id: None,
+            plugin_name: None,
             entrypoint_id: None,
+            entrypoint_name: None,
         }
     }
 
@@ -23,8 +27,16 @@ impl PluginWidgetContainer {
         self.plugin_id.clone().expect("plugin id should always exist after render")
     }
 
+    pub fn get_plugin_name(&self) -> String {
+        self.plugin_name.clone().expect("plugin id should always exist after render")
+    }
+
     pub fn get_entrypoint_id(&self) -> EntrypointId {
         self.entrypoint_id.clone().expect("entrypoint id should always exist after render")
+    }
+
+    pub fn get_entrypoint_name(&self) -> String {
+        self.entrypoint_name.clone().expect("entrypoint id should always exist after render")
     }
 
     pub fn render_widget<'a>(&self, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
@@ -41,11 +53,13 @@ impl PluginWidgetContainer {
             .expect("unable to create widget")
     }
 
-    pub fn replace_view(&mut self, container: UiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
+    pub fn replace_view(&mut self, container: UiWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
         tracing::trace!("replace_view is called. container: {:?}", container);
 
         self.plugin_id = Some(plugin_id.clone());
+        self.plugin_name = Some(plugin_name.to_string());
         self.entrypoint_id = Some(entrypoint_id.clone());
+        self.entrypoint_name = Some(entrypoint_name.to_string());
 
         let children = container.widget_children.into_iter()
             .map(|child| self.create_component_widget(child))

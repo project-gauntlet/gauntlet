@@ -55,10 +55,10 @@ impl ClientContext {
         self.view.get_entrypoint_id()
     }
 
-    pub fn replace_view(&mut self, render_location: UiRenderLocation, container: UiWidget, plugin_id: &PluginId, entrypoint_id: &EntrypointId) {
+    pub fn replace_view(&mut self, render_location: UiRenderLocation, container: UiWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
         match render_location {
-            UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, entrypoint_id),
-            UiRenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, entrypoint_id)
+            UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, plugin_name, entrypoint_id, entrypoint_name),
+            UiRenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, plugin_name, entrypoint_id, entrypoint_name)
         }
     }
 

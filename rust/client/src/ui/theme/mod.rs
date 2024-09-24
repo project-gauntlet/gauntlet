@@ -82,6 +82,9 @@ pub struct GauntletTheme {
     grid_section_title: ThemePaddingTextColorSpacing,
     grid_section_subtitle: ThemeTextColor,
     inline: ThemePaddingOnly,
+    inline_inner: ThemeInline,
+    inline_name: ThemePaddingTextColor,
+    inline_separator: ThemeTextColor,
     list_item: ThemeButton,
     list_item_subtitle: ThemePaddingTextColor,
     list_item_title: ThemePaddingOnly,
@@ -223,7 +226,6 @@ impl GauntletTheme {
     pub fn default_theme(color_theme: GauntletColorTheme) -> GauntletTheme {
         let GauntletColorTheme {
             version: _,
-            // background_darkest_2_color,
             background_darkest_color,
             background_darker_color,
             background_lighter_color,
@@ -319,7 +321,21 @@ impl GauntletTheme {
                 border_radius: 6.0,
             },
             inline: ThemePaddingOnly {
-                padding: padding_all(8.0)
+                padding: padding_axis(0.0, 8.0),
+            },
+            inline_name: ThemePaddingTextColor {
+                padding: padding_all(8.0),
+                text_color: text_lighter_color,
+            },
+            inline_separator: ThemeTextColor {
+                text_color: text_lighter_color,
+            },
+            inline_inner: ThemeInline {
+                padding: padding_all(8.0),
+                background_color: background_lighter_color,
+                border_radius: BUTTON_BORDER_RADIUS,
+                border_width: 0.0,
+                border_color: TRANSPARENT,
             },
             empty_view_image: ThemePaddingSize {
                 padding: padding_all(8.0),
@@ -755,6 +771,15 @@ pub struct ThemeLink {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeCode {
+    padding: ThemePadding,
+    background_color: ThemeColor,
+    border_radius: f32,
+    border_width: f32,
+    border_color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeInline {
     padding: ThemePadding,
     background_color: ThemeColor,
     border_radius: f32,
