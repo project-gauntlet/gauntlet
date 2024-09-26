@@ -23,8 +23,8 @@ impl StyleSheet for GauntletSettingsTheme {
 
     fn appearance(&self, _: &Self::Style) -> Appearance {
         Appearance {
-            background_color: BACKGROUND.to_iced(),
-            text_color: TEXT.to_iced(),
+            background_color: BACKGROUND_DARKEST.to_iced(),
+            text_color: TEXT_LIGHTEST.to_iced(),
         }
     }
 }
@@ -33,15 +33,14 @@ impl StyleSheet for GauntletSettingsTheme {
 pub const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
 
 pub const TRANSPARENT: ThemeColor = ThemeColor::new(0x000000, 0.0);
-pub const BACKGROUND: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
-pub const BACKGROUND_OVERLAY: ThemeColor = ThemeColor::new(0x333a42, 1.0);
-pub const BACKGROUND_LIGHT: ThemeColor = ThemeColor::new(0x48505B, 0.5);
-pub const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x626974, 0.3);
-pub const BACKGROUND_LIGHTEST: ThemeColor = ThemeColor::new(0x626974, 0.1);
-pub const TEXT: ThemeColor = ThemeColor::new(0xBFC5CB, 1.0);
-pub const TEXT_HOVERED: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
+pub const BACKGROUND_LIGHTEST: ThemeColor = ThemeColor::new(0x626974, 0.3);
+pub const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x48505B, 0.5);
+pub const BACKGROUND_DARKER: ThemeColor = ThemeColor::new(0x333a42, 1.0);
+pub const BACKGROUND_DARKEST: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
+pub const TEXT_LIGHTEST: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
+pub const TEXT_LIGHTER: ThemeColor = ThemeColor::new(0x9AA0A6, 1.0);
 pub const TEXT_DARKER: ThemeColor = ThemeColor::new(0x6B7785, 1.0);
-pub const TEXT_DARK: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
+pub const TEXT_DARKEST: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
 pub const PRIMARY: ThemeColor = ThemeColor::new(0xC79F60, 1.0);
 pub const PRIMARY_HOVERED: ThemeColor = ThemeColor::new(0xD7B37A, 1.0);
 

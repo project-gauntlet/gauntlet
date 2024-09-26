@@ -1,7 +1,7 @@
 use iced::Border;
 use iced::widget::container::Appearance;
 use crate::components::shortcut_selector;
-use crate::theme::{BACKGROUND_LIGHT, BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY};
+use crate::theme::{BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY, BACKGROUND_DARKER};
 
 #[derive(Default)]
 pub enum ShortcutSelectorStyle {
@@ -16,7 +16,7 @@ impl shortcut_selector::StyleSheet for GauntletSettingsTheme {
         match style {
             ShortcutSelectorStyle::Default => {
                 Appearance {
-                    background: Some(BACKGROUND_LIGHT.to_iced().into()),
+                    background: Some(BACKGROUND_DARKER.to_iced().into()),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -31,7 +31,7 @@ impl shortcut_selector::StyleSheet for GauntletSettingsTheme {
         match style {
             ShortcutSelectorStyle::Default => {
                 Appearance {
-                    background: Some(BACKGROUND_LIGHT.to_iced().into()),
+                    background: Some(BACKGROUND_DARKER.to_iced().into()),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         width: 2.0,

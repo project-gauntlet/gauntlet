@@ -1,7 +1,7 @@
-use iced::{Border, Color};
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, NOT_INTENDED_TO_BE_USED, TEXT_DARKER, TEXT_LIGHTEST, TRANSPARENT};
 use iced::widget::text_input;
 use iced::widget::text_input::Appearance;
-use crate::theme::{BACKGROUND_LIGHT, GauntletSettingsTheme, NOT_INTENDED_TO_BE_USED, TEXT, TEXT_DARKER, TRANSPARENT};
+use iced::{Border, Color};
 
 #[derive(Default)]
 pub enum TextInputStyle {
@@ -21,7 +21,7 @@ impl text_input::StyleSheet for GauntletSettingsTheme {
                     border: Border {
                         radius: 4.0.into(),
                         width: 1.0,
-                        color: BACKGROUND_LIGHT.to_iced().into(),
+                        color: BACKGROUND_DARKER.to_iced().into(),
                     },
                     icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
                 }
@@ -33,11 +33,11 @@ impl text_input::StyleSheet for GauntletSettingsTheme {
         match style {
             TextInputStyle::FormInput => {
                 Appearance {
-                    background: BACKGROUND_LIGHT.to_iced().into(),
+                    background: BACKGROUND_DARKER.to_iced().into(),
                     border: Border {
                         radius: 4.0.into(),
                         width: 1.0,
-                        color: BACKGROUND_LIGHT.to_iced().into(),
+                        color: BACKGROUND_DARKER.to_iced().into(),
                     },
                     icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
                 }
@@ -47,11 +47,11 @@ impl text_input::StyleSheet for GauntletSettingsTheme {
 
     fn disabled(&self, _: &Self::Style) -> Appearance {
         Appearance {
-            background: BACKGROUND_LIGHT.to_iced().into(),
+            background: BACKGROUND_DARKER.to_iced().into(),
             border: Border {
                 radius: 4.0.into(),
                 width: 1.0,
-                color: BACKGROUND_LIGHT.to_iced().into(),
+                color: BACKGROUND_DARKER.to_iced().into(),
             },
             icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
         }
@@ -62,7 +62,7 @@ impl text_input::StyleSheet for GauntletSettingsTheme {
     }
 
     fn value_color(&self, _: &Self::Style) -> Color {
-        TEXT.to_iced()
+        TEXT_LIGHTEST.to_iced()
     }
 
     fn disabled_color(&self, style: &Self::Style) -> Color {
@@ -70,6 +70,6 @@ impl text_input::StyleSheet for GauntletSettingsTheme {
     }
 
     fn selection_color(&self, _: &Self::Style) -> Color {
-        BACKGROUND_LIGHT.to_iced()
+        BACKGROUND_DARKER.to_iced()
     }
 }

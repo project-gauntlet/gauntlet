@@ -1,7 +1,7 @@
 use iced::{Border, overlay};
 use iced::widget::pick_list;
 
-use crate::theme::{BACKGROUND, BACKGROUND_LIGHT, BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT, TEXT_DARK};
+use crate::theme::{BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT_DARKEST, BACKGROUND_DARKER, BACKGROUND_DARKEST, TEXT_LIGHTEST};
 
 #[derive(Clone, Default)]
 pub enum PickListStyle {
@@ -39,17 +39,17 @@ fn pick_list_appearance(state: PickListState) -> pick_list::Appearance {
     };
 
     let text_color = match state {
-        PickListState::Active => TEXT_DARK.to_iced(),
-        PickListState::Hovered => TEXT_DARK.to_iced(),
+        PickListState::Active => TEXT_DARKEST.to_iced(),
+        PickListState::Hovered => TEXT_DARKEST.to_iced(),
     };
 
     pick_list::Appearance {
         text_color,
         background: background_color.into(),
-        placeholder_color: BACKGROUND_LIGHT.to_iced(),
+        placeholder_color: BACKGROUND_DARKER.to_iced(),
         handle_color: text_color,
         border: Border {
-            color: BACKGROUND_LIGHT.to_iced(),
+            color: BACKGROUND_DARKER.to_iced(),
             width: 1.0,
             radius: BUTTON_BORDER_RADIUS.into(),
         },
@@ -61,15 +61,15 @@ impl overlay::menu::StyleSheet for GauntletSettingsTheme {
 
     fn appearance(&self, _: &Self::Style) -> overlay::menu::Appearance {
         overlay::menu::Appearance {
-            text_color: TEXT.to_iced(),
-            background: BACKGROUND.to_iced().into(),
+            text_color: TEXT_LIGHTEST.to_iced(),
+            background: BACKGROUND_DARKEST.to_iced().into(),
             border: Border {
                 radius: BUTTON_BORDER_RADIUS.into(),
                 width: 1.0,
-                color: BACKGROUND_LIGHT.to_iced().into(),
+                color: BACKGROUND_DARKER.to_iced().into(),
             },
-            selected_text_color: TEXT.to_iced(),
-            selected_background: BACKGROUND_LIGHT.to_iced().into(),
+            selected_text_color: TEXT_LIGHTEST.to_iced(),
+            selected_background: BACKGROUND_DARKER.to_iced().into(),
         }
     }
 }

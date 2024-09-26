@@ -1,6 +1,6 @@
 use iced_aw::number_input;
 
-use crate::theme::{GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT, TEXT_DARKER};
+use crate::theme::{GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT_DARKER, TEXT_LIGHTEST};
 
 #[derive(Default)]
 pub enum NumberInputStyle {
@@ -28,7 +28,7 @@ impl number_input::StyleSheet for GauntletSettingsTheme {
     fn disabled(&self, _: &Self::Style) -> number_input::Appearance {
         number_input::Appearance {
             button_background: None,
-            icon_color: TEXT.to_iced(),
+            icon_color: TEXT_LIGHTEST.to_iced(),
         }
     }
 }

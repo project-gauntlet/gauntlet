@@ -1,8 +1,8 @@
-use iced::Border;
 use iced::widget::button;
 use iced::widget::button::Appearance;
+use iced::Border;
 
-use crate::theme::{BACKGROUND_LIGHT, BACKGROUND_LIGHTER, BUTTON_BORDER_RADIUS, DANGER, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, SUCCESS, TEXT, TEXT_DARK};
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, BACKGROUND_LIGHTER, BUTTON_BORDER_RADIUS, DANGER, PRIMARY, PRIMARY_HOVERED, SUCCESS, TEXT_DARKEST, TEXT_LIGHTEST};
 
 #[derive(Default)]
 pub enum ButtonStyle {
@@ -22,20 +22,20 @@ impl button::StyleSheet for GauntletSettingsTheme {
 
     fn active(&self, style: &Self::Style) -> Appearance {
         let (background_color, text_color) = match style {
-            ButtonStyle::Primary => (PRIMARY.to_iced(), TEXT_DARK.to_iced()),
-            ButtonStyle::Positive => (SUCCESS.to_iced(), TEXT_DARK.to_iced()),
-            ButtonStyle::Destructive => (DANGER.to_iced(), TEXT.to_iced()),
+            ButtonStyle::Primary => (PRIMARY.to_iced(), TEXT_DARKEST.to_iced()),
+            ButtonStyle::Positive => (SUCCESS.to_iced(), TEXT_DARKEST.to_iced()),
+            ButtonStyle::Destructive => (DANGER.to_iced(), TEXT_LIGHTEST.to_iced()),
             ButtonStyle::TableRow => {
                 return Appearance {
                     background: None,
-                    text_color: TEXT.to_iced(),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     ..Default::default()
                 }
             }
             ButtonStyle::ViewSwitcher => {
                 return Appearance {
                     background: None,
-                    text_color: TEXT.to_iced(),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -45,8 +45,8 @@ impl button::StyleSheet for GauntletSettingsTheme {
             }
             ButtonStyle::ViewSwitcherSelected => {
                 return Appearance {
-                    background: Some(BACKGROUND_LIGHT.to_iced().into()),
-                    text_color: TEXT.to_iced(),
+                    background: Some(BACKGROUND_DARKER.to_iced().into()),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -57,7 +57,7 @@ impl button::StyleSheet for GauntletSettingsTheme {
             ButtonStyle::DownloadInfo => {
                 return Appearance {
                     background: None,
-                    text_color: TEXT.to_iced(),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -80,20 +80,20 @@ impl button::StyleSheet for GauntletSettingsTheme {
 
     fn hovered(&self, style: &Self::Style) -> Appearance {
         let (background_color, text_color) = match style {
-            ButtonStyle::Primary => (PRIMARY_HOVERED.to_iced(), TEXT_DARK.to_iced()),
-            ButtonStyle::Positive => (SUCCESS.to_iced(), TEXT_DARK.to_iced()), // TODO
-            ButtonStyle::Destructive => (DANGER.to_iced(), TEXT.to_iced()), // TODO
+            ButtonStyle::Primary => (PRIMARY_HOVERED.to_iced(), TEXT_DARKEST.to_iced()),
+            ButtonStyle::Positive => (SUCCESS.to_iced(), TEXT_DARKEST.to_iced()), // TODO
+            ButtonStyle::Destructive => (DANGER.to_iced(), TEXT_LIGHTEST.to_iced()), // TODO
             ButtonStyle::TableRow => {
                 return Appearance {
                     background: None,
-                    text_color: TEXT.to_iced(), // TODO
+                    text_color: TEXT_LIGHTEST.to_iced(), // TODO
                     ..Default::default()
                 }
             }
             ButtonStyle::ViewSwitcher => {
                 return Appearance {
                     background: Some(BACKGROUND_LIGHTER.to_iced().into()),
-                    text_color: TEXT.to_iced(),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -104,7 +104,7 @@ impl button::StyleSheet for GauntletSettingsTheme {
             ButtonStyle::ViewSwitcherSelected => {
                 return Appearance {
                     background: Some(BACKGROUND_LIGHTER.to_iced().into()),
-                    text_color: TEXT.to_iced(),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -115,7 +115,7 @@ impl button::StyleSheet for GauntletSettingsTheme {
             ButtonStyle::DownloadInfo => {
                 return Appearance {
                     background: Some(BACKGROUND_LIGHTER.to_iced().into()),
-                    text_color: TEXT.to_iced(),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()
@@ -139,9 +139,9 @@ impl button::StyleSheet for GauntletSettingsTheme {
     fn pressed(&self, style: &Self::Style) -> Appearance {
         match style {
             ButtonStyle::ViewSwitcher | ButtonStyle::ViewSwitcherSelected => {
-                return Appearance {
-                    background: Some(BACKGROUND_LIGHT.to_iced().into()),
-                    text_color: TEXT.to_iced(),
+                Appearance {
+                    background: Some(BACKGROUND_DARKER.to_iced().into()),
+                    text_color: TEXT_LIGHTEST.to_iced(),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         ..Default::default()

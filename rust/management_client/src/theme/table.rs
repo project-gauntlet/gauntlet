@@ -1,7 +1,7 @@
 use iced::Border;
 use iced::widget::container;
 
-use crate::theme::{BACKGROUND_LIGHT, BACKGROUND_LIGHTEST, GauntletSettingsTheme, TEXT};
+use crate::theme::{BACKGROUND_DARKER, BACKGROUND_LIGHTEST, GauntletSettingsTheme, TEXT_LIGHTEST, BACKGROUND_LIGHTER};
 
 #[derive(Default, Clone)]
 pub enum TableStyle {
@@ -14,8 +14,8 @@ impl iced_table::StyleSheet for GauntletSettingsTheme {
 
     fn header(&self, _: &Self::Style) -> container::Appearance {
         container::Appearance {
-            text_color: Some(TEXT.to_iced()),
-            background: Some(BACKGROUND_LIGHT.to_iced().into()),
+            text_color: Some(TEXT_LIGHTEST.to_iced()),
+            background: Some(BACKGROUND_DARKER.to_iced().into()),
             border: Border {
                 radius: 4.0.into(),
                 ..Default::default()
@@ -26,8 +26,8 @@ impl iced_table::StyleSheet for GauntletSettingsTheme {
 
     fn footer(&self, _: &Self::Style) -> container::Appearance {
         container::Appearance {
-            text_color: Some(TEXT.to_iced()),
-            background: Some(BACKGROUND_LIGHT.to_iced().into()),
+            text_color: Some(TEXT_LIGHTEST.to_iced()),
+            background: Some(BACKGROUND_DARKER.to_iced().into()),
             border: Border {
                 radius: 4.0.into(),
                 ..Default::default()
@@ -41,7 +41,7 @@ impl iced_table::StyleSheet for GauntletSettingsTheme {
         let background = if index % 2 == 0 {
             None
         } else {
-            Some(BACKGROUND_LIGHTEST.to_iced().into())
+            Some(BACKGROUND_DARKER.to_iced().into())
         };
 
         container::Appearance {
