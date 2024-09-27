@@ -8,6 +8,7 @@ pub enum RuleStyle {
     #[default]
     Default,
     ActionPanel,
+    DefaultActionSeparator,
 }
 
 impl rule::StyleSheet for GauntletTheme {
@@ -31,6 +32,14 @@ impl rule::StyleSheet for GauntletTheme {
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Percent(96.0),
+                }
+            }
+            RuleStyle::DefaultActionSeparator => {
+                Appearance {
+                    color: theme.separator.color.to_iced(),
+                    width: 1,
+                    radius: 0.0.into(),
+                    fill_mode: rule::FillMode::Percent(70.0),
                 }
             }
         }

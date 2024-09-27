@@ -109,9 +109,10 @@ pub struct GauntletTheme {
     plugin_error_view_description: ThemePaddingOnly,
     plugin_error_view_title: ThemePaddingOnly,
     preference_required_view_description: ThemePaddingOnly,
-    root_bottom_panel: ThemePaddingBackgroundColor,
-    root_bottom_panel_action_button: ThemeButton,
-    root_bottom_panel_action_button_text: ThemePaddingOnly,
+    root_bottom_panel: ThemeBottomPanel,
+    root_bottom_panel_action_toggle_button: ThemeButton,
+    root_bottom_panel_action_toggle_text: ThemePaddingTextColor,
+    root_bottom_panel_default_action_text: ThemePaddingTextColor,
     root_content: ThemePaddingOnly,
     root_top_panel: ThemePaddingOnly,
     root_top_panel_button: ThemeButton,
@@ -387,11 +388,12 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            root_bottom_panel: ThemePaddingBackgroundColor {
+            root_bottom_panel: ThemeBottomPanel {
                 padding: padding_axis(6.0, 8.0),
                 background_color: background_darker_color,
+                spacing: 8.0
             },
-            root_bottom_panel_action_button: ThemeButton {
+            root_bottom_panel_action_toggle_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: TRANSPARENT,
                 background_color_hovered: background_lighter_color,
@@ -401,8 +403,13 @@ impl GauntletTheme {
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
-            root_bottom_panel_action_button_text: ThemePaddingOnly {
+            root_bottom_panel_action_toggle_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
+                text_color: text_lighter_color
+            },
+            root_bottom_panel_default_action_text: ThemePaddingTextColor {
+                padding: padding(0.0, 8.0, 0.0, 4.0),
+                text_color: text_lightest_color
             },
             list_item: ThemeButton {
                 padding: padding_all(5.0),
@@ -823,6 +830,13 @@ pub struct ThemePaddingTextColorSize {
 pub struct ThemePaddingBackgroundColor {
     padding: ThemePadding,
     background_color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeBottomPanel {
+    padding: ThemePadding,
+    background_color: ThemeColor,
+    spacing: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

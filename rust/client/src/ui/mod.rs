@@ -996,26 +996,33 @@ impl Application for AppModel {
                     list,
                 ]).into();
 
-                let action_panel_items = if let Some(search_item) = self.search_results.get(self.focused_search_result) {
+                let (default_action, action_panel) = if let Some(search_item) = self.search_results.get(self.focused_search_result) {
                     let title = match search_item.entrypoint_type {
                         SearchResultEntrypointType::Command => "Run Command",
                         SearchResultEntrypointType::View => "Open View",
                         SearchResultEntrypointType::GeneratedCommand => "Run Command",
                     }.to_string();
 
-                    vec![ActionPanelItems::Action {
-                        title,
-                        widget_id: 0,
-                        physical_shortcut: Some(PhysicalShortcut {
-                            physical_key: PhysicalKey::Enter,
-                            modifier_shift: false,
-                            modifier_control: false,
-                            modifier_alt: false,
-                            modifier_meta: false,
-                        }),
-                    }]
+                    let shortcut = PhysicalShortcut {
+                        physical_key: PhysicalKey::Enter,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: false,
+                    };
+
+                    // let action_panel = ActionPanel {
+                    //     title: None,
+                    //     items: vec![ActionPanelItems::Action {
+                    //         title: title.clone(),
+                    //         widget_id: 0,
+                    //         physical_shortcut: Some(shortcut.clone()),
+                    //     }],
+                    // };
+
+                    (Some((title, shortcut)), None)
                 } else {
-                    vec![]
+                    (None, None)
                 };
 
                 let root = render_root(
@@ -1023,10 +1030,8 @@ impl Application for AppModel {
                     input,
                     separator,
                     content,
-                    Some(ActionPanel {
-                        title: None,
-                        items: action_panel_items,
-                    }),
+                    default_action,
+                    action_panel,
                     "".to_string(),
                     || AppMsg::ToggleActionPanel,
                     AppMsg::RunAction

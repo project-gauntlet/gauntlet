@@ -1304,6 +1304,7 @@ fn render_plugin_root<'a>(
         top_panel,
         top_separator,
         content,
+        None,
         action_panel,
         entrypoint_name,
         || ComponentWidgetEvent::ToggleActionPanel { widget_id },
@@ -1486,6 +1487,7 @@ pub fn render_root<'a, T: 'a + Clone>(
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
     content: Element<'a, T>,
+    default_action: Option<(String, PhysicalShortcut)>,
     action_panel: Option<ActionPanel>,
     entrypoint_name: String,
     on_panel_toggle: impl Fn() -> T,
@@ -1494,13 +1496,33 @@ pub fn render_root<'a, T: 'a + Clone>(
     let entrypoint_name: Element<_> = text(entrypoint_name)
         .into();
 
+    let panel_height = 16 + 8 + 2;  // TODO get value from theme
+
+    let default_action = match default_action {
+        Some((label, shortcut)) => {
+            let label: Element<_> = text(label)
+                .themed(TextStyle::RootBottomPanelDefaultActionText);
+
+            let label: Element<_> = container(label)
+                .themed(ContainerStyle::RootBottomPanelDefaultActionText);
+
+            let shortcut = render_shortcut(&shortcut);
+
+            let content: Element<_> = row(vec![label, shortcut])
+                .themed(RowStyle::RootBottomPanelDefaultAction);
+
+            Some(content)
+        }
+        None => None
+    };
+
     let (hide_action_panel, action_panel, bottom_panel) = match action_panel {
         Some(action_panel) => {
             let actions_text: Element<_> = text("Actions")
-                .into();
+                .themed(TextStyle::RootBottomPanelActionToggleText);
 
             let actions_text: Element<_> = container(actions_text)
-                .themed(ContainerStyle::RootBottomPanelActionButtonText);
+                .themed(ContainerStyle::RootBottomPanelActionToggleText);
 
             let shortcut = render_shortcut(&PhysicalShortcut {
                 physical_key: PhysicalKey::KeyK,
@@ -1510,28 +1532,57 @@ pub fn render_root<'a, T: 'a + Clone>(
                 modifier_meta: false,
             });
 
+            let mut bottom_panel_content = vec![entrypoint_name];
+
+            let space = horizontal_space()
+                .into();
+
+            bottom_panel_content.push(space);
+
+            if let Some(default_action) = default_action {
+                bottom_panel_content.push(default_action);
+
+                let rule: Element<_> = vertical_rule(1)
+                    .style(RuleStyle::DefaultActionSeparator)
+                    .into();
+
+                let rule: Element<_> = container(rule)
+                    .width(Length::Shrink)
+                    .height(panel_height)
+                    .max_height(panel_height)
+                    .into();
+
+                bottom_panel_content.push(rule);
+            }
+
             let action_panel_toggle_content: Element<_> = row(vec![actions_text, shortcut])
                 .into();
 
             let action_panel_toggle: Element<_> = button(action_panel_toggle_content)
                 .on_press(on_panel_toggle())
-                .themed(ButtonStyle::RootBottomPanelActionButton);
+                .themed(ButtonStyle::RootBottomPanelActionToggleButton);
 
-            let space = horizontal_space()
-                .into();
+            bottom_panel_content.push(action_panel_toggle);
 
-            let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
+            let bottom_panel: Element<_> = row(bottom_panel_content)
                 .align_items(Alignment::Center)
-                .into();
+                .themed(RowStyle::RootBottomPanel);
 
             (!show_action_panel, Some(action_panel), bottom_panel)
         }
         None => {
-            let space: Element<_> = Space::with_height(16 + 8 + 2) // TODO get value from theme
+            let space: Element<_> = Space::new(Length::Fill, panel_height)
                 .into();
 
-            let bottom_panel: Element<_> = row(vec![entrypoint_name, space])
-                .into();
+            let mut bottom_panel_content = vec![entrypoint_name, space];
+
+            if let Some(default_action) = default_action {
+                bottom_panel_content.push(default_action);
+            }
+
+            let bottom_panel: Element<_> = row(bottom_panel_content)
+                .align_items(Alignment::Center)
+                .themed(RowStyle::RootBottomPanel);
 
             (true, None, bottom_panel)
         }
