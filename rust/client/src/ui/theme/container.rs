@@ -247,8 +247,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::ActionPanel => {
                 self.style(ContainerStyleInner::ActionPanel)
                     .padding(theme.action_panel.padding.to_iced())
-                    .height(Length::Fixed(200.0))
-                    .width(Length::Fixed(300.0))
+                    .height(Length::Fixed(250.0))
+                    .width(Length::Fixed(350.0))
             }
             ContainerStyle::MetadataTagItem => {
                 self.padding(theme.metadata_tag_item.padding.to_iced())
