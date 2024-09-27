@@ -24,7 +24,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData};
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -38,7 +38,7 @@ use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::view_container::view_container;
-use crate::ui::widget::ComponentWidgetEvent;
+use crate::ui::widget::{render_root, ActionPanel, ActionPanelItems, ComponentWidgetEvent};
 
 mod view_container;
 mod search_list;
@@ -75,6 +75,7 @@ pub struct AppModel {
     plugin_view_data: Option<PluginViewData>,
     error_view: Option<ErrorViewData>,
     search_results: Vec<SearchResult>,
+    show_action_panel: bool,
 }
 
 struct PluginViewData {
@@ -137,6 +138,8 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
+    ToggleActionPanel,
+    RunAction(UiWidgetId),
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -390,6 +393,7 @@ impl Application for AppModel {
                 plugin_view_data,
                 error_view,
                 search_results: vec![],
+                show_action_panel: false,
             },
             Command::batch(commands),
         )
@@ -730,6 +734,16 @@ impl Application for AppModel {
 
                 Command::none()
             }
+            AppMsg::ToggleActionPanel => {
+                self.show_action_panel = !self.show_action_panel;
+
+                Command::none()
+            }
+            AppMsg::RunAction(widget_id) => {
+                println!("widget_id: {}", widget_id);
+
+                Command::none()
+            }
         }
     }
 
@@ -980,19 +994,53 @@ impl Application for AppModel {
                 let separator = horizontal_rule(1)
                     .into();
 
-                let column: Element<_> = column(vec![
-                    input,
-                    separator,
+                let content: Element<_> = column(vec![
                     inline_view_container(self.client_context.clone()).into(),
                     list,
                 ]).into();
 
-                let element: Element<_> = container(column)
+                let action_panel_items = if let Some(search_item) = self.search_results.get(self.focused_search_result) {
+                    let title = match search_item.entrypoint_type {
+                        SearchResultEntrypointType::Command => "Run Command",
+                        SearchResultEntrypointType::View => "Open View",
+                        SearchResultEntrypointType::GeneratedCommand => "Run Command",
+                    }.to_string();
+
+                    vec![ActionPanelItems::Action {
+                        title,
+                        widget_id: 0,
+                        physical_shortcut: Some(PhysicalShortcut {
+                            physical_key: PhysicalKey::Enter,
+                            modifier_shift: false,
+                            modifier_control: false,
+                            modifier_alt: false,
+                            modifier_meta: false,
+                        }),
+                    }]
+                } else {
+                    vec![]
+                };
+
+                let root = render_root(
+                    self.show_action_panel,
+                    input,
+                    separator,
+                    content,
+                    Some(ActionPanel {
+                        title: None,
+                        items: action_panel_items,
+                    }),
+                    "".to_string(),
+                    || AppMsg::ToggleActionPanel,
+                    AppMsg::RunAction
+                );
+
+                let root: Element<_> = container(root)
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .themed(ContainerStyle::Main);
 
-                element
+                root
             }
             Some(data) => {
                 let PluginViewData {
@@ -1149,6 +1197,7 @@ impl AppModel {
     fn reset_window_state(&mut self) -> Command<AppMsg> {
         self.focused_search_result = 0;
         self.search_result_offset = 0;
+        self.show_action_panel = false;
 
         let mut commands = vec![
             scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),

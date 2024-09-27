@@ -145,12 +145,6 @@ pub enum ComponentRenderContext {
         entrypoint_name: String,
         action_shortcuts: HashMap<String, PhysicalShortcut>,
     },
-    ActionPanel {
-        action_shortcuts: HashMap<String, PhysicalShortcut>,
-    },
-    Action {
-        action_shortcut: Option<PhysicalShortcut>,
-    }
 }
 
 impl ComponentRenderContext {
@@ -237,104 +231,8 @@ impl ComponentWidgetWrapper {
         let (widget, state) = &*self.get();
         match widget {
             ComponentWidget::TextPart { value } => render_text_part(value, context),
-            ComponentWidget::Action { id, title } => {
-                let ComponentRenderContext::ActionPanel { action_shortcuts } = context else {
-                    panic!("not supposed to be passed to action panel: {:?}", context)
-                };
-
-                let shortcut_element: Option<Element<_>> = id.as_ref()
-                    .map(|id| action_shortcuts.get(id))
-                    .flatten()
-                    .map(|shortcut| render_shortcut(shortcut));
-
-                let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
-                    let text: Element<_> = text(title)
-                        .into();
-
-                    let space: Element<_> = horizontal_space()
-                        .into();
-
-                    row([text, space, shortcut_element])
-                        .align_items(Alignment::Center)
-                        .into()
-                } else {
-                    text(title)
-                        .into()
-                };
-
-                button(content)
-                    .on_press(ComponentWidgetEvent::ActionClick { widget_id })
-                    .width(Length::Fill)
-                    .themed(ButtonStyle::Action)
-            }
-            ComponentWidget::ActionPanelSection { children, .. } => {
-                column(render_children(children, context))
-                    .into()
-            }
-            ComponentWidget::ActionPanel { children, title } => {
-                let ComponentRenderContext::ActionPanel { action_shortcuts } = context else {
-                    panic!("not supposed to be passed to action panel: {:?}", context)
-                };
-
-                let mut columns = vec![];
-                if let Some(title) = title {
-                    let text: Element<_> = text(title)
-                        .font(Font {
-                            weight: Weight::Bold,
-                            ..Font::DEFAULT
-                        })
-                        .into();
-
-                    let text = container(text)
-                        .themed(ContainerStyle::ActionPanelTitle);
-
-                    columns.push(text)
-                }
-
-                let mut place_separator = false;
-
-                for child in children {
-                    let (widget, _) = &*child.get();
-
-                    match widget {
-                        ComponentWidget::Action { .. } => {
-                            if place_separator {
-                                let separator: Element<_> = horizontal_rule(1)
-                                    .themed(RuleStyle::ActionPanel);
-
-                                columns.push(separator);
-
-                                place_separator = false;
-                            }
-
-                            columns.push(child.render_widget(ComponentRenderContext::ActionPanel { action_shortcuts: action_shortcuts.clone() }));
-                        }
-                        ComponentWidget::ActionPanelSection { .. } => {
-                            let separator: Element<_> = horizontal_rule(1)
-                                .themed(RuleStyle::ActionPanel);
-
-                            columns.push(separator);
-
-                            columns.push(child.render_widget(ComponentRenderContext::ActionPanel { action_shortcuts: action_shortcuts.clone() }));
-
-                            place_separator = true;
-                        }
-                        _ => {
-                            panic!("unexpected widget kind {:?}", widget)
-                        }
-                    };
-
-                }
-
-                let actions: Element<_> = column(columns)
-                    .into();
-
-                let actions: Element<_> = scrollable(actions)
-                    .width(Length::Fill)
-                    .into();
-
-                container(actions)
-                    .themed(ContainerStyle::ActionPanel)
+            ComponentWidget::ActionPanel { .. } | ComponentWidget::Action { .. } | ComponentWidget::ActionPanelSection { .. } => {
+                unreachable!()
             }
             ComponentWidget::MetadataTagItem { children } => {
                 let content: Element<_> = render_children_string(children, ComponentRenderContext::None);
@@ -582,7 +480,7 @@ impl ComponentWidgetWrapper {
                 if is_in_list {
                     content
                 } else {
-                    render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
+                    render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
                 }
             }
             ComponentWidget::Root { children } => {
@@ -769,7 +667,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .themed(ContainerStyle::Form);
 
-                render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
+                render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::InlineSeparator { icon } => {
                 match icon {
@@ -1131,7 +1029,7 @@ impl ComponentWidgetWrapper {
                     .height(Length::Fill)
                     .into();
 
-                render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
+                render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::GridItem { children, title, subtitle } => {
                 // TODO should be just one
@@ -1245,7 +1143,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .themed(ContainerStyle::Grid);
 
-                render_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
+                render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
         }
     }
@@ -1354,7 +1252,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
         title_content.push(title)
     }
 
-    if let Some(subtitle) = subtitle { // TODO remove ?
+    if let Some(subtitle) = subtitle {
         let subtitle: Element<_> = text(subtitle)
             .size(15)
             .themed(theme_kind_subtitle_text);
@@ -1377,7 +1275,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
         .into()
 }
 
-fn render_root<'a>(
+fn render_plugin_root<'a>(
     show_action_panel: bool,
     widget_id: UiWidgetId,
     children: &[ComponentWidgetWrapper],
@@ -1389,57 +1287,7 @@ fn render_root<'a>(
         panic!("not supposed to be passed to root item: {:?}", context)
     };
 
-    let entrypoint_name: Element<_> = text(entrypoint_name)
-        .into();
-
-    let action_panel_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::ActionPanel { .. }), ComponentRenderContext::ActionPanel { action_shortcuts })
-        .ok();
-
-    let (hide_action_panel, action_panel_element, bottom_panel) = if let Some(action_panel_element) = action_panel_element {
-        let actions_text: Element<_> = text("Actions")
-            .into();
-
-        let actions_text: Element<_> = container(actions_text)
-            .themed(ContainerStyle::RootBottomPanelActionButtonText);
-
-        let shortcut = render_shortcut(&PhysicalShortcut {
-            physical_key: PhysicalKey::KeyK,
-            modifier_shift: false,
-            modifier_control: false,
-            modifier_alt: true,
-            modifier_meta: false,
-        });
-
-        let action_panel_toggle_content: Element<_> = row(vec![actions_text, shortcut])
-            .into();
-
-        let action_panel_toggle: Element<_> = button(action_panel_toggle_content)
-            .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
-            .themed(ButtonStyle::RootBottomPanelActionButton);
-
-        let space = horizontal_space()
-            .into();
-
-        let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
-            .align_items(Alignment::Center)
-            .into();
-
-        (!show_action_panel, action_panel_element, bottom_panel)
-    } else {
-        let space: Element<_> = Space::with_height(16 + 8 + 2) // TODO get value from theme
-            .into();
-
-        let bottom_panel: Element<_> = row(vec![entrypoint_name, space])
-            .into();
-
-        (true, Space::with_height(1).into(), bottom_panel)
-    };
-
     let top_panel = create_top_panel();
-
-    let bottom_panel: Element<_> = container(bottom_panel)
-        .width(Length::Fill)
-        .themed(ContainerStyle::RootBottomPanel);
 
     let top_separator = if is_loading {
         LoadingBar::new()
@@ -1448,6 +1296,250 @@ fn render_root<'a>(
         horizontal_rule(1)
             .into()
     };
+
+    let action_panel = convert_action_panel(children, action_shortcuts);
+
+    render_root(
+        show_action_panel,
+        top_panel,
+        top_separator,
+        content,
+        action_panel,
+        entrypoint_name,
+        || ComponentWidgetEvent::ToggleActionPanel { widget_id },
+        |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
+    )
+}
+
+pub struct ActionPanel {
+    pub title: Option<String>,
+    pub items: Vec<ActionPanelItems>
+}
+
+pub enum ActionPanelItems {
+    Action {
+        title: String,
+        widget_id: UiWidgetId,
+        physical_shortcut: Option<PhysicalShortcut>
+    },
+    ActionSection {
+        title: Option<String>,
+        items: Vec<ActionPanelItems>
+    }
+}
+
+fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+    let action_panel: Vec<_> = children
+        .into_iter()
+        .filter(|child| {
+            let (widget, _) = &*child.get();
+            matches!(widget, ComponentWidget::ActionPanel { .. })
+        })
+        .collect();
+
+    let action_panel = match action_panel[..] {
+        [] => None?,
+        [single] => single,
+        [_, _, ..] => None?,
+    };
+
+    let (action_panel, _) = &*action_panel.get();
+
+    match action_panel {
+        ComponentWidget::ActionPanel { children, title } => {
+            fn convert_to_items(children: &[ComponentWidgetWrapper], action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Vec<ActionPanelItems> {
+                let mut items = vec![];
+
+                for child in children {
+                    let widget_id = child.id;
+                    let (widget, _) = &*child.get();
+
+                    match widget {
+                        ComponentWidget::Action { id, title } => {
+                            let physical_shortcut: Option<PhysicalShortcut> = id.as_ref()
+                                .map(|id| action_shortcuts.get(id))
+                                .flatten()
+                                .cloned();
+
+                            items.push(ActionPanelItems::Action {
+                                title: title.clone(),
+                                widget_id,
+                                physical_shortcut,
+                            });
+                        }
+                        ComponentWidget::ActionPanelSection { children, title } => {
+                            items.push(ActionPanelItems::ActionSection {
+                                title: title.clone(),
+                                items: convert_to_items(children, action_shortcuts),
+                            });
+                        }
+                        _ => {
+                            panic!("unexpected widget kind {:?}", widget)
+                        }
+                    };
+                }
+
+                items
+            }
+
+            Some(ActionPanel {
+                title: title.clone(),
+                items: convert_to_items(children, &action_shortcuts),
+            })
+        }
+        _ => None
+    }
+}
+
+fn render_action_panel_items<'a, T: 'a + Clone>(title: Option<String>, items: Vec<ActionPanelItems>, on_action: &dyn Fn(UiWidgetId) -> T) -> Vec<Element<'a, T>> {
+    let mut columns = vec![];
+
+    if let Some(title) = title {
+        let text: Element<_> = text(title)
+            .font(Font {
+                weight: Weight::Bold,
+                ..Font::DEFAULT
+            })
+            .into();
+
+        let text = container(text)
+            .themed(ContainerStyle::ActionPanelTitle);
+
+        columns.push(text)
+    }
+
+    let mut place_separator = false;
+
+    for item in items {
+        match item {
+            ActionPanelItems::Action { title, widget_id, physical_shortcut } => {
+                if place_separator {
+                    let separator: Element<_> = horizontal_rule(1)
+                        .themed(RuleStyle::ActionPanel);
+
+                    columns.push(separator);
+
+                    place_separator = false;
+                }
+
+                let shortcut_element: Option<Element<_>> = physical_shortcut.as_ref()
+                    .map(|shortcut| render_shortcut(shortcut));
+
+                let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
+                    let text: Element<_> = text(title)
+                        .into();
+
+                    let space: Element<_> = horizontal_space()
+                        .into();
+
+                    row([text, space, shortcut_element])
+                        .align_items(Alignment::Center)
+                        .into()
+                } else {
+                    text(title)
+                        .into()
+                };
+
+                let content = button(content)
+                    .on_press(on_action(widget_id))
+                    .width(Length::Fill)
+                    .themed(ButtonStyle::Action);
+
+                columns.push(content);
+            }
+            ActionPanelItems::ActionSection { title, items } => {
+                let separator: Element<_> = horizontal_rule(1)
+                    .themed(RuleStyle::ActionPanel);
+
+                columns.push(separator);
+
+                let content = render_action_panel_items(title, items, on_action);
+
+                for content in content {
+                    columns.push(content);
+                }
+
+                place_separator = true;
+            }
+        };
+    }
+
+    columns
+}
+
+fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T>(action_panel: ActionPanel, on_action: F) -> Element<'a, T> {
+    let columns = render_action_panel_items(action_panel.title, action_panel.items, &on_action);
+
+    let actions: Element<_> = column(columns)
+        .into();
+
+    let actions: Element<_> = scrollable(actions)
+        .width(Length::Fill)
+        .into();
+
+    container(actions)
+        .themed(ContainerStyle::ActionPanel)
+}
+
+pub fn render_root<'a, T: 'a + Clone>(
+    show_action_panel: bool,
+    top_panel: Element<'a, T>,
+    top_separator: Element<'a, T>,
+    content: Element<'a, T>,
+    action_panel: Option<ActionPanel>,
+    entrypoint_name: String,
+    on_panel_toggle: impl Fn() -> T,
+    on_action: impl Fn(UiWidgetId) -> T,
+) -> Element<'a, T>  {
+    let entrypoint_name: Element<_> = text(entrypoint_name)
+        .into();
+
+    let (hide_action_panel, action_panel, bottom_panel) = match action_panel {
+        Some(action_panel) => {
+            let actions_text: Element<_> = text("Actions")
+                .into();
+
+            let actions_text: Element<_> = container(actions_text)
+                .themed(ContainerStyle::RootBottomPanelActionButtonText);
+
+            let shortcut = render_shortcut(&PhysicalShortcut {
+                physical_key: PhysicalKey::KeyK,
+                modifier_shift: false,
+                modifier_control: false,
+                modifier_alt: true,
+                modifier_meta: false,
+            });
+
+            let action_panel_toggle_content: Element<_> = row(vec![actions_text, shortcut])
+                .into();
+
+            let action_panel_toggle: Element<_> = button(action_panel_toggle_content)
+                .on_press(on_panel_toggle())
+                .themed(ButtonStyle::RootBottomPanelActionButton);
+
+            let space = horizontal_space()
+                .into();
+
+            let bottom_panel: Element<_> = row(vec![entrypoint_name, space, action_panel_toggle])
+                .align_items(Alignment::Center)
+                .into();
+
+            (!show_action_panel, Some(action_panel), bottom_panel)
+        }
+        None => {
+            let space: Element<_> = Space::with_height(16 + 8 + 2) // TODO get value from theme
+                .into();
+
+            let bottom_panel: Element<_> = row(vec![entrypoint_name, space])
+                .into();
+
+            (true, None, bottom_panel)
+        }
+    };
+
+    let bottom_panel: Element<_> = container(bottom_panel)
+        .width(Length::Fill)
+        .themed(ContainerStyle::RootBottomPanel);
 
     let content: Element<_> = container(content)
         .width(Length::Fill)
@@ -1461,8 +1553,13 @@ fn render_root<'a>(
         content
     } else {
         mouse_area(content)
-            .on_press(ComponentWidgetEvent::ToggleActionPanel { widget_id })
+            .on_press(on_panel_toggle())
             .into()
+    };
+
+    let action_panel_element = match action_panel {
+        None => Space::with_height(1).into(),
+        Some(action_panel) => render_action_panel(action_panel, on_action)
     };
 
     floating_element(content, action_panel_element)
@@ -1483,8 +1580,6 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
         ComponentRenderContext::List { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Grid { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Root { .. } => panic!("not supposed to be passed to text part"),
-        ComponentRenderContext::ActionPanel { .. } => panic!("not supposed to be passed to text part"),
-        ComponentRenderContext::Action { .. } => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::Inline => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::GridItem => panic!("not supposed to be passed to text part"),
         ComponentRenderContext::InlineRoot { .. } => panic!("not supposed to be passed to text part")
@@ -1504,7 +1599,7 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
     text.into()
 }
 
-fn render_shortcut<'a>(shortcut: &PhysicalShortcut) -> Element<'a, ComponentWidgetEvent> {
+fn render_shortcut<'a, T: 'a>(shortcut: &PhysicalShortcut) -> Element<'a, T> {
     let mut result = vec![];
 
     let (
@@ -1515,9 +1610,9 @@ fn render_shortcut<'a>(shortcut: &PhysicalShortcut) -> Element<'a, ComponentWidg
         shift_modifier_text
     ) = shortcut_to_text(shortcut);
 
-    fn apply_modifier<'result, 'element>(
-        result: &'result mut Vec<Element<'element, ComponentWidgetEvent>>,
-        modifier: Option<Element<'element, ComponentWidgetEvent>>
+    fn apply_modifier<'result, 'element, T: 'element>(
+        result: &'result mut Vec<Element<'element, T>>,
+        modifier: Option<Element<'element, T>>
     ) {
         if let Some(modifier) = modifier {
             let modifier: Element<_> = container(modifier)
