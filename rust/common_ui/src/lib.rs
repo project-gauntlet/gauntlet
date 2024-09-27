@@ -1,5 +1,6 @@
 use iced::advanced::widget::Text;
 use iced::Element;
+use iced::keyboard::Modifiers;
 use iced::widget::text;
 use iced_aw::core::icons;
 
@@ -88,7 +89,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &Ph
     (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text)
 }
 
-pub fn physical_key_model(key: iced::keyboard::key::PhysicalKey) -> Option<PhysicalKey> {
+pub fn physical_key_model(key: iced::keyboard::key::PhysicalKey, modifiers: Modifiers) -> Option<PhysicalShortcut> {
     let model_key = match key {
         iced::keyboard::key::PhysicalKey::Backquote => PhysicalKey::Backquote,
         iced::keyboard::key::PhysicalKey::Backslash => PhysicalKey::Backslash,
@@ -290,7 +291,18 @@ pub fn physical_key_model(key: iced::keyboard::key::PhysicalKey) -> Option<Physi
         }
     };
 
-    Some(model_key)
+    let modifier_shift = modifiers.shift();
+    let modifier_control = modifiers.control();
+    let modifier_alt = modifiers.alt();
+    let modifier_meta = modifiers.logo();
+
+    Some(PhysicalShortcut {
+        physical_key: model_key,
+        modifier_shift,
+        modifier_control,
+        modifier_alt,
+        modifier_meta,
+    })
 }
 
 pub fn physical_key_name(key: &PhysicalKey, modifier_shift: bool) -> (&'static str, bool) {

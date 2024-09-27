@@ -197,18 +197,11 @@ where
                                     event::Status::Ignored
                                 }
                                 _ => {
-                                    match physical_key_model(physical_key) {
+                                    match physical_key_model(physical_key, modifiers) {
                                         None => event::Status::Ignored,
-                                        Some(physical_key) => {
-                                            let message = (self.on_shortcut_captured)(
-                                                PhysicalShortcut {
-                                                    physical_key,
-                                                    modifier_shift: modifiers.shift(),
-                                                    modifier_control: modifiers.control(),
-                                                    modifier_alt: modifiers.alt(),
-                                                    modifier_meta: modifiers.logo(),
-                                                }
-                                            );
+                                        Some(shortcut) => {
+                                            let message = (self.on_shortcut_captured)(shortcut);
+
                                             shell.publish(message);
 
                                             state.is_capturing = false;

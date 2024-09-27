@@ -490,6 +490,7 @@ impl Application for AppModel {
 
                 match event {
                     keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
+                        tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
                         match key {
                             Key::Named(Named::ArrowUp) => self.focus_previous(),
                             Key::Named(Named::ArrowDown) => self.focus_next(),
@@ -500,50 +501,46 @@ impl Application for AppModel {
                             },
                             _ => {
                                 if self.plugin_view_data.is_none() {
-                                    match text {
-                                        Some(text) => {
-                                            self.append_prompt(text.to_string());
-                                            focus(self.search_field_id.clone())
+                                    match physical_key_model(physical_key, modifiers) {
+                                        Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                            Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
                                         }
-                                        None => {
-                                            Command::none()
+                                        _ => {
+                                            match text {
+                                                Some(text) => {
+                                                    self.append_prompt(text.to_string());
+                                                    focus(self.search_field_id.clone())
+                                                }
+                                                None => {
+                                                    Command::none()
+                                                }
+                                            }
                                         }
                                     }
                                 } else {
-                                    match physical_key_model(physical_key) {
-                                        Some(name) => {
-                                            tracing::debug!("physical key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", name, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
+                                    match physical_key_model(physical_key, modifiers) {
+                                        Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                            let client_context = self.client_context.read().expect("lock is poisoned");
 
-                                            let modifier_shift = modifiers.shift();
-                                            let modifier_control = modifiers.control();
-                                            let modifier_alt = modifiers.alt();
-                                            let modifier_meta = modifiers.logo();
+                                            client_context.show_action_panel();
 
-                                            match (&name, modifier_shift, modifier_control, modifier_alt, modifier_meta) {
-                                                (PhysicalKey::KeyK, false, false, true, false) => {
-                                                    let client_context = self.client_context.read().expect("lock is poisoned");
+                                            Command::none()
+                                        }
+                                        Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                            let (plugin_id, entrypoint_id) = {
+                                                let client_context = self.client_context.read().expect("lock is poisoned");
+                                                (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+                                            };
 
-                                                    client_context.show_action_panel();
+                                            Command::perform(
+                                                async move {
+                                                    backend_client.send_keyboard_event(plugin_id, entrypoint_id, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                        .await?;
 
-                                                    Command::none()
-                                                }
-                                                (_, _, _, _, _) => {
-                                                    let (plugin_id, entrypoint_id) = {
-                                                        let client_context = self.client_context.read().expect("lock is poisoned");
-                                                        (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
-                                                    };
-
-                                                    Command::perform(
-                                                        async move {
-                                                            backend_client.send_keyboard_event(plugin_id, entrypoint_id, name, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                                                .await?;
-
-                                                            Ok(())
-                                                        },
-                                                        |result| handle_backend_error(result, |()| AppMsg::Noop),
-                                                    )
-                                                }
-                                            }
+                                                    Ok(())
+                                                },
+                                                |result| handle_backend_error(result, |()| AppMsg::Noop),
+                                            )
                                         }
                                         None => {
                                             Command::none()
@@ -1086,8 +1083,16 @@ impl Application for AppModel {
 
         let events_subscription = event::listen_with(|event, status| match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(event)),
-            event::Status::Captured => match event {
+            event::Status::Captured => match &event {
                 Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Named(Named::Escape), .. }) => Some(AppMsg::IcedEvent(event)),
+                Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Character(char), modifiers, .. }) => {
+                    if char == "k" && modifiers.alt() {
+                        // TODO this still enters "k" into a search bar which is undesirable
+                        Some(AppMsg::IcedEvent(event))
+                    } else {
+                        None
+                    }
+                },
                 _ => None
             }
         });
