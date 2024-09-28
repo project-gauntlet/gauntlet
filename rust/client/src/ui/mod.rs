@@ -120,6 +120,7 @@ pub enum AppMsg {
     RunGeneratedCommandEvent {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
+        action_index: Option<usize>
     },
     PromptChanged(String),
     PromptSubmit,
@@ -139,7 +140,7 @@ pub enum AppMsg {
     ShowWindow,
     HideWindow,
     ToggleActionPanel,
-    RunAction(UiWidgetId),
+    OnEntrypointAction(UiWidgetId),
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -158,7 +159,7 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation
     },
-    SelectSearchItem(SearchResult),
+    RunSearchItemAction(SearchResult, Option<usize>),
     RequestSearchResultUpdate,
     Screenshot {
         save_path: String
@@ -424,10 +425,10 @@ impl Application for AppModel {
                     self.run_command(plugin_id, entrypoint_id),
                 ])
             }
-            AppMsg::RunGeneratedCommandEvent { plugin_id, entrypoint_id } => {
+            AppMsg::RunGeneratedCommandEvent { plugin_id, entrypoint_id, action_index } => {
                 Command::batch([
                     self.hide_window(),
-                    self.run_generated_command(plugin_id, entrypoint_id),
+                    self.run_generated_command(plugin_id, entrypoint_id, action_index),
                 ])
             }
             AppMsg::PromptChanged(mut new_prompt) => {
@@ -465,7 +466,7 @@ impl Application for AppModel {
             AppMsg::PromptSubmit => {
                 if let Some(search_item) = self.search_results.get(self.focused_search_result) {
                     let search_item = search_item.clone();
-                    Command::perform(async {}, |_| AppMsg::SelectSearchItem(search_item))
+                    Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
                 } else {
                     Command::none()
                 }
@@ -647,7 +648,7 @@ impl Application for AppModel {
                 }
                 Command::none()
             }
-            AppMsg::SelectSearchItem(search_result) => {
+            AppMsg::RunSearchItemAction(search_result, action_index) => {
                 let event = match search_result.entrypoint_type {
                     SearchResultEntrypointType::Command => AppMsg::RunCommand {
                         entrypoint_id: search_result.entrypoint_id.clone(),
@@ -661,7 +662,8 @@ impl Application for AppModel {
                     },
                     SearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
                         entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone()
+                        plugin_id: search_result.plugin_id.clone(),
+                        action_index,
                     },
                 };
 
@@ -736,10 +738,17 @@ impl Application for AppModel {
 
                 Command::none()
             }
-            AppMsg::RunAction(widget_id) => {
-                println!("widget_id: {}", widget_id);
-
-                Command::none()
+            AppMsg::OnEntrypointAction(widget_id) => {
+                if let Some(search_item) = self.search_results.get(self.focused_search_result) {
+                    let search_item = search_item.clone();
+                    if widget_id == 0 {
+                        Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
+                    } else {
+                        Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_item, Some(widget_id - 1)))
+                    }
+                } else {
+                    Command::none()
+                }
             }
         }
     }
@@ -967,7 +976,7 @@ impl Application for AppModel {
                 let search_list = search_list(
                     search_results,
                     self.focused_search_result,
-                    AppMsg::SelectSearchItem
+                    |search_result| AppMsg::RunSearchItemAction(search_result, None)
                 );
 
                 let search_list = container(search_list)
@@ -997,13 +1006,13 @@ impl Application for AppModel {
                 ]).into();
 
                 let (default_action, action_panel) = if let Some(search_item) = self.search_results.get(self.focused_search_result) {
-                    let title = match search_item.entrypoint_type {
+                    let label = match search_item.entrypoint_type {
                         SearchResultEntrypointType::Command => "Run Command",
                         SearchResultEntrypointType::View => "Open View",
                         SearchResultEntrypointType::GeneratedCommand => "Run Command",
                     }.to_string();
 
-                    let shortcut = PhysicalShortcut {
+                    let default_shortcut = PhysicalShortcut {
                         physical_key: PhysicalKey::Enter,
                         modifier_shift: false,
                         modifier_control: false,
@@ -1011,16 +1020,34 @@ impl Application for AppModel {
                         modifier_meta: false,
                     };
 
-                    // let action_panel = ActionPanel {
-                    //     title: None,
-                    //     items: vec![ActionPanelItems::Action {
-                    //         title: title.clone(),
-                    //         widget_id: 0,
-                    //         physical_shortcut: Some(shortcut.clone()),
-                    //     }],
-                    // };
+                    let mut actions: Vec<_> = search_item.entrypoint_actions
+                        .iter()
+                        .enumerate()
+                        .map(|(index, action)| ActionPanelItems::Action {
+                            label: action.label.clone(),
+                            widget_id: index + 1,
+                            physical_shortcut: action.shortcut.clone(),
+                        })
+                        .collect();
 
-                    (Some((title, shortcut)), None)
+                    if actions.len() == 0 {
+                        (Some((label, default_shortcut)), None)
+                    } else {
+                        let default_action = ActionPanelItems::Action {
+                            label: label.clone(),
+                            widget_id: 0,
+                            physical_shortcut: Some(default_shortcut.clone()),
+                        };
+
+                        actions.insert(0, default_action);
+
+                        let action_panel = ActionPanel {
+                            title: Some(search_item.entrypoint_name.clone()),
+                            items: actions,
+                        };
+
+                        (Some((label, default_shortcut)), Some(action_panel))
+                    }
                 } else {
                     (None, None)
                 };
@@ -1034,7 +1061,7 @@ impl Application for AppModel {
                     action_panel,
                     "".to_string(),
                     || AppMsg::ToggleActionPanel,
-                    AppMsg::RunAction
+                    AppMsg::OnEntrypointAction
                 );
 
                 let root: Element<_> = container(root)
@@ -1318,11 +1345,11 @@ impl AppModel {
         }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
-    fn run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
+    fn run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: Option<usize>) -> Command<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
-            backend_client.request_run_generated_command(plugin_id, entrypoint_id)
+            backend_client.request_run_generated_command(plugin_id, entrypoint_id, action_index)
                 .await?;
 
             Ok(())

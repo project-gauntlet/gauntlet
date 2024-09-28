@@ -24,7 +24,22 @@ export default function CommandGenerator(): GeneratedCommand[] {
 
                 localStorage.setItem("test", "test")
                 console.dir(localStorage.getItem("test"))
-            }
+            },
+            actions: [
+                {
+                    ref: "testAction1",
+                    label: "Test 1",
+                    fn: () => {
+                        console.log('generated-action-1')
+                    }
+                },
+                {
+                    label: "Test 2",
+                    fn: () => {
+                        console.log('generated-action-2')
+                    }
+                }
+            ]
         },
         {
             id: 'generated-test-3',

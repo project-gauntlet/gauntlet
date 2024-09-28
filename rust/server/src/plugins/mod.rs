@@ -108,8 +108,7 @@ impl ApplicationManager {
     }
 
     pub fn search(&self, text: &str, render_inline_view: bool) -> anyhow::Result<Vec<SearchResult>> {
-        let result = self.search_index.create_handle()
-            .search(&text);
+        let result = self.search_index.search(&text);
 
         if render_inline_view {
             self.handle_inline_view(&text);
@@ -360,11 +359,12 @@ impl ApplicationManager {
         self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub async fn handle_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    pub async fn handle_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: Option<usize>) {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
             data: OnePluginCommandData::RunGeneratedCommand {
                 entrypoint_id: entrypoint_id.to_string(),
+                action_index,
             }
         });
 
@@ -492,63 +492,7 @@ impl ApplicationManager {
     }
 
     async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
-        let DbReadPluginEntrypoint { actions, actions_user_data, .. } = self.db_repository.get_entrypoint_by_id(&plugin_id.to_string(), &entrypoint_id.to_string())
-            .await?;
-
-        let actions_user_data: HashMap<_, _> = actions_user_data.into_iter()
-            .map(|data| (data.id, (data.key, data.modifier_shift, data.modifier_control, data.modifier_alt, data.modifier_meta)))
-            .collect();
-
-        let action_shortcuts = actions.into_iter()
-            .map(|action| {
-                let id = action.id;
-
-                let shortcut = match actions_user_data.get(&id) {
-                    None => {
-                        let (physical_key, modifier_shift) = match ActionShortcutKey::from_value(&action.key) {
-                            Some(key) => key.to_physical_key(),
-                            None => {
-                                return Err(anyhow!("unknown key: {}", &action.key))
-                            },
-                        };
-
-                        let (modifier_control, modifier_alt, modifier_meta) = match action.kind {
-                            DbPluginActionShortcutKind::Main => {
-                                if cfg!(target_os = "macos") {
-                                    (false, false, true)
-                                } else {
-                                    (true, false, false)
-                                }
-                            },
-                            DbPluginActionShortcutKind::Alternative => {
-                                (false, true, false)
-                            },
-                        };
-
-                        PhysicalShortcut {
-                            physical_key,
-                            modifier_shift,
-                            modifier_control,
-                            modifier_alt,
-                            modifier_meta,
-                        }
-                    }
-                    Some(&(ref key, modifier_shift, modifier_control, modifier_alt, modifier_meta)) => {
-                        PhysicalShortcut {
-                            physical_key: PhysicalKey::from_value(key.to_owned()),
-                            modifier_shift,
-                            modifier_control,
-                            modifier_alt,
-                            modifier_meta,
-                        }
-                    }
-                };
-
-                Ok((id, shortcut))
-            })
-            .collect::<Result<HashMap<_, _>, _>>()?;
-
-        Ok(action_shortcuts)
+        self.db_repository.action_shortcuts(&plugin_id.to_string(), &entrypoint_id.to_string()).await
     }
 
     async fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {

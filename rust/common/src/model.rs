@@ -99,6 +99,13 @@ pub struct SearchResult {
     pub entrypoint_name: String,
     pub entrypoint_icon: Option<String>,
     pub entrypoint_type: SearchResultEntrypointType,
+    pub entrypoint_actions: Vec<SearchResultEntrypointAction>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchResultEntrypointAction {
+    pub label: String,
+    pub shortcut: Option<PhysicalShortcut>,
 }
 
 #[derive(Debug, Clone)]
@@ -172,7 +179,8 @@ pub enum BackendRequestData {
     },
     RequestRunGeneratedCommand {
         plugin_id: PluginId,
-        entrypoint_id: EntrypointId
+        entrypoint_id: EntrypointId,
+        action_index: Option<usize>
     },
     SendViewEvent {
         plugin_id: PluginId,
@@ -273,7 +281,7 @@ pub trait UiPropertyValueToEnum {
     fn convert(value: &UiPropertyValue) -> anyhow::Result<Self> where Self: Sized;
 }
 
-pub type UiWidgetId = u32;
+pub type UiWidgetId = usize;
 
 #[derive(Debug, Clone)]
 pub struct SettingsEntrypoint {

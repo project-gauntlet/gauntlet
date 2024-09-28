@@ -7,6 +7,13 @@ interface GeneratedCommand { // TODO is it possible to import api here
     name: string
     icon?: ArrayBuffer
     fn: () => void
+    actions?: GeneratedCommandAction[]
+}
+
+export interface GeneratedCommandAction {
+    ref?: string
+    label: string
+    fn: () => void
 }
 
 type ProcessedGeneratedCommand = GeneratedCommand & { lookupId: string, uuid: string };
@@ -49,14 +56,28 @@ export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
         entrypoint_uuid: value.uuid,
         entrypoint_name: value.name,
         entrypoint_icon: value.icon,
+        entrypoint_actions: (value.actions || [])
+            .map(action => ({
+                id: action.ref,
+                label: action.label
+            })),
     }))
 }
 
-export function runGeneratedCommand(entrypointId: string) {
+export function runGeneratedCommand(entrypointId: string, action_index: number | undefined) {
     const generatedCommand = storedGeneratedCommands.find(value => value.lookupId === entrypointId);
 
     if (generatedCommand) {
-        generatedCommand.fn()
+        if (typeof action_index == "number") {
+            const actions = generatedCommand.actions;
+            if (actions) {
+                actions[action_index].fn()
+            } else {
+                throw new Error("Generated command with entrypoint id '" + entrypointId + "' doesn't have actions, action index: " + action_index)
+            }
+        } else {
+            generatedCommand.fn()
+        }
     } else {
         throw new Error("Generated command with entrypoint id '" + entrypointId + "' not found")
     }

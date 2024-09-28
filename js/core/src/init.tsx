@@ -181,7 +181,7 @@ async function runLoop() {
             }
             case "RunGeneratedCommand": {
                 try {
-                    runGeneratedCommand(pluginEvent.entrypointId)
+                    runGeneratedCommand(pluginEvent.entrypointId, pluginEvent.actionIndex)
                 } catch (e) {
                     console.error("Error occurred when running a generated command", pluginEvent.entrypointId, e)
                 }

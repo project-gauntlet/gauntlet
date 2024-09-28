@@ -51,7 +51,9 @@ pub enum JsUiEvent {
     },
     RunGeneratedCommand {
         #[serde(rename = "entrypointId")]
-        entrypoint_id: String
+        entrypoint_id: String,
+        #[serde(rename = "actionIndex")]
+        action_index: Option<usize>
     },
     ViewEvent {
         #[serde(rename = "widgetId")]
@@ -120,7 +122,8 @@ pub enum IntermediateUiEvent {
         entrypoint_id: String
     },
     RunGeneratedCommand {
-        entrypoint_id: String
+        entrypoint_id: String,
+        action_index: Option<usize>
     },
     HandleViewEvent {
         widget_id: UiWidgetId,

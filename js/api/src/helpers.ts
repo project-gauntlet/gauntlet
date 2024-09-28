@@ -22,6 +22,13 @@ export interface GeneratedCommand {
     name: string
     icon?: ArrayBuffer
     fn: () => void
+    actions?: GeneratedCommandAction[]
+}
+
+export interface GeneratedCommandAction {
+    ref?: string
+    label: string
+    fn: () => void
 }
 
 export const Clipboard: Clipboard = {

@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tantivy::{doc, Index, IndexReader, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use common::model::{EntrypointId, PluginId, SearchResult, SearchResultEntrypointType};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType};
 use common::rpc::frontend_api::FrontendApi;
 
 #[derive(Clone)]
@@ -15,13 +16,40 @@ pub struct SearchIndex {
     index_reader: IndexReader,
     index_writer_mutex: Arc<Mutex<()>>,
 
-    entrypoint_type: Field,
+    entrypoint_data: Arc<Mutex<HashMap<PluginId, HashMap<EntrypointId, EntrypointData>>>>,
+
     entrypoint_name: Field,
     entrypoint_id: Field,
-    entrypoint_icon_path: Field,
-    entrypoint_frecency: Field,
     plugin_name: Field,
     plugin_id: Field,
+}
+
+struct EntrypointData {
+    entrypoint_type: SearchResultEntrypointType,
+    icon_path: Option<String>,
+    frecency: f64,
+    actions: Vec<EntrypointActionData>,
+}
+
+struct EntrypointActionData {
+    label: String,
+    shortcut: Option<PhysicalShortcut>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SearchIndexItem {
+    pub entrypoint_type: SearchResultEntrypointType,
+    pub entrypoint_name: String,
+    pub entrypoint_id: EntrypointId,
+    pub entrypoint_icon_path: Option<String>,
+    pub entrypoint_frecency: f64,
+    pub entrypoint_actions: Vec<SearchIndexItemAction>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SearchIndexItemAction {
+    pub label: String,
+    pub shortcut: Option<PhysicalShortcut>,
 }
 
 impl SearchIndex {
@@ -29,22 +57,16 @@ impl SearchIndex {
         let schema = {
             let mut schema_builder = Schema::builder();
 
-            schema_builder.add_text_field("entrypoint_type", STORED);
             schema_builder.add_text_field("entrypoint_name", TEXT | STORED);
             schema_builder.add_text_field("entrypoint_id", STRING | STORED);
-            schema_builder.add_text_field("entrypoint_icon_path", STORED);
-            schema_builder.add_text_field("entrypoint_frecency", STORED);
             schema_builder.add_text_field("plugin_name", TEXT | STORED);
             schema_builder.add_text_field("plugin_id", STRING | STORED);
 
             schema_builder.build()
         };
 
-        let entrypoint_type = schema.get_field("entrypoint_type").expect("entrypoint_type field should exist");
         let entrypoint_name = schema.get_field("entrypoint_name").expect("entrypoint_name field should exist");
         let entrypoint_id = schema.get_field("entrypoint_id").expect("entrypoint_id field should exist");
-        let entrypoint_icon_path = schema.get_field("entrypoint_icon_path").expect("entrypoint_icon_path field should exist");
-        let entrypoint_frecency = schema.get_field("entrypoint_frecency").expect("entrypoint_frecency field should exist");
         let plugin_name = schema.get_field("plugin_name").expect("plugin_name field should exist");
         let plugin_id = schema.get_field("plugin_id").expect("plugin_id field should exist");
 
@@ -60,11 +82,9 @@ impl SearchIndex {
             index,
             index_reader,
             index_writer_mutex: Arc::new(Mutex::new(())),
-            entrypoint_type,
+            entrypoint_data: Arc::new(Mutex::new(HashMap::new())),
             entrypoint_name,
             entrypoint_id,
-            entrypoint_icon_path,
-            entrypoint_frecency,
             plugin_name,
             plugin_id,
         })
@@ -73,6 +93,7 @@ impl SearchIndex {
     pub fn remove_for_plugin(&self, plugin_id: PluginId) -> tantivy::Result<()> {
         // writer panics if another writer exists
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
+        let mut entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
 
         let mut index_writer = self.index.writer(5_000_000)?;
 
@@ -80,6 +101,8 @@ impl SearchIndex {
             TermQuery::new(Term::from_field_text(self.plugin_id, &plugin_id.to_string()), IndexRecordOption::Basic)
         ))?;
         index_writer.commit()?;
+
+        entrypoint_data.remove(&plugin_id);
 
         Ok(())
     }
@@ -89,6 +112,7 @@ impl SearchIndex {
 
         // writer panics if another writer exists
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
+        let mut entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
 
         let mut index_writer = self.index.writer(3_000_000)?;
 
@@ -96,19 +120,38 @@ impl SearchIndex {
             TermQuery::new(Term::from_field_text(self.plugin_id, &plugin_id.to_string()), IndexRecordOption::Basic)
         ))?;
 
-        for search_item in search_items {
+        for search_item in &search_items {
             index_writer.add_document(doc!(
-                self.entrypoint_name => search_item.entrypoint_name,
-                self.entrypoint_type => search_index_entrypoint_to_str(search_item.entrypoint_type),
-                self.entrypoint_id => search_item.entrypoint_id,
-                self.entrypoint_icon_path => search_item.entrypoint_icon_path.unwrap_or_default(),
-                self.entrypoint_frecency => search_item.entrypoint_frecency,
+                self.entrypoint_name => search_item.entrypoint_name.clone(),
+                self.entrypoint_id => search_item.entrypoint_id.to_string(),
                 self.plugin_name => plugin_name.clone(),
                 self.plugin_id => plugin_id.to_string(),
             ))?;
         }
 
         index_writer.commit()?;
+
+        let data = search_items.iter()
+            .map(|item| {
+                let actions = item.entrypoint_actions.iter()
+                    .map(|action| EntrypointActionData {
+                        label: action.label.clone(),
+                        shortcut: action.shortcut.clone(),
+                    })
+                    .collect();
+
+                let data = EntrypointData {
+                    entrypoint_type: item.entrypoint_type.clone(),
+                    icon_path: item.entrypoint_icon_path.clone(),
+                    frecency: item.entrypoint_frecency,
+                    actions,
+                };
+
+                (item.entrypoint_id.clone(), data)
+            })
+            .collect();
+
+        entrypoint_data.insert(plugin_id.clone(), data);
 
         if refresh_search_list {
             let mut frontend_api = self.frontend_api.clone();
@@ -127,7 +170,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub fn create_handle(&self) -> SearchHandle {
+    pub fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
         let searcher = self.index_reader.searcher();
 
         let query_parser = QueryParser::new(
@@ -136,50 +179,12 @@ impl SearchIndex {
             self.plugin_name,
         );
 
-        SearchHandle {
-            searcher,
-            query_parser,
-            entrypoint_type: self.entrypoint_type,
-            entrypoint_name: self.entrypoint_name,
-            entrypoint_id: self.entrypoint_id,
-            entrypoint_icon_path: self.entrypoint_icon_path,
-            entrypoint_frecency: self.entrypoint_frecency,
-            plugin_name: self.plugin_name,
-            plugin_id: self.plugin_id,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct SearchIndexItem {
-    pub entrypoint_type: SearchResultEntrypointType,
-    pub entrypoint_name: String,
-    pub entrypoint_id: String,
-    pub entrypoint_icon_path: Option<String>,
-    pub entrypoint_frecency: f64,
-}
-
-pub struct SearchHandle {
-    searcher: Searcher,
-    query_parser: QueryParser,
-
-    entrypoint_name: Field,
-    entrypoint_type: Field,
-    entrypoint_id: Field,
-    entrypoint_icon_path: Field,
-    entrypoint_frecency: Field,
-    plugin_name: Field,
-    plugin_id: Field,
-}
-
-impl SearchHandle {
-    pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
-        let query = self.query_parser.create_query(query);
+        let query = query_parser.create_query(query);
 
         let mut index = 0;
 
         let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<(SearchResult, f64)>>> {
-            let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20));
+            let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20), &searcher);
 
             index += 1;
 
@@ -212,40 +217,52 @@ impl SearchHandle {
         Ok(result)
     }
 
-    fn fetch(&self, query: &dyn Query, collector: TopDocs) -> anyhow::Result<Vec<(SearchResult, f64)>> {
+    fn fetch(&self, query: &dyn Query, collector: TopDocs, searcher: &Searcher) -> anyhow::Result<Vec<(SearchResult, f64)>> {
+        let entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
+
         let get_str_field = |retrieved_doc: &Document, field: Field| -> String {
             retrieved_doc.get_first(field)
-                .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
+                .unwrap_or_else(|| panic!("there should be a field with name {:?}", searcher.schema().get_field_name(field)))
                 .as_text()
-                .unwrap_or_else(|| panic!("field with name {:?} should contain string", self.searcher.schema().get_field_name(field)))
+                .unwrap_or_else(|| panic!("field with name {:?} should contain string", searcher.schema().get_field_name(field)))
                 .to_owned()
         };
 
-        let get_f64_field = |retrieved_doc: &Document, field: Field| -> f64 {
-            retrieved_doc.get_first(field)
-                .unwrap_or_else(|| panic!("there should be a field with name {:?}", self.searcher.schema().get_field_name(field)))
-                .as_f64()
-                .unwrap_or_else(|| panic!("field with name {:?} should contain string", self.searcher.schema().get_field_name(field)))
-        };
-
-        let result = self.searcher.search(query, &collector)?
+        let result = searcher.search(query, &collector)?
             .into_iter()
             .map(|(_score, doc_address)| {
-                let retrieved_doc = self.searcher.doc(doc_address)
+                let retrieved_doc = searcher.doc(doc_address)
                     .expect("index should contain just searched results");
 
-                let score = get_f64_field(&retrieved_doc, self.entrypoint_frecency);
+                let entrypoint_id = EntrypointId::from_string(get_str_field(&retrieved_doc, self.entrypoint_id));
+                let plugin_id = PluginId::from_string(get_str_field(&retrieved_doc, self.plugin_id));
+                let entrypoint_name = get_str_field(&retrieved_doc, self.entrypoint_name);
+                let plugin_name = get_str_field(&retrieved_doc, self.plugin_name);
+
+                let entrypoint_data = entrypoint_data
+                    .get(&plugin_id)
+                    .expect("Plugin should always exist in entrypoint data")
+                    .get(&entrypoint_id)
+                    .expect("Plugin should always exist in entrypoint data");
+
+                let entrypoint_actions = entrypoint_data.actions.iter()
+                    .map(|data| SearchResultEntrypointAction {
+                        label: data.label.clone(),
+                        shortcut: data.shortcut.clone(),
+                    })
+                    .collect();
 
                 let result_item = SearchResult {
-                    entrypoint_type: search_index_entrypoint_from_str(&get_str_field(&retrieved_doc, self.entrypoint_type)),
-                    entrypoint_name: get_str_field(&retrieved_doc, self.entrypoint_name),
-                    entrypoint_id: EntrypointId::from_string(get_str_field(&retrieved_doc, self.entrypoint_id)),
-                    entrypoint_icon: Some(get_str_field(&retrieved_doc, self.entrypoint_icon_path)).filter(|value| value != ""),
-                    plugin_name: get_str_field(&retrieved_doc, self.plugin_name),
-                    plugin_id: PluginId::from_string(get_str_field(&retrieved_doc, self.plugin_id)),
+                    entrypoint_type: entrypoint_data.entrypoint_type.clone(),
+                    entrypoint_name,
+                    entrypoint_id,
+                    entrypoint_icon: entrypoint_data.icon_path.clone(),
+                    plugin_name,
+                    plugin_id,
+                    entrypoint_actions,
                 };
 
-                (result_item, score)
+                (result_item, entrypoint_data.frecency)
             })
             .collect::<Vec<_>>();
 
@@ -318,22 +335,5 @@ impl QueryParser {
         });
 
         terms
-    }
-}
-
-fn search_index_entrypoint_to_str(value: SearchResultEntrypointType) -> &'static str {
-    match value {
-        SearchResultEntrypointType::Command => "command",
-        SearchResultEntrypointType::View => "view",
-        SearchResultEntrypointType::GeneratedCommand => "generated-command",
-    }
-}
-
-fn search_index_entrypoint_from_str(value: &str) -> SearchResultEntrypointType {
-    match value {
-        "command" => SearchResultEntrypointType::Command,
-        "view" => SearchResultEntrypointType::View,
-        "generated-command" => SearchResultEntrypointType::GeneratedCommand,
-        _ => panic!("index contains illegal entrypoint_type: {}", value)
     }
 }

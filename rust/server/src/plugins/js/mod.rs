@@ -107,6 +107,7 @@ pub enum OnePluginCommandData {
     },
     RunGeneratedCommand {
         entrypoint_id: String,
+        action_index: Option<usize>
     },
     HandleViewEvent {
         widget_id: UiWidgetId,
@@ -166,9 +167,10 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                     entrypoint_id,
                                 })
                             }
-                            OnePluginCommandData::RunGeneratedCommand { entrypoint_id } => {
+                            OnePluginCommandData::RunGeneratedCommand { entrypoint_id, action_index } => {
                                 Some(IntermediateUiEvent::RunGeneratedCommand {
                                     entrypoint_id,
+                                    action_index
                                 })
                             }
                             OnePluginCommandData::HandleViewEvent { widget_id, event_name, event_arguments } => {
@@ -642,8 +644,9 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
         IntermediateUiEvent::RunCommand { entrypoint_id } => JsUiEvent::RunCommand {
             entrypoint_id
         },
-        IntermediateUiEvent::RunGeneratedCommand { entrypoint_id } => JsUiEvent::RunGeneratedCommand {
-            entrypoint_id
+        IntermediateUiEvent::RunGeneratedCommand { entrypoint_id, action_index } => JsUiEvent::RunGeneratedCommand {
+            entrypoint_id,
+            action_index,
         },
         IntermediateUiEvent::HandleViewEvent { widget_id, event_name, event_arguments } => {
             let event_arguments = event_arguments.into_iter()

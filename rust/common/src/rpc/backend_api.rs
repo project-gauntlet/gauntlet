@@ -88,10 +88,11 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Result<(), BackendForFrontendApiError> {
+    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: Option<usize>) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::RequestRunGeneratedCommand {
             plugin_id,
             entrypoint_id,
+            action_index,
         };
 
         let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {

@@ -1,14 +1,14 @@
+use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginEntrypointType, DbReadPlugin, DbReadPluginEntrypoint};
+use crate::plugins::icon_cache::IconCache;
+use crate::plugins::js::PluginData;
+use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction};
+use anyhow::Context;
+use common::model::{EntrypointId, PhysicalShortcut, SearchResultEntrypointType};
+use deno_core::{op, OpState};
+use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use anyhow::Context;
-use deno_core::{op, OpState};
-use serde::Deserialize;
-use common::model::SearchResultEntrypointType;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginEntrypointType, DbReadPlugin};
-use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::PluginData;
-use crate::search::{SearchIndex, SearchIndexItem};
 
 #[op]
 async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
@@ -55,6 +55,13 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
         .await
         .context("error when getting frecency for plugin")?;
 
+    let mut shortcuts = HashMap::new();
+
+    for DbReadPluginEntrypoint { id, .. } in &entrypoints {
+        let entrypoint_shortcuts = repository.action_shortcuts(&plugin_id.to_string(), id).await?;
+        shortcuts.insert(id.clone(), entrypoint_shortcuts);
+    }
+
     let mut plugins_search_items = generated_commands.into_iter()
         .map(|item| {
             let entrypoint_icon_path = match item.entrypoint_icon {
@@ -64,12 +71,32 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
 
             let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
 
+            let shortcuts = shortcuts
+                .get(&item.entrypoint_id);
+
+            let entrypoint_actions = item.entrypoint_actions.iter()
+                .map(|action| {
+                    let shortcut = match (shortcuts, &action.id) {
+                        (Some(shortcuts), Some(id)) => {
+                            shortcuts.get(id).cloned()
+                        }
+                        _ => None
+                    };
+
+                    SearchIndexItemAction {
+                        label: action.label.clone(),
+                        shortcut,
+                    }
+                })
+                .collect();
+
             Ok(SearchIndexItem {
                 entrypoint_type: SearchResultEntrypointType::GeneratedCommand,
-                entrypoint_id: item.entrypoint_id,
+                entrypoint_id: EntrypointId::from_string(item.entrypoint_id),
                 entrypoint_name: item.entrypoint_name,
                 entrypoint_icon_path,
                 entrypoint_frecency,
+                entrypoint_actions,
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
@@ -105,6 +132,8 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
                 },
             };
 
+            let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
             match &entrypoint_type {
                 DbPluginEntrypointType::Command => {
                     Ok(Some(SearchIndexItem {
@@ -113,6 +142,7 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
                         entrypoint_id,
                         entrypoint_icon_path,
                         entrypoint_frecency,
+                        entrypoint_actions: vec![],
                     }))
                 },
                 DbPluginEntrypointType::View => {
@@ -122,6 +152,7 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
                         entrypoint_id,
                         entrypoint_icon_path,
                         entrypoint_frecency,
+                        entrypoint_actions: vec![],
                     }))
                 },
                 DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {
@@ -148,4 +179,11 @@ struct AdditionalSearchItem {
     entrypoint_id: String,
     entrypoint_uuid: String,
     entrypoint_icon: Option<Vec<u8>>,
+    entrypoint_actions: Vec<AdditionalSearchItemAction>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdditionalSearchItemAction {
+    id: Option<String>,
+    label: String,
 }

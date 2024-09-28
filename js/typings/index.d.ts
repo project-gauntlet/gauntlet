@@ -47,6 +47,7 @@ type RunCommand = {
 type RunGeneratedCommand = {
     type: "RunGeneratedCommand"
     entrypointId: string
+    actionIndex: number | undefined
 }
 
 type OpenInlineView = {
@@ -83,6 +84,12 @@ type AdditionalSearchItem = {
     entrypoint_id: string,
     entrypoint_uuid: string,
     entrypoint_icon: ArrayBuffer | undefined,
+    entrypoint_actions: AdditionalSearchItemAction[],
+}
+
+type AdditionalSearchItemAction = {
+    id?: string,
+    label: string,
 }
 
 interface InternalApi {
