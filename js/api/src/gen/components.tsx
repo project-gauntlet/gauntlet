@@ -5,7 +5,7 @@ declare global {
         interface IntrinsicElements {
             ["gauntlet:action"]: {
                 id?: string;
-                title: string;
+                label: string;
                 onAction: () => void;
             };
             ["gauntlet:action_panel_section"]: {
@@ -355,11 +355,11 @@ export enum Icons {
 }
 export interface ActionProps {
     id?: string;
-    title: string;
+    label: string;
     onAction: () => void;
 }
 export const Action: FC<ActionProps> = (props: ActionProps): ReactNode => {
-    return <gauntlet:action id={props.id} title={props.title} onAction={props.onAction}></gauntlet:action>;
+    return <gauntlet:action id={props.id} label={props.label} onAction={props.onAction}></gauntlet:action>;
 };
 export interface ActionPanelSectionProps {
     children?: ElementComponent<typeof Action>;

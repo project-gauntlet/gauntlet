@@ -84,21 +84,21 @@ export default function DetailView(): ReactElement {
             actions={
                 <ActionPanel>
                     <Action
-                        title={"Action 1"}
+                        label={"Action 1"}
                         onAction={() => {
                             console.log("ActionTest 1")
                         }}
                     />
                     <ActionPanel.Section title={"Action panel section"}>
                         <Action
-                            title={"Action 2.1"}
+                            label={"Action 2.1"}
                             onAction={() => {
                                 console.log("ActionTest 2.1")
                             }}
                         />
                         <Action
                             id="testAction1"
-                            title={"Action 2.2"}
+                            label={"Action 2.2"}
                             onAction={() => {
                                 console.log("ActionTest 2.2")
                             }}
@@ -107,7 +107,7 @@ export default function DetailView(): ReactElement {
                     <ActionPanel.Section>
                         <Action
                             id="testAction2"
-                            title={"Action 3"}
+                            label={"Action 3"}
                             onAction={() => {
                                 console.log("ActionTest 3")
                             }}

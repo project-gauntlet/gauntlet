@@ -1319,7 +1319,7 @@ pub struct ActionPanel {
 
 pub enum ActionPanelItems {
     Action {
-        title: String,
+        label: String,
         widget_id: UiWidgetId,
         physical_shortcut: Option<PhysicalShortcut>
     },
@@ -1356,14 +1356,14 @@ fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: H
                     let (widget, _) = &*child.get();
 
                     match widget {
-                        ComponentWidget::Action { id, title } => {
+                        ComponentWidget::Action { id, label } => {
                             let physical_shortcut: Option<PhysicalShortcut> = id.as_ref()
                                 .map(|id| action_shortcuts.get(id))
                                 .flatten()
                                 .cloned();
 
                             items.push(ActionPanelItems::Action {
-                                title: title.clone(),
+                                label: label.clone(),
                                 widget_id,
                                 physical_shortcut,
                             });
@@ -1413,7 +1413,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(title: Option<String>, items: Ve
 
     for item in items {
         match item {
-            ActionPanelItems::Action { title, widget_id, physical_shortcut } => {
+            ActionPanelItems::Action { label, widget_id, physical_shortcut } => {
                 if place_separator {
                     let separator: Element<_> = horizontal_rule(1)
                         .themed(RuleStyle::ActionPanel);
@@ -1427,7 +1427,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(title: Option<String>, items: Ve
                     .map(|shortcut| render_shortcut(shortcut));
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
-                    let text: Element<_> = text(title)
+                    let text: Element<_> = text(label)
                         .into();
 
                     let space: Element<_> = horizontal_space()
@@ -1437,7 +1437,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(title: Option<String>, items: Ve
                         .align_items(Alignment::Center)
                         .into()
                 } else {
-                    text(title)
+                    text(label)
                         .into()
                 };
 

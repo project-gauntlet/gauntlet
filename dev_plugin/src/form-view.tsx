@@ -13,20 +13,20 @@ export default function FormView(): ReactElement {
             actions={
                 <ActionPanel title={"Action panel"}>
                     <Action
-                        title={"Action 1"}
+                        label={"Action 1"}
                         onAction={() => {
                             console.log("ActionTest Form 1")
                         }}
                     />
                     <Action
-                        title={"Action 2"}
+                        label={"Action 2"}
                         onAction={() => {
                             console.log("ActionTest Form 2")
                         }}
                     />
                     <Action
                         id="testAction"
-                        title={"Action 3"}
+                        label={"Action 3"}
                         onAction={() => {
                             console.log("ActionTest Form 3")
                         }}

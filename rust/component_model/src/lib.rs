@@ -576,7 +576,7 @@ pub fn create_component_model() -> Vec<Component> {
         "Action",
         [
             property("id", mark_doc!("/action/props/id.md"), true, PropertyType::String),
-            property("title", mark_doc!("/action/props/title.md"), false, PropertyType::String),
+            property("label", mark_doc!("/action/props/label.md"), false, PropertyType::String),
             event("onAction", mark_doc!("/action/props/onAction.md"), false, [])
         ],
         children_none(),
