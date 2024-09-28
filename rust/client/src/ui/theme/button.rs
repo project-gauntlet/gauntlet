@@ -12,6 +12,7 @@ pub enum ButtonStyle {
     DatePicker,
 
     Action,
+    ActionFocused,
     GridItem,
     ListItem,
     MainListItem,
@@ -47,7 +48,7 @@ impl ButtonStyle {
 
                 theme.padding.to_iced()
             }
-            ButtonStyle::Action => {
+            ButtonStyle::Action | ButtonStyle::ActionFocused => {
                 let theme = &theme.action;
 
                 theme.padding.to_iced()
@@ -95,6 +96,10 @@ impl ButtonStyle {
             ButtonStyle::Action => {
                 let theme = &theme.action;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+            }
+            ButtonStyle::ActionFocused => {
+                let theme = &theme.action;
+                (Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ListItem => {
                 let theme = &theme.list_item;

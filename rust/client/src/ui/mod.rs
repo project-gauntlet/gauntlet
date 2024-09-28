@@ -58,7 +58,6 @@ pub struct AppModel {
     backend_api: BackendForFrontendApi,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     search_field_id: text_input::Id,
-    scrollable_id: scrollable::Id,
     focused: bool,
     theme: GauntletTheme,
     wayland: bool,
@@ -67,8 +66,8 @@ pub struct AppModel {
 
     // ephemeral state
     prompt: String,
-    focused_search_result: usize,
-    search_result_offset: usize,
+    focused_search_result: ScrollHandle,
+    focused_action_item: ScrollHandle,
 
     // state
     client_context: Arc<StdRwLock<ClientContext>>,
@@ -76,6 +75,68 @@ pub struct AppModel {
     error_view: Option<ErrorViewData>,
     search_results: Vec<SearchResult>,
     show_action_panel: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ScrollHandle {
+    scrollable_id: scrollable::Id,
+    index: usize,
+    offset: usize,
+}
+
+impl ScrollHandle {
+    fn new(scrollable_id: scrollable::Id) -> ScrollHandle {
+        ScrollHandle {
+            scrollable_id,
+            index: 0,
+            offset: 0,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.index = 0;
+        self.offset = 0;
+    }
+
+    fn get<'a, T>(&self, search_results: &'a Vec<T>) -> Option<&'a T> {
+        search_results.get(self.index)
+    }
+
+    fn focus_next(&mut self, item_amount: usize) -> Command<AppMsg> {
+        self.offset = if self.offset < 8 {
+            self.offset + 1
+        } else {
+            8
+        };
+
+        if self.index < item_amount - 1 {
+            self.index = self.index + 1;
+
+            let pos_y = self.index as f32 * ESTIMATED_ITEM_SIZE - (self.offset as f32 * ESTIMATED_ITEM_SIZE);
+
+            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
+        } else {
+            Command::none()
+        }
+    }
+
+    fn focus_previous(&mut self) -> Command<AppMsg> {
+        self.offset = if self.offset > 1 {
+            self.offset - 1
+        } else {
+            1
+        };
+
+        if self.index > 0 {
+            self.index = self.index - 1;
+
+            let pos_y = self.index as f32 * ESTIMATED_ITEM_SIZE - (self.offset as f32 * ESTIMATED_ITEM_SIZE);
+
+            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
+        } else {
+            Command::none()
+        }
+    }
 }
 
 struct PluginViewData {
@@ -377,7 +438,6 @@ impl Application for AppModel {
                 backend_api,
                 frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
                 search_field_id: text_input::Id::unique(),
-                scrollable_id: scrollable::Id::unique(),
                 focused: false,
                 theme: GauntletTheme::new(),
                 wayland,
@@ -386,8 +446,8 @@ impl Application for AppModel {
 
                 // ephemeral state
                 prompt: "".to_string(),
-                focused_search_result: 0,
-                search_result_offset: 0,
+                focused_search_result: ScrollHandle::new(scrollable::Id::unique()),
+                focused_action_item: ScrollHandle::new(scrollable::Id::unique()),
 
                 // state
                 client_context: Arc::new(StdRwLock::new(client_context)),
@@ -437,9 +497,10 @@ impl Application for AppModel {
                 } else {
                     new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
+                    self.show_action_panel = false;
                     self.prompt = new_prompt.clone();
-                    self.focused_search_result = 0;
-                    self.search_result_offset = 0;
+                    self.focused_search_result.reset();
+                    self.focused_action_item.reset();
 
                     let mut backend_api = self.backend_api.clone();
 
@@ -464,11 +525,18 @@ impl Application for AppModel {
                 }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
             }
             AppMsg::PromptSubmit => {
-                if let Some(search_item) = self.search_results.get(self.focused_search_result) {
-                    let search_item = search_item.clone();
-                    Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
+                if self.show_action_panel {
+                    self.show_action_panel = false;
+                    let widget_id = self.focused_action_item.index;
+                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
                 } else {
-                    Command::none()
+                    self.show_action_panel = false;
+                    if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
+                        let search_item = search_item.clone();
+                        Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
+                    } else {
+                        Command::none()
+                    }
                 }
             }
             AppMsg::SetSearchResults(search_results) => {
@@ -496,6 +564,10 @@ impl Application for AppModel {
                             Key::Named(Named::ArrowUp) => self.focus_previous(),
                             Key::Named(Named::ArrowDown) => self.focus_next(),
                             Key::Named(Named::Escape) => self.previous_view(),
+                            Key::Named(Named::Enter) => {
+                                // fired in cases where main text field is not focused
+                                Command ::perform(async {}, |_| AppMsg::PromptSubmit)
+                            },
                             Key::Named(Named::Backspace) => {
                                 self.backspace_prompt();
                                 focus(self.search_field_id.clone())
@@ -739,7 +811,7 @@ impl Application for AppModel {
                 Command::none()
             }
             AppMsg::OnEntrypointAction(widget_id) => {
-                if let Some(search_item) = self.search_results.get(self.focused_search_result) {
+                if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
                     let search_item = search_item.clone();
                     if widget_id == 0 {
                         Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
@@ -975,7 +1047,7 @@ impl Application for AppModel {
 
                 let search_list = search_list(
                     search_results,
-                    self.focused_search_result,
+                    &self.focused_search_result,
                     |search_result| AppMsg::RunSearchItemAction(search_result, None)
                 );
 
@@ -984,7 +1056,7 @@ impl Application for AppModel {
                     .themed(ContainerStyle::MainListInner);
 
                 let list: Element<_> = scrollable(search_list)
-                    .id(self.scrollable_id.clone())
+                    .id(self.focused_search_result.scrollable_id.clone())
                     .width(Length::Fill)
                     .into();
 
@@ -1005,7 +1077,7 @@ impl Application for AppModel {
                     list,
                 ]).into();
 
-                let (default_action, action_panel) = if let Some(search_item) = self.search_results.get(self.focused_search_result) {
+                let (default_action, action_panel) = if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
                     let label = match search_item.entrypoint_type {
                         SearchResultEntrypointType::Command => "Run Command",
                         SearchResultEntrypointType::View => "Open View",
@@ -1059,6 +1131,7 @@ impl Application for AppModel {
                     content,
                     default_action,
                     action_panel,
+                    &self.focused_action_item,
                     "".to_string(),
                     || AppMsg::ToggleActionPanel,
                     AppMsg::OnEntrypointAction
@@ -1232,12 +1305,13 @@ impl AppModel {
     }
 
     fn reset_window_state(&mut self) -> Command<AppMsg> {
-        self.focused_search_result = 0;
-        self.search_result_offset = 0;
+        self.focused_action_item.reset();
+        self.focused_search_result.reset();
         self.show_action_panel = false;
 
         let mut commands = vec![
-            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
+            scroll_to(self.focused_action_item.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
+            scroll_to(self.focused_search_result.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
             Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
             focus(self.search_field_id.clone())
         ];
@@ -1252,38 +1326,38 @@ impl AppModel {
     }
 
     fn focus_next(&mut self) -> Command<AppMsg> {
-        self.search_result_offset = if self.search_result_offset < 8 {
-            self.search_result_offset + 1
+        if self.show_action_panel {
+            if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
+                if search_item.entrypoint_actions.len() != 0 {
+                    self.focused_action_item.focus_next(search_item.entrypoint_actions.len() + 1)
+                } else {
+                    self.show_action_panel = false;
+                    Command::none()
+                }
+            } else {
+                self.show_action_panel = false;
+                Command::none()
+            }
         } else {
-            8
-        };
-
-        if self.focused_search_result < self.search_results.len() - 1 {
-            self.focused_search_result = self.focused_search_result + 1;
-
-            let pos_y = self.focused_search_result as f32 * ESTIMATED_ITEM_SIZE - (self.search_result_offset as f32 * ESTIMATED_ITEM_SIZE);
-
-            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
-        } else {
-            Command::none()
+            self.focused_search_result.focus_next(self.search_results.len())
         }
     }
 
     fn focus_previous(&mut self) -> Command<AppMsg> {
-        self.search_result_offset = if self.search_result_offset > 1 {
-            self.search_result_offset - 1
+        if self.show_action_panel {
+            if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
+                if search_item.entrypoint_actions.len() != 0 {
+                    self.focused_action_item.focus_previous()
+                } else {
+                    self.show_action_panel = false;
+                    Command::none()
+                }
+            } else {
+                self.show_action_panel = false;
+                Command::none()
+            }
         } else {
-            1
-        };
-
-        if self.focused_search_result > 0 {
-            self.focused_search_result = self.focused_search_result - 1;
-
-            let pos_y = self.focused_search_result as f32 * ESTIMATED_ITEM_SIZE - (self.search_result_offset as f32 * ESTIMATED_ITEM_SIZE);
-
-            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
-        } else {
-            Command::none()
+            self.focused_search_result.focus_previous()
         }
     }
 
@@ -1292,22 +1366,27 @@ impl AppModel {
     }
 
     fn previous_view(&mut self) -> Command<AppMsg> {
-        match &self.plugin_view_data {
-            None => {
-                self.hide_window()
-            }
-            Some(PluginViewData { top_level_view: true, plugin_id, .. }) => {
-                let plugin_id = plugin_id.clone();
+        if self.show_action_panel {
+            self.show_action_panel = false;
+            Command::none()
+        } else {
+            match &self.plugin_view_data {
+                None => {
+                    self.hide_window()
+                }
+                Some(PluginViewData { top_level_view: true, plugin_id, .. }) => {
+                    let plugin_id = plugin_id.clone();
 
-                self.plugin_view_data.take();
+                    self.plugin_view_data.take();
 
-                Command::batch([
-                    self.close_view(plugin_id),
-                    focus(self.search_field_id.clone()),
-                ])
-            }
-            Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id, .. }) => {
-                self.open_view(plugin_id.clone(), entrypoint_id.clone())
+                    Command::batch([
+                        self.close_view(plugin_id),
+                        focus(self.search_field_id.clone()),
+                    ])
+                }
+                Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id, .. }) => {
+                    self.open_view(plugin_id.clone(), entrypoint_id.clone())
+                }
             }
         }
     }

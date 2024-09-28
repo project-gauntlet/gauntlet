@@ -7,7 +7,7 @@ use iced::widget::row;
 use iced::widget::text;
 
 use common::model::SearchResult;
-
+use crate::ui::ScrollHandle;
 use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
@@ -23,10 +23,10 @@ pub struct SearchList<Message> {
 
 pub fn search_list<Message>(
     search_results: Vec<SearchResult>,
-    focused_search_result: usize,
+    focused_search_result: &ScrollHandle,
     on_select: impl Fn(SearchResult) -> Message + 'static,
 ) -> SearchList<Message> {
-    SearchList::new(search_results, focused_search_result, on_select)
+    SearchList::new(search_results, focused_search_result.index, on_select)
 }
 
 #[derive(Debug, Clone)]
