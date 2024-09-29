@@ -1,4 +1,5 @@
 use common::model::{UiPropertyValue, UiWidgetId};
+use crate::ui::AppMsg;
 
 #[derive(Debug, Clone)]
 pub enum UiViewEvent {
@@ -9,5 +10,8 @@ pub enum UiViewEvent {
     },
     Open {
         href: String
+    },
+    AppEvent {
+        event: AppMsg
     },
 }

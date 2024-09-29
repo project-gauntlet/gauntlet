@@ -55,7 +55,7 @@ mod state;
 
 pub use theme::GauntletTheme;
 use crate::ui::scroll_handle::ScrollHandle;
-use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData};
+use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
 
 pub struct AppModel {
     // logic
@@ -301,18 +301,23 @@ impl Application for AppModel {
                         "Screenshot Entrypoint",
                     );
 
+                    let context = Arc::new(StdRwLock::new(context));
+
                     commands.push(Command::perform(async move { top_level_view }, |top_level_view| AppMsg::ReplaceView { top_level_view }));
 
                     let state= match render_location {
                         ScenarioUiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
-                        ScenarioUiRenderLocation::View => GlobalState::new_plugin(PluginViewData {
-                            top_level_view,
-                            plugin_id,
-                            plugin_name: "Screenshot Gen".to_string(),
-                            entrypoint_id,
-                            entrypoint_name: gen_name,
-                            action_shortcuts: Default::default(),
-                        })
+                        ScenarioUiRenderLocation::View => GlobalState::new_plugin(
+                            PluginViewData {
+                                top_level_view,
+                                plugin_id,
+                                plugin_name: "Screenshot Gen".to_string(),
+                                entrypoint_id,
+                                entrypoint_name: gen_name,
+                                action_shortcuts: Default::default(),
+                            },
+                            context.clone()
+                        )
                     };
 
                     (context, state)
@@ -325,7 +330,7 @@ impl Application for AppModel {
                         entrypoint_preferences_required,
                     };
 
-                    (ClientContext::new(), GlobalState::new_error(error_view))
+                    (Arc::new(StdRwLock::new(ClientContext::new())), GlobalState::new_error(error_view))
                 }
                 ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, render_location: _ } => {
                     let error_view = ErrorViewData::PluginError {
@@ -333,11 +338,11 @@ impl Application for AppModel {
                         entrypoint_id: EntrypointId::from_string(entrypoint_id),
                     };
 
-                    (ClientContext::new(), GlobalState::new_error(error_view))
+                    (Arc::new(StdRwLock::new(ClientContext::new())), GlobalState::new_error(error_view))
                 }
             }
         } else {
-            (ClientContext::new(), GlobalState::new(text_input::Id::unique()))
+            (Arc::new(StdRwLock::new(ClientContext::new())), GlobalState::new(text_input::Id::unique()))
         };
 
         (
@@ -353,7 +358,7 @@ impl Application for AppModel {
 
                 // state
                 global_state,
-                client_context: Arc::new(StdRwLock::new(client_context)),
+                client_context,
                 search_results: vec![],
             },
             Command::batch(commands),
@@ -442,15 +447,19 @@ impl Application for AppModel {
                             None => Command::none(),
                             Some(pending_plugin_view_data) => {
                                 let pending_plugin_view_data = pending_plugin_view_data.clone();
-                                GlobalState::plugin(&mut self.global_state, PluginViewData {
-                                    top_level_view,
-                                    ..pending_plugin_view_data
-                                })
+                                GlobalState::plugin(
+                                    &mut self.global_state,
+                                    PluginViewData {
+                                        top_level_view,
+                                        ..pending_plugin_view_data
+                                    },
+                                    self.client_context.clone()
+                                )
                             }
                         }
                     }
                     GlobalState::ErrorView { .. } => Command::none(),
-                    GlobalState::PluginView(plugin_view_data) => {
+                    GlobalState::PluginView { plugin_view_data, ..} => {
                         plugin_view_data.top_level_view = top_level_view;
 
                         Command::none()
@@ -471,42 +480,46 @@ impl Application for AppModel {
                             },
                             Key::Named(Named::Backspace) => self.backspace_prompt(),
                             _ => {
-                                match self.global_state {
-                                    GlobalState::MainView { .. } => {
-                                        match physical_key_model(physical_key, modifiers) {
-                                            Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                let client_context = self.client_context.read().expect("lock is poisoned");
-
-                                                client_context.show_action_panel();
-
-                                                Command::none()
+                                match &self.global_state {
+                                    GlobalState::MainView { sub_state, .. } => {
+                                        match sub_state {
+                                            MainViewState::None => {
+                                                match physical_key_model(physical_key, modifiers) {
+                                                    Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                                    }
+                                                    _ => {
+                                                        match text {
+                                                            Some(text) => {
+                                                                self.append_prompt(text.to_string())
+                                                            }
+                                                            None => {
+                                                                Command::none()
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
-                                            Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                self.handle_plugin_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                            }
-                                            None => {
-                                                Command::none()
+                                            MainViewState::ActionPanel { .. } => {
+                                                match physical_key_model(physical_key, modifiers) {
+                                                    Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                                    }
+                                                    _ => Command::none()
+                                                }
                                             }
                                         }
                                     }
-                                    GlobalState::ErrorView { .. } => {
-                                        Command::none()
-                                    }
+                                    GlobalState::ErrorView { .. } => Command::none(),
                                     GlobalState::PluginView { .. } => {
                                         match physical_key_model(physical_key, modifiers) {
                                             Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
                                                 Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
                                             }
-                                            _ => {
-                                                match text {
-                                                    Some(text) => {
-                                                        self.append_prompt(text.to_string())
-                                                    }
-                                                    None => {
-                                                        Command::none()
-                                                    }
-                                                }
+                                            Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                                self.handle_plugin_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
                                             }
+                                            _ => Command::none()
                                         }
                                     }
                                 }
@@ -597,7 +610,7 @@ impl Application for AppModel {
                         };
                     }
                     GlobalState::ErrorView { .. } => { },
-                    GlobalState::PluginView(plugin_view_data) => {
+                    GlobalState::PluginView { plugin_view_data, ..} => {
                         plugin_view_data.action_shortcuts = action_shortcuts;
                     }
                 }
@@ -694,9 +707,19 @@ impl Application for AppModel {
                         }
                     }
                     GlobalState::ErrorView { .. } => { },
-                    GlobalState::PluginView { .. } => {
-                        // todo
-                        // self.show_action_panel = !self.show_action_panel;
+                    GlobalState::PluginView { sub_state, .. } => {
+                        let client_context = self.client_context.read().expect("lock is poisoned");
+
+                        client_context.toggle_action_panel();
+
+                        match sub_state {
+                            PluginViewState::None => {
+                                PluginViewState::action_panel(sub_state)
+                            }
+                            PluginViewState::ActionPanel { .. } => {
+                                PluginViewState::initial(sub_state)
+                            }
+                        }
                     }
                 }
 
@@ -1065,7 +1088,7 @@ impl Application for AppModel {
 
                 root
             }
-            GlobalState::PluginView(plugin_view_data) => {
+            GlobalState::PluginView { plugin_view_data, sub_state, ..  } => {
                 let PluginViewData {
                     top_level_view: _,
                     plugin_id,
@@ -1077,6 +1100,7 @@ impl Application for AppModel {
 
                 let container_element: Element<_> = view_container(
                     self.client_context.clone(),
+                    sub_state.clone(),
                     plugin_id.to_owned(),
                     plugin_name.to_owned(),
                     entrypoint_id.to_owned(),
@@ -1178,7 +1202,7 @@ impl AppModel {
         );
 
         match &self.global_state {
-            GlobalState::PluginView(PluginViewData { plugin_id, .. }) => {
+            GlobalState::PluginView { plugin_view_data: PluginViewData { plugin_id, .. }, .. } => {
                 commands.push(self.close_plugin_view(plugin_id.clone()));
             }
             GlobalState::MainView { .. } => {}
@@ -1296,16 +1320,21 @@ impl AppModel {
                     UiViewEvent::View { widget_id, event_name, event_arguments } => {
                         backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
                             .await?;
+                        Ok(AppMsg::Noop)
+
                     }
                     UiViewEvent::Open { href } => {
                         backend_client.send_open_event(plugin_id, href)
                             .await?;
-                    }
-                }
-            }
 
-            Ok(())
-        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+                        Ok(AppMsg::Noop)
+                    }
+                    UiViewEvent::AppEvent { event } => Ok(event)
+                }
+            } else {
+                Ok(AppMsg::Noop)
+            }
+        }, |result| handle_backend_error(result, |msg| msg))
     }
 
     fn handle_plugin_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Command<AppMsg> {
@@ -1357,7 +1386,7 @@ impl AppModel {
                 focus(search_field_id.clone())
             }
             GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { .. } => Command::none(),
         }
     }
 
@@ -1371,7 +1400,7 @@ impl AppModel {
                 focus(search_field_id.clone())
             }
             GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { .. } => Command::none(),
         }
     }
 }

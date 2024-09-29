@@ -1,4 +1,4 @@
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget};
+use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget, UiWidgetId};
 use crate::model::UiViewEvent;
 
 use crate::ui::widget::ComponentWidgetEvent;
@@ -75,7 +75,11 @@ impl ClientContext {
         }
     }
 
-    pub fn show_action_panel(&self) {
-        self.view.show_action_panel()
+    pub fn toggle_action_panel(&self) {
+        self.view.toggle_action_panel()
+    }
+
+    pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
+        self.view.get_action_ids()
     }
 }

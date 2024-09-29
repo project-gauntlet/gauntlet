@@ -8,11 +8,13 @@ use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation};
 
 use crate::ui::{AppMsg};
 use crate::ui::client_context::ClientContext;
+use crate::ui::state::PluginViewState;
 use crate::ui::theme::{Element, GauntletTheme};
 use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent};
 
 pub struct ViewContainer {
     client_context: Arc<RwLock<ClientContext>>,
+    plugin_view_state: PluginViewState,
     plugin_id: PluginId,
     plugin_name: String,
     entrypoint_id: EntrypointId,
@@ -22,6 +24,7 @@ pub struct ViewContainer {
 
 pub fn view_container(
     client_context: Arc<RwLock<ClientContext>>,
+    plugin_view_state: PluginViewState,
     plugin_id: PluginId,
     plugin_name: String,
     entrypoint_id: EntrypointId,
@@ -30,6 +33,7 @@ pub fn view_container(
 ) -> ViewContainer {
     ViewContainer {
         client_context,
+        plugin_view_state,
         plugin_id,
         plugin_name,
         entrypoint_id,
@@ -60,6 +64,7 @@ impl Component<AppMsg, GauntletTheme> for ViewContainer {
         view_container.render_widget(ComponentRenderContext::Root {
             entrypoint_name: self.entrypoint_name.clone(),
             action_shortcuts: self.action_shortcuts.clone(),
+            plugin_view_state: self.plugin_view_state.clone()
         })
     }
 }

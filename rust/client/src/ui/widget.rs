@@ -1,10 +1,11 @@
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use common::model::{PhysicalKey, PhysicalShortcut, PluginId, SearchResultEntrypointAction, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
+use common::model::{PhysicalKey, PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
 use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
@@ -20,8 +21,10 @@ use iced_aw::{floating_element, GridRow};
 use itertools::Itertools;
 
 use crate::model::UiViewEvent;
+use crate::ui::AppMsg;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::state::PluginViewState;
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::date_picker::DatePickerStyle;
@@ -63,19 +66,15 @@ pub enum ComponentWidgetState {
     },
     Detail {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     Form {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     List {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     Grid {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     None
 }
@@ -110,19 +109,15 @@ impl ComponentWidgetState {
             },
             ComponentWidget::Detail { .. } => ComponentWidgetState::Detail {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(),
             },
             ComponentWidget::Form { .. } => ComponentWidgetState::Form {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(),
             },
             ComponentWidget::List { .. } => ComponentWidgetState::List {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(),
             },
             ComponentWidget::Grid { .. } => ComponentWidgetState::Grid {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(),
             },
             _ => ComponentWidgetState::None
         }
@@ -151,6 +146,7 @@ pub enum ComponentRenderContext {
         widget_id: UiWidgetId
     },
     Root {
+        plugin_view_state: PluginViewState,
         entrypoint_name: String,
         action_shortcuts: HashMap<String, PhysicalShortcut>,
     },
@@ -200,7 +196,7 @@ impl ComponentWidgetWrapper {
             .map(|widget| widget.clone())
     }
 
-    pub fn show_action_panel(&self) {
+    pub fn toggle_action_panel(&self) {
         {
             let (_, ref mut state) = &mut *self.get_mut();
 
@@ -224,7 +220,31 @@ impl ComponentWidgetWrapper {
         self.get_children()
             .unwrap_or(vec![])
             .iter()
-            .for_each(|child| child.show_action_panel());
+            .for_each(|child| child.toggle_action_panel());
+    }
+
+    pub fn get_all_widgets(&self) -> Vec<ComponentWidgetWrapper> {
+        let mut result: Vec<_> = self.get_children()
+            .unwrap_or(vec![])
+            .iter()
+            .flat_map(|component| component.get_all_widgets())
+            .collect();
+
+        result.push(self.clone());
+
+        result
+    }
+
+    pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
+        self.get_all_widgets()
+            .into_iter()
+            .filter(|component| {
+                let (widget, _) = &*component.get();
+
+                matches!(widget, ComponentWidget::Action { .. })
+            })
+            .map(|component| component.id)
+            .collect()
     }
 
     fn get(&self) -> RwLockReadGuard<'_, (ComponentWidget, ComponentWidgetState)> {
@@ -419,7 +439,7 @@ impl ComponentWidgetWrapper {
                 }
             }
             ComponentWidget::Detail { children, isLoading: is_loading } => {
-                let ComponentWidgetState::Detail { show_action_panel, ref focused_action_item } = *state else {
+                let ComponentWidgetState::Detail { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
 
@@ -489,7 +509,7 @@ impl ComponentWidgetWrapper {
                 if is_in_list {
                     content
                 } else {
-                    render_plugin_root(show_action_panel, &focused_action_item, widget_id, children, content, context, is_loading.unwrap_or(false))
+                    render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
                 }
             }
             ComponentWidget::Root { children } => {
@@ -600,7 +620,7 @@ impl ComponentWidgetWrapper {
                     .into()
             }
             ComponentWidget::Form { children, isLoading: is_loading } => {
-                let ComponentWidgetState::Form { show_action_panel, ref focused_action_item } = *state else {
+                let ComponentWidgetState::Form { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
 
@@ -676,7 +696,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .themed(ContainerStyle::Form);
 
-                render_plugin_root(show_action_panel, &focused_action_item, widget_id, children, content, context, is_loading.unwrap_or(false))
+                render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::InlineSeparator { icon } => {
                 match icon {
@@ -953,7 +973,7 @@ impl ComponentWidgetWrapper {
                 render_section(content, Some(title), subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle, TextStyle::ListSectionSubtitle)
             }
             ComponentWidget::List { children, isLoading: is_loading } => {
-                let ComponentWidgetState::List { show_action_panel, ref focused_action_item } = *state else {
+                let ComponentWidgetState::List { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
 
@@ -1038,7 +1058,7 @@ impl ComponentWidgetWrapper {
                     .height(Length::Fill)
                     .into();
 
-                render_plugin_root(show_action_panel, &focused_action_item, widget_id, children, content, context, is_loading.unwrap_or(false))
+                render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
             ComponentWidget::GridItem { children, title, subtitle } => {
                 // TODO should be just one
@@ -1101,7 +1121,7 @@ impl ComponentWidgetWrapper {
                 render_section(content, Some(title), subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle, TextStyle::GridSectionSubtitle)
             }
             ComponentWidget::Grid { children, columns, isLoading: is_loading } => {
-                let ComponentWidgetState::Grid { show_action_panel, ref focused_action_item } = *state else {
+                let ComponentWidgetState::Grid { show_action_panel } = *state else {
                     panic!("unexpected state kind {:?}", state)
                 };
 
@@ -1152,7 +1172,7 @@ impl ComponentWidgetWrapper {
                     .width(Length::Fill)
                     .themed(ContainerStyle::Grid);
 
-                render_plugin_root(show_action_panel, &focused_action_item, widget_id, children, content, context, is_loading.unwrap_or(false))
+                render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
         }
     }
@@ -1284,16 +1304,15 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
         .into()
 }
 
-fn render_plugin_root<'a, ACTION>(
+fn render_plugin_root<'a>(
     show_action_panel: bool,
-    action_panel_scroll_handle: &ScrollHandle<ACTION>,
     widget_id: UiWidgetId,
     children: &[ComponentWidgetWrapper],
     content: Element<'a, ComponentWidgetEvent>,
     context: ComponentRenderContext,
     is_loading: bool
 ) -> Element<'a, ComponentWidgetEvent>  {
-    let ComponentRenderContext::Root { entrypoint_name, action_shortcuts } = context else {
+    let ComponentRenderContext::Root { entrypoint_name, action_shortcuts, plugin_view_state } = context else {
         panic!("not supposed to be passed to root item: {:?}", context)
     };
 
@@ -1307,18 +1326,36 @@ fn render_plugin_root<'a, ACTION>(
             .into()
     };
 
-    render_root(
-        show_action_panel,
-        top_panel,
-        top_separator,
-        content,
-        None,
-        convert_action_panel(children, action_shortcuts),
-        Some(action_panel_scroll_handle),
-        entrypoint_name,
-        || ComponentWidgetEvent::ToggleActionPanel { widget_id },
-        |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
-    )
+    match plugin_view_state {
+        PluginViewState::None => {
+            render_root(
+                show_action_panel,
+                top_panel,
+                top_separator,
+                content,
+                None, // TODO
+                convert_action_panel(children, action_shortcuts),
+                None::<&ScrollHandle<UiWidgetId>>,
+                entrypoint_name,
+                || ComponentWidgetEvent::ToggleActionPanel { widget_id },
+                |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
+            )
+        }
+        PluginViewState::ActionPanel { focused_action_item } => {
+            render_root(
+                show_action_panel,
+                top_panel,
+                top_separator,
+                content,
+                None, // TODO
+                convert_action_panel(children, action_shortcuts),
+                Some(&focused_action_item),
+                entrypoint_name,
+                || ComponentWidgetEvent::ToggleActionPanel { widget_id },
+                |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
+            )
+        }
+    }
 }
 
 pub struct ActionPanel {
@@ -1405,7 +1442,8 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
     title: Option<String>,
     items: Vec<ActionPanelItems>,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
-    on_action: &dyn Fn(UiWidgetId) -> T
+    on_action: &dyn Fn(UiWidgetId) -> T,
+    index_counter: &Cell<usize>
 ) -> Vec<Element<'a, T>> {
     let mut columns = vec![];
 
@@ -1455,12 +1493,13 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
                         .into()
                 };
 
-                // TODO broken for plugin views
-                let style = if action_panel_scroll_handle.index == widget_id {
+                let style = if action_panel_scroll_handle.index == index_counter.get() {
                     ButtonStyle::ActionFocused
                 } else {
                     ButtonStyle::Action
                 };
+
+                index_counter.set(index_counter.get() + 1);
 
                 let content = button(content)
                     .on_press(on_action(widget_id))
@@ -1475,7 +1514,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
                 columns.push(separator);
 
-                let content = render_action_panel_items(title, items, action_panel_scroll_handle, on_action);
+                let content = render_action_panel_items(title, items, action_panel_scroll_handle, on_action, index_counter);
 
                 for content in content {
                     columns.push(content);
@@ -1494,7 +1533,7 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
     on_action: F,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
 ) -> Element<'a, T> {
-    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle, &on_action);
+    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle, &on_action, &Cell::new(0));
 
     let actions: Element<_> = column(columns)
         .into();
@@ -1926,19 +1965,9 @@ impl ComponentWidgetEvent {
                 Some(create_password_field_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
-                let (widget, ref mut state) = &mut *widget.get_mut();
-
-                let show_action_panel = match state {
-                    ComponentWidgetState::Detail { show_action_panel, .. } => show_action_panel,
-                    ComponentWidgetState::Form { show_action_panel, .. } => show_action_panel,
-                    ComponentWidgetState::List { show_action_panel, .. } => show_action_panel,
-                    ComponentWidgetState::Grid { show_action_panel, .. } => show_action_panel,
-                    _ => panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
-                };
-
-                *show_action_panel = !*show_action_panel;
-
-                None
+                Some(UiViewEvent::AppEvent {
+                    event: AppMsg::ToggleActionPanel
+                })
             }
             ComponentWidgetEvent::ListItemClick { widget_id } => {
                 Some(create_list_item_on_click_event(widget_id))

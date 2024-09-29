@@ -1,13 +1,17 @@
 mod main_view;
+mod plugin_view;
 
+use crate::ui::client_context::ClientContext;
 use crate::ui::scroll_handle::ScrollHandle;
 pub use crate::ui::state::main_view::MainViewState;
+pub use crate::ui::state::plugin_view::PluginViewState;
 use crate::ui::AppMsg;
 use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult};
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
 use iced::Command;
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock as StdRwLock};
 
 pub enum GlobalState {
     MainView {
@@ -25,7 +29,11 @@ pub enum GlobalState {
     ErrorView {
         error_view: ErrorViewData,
     },
-    PluginView(PluginViewData)
+    PluginView {
+        client_context: Arc<StdRwLock<ClientContext>>,
+        plugin_view_data: PluginViewData,
+        sub_state: PluginViewState,
+    },
 }
 
 #[derive(Clone)]
@@ -52,7 +60,7 @@ pub enum ErrorViewData {
     BackendTimeout,
     UnknownError {
         display: String
-    }
+    },
 }
 
 impl GlobalState {
@@ -72,8 +80,12 @@ impl GlobalState {
         }
     }
 
-    pub fn new_plugin(plugin_view_data: PluginViewData) -> GlobalState {
-        GlobalState::PluginView(plugin_view_data)
+    pub fn new_plugin(plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
+        GlobalState::PluginView {
+            client_context,
+            plugin_view_data,
+            sub_state: PluginViewState::new(),
+        }
     }
 
     pub fn initial(prev_global_state: &mut GlobalState) -> Command<AppMsg> {
@@ -95,8 +107,12 @@ impl GlobalState {
         Command::none()
     }
 
-    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData) -> Command<AppMsg> {
-        *prev_global_state = GlobalState::PluginView(plugin_view_data);
+    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> Command<AppMsg> {
+        *prev_global_state = GlobalState::PluginView {
+            client_context,
+            plugin_view_data,
+            sub_state: PluginViewState::new(),
+        };
 
         Command::none()
     }
@@ -135,8 +151,17 @@ impl Focus<SearchResult> for GlobalState {
                     }
                 }
             }
-            GlobalState::PluginView(_) => {
-                todo!()
+            GlobalState::PluginView { sub_state, .. } => {
+                match sub_state {
+                    PluginViewState::None => Command::none(),
+                    PluginViewState::ActionPanel { focused_action_item, .. } => {
+                        let widget_id = focused_action_item.index;
+
+                        PluginViewState::initial(sub_state);
+
+                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
+                    }
+                }
             }
             GlobalState::ErrorView { .. } => Command::none()
         }
@@ -155,18 +180,35 @@ impl Focus<SearchResult> for GlobalState {
                     }
                 }
             }
-            GlobalState::PluginView(PluginViewData { top_level_view: true, plugin_id, .. }) => {
-                let plugin_id = plugin_id.clone();
+            GlobalState::PluginView {
+                plugin_view_data: PluginViewData {
+                    top_level_view,
+                    plugin_id,
+                    entrypoint_id,
+                    ..
+                },
+                sub_state,
+                ..
+            } => {
+                match sub_state {
+                    PluginViewState::None => {
+                        if *top_level_view {
+                            let plugin_id = plugin_id.clone();
 
-                Command::batch([
-                    Command::perform(async {}, |_| AppMsg::ClosePluginView(plugin_id)),
-                    GlobalState::initial(self)
-                ])
-            }
-            GlobalState::PluginView(PluginViewData { top_level_view: false, plugin_id, entrypoint_id, .. }) => {
-                let plugin_id= plugin_id.clone();
-                let entrypoint_id = entrypoint_id.clone();
-                Command::perform(async {}, |_| AppMsg::OpenPluginView(plugin_id, entrypoint_id))
+                            Command::batch([
+                                Command::perform(async {}, |_| AppMsg::ClosePluginView(plugin_id)),
+                                GlobalState::initial(self)
+                            ])
+                        } else {
+                            let plugin_id = plugin_id.clone();
+                            let entrypoint_id = entrypoint_id.clone();
+                            Command::perform(async {}, |_| AppMsg::OpenPluginView(plugin_id, entrypoint_id))
+                        }
+                    }
+                    PluginViewState::ActionPanel { .. } => {
+                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                    }
+                }
             }
             GlobalState::ErrorView { .. } => {
                 Command::perform(async {}, |_| AppMsg::HideWindow)
@@ -176,20 +218,20 @@ impl Focus<SearchResult> for GlobalState {
     fn tab(&mut self) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
     fn shift_tab(&mut self) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
     fn arrow_up(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
-            GlobalState::MainView { focused_search_result, sub_state, ..  } => {
+            GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         focused_search_result.focus_previous()
@@ -204,7 +246,18 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { sub_state, client_context, .. } => {
+                match sub_state {
+                    PluginViewState::None => Command::none(),
+                    PluginViewState::ActionPanel { .. } => {
+                        let client_context = client_context.read().expect("lock is poisoned");
+
+                        let action_ids = client_context.get_action_ids();
+
+                        sub_state.arrow_up(&action_ids)
+                    }
+                }
+            },
         }
     }
     fn arrow_down(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
@@ -228,20 +281,31 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { sub_state, client_context, .. } => {
+                match sub_state {
+                    PluginViewState::None => Command::none(),
+                    PluginViewState::ActionPanel { .. } => {
+                        let client_context = client_context.read().expect("lock is poisoned");
+
+                        let action_ids = client_context.get_action_ids();
+
+                        sub_state.arrow_down(&action_ids)
+                    }
+                }
+            }
         }
     }
     fn arrow_left(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
     fn arrow_right(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
+            GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }

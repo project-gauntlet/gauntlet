@@ -1,4 +1,4 @@
-use common::model::{EntrypointId, PluginId, UiWidget};
+use common::model::{EntrypointId, PluginId, UiWidget, UiWidgetId};
 use crate::model::UiViewEvent;
 
 use crate::ui::theme::Element;
@@ -79,7 +79,11 @@ impl PluginWidgetContainer {
         event.handle(plugin_id, widget)
     }
 
-    pub fn show_action_panel(&self) {
-        self.root_widget.show_action_panel()
+    pub fn toggle_action_panel(&self) {
+        self.root_widget.toggle_action_panel()
+    }
+
+    pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
+        self.root_widget.get_action_ids()
     }
 }
