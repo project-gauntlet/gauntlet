@@ -85,7 +85,7 @@ impl GlobalState {
 
         Command::batch([
             focus(search_field_id),
-            Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
+            Command::perform(async {}, |_| AppMsg::UpdateSearchResults),
         ])
     }
 

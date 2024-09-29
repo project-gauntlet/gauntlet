@@ -416,30 +416,13 @@ impl Application for AppModel {
                         GlobalState::PluginView { .. } => {}
                     }
 
-                    let mut backend_api = self.backend_api.clone();
-
-                    Command::perform(async move {
-                        let search_results = backend_api.search(new_prompt, true)
-                            .await?;
-
-                        Ok(search_results)
-                    }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
+                    self.search(new_prompt, true)
                 }
             }
             AppMsg::UpdateSearchResults => {
-                match &mut self.global_state {
+                match &self.global_state {
                     GlobalState::MainView { prompt, .. } => {
-                        let prompt = prompt.clone();
-
-                        let mut backend_api = self.backend_api.clone();
-
-                        Command::perform(async move {
-                            let search_results = backend_api.search(prompt, false)
-                                .await?;
-
-                            Ok(search_results)
-                        }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
-
+                        self.search(prompt.clone(), false)
                     }
                     _ => Command::none()
                 }
@@ -479,8 +462,6 @@ impl Application for AppModel {
                 }
             }
             AppMsg::IcedEvent(Event::Keyboard(event)) => {
-                let mut backend_client = self.backend_api.clone();
-
                 match event {
                     keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                         tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
@@ -489,8 +470,8 @@ impl Application for AppModel {
                             Key::Named(Named::ArrowDown) => self.global_state.arrow_down(),
                             Key::Named(Named::Escape) => self.global_state.escape(),
                             Key::Named(Named::Enter) => {
-                                // fired in cases where main text field is not focused
-                                Command::perform(async {}, |_| AppMsg::PromptSubmit)
+                                // for main view, also fired in cases where main text field is not focused
+                                self.global_state.enter()
                             },
                             Key::Named(Named::Backspace) => self.backspace_prompt(),
                             _ => {
@@ -505,20 +486,7 @@ impl Application for AppModel {
                                                 Command::none()
                                             }
                                             Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                let (plugin_id, entrypoint_id) = {
-                                                    let client_context = self.client_context.read().expect("lock is poisoned");
-                                                    (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
-                                                };
-
-                                                Command::perform(
-                                                    async move {
-                                                        backend_client.send_keyboard_event(plugin_id, entrypoint_id, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                                            .await?;
-
-                                                        Ok(())
-                                                    },
-                                                    |result| handle_backend_error(result, |()| AppMsg::Noop),
-                                                )
+                                                self.handle_plugin_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
                                             }
                                             None => {
                                                 Command::none()
@@ -576,30 +544,7 @@ impl Application for AppModel {
             AppMsg::IcedEvent(_) => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.global_state.escape(),
             AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
-                let mut backend_client = self.backend_api.clone();
-                let client_context = self.client_context.clone();
-
-                Command::perform(async move {
-                    let event = {
-                        let client_context = client_context.read().expect("lock is poisoned");
-                        client_context.handle_event(render_location, &plugin_id, widget_event)
-                    };
-
-                    if let Some(event) = event {
-                        match event {
-                            UiViewEvent::View { widget_id, event_name, event_arguments } => {
-                                backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
-                                    .await?;
-                            }
-                            UiViewEvent::Open { href } => {
-                                backend_client.send_open_event(plugin_id, href)
-                                    .await?;
-                            }
-                        }
-                    }
-
-                    Ok(())
-                }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+                self.handle_plugin_event(widget_event, plugin_id, render_location)
             }
             AppMsg::Noop => Command::none(),
             AppMsg::FontLoaded(result) => {
@@ -643,14 +588,7 @@ impl Application for AppModel {
                 )
             }
             AppMsg::OpenSettingsPreferences { plugin_id, entrypoint_id, } => {
-                let mut backend_api = self.backend_api.clone();
-
-                Command::perform(async move {
-                    backend_api.open_settings_window_preferences(plugin_id, entrypoint_id)
-                        .await?;
-
-                    Ok(())
-                }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+                self.open_settings_window_preferences(plugin_id, entrypoint_id)
             }
             AppMsg::OnOpenView { action_shortcuts } => {
                 match &mut self.global_state {
@@ -1341,6 +1279,74 @@ impl AppModel {
 
         Command::perform(async move {
             backend_client.request_run_generated_command(plugin_id, entrypoint_id, action_index)
+                .await?;
+
+            Ok(())
+        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+    }
+
+    fn handle_plugin_event(&self, widget_event: ComponentWidgetEvent, plugin_id: PluginId, render_location: UiRenderLocation) -> Command<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+        let client_context = self.client_context.clone();
+
+        Command::perform(async move {
+            let event = {
+                let client_context = client_context.read().expect("lock is poisoned");
+                client_context.handle_event(render_location, &plugin_id, widget_event)
+            };
+
+            if let Some(event) = event {
+                match event {
+                    UiViewEvent::View { widget_id, event_name, event_arguments } => {
+                        backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
+                            .await?;
+                    }
+                    UiViewEvent::Open { href } => {
+                        backend_client.send_open_event(plugin_id, href)
+                            .await?;
+                    }
+                }
+            }
+
+            Ok(())
+        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+    }
+
+    fn handle_plugin_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Command<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+
+        let (plugin_id, entrypoint_id) = {
+            let client_context = self.client_context.read().expect("lock is poisoned");
+            (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+        };
+
+        Command::perform(
+            async move {
+                backend_client.send_keyboard_event(plugin_id, entrypoint_id, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                    .await?;
+
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
+    }
+
+    fn search(&self, new_prompt: String, render_inline_view: bool) -> Command<AppMsg> {
+        let mut backend_api = self.backend_api.clone();
+
+        Command::perform(async move {
+            let search_results = backend_api.search(new_prompt, render_inline_view)
+                .await?;
+
+            Ok(search_results)
+        }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
+    }
+
+    fn open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) -> Command<AppMsg> {
+        let mut backend_api = self.backend_api.clone();
+
+        Command::perform(async move {
+            backend_api.open_settings_window_preferences(plugin_id, entrypoint_id)
                 .await?;
 
             Ok(())
