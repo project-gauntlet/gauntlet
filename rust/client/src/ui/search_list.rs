@@ -7,7 +7,7 @@ use iced::widget::row;
 use iced::widget::text;
 
 use common::model::SearchResult;
-use crate::ui::ScrollHandle;
+use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
@@ -15,26 +15,26 @@ use crate::ui::theme::image::ImageStyle;
 use crate::ui::theme::space::ThemeKindSpace;
 use crate::ui::theme::text::TextStyle;
 
-pub struct SearchList<Message> {
+pub struct SearchList<'a, Message> {
     on_select: Box<dyn Fn(SearchResult) -> Message>,
     focused_search_result: usize,
-    search_results: Vec<SearchResult>,
+    search_results: &'a[SearchResult],
 }
 
-pub fn search_list<Message>(
-    search_results: Vec<SearchResult>,
-    focused_search_result: &ScrollHandle,
+pub fn search_list<'a, Message>(
+    search_results: &'a[SearchResult],
+    focused_search_result: &ScrollHandle<SearchResult>,
     on_select: impl Fn(SearchResult) -> Message + 'static,
-) -> SearchList<Message> {
+) -> SearchList<'a, Message> {
     SearchList::new(search_results, focused_search_result.index, on_select)
 }
 
 #[derive(Debug, Clone)]
 pub struct SelectItemEvent(SearchResult);
 
-impl<Message> SearchList<Message> {
+impl<'a, Message> SearchList<'a, Message> {
     pub fn new(
-        search_results: Vec<SearchResult>,
+        search_results: &'a[SearchResult],
         focused_search_result: usize,
         on_open_view: impl Fn(SearchResult) -> Message + 'static,
     ) -> Self {
@@ -46,7 +46,7 @@ impl<Message> SearchList<Message> {
     }
 }
 
-impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
+impl<'a, Message> Component<Message, GauntletTheme> for SearchList<'a, Message> {
     type State = ();
     type Event = SelectItemEvent;
 
@@ -122,11 +122,11 @@ impl<Message> Component<Message, GauntletTheme> for SearchList<Message> {
     }
 }
 
-impl<'a, Message> From<SearchList<Message>> for Element<'a, Message>
+impl<'a, Message> From<SearchList<'a, Message>> for Element<'a, Message>
     where
         Message: 'a,
 {
-    fn from(search_list: SearchList<Message>) -> Self {
+    fn from(search_list: SearchList<'a, Message>) -> Self {
         component(search_list)
     }
 }

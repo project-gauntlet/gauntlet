@@ -4,7 +4,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock as StdRwLock};
 use anyhow::anyhow;
-use iced::{Alignment, Command, Event, event, executor, font, Font, futures, keyboard, Length, Padding, Pixels, Settings, Size, Subscription, subscription, window};
+use iced::{event, executor, font, futures, keyboard, subscription, window, Alignment, Command, Event, Font, Length, Padding, Pixels, Settings, Size, Subscription};
 use iced::advanced::graphics::core::SmolStr;
 use iced::advanced::layout::Limits;
 use iced::multi_window::Application;
@@ -12,8 +12,8 @@ use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
-use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, Space, text, text_input};
-use iced::widget::scrollable::{AbsoluteOffset, scroll_to};
+use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
+use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
 use iced::widget::text_input::focus;
 use iced::window::{Level, Position, Screenshot};
 use iced::window::settings::PlatformSpecific;
@@ -24,7 +24,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -50,121 +50,28 @@ mod inline_view_container;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod sys_tray;
 mod custom_widgets;
+mod scroll_handle;
+mod state;
 
 pub use theme::GauntletTheme;
+use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData};
 
 pub struct AppModel {
     // logic
     backend_api: BackendForFrontendApi,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
-    search_field_id: text_input::Id,
     focused: bool,
     theme: GauntletTheme,
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
 
-    // ephemeral state
-    prompt: String,
-    focused_search_result: ScrollHandle,
-    focused_action_item: ScrollHandle,
-
     // state
     client_context: Arc<StdRwLock<ClientContext>>,
-    plugin_view_data: Option<PluginViewData>,
-    error_view: Option<ErrorViewData>,
-    search_results: Vec<SearchResult>,
-    show_action_panel: bool,
+    global_state: GlobalState,
 }
 
-#[derive(Clone, Debug)]
-struct ScrollHandle {
-    scrollable_id: scrollable::Id,
-    index: usize,
-    offset: usize,
-}
-
-impl ScrollHandle {
-    fn new(scrollable_id: scrollable::Id) -> ScrollHandle {
-        ScrollHandle {
-            scrollable_id,
-            index: 0,
-            offset: 0,
-        }
-    }
-
-    fn reset(&mut self) {
-        self.index = 0;
-        self.offset = 0;
-    }
-
-    fn get<'a, T>(&self, search_results: &'a Vec<T>) -> Option<&'a T> {
-        search_results.get(self.index)
-    }
-
-    fn focus_next(&mut self, item_amount: usize) -> Command<AppMsg> {
-        self.offset = if self.offset < 8 {
-            self.offset + 1
-        } else {
-            8
-        };
-
-        if self.index < item_amount - 1 {
-            self.index = self.index + 1;
-
-            let pos_y = self.index as f32 * ESTIMATED_ITEM_SIZE - (self.offset as f32 * ESTIMATED_ITEM_SIZE);
-
-            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
-        } else {
-            Command::none()
-        }
-    }
-
-    fn focus_previous(&mut self) -> Command<AppMsg> {
-        self.offset = if self.offset > 1 {
-            self.offset - 1
-        } else {
-            1
-        };
-
-        if self.index > 0 {
-            self.index = self.index - 1;
-
-            let pos_y = self.index as f32 * ESTIMATED_ITEM_SIZE - (self.offset as f32 * ESTIMATED_ITEM_SIZE);
-
-            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
-        } else {
-            Command::none()
-        }
-    }
-}
-
-struct PluginViewData {
-    top_level_view: bool,
-    plugin_id: PluginId,
-    plugin_name: String,
-    entrypoint_id: EntrypointId,
-    entrypoint_name: String,
-    action_shortcuts: HashMap<String, PhysicalShortcut>,
-    waiting_for_first_render: bool,
-}
-
-enum ErrorViewData {
-    PreferenceRequired {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        plugin_preferences_required: bool,
-        entrypoint_preferences_required: bool,
-    },
-    PluginError {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    },
-    BackendTimeout,
-    UnknownError {
-        display: String
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum AppMsg {
@@ -212,7 +119,7 @@ pub enum AppMsg {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
     },
-    SaveActionShortcuts {
+    OnOpenView {
         action_shortcuts: HashMap<String, PhysicalShortcut>
     },
     ShowPluginErrorView {
@@ -221,7 +128,6 @@ pub enum AppMsg {
         render_location: UiRenderLocation
     },
     RunSearchItemAction(SearchResult, Option<usize>),
-    RequestSearchResultUpdate,
     Screenshot {
         save_path: String
     },
@@ -231,7 +137,9 @@ pub enum AppMsg {
     },
     Close,
     ResetWindowState,
-    HandleBackendError(BackendForFrontendApiError),
+    ShowBackendError(BackendForFrontendApiError),
+    ClosePluginView(PluginId),
+    OpenPluginView(PluginId, EntrypointId),
 }
 
 pub struct AppFlags {
@@ -352,7 +260,7 @@ impl Application for AppModel {
             )
         }
 
-        let (client_context, plugin_view_data, error_view) = if cfg!(feature = "scenario_runner") {
+        let (client_context, global_state) = if cfg!(feature = "scenario_runner") {
             let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
                 .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
 
@@ -394,42 +302,41 @@ impl Application for AppModel {
 
                     commands.push(Command::perform(async move { top_level_view }, |top_level_view| AppMsg::ReplaceView { top_level_view }));
 
-                    let plugin_view_data= match render_location {
-                        ScenarioUiRenderLocation::InlineView => None,
-                        ScenarioUiRenderLocation::View => Some(PluginViewData {
+                    let state= match render_location {
+                        ScenarioUiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
+                        ScenarioUiRenderLocation::View => GlobalState::new_plugin(PluginViewData {
                             top_level_view,
                             plugin_id,
                             plugin_name: "Screenshot Gen".to_string(),
                             entrypoint_id,
                             entrypoint_name: gen_name,
                             action_shortcuts: Default::default(),
-                            waiting_for_first_render: false,
                         })
                     };
 
-                    (context, plugin_view_data, None)
+                    (context, state)
                 }
                 ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
-                    let error_view = Some(ErrorViewData::PreferenceRequired {
+                    let error_view = ErrorViewData::PreferenceRequired {
                         plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
                         entrypoint_id: EntrypointId::from_string(entrypoint_id),
                         plugin_preferences_required,
                         entrypoint_preferences_required,
-                    });
+                    };
 
-                    (ClientContext::new(), None, error_view)
+                    (ClientContext::new(), GlobalState::new_error(error_view))
                 }
                 ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, render_location: _ } => {
-                    let error_view = Some(ErrorViewData::PluginError {
+                    let error_view = ErrorViewData::PluginError {
                         plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
                         entrypoint_id: EntrypointId::from_string(entrypoint_id),
-                    });
+                    };
 
-                    (ClientContext::new(), None, error_view)
+                    (ClientContext::new(), GlobalState::new_error(error_view))
                 }
             }
         } else {
-            (ClientContext::new(), None, None)
+            (ClientContext::new(), GlobalState::new(text_input::Id::unique()))
         };
 
         (
@@ -437,24 +344,15 @@ impl Application for AppModel {
                 // logic
                 backend_api,
                 frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
-                search_field_id: text_input::Id::unique(),
                 focused: false,
                 theme: GauntletTheme::new(),
                 wayland,
                 #[cfg(any(target_os = "macos", target_os = "windows"))]
                 tray_icon: sys_tray::create_tray(),
 
-                // ephemeral state
-                prompt: "".to_string(),
-                focused_search_result: ScrollHandle::new(scrollable::Id::unique()),
-                focused_action_item: ScrollHandle::new(scrollable::Id::unique()),
-
                 // state
+                global_state,
                 client_context: Arc::new(StdRwLock::new(client_context)),
-                plugin_view_data,
-                error_view,
-                search_results: vec![],
-                show_action_panel: false,
             },
             Command::batch(commands),
         )
@@ -467,17 +365,26 @@ impl Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             AppMsg::OpenView { plugin_id, plugin_name, entrypoint_id, entrypoint_name } => {
-                self.plugin_view_data.replace(PluginViewData {
-                    top_level_view: true,
-                    plugin_id: plugin_id.clone(),
-                    plugin_name,
-                    entrypoint_id: entrypoint_id.clone(),
-                    entrypoint_name,
-                    action_shortcuts: HashMap::new(),
-                    waiting_for_first_render: true,
-                });
+                match &mut self.global_state {
+                    GlobalState::MainView { pending_plugin_view_data, .. } => {
+                        *pending_plugin_view_data = Some(PluginViewData {
+                            top_level_view: true,
+                            plugin_id: plugin_id.clone(),
+                            plugin_name,
+                            entrypoint_id: entrypoint_id.clone(),
+                            entrypoint_name,
+                            action_shortcuts: HashMap::new(),
+                        });
 
-                self.open_view(plugin_id, entrypoint_id)
+                        self.open_plugin_view(plugin_id, entrypoint_id)
+                    }
+                    GlobalState::ErrorView { .. } => {
+                        Command::none()
+                    }
+                    GlobalState::PluginView { .. } => {
+                        Command::none()
+                    }
+                }
             }
             AppMsg::RunCommand { plugin_id, entrypoint_id } => {
                 Command::batch([
@@ -495,12 +402,19 @@ impl Application for AppModel {
                 if cfg!(feature = "scenario_runner") {
                     Command::none()
                 } else {
-                    new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
+                    match &mut self.global_state {
+                        GlobalState::MainView { focused_search_result, sub_state, prompt, ..} => {
+                            new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
-                    self.show_action_panel = false;
-                    self.prompt = new_prompt.clone();
-                    self.focused_search_result.reset();
-                    self.focused_action_item.reset();
+                            *prompt = new_prompt.clone();
+
+                            focused_search_result.reset();
+
+                            MainViewState::initial(sub_state);
+                        }
+                        GlobalState::ErrorView { .. } => {}
+                        GlobalState::PluginView { .. } => {}
+                    }
 
                     let mut backend_api = self.backend_api.clone();
 
@@ -513,42 +427,52 @@ impl Application for AppModel {
                 }
             }
             AppMsg::UpdateSearchResults => {
-                let prompt = self.prompt.clone();
+                match &mut self.global_state {
+                    GlobalState::MainView { prompt, .. } => {
+                        let prompt = prompt.clone();
 
-                let mut backend_api = self.backend_api.clone();
+                        let mut backend_api = self.backend_api.clone();
 
-                Command::perform(async move {
-                    let search_results = backend_api.search(prompt, false)
-                        .await?;
+                        Command::perform(async move {
+                            let search_results = backend_api.search(prompt, false)
+                                .await?;
 
-                    Ok(search_results)
-                }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
-            }
-            AppMsg::PromptSubmit => {
-                if self.show_action_panel {
-                    self.show_action_panel = false;
-                    let widget_id = self.focused_action_item.index;
-                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
-                } else {
-                    self.show_action_panel = false;
-                    if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
-                        let search_item = search_item.clone();
-                        Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
-                    } else {
-                        Command::none()
+                            Ok(search_results)
+                        }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
+
                     }
+                    _ => Command::none()
                 }
             }
-            AppMsg::SetSearchResults(search_results) => {
-                self.search_results = search_results;
+            AppMsg::PromptSubmit => self.global_state.enter(),
+            AppMsg::SetSearchResults(new_search_results) => {
+                match &mut self.global_state {
+                    GlobalState::MainView { search_results, .. } => {
+                        *search_results = new_search_results;
+                    }
+                    GlobalState::ErrorView { .. } => {}
+                    GlobalState::PluginView { .. } => {}
+                }
+
                 Command::none()
             }
             AppMsg::ReplaceView { top_level_view } => {
-                match &mut self.plugin_view_data {
-                    None => Command::none(),
-                    Some(view_data) => {
-                        view_data.top_level_view = top_level_view;
-                        view_data.waiting_for_first_render = false;
+                match &mut self.global_state {
+                    GlobalState::MainView { pending_plugin_view_data, .. } => {
+                        match pending_plugin_view_data {
+                            None => Command::none(),
+                            Some(pending_plugin_view_data) => {
+                                let pending_plugin_view_data = pending_plugin_view_data.clone();
+                                GlobalState::plugin(&mut self.global_state, PluginViewData {
+                                    top_level_view,
+                                    ..pending_plugin_view_data
+                                })
+                            }
+                        }
+                    }
+                    GlobalState::ErrorView { .. } => Command::none(),
+                    GlobalState::PluginView(plugin_view_data) => {
+                        plugin_view_data.top_level_view = top_level_view;
 
                         Command::none()
                     }
@@ -561,62 +485,64 @@ impl Application for AppModel {
                     keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                         tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
                         match key {
-                            Key::Named(Named::ArrowUp) => self.focus_previous(),
-                            Key::Named(Named::ArrowDown) => self.focus_next(),
-                            Key::Named(Named::Escape) => self.previous_view(),
+                            Key::Named(Named::ArrowUp) => self.global_state.arrow_up(),
+                            Key::Named(Named::ArrowDown) => self.global_state.arrow_down(),
+                            Key::Named(Named::Escape) => self.global_state.escape(),
                             Key::Named(Named::Enter) => {
                                 // fired in cases where main text field is not focused
-                                Command ::perform(async {}, |_| AppMsg::PromptSubmit)
+                                Command::perform(async {}, |_| AppMsg::PromptSubmit)
                             },
-                            Key::Named(Named::Backspace) => {
-                                self.backspace_prompt();
-                                focus(self.search_field_id.clone())
-                            },
+                            Key::Named(Named::Backspace) => self.backspace_prompt(),
                             _ => {
-                                if self.plugin_view_data.is_none() {
-                                    match physical_key_model(physical_key, modifiers) {
-                                        Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                            Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
-                                        }
-                                        _ => {
-                                            match text {
-                                                Some(text) => {
-                                                    self.append_prompt(text.to_string());
-                                                    focus(self.search_field_id.clone())
-                                                }
-                                                None => {
-                                                    Command::none()
-                                                }
+                                match self.global_state {
+                                    GlobalState::MainView { .. } => {
+                                        match physical_key_model(physical_key, modifiers) {
+                                            Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                                                client_context.show_action_panel();
+
+                                                Command::none()
+                                            }
+                                            Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                                let (plugin_id, entrypoint_id) = {
+                                                    let client_context = self.client_context.read().expect("lock is poisoned");
+                                                    (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+                                                };
+
+                                                Command::perform(
+                                                    async move {
+                                                        backend_client.send_keyboard_event(plugin_id, entrypoint_id, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                            .await?;
+
+                                                        Ok(())
+                                                    },
+                                                    |result| handle_backend_error(result, |()| AppMsg::Noop),
+                                                )
+                                            }
+                                            None => {
+                                                Command::none()
                                             }
                                         }
                                     }
-                                } else {
-                                    match physical_key_model(physical_key, modifiers) {
-                                        Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                            let client_context = self.client_context.read().expect("lock is poisoned");
-
-                                            client_context.show_action_panel();
-
-                                            Command::none()
-                                        }
-                                        Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                            let (plugin_id, entrypoint_id) = {
-                                                let client_context = self.client_context.read().expect("lock is poisoned");
-                                                (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
-                                            };
-
-                                            Command::perform(
-                                                async move {
-                                                    backend_client.send_keyboard_event(plugin_id, entrypoint_id, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
-                                                        .await?;
-
-                                                    Ok(())
-                                                },
-                                                |result| handle_backend_error(result, |()| AppMsg::Noop),
-                                            )
-                                        }
-                                        None => {
-                                            Command::none()
+                                    GlobalState::ErrorView { .. } => {
+                                        Command::none()
+                                    }
+                                    GlobalState::PluginView { .. } => {
+                                        match physical_key_model(physical_key, modifiers) {
+                                            Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                                Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                            }
+                                            _ => {
+                                                match text {
+                                                    Some(text) => {
+                                                        self.append_prompt(text.to_string())
+                                                    }
+                                                    None => {
+                                                        Command::none()
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -648,7 +574,7 @@ impl Application for AppModel {
                 self.hide_window()
             }
             AppMsg::IcedEvent(_) => Command::none(),
-            AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.previous_view(),
+            AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.global_state.escape(),
             AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
                 let mut backend_client = self.backend_api.clone();
                 let client_context = self.client_context.clone();
@@ -689,20 +615,32 @@ impl Application for AppModel {
                 plugin_preferences_required,
                 entrypoint_preferences_required
             } => {
-                self.error_view = Some(ErrorViewData::PreferenceRequired {
-                    plugin_id,
-                    entrypoint_id,
-                    plugin_preferences_required,
-                    entrypoint_preferences_required,
-                });
-                Command::none()
+                GlobalState::error(
+                    &mut self.global_state,
+                    ErrorViewData::PreferenceRequired {
+                        plugin_id,
+                        entrypoint_id,
+                        plugin_preferences_required,
+                        entrypoint_preferences_required,
+                    },
+                )
             }
-            AppMsg::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
-                self.error_view = Some(ErrorViewData::PluginError {
-                    plugin_id,
-                    entrypoint_id,
-                });
-                Command::none()
+            AppMsg::ShowPluginErrorView { plugin_id, entrypoint_id, .. } => {
+                GlobalState::error(
+                    &mut self.global_state,
+                    ErrorViewData::PluginError {
+                        plugin_id,
+                        entrypoint_id,
+                    },
+                )
+            }
+            AppMsg::ShowBackendError(err) => {
+                GlobalState::error(
+                    &mut self.global_state,
+                    match err {
+                        BackendForFrontendApiError::TimeoutError => ErrorViewData::BackendTimeout,
+                    }
+                )
             }
             AppMsg::OpenSettingsPreferences { plugin_id, entrypoint_id, } => {
                 let mut backend_api = self.backend_api.clone();
@@ -714,10 +652,22 @@ impl Application for AppModel {
                     Ok(())
                 }, |result| handle_backend_error(result, |()| AppMsg::Noop))
             }
-            AppMsg::SaveActionShortcuts { action_shortcuts } => {
-                if let Some(data) = self.plugin_view_data.as_mut() {
-                    data.action_shortcuts = action_shortcuts;
+            AppMsg::OnOpenView { action_shortcuts } => {
+                match &mut self.global_state {
+                    GlobalState::MainView { pending_plugin_view_data, .. } => {
+                        match pending_plugin_view_data {
+                            None => {}
+                            Some(pending_plugin_view_data) => {
+                                pending_plugin_view_data.action_shortcuts = action_shortcuts;
+                            }
+                        };
+                    }
+                    GlobalState::ErrorView { .. } => { },
+                    GlobalState::PluginView(plugin_view_data) => {
+                        plugin_view_data.action_shortcuts = action_shortcuts;
+                    }
                 }
+
                 Command::none()
             }
             AppMsg::RunSearchItemAction(search_result, action_index) => {
@@ -740,9 +690,6 @@ impl Application for AppModel {
                 };
 
                 Command::perform(async {}, |_| event)
-            }
-            AppMsg::RequestSearchResultUpdate => {
-                Command::perform(async {}, move |_| AppMsg::UpdateSearchResults)
             }
             AppMsg::Screenshot { save_path } => {
                 println!("Creating screenshot at: {}", save_path);
@@ -798,257 +745,279 @@ impl Application for AppModel {
                 #[cfg(not(target_os = "linux"))]
                 window::close(window::Id::MAIN)
             }
-            AppMsg::HandleBackendError(err) => {
-                self.error_view = Some(match err {
-                    BackendForFrontendApiError::TimeoutError => ErrorViewData::BackendTimeout,
-                });
-
-                Command::none()
-            }
             AppMsg::ToggleActionPanel => {
-                self.show_action_panel = !self.show_action_panel;
+                match &mut self.global_state {
+                    GlobalState::MainView { sub_state, search_results, focused_search_result, .. } => {
+                        match sub_state {
+                            MainViewState::None => {
+                                if let Some(search_item) = focused_search_result.get(&search_results) {
+                                    MainViewState::action_panel(sub_state, &search_item.entrypoint_actions);
+                                }
+                            }
+                            MainViewState::ActionPanel { .. } => {
+                                MainViewState::initial(sub_state);
+                            }
+                        }
+                    }
+                    GlobalState::ErrorView { .. } => { },
+                    GlobalState::PluginView { .. } => {
+                        // todo
+                        // self.show_action_panel = !self.show_action_panel;
+                    }
+                }
 
                 Command::none()
             }
             AppMsg::OnEntrypointAction(widget_id) => {
-                if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
-                    let search_item = search_item.clone();
-                    if widget_id == 0 {
-                        Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
-                    } else {
-                        Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_item, Some(widget_id - 1)))
+                match &self.global_state {
+                    GlobalState::MainView { focused_search_result, search_results, .. } => {
+                        if let Some(search_item) = focused_search_result.get(&search_results) {
+                            let search_item = search_item.clone();
+                            if widget_id == 0 {
+                                Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
+                            } else {
+                                Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_item, Some(widget_id - 1)))
+                            }
+                        } else {
+                            Command::none()
+                        }
                     }
-                } else {
-                    Command::none()
+                    GlobalState::ErrorView { .. } => Command::none(),
+                    GlobalState::PluginView { .. } => {
+                        todo!()
+                    }
                 }
+            }
+            AppMsg::OpenPluginView(plugin_id, entrypoint_id) => {
+                self.open_plugin_view(plugin_id, entrypoint_id)
+            }
+            AppMsg::ClosePluginView(plugin_id) => {
+                self.close_plugin_view(plugin_id)
             }
         }
     }
 
     fn view(&self, _window: window::Id) -> Element<'_, Self::Message> {
-        if let Some(view_data) = &self.error_view {
-            return match view_data {
-                ErrorViewData::PreferenceRequired { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
+        match &self.global_state {
+            GlobalState::ErrorView { error_view } => {
+                match error_view {
+                    ErrorViewData::PreferenceRequired { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
 
-                    let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
-                        (true, true) => {
-                            // TODO do not show "entrypoint" name to user
-                            let description_text = "Before using, plugin and entrypoint preferences need to be specified";
-                            // note:
-                            // we open plugin view and not entrypoint even though both need to be specified
-                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
-                            (description_text, msg)
-                        }
-                        (false, true) => {
-                            // TODO do not show "entrypoint" name to user
-                            let description_text = "Before using, entrypoint preferences need to be specified";
-                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: Some(entrypoint_id.clone()) };
-                            (description_text, msg)
-                        }
-                        (true, false) => {
-                            let description_text = "Before using, plugin preferences need to be specified";
-                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
-                            (description_text, msg)
-                        }
-                        (false, false) => unreachable!()
-                    };
+                        let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
+                            (true, true) => {
+                                // TODO do not show "entrypoint" name to user
+                                let description_text = "Before using, plugin and entrypoint preferences need to be specified";
+                                // note:
+                                // we open plugin view and not entrypoint even though both need to be specified
+                                let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                                (description_text, msg)
+                            }
+                            (false, true) => {
+                                // TODO do not show "entrypoint" name to user
+                                let description_text = "Before using, entrypoint preferences need to be specified";
+                                let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: Some(entrypoint_id.clone()) };
+                                (description_text, msg)
+                            }
+                            (true, false) => {
+                                let description_text = "Before using, plugin preferences need to be specified";
+                                let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                                (description_text, msg)
+                            }
+                            (false, false) => unreachable!()
+                        };
 
-                    let description: Element<_> = text(description_text)
-                        .into();
+                        let description: Element<_> = text(description_text)
+                            .into();
 
-                    let description = container(description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PreferenceRequiredViewDescription);
+                        let description = container(description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PreferenceRequiredViewDescription);
 
-                    let button_label: Element<_> = text("Open Settings")
-                        .into();
+                        let button_label: Element<_> = text("Open Settings")
+                            .into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(msg)
-                        .into();
+                        let button: Element<_> = button(button_label)
+                            .on_press(msg)
+                            .into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .center_x()
-                        .into();
+                        let button = container(button)
+                            .width(Length::Fill)
+                            .center_x()
+                            .into();
 
-                    let content: Element<_> = column([
-                        description,
-                        button
-                    ]).into();
+                        let content: Element<_> = column([
+                            description,
+                            button
+                        ]).into();
 
-                    let content: Element<_> = container(content)
-                        .center_x()
-                        .center_y()
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .themed(ContainerStyle::Main);
+                        let content: Element<_> = container(content)
+                            .center_x()
+                            .center_y()
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .themed(ContainerStyle::Main);
 
-                    content
-                }
-                ErrorViewData::PluginError { plugin_id, entrypoint_id } => {
-                    let description: Element<_> = text("Error occurred in plugin when trying to show the view")
-                        .into();
+                        content
+                    }
+                    ErrorViewData::PluginError { .. } => {
+                        let description: Element<_> = text("Error occurred in plugin when trying to show the view")
+                            .into();
 
-                    let description = container(description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PluginErrorViewTitle);
+                        let description = container(description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PluginErrorViewTitle);
 
-                    let sub_description: Element<_> = text("Please report this to plugin author")
-                        .into();
+                        let sub_description: Element<_> = text("Please report this to plugin author")
+                            .into();
 
-                    let sub_description = container(sub_description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PluginErrorViewDescription);
+                        let sub_description = container(sub_description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let button_label: Element<_> = text("Close")
-                        .into();
+                        let button_label: Element<_> = text("Close")
+                            .into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(AppMsg::HideWindow)
-                        .into();
+                        let button: Element<_> = button(button_label)
+                            .on_press(AppMsg::HideWindow)
+                            .into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .center_x()
-                        .into();
+                        let button = container(button)
+                            .width(Length::Fill)
+                            .center_x()
+                            .into();
 
-                    let content: Element<_> = column([
-                        description,
-                        sub_description,
-                        button
-                    ]).into();
+                        let content: Element<_> = column([
+                            description,
+                            sub_description,
+                            button
+                        ]).into();
 
-                    let content: Element<_> = container(content)
-                        .center_x()
-                        .center_y()
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .themed(ContainerStyle::Main);
+                        let content: Element<_> = container(content)
+                            .center_x()
+                            .center_y()
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .themed(ContainerStyle::Main);
 
-                    content
-                }
-                ErrorViewData::UnknownError { display } => {
-                    let description: Element<_> = text("Unknown error occurred")
-                        .into();
+                        content
+                    }
+                    ErrorViewData::UnknownError { display } => {
+                        let description: Element<_> = text("Unknown error occurred")
+                            .into();
 
-                    let description = container(description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PluginErrorViewTitle);
+                        let description = container(description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PluginErrorViewTitle);
 
-                    let sub_description: Element<_> = text("Please report") // TODO link
-                        .into();
+                        let sub_description: Element<_> = text("Please report") // TODO link
+                            .into();
 
-                    let sub_description = container(sub_description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PluginErrorViewDescription);
+                        let sub_description = container(sub_description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let error_description: Element<_> = text(display)
-                        .into();
+                        let error_description: Element<_> = text(display)
+                            .into();
 
-                    let error_description = container(error_description)
-                        .width(Length::Fill)
-                        .themed(ContainerStyle::PluginErrorViewDescription);
+                        let error_description = container(error_description)
+                            .width(Length::Fill)
+                            .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let error_description = scrollable(error_description)
-                        .width(Length::Fill)
-                        .into();
+                        let error_description = scrollable(error_description)
+                            .width(Length::Fill)
+                            .into();
 
-                    let button_label: Element<_> = text("Close")
-                        .into();
+                        let button_label: Element<_> = text("Close")
+                            .into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(AppMsg::HideWindow)
-                        .into();
+                        let button: Element<_> = button(button_label)
+                            .on_press(AppMsg::HideWindow)
+                            .into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .center_x()
-                        .into();
+                        let button = container(button)
+                            .width(Length::Fill)
+                            .center_x()
+                            .into();
 
-                    let content: Element<_> = column([
-                        description,
-                        sub_description,
-                        error_description,
-                        button
-                    ]).into();
+                        let content: Element<_> = column([
+                            description,
+                            sub_description,
+                            error_description,
+                            button
+                        ]).into();
 
-                    let content: Element<_> = container(content)
-                        .center_x()
-                        .center_y()
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .themed(ContainerStyle::Main);
+                        let content: Element<_> = container(content)
+                            .center_x()
+                            .center_y()
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .themed(ContainerStyle::Main);
 
-                    content
-                }
-                ErrorViewData::BackendTimeout => {
-                    let description: Element<_> = text("Error occurred")
-                        .into();
+                        content
+                    }
+                    ErrorViewData::BackendTimeout => {
+                        let description: Element<_> = text("Error occurred")
+                            .into();
 
-                    let description = container(description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PluginErrorViewTitle);
+                        let description = container(description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PluginErrorViewTitle);
 
-                    let sub_description: Element<_> = text("Backend was unable to process message in a timely manner")
-                        .into();
+                        let sub_description: Element<_> = text("Backend was unable to process message in a timely manner")
+                            .into();
 
-                    let sub_description = container(sub_description)
-                        .width(Length::Fill)
-                        .center_x()
-                        .themed(ContainerStyle::PluginErrorViewDescription);
+                        let sub_description = container(sub_description)
+                            .width(Length::Fill)
+                            .center_x()
+                            .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let button_label: Element<_> = text("Close")
-                        .into();
+                        let button_label: Element<_> = text("Close")
+                            .into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(AppMsg::HideWindow)
-                        .into();
+                        let button: Element<_> = button(button_label)
+                            .on_press(AppMsg::HideWindow)
+                            .into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .center_x()
-                        .into();
+                        let button = container(button)
+                            .width(Length::Fill)
+                            .center_x()
+                            .into();
 
-                    let content: Element<_> = column([
-                        description,
-                        sub_description,
-                        button
-                    ]).into();
+                        let content: Element<_> = column([
+                            description,
+                            sub_description,
+                            button
+                        ]).into();
 
-                    let content: Element<_> = container(content)
-                        .center_x()
-                        .center_y()
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .themed(ContainerStyle::Main);
+                        let content: Element<_> = container(content)
+                            .center_x()
+                            .center_y()
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .themed(ContainerStyle::Main);
 
-                    content
+                        content
+                    }
                 }
             }
-        }
-
-        match &self.plugin_view_data {
-            None | Some(PluginViewData { waiting_for_first_render: true, .. }) => {
-                let input: Element<_> = text_input("Search...", &self.prompt)
+            GlobalState::MainView { focused_search_result, sub_state, search_results, prompt, search_field_id, .. } => {
+                let input: Element<_> = text_input("Search...", prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
-                    .id(self.search_field_id.clone())
+                    .id(search_field_id.clone())
                     .width(Length::Fill)
                     .themed(TextInputStyle::MainSearch);
 
-                let search_results = self.search_results.iter().cloned().collect();
-
                 let search_list = search_list(
                     search_results,
-                    &self.focused_search_result,
-                    |search_result| AppMsg::RunSearchItemAction(search_result, None)
+                    &focused_search_result,
+                    |search_result| AppMsg::RunSearchItemAction(search_result, None),
                 );
 
                 let search_list = container(search_list)
@@ -1056,7 +1025,7 @@ impl Application for AppModel {
                     .themed(ContainerStyle::MainListInner);
 
                 let list: Element<_> = scrollable(search_list)
-                    .id(self.focused_search_result.scrollable_id.clone())
+                    .id(focused_search_result.scrollable_id.clone())
                     .width(Length::Fill)
                     .into();
 
@@ -1077,7 +1046,7 @@ impl Application for AppModel {
                     list,
                 ]).into();
 
-                let (default_action, action_panel) = if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
+                let (default_action, action_panel) = if let Some(search_item) = focused_search_result.get(search_results) {
                     let label = match search_item.entrypoint_type {
                         SearchResultEntrypointType::Command => "Run Command",
                         SearchResultEntrypointType::View => "Open View",
@@ -1124,18 +1093,36 @@ impl Application for AppModel {
                     (None, None)
                 };
 
-                let root = render_root(
-                    self.show_action_panel,
-                    input,
-                    separator,
-                    content,
-                    default_action,
-                    action_panel,
-                    &self.focused_action_item,
-                    "".to_string(),
-                    || AppMsg::ToggleActionPanel,
-                    AppMsg::OnEntrypointAction
-                );
+                let root = match sub_state {
+                    MainViewState::None => {
+                        render_root(
+                            false,
+                            input,
+                            separator,
+                            content,
+                            default_action,
+                            action_panel,
+                            None::<&ScrollHandle<SearchResultEntrypointAction>>,
+                            "".to_string(),
+                            || AppMsg::ToggleActionPanel,
+                            AppMsg::OnEntrypointAction
+                        )
+                    }
+                    MainViewState::ActionPanel { focused_action_item, .. } => {
+                        render_root(
+                            true,
+                            input,
+                            separator,
+                            content,
+                            default_action,
+                            action_panel,
+                            Some(focused_action_item),
+                            "".to_string(),
+                            || AppMsg::ToggleActionPanel,
+                            AppMsg::OnEntrypointAction
+                        )
+                    }
+                };
 
                 let root: Element<_> = container(root)
                     .width(Length::Fill)
@@ -1144,7 +1131,7 @@ impl Application for AppModel {
 
                 root
             }
-            Some(data) => {
+            GlobalState::PluginView(plugin_view_data) => {
                 let PluginViewData {
                     top_level_view: _,
                     plugin_id,
@@ -1152,8 +1139,7 @@ impl Application for AppModel {
                     entrypoint_id,
                     entrypoint_name,
                     action_shortcuts,
-                    waiting_for_first_render: _
-                } = data;
+                } = plugin_view_data;
 
                 let container_element: Element<_> = view_container(
                     self.client_context.clone(),
@@ -1217,8 +1203,6 @@ impl Application for AppModel {
     }
 }
 
-const ESTIMATED_ITEM_SIZE: f32 = 38.8;
-
 impl AppModel {
     fn on_focused(&mut self) -> Command<AppMsg> {
         self.focused = true;
@@ -1226,7 +1210,7 @@ impl AppModel {
     }
 
     fn on_unfocused(&mut self) -> Command<AppMsg> {
-        // for some reason (on both macos and linux x11) duplicate Unfocused fires right before Focus event
+        // for some reason (on both macOS and linux x11) duplicate Unfocused fires right before Focus event
         if self.focused {
             self.focused = false;
             self.hide_window()
@@ -1259,21 +1243,22 @@ impl AppModel {
             window::change_mode(window::Id::MAIN, window::Mode::Hidden)
         );
 
-        if let Some(PluginViewData { plugin_id, .. }) = &self.plugin_view_data {
-            commands.push(self.close_view(plugin_id.clone()));
+        match &self.global_state {
+            GlobalState::PluginView(PluginViewData { plugin_id, .. }) => {
+                commands.push(self.close_plugin_view(plugin_id.clone()));
+            }
+            GlobalState::MainView { .. } => {}
+            GlobalState::ErrorView { .. } => {}
         }
 
-        self.prompt = "".to_string();
-        self.plugin_view_data = None;
-        self.search_results = vec![];
-        self.close_error_view();
+        commands.push(
+            GlobalState::initial(&mut self.global_state)
+        );
 
         Command::batch(commands)
     }
 
     fn show_window(&mut self) -> Command<AppMsg> {
-        self.close_error_view();
-
         let mut commands = vec![];
 
         #[cfg(target_os = "linux")]
@@ -1305,15 +1290,8 @@ impl AppModel {
     }
 
     fn reset_window_state(&mut self) -> Command<AppMsg> {
-        self.focused_action_item.reset();
-        self.focused_search_result.reset();
-        self.show_action_panel = false;
-
         let mut commands = vec![
-            scroll_to(self.focused_action_item.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
-            scroll_to(self.focused_search_result.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: 0.0 }),
-            Command::perform(async {}, |_| AppMsg::PromptChanged("".to_owned())),
-            focus(self.search_field_id.clone())
+            GlobalState::initial(&mut self.global_state),
         ];
 
         if !self.wayland {
@@ -1325,73 +1303,7 @@ impl AppModel {
         Command::batch(commands)
     }
 
-    fn focus_next(&mut self) -> Command<AppMsg> {
-        if self.show_action_panel {
-            if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
-                if search_item.entrypoint_actions.len() != 0 {
-                    self.focused_action_item.focus_next(search_item.entrypoint_actions.len() + 1)
-                } else {
-                    self.show_action_panel = false;
-                    Command::none()
-                }
-            } else {
-                self.show_action_panel = false;
-                Command::none()
-            }
-        } else {
-            self.focused_search_result.focus_next(self.search_results.len())
-        }
-    }
-
-    fn focus_previous(&mut self) -> Command<AppMsg> {
-        if self.show_action_panel {
-            if let Some(search_item) = self.focused_search_result.get(&self.search_results) {
-                if search_item.entrypoint_actions.len() != 0 {
-                    self.focused_action_item.focus_previous()
-                } else {
-                    self.show_action_panel = false;
-                    Command::none()
-                }
-            } else {
-                self.show_action_panel = false;
-                Command::none()
-            }
-        } else {
-            self.focused_search_result.focus_previous()
-        }
-    }
-
-    fn close_error_view(&mut self) {
-        self.error_view = None;
-    }
-
-    fn previous_view(&mut self) -> Command<AppMsg> {
-        if self.show_action_panel {
-            self.show_action_panel = false;
-            Command::none()
-        } else {
-            match &self.plugin_view_data {
-                None => {
-                    self.hide_window()
-                }
-                Some(PluginViewData { top_level_view: true, plugin_id, .. }) => {
-                    let plugin_id = plugin_id.clone();
-
-                    self.plugin_view_data.take();
-
-                    Command::batch([
-                        self.close_view(plugin_id),
-                        focus(self.search_field_id.clone()),
-                    ])
-                }
-                Some(PluginViewData { top_level_view: false, plugin_id, entrypoint_id, .. }) => {
-                    self.open_view(plugin_id.clone(), entrypoint_id.clone())
-                }
-            }
-        }
-    }
-
-    fn open_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
+    fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Command<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
@@ -1399,10 +1311,10 @@ impl AppModel {
                 .await?;
 
             Ok(result)
-        }, |result| handle_backend_error(result, |action_shortcuts| AppMsg::SaveActionShortcuts { action_shortcuts }))
+        }, |result| handle_backend_error(result, |action_shortcuts| AppMsg::OnOpenView { action_shortcuts }))
     }
 
-    fn close_view(&self, plugin_id: PluginId) -> Command<AppMsg> {
+    fn close_plugin_view(&self, plugin_id: PluginId) -> Command<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         Command::perform(async move {
@@ -1435,21 +1347,37 @@ impl AppModel {
         }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
-    fn append_prompt(&mut self, value: String) {
-        self.prompt = format!("{}{}", self.prompt, value);
+    fn append_prompt(&mut self, value: String) -> Command<AppMsg> {
+        match &mut self.global_state {
+            GlobalState::MainView { search_field_id, prompt, .. } => {
+                *prompt = format!("{}{}", prompt, value);
+
+                focus(search_field_id.clone())
+            }
+            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::PluginView(_) => Command::none(),
+        }
     }
 
-    fn backspace_prompt(&mut self) {
-        let mut chars = self.prompt.chars();
-        chars.next_back();
-        self.prompt = chars.as_str().to_owned();
+    fn backspace_prompt(&mut self) -> Command<AppMsg> {
+        match &mut self.global_state {
+            GlobalState::MainView { search_field_id, prompt, .. } => {
+                let mut chars = prompt.chars();
+                chars.next_back();
+                *prompt = chars.as_str().to_owned();
+
+                focus(search_field_id.clone())
+            }
+            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::PluginView(_) => Command::none(),
+        }
     }
 }
 
 fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, convert: impl FnOnce(T) -> AppMsg) -> AppMsg {
     match result {
         Ok(val) => convert(val),
-        Err(err) => AppMsg::HandleBackendError(err)
+        Err(err) => AppMsg::ShowBackendError(err)
     }
 }
 
@@ -1529,7 +1457,7 @@ async fn request_loop(
                 UiRequestData::RequestSearchResultUpdate => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::RequestSearchResultUpdate
+                    AppMsg::UpdateSearchResults
                 }
             }
         };

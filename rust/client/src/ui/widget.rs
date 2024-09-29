@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use common::model::{PhysicalKey, PhysicalShortcut, PluginId, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
+use common::model::{PhysicalKey, PhysicalShortcut, PluginId, SearchResultEntrypointAction, UiPropertyValue, UiPropertyValueToEnum, UiPropertyValueToStruct, UiWidgetId};
 use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
@@ -21,7 +21,7 @@ use itertools::Itertools;
 
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
-use crate::ui::ScrollHandle;
+use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::date_picker::DatePickerStyle;
@@ -63,19 +63,19 @@ pub enum ComponentWidgetState {
     },
     Detail {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle,
+        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     Form {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle,
+        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     List {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle,
+        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     Grid {
         show_action_panel: bool,
-        focused_action_item: ScrollHandle,
+        focused_action_item: ScrollHandle<ComponentWidgetWrapper>,
     },
     None
 }
@@ -110,19 +110,19 @@ impl ComponentWidgetState {
             },
             ComponentWidget::Detail { .. } => ComponentWidgetState::Detail {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(scrollable::Id::unique()),
+                focused_action_item: ScrollHandle::new(),
             },
             ComponentWidget::Form { .. } => ComponentWidgetState::Form {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(scrollable::Id::unique()),
+                focused_action_item: ScrollHandle::new(),
             },
             ComponentWidget::List { .. } => ComponentWidgetState::List {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(scrollable::Id::unique()),
+                focused_action_item: ScrollHandle::new(),
             },
             ComponentWidget::Grid { .. } => ComponentWidgetState::Grid {
                 show_action_panel: false,
-                focused_action_item: ScrollHandle::new(scrollable::Id::unique()),
+                focused_action_item: ScrollHandle::new(),
             },
             _ => ComponentWidgetState::None
         }
@@ -1284,9 +1284,9 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
         .into()
 }
 
-fn render_plugin_root<'a>(
+fn render_plugin_root<'a, ACTION>(
     show_action_panel: bool,
-    action_panel_scroll_handle: &ScrollHandle,
+    action_panel_scroll_handle: &ScrollHandle<ACTION>,
     widget_id: UiWidgetId,
     children: &[ComponentWidgetWrapper],
     content: Element<'a, ComponentWidgetEvent>,
@@ -1307,16 +1307,14 @@ fn render_plugin_root<'a>(
             .into()
     };
 
-    let action_panel = convert_action_panel(children, action_shortcuts);
-
     render_root(
         show_action_panel,
         top_panel,
         top_separator,
         content,
         None,
-        action_panel,
-        action_panel_scroll_handle,
+        convert_action_panel(children, action_shortcuts),
+        Some(action_panel_scroll_handle),
         entrypoint_name,
         || ComponentWidgetEvent::ToggleActionPanel { widget_id },
         |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
@@ -1403,10 +1401,10 @@ fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: H
     }
 }
 
-fn render_action_panel_items<'a, T: 'a + Clone>(
+fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
     title: Option<String>,
     items: Vec<ActionPanelItems>,
-    action_panel_scroll_handle: &ScrollHandle,
+    action_panel_scroll_handle: &ScrollHandle<ACTION>,
     on_action: &dyn Fn(UiWidgetId) -> T
 ) -> Vec<Element<'a, T>> {
     let mut columns = vec![];
@@ -1491,10 +1489,10 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
     columns
 }
 
-fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T>(
+fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
     action_panel: ActionPanel,
     on_action: F,
-    action_panel_scroll_handle: &ScrollHandle,
+    action_panel_scroll_handle: &ScrollHandle<ACTION>,
 ) -> Element<'a, T> {
     let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle, &on_action);
 
@@ -1510,14 +1508,14 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T>(
         .themed(ContainerStyle::ActionPanel)
 }
 
-pub fn render_root<'a, T: 'a + Clone>(
+pub fn render_root<'a, T: 'a + Clone, ACTION>(
     show_action_panel: bool,
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
     content: Element<'a, T>,
     default_action: Option<(String, PhysicalShortcut)>,
     action_panel: Option<ActionPanel>,
-    action_panel_scroll_handle: &ScrollHandle,
+    action_panel_scroll_handle: Option<&ScrollHandle<ACTION>>,
     entrypoint_name: String,
     on_panel_toggle: impl Fn() -> T,
     on_action: impl Fn(UiWidgetId) -> T,
@@ -1637,9 +1635,9 @@ pub fn render_root<'a, T: 'a + Clone>(
             .into()
     };
 
-    let action_panel_element = match action_panel {
-        None => Space::with_height(1).into(),
-        Some(action_panel) => render_action_panel(action_panel, on_action, action_panel_scroll_handle)
+    let action_panel_element = match (action_panel, action_panel_scroll_handle) {
+        (Some(action_panel), Some(action_panel_scroll_handle)) => render_action_panel(action_panel, on_action, action_panel_scroll_handle),
+        _ => Space::with_height(1).into(),
     };
 
     floating_element(content, action_panel_element)
@@ -1736,7 +1734,7 @@ fn render_children_string<'a>(
         })
         .join("");
 
-    return render_text_part(&text_part, context);
+    render_text_part(&text_part, context)
 }
 
 
@@ -1744,10 +1742,10 @@ fn render_children<'a>(
     content: &[ComponentWidgetWrapper],
     context: ComponentRenderContext
 ) -> Vec<Element<'a, ComponentWidgetEvent>> {
-    return content
+    content
         .into_iter()
         .map(|child| child.render_widget(context.clone()))
-        .collect();
+        .collect()
 }
 
 fn render_child_by_type<'a>(
@@ -1774,14 +1772,14 @@ fn render_children_by_type<'a>(
     content: &[ComponentWidgetWrapper], predicate: impl Fn(&ComponentWidget) -> bool,
     context: ComponentRenderContext
 ) -> Vec<Element<'a, ComponentWidgetEvent>> {
-    return content
+    content
         .into_iter()
         .filter(|child| {
             let (widget, _) = &*child.get();
             predicate(widget)
         })
         .map(|child| child.render_widget(context.clone()))
-        .collect();
+        .collect()
 }
 
 
@@ -1836,7 +1834,7 @@ pub enum ComponentWidgetEvent {
 }
 
 impl ComponentWidgetEvent {
-    pub fn handle(self, plugin_id: PluginId, widget: ComponentWidgetWrapper) -> Option<UiViewEvent> {
+    pub fn handle(self, _plugin_id: PluginId, widget: ComponentWidgetWrapper) -> Option<UiViewEvent> {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id: _, href } => {
                 Some(UiViewEvent::Open {
@@ -1870,7 +1868,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::SubmitDatePicker { widget_id, value } => {
                 {
                     let (widget, ref mut state) = &mut *widget.get_mut();
-                    let ComponentWidgetState::DatePicker { state_value, show_picker,  } = state else {
+                    let ComponentWidgetState::DatePicker { state_value: _, show_picker,  } = state else {
                         panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
                     };
 
