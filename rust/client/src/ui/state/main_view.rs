@@ -1,14 +1,13 @@
-use iced::Command;
-use common::model::SearchResultEntrypointAction;
-use crate::ui::{AppModel, AppMsg};
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::Focus;
+use crate::ui::AppMsg;
+use common::model::SearchResultEntrypointAction;
+use iced::Command;
 
 pub enum MainViewState {
     None,
     ActionPanel {
         // ephemeral state
-        entrypoint_actions_size: usize,
         focused_action_item: ScrollHandle<SearchResultEntrypointAction>,
     }
 }
@@ -22,24 +21,15 @@ impl MainViewState {
         *prev_state = Self::None
     }
 
-    pub fn action_panel(prev_state: &mut MainViewState, entrypoint_actions: &[SearchResultEntrypointAction]) {
+    pub fn action_panel(prev_state: &mut MainViewState) {
         *prev_state = Self::ActionPanel {
-            entrypoint_actions_size: entrypoint_actions.len(),
             focused_action_item: ScrollHandle::new(),
         }
     }
-
-    pub fn is_none(&self) -> bool {
-        matches!(self, MainViewState::None)
-    }
-
-    pub fn is_action_panel(&self) -> bool {
-        matches!(self, MainViewState::None)
-    }
 }
 
-impl Focus for MainViewState {
-    fn enter(&mut self) -> Command<AppMsg> {
+impl Focus<SearchResultEntrypointAction> for MainViewState {
+    fn enter(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         todo!()
     }
 
@@ -55,7 +45,7 @@ impl Focus for MainViewState {
         todo!()
     }
 
-    fn arrow_up(&mut self) -> Command<AppMsg> {
+    fn arrow_up(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         match self {
             MainViewState::None => Command::none(),
             MainViewState::ActionPanel { focused_action_item, .. } => {
@@ -64,12 +54,12 @@ impl Focus for MainViewState {
         }
     }
 
-    fn arrow_down(&mut self) -> Command<AppMsg> {
+    fn arrow_down(&mut self, focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         match self {
             MainViewState::None => Command::none(),
-            MainViewState::ActionPanel { entrypoint_actions_size, focused_action_item } => {
-                if *entrypoint_actions_size != 0 {
-                    focused_action_item.focus_next(*entrypoint_actions_size + 1)
+            MainViewState::ActionPanel { focused_action_item } => {
+                if focus_list.len() != 0 {
+                    focused_action_item.focus_next(focus_list.len() + 1)
                 } else {
                     Command::none()
                 }
@@ -77,11 +67,11 @@ impl Focus for MainViewState {
         }
     }
 
-    fn arrow_left(&mut self) -> Command<AppMsg> {
+    fn arrow_left(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         todo!()
     }
 
-    fn arrow_right(&mut self) -> Command<AppMsg> {
+    fn arrow_right(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         todo!()
     }
 }

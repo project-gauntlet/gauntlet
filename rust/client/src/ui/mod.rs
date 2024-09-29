@@ -70,6 +70,7 @@ pub struct AppModel {
     // state
     client_context: Arc<StdRwLock<ClientContext>>,
     global_state: GlobalState,
+    search_results: Vec<SearchResult>,
 }
 
 
@@ -353,6 +354,7 @@ impl Application for AppModel {
                 // state
                 global_state,
                 client_context: Arc::new(StdRwLock::new(client_context)),
+                search_results: vec![],
             },
             Command::batch(commands),
         )
@@ -427,15 +429,9 @@ impl Application for AppModel {
                     _ => Command::none()
                 }
             }
-            AppMsg::PromptSubmit => self.global_state.enter(),
+            AppMsg::PromptSubmit => self.global_state.enter(&self.search_results),
             AppMsg::SetSearchResults(new_search_results) => {
-                match &mut self.global_state {
-                    GlobalState::MainView { search_results, .. } => {
-                        *search_results = new_search_results;
-                    }
-                    GlobalState::ErrorView { .. } => {}
-                    GlobalState::PluginView { .. } => {}
-                }
+                self.search_results = new_search_results;
 
                 Command::none()
             }
@@ -466,12 +462,12 @@ impl Application for AppModel {
                     keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                         tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
                         match key {
-                            Key::Named(Named::ArrowUp) => self.global_state.arrow_up(),
-                            Key::Named(Named::ArrowDown) => self.global_state.arrow_down(),
+                            Key::Named(Named::ArrowUp) => self.global_state.arrow_up(&self.search_results),
+                            Key::Named(Named::ArrowDown) => self.global_state.arrow_down(&self.search_results),
                             Key::Named(Named::Escape) => self.global_state.escape(),
                             Key::Named(Named::Enter) => {
                                 // for main view, also fired in cases where main text field is not focused
-                                self.global_state.enter()
+                                self.global_state.enter(&self.search_results)
                             },
                             Key::Named(Named::Backspace) => self.backspace_prompt(),
                             _ => {
@@ -685,11 +681,11 @@ impl Application for AppModel {
             }
             AppMsg::ToggleActionPanel => {
                 match &mut self.global_state {
-                    GlobalState::MainView { sub_state, search_results, focused_search_result, .. } => {
+                    GlobalState::MainView { sub_state, focused_search_result, .. } => {
                         match sub_state {
                             MainViewState::None => {
-                                if let Some(search_item) = focused_search_result.get(&search_results) {
-                                    MainViewState::action_panel(sub_state, &search_item.entrypoint_actions);
+                                if let Some(_) = focused_search_result.get(&self.search_results) {
+                                    MainViewState::action_panel(sub_state);
                                 }
                             }
                             MainViewState::ActionPanel { .. } => {
@@ -708,8 +704,8 @@ impl Application for AppModel {
             }
             AppMsg::OnEntrypointAction(widget_id) => {
                 match &self.global_state {
-                    GlobalState::MainView { focused_search_result, search_results, .. } => {
-                        if let Some(search_item) = focused_search_result.get(&search_results) {
+                    GlobalState::MainView { focused_search_result, .. } => {
+                        if let Some(search_item) = focused_search_result.get(&self.search_results) {
                             let search_item = search_item.clone();
                             if widget_id == 0 {
                                 Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
@@ -944,7 +940,7 @@ impl Application for AppModel {
                     }
                 }
             }
-            GlobalState::MainView { focused_search_result, sub_state, search_results, prompt, search_field_id, .. } => {
+            GlobalState::MainView { focused_search_result, sub_state, prompt, search_field_id, .. } => {
                 let input: Element<_> = text_input("Search...", prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
@@ -953,7 +949,7 @@ impl Application for AppModel {
                     .themed(TextInputStyle::MainSearch);
 
                 let search_list = search_list(
-                    search_results,
+                    &self.search_results,
                     &focused_search_result,
                     |search_result| AppMsg::RunSearchItemAction(search_result, None),
                 );
@@ -984,7 +980,7 @@ impl Application for AppModel {
                     list,
                 ]).into();
 
-                let (default_action, action_panel) = if let Some(search_item) = focused_search_result.get(search_results) {
+                let (default_action, action_panel) = if let Some(search_item) = focused_search_result.get(&self.search_results) {
                     let label = match search_item.entrypoint_type {
                         SearchResultEntrypointType::Command => "Run Command",
                         SearchResultEntrypointType::View => "Open View",

@@ -17,11 +17,10 @@ pub enum GlobalState {
         // ephemeral state
         prompt: String,
         focused_search_result: ScrollHandle<SearchResult>,
-        sub_state: MainViewState,
 
         // state
+        sub_state: MainViewState,
         pending_plugin_view_data: Option<PluginViewData>,
-        search_results: Vec<SearchResult>,
     },
     ErrorView {
         error_view: ErrorViewData,
@@ -64,7 +63,6 @@ impl GlobalState {
             focused_search_result: ScrollHandle::new(),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
-            search_results: vec![]
         }
     }
 
@@ -104,24 +102,24 @@ impl GlobalState {
     }
 }
 
-pub trait Focus {
-    fn enter(&mut self) -> Command<AppMsg>;
+pub trait Focus<T> {
+    fn enter(&mut self, focus_list: &[T]) -> Command<AppMsg>;
     fn escape(&mut self) -> Command<AppMsg>;
     fn tab(&mut self) -> Command<AppMsg>;
     fn shift_tab(&mut self) -> Command<AppMsg>;
-    fn arrow_up(&mut self) -> Command<AppMsg>;
-    fn arrow_down(&mut self) -> Command<AppMsg>;
-    fn arrow_left(&mut self) -> Command<AppMsg>;
-    fn arrow_right(&mut self) -> Command<AppMsg>;
+    fn arrow_up(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn arrow_down(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn arrow_left(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn arrow_right(&mut self, focus_list: &[T]) -> Command<AppMsg>;
 }
 
-impl Focus for GlobalState {
-    fn enter(&mut self) -> Command<AppMsg> {
+impl Focus<SearchResult> for GlobalState {
+    fn enter(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
-            GlobalState::MainView { focused_search_result, sub_state, search_results, .. } => {
+            GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
-                        if let Some(search_item) = focused_search_result.get(search_results) {
+                        if let Some(search_item) = focused_search_result.get(focus_list) {
                             let search_item = search_item.clone();
                             Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
                         } else {
@@ -189,44 +187,58 @@ impl Focus for GlobalState {
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
-    fn arrow_up(&mut self) -> Command<AppMsg> {
+    fn arrow_up(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+        match self {
+            GlobalState::MainView { focused_search_result, sub_state, ..  } => {
+                match sub_state {
+                    MainViewState::None => {
+                        focused_search_result.focus_previous()
+                    }
+                    MainViewState::ActionPanel { .. } => {
+                        if let Some(search_item) = focused_search_result.get(focus_list) {
+                            sub_state.arrow_up(&search_item.entrypoint_actions)
+                        } else {
+                            Command::none()
+                        }
+                    }
+                }
+            }
+            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::PluginView(_) => Command::none(),
+        }
+    }
+    fn arrow_down(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
-                if sub_state.is_none() {
-                    focused_search_result.focus_previous()
-                } else {
-                    sub_state.arrow_up()
-                }
-            }
-            GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView(_) => Command::none(),
-        }
-    }
-    fn arrow_down(&mut self) -> Command<AppMsg> {
-        match self {
-            GlobalState::MainView { focused_search_result, search_results, sub_state, .. } => {
-                if sub_state.is_none() {
-                    if search_results.len() != 0 {
-                        focused_search_result.focus_next(search_results.len())
-                    } else {
-                        Command::none()
+                match sub_state {
+                    MainViewState::None => {
+                        if focus_list.len() != 0 {
+                            focused_search_result.focus_next(focus_list.len())
+                        } else {
+                            Command::none()
+                        }
                     }
-                } else {
-                    sub_state.arrow_down()
+                    MainViewState::ActionPanel { .. } => {
+                        if let Some(search_item) = focused_search_result.get(focus_list) {
+                            sub_state.arrow_down(&search_item.entrypoint_actions)
+                        } else {
+                            Command::none()
+                        }
+                    }
                 }
             }
             GlobalState::ErrorView { .. } => Command::none(),
             GlobalState::PluginView(_) => Command::none(),
         }
     }
-    fn arrow_left(&mut self) -> Command<AppMsg> {
+    fn arrow_left(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
             GlobalState::PluginView(_) => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
-    fn arrow_right(&mut self) -> Command<AppMsg> {
+    fn arrow_right(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
             GlobalState::PluginView(_) => Command::none(),
