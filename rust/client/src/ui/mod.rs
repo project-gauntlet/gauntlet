@@ -10,7 +10,7 @@ use iced::advanced::layout::Limits;
 use iced::multi_window::Application;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
-use iced::keyboard::Key;
+use iced::keyboard::{Key, Modifiers};
 use iced::keyboard::key::Named;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
 use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
@@ -478,27 +478,28 @@ impl Application for AppModel {
                                 // for main view, also fired in cases where main text field is not focused
                                 self.global_state.enter(&self.search_results)
                             },
-                            Key::Named(Named::Backspace) => self.backspace_prompt(),
+                            Key::Named(Named::Backspace) => {
+                                match &mut self.global_state {
+                                    GlobalState::MainView { sub_state, search_field_id, prompt, .. } => {
+                                        match sub_state {
+                                            MainViewState::None => Self::backspace_prompt(prompt, search_field_id.clone()),
+                                            MainViewState::ActionPanel { .. } => Command::none()
+                                        }
+                                    }
+                                    GlobalState::ErrorView { .. } => Command::none(),
+                                    GlobalState::PluginView { .. } => Command::none()
+                                }
+                            },
                             _ => {
-                                match &self.global_state {
-                                    GlobalState::MainView { sub_state, .. } => {
+                                match &mut self.global_state {
+                                    GlobalState::MainView { sub_state, search_field_id, prompt, .. } => {
                                         match sub_state {
                                             MainViewState::None => {
                                                 match physical_key_model(physical_key, modifiers) {
                                                     Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
                                                         Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
                                                     }
-                                                    _ => {
-                                                        match text {
-                                                            Some(text) => {
-                                                                self.append_prompt(text.to_string())
-                                                            }
-                                                            None => {
-                                                                Command::none()
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                                                    _ => Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)                                                }
                                             }
                                             MainViewState::ActionPanel { .. } => {
                                                 match physical_key_model(physical_key, modifiers) {
@@ -697,8 +698,10 @@ impl Application for AppModel {
                     GlobalState::MainView { sub_state, focused_search_result, .. } => {
                         match sub_state {
                             MainViewState::None => {
-                                if let Some(_) = focused_search_result.get(&self.search_results) {
-                                    MainViewState::action_panel(sub_state);
+                                if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                    if search_item.entrypoint_actions.len() > 0 {
+                                        MainViewState::action_panel(sub_state);
+                                    }
                                 }
                             }
                             MainViewState::ActionPanel { .. } => {
@@ -967,6 +970,7 @@ impl Application for AppModel {
                 let input: Element<_> = text_input("Search...", prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
+                    .ignore_with_modifiers(true)
                     .id(search_field_id.clone())
                     .width(Length::Fill)
                     .themed(TextInputStyle::MainSearch);
@@ -1134,14 +1138,6 @@ impl Application for AppModel {
             event::Status::Ignored => Some(AppMsg::IcedEvent(event)),
             event::Status::Captured => match &event {
                 Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Named(Named::Escape), .. }) => Some(AppMsg::IcedEvent(event)),
-                Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Character(char), modifiers, .. }) => {
-                    if char == "k" && modifiers.alt() {
-                        // TODO this still enters "k" into a search bar which is undesirable
-                        Some(AppMsg::IcedEvent(event))
-                    } else {
-                        None
-                    }
-                },
                 _ => None
             }
         });
@@ -1377,31 +1373,35 @@ impl AppModel {
             Ok(())
         }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
+}
 
-    fn append_prompt(&mut self, value: String) -> Command<AppMsg> {
-        match &mut self.global_state {
-            GlobalState::MainView { search_field_id, prompt, .. } => {
-                *prompt = format!("{}{}", prompt, value);
-
-                focus(search_field_id.clone())
+// these are needed to force focus the text_input in main search view when
+// the window is opened but text_input not focused
+impl AppModel {
+    fn append_prompt(prompt: &mut String, value: Option<SmolStr>, search_field_id: text_input::Id, modifiers: Modifiers) -> Command<AppMsg> {
+        if modifiers.control() || modifiers.alt() || modifiers.logo() {
+            Command::none()
+        } else {
+            match value {
+                Some(value) => {
+                    if let Some(value) = value.chars().next().filter(|c| !c.is_control()) {
+                        *prompt = format!("{}{}", prompt, value);
+                        focus(search_field_id.clone())
+                    } else {
+                        Command::none()
+                    }
+                }
+                None => Command::none()
             }
-            GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView { .. } => Command::none(),
         }
     }
 
-    fn backspace_prompt(&mut self) -> Command<AppMsg> {
-        match &mut self.global_state {
-            GlobalState::MainView { search_field_id, prompt, .. } => {
-                let mut chars = prompt.chars();
-                chars.next_back();
-                *prompt = chars.as_str().to_owned();
+    fn backspace_prompt(prompt: &mut String, search_field_id: text_input::Id) -> Command<AppMsg> {
+        let mut chars = prompt.chars();
+        chars.next_back();
+        *prompt = chars.as_str().to_owned();
 
-                focus(search_field_id.clone())
-            }
-            GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView { .. } => Command::none(),
-        }
+        focus(search_field_id.clone())
     }
 }
 
