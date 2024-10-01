@@ -112,7 +112,7 @@ pub struct GauntletTheme {
     root_bottom_panel: ThemeBottomPanel,
     root_bottom_panel_action_toggle_button: ThemeButton,
     root_bottom_panel_action_toggle_text: ThemePaddingTextColor,
-    root_bottom_panel_default_action_text: ThemePaddingTextColor,
+    root_bottom_panel_primary_action_text: ThemePaddingTextColor,
     root_content: ThemePaddingOnly,
     root_top_panel: ThemePaddingOnly,
     root_top_panel_button: ThemeButton,
@@ -407,7 +407,7 @@ impl GauntletTheme {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
                 text_color: text_lighter_color
             },
-            root_bottom_panel_default_action_text: ThemePaddingTextColor {
+            root_bottom_panel_primary_action_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
                 text_color: text_lightest_color
             },

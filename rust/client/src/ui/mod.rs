@@ -38,7 +38,7 @@ use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::view_container::view_container;
-use crate::ui::widget::{render_root, ActionPanel, ActionPanelItems, ComponentWidgetEvent};
+use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentWidgetEvent};
 
 mod view_container;
 mod search_list;
@@ -1031,7 +1031,7 @@ impl Application for AppModel {
                     list,
                 ]).into();
 
-                let (default_action, action_panel) = if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                let (primary_action, action_panel) = if let Some(search_item) = focused_search_result.get(&self.search_results) {
                     let label = match search_item.entrypoint_type {
                         SearchResultEntrypointType::Command => "Run Command",
                         SearchResultEntrypointType::View => "Open View",
@@ -1049,23 +1049,37 @@ impl Application for AppModel {
                     let mut actions: Vec<_> = search_item.entrypoint_actions
                         .iter()
                         .enumerate()
-                        .map(|(index, action)| ActionPanelItems::Action {
-                            label: action.label.clone(),
-                            widget_id: index + 1,
-                            physical_shortcut: action.shortcut.clone(),
+                        .map(|(index, action)| {
+                            let physical_shortcut = if index == 0 {
+                                Some(PhysicalShortcut { // secondary action
+                                    physical_key: PhysicalKey::Enter,
+                                    modifier_shift: true,
+                                    modifier_control: false,
+                                    modifier_alt: false,
+                                    modifier_meta: false,
+                                })
+                            } else {
+                                action.shortcut.clone()
+                            };
+
+                            ActionPanelItem::Action {
+                                label: action.label.clone(),
+                                widget_id: index + 1,
+                                physical_shortcut,
+                            }
                         })
                         .collect();
 
                     if actions.len() == 0 {
                         (Some((label, default_shortcut)), None)
                     } else {
-                        let default_action = ActionPanelItems::Action {
+                        let primary_action = ActionPanelItem::Action {
                             label: label.clone(),
                             widget_id: 0,
                             physical_shortcut: Some(default_shortcut.clone()),
                         };
 
-                        actions.insert(0, default_action);
+                        actions.insert(0, primary_action);
 
                         let action_panel = ActionPanel {
                             title: Some(search_item.entrypoint_name.clone()),
@@ -1085,7 +1099,7 @@ impl Application for AppModel {
                             input,
                             separator,
                             content,
-                            default_action,
+                            primary_action,
                             action_panel,
                             None::<&ScrollHandle<SearchResultEntrypointAction>>,
                             "".to_string(),
@@ -1099,7 +1113,7 @@ impl Application for AppModel {
                             input,
                             separator,
                             content,
-                            default_action,
+                            primary_action,
                             action_panel,
                             Some(focused_action_item),
                             "".to_string(),

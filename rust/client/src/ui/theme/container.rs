@@ -44,7 +44,7 @@ pub enum ContainerStyle {
     PreferenceRequiredViewDescription,
     Root,
     RootBottomPanel,
-    RootBottomPanelDefaultActionText,
+    RootBottomPanelPrimaryActionText,
     RootBottomPanelActionToggleText,
     RootInner,
     RootTopPanel,
@@ -383,8 +383,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::RootBottomPanelActionToggleText => {
                 self.padding(theme.root_bottom_panel_action_toggle_text.padding.to_iced())
             }
-            ContainerStyle::RootBottomPanelDefaultActionText => {
-                self.padding(theme.root_bottom_panel_default_action_text.padding.to_iced())
+            ContainerStyle::RootBottomPanelPrimaryActionText => {
+                self.padding(theme.root_bottom_panel_primary_action_text.padding.to_iced())
             }
             ContainerStyle::TextAccessory => {
                 self.padding(theme.text_accessory.padding.to_iced())

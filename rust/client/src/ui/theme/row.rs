@@ -9,7 +9,7 @@ pub enum RowStyle {
     GridSectionTitle,
     GridItemTitle,
     RootBottomPanel,
-    RootBottomPanelDefaultAction,
+    RootBottomPanelPrimaryAction,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletTheme, Renderer> {
@@ -39,7 +39,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletT
             RowStyle::RootBottomPanel => {
                 self.spacing(theme.root_bottom_panel.spacing)
             }
-            RowStyle::RootBottomPanelDefaultAction => {
+            RowStyle::RootBottomPanelPrimaryAction => {
                 self.padding(Padding::from([0.0, theme.root_bottom_panel.spacing, 0.0, 0.0]))
             }
         }.into()

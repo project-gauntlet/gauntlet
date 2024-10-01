@@ -23,7 +23,7 @@ pub enum TextStyle {
     GridItemSubTitle,
     InlineName,
     InlineSeparator,
-    RootBottomPanelDefaultActionText,
+    RootBottomPanelPrimaryActionText,
     RootBottomPanelActionToggleText,
 }
 
@@ -100,8 +100,8 @@ impl text::StyleSheet for GauntletTheme {
             TextStyle::InlineSeparator => Appearance {
                 color: Some(self.inline_separator.text_color.to_iced()),
             },
-            TextStyle::RootBottomPanelDefaultActionText => Appearance {
-                color: Some(self.root_bottom_panel_default_action_text.text_color.to_iced()),
+            TextStyle::RootBottomPanelPrimaryActionText => Appearance {
+                color: Some(self.root_bottom_panel_primary_action_text.text_color.to_iced()),
             },
             TextStyle::RootBottomPanelActionToggleText => Appearance {
                 color: Some(self.root_bottom_panel_action_toggle_text.text_color.to_iced()),

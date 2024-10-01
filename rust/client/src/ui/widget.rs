@@ -1326,6 +1326,42 @@ fn render_plugin_root<'a>(
             .into()
     };
 
+    let mut action_panel = convert_action_panel(children, action_shortcuts);
+
+    let primary_action = action_panel.as_mut()
+        .map(|panel| {
+            fn find_first(items: &[ActionPanelItem]) -> Option<String> {
+                for item in items {
+                    match item {
+                        ActionPanelItem::Action { label, .. } => {
+                            return Some(label.to_string())
+                        }
+                        ActionPanelItem::ActionSection { items, .. } => {
+                            if let Some(item) = find_first(items) {
+                                return Some(item)
+                            }
+                        }
+                    }
+                }
+
+                None
+            }
+
+            find_first(&panel.items)
+        })
+        .flatten()
+        .map(|label| {
+            let shortcut = PhysicalShortcut {
+                physical_key: PhysicalKey::Enter,
+                modifier_shift: false,
+                modifier_control: false,
+                modifier_alt: false,
+                modifier_meta: false
+            };
+
+            (label.to_string(), shortcut)
+        });
+
     match plugin_view_state {
         PluginViewState::None => {
             render_root(
@@ -1333,8 +1369,8 @@ fn render_plugin_root<'a>(
                 top_panel,
                 top_separator,
                 content,
-                None, // TODO
-                convert_action_panel(children, action_shortcuts),
+                primary_action,
+                action_panel,
                 None::<&ScrollHandle<UiWidgetId>>,
                 entrypoint_name,
                 || ComponentWidgetEvent::ToggleActionPanel { widget_id },
@@ -1347,8 +1383,8 @@ fn render_plugin_root<'a>(
                 top_panel,
                 top_separator,
                 content,
-                None, // TODO
-                convert_action_panel(children, action_shortcuts),
+                primary_action,
+                action_panel,
                 Some(&focused_action_item),
                 entrypoint_name,
                 || ComponentWidgetEvent::ToggleActionPanel { widget_id },
@@ -1360,10 +1396,10 @@ fn render_plugin_root<'a>(
 
 pub struct ActionPanel {
     pub title: Option<String>,
-    pub items: Vec<ActionPanelItems>
+    pub items: Vec<ActionPanelItem>
 }
 
-pub enum ActionPanelItems {
+pub enum ActionPanelItem {
     Action {
         label: String,
         widget_id: UiWidgetId,
@@ -1371,7 +1407,7 @@ pub enum ActionPanelItems {
     },
     ActionSection {
         title: Option<String>,
-        items: Vec<ActionPanelItems>
+        items: Vec<ActionPanelItem>
     }
 }
 
@@ -1394,7 +1430,7 @@ fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: H
 
     match action_panel {
         ComponentWidget::ActionPanel { children, title } => {
-            fn convert_to_items(children: &[ComponentWidgetWrapper], action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Vec<ActionPanelItems> {
+            fn convert_to_items(children: &[ComponentWidgetWrapper], action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Vec<ActionPanelItem> {
                 let mut items = vec![];
 
                 for child in children {
@@ -1408,14 +1444,14 @@ fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: H
                                 .flatten()
                                 .cloned();
 
-                            items.push(ActionPanelItems::Action {
+                            items.push(ActionPanelItem::Action {
                                 label: label.clone(),
                                 widget_id,
                                 physical_shortcut,
                             });
                         }
                         ComponentWidget::ActionPanelSection { children, title } => {
-                            items.push(ActionPanelItems::ActionSection {
+                            items.push(ActionPanelItem::ActionSection {
                                 title: title.clone(),
                                 items: convert_to_items(children, action_shortcuts),
                             });
@@ -1440,7 +1476,7 @@ fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: H
 
 fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
     title: Option<String>,
-    items: Vec<ActionPanelItems>,
+    items: Vec<ActionPanelItem>,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
     on_action_click: &dyn Fn(UiWidgetId) -> T,
     index_counter: &Cell<usize>
@@ -1465,7 +1501,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
     for item in items {
         match item {
-            ActionPanelItems::Action { label, widget_id, physical_shortcut } => {
+            ActionPanelItem::Action { label, widget_id, physical_shortcut } => {
                 if place_separator {
                     let separator: Element<_> = horizontal_rule(1)
                         .themed(RuleStyle::ActionPanel);
@@ -1474,6 +1510,24 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
                     place_separator = false;
                 }
+
+                let physical_shortcut = match index_counter.get() {
+                    0 => Some(PhysicalShortcut { // primary
+                        physical_key: PhysicalKey::Enter,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: false,
+                    }),
+                    1 => Some(PhysicalShortcut { // secondary
+                        physical_key: PhysicalKey::Enter,
+                        modifier_shift: true,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: false,
+                    }),
+                    _ => physical_shortcut
+                };
 
                 let shortcut_element: Option<Element<_>> = physical_shortcut.as_ref()
                     .map(|shortcut| render_shortcut(shortcut));
@@ -1508,7 +1562,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
                 columns.push(content);
             }
-            ActionPanelItems::ActionSection { title, items } => {
+            ActionPanelItem::ActionSection { title, items } => {
                 let separator: Element<_> = horizontal_rule(1)
                     .themed(RuleStyle::ActionPanel);
 
@@ -1552,7 +1606,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
     content: Element<'a, T>,
-    default_action: Option<(String, PhysicalShortcut)>,
+    primary_action: Option<(String, PhysicalShortcut)>,
     action_panel: Option<ActionPanel>,
     action_panel_scroll_handle: Option<&ScrollHandle<ACTION>>,
     entrypoint_name: String,
@@ -1564,18 +1618,18 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
 
     let panel_height = 16 + 8 + 2;  // TODO get value from theme
 
-    let default_action = match default_action {
+    let primary_action = match primary_action {
         Some((label, shortcut)) => {
             let label: Element<_> = text(label)
-                .themed(TextStyle::RootBottomPanelDefaultActionText);
+                .themed(TextStyle::RootBottomPanelPrimaryActionText);
 
             let label: Element<_> = container(label)
-                .themed(ContainerStyle::RootBottomPanelDefaultActionText);
+                .themed(ContainerStyle::RootBottomPanelPrimaryActionText);
 
             let shortcut = render_shortcut(&shortcut);
 
             let content: Element<_> = row(vec![label, shortcut])
-                .themed(RowStyle::RootBottomPanelDefaultAction);
+                .themed(RowStyle::RootBottomPanelPrimaryAction);
 
             Some(content)
         }
@@ -1605,11 +1659,11 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
 
             bottom_panel_content.push(space);
 
-            if let Some(default_action) = default_action {
-                bottom_panel_content.push(default_action);
+            if let Some(primary_action) = primary_action {
+                bottom_panel_content.push(primary_action);
 
                 let rule: Element<_> = vertical_rule(1)
-                    .style(RuleStyle::DefaultActionSeparator)
+                    .style(RuleStyle::PrimaryActionSeparator)
                     .into();
 
                 let rule: Element<_> = container(rule)
@@ -1642,8 +1696,8 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
 
             let mut bottom_panel_content = vec![entrypoint_name, space];
 
-            if let Some(default_action) = default_action {
-                bottom_panel_content.push(default_action);
+            if let Some(primary_action) = primary_action {
+                bottom_panel_content.push(primary_action);
             }
 
             let bottom_panel: Element<_> = row(bottom_panel_content)
