@@ -729,22 +729,46 @@ impl Application for AppModel {
                 Command::none()
             }
             AppMsg::OnEntrypointAction(widget_id) => {
-                match &self.global_state {
-                    GlobalState::MainView { focused_search_result, .. } => {
-                        if let Some(search_item) = focused_search_result.get(&self.search_results) {
-                            let search_item = search_item.clone();
-                            if widget_id == 0 {
-                                Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
-                            } else {
-                                Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_item, Some(widget_id - 1)))
+                match &mut self.global_state {
+                    GlobalState::MainView { focused_search_result, sub_state, .. } => {
+                        match sub_state {
+                            MainViewState::None => Command::none(),
+                            MainViewState::ActionPanel { .. } => {
+                                if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                    MainViewState::initial(sub_state);
+
+                                    let search_item = search_item.clone();
+                                    if widget_id == 0 {
+                                        Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
+                                    } else {
+                                        Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_item, Some(widget_id - 1)))
+                                    }
+                                } else {
+                                    Command::none()
+                                }
                             }
-                        } else {
-                            Command::none()
                         }
                     }
                     GlobalState::ErrorView { .. } => Command::none(),
-                    GlobalState::PluginView { .. } => {
-                        todo!()
+                    GlobalState::PluginView { client_context, sub_state, .. } => {
+                        match sub_state {
+                            PluginViewState::None => Command::none(),
+                            PluginViewState::ActionPanel { .. } => {
+                                let client_context =  client_context.read().expect("lock is poisoned");
+
+                                let plugin_id = client_context.get_view_plugin_id();
+
+                                let widget_event = ComponentWidgetEvent::RunAction {
+                                    widget_id,
+                                };
+                                let render_location = UiRenderLocation::View;
+
+                                Command::batch([
+                                    Command::perform(async {}, |_| AppMsg::ToggleActionPanel),
+                                    Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                                ])
+                            }
+                        }
                     }
                 }
             }
@@ -1308,16 +1332,21 @@ impl AppModel {
         Command::perform(async move {
             let event = {
                 let client_context = client_context.read().expect("lock is poisoned");
-                client_context.handle_event(render_location, &plugin_id, widget_event)
+                client_context.handle_event(render_location, &plugin_id, widget_event.clone())
             };
 
             if let Some(event) = event {
                 match event {
                     UiViewEvent::View { widget_id, event_name, event_arguments } => {
+                        let msg = match widget_event {
+                            ComponentWidgetEvent::ActionClick { .. } => AppMsg::ToggleActionPanel,
+                            _ => AppMsg::Noop
+                        };
+
                         backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
                             .await?;
-                        Ok(AppMsg::Noop)
 
+                        Ok(msg)
                     }
                     UiViewEvent::Open { href } => {
                         backend_client.send_open_event(plugin_id, href)

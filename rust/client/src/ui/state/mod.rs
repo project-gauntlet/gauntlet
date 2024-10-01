@@ -133,35 +133,26 @@ impl Focus<SearchResult> for GlobalState {
     fn enter(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
-                match sub_state {
-                    MainViewState::None => {
-                        if let Some(search_item) = focused_search_result.get(focus_list) {
+                if let Some(search_item) = focused_search_result.get(focus_list) {
+                    match sub_state {
+                        MainViewState::None => {
                             let search_item = search_item.clone();
                             Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
-                        } else {
-                            Command::none()
+                        }
+                        MainViewState::ActionPanel { .. } => {
+                            sub_state.enter(&search_item.entrypoint_actions)
                         }
                     }
-                    MainViewState::ActionPanel { focused_action_item, .. } => {
-                        let widget_id = focused_action_item.index;
-
-                        MainViewState::initial(sub_state);
-
-                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
-                    }
+                } else {
+                    Command::none()
                 }
             }
-            GlobalState::PluginView { sub_state, .. } => {
-                match sub_state {
-                    PluginViewState::None => Command::none(),
-                    PluginViewState::ActionPanel { focused_action_item, .. } => {
-                        let widget_id = focused_action_item.index;
+            GlobalState::PluginView { sub_state, client_context, .. } => {
+                let client_context = client_context.read().expect("lock is poisoned");
 
-                        PluginViewState::initial(sub_state);
+                let action_ids = client_context.get_action_ids();
 
-                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
-                    }
-                }
+                sub_state.enter(&action_ids)
             }
             GlobalState::ErrorView { .. } => Command::none()
         }
@@ -170,15 +161,7 @@ impl Focus<SearchResult> for GlobalState {
     fn escape(&mut self) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { sub_state, .. } => {
-                match sub_state {
-                    MainViewState::None => {
-                        Command::perform(async {}, |_| AppMsg::HideWindow)
-                    }
-                    MainViewState::ActionPanel { .. } => {
-                        MainViewState::initial(sub_state);
-                        Command::none()
-                    }
-                }
+                sub_state.escape()
             }
             GlobalState::PluginView {
                 plugin_view_data: PluginViewData {
@@ -206,7 +189,7 @@ impl Focus<SearchResult> for GlobalState {
                         }
                     }
                     PluginViewState::ActionPanel { .. } => {
-                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                        sub_state.escape()
                     }
                 }
             }

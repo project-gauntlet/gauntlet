@@ -30,11 +30,28 @@ impl MainViewState {
 
 impl Focus<SearchResultEntrypointAction> for MainViewState {
     fn enter(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
-        todo!()
+        match self {
+            MainViewState::None => {
+                panic!("invalid state")
+            }
+            MainViewState::ActionPanel { focused_action_item } => {
+                let widget_id = focused_action_item.index;
+
+                Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
+            }
+        }
     }
 
     fn escape(&mut self) -> Command<AppMsg> {
-        todo!()
+        match self {
+            MainViewState::None => {
+                Command::perform(async {}, |_| AppMsg::HideWindow)
+            }
+            MainViewState::ActionPanel { .. } => {
+                MainViewState::initial(self);
+                Command::none()
+            }
+        }
     }
 
     fn tab(&mut self) -> Command<AppMsg> {

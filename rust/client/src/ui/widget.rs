@@ -1442,7 +1442,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
     title: Option<String>,
     items: Vec<ActionPanelItems>,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
-    on_action: &dyn Fn(UiWidgetId) -> T,
+    on_action_click: &dyn Fn(UiWidgetId) -> T,
     index_counter: &Cell<usize>
 ) -> Vec<Element<'a, T>> {
     let mut columns = vec![];
@@ -1502,7 +1502,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
                 index_counter.set(index_counter.get() + 1);
 
                 let content = button(content)
-                    .on_press(on_action(widget_id))
+                    .on_press(on_action_click(widget_id))
                     .width(Length::Fill)
                     .themed(style);
 
@@ -1514,7 +1514,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
                 columns.push(separator);
 
-                let content = render_action_panel_items(title, items, action_panel_scroll_handle, on_action, index_counter);
+                let content = render_action_panel_items(title, items, action_panel_scroll_handle, on_action_click, index_counter);
 
                 for content in content {
                     columns.push(content);
@@ -1530,10 +1530,10 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
 fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
     action_panel: ActionPanel,
-    on_action: F,
+    on_action_click: F,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
 ) -> Element<'a, T> {
-    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle, &on_action, &Cell::new(0));
+    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle, &on_action_click, &Cell::new(0));
 
     let actions: Element<_> = column(columns)
         .into();
@@ -1557,7 +1557,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     action_panel_scroll_handle: Option<&ScrollHandle<ACTION>>,
     entrypoint_name: String,
     on_panel_toggle: impl Fn() -> T,
-    on_action: impl Fn(UiWidgetId) -> T,
+    on_action_click: impl Fn(UiWidgetId) -> T,
 ) -> Element<'a, T>  {
     let entrypoint_name: Element<_> = text(entrypoint_name)
         .into();
@@ -1675,7 +1675,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     };
 
     let action_panel_element = match (action_panel, action_panel_scroll_handle) {
-        (Some(action_panel), Some(action_panel_scroll_handle)) => render_action_panel(action_panel, on_action, action_panel_scroll_handle),
+        (Some(action_panel), Some(action_panel_scroll_handle)) => render_action_panel(action_panel, on_action_click, action_panel_scroll_handle),
         _ => Space::with_height(1).into(),
     };
 
@@ -1834,6 +1834,9 @@ pub enum ComponentWidgetEvent {
     ActionClick {
         widget_id: UiWidgetId,
     },
+    RunAction {
+        widget_id: UiWidgetId
+    },
     ToggleDatePicker {
         widget_id: UiWidgetId,
     },
@@ -1883,7 +1886,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::TagClick { widget_id } => {
                 Some(create_metadata_tag_item_on_click_event(widget_id))
             }
-            ComponentWidgetEvent::ActionClick { widget_id } => {
+            ComponentWidgetEvent::RunAction { widget_id } | ComponentWidgetEvent::ActionClick { widget_id } => {
                 Some(create_action_on_action_event(widget_id))
             }
             ComponentWidgetEvent::ToggleDatePicker { .. } => {
@@ -1985,6 +1988,7 @@ impl ComponentWidgetEvent {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ActionClick { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::RunAction { widget_id, .. } => widget_id,
             ComponentWidgetEvent::TagClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleDatePicker { widget_id, .. } => widget_id,
             ComponentWidgetEvent::SubmitDatePicker { widget_id, .. } => widget_id,
