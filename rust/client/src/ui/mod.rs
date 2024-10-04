@@ -434,7 +434,9 @@ impl Application for AppModel {
                     _ => Command::none()
                 }
             }
-            AppMsg::PromptSubmit => self.global_state.enter(&self.search_results),
+            AppMsg::PromptSubmit => {
+                self.global_state.primary(&self.search_results)
+            },
             AppMsg::SetSearchResults(new_search_results) => {
                 self.search_results = new_search_results;
 
@@ -471,12 +473,20 @@ impl Application for AppModel {
                     keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                         tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
                         match key {
-                            Key::Named(Named::ArrowUp) => self.global_state.arrow_up(&self.search_results),
-                            Key::Named(Named::ArrowDown) => self.global_state.arrow_down(&self.search_results),
-                            Key::Named(Named::Escape) => self.global_state.escape(),
+                            Key::Named(Named::ArrowUp) => self.global_state.up(&self.search_results),
+                            Key::Named(Named::ArrowDown) => self.global_state.down(&self.search_results),
+                            Key::Named(Named::Escape) => self.global_state.back(),
                             Key::Named(Named::Enter) => {
-                                // for main view, also fired in cases where main text field is not focused
-                                self.global_state.enter(&self.search_results)
+                                if modifiers.logo() || modifiers.alt() || modifiers.control() {
+                                    Command::none() // to avoid not wanted "enter" presses
+                                } else {
+                                    if modifiers.shift() {
+                                        // for main view, also fired in cases where main text field is not focused
+                                        self.global_state.secondary(&self.search_results)
+                                    } else {
+                                        self.global_state.primary(&self.search_results)
+                                    }
+                                }
                             },
                             Key::Named(Named::Backspace) => {
                                 match &mut self.global_state {
@@ -552,7 +562,7 @@ impl Application for AppModel {
                 self.hide_window()
             }
             AppMsg::IcedEvent(_) => Command::none(),
-            AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.global_state.escape(),
+            AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.global_state.back(),
             AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
                 self.handle_plugin_event(widget_event, plugin_id, render_location)
             }
@@ -619,25 +629,43 @@ impl Application for AppModel {
                 Command::none()
             }
             AppMsg::RunSearchItemAction(search_result, action_index) => {
-                let event = match search_result.entrypoint_type {
-                    SearchResultEntrypointType::Command => AppMsg::RunCommand {
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone()
+                match search_result.entrypoint_type {
+                    SearchResultEntrypointType::Command => {
+                        match action_index {
+                            None => {
+                                let msg = AppMsg::RunCommand {
+                                    entrypoint_id: search_result.entrypoint_id.clone(),
+                                    plugin_id: search_result.plugin_id.clone()
+                                };
+                                Command::perform(async {}, |_| msg)
+                            }
+                            Some(_) => Command::none()
+                        }
                     },
-                    SearchResultEntrypointType::View => AppMsg::OpenView {
-                        plugin_id: search_result.plugin_id.clone(),
-                        plugin_name: search_result.plugin_name.clone(),
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        entrypoint_name: search_result.entrypoint_name.clone(),
+                    SearchResultEntrypointType::View => {
+                        match action_index {
+                            None => {
+                                let msg = AppMsg::OpenView {
+                                    plugin_id: search_result.plugin_id.clone(),
+                                    plugin_name: search_result.plugin_name.clone(),
+                                    entrypoint_id: search_result.entrypoint_id.clone(),
+                                    entrypoint_name: search_result.entrypoint_name.clone(),
+                                };
+                                Command::perform(async {}, |_| msg)
+                            }
+                            Some(_) => Command::none()
+                        }
                     },
-                    SearchResultEntrypointType::GeneratedCommand => AppMsg::RunGeneratedCommandEvent {
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone(),
-                        action_index,
-                    },
-                };
+                    SearchResultEntrypointType::GeneratedCommand => {
+                        let msg = AppMsg::RunGeneratedCommandEvent {
+                            entrypoint_id: search_result.entrypoint_id.clone(),
+                            plugin_id: search_result.plugin_id.clone(),
+                            action_index,
+                        };
 
-                Command::perform(async {}, |_| event)
+                        Command::perform(async {}, |_| msg)
+                    },
+                }
             }
             AppMsg::Screenshot { save_path } => {
                 println!("Creating screenshot at: {}", save_path);
@@ -752,7 +780,19 @@ impl Application for AppModel {
                     GlobalState::ErrorView { .. } => Command::none(),
                     GlobalState::PluginView { client_context, sub_state, .. } => {
                         match sub_state {
-                            PluginViewState::None => Command::none(),
+                            PluginViewState::None => {
+                                let client_context =  client_context.read().expect("lock is poisoned");
+
+                                let plugin_id = client_context.get_view_plugin_id();
+
+                                let widget_event = ComponentWidgetEvent::RunAction {
+                                    widget_id,
+                                };
+
+                                let render_location = UiRenderLocation::View;
+
+                                Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                            },
                             PluginViewState::ActionPanel { .. } => {
                                 let client_context =  client_context.read().expect("lock is poisoned");
 

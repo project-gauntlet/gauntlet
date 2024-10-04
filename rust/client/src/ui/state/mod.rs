@@ -119,18 +119,19 @@ impl GlobalState {
 }
 
 pub trait Focus<T> {
-    fn enter(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn escape(&mut self) -> Command<AppMsg>;
-    fn tab(&mut self) -> Command<AppMsg>;
-    fn shift_tab(&mut self) -> Command<AppMsg>;
-    fn arrow_up(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn arrow_down(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn arrow_left(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn arrow_right(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn primary(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn secondary(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn back(&mut self) -> Command<AppMsg>;
+    fn next(&mut self) -> Command<AppMsg>;
+    fn previous(&mut self) -> Command<AppMsg>;
+    fn up(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn down(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn left(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn right(&mut self, focus_list: &[T]) -> Command<AppMsg>;
 }
 
 impl Focus<SearchResult> for GlobalState {
-    fn enter(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn primary(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 if let Some(search_item) = focused_search_result.get(focus_list) {
@@ -140,7 +141,7 @@ impl Focus<SearchResult> for GlobalState {
                             Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
                         }
                         MainViewState::ActionPanel { .. } => {
-                            sub_state.enter(&search_item.entrypoint_actions)
+                            sub_state.primary(&search_item.entrypoint_actions)
                         }
                     }
                 } else {
@@ -152,16 +153,44 @@ impl Focus<SearchResult> for GlobalState {
 
                 let action_ids = client_context.get_action_ids();
 
-                sub_state.enter(&action_ids)
+                sub_state.primary(&action_ids)
             }
             GlobalState::ErrorView { .. } => Command::none()
         }
     }
 
-    fn escape(&mut self) -> Command<AppMsg> {
+    fn secondary(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+        match self {
+            GlobalState::MainView { focused_search_result, sub_state, .. } => {
+                if let Some(search_item) = focused_search_result.get(focus_list) {
+                    match sub_state {
+                        MainViewState::None => {
+                            let search_item = search_item.clone();
+                            Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, Some(0)))
+                        }
+                        MainViewState::ActionPanel { .. } => {
+                            Command::none()
+                        }
+                    }
+                } else {
+                    Command::none()
+                }
+            }
+            GlobalState::PluginView { sub_state, client_context, .. } => {
+                let client_context = client_context.read().expect("lock is poisoned");
+
+                let action_ids = client_context.get_action_ids();
+
+                sub_state.secondary(&action_ids)
+            }
+            GlobalState::ErrorView { .. } => Command::none()
+        }
+    }
+
+    fn back(&mut self) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { sub_state, .. } => {
-                sub_state.escape()
+                sub_state.back()
             }
             GlobalState::PluginView {
                 plugin_view_data: PluginViewData {
@@ -189,7 +218,7 @@ impl Focus<SearchResult> for GlobalState {
                         }
                     }
                     PluginViewState::ActionPanel { .. } => {
-                        sub_state.escape()
+                        sub_state.back()
                     }
                 }
             }
@@ -198,21 +227,21 @@ impl Focus<SearchResult> for GlobalState {
             }
         }
     }
-    fn tab(&mut self) -> Command<AppMsg> {
+    fn next(&mut self) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
             GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
-    fn shift_tab(&mut self) -> Command<AppMsg> {
+    fn previous(&mut self) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
             GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
-    fn arrow_up(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn up(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -221,7 +250,7 @@ impl Focus<SearchResult> for GlobalState {
                     }
                     MainViewState::ActionPanel { .. } => {
                         if let Some(search_item) = focused_search_result.get(focus_list) {
-                            sub_state.arrow_up(&search_item.entrypoint_actions)
+                            sub_state.up(&search_item.entrypoint_actions)
                         } else {
                             Command::none()
                         }
@@ -237,13 +266,13 @@ impl Focus<SearchResult> for GlobalState {
 
                         let action_ids = client_context.get_action_ids();
 
-                        sub_state.arrow_up(&action_ids)
+                        sub_state.up(&action_ids)
                     }
                 }
             },
         }
     }
-    fn arrow_down(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn down(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -256,7 +285,7 @@ impl Focus<SearchResult> for GlobalState {
                     }
                     MainViewState::ActionPanel { .. } => {
                         if let Some(search_item) = focused_search_result.get(focus_list) {
-                            sub_state.arrow_down(&search_item.entrypoint_actions)
+                            sub_state.down(&search_item.entrypoint_actions)
                         } else {
                             Command::none()
                         }
@@ -272,20 +301,20 @@ impl Focus<SearchResult> for GlobalState {
 
                         let action_ids = client_context.get_action_ids();
 
-                        sub_state.arrow_down(&action_ids)
+                        sub_state.down(&action_ids)
                     }
                 }
             }
         }
     }
-    fn arrow_left(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn left(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
             GlobalState::PluginView { .. } => Command::none(),
             GlobalState::ErrorView { .. } => Command::none(),
         }
     }
-    fn arrow_right(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn right(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Command::none(),
             GlobalState::PluginView { .. } => Command::none(),

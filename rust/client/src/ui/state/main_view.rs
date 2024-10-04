@@ -29,7 +29,7 @@ impl MainViewState {
 }
 
 impl Focus<SearchResultEntrypointAction> for MainViewState {
-    fn enter(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
+    fn primary(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         match self {
             MainViewState::None => {
                 panic!("invalid state")
@@ -42,7 +42,12 @@ impl Focus<SearchResultEntrypointAction> for MainViewState {
         }
     }
 
-    fn escape(&mut self) -> Command<AppMsg> {
+    fn secondary(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
+        // secondary action doesn't do anything when action panel is open
+        panic!("invalid state")
+    }
+
+    fn back(&mut self) -> Command<AppMsg> {
         match self {
             MainViewState::None => {
                 Command::perform(async {}, |_| AppMsg::HideWindow)
@@ -54,15 +59,15 @@ impl Focus<SearchResultEntrypointAction> for MainViewState {
         }
     }
 
-    fn tab(&mut self) -> Command<AppMsg> {
+    fn next(&mut self) -> Command<AppMsg> {
         todo!()
     }
 
-    fn shift_tab(&mut self) -> Command<AppMsg> {
+    fn previous(&mut self) -> Command<AppMsg> {
         todo!()
     }
 
-    fn arrow_up(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
+    fn up(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         match self {
             MainViewState::None => Command::none(),
             MainViewState::ActionPanel { focused_action_item, .. } => {
@@ -71,7 +76,7 @@ impl Focus<SearchResultEntrypointAction> for MainViewState {
         }
     }
 
-    fn arrow_down(&mut self, focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
+    fn down(&mut self, focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         match self {
             MainViewState::None => Command::none(),
             MainViewState::ActionPanel { focused_action_item } => {
@@ -84,11 +89,11 @@ impl Focus<SearchResultEntrypointAction> for MainViewState {
         }
     }
 
-    fn arrow_left(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
+    fn left(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         todo!()
     }
 
-    fn arrow_right(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
+    fn right(&mut self, _focus_list: &[SearchResultEntrypointAction]) -> Command<AppMsg> {
         todo!()
     }
 }
