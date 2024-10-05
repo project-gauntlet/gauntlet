@@ -91,7 +91,7 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
     let system_version: SystemVersion = plist::from_file("/System/Library/CoreServices/SystemVersion.plist")
         .expect("SystemVersion.plist doesn't follow expected format");
 
-    let regex = Regex::new(r"^(?<major>\d+).\d+.\d+$")
+    let regex = Regex::new(r"^(?<major>\d+).\d+(.\d+)?$")
         .expect("This regex cannot be invalid");
 
     let captures = regex.captures(&system_version.product_version)
