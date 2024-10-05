@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use anyhow::Context;
 use cacao::filesystem::{FileManager, SearchPathDirectory, SearchPathDomainMask};
 use cacao::url::Url;
 use deno_runtime::deno_http::compressible::is_content_compressible;
@@ -116,23 +117,29 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
 
         let extensions: HashMap<_, _> = get_extensions_in_dir(PathBuf::from("/System/Library/ExtensionKit/Extensions"))
             .into_iter()
-            .map(|path| {
-                let name = path.file_stem()
-                    .expect(&format!("invalid path: {:?}", path))
-                    .to_string_lossy()
-                    .to_string();
+            .filter_map(|path| {
+                fn read_plist(path: &Path) -> anyhow::Result<(String, String)> {
+                    let name = path.file_stem()
+                        .expect(&format!("invalid path: {:?}", path))
+                        .to_string_lossy()
+                        .to_string();
 
-                let info_path = path.join("Contents").join("Info.plist");
+                    let info_path = path.join("Contents").join("Info.plist");
 
-                let info = plist::from_file::<PathBuf, Info>(info_path)
-                    .expect("Unexpected Info.plist for System Extensions");
+                    let info = plist::from_file::<_, Info>(info_path.as_path())
+                        .context(format!("Unexpected Info.plist for System Extensions: {}", &info_path.display()))?;
 
-                let name = info.bundle_display_name
-                    .clone()
-                    .or_else(|| info.bundle_name.clone())
-                    .unwrap_or(name);
+                    let name = info.bundle_display_name
+                        .clone()
+                        .or_else(|| info.bundle_name.clone())
+                        .unwrap_or(name);
 
-                (info.bundle_id, name)
+                    Ok((info.bundle_id, name))
+                }
+
+                read_plist(&path)
+                    .inspect_err(|err| tracing::error!("error while reading system extension Info.plist {:?}: {:?}", path, err))
+                    .ok()
             })
             .collect();
 
