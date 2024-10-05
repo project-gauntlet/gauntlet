@@ -28,7 +28,7 @@ impl PluginWidgetContainer {
     }
 
     pub fn get_plugin_name(&self) -> String {
-        self.plugin_name.clone().expect("plugin id should always exist after render")
+        self.plugin_name.clone().expect("plugin name should always exist after render")
     }
 
     pub fn get_entrypoint_id(&self) -> EntrypointId {

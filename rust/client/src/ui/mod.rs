@@ -24,7 +24,7 @@ use tokio::sync::RwLock as TokioRwLock;
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -502,19 +502,58 @@ impl Application for AppModel {
                             },
                             _ => {
                                 match &mut self.global_state {
-                                    GlobalState::MainView { sub_state, search_field_id, prompt, .. } => {
+                                    GlobalState::MainView { sub_state, search_field_id, prompt, focused_search_result, .. } => {
                                         match sub_state {
                                             MainViewState::None => {
                                                 match physical_key_model(physical_key, modifiers) {
                                                     Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
                                                         Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
                                                     }
-                                                    _ => Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)                                                }
+                                                    Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                                        if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                                            if search_item.entrypoint_actions.len() > 0 {
+                                                                self.handle_main_view_keyboard_event(
+                                                                    search_item.plugin_id.clone(),
+                                                                    search_item.entrypoint_id.clone(),
+                                                                    physical_key,
+                                                                    modifier_shift,
+                                                                    modifier_control,
+                                                                    modifier_alt,
+                                                                    modifier_meta
+                                                                )
+                                                            } else {
+                                                                Command::none()
+                                                            }
+                                                        } else {
+                                                            Command::none()
+                                                        }
+                                                    }
+                                                    _ => Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)
+                                                }
                                             }
                                             MainViewState::ActionPanel { .. } => {
                                                 match physical_key_model(physical_key, modifiers) {
                                                     Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
                                                         Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                                    }
+                                                    Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                                        if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                                            if search_item.entrypoint_actions.len() > 0 {
+                                                                self.handle_main_view_keyboard_event(
+                                                                    search_item.plugin_id.clone(),
+                                                                    search_item.entrypoint_id.clone(),
+                                                                    physical_key,
+                                                                    modifier_shift,
+                                                                    modifier_control,
+                                                                    modifier_alt,
+                                                                    modifier_meta
+                                                                )
+                                                            } else {
+                                                                Command::none()
+                                                            }
+                                                        } else {
+                                                            Command::none()
+                                                        }
                                                     }
                                                     _ => Command::none()
                                                 }
@@ -528,7 +567,7 @@ impl Application for AppModel {
                                                 Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
                                             }
                                             Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                self.handle_plugin_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                self.handle_plugin_view_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
                                             }
                                             _ => Command::none()
                                         }
@@ -1416,7 +1455,21 @@ impl AppModel {
         }, |result| handle_backend_error(result, |msg| msg))
     }
 
-    fn handle_plugin_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Command<AppMsg> {
+    fn handle_main_view_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Command<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+
+        Command::perform(
+            async move {
+                backend_client.send_keyboard_event(plugin_id, entrypoint_id, KeyboardEventOrigin::MainView, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                    .await?;
+
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
+    }
+
+    fn handle_plugin_view_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Command<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
@@ -1426,7 +1479,7 @@ impl AppModel {
 
         Command::perform(
             async move {
-                backend_client.send_keyboard_event(plugin_id, entrypoint_id, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                backend_client.send_keyboard_event(plugin_id, entrypoint_id, KeyboardEventOrigin::PluginView, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
                     .await?;
 
                 Ok(())

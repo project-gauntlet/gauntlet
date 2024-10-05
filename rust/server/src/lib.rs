@@ -195,10 +195,11 @@ async fn handle_request(application_manager: Arc<ApplicationManager>, request_da
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::SendKeyboardEvent { plugin_id, entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+        BackendRequestData::SendKeyboardEvent { plugin_id, entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
             application_manager.handle_keyboard_event(
                 plugin_id,
                 entrypoint_id,
+                origin,
                 key,
                 modifier_shift,
                 modifier_control,

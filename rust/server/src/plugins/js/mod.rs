@@ -28,11 +28,11 @@ use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
 use common::dirs::Dirs;
-use common::model::{EntrypointId, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidget, UiWidgetId};
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidget, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
-use crate::model::{IntermediateUiEvent, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
+use crate::model::{IntermediateUiEvent, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, JsKeyboardEventOrigin, PreferenceUserData};
 use crate::plugins::applications::{get_apps, DesktopEntry};
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
@@ -116,6 +116,7 @@ pub enum OnePluginCommandData {
     },
     HandleKeyboardEvent {
         entrypoint_id: EntrypointId,
+        origin: KeyboardEventOrigin,
         key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
@@ -180,9 +181,10 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                     event_arguments,
                                 })
                             }
-                            OnePluginCommandData::HandleKeyboardEvent { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+                            OnePluginCommandData::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
                                 Some(IntermediateUiEvent::HandleKeyboardEvent {
                                     entrypoint_id,
+                                    origin,
                                     key,
                                     modifier_shift,
                                     modifier_control,
@@ -667,9 +669,13 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                 event_arguments,
             }
         }
-        IntermediateUiEvent::HandleKeyboardEvent { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+        IntermediateUiEvent::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
             JsUiEvent::KeyboardEvent {
                 entrypoint_id: entrypoint_id.to_string(),
+                origin: match origin {
+                    KeyboardEventOrigin::MainView => JsKeyboardEventOrigin::MainView,
+                    KeyboardEventOrigin::PluginView => JsKeyboardEventOrigin::PluginView,
+                },
                 key: key.to_value(),
                 modifier_shift,
                 modifier_control,

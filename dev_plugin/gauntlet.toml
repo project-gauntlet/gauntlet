@@ -136,6 +136,12 @@ path = 'src/command-generator.ts'
 type = 'command-generator'
 description = ''
 
+[[entrypoint.actions]]
+id = 'testGeneratedAction1'
+description = "test action description 1"
+shortcut = { key = 'a', kind = 'main'}
+
+
 [[entrypoint]]
 id = 'test-list-detail'
 name = 'Test List Detail'

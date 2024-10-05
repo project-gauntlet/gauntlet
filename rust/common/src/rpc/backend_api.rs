@@ -6,7 +6,7 @@ use tonic::transport::Channel;
 
 use utils::channel::{RequestError, RequestSender};
 
-use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
+use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
@@ -127,6 +127,7 @@ impl BackendForFrontendApi {
         &mut self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
+        origin: KeyboardEventOrigin,
         key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
@@ -136,6 +137,7 @@ impl BackendForFrontendApi {
         let request = BackendRequestData::SendKeyboardEvent {
             plugin_id,
             entrypoint_id,
+            origin,
             key,
             modifier_shift,
             modifier_control,

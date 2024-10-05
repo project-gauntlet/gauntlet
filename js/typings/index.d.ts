@@ -19,10 +19,13 @@ type ViewEvent = {
     eventArguments: PropertyValue[]
 }
 
+type KeyboardEventOrigin = "MainView" | "PluginView"
+
 // naming to avoid collision
 type NotReactsKeyboardEvent = {
     type: "KeyboardEvent"
     entrypointId: string
+    origin: KeyboardEventOrigin
     key: string
     modifierShift: boolean
     modifierControl: boolean
@@ -118,7 +121,7 @@ interface InternalApi {
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: UiWidget): void;
     show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;
 
-    fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string>;
+    fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string | undefined>;
 
     clipboard_read(): Promise<{ text_data?: string, png_data?: Blob }>;
     clipboard_read_text(): Promise<string | undefined>;

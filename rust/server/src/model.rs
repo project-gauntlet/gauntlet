@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use deno_core::serde_v8;
 use serde::{Deserialize, Serialize};
 
-use common::model::{EntrypointId, PhysicalKey, UiPropertyValue, UiWidget, UiWidgetId};
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, UiPropertyValue, UiWidget, UiWidgetId};
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -66,6 +66,7 @@ pub enum JsUiEvent {
     KeyboardEvent {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String,
+        origin: JsKeyboardEventOrigin,
         key: String,
         #[serde(rename = "modifierShift")]
         modifier_shift: bool,
@@ -82,6 +83,12 @@ pub enum JsUiEvent {
     },
     ReloadSearchIndex,
     RefreshSearchIndex,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum JsKeyboardEventOrigin {
+    MainView,
+    PluginView,
 }
 
 // FIXME this could have been serde_v8::AnyValue but it doesn't support undefined, make a pr?
@@ -133,6 +140,7 @@ pub enum IntermediateUiEvent {
     HandleKeyboardEvent {
         entrypoint_id: EntrypointId,
         key: PhysicalKey,
+        origin: KeyboardEventOrigin,
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,

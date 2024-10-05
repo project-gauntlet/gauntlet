@@ -10,12 +10,12 @@ use global_hotkey::hotkey::HotKey;
 use include_dir::{Dir, include_dir};
 use tokio::runtime::Handle;
 
-use common::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
+use common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common::{settings_env_data_to_string, SettingsEnvData};
 use utils::channel::RequestSender;
 use common::dirs::Dirs;
-use crate::model::ActionShortcutKey;
+use crate::model::{ActionShortcutKey, JsKeyboardEventOrigin};
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions};
 use crate::plugins::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
@@ -404,11 +404,12 @@ impl ApplicationManager {
         })
     }
 
-    pub fn handle_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) {
+    pub fn handle_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, origin: KeyboardEventOrigin, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::HandleKeyboardEvent {
                 entrypoint_id,
+                origin,
                 key,
                 modifier_shift,
                 modifier_control,

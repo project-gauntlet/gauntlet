@@ -191,6 +191,7 @@ pub enum BackendRequestData {
     SendKeyboardEvent {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
+        origin: KeyboardEventOrigin,
         key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
@@ -206,6 +207,12 @@ pub enum BackendRequestData {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum KeyboardEventOrigin {
+    MainView,
+    PluginView,
 }
 
 #[derive(Debug, Clone)]

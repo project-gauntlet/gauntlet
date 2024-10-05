@@ -16,7 +16,7 @@ export interface GeneratedCommandAction {
     fn: () => void
 }
 
-type ProcessedGeneratedCommand = GeneratedCommand & { lookupId: string, uuid: string };
+type ProcessedGeneratedCommand = GeneratedCommand & { generatorEntrypointId: string, lookupId: string, uuid: string };
 
 let storedGeneratedCommands: ProcessedGeneratedCommand[] = []
 
@@ -33,6 +33,7 @@ export async function runCommandGenerators(): Promise<void> {
             const generatedCommands = (await generator())
                 .map(value => {
                     return {
+                        generatorEntrypointId: generatorEntrypointId,
                         lookupId: generatorEntrypointId + ":" + value.id,
                         uuid: crypto.randomUUID(),
                         ...value
@@ -62,6 +63,20 @@ export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
                 label: action.label
             })),
     }))
+}
+
+export async function runGeneratedCommandAction(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean) {
+    const command = storedGeneratedCommands.find(value => value.lookupId == entrypointId);
+
+    if (command) {
+        const id = await InternalApi.fetch_action_id_for_shortcut(command.generatorEntrypointId, key, modifierShift, modifierControl, modifierAlt, modifierMeta);
+        if (id) {
+            const action = command.actions?.find(value => value.ref == id);
+            if (action) {
+                action.fn()
+            }
+        }
+    }
 }
 
 export function runGeneratedCommand(entrypointId: string, action_index: number | undefined) {

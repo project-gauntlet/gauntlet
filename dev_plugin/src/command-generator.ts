@@ -27,13 +27,13 @@ export default function CommandGenerator(): GeneratedCommand[] {
             },
             actions: [
                 {
-                    ref: "testAction1",
                     label: "Test 1",
                     fn: () => {
                         console.log('generated-action-1')
                     }
                 },
                 {
+                    ref: "testGeneratedAction1",
                     label: "Test 2",
                     fn: () => {
                         console.log('generated-action-2')

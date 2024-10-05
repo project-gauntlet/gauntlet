@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { runCommandGenerators, runGeneratedCommand } from "./command-generator";
+import { runCommandGenerators, runGeneratedCommand, runGeneratedCommandAction } from "./command-generator";
 import { reloadSearchIndex } from "./search-index";
 import { clearRenderer } from "gauntlet:renderer";
 
@@ -91,15 +91,26 @@ function handleEvent(event: ViewEvent) {
 
 async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
     InternalApi.op_log_trace("plugin_event_handler", `Handling keyboard event: ${Deno.inspect(event)}`);
-    if (latestRootUiWidget) {
-        const actionHandlers = findAllActionHandlers(latestRootUiWidget);
+    switch (event.origin) {
+        case "MainView": {
+            runGeneratedCommandAction(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta)
+            break;
+        }
+        case "PluginView": {
+            if (latestRootUiWidget) {
+                const actionHandlers = findAllActionHandlers(latestRootUiWidget);
 
-        const id = await InternalApi.fetch_action_id_for_shortcut(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta);
+                const id = await InternalApi.fetch_action_id_for_shortcut(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta);
 
-        const actionHandler = actionHandlers.find(value => value.id === id);
+                if (id) {
+                    const actionHandler = actionHandlers.find(value => value.id === id);
 
-        if (actionHandler) {
-            actionHandler.onAction()
+                    if (actionHandler) {
+                        actionHandler.onAction()
+                    }
+                }
+            }
+            break;
         }
     }
 }
