@@ -3,7 +3,7 @@ use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::PluginData;
 use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction};
 use anyhow::Context;
-use common::model::{EntrypointId, PhysicalShortcut, SearchResultEntrypointType};
+use common::model::{EntrypointId, SearchResultEntrypointType};
 use deno_core::{op, OpState};
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -72,7 +72,7 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
             let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
 
             let shortcuts = shortcuts
-                .get(&item.entrypoint_id);
+                .get(&item.generator_entrypoint_id);
 
             let entrypoint_actions = item.entrypoint_actions.iter()
                 .map(|action| {
@@ -176,6 +176,7 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
 #[derive(Debug, Deserialize)]
 struct AdditionalSearchItem {
     entrypoint_name: String,
+    generator_entrypoint_id: String,
     entrypoint_id: String,
     entrypoint_uuid: String,
     entrypoint_icon: Option<Vec<u8>>,

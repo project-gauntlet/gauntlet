@@ -53,6 +53,7 @@ export async function runCommandGenerators(): Promise<void> {
 
 export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
     return storedGeneratedCommands.map(value => ({
+        generator_entrypoint_id: value.generatorEntrypointId,
         entrypoint_id: value.lookupId,
         entrypoint_uuid: value.uuid,
         entrypoint_name: value.name,
