@@ -15,8 +15,8 @@ pub fn get_apps() -> Vec<DesktopEntry> {
     let file_manager = FileManager::default();
 
     let all_items = [
+        get_applications(&file_manager),
         get_settings(&file_manager),
-        get_applications(&file_manager)
     ];
 
     all_items
