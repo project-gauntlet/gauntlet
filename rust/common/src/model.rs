@@ -343,6 +343,7 @@ pub enum PluginPreferenceUserData {
     ListOfEnums {
         value: Option<Vec<String>>,
     },
+    // TODO be careful about exposing secrets to logs when adding password type
 }
 
 #[derive(Debug, Clone)]

@@ -96,6 +96,8 @@ impl ApplicationManager {
     }
 
     pub fn clear_all_icon_cache_dir(&self) -> anyhow::Result<()> {
+        tracing::debug!("clearing all icon cache");
+
         self.icon_cache.clear_all_icon_cache_dir()
     }
 
@@ -248,6 +250,8 @@ impl ApplicationManager {
     }
 
     pub async fn set_entrypoint_state(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> anyhow::Result<()> {
+        tracing::debug!(target = "plugin", "Setting entrypoint state for plugin id: {:?}, entrypoint_id: {:?}, enabled: {}", plugin_id, entrypoint_id, enabled);
+
         self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
             .await?;
 
@@ -271,6 +275,8 @@ impl ApplicationManager {
     }
 
     pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
+        tracing::debug!(target = "plugin", "Setting preference value for plugin id: {:?}, entrypoint_id: {:?}, preference_id: {}", plugin_id, entrypoint_id, preference_id);
+
         let user_data = plugin_preference_user_data_to_db(preference_value);
 
         self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_id, user_data)
