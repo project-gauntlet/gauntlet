@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::sync::Arc;
+use vergen_pretty::vergen_pretty_env;
 use client::{open_window, start_client};
 use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
@@ -18,6 +19,13 @@ pub(in crate) mod model;
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
 pub fn start(minimized: bool) {
+    tracing::info!("Gauntlet Build Information:");
+    for (name, value) in vergen_pretty_env!() {
+        if let Some(value) = value {
+            tracing::info!("{}: {}", name, value);
+        }
+    }
+
     #[cfg(feature = "scenario_runner")]
     run_scenario_runner();
 
