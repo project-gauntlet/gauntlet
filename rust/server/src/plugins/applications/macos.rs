@@ -102,6 +102,8 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
         .parse()
         .expect("SystemVersion.plist ProductVersion major doesn't match expected format");
 
+    tracing::debug!("Indexing settings for macOS version: {}", major_version);
+
     if major_version >= 13 {  // Ventura and higher
         let sidebar: Vec<SidebarSection> = plist::from_file("/System/Applications/System Settings.app/Contents/Resources/Sidebar.plist")
             .expect("Sidebar.plist doesn't follow expected format");
