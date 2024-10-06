@@ -1326,6 +1326,10 @@ impl AppModel {
             GlobalState::initial(&mut self.global_state)
         );
 
+        let mut client_context = self.client_context.write().expect("lock is poisoned");
+
+        client_context.clear_all_inline_views();
+
         Command::batch(commands)
     }
 

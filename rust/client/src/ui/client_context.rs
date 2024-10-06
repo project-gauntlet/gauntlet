@@ -62,6 +62,10 @@ impl ClientContext {
         }
     }
 
+     pub fn clear_all_inline_views(&mut self) {
+        self.inline_views.clear()
+    }
+
     pub fn clear_inline_view(&mut self, plugin_id: &PluginId) {
         if let Some(index) = self.inline_views.iter().position(|(id, _)| id == plugin_id) {
             self.inline_views.remove(index);
