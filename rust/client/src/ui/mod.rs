@@ -97,6 +97,8 @@ pub enum AppMsg {
     SetSearchResults(Vec<SearchResult>),
     ReplaceView {
         top_level_view: bool,
+        has_children: bool,
+        render_location: UiRenderLocation,
     },
     IcedEvent(Event),
     WidgetEvent {
@@ -297,9 +299,14 @@ impl Application for AppModel {
                     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
                     let mut context = ClientContext::new();
+
+                    let render_location = ui_render_location_from_scenario(render_location);
+                    let ui_widget = ui_widget_from_scenario(container);
+                    let has_children = ui_widget.widget_children.len() != 0;
+
                     context.replace_view(
-                        ui_render_location_from_scenario(render_location),
-                        ui_widget_from_scenario(container),
+                        render_location,
+                        ui_widget,
                         &plugin_id,
                         "Screenshot Plugin",
                         &entrypoint_id,
@@ -308,11 +315,11 @@ impl Application for AppModel {
 
                     let context = Arc::new(StdRwLock::new(context));
 
-                    commands.push(Command::perform(async move { top_level_view }, |top_level_view| AppMsg::ReplaceView { top_level_view }));
+                    commands.push(Command::perform(async { }, move |_| AppMsg::ReplaceView { top_level_view, has_children, render_location }));
 
                     let state= match render_location {
-                        ScenarioUiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
-                        ScenarioUiRenderLocation::View => GlobalState::new_plugin(
+                        UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
+                        UiRenderLocation::View => GlobalState::new_plugin(
                             PluginViewData {
                                 top_level_view,
                                 plugin_id,
@@ -420,7 +427,7 @@ impl Application for AppModel {
 
                             *prompt = new_prompt.clone();
 
-                            focused_search_result.reset();
+                            focused_search_result.reset(true);
 
                             MainViewState::initial(sub_state);
                         }
@@ -447,9 +454,16 @@ impl Application for AppModel {
 
                 Command::none()
             }
-            AppMsg::ReplaceView { top_level_view } => {
+            AppMsg::ReplaceView { top_level_view, render_location, has_children } => {
                 match &mut self.global_state {
-                    GlobalState::MainView { pending_plugin_view_data, .. } => {
+                    GlobalState::MainView { pending_plugin_view_data, focused_search_result, .. } => {
+
+                        if has_children {
+                            if let UiRenderLocation::InlineView = render_location {
+                                focused_search_result.unfocus();
+                            }
+                        }
+
                         match pending_plugin_view_data {
                             None => Command::none(),
                             Some(pending_plugin_view_data) => {
@@ -1579,6 +1593,8 @@ async fn request_loop(
                     top_level_view,
                     container
                 } => {
+                    let has_children = container.widget_children.len() != 0;
+
                     client_context.replace_view(
                         render_location,
                         container,
@@ -1591,7 +1607,9 @@ async fn request_loop(
                     responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ReplaceView {
-                        top_level_view
+                        top_level_view,
+                        has_children,
+                        render_location
                     }
                 }
                 UiRequestData::ClearInlineView { plugin_id } => {

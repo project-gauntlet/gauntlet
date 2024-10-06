@@ -26,9 +26,13 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.index = None;
+    pub fn reset(&mut self, first_focused: bool) {
+        self.index = if first_focused { Some(0) } else { None };
         self.offset = 0;
+    }
+
+    pub fn unfocus(&mut self) {
+        self.index = None;
     }
 
     pub fn get<'a>(&self, search_results: &'a [T]) -> Option<&'a T> {

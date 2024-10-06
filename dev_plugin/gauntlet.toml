@@ -130,6 +130,13 @@ type = 'command'
 description = ''
 
 [[entrypoint]]
+id = 'empty-entrypoint'
+name = 'Empty Entrypoint'
+path = 'src/empty.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
 id = 'command-generator'
 name = 'Command generator'
 path = 'src/command-generator.ts'
