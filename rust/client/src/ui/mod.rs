@@ -108,8 +108,13 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
-    ToggleActionPanel,
-    OnEntrypointAction(UiWidgetId),
+    ToggleActionPanel {
+        keyboard: bool
+    },
+    OnEntrypointAction {
+        keyboard: bool,
+        widget_id: UiWidgetId
+    },
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -507,7 +512,7 @@ impl Application for AppModel {
                                             MainViewState::None => {
                                                 match physical_key_model(physical_key, modifiers) {
                                                     Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                                                     }
                                                     Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
                                                         if let Some(search_item) = focused_search_result.get(&self.search_results) {
@@ -534,7 +539,7 @@ impl Application for AppModel {
                                             MainViewState::ActionPanel { .. } => {
                                                 match physical_key_model(physical_key, modifiers) {
                                                     Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                                                     }
                                                     Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
                                                         if let Some(search_item) = focused_search_result.get(&self.search_results) {
@@ -564,7 +569,7 @@ impl Application for AppModel {
                                     GlobalState::PluginView { .. } => {
                                         match physical_key_model(physical_key, modifiers) {
                                             Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                                                Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                                             }
                                             Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
                                                 self.handle_plugin_view_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
@@ -760,14 +765,14 @@ impl Application for AppModel {
                 #[cfg(not(target_os = "linux"))]
                 window::close(window::Id::MAIN)
             }
-            AppMsg::ToggleActionPanel => {
+            AppMsg::ToggleActionPanel { keyboard } => {
                 match &mut self.global_state {
                     GlobalState::MainView { sub_state, focused_search_result, .. } => {
                         match sub_state {
                             MainViewState::None => {
                                 if let Some(search_item) = focused_search_result.get(&self.search_results) {
                                     if search_item.entrypoint_actions.len() > 0 {
-                                        MainViewState::action_panel(sub_state);
+                                        MainViewState::action_panel(sub_state, keyboard);
                                     }
                                 }
                             }
@@ -784,7 +789,7 @@ impl Application for AppModel {
 
                         match sub_state {
                             PluginViewState::None => {
-                                PluginViewState::action_panel(sub_state)
+                                PluginViewState::action_panel(sub_state, keyboard)
                             }
                             PluginViewState::ActionPanel { .. } => {
                                 PluginViewState::initial(sub_state)
@@ -795,7 +800,7 @@ impl Application for AppModel {
 
                 Command::none()
             }
-            AppMsg::OnEntrypointAction(widget_id) => {
+            AppMsg::OnEntrypointAction { keyboard, widget_id} => {
                 match &mut self.global_state {
                     GlobalState::MainView { focused_search_result, sub_state, .. } => {
                         match sub_state {
@@ -843,7 +848,7 @@ impl Application for AppModel {
                                 let render_location = UiRenderLocation::View;
 
                                 Command::batch([
-                                    Command::perform(async {}, |_| AppMsg::ToggleActionPanel),
+                                    Command::perform(async {}, move |_| AppMsg::ToggleActionPanel { keyboard }),
                                     Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
                                 ])
                             }
@@ -1182,8 +1187,8 @@ impl Application for AppModel {
                             action_panel,
                             None::<&ScrollHandle<SearchResultEntrypointAction>>,
                             "".to_string(),
-                            || AppMsg::ToggleActionPanel,
-                            AppMsg::OnEntrypointAction
+                            || AppMsg::ToggleActionPanel { keyboard: false },
+                            |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
                         )
                     }
                     MainViewState::ActionPanel { focused_action_item, .. } => {
@@ -1196,8 +1201,8 @@ impl Application for AppModel {
                             action_panel,
                             Some(focused_action_item),
                             "".to_string(),
-                            || AppMsg::ToggleActionPanel,
-                            AppMsg::OnEntrypointAction
+                            || AppMsg::ToggleActionPanel { keyboard: false },
+                            |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
                         )
                     }
                 };
@@ -1436,7 +1441,7 @@ impl AppModel {
                 match event {
                     UiViewEvent::View { widget_id, event_name, event_arguments } => {
                         let msg = match widget_event {
-                            ComponentWidgetEvent::ActionClick { .. } => AppMsg::ToggleActionPanel,
+                            ComponentWidgetEvent::ActionClick { .. } => AppMsg::ToggleActionPanel { keyboard: false },
                             _ => AppMsg::Noop
                         };
 

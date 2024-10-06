@@ -21,9 +21,9 @@ impl MainViewState {
         *prev_state = Self::None
     }
 
-    pub fn action_panel(prev_state: &mut MainViewState) {
+    pub fn action_panel(prev_state: &mut MainViewState, focus_first: bool) {
         *prev_state = Self::ActionPanel {
-            focused_action_item: ScrollHandle::new(),
+            focused_action_item: ScrollHandle::new(focus_first),
         }
     }
 }
@@ -35,9 +35,12 @@ impl Focus<SearchResultEntrypointAction> for MainViewState {
                 panic!("invalid state")
             }
             MainViewState::ActionPanel { focused_action_item } => {
-                let widget_id = focused_action_item.index;
-
-                Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
+                match focused_action_item.index {
+                    None => Command::none(),
+                    Some(widget_id) => {
+                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                    }
+                }
             }
         }
     }

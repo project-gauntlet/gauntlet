@@ -68,7 +68,7 @@ impl GlobalState {
         GlobalState::MainView {
             search_field_id,
             prompt: "".to_string(),
-            focused_search_result: ScrollHandle::new(),
+            focused_search_result: ScrollHandle::new(true),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
         }

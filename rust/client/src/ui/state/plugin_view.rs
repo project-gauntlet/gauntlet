@@ -22,9 +22,9 @@ impl PluginViewState {
         *prev_state = Self::None
     }
 
-    pub fn action_panel(prev_state: &mut PluginViewState) {
+    pub fn action_panel(prev_state: &mut PluginViewState, focus_first: bool) {
         *prev_state = Self::ActionPanel {
-            focused_action_item: ScrollHandle::new(),
+            focused_action_item: ScrollHandle::new(focus_first),
         }
     }
 }
@@ -35,7 +35,7 @@ impl Focus<UiWidgetId> for PluginViewState {
             PluginViewState::None => {
                 if let Some(widget_id) = focus_list.get(0) {
                     let widget_id = *widget_id;
-                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
+                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
                 } else {
                     Command::none()
                 }
@@ -43,7 +43,7 @@ impl Focus<UiWidgetId> for PluginViewState {
             PluginViewState::ActionPanel { focused_action_item, .. } => {
                 if let Some(widget_id) = focused_action_item.get(focus_list) {
                     let widget_id = *widget_id;
-                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
+                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
                 } else {
                     Command::none()
                 }
@@ -56,7 +56,7 @@ impl Focus<UiWidgetId> for PluginViewState {
             PluginViewState::None => {
                 if let Some(widget_id) = focus_list.get(1) {
                     let widget_id = *widget_id;
-                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction(widget_id))
+                    Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
                 } else {
                     Command::none()
                 }
@@ -74,7 +74,7 @@ impl Focus<UiWidgetId> for PluginViewState {
                 panic!("invalid state")
             }
             PluginViewState::ActionPanel { .. } => {
-                Command::perform(async {}, |_| AppMsg::ToggleActionPanel)
+                Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
             }
         }
     }

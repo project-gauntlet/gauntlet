@@ -1547,10 +1547,15 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
                         .into()
                 };
 
-                let style = if action_panel_scroll_handle.index == index_counter.get() {
-                    ButtonStyle::ActionFocused
-                } else {
-                    ButtonStyle::Action
+                let style = match action_panel_scroll_handle.index {
+                    None => ButtonStyle::Action,
+                    Some(focused_index) => {
+                        if focused_index == index_counter.get() {
+                            ButtonStyle::ActionFocused
+                        } else {
+                            ButtonStyle::Action
+                        }
+                    }
                 };
 
                 index_counter.set(index_counter.get() + 1);
@@ -1610,7 +1615,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     action_panel: Option<ActionPanel>,
     action_panel_scroll_handle: Option<&ScrollHandle<ACTION>>,
     entrypoint_name: String,
-    on_panel_toggle: impl Fn() -> T,
+    on_panel_toggle_click: impl Fn() -> T,
     on_action_click: impl Fn(UiWidgetId) -> T,
 ) -> Element<'a, T>  {
     let entrypoint_name: Element<_> = text(entrypoint_name)
@@ -1679,7 +1684,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
                 .into();
 
             let action_panel_toggle: Element<_> = button(action_panel_toggle_content)
-                .on_press(on_panel_toggle())
+                .on_press(on_panel_toggle_click())
                 .themed(ButtonStyle::RootBottomPanelActionToggleButton);
 
             bottom_panel_content.push(action_panel_toggle);
@@ -1724,7 +1729,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
         content
     } else {
         mouse_area(content)
-            .on_press(on_panel_toggle())
+            .on_press(on_panel_toggle_click())
             .into()
     };
 
@@ -2023,7 +2028,7 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
                 Some(UiViewEvent::AppEvent {
-                    event: AppMsg::ToggleActionPanel
+                    event: AppMsg::ToggleActionPanel { keyboard: false }
                 })
             }
             ComponentWidgetEvent::ListItemClick { widget_id } => {

@@ -17,7 +17,7 @@ use crate::ui::theme::text::TextStyle;
 
 pub struct SearchList<'a, Message> {
     on_select: Box<dyn Fn(SearchResult) -> Message>,
-    focused_search_result: usize,
+    focused_search_result: Option<usize>,
     search_results: &'a[SearchResult],
 }
 
@@ -35,7 +35,7 @@ pub struct SelectItemEvent(SearchResult);
 impl<'a, Message> SearchList<'a, Message> {
     pub fn new(
         search_results: &'a[SearchResult],
-        focused_search_result: usize,
+        focused_search_result: Option<usize>,
         on_open_view: impl Fn(SearchResult) -> Message + 'static,
     ) -> Self {
         Self {
@@ -105,10 +105,15 @@ impl<'a, Message> Component<Message, GauntletTheme> for SearchList<'a, Message> 
                     .align_items(Alignment::Center)
                     .into();
 
-                let style = if self.focused_search_result == index {
-                    ButtonStyle::MainListItemFocused
-                } else {
-                    ButtonStyle::MainListItem
+                let style = match self.focused_search_result {
+                    None => ButtonStyle::MainListItem,
+                    Some(focused_index) => {
+                        if focused_index == index {
+                            ButtonStyle::MainListItemFocused
+                        } else {
+                            ButtonStyle::MainListItem
+                        }
+                    }
                 };
 
                 button(button_content)
