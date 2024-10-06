@@ -1,5 +1,6 @@
-import { Content, Icons, Inline } from "@project-gauntlet/api/components";
+import { Action, ActionPanel, Content, Icons, Inline } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
+import { Clipboard } from "@project-gauntlet/api/helpers";
 
 export default function InlineView(props: { text: string }): ReactNode | undefined {
     const text = props.text;
@@ -8,7 +9,31 @@ export default function InlineView(props: { text: string }): ReactNode | undefin
     }
 
     return (
-        <Inline>
+        <Inline
+            actions={
+                <ActionPanel>
+                    <Action
+                        label={"Copy content"}
+                        onAction={async () => {
+                            console.log("action test 1")
+                            await Clipboard.writeText("Test Content")
+                        }}
+                    />
+                    <Action
+                        label={"Test 2"}
+                        onAction={() => {
+                            console.log("action test 2")
+                        }}
+                    />
+                    <Action
+                        label={"Test 3"}
+                        onAction={() => {
+                            console.log("action test 3")
+                        }}
+                    />
+                </ActionPanel>
+            }
+        >
             <Inline.Left>
                 <Content.Paragraph>
                     Testing inline view left {text}

@@ -1,8 +1,9 @@
-use common::model::{EntrypointId, PluginId, UiWidget, UiWidgetId};
+use std::collections::HashMap;
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiWidget, UiWidgetId};
 use crate::model::UiViewEvent;
-
+use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::theme::Element;
-use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent, ComponentWidgetWrapper};
+use crate::ui::widget::{ActionPanel, ComponentRenderContext, ComponentWidgetEvent, ComponentWidgetWrapper};
 
 pub struct PluginWidgetContainer {
     root_widget: ComponentWidgetWrapper,
@@ -37,6 +38,10 @@ impl PluginWidgetContainer {
 
     pub fn get_entrypoint_name(&self) -> String {
         self.entrypoint_name.clone().expect("entrypoint id should always exist after render")
+    }
+
+    pub fn get_action_panel(&self, action_shortcuts: HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+        self.root_widget.get_action_panel(action_shortcuts)
     }
 
     pub fn render_widget<'a>(&self, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {

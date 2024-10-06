@@ -32,13 +32,13 @@ use common_ui::physical_key_model;
 use utils::channel::{channel, RequestReceiver, RequestSender};
 
 use crate::model::UiViewEvent;
-use crate::ui::inline_view_container::inline_view_container;
+use crate::ui::inline_view_container::{inline_view_action_panel, inline_view_container};
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::view_container::view_container;
-use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentWidgetEvent};
+use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentRenderContext, ComponentWidgetEvent};
 
 mod view_container;
 mod search_list;
@@ -56,6 +56,7 @@ mod state;
 pub use theme::GauntletTheme;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
+use crate::ui::widget_container::PluginWidgetContainer;
 
 pub struct AppModel {
     // logic
@@ -318,7 +319,7 @@ impl Application for AppModel {
                     commands.push(Command::perform(async { }, move |_| AppMsg::ReplaceView { top_level_view, has_children, render_location }));
 
                     let state= match render_location {
-                        UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
+                        UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique(), context.clone()),
                         UiRenderLocation::View => GlobalState::new_plugin(
                             PluginViewData {
                                 top_level_view,
@@ -354,7 +355,8 @@ impl Application for AppModel {
                 }
             }
         } else {
-            (Arc::new(StdRwLock::new(ClientContext::new())), GlobalState::new(text_input::Id::unique()))
+            let context = Arc::new(StdRwLock::new(ClientContext::new()));
+            (context.clone(), GlobalState::new(text_input::Id::unique(), context.clone()))
         };
 
         (
@@ -512,7 +514,8 @@ impl Application for AppModel {
                                     GlobalState::MainView { sub_state, search_field_id, prompt, .. } => {
                                         match sub_state {
                                             MainViewState::None => Self::backspace_prompt(prompt, search_field_id.clone()),
-                                            MainViewState::ActionPanel { .. } => Command::none()
+                                            MainViewState::SearchResultActionPanel { .. } => Command::none(),
+                                            MainViewState::InlineViewActionPanel { .. } => Command::none()
                                         }
                                     }
                                     GlobalState::ErrorView { .. } => Command::none(),
@@ -529,17 +532,58 @@ impl Application for AppModel {
                                                         Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                                                     }
                                                     Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                        if let Some(search_item) = focused_search_result.get(&self.search_results) {
-                                                            if search_item.entrypoint_actions.len() > 0 {
-                                                                self.handle_main_view_keyboard_event(
-                                                                    search_item.plugin_id.clone(),
-                                                                    search_item.entrypoint_id.clone(),
+                                                        if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                                            if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                                                if search_item.entrypoint_actions.len() > 0 {
+                                                                    self.handle_main_view_keyboard_event(
+                                                                        search_item.plugin_id.clone(),
+                                                                        search_item.entrypoint_id.clone(),
+                                                                        physical_key,
+                                                                        modifier_shift,
+                                                                        modifier_control,
+                                                                        modifier_alt,
+                                                                        modifier_meta
+                                                                    )
+                                                                } else {
+                                                                    Command::none()
+                                                                }
+                                                            } else {
+                                                                self.handle_inline_plugin_view_keyboard_event(
                                                                     physical_key,
                                                                     modifier_shift,
                                                                     modifier_control,
                                                                     modifier_alt,
                                                                     modifier_meta
                                                                 )
+                                                            }
+                                                        } else {
+                                                            Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)
+                                                        }
+                                                    }
+                                                    _ => Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)
+                                                }
+                                            }
+                                            MainViewState::SearchResultActionPanel { .. } => {
+                                                match physical_key_model(physical_key, modifiers) {
+                                                    Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
+                                                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
+                                                    }
+                                                    Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                                        if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                                            if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                                                if search_item.entrypoint_actions.len() > 0 {
+                                                                    self.handle_main_view_keyboard_event(
+                                                                        search_item.plugin_id.clone(),
+                                                                        search_item.entrypoint_id.clone(),
+                                                                        physical_key,
+                                                                        modifier_shift,
+                                                                        modifier_control,
+                                                                        modifier_alt,
+                                                                        modifier_meta
+                                                                    )
+                                                                } else {
+                                                                    Command::none()
+                                                                }
                                                             } else {
                                                                 Command::none()
                                                             }
@@ -547,29 +591,18 @@ impl Application for AppModel {
                                                             Command::none()
                                                         }
                                                     }
-                                                    _ => Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)
+                                                    _ => Command::none()
                                                 }
                                             }
-                                            MainViewState::ActionPanel { .. } => {
+                                            MainViewState::InlineViewActionPanel { .. } => {
                                                 match physical_key_model(physical_key, modifiers) {
                                                     Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
                                                         Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                                                     }
                                                     Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                        if let Some(search_item) = focused_search_result.get(&self.search_results) {
-                                                            if search_item.entrypoint_actions.len() > 0 {
-                                                                self.handle_main_view_keyboard_event(
-                                                                    search_item.plugin_id.clone(),
-                                                                    search_item.entrypoint_id.clone(),
-                                                                    physical_key,
-                                                                    modifier_shift,
-                                                                    modifier_control,
-                                                                    modifier_alt,
-                                                                    modifier_meta
-                                                                )
-                                                            } else {
-                                                                Command::none()
-                                                            }
+                                                        if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                                            // TODO
+                                                            Command::none()
                                                         } else {
                                                             Command::none()
                                                         }
@@ -586,7 +619,11 @@ impl Application for AppModel {
                                                 Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                                             }
                                             Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                self.handle_plugin_view_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                                    self.handle_plugin_view_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                } else {
+                                                    Command::none()
+                                                }
                                             }
                                             _ => Command::none()
                                         }
@@ -786,11 +823,18 @@ impl Application for AppModel {
                             MainViewState::None => {
                                 if let Some(search_item) = focused_search_result.get(&self.search_results) {
                                     if search_item.entrypoint_actions.len() > 0 {
-                                        MainViewState::action_panel(sub_state, keyboard);
+                                        MainViewState::search_result_action_panel(sub_state, keyboard);
+                                    }
+                                } else {
+                                    if let Some(_) = inline_view_action_panel(self.client_context.clone()) {
+                                        MainViewState::inline_result_action_panel(sub_state, keyboard);
                                     }
                                 }
                             }
-                            MainViewState::ActionPanel { .. } => {
+                            MainViewState::SearchResultActionPanel { .. } => {
+                                MainViewState::initial(sub_state);
+                            }
+                            MainViewState::InlineViewActionPanel { .. } => {
                                 MainViewState::initial(sub_state);
                             }
                         }
@@ -819,7 +863,7 @@ impl Application for AppModel {
                     GlobalState::MainView { focused_search_result, sub_state, .. } => {
                         match sub_state {
                             MainViewState::None => Command::none(),
-                            MainViewState::ActionPanel { .. } => {
+                            MainViewState::SearchResultActionPanel { .. } => {
                                 if let Some(search_item) = focused_search_result.get(&self.search_results) {
                                     MainViewState::initial(sub_state);
 
@@ -831,6 +875,30 @@ impl Application for AppModel {
                                     }
                                 } else {
                                     Command::none()
+                                }
+                            }
+                            MainViewState::InlineViewActionPanel { .. } => {
+                                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                                match client_context.get_first_inline_view_container() {
+                                    Some(container) => {
+                                        let plugin_id = container.get_plugin_id();
+
+                                        let action_ids = container.get_action_ids();
+
+                                        let widget_id = action_ids[widget_id];
+
+                                        let widget_event = ComponentWidgetEvent::RunAction {
+                                            widget_id,
+                                        };
+                                        let render_location = UiRenderLocation::InlineView;
+
+                                        Command::batch([
+                                            Command::perform(async {}, move |_| AppMsg::ToggleActionPanel { keyboard }),
+                                            Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                                        ])
+                                    }
+                                    None => Command::none()
                                 }
                             }
                         }
@@ -1187,7 +1255,25 @@ impl Application for AppModel {
                         (Some((label, default_shortcut)), Some(action_panel))
                     }
                 } else {
-                    (None, None)
+                    match inline_view_action_panel(self.client_context.clone()) {
+                        None => (None, None),
+                        Some(action_panel) => {
+                            match action_panel.find_first() {
+                                None => (None, None),
+                                Some(action) => {
+                                    let shortcut = PhysicalShortcut {
+                                        physical_key: PhysicalKey::Enter,
+                                        modifier_shift: false,
+                                        modifier_control: false,
+                                        modifier_alt: false,
+                                        modifier_meta: false
+                                    };
+
+                                    (Some((action, shortcut)), Some(action_panel))
+                                }
+                            }
+                        }
+                    }
                 };
 
                 let root = match sub_state {
@@ -1205,7 +1291,21 @@ impl Application for AppModel {
                             |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
                         )
                     }
-                    MainViewState::ActionPanel { focused_action_item, .. } => {
+                    MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
+                        render_root(
+                            true,
+                            input,
+                            separator,
+                            content,
+                            primary_action,
+                            action_panel,
+                            Some(focused_action_item),
+                            "".to_string(),
+                            || AppMsg::ToggleActionPanel { keyboard: false },
+                            |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
+                        )
+                    }
+                    MainViewState::InlineViewActionPanel { focused_action_item, .. } => {
                         render_root(
                             true,
                             input,
@@ -1342,7 +1442,7 @@ impl AppModel {
         }
 
         commands.push(
-            GlobalState::initial(&mut self.global_state)
+            GlobalState::initial(&mut self.global_state, self.client_context.clone())
         );
 
         let mut client_context = self.client_context.write().expect("lock is poisoned");
@@ -1385,7 +1485,7 @@ impl AppModel {
 
     fn reset_window_state(&mut self) -> Command<AppMsg> {
         let mut commands = vec![
-            GlobalState::initial(&mut self.global_state),
+            GlobalState::initial(&mut self.global_state, self.client_context.clone()),
         ];
 
         if !self.wayland {
@@ -1498,6 +1598,30 @@ impl AppModel {
         let (plugin_id, entrypoint_id) = {
             let client_context = self.client_context.read().expect("lock is poisoned");
             (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+        };
+
+        Command::perform(
+            async move {
+                backend_client.send_keyboard_event(plugin_id, entrypoint_id, KeyboardEventOrigin::PluginView, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                    .await?;
+
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
+    }
+
+    fn handle_inline_plugin_view_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Command<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+
+        let (plugin_id, entrypoint_id) = {
+            let client_context = self.client_context.read().expect("lock is poisoned");
+            match client_context.get_first_inline_view_container() {
+                None => {
+                    return Command::none()
+                },
+                Some(container) => (container.get_plugin_id(), container.get_entrypoint_id())
+            }
         };
 
         Command::perform(

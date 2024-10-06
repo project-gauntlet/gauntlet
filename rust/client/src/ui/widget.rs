@@ -191,9 +191,22 @@ impl ComponentWidgetWrapper {
 
         self.get_children()
             .unwrap_or(vec![])
-            .iter()
+            .into_iter()
             .find_map(|child| child.find_child_with_id(widget_id))
-            .map(|widget| widget.clone())
+    }
+
+    pub fn find_child_by_type(&self, predicate: &dyn Fn(&ComponentWidget) -> bool) -> Option<ComponentWidgetWrapper> {
+        self.get_children()
+            .unwrap_or(vec![])
+            .into_iter()
+            .find_map(|child| {
+                let (widget, _) = &*child.get();
+                if predicate(widget) {
+                    Some(child.clone())
+                } else {
+                    child.find_child_by_type(&predicate)
+                }
+            })
     }
 
     pub fn toggle_action_panel(&self) {
@@ -253,6 +266,12 @@ impl ComponentWidgetWrapper {
 
     fn get_mut(&self) -> RwLockWriteGuard<'_, (ComponentWidget, ComponentWidgetState)> {
         self.inner.write().expect("lock is poisoned")
+    }
+
+    pub fn get_action_panel(&self, action_shortcuts: HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+        self.find_child_by_type(&|widget| matches!(widget, ComponentWidget::ActionPanel { .. }))
+            .map(|widget| convert_action_panel(&[widget], action_shortcuts))
+            .flatten()
     }
 
     pub fn render_widget<'a>(&self, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
@@ -740,21 +759,23 @@ impl ComponentWidgetWrapper {
 
                 let content: Vec<Element<_>> = children
                     .into_iter()
-                    .map(|child| {
+                    .filter_map(|child| {
                         let (widget, _) = &*child.get();
 
                         match widget {
                             ComponentWidget::InlineSeparator { .. } => {
-                                child.render_widget(ComponentRenderContext::None)
+                                Some(child.render_widget(ComponentRenderContext::None))
                             }
                             ComponentWidget::Content { .. } => {
                                 let element = child.render_widget(ComponentRenderContext::Inline);
 
-                                container(element)
+                                let container = container(element)
                                     .width(Length::Fill)
-                                    .into()
+                                    .into();
+
+                                Some(container)
                             }
-                            _ => panic!("unexpected widget kind {:?}", widget)
+                            _ => None
                         }
                     })
                     .collect();
@@ -1329,26 +1350,7 @@ fn render_plugin_root<'a>(
     let mut action_panel = convert_action_panel(children, action_shortcuts);
 
     let primary_action = action_panel.as_mut()
-        .map(|panel| {
-            fn find_first(items: &[ActionPanelItem]) -> Option<String> {
-                for item in items {
-                    match item {
-                        ActionPanelItem::Action { label, .. } => {
-                            return Some(label.to_string())
-                        }
-                        ActionPanelItem::ActionSection { items, .. } => {
-                            if let Some(item) = find_first(items) {
-                                return Some(item)
-                            }
-                        }
-                    }
-                }
-
-                None
-            }
-
-            find_first(&panel.items)
-        })
+        .map(|panel| panel.find_first())
         .flatten()
         .map(|label| {
             let shortcut = PhysicalShortcut {
@@ -1394,11 +1396,23 @@ fn render_plugin_root<'a>(
     }
 }
 
+#[derive(Debug)]
 pub struct ActionPanel {
     pub title: Option<String>,
     pub items: Vec<ActionPanelItem>
 }
 
+impl ActionPanel {
+    pub fn action_count(&self) -> usize {
+        self.items.iter().map(|item| item.action_count()).sum()
+    }
+
+    pub fn find_first(&self) -> Option<String> {
+        ActionPanelItem::find_first(&self.items)
+    }
+}
+
+#[derive(Debug)]
 pub enum ActionPanelItem {
     Action {
         label: String,
@@ -1408,6 +1422,34 @@ pub enum ActionPanelItem {
     ActionSection {
         title: Option<String>,
         items: Vec<ActionPanelItem>
+    }
+}
+
+impl ActionPanelItem {
+    fn action_count(&self) -> usize {
+        match self {
+            ActionPanelItem::Action { .. } => 1,
+            ActionPanelItem::ActionSection { items, .. } => {
+                items.iter().map(|item| item.action_count()).sum()
+            }
+        }
+    }
+
+    fn find_first(items: &[ActionPanelItem]) -> Option<String> {
+        for item in items {
+            match item {
+                ActionPanelItem::Action { label, .. } => {
+                    return Some(label.to_string())
+                }
+                ActionPanelItem::ActionSection { items, .. } => {
+                    if let Some(item) = Self::find_first(items) {
+                        return Some(item)
+                    }
+                }
+            }
+        }
+
+        None
     }
 }
 

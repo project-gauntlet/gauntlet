@@ -5,7 +5,7 @@ use crate::ui::widget::ComponentWidgetEvent;
 use crate::ui::widget_container::PluginWidgetContainer;
 
 pub struct ClientContext {
-    inline_views: Vec<(PluginId, PluginWidgetContainer)>,
+    inline_views: Vec<(PluginId, PluginWidgetContainer)>, // Vec to have stable ordering
     view: PluginWidgetContainer,
 }
 
@@ -19,6 +19,11 @@ impl ClientContext {
 
     pub fn get_all_inline_view_containers(&self) -> &Vec<(PluginId, PluginWidgetContainer)> {
         &self.inline_views
+    }
+
+    pub fn get_first_inline_view_container(&self) -> Option<&PluginWidgetContainer> {
+        self.inline_views.first()
+            .map(|(_, container)| container)
     }
 
     pub fn get_inline_view_container(&self, plugin_id: &PluginId) -> &PluginWidgetContainer {

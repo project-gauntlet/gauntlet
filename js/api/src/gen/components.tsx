@@ -116,7 +116,7 @@ declare global {
                 icon?: Icons;
             };
             ["gauntlet:inline"]: {
-                children?: ElementComponent<typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
+                children?: ElementComponent<typeof ActionPanel | typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
             };
             ["gauntlet:empty_view"]: {
                 title: string;
@@ -623,6 +623,7 @@ export const InlineSeparator: FC<InlineSeparatorProps> = (props: InlineSeparator
 };
 export interface InlineProps {
     children?: ElementComponent<typeof Content | typeof InlineSeparator | typeof Content | typeof Content>;
+    actions?: ElementComponent<typeof ActionPanel>;
 }
 export const Inline: FC<InlineProps> & {
     Left: typeof Content;
@@ -630,7 +631,7 @@ export const Inline: FC<InlineProps> & {
     Right: typeof Content;
     Center: typeof Content;
 } = (props: InlineProps): ReactNode => {
-    return <gauntlet:inline>{props.children}</gauntlet:inline>;
+    return <gauntlet:inline>{props.actions as any}{props.children}</gauntlet:inline>;
 };
 Inline.Left = Content;
 Inline.Separator = InlineSeparator;

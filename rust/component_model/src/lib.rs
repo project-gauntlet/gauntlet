@@ -965,7 +965,9 @@ pub fn create_component_model() -> Vec<Component> {
         "inline",
         mark_doc!("/inline/description.md"),
         "Inline",
-        [],
+        [
+            property("actions", mark_doc!("/inline/props/actions.md"), true, component_ref(&action_panel_component)),
+        ],
         children_members([
             member("Left", &content_component),
             member("Separator", &inline_separator_component),

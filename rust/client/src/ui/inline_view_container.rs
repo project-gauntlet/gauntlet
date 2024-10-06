@@ -1,14 +1,15 @@
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use iced::widget::{Component, horizontal_space};
 use iced::widget::component;
+use iced::widget::{horizontal_space, Component};
 
 use common::model::UiRenderLocation;
 
-use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;
 use crate::ui::theme::{Element, GauntletTheme};
-use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent};
+use crate::ui::widget::{ActionPanel, ComponentRenderContext, ComponentWidgetEvent};
+use crate::ui::AppMsg;
 
 pub struct InlineViewContainer {
     client_context: Arc<RwLock<ClientContext>>,
@@ -20,51 +21,43 @@ pub fn inline_view_container(client_context: Arc<RwLock<ClientContext>>) -> Inli
     }
 }
 
-#[derive(Default)]
-pub struct PluginContainerState {
-    current_plugin: usize
-}
-
-pub enum InlineViewContainerEvent {
-    WidgetEvent(ComponentWidgetEvent),
-}
-
 impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
-    type State = PluginContainerState;
-    type Event = InlineViewContainerEvent;
+    type State = ();
+    type Event = ComponentWidgetEvent;
 
     fn update(
         &mut self,
-        state: &mut Self::State,
+        _state: &mut Self::State,
         event: Self::Event,
     ) -> Option<AppMsg> {
-        match event {
-            InlineViewContainerEvent::WidgetEvent(event) => {
-                let client_context = self.client_context.read().expect("lock is poisoned");
-                let containers = client_context.get_all_inline_view_containers();
-                let (plugin_id, _) = &containers[state.current_plugin];
-
-                Some(AppMsg::WidgetEvent {
-                    plugin_id: plugin_id.to_owned(),
-                    render_location: UiRenderLocation::InlineView,
-                    widget_event: event,
-                })
-            }
-        }
-    }
-
-    fn view(&self, state: &Self::State) -> Element<Self::Event> {
         let client_context = self.client_context.read().expect("lock is poisoned");
         let containers = client_context.get_all_inline_view_containers();
 
-        if let Some((_, container)) = &containers.get(state.current_plugin) {
-            container.render_widget(ComponentRenderContext::InlineRoot {
-                plugin_name: container.get_plugin_name(),
-                entrypoint_name: container.get_entrypoint_name(),
-            }).map(InlineViewContainerEvent::WidgetEvent)
-        } else {
-            horizontal_space()
-                .into()
+        match containers.first() {
+            Some((plugin_id, _)) => Some(AppMsg::WidgetEvent {
+                plugin_id: plugin_id.clone(),
+                render_location: UiRenderLocation::InlineView,
+                widget_event: event,
+            }),
+            None => None,
+        }
+    }
+
+    fn view(&self, _state: &Self::State) -> Element<Self::Event> {
+        let client_context = self.client_context.read().expect("lock is poisoned");
+        let containers = client_context.get_all_inline_view_containers();
+
+        match containers.first() {
+            Some((_, container)) => {
+                container.render_widget(ComponentRenderContext::InlineRoot {
+                    plugin_name: container.get_plugin_name(),
+                    entrypoint_name: container.get_entrypoint_name(),
+                })
+            }
+            None => {
+                horizontal_space()
+                    .into()
+            }
         }
     }
 }
@@ -74,3 +67,15 @@ impl<'a> From<InlineViewContainer> for Element<'a, AppMsg> {
         component(container)
     }
 }
+
+pub fn inline_view_action_panel(client_context: Arc<RwLock<ClientContext>>) -> Option<ActionPanel> {
+    let client_context = client_context.read().expect("lock is poisoned");
+    let containers = client_context.get_first_inline_view_container();
+
+    if let Some(container) = containers {
+        container.get_action_panel(HashMap::new())
+    } else {
+        None
+    }
+}
+
