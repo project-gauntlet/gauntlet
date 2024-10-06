@@ -143,7 +143,7 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
             })
             .collect();
 
-        tracing::debug!("Found following macOS setting extensions: {:?}", &preferences_ids);
+        tracing::debug!("Found following macOS setting extensions: {:?}", &extensions);
 
         preferences_ids.into_iter()
             .filter_map(|preferences_id| {
