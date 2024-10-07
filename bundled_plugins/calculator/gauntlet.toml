@@ -11,3 +11,4 @@ description = ''
 
 [permissions]
 main_search_bar = ["read"]
+clipboard = ["write"]

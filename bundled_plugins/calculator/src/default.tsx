@@ -1,5 +1,6 @@
-import { Content, Icons, Inline } from "@project-gauntlet/api/components";
+import { Action, ActionPanel, Content, Icons, Inline } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
+import { Clipboard } from "@project-gauntlet/api/helpers";
 
 // @ts-expect-error
 const denoCore: DenoCore = Deno[Deno.internal].core;
@@ -24,7 +25,18 @@ export default function Default(props: { text: string }): ReactNode | undefined 
         }
 
         return (
-            <Inline>
+            <Inline
+                actions={
+                    <ActionPanel>
+                        <Action
+                            label={"Copy content"}
+                            onAction={async () => {
+                                await Clipboard.writeText(right)
+                            }}
+                        />
+                    </ActionPanel>
+                }
+            >
                 <Inline.Left>
                     <Content.H3>
                         {left}
