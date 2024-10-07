@@ -259,6 +259,7 @@ impl GauntletTheme {
             action: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: TRANSPARENT,
+                background_color_focused: background_lighter_color,
                 background_color_hovered: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -286,6 +287,7 @@ impl GauntletTheme {
             metadata_tag_item_button: ThemeButton {
                 padding: padding_axis(2.0, 8.0),
                 background_color: primary_color,
+                background_color_focused: primary_hovered_color,
                 background_color_hovered: primary_hovered_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
@@ -348,6 +350,7 @@ impl GauntletTheme {
             grid_item: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: background_lighter_color,
+                background_color_focused: background_lightest_color,
                 background_color_hovered: background_lightest_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -381,6 +384,7 @@ impl GauntletTheme {
             root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: background_lighter_color,
+                background_color_focused: background_lightest_color,
                 background_color_hovered: background_lightest_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -396,6 +400,7 @@ impl GauntletTheme {
             root_bottom_panel_action_toggle_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: TRANSPARENT,
+                background_color_focused: background_lighter_color,
                 background_color_hovered: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -414,6 +419,7 @@ impl GauntletTheme {
             list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
+                background_color_focused: background_lighter_color,
                 background_color_hovered: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -480,7 +486,8 @@ impl GauntletTheme {
             main_list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_hovered: background_lighter_color,
+                background_color_focused: background_lighter_color,
+                background_color_hovered: background_darker_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -538,6 +545,7 @@ impl GauntletTheme {
             form_input_date_picker_buttons: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: primary_color,
+                background_color_focused: primary_hovered_color,
                 background_color_hovered: primary_hovered_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
@@ -668,6 +676,7 @@ const fn padding_axis(vertical: f32, horizontal: f32) -> ThemePadding {
 pub struct ThemeButton {
     padding: ThemePadding,
     background_color: ThemeColor,
+    background_color_focused: ThemeColor,
     background_color_hovered: ThemeColor,
     text_color: ThemeColor,
     text_color_hovered: ThemeColor,

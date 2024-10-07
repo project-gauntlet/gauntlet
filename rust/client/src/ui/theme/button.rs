@@ -99,7 +99,7 @@ impl ButtonStyle {
             }
             ButtonStyle::ActionFocused => {
                 let theme = &theme.action;
-                (Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ListItem => {
                 let theme = &theme.list_item;
@@ -111,7 +111,7 @@ impl ButtonStyle {
             }
             ButtonStyle::MainListItemFocused => {
                 let theme = &theme.main_list_item;
-                (Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::MetadataLink => {
                 let theme = &theme.metadata_link;
