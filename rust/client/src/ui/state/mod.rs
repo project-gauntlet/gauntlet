@@ -2,6 +2,7 @@ mod main_view;
 mod plugin_view;
 
 use crate::ui::client_context::ClientContext;
+use crate::ui::inline_view_container::inline_view_action_panel;
 use crate::ui::scroll_handle::ScrollHandle;
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
@@ -12,7 +13,6 @@ use iced::widget::text_input::focus;
 use iced::Command;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock as StdRwLock};
-use crate::ui::inline_view_container::inline_view_action_panel;
 
 pub enum GlobalState {
     MainView {
@@ -143,9 +143,19 @@ impl Focus<SearchResult> for GlobalState {
                             let search_item = search_item.clone();
                             Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
                         } else {
-                            if let Some(_) = inline_view_action_panel(client_context.clone()) {
-                                // TODO
-                                Command::none()
+                            let client_context = client_context.read().expect("lock is poisoned");
+
+                            if let Some(container) = client_context.get_first_inline_view_container() {
+                                let action_ids = container.get_action_ids();
+
+                                match action_ids.get(0) {
+                                    Some(widget_id) => {
+                                        let widget_id = *widget_id;
+
+                                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                                    }
+                                    None => Command::none()
+                                }
                             } else {
                                 Command::none()
                             }
@@ -206,9 +216,19 @@ impl Focus<SearchResult> for GlobalState {
                             let search_item = search_item.clone();
                             Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, Some(0)))
                         } else {
-                            if let Some(_) = inline_view_action_panel(client_context.clone()) {
-                                // TODO
-                                Command::none()
+                            let client_context = client_context.read().expect("lock is poisoned");
+
+                            if let Some(container) = client_context.get_first_inline_view_container() {
+                                let action_ids = container.get_action_ids();
+
+                                match action_ids.get(1) {
+                                    Some(widget_id) => {
+                                        let widget_id = *widget_id;
+
+                                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                                    }
+                                    None => Command::none()
+                                }
                             } else {
                                 Command::none()
                             }

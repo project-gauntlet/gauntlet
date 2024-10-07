@@ -862,7 +862,25 @@ impl Application for AppModel {
                 match &mut self.global_state {
                     GlobalState::MainView { focused_search_result, sub_state, .. } => {
                         match sub_state {
-                            MainViewState::None => Command::none(),
+                            MainViewState::None => {
+                                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                                match client_context.get_first_inline_view_container() {
+                                    Some(container) => {
+                                        let plugin_id = container.get_plugin_id();
+
+                                        let widget_event = ComponentWidgetEvent::RunAction {
+                                            widget_id,
+                                        };
+                                        let render_location = UiRenderLocation::InlineView;
+
+                                        Command::batch([
+                                            Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                                        ])
+                                    }
+                                    None => Command::none()
+                                }
+                            },
                             MainViewState::SearchResultActionPanel { .. } => {
                                 if let Some(search_item) = focused_search_result.get(&self.search_results) {
                                     MainViewState::initial(sub_state);
@@ -883,10 +901,6 @@ impl Application for AppModel {
                                 match client_context.get_first_inline_view_container() {
                                     Some(container) => {
                                         let plugin_id = container.get_plugin_id();
-
-                                        let action_ids = container.get_action_ids();
-
-                                        let widget_id = action_ids[widget_id];
 
                                         let widget_event = ComponentWidgetEvent::RunAction {
                                             widget_id,
