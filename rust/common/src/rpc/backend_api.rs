@@ -187,6 +187,16 @@ impl BackendForFrontendApi {
 
         Ok(())
     }
+
+    pub async fn inline_view_shortcuts(&self) -> Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>, BackendForFrontendApiError> {
+        let request = BackendRequestData::InlineViewShortcuts;
+
+        let BackendResponseData::InlineViewShortcuts { shortcuts } = self.backend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
+
+        Ok(shortcuts)
+    }
 }
 
 #[derive(Error, Debug, Clone)]

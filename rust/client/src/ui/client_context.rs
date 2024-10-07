@@ -1,11 +1,13 @@
-use common::model::{EntrypointId, PluginId, UiRenderLocation, UiWidget, UiWidgetId};
+use std::collections::HashMap;
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation, UiWidget, UiWidgetId};
 use crate::model::UiViewEvent;
 
-use crate::ui::widget::ComponentWidgetEvent;
+use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
 use crate::ui::widget_container::PluginWidgetContainer;
 
 pub struct ClientContext {
     inline_views: Vec<(PluginId, PluginWidgetContainer)>, // Vec to have stable ordering
+    inline_view_shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
     view: PluginWidgetContainer,
 }
 
@@ -13,6 +15,7 @@ impl ClientContext {
     pub fn new() -> Self {
         Self {
             inline_views: vec![],
+            inline_view_shortcuts: HashMap::new(),
             view: PluginWidgetContainer::new(),
         }
     }
@@ -24,6 +27,17 @@ impl ClientContext {
     pub fn get_first_inline_view_container(&self) -> Option<&PluginWidgetContainer> {
         self.inline_views.first()
             .map(|(_, container)| container)
+    }
+
+    pub fn get_first_inline_view_action_panel(&self) -> Option<ActionPanel> {
+        self.get_first_inline_view_container()
+            .map(|container| {
+                match self.inline_view_shortcuts.get(&container.get_plugin_id()) {
+                    None => container.get_action_panel(&HashMap::new()),
+                    Some(shortcuts) => container.get_action_panel(shortcuts),
+                }
+            })
+            .flatten()
     }
 
     pub fn get_inline_view_container(&self, plugin_id: &PluginId) -> &PluginWidgetContainer {
@@ -65,6 +79,10 @@ impl ClientContext {
             UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, plugin_name, entrypoint_id, entrypoint_name),
             UiRenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, plugin_name, entrypoint_id, entrypoint_name)
         }
+    }
+
+    pub fn set_inline_view_shortcuts(&mut self, shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>) {
+        self.inline_view_shortcuts = shortcuts;
     }
 
      pub fn clear_all_inline_views(&mut self) {

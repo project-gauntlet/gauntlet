@@ -268,7 +268,7 @@ impl ComponentWidgetWrapper {
         self.inner.write().expect("lock is poisoned")
     }
 
-    pub fn get_action_panel(&self, action_shortcuts: HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+    pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
         self.find_child_by_type(&|widget| matches!(widget, ComponentWidget::ActionPanel { .. }))
             .map(|widget| convert_action_panel(&[widget], action_shortcuts))
             .flatten()
@@ -1347,7 +1347,7 @@ fn render_plugin_root<'a>(
             .into()
     };
 
-    let mut action_panel = convert_action_panel(children, action_shortcuts);
+    let mut action_panel = convert_action_panel(children, &action_shortcuts);
 
     let primary_action = action_panel.as_mut()
         .map(|panel| panel.find_first())
@@ -1453,7 +1453,7 @@ impl ActionPanelItem {
     }
 }
 
-fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
     let action_panel: Vec<_> = children
         .into_iter()
         .filter(|child| {
@@ -1509,7 +1509,7 @@ fn convert_action_panel(children: &[ComponentWidgetWrapper], action_shortcuts: H
 
             Some(ActionPanel {
                 title: title.clone(),
-                items: convert_to_items(children, &action_shortcuts),
+                items: convert_to_items(children, action_shortcuts),
             })
         }
         _ => None

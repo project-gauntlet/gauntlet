@@ -158,6 +158,9 @@ pub enum BackendResponseData {
     RequestViewRender {
         shortcuts: HashMap<String, PhysicalShortcut>
     },
+    InlineViewShortcuts {
+        shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>
+    },
 }
 
 #[derive(Debug)]
@@ -207,6 +210,7 @@ pub enum BackendRequestData {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>
     },
+    InlineViewShortcuts,
 }
 
 #[derive(Debug, Clone)]

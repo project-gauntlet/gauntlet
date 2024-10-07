@@ -605,6 +605,16 @@ impl ApplicationManager {
 
         self.request_search_index_refresh(plugin_id);
     }
+
+    pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
+        let result: HashMap<_, _> = self.db_repository.inline_view_shortcuts()
+            .await?
+            .into_iter()
+            .map(|(plugin_id, shortcuts)| (PluginId::from_string(plugin_id), shortcuts))
+            .collect();
+
+        Ok(result)
+    }
 }
 
 fn plugin_preference_from_db(id: &str, value: DbPluginPreference) -> PluginPreference {

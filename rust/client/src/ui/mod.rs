@@ -149,6 +149,9 @@ pub enum AppMsg {
     ShowBackendError(BackendForFrontendApiError),
     ClosePluginView(PluginId),
     OpenPluginView(PluginId, EntrypointId),
+    InlineViewShortcuts {
+        shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>
+    },
 }
 
 pub struct AppFlags {
@@ -466,7 +469,7 @@ impl Application for AppModel {
                             }
                         }
 
-                        match pending_plugin_view_data {
+                        let command = match pending_plugin_view_data {
                             None => Command::none(),
                             Some(pending_plugin_view_data) => {
                                 let pending_plugin_view_data = pending_plugin_view_data.clone();
@@ -479,6 +482,15 @@ impl Application for AppModel {
                                     self.client_context.clone()
                                 )
                             }
+                        };
+
+                        if let UiRenderLocation::InlineView = render_location {
+                            Command::batch([
+                                command,
+                                self.inline_view_shortcuts()
+                            ])
+                        } else {
+                            command
                         }
                     }
                     GlobalState::ErrorView { .. } => Command::none(),
@@ -601,8 +613,13 @@ impl Application for AppModel {
                                                     }
                                                     Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
                                                         if modifier_shift || modifier_control || modifier_alt || modifier_meta {
-                                                            // TODO
-                                                            Command::none()
+                                                            self.handle_inline_plugin_view_keyboard_event(
+                                                                physical_key,
+                                                                modifier_shift,
+                                                                modifier_control,
+                                                                modifier_alt,
+                                                                modifier_meta
+                                                            )
                                                         } else {
                                                             Command::none()
                                                         }
@@ -826,7 +843,8 @@ impl Application for AppModel {
                                         MainViewState::search_result_action_panel(sub_state, keyboard);
                                     }
                                 } else {
-                                    if let Some(_) = inline_view_action_panel(self.client_context.clone()) {
+                                    let client_context = self.client_context.read().expect("lock is poisoned");
+                                    if let Some(_) = client_context.get_first_inline_view_container() {
                                         MainViewState::inline_result_action_panel(sub_state, keyboard);
                                     }
                                 }
@@ -957,6 +975,13 @@ impl Application for AppModel {
             }
             AppMsg::ClosePluginView(plugin_id) => {
                 self.close_plugin_view(plugin_id)
+            }
+            AppMsg::InlineViewShortcuts { shortcuts } => {
+                let mut client_context = self.client_context.write().expect("lock is poisoned");
+
+                client_context.set_inline_view_shortcuts(shortcuts);
+
+                Command::none()
             }
         }
     }
@@ -1669,6 +1694,14 @@ impl AppModel {
 
             Ok(())
         }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+    }
+
+    fn inline_view_shortcuts(&self) -> Command<AppMsg> {
+        let mut backend_api = self.backend_api.clone();
+
+        Command::perform(async move {
+            backend_api.inline_view_shortcuts().await
+        }, |result| handle_backend_error(result, |shortcuts| AppMsg::InlineViewShortcuts { shortcuts }))
     }
 }
 

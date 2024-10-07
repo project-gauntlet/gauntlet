@@ -26,6 +26,7 @@ export default function InlineView(props: { text: string }): ReactNode | undefin
                         }}
                     />
                     <Action
+                        id="testInlineAction"
                         label={"Test 3"}
                         onAction={() => {
                             console.log("action test 3")

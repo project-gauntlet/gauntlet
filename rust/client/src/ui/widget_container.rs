@@ -40,7 +40,7 @@ impl PluginWidgetContainer {
         self.entrypoint_name.clone().expect("entrypoint id should always exist after render")
     }
 
-    pub fn get_action_panel(&self, action_shortcuts: HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+    pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
         self.root_widget.get_action_panel(action_shortcuts)
     }
 

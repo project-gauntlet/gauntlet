@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context};
 use deno_core::error::AnyError;
 use deno_core::futures;
 use deno_core::futures::{StreamExt, TryStreamExt};
+use deno_core::futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, Executor, Pool, Row, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
@@ -12,7 +13,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 use typed_path::TypedPathBuf;
 use uuid::Uuid;
-use common::model::{PhysicalKey, PhysicalShortcut};
+use common::model::{PhysicalKey, PhysicalShortcut, PluginId};
 use common::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
@@ -693,6 +694,25 @@ impl DataDbRepository {
             .collect();
 
         Ok(result)
+    }
+
+    pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<String, HashMap<String, PhysicalShortcut>>> {
+        // language=SQLite
+        let shortcuts: Vec<_> = sqlx::query_as::<_, (String, String)>("SELECT id, plugin_id FROM plugin_entrypoint WHERE type = 'inline-view'")
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(|(entrypoint_id, plugin_id)| async move {
+                let shortcuts = self.action_shortcuts(&plugin_id, &entrypoint_id).await?;
+
+                Ok((plugin_id, shortcuts))
+            })
+            .collect();
+
+        join_all(shortcuts)
+            .await
+            .into_iter()
+            .collect()
     }
 
     pub async fn mark_entrypoint_frecency(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<()> {

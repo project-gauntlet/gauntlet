@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use iced::widget::component;
@@ -70,12 +69,7 @@ impl<'a> From<InlineViewContainer> for Element<'a, AppMsg> {
 
 pub fn inline_view_action_panel(client_context: Arc<RwLock<ClientContext>>) -> Option<ActionPanel> {
     let client_context = client_context.read().expect("lock is poisoned");
-    let containers = client_context.get_first_inline_view_container();
 
-    if let Some(container) = containers {
-        container.get_action_panel(HashMap::new())
-    } else {
-        None
-    }
+    client_context.get_first_inline_view_action_panel()
 }
 

@@ -232,6 +232,12 @@ async fn handle_request(application_manager: Arc<ApplicationManager>, request_da
 
             BackendResponseData::Nothing
         }
+        BackendRequestData::InlineViewShortcuts => {
+            let shortcuts = application_manager.inline_view_shortcuts()
+                .await?;
+
+            BackendResponseData::InlineViewShortcuts { shortcuts }
+        }
     };
 
     Ok(response_data)

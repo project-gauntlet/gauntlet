@@ -101,6 +101,11 @@ path = 'src/inline-view.tsx'
 type = 'inline-view'
 description = ''
 
+[[entrypoint.actions]]
+id = 'testInlineAction'
+description = "test action description 1"
+shortcut = { key = 'b', kind = 'main'}
+
 [[entrypoint]]
 id = 'grid-view'
 name = 'Grid view'
@@ -146,7 +151,7 @@ description = ''
 [[entrypoint.actions]]
 id = 'testGeneratedAction1'
 description = "test action description 1"
-shortcut = { key = 'a', kind = 'main'}
+shortcut = { key = 'b', kind = 'main'}
 
 
 [[entrypoint]]
