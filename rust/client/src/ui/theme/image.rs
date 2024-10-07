@@ -18,8 +18,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Image<iced::advanced::imag
                     .height(theme.empty_view_image.size.height)
             }
             ImageStyle::MainListItemIcon => {
-                self.width(16)
-                    .height(16)
+                self.width(18)
+                    .height(18)
             }
         }.into()
     }

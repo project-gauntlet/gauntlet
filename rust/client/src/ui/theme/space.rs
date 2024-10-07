@@ -12,8 +12,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Space {
     fn themed(self, kind: ThemeKindSpace) -> Element<'a, Message> {
         match kind {
             ThemeKindSpace::MainListItemIcon => {
-                self.width(16)
-                    .height(16)
+                self.width(18)
+                    .height(18)
             }
         }.into()
     }
