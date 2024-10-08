@@ -2,13 +2,17 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use anyhow::Context;
+
+use anyhow::{anyhow, Context};
 use cacao::filesystem::{FileManager, SearchPathDirectory, SearchPathDomainMask};
 use cacao::url::Url;
-use deno_runtime::deno_http::compressible::is_content_compressible;
+use objc2::ClassType;
+use objc2_app_kit::{NSBitmapImageRep, NSCalibratedWhiteColorSpace, NSCompositeCopy, NSDeviceRGBColorSpace, NSGraphicsContext, NSImage, NSPNGFileType, NSWorkspace};
+use objc2_foundation::{CGFloat, CGPoint, CGRect, NSDictionary, NSInteger, NSPoint, NSRect, NSSize, NSString, NSZeroRect};
 use plist::Dictionary;
 use regex::Regex;
 use serde::Deserialize;
+
 use crate::plugins::applications::{DesktopEntry, resize_icon};
 
 pub fn get_apps() -> Vec<DesktopEntry> {
@@ -77,9 +81,13 @@ fn get_applications(file_manager: &FileManager) -> Vec<DesktopEntry> {
                 .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
                 .unwrap_or(name);
 
+            let icon = get_application_icon(&path)
+                .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
+                .ok();
+
             DesktopEntry {
                 name,
-                icon: get_application_icon(&path, &info),
+                icon,
                 command: vec!["open".to_string(), path.to_string_lossy().to_string()],
             }
         })
@@ -120,7 +128,7 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
         let extensions: HashMap<_, _> = get_extensions_in_dir(PathBuf::from("/System/Library/ExtensionKit/Extensions"))
             .into_iter()
             .filter_map(|path| {
-                fn read_plist(path: &Path) -> anyhow::Result<(String, String)> {
+                fn read_plist(path: &Path) -> anyhow::Result<(String, (String, PathBuf))> {
                     let name = path.file_stem()
                         .expect(&format!("invalid path: {:?}", path))
                         .to_string_lossy()
@@ -136,7 +144,7 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
                         .or_else(|| info.bundle_name.clone())
                         .unwrap_or(name);
 
-                    Ok((info.bundle_id, name))
+                    Ok((info.bundle_id, (name, path.to_path_buf())))
                 }
 
                 read_plist(&path)
@@ -156,11 +164,15 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
 
                         None
                     }
-                    Some(name) => {
+                    Some((name, path)) => {
+                        let icon = get_application_icon(&path)
+                            .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
+                            .ok();
+
                         Some(
                             DesktopEntry {
                                 name: name.to_string(),
-                                icon: None,
+                                icon,
                                 command: vec![
                                     "open".to_string(),
                                     format!("x-apple.systempreferences:{}", preferences_id)
@@ -288,29 +300,60 @@ fn get_items_in_dir(path: PathBuf, extension: &str) -> Vec<PathBuf> {
     }
 }
 
-fn get_application_icon(app_path: &Path, info: &Option<Info>) -> Option<Vec<u8>> {
-    if let Some(info) = info {
-        info.bundle_icon_name
-            .clone()
-            .or(info.bundle_icon_file.clone())
-            .map(|icon| {
-                match PathBuf::from(&icon).extension() {
-                    None => format!("{}.icns", icon),
-                    Some(_) => icon
-                }
-            })
-            .and_then(|icon_filename| {
-                let icon_path = app_path
-                    .join("Contents")
-                    .join("Resources")
-                    .join(icon_filename);
+// from https://stackoverflow.com/a/38442746 and https://stackoverflow.com/a/29162536
+unsafe fn resize_ns_image(source_image: &NSImage, width: NSInteger, height: NSInteger) -> Option<Vec<u8>> {
+    let new_size = NSSize::new(width as CGFloat, height as CGFloat);
 
-                tracing::debug!("Derived icon location for app {:?}: {:?}", &info.bundle_name, &icon_path);
+    let bitmap_image_rep = NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
+        NSBitmapImageRep::alloc(),
+        std::ptr::null_mut::<*mut _>(),
+        width,
+        height,
+        8,
+        4,
+        true,
+        false,
+        NSDeviceRGBColorSpace,
+        0,
+        0,
+    )?;
 
-                get_png_from_icon_path(icon_path)
-            })
-    } else {
-        None
+    bitmap_image_rep.setSize(new_size);
+
+    NSGraphicsContext::saveGraphicsState_class();
+
+    let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&bitmap_image_rep)
+        .expect("should be present because just saved");
+
+    NSGraphicsContext::setCurrentContext(Some(&context));
+
+    let rect = NSRect::new(NSPoint::new(0.0, 0.0), new_size);
+    source_image.drawInRect_fromRect_operation_fraction(rect, NSZeroRect, NSCompositeCopy, 1.0);
+
+    NSGraphicsContext::restoreGraphicsState_class();
+
+    // TODO i guess this doesn't work for 2x image
+
+    let data = bitmap_image_rep.representationUsingType_properties(NSPNGFileType, &NSDictionary::dictionary())?;
+
+    Some(data.bytes().to_vec())
+}
+
+fn get_application_icon(app_path: &Path) -> anyhow::Result<Vec<u8>> {
+    unsafe {
+        let workspace = NSWorkspace::sharedWorkspace();
+
+        let app_path = app_path.to_str()
+            .context(format!("Application path is not a utf-8 string: {:?}", &app_path))?;
+
+        let app_path = NSString::from_str(app_path);
+
+        let image = workspace.iconForFile(&app_path);
+
+        let bytes = resize_ns_image(&image, 40, 40)
+            .ok_or(anyhow!("Unable to resize the image"))?;
+
+        Ok(bytes)
     }
 }
 
