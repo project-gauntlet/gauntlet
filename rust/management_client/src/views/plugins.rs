@@ -313,8 +313,17 @@ impl ManagementAppPluginsState {
                             .padding(Padding::new(8.0))
                             .into();
 
+                        let id: Element<_> = text(&plugin.plugin_id.to_string())
+                            .style(TextStyle::Subtitle)
+                            .into();
+
+                        let id = container(id)
+                            .padding(Padding::from([0.0, 8.0, 8.0, 8.0]))
+                            .into();
+
                         let mut column_content = vec![
                             name,
+                            id,
                         ];
 
                         if !plugin.plugin_description.is_empty() {
