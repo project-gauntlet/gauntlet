@@ -1,5 +1,5 @@
 {
-  "name": "@project-gauntlet/bundled-plugin-application",
+  "name": "@project-gauntlet/bundled-plugin",
   "private": true,
   "scripts": {
     "build": "gauntlet build",

@@ -10,7 +10,7 @@ interface InternalApi {
     run_numbat(input: string): { left: string, right: string }
 }
 
-export default function Default(props: { text: string }): ReactNode | undefined {
+export default function Calculator(props: { text: string }): ReactNode | undefined {
     const text = props.text;
 
     try {

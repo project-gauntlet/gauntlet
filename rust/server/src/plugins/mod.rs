@@ -38,10 +38,8 @@ mod icon_cache;
 pub(super) mod frecency;
 mod global_shortcut;
 
-static BUILTIN_PLUGINS: [(&str, Dir); 3] = [
-    ("applications", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/applications/dist")),
-    ("calculator", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/calculator/dist")),
-    ("settings", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/settings/dist")),
+static BUNDLED_PLUGINS: [(&str, Dir); 1] = [
+    ("gauntlet", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist")),
 ];
 
 pub struct ApplicationManager {
@@ -146,11 +144,11 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn load_builtin_plugins(&self) -> anyhow::Result<()> {
-        for (id, dir) in &BUILTIN_PLUGINS {
+    pub async fn load_bundled_plugins(&self) -> anyhow::Result<()> {
+        for (id, dir) in &BUNDLED_PLUGINS {
             tracing::info!(target = "plugin", "Saving builtin plugin with id: {:?}", id);
 
-            let plugin_id = self.plugin_downloader.save_builtin_plugin(id, dir).await?;
+            let plugin_id = self.plugin_downloader.save_bundled_plugin(id, dir).await?;
 
             self.reload_plugin(plugin_id).await?;
         }

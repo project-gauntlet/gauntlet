@@ -115,8 +115,8 @@ impl PluginLoader {
         Ok(plugin_id)
     }
 
-    pub async fn save_builtin_plugin(&self, id: &str, dir: &Dir<'_>) -> anyhow::Result<PluginId> {
-        let plugin_id = PluginId::from_string(format!("builtin://{id}"));
+    pub async fn save_bundled_plugin(&self, id: &str, dir: &Dir<'_>) -> anyhow::Result<PluginId> {
+        let plugin_id = PluginId::from_string(format!("bundled://{id}"));
         let temp_dir = tempfile::tempdir()?;
 
         dir.extract(&temp_dir)?;

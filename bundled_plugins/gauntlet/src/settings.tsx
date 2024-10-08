@@ -6,6 +6,6 @@ interface InternalApi {
     open_settings(): void
 }
 
-export default function Default(): void {
+export default function Settings(): void {
     InternalApi.open_settings()
 }

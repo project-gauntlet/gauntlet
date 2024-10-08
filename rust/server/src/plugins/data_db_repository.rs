@@ -333,6 +333,7 @@ impl DataDbRepository {
         let db_repository = Self { pool };
 
         db_repository.apply_uuid_default_value().await?;
+        db_repository.remove_legacy_bundled_plugins().await?;
 
         Ok(db_repository)
     }
@@ -365,6 +366,14 @@ impl DataDbRepository {
                 .execute(&self.pool)
                 .await?;
         }
+
+        Ok(())
+    }
+
+    async fn remove_legacy_bundled_plugins(&self) -> anyhow::Result<()> {
+        self.remove_plugin("builtin://applications").await?;
+        self.remove_plugin("builtin://calculator").await?;
+        self.remove_plugin("builtin://settings").await?;
 
         Ok(())
     }

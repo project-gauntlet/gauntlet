@@ -128,7 +128,7 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
     application_manager.clear_all_icon_cache_dir()?;
 
     #[cfg(not(feature = "scenario_runner"))]
-    if let Err(err) = application_manager.load_builtin_plugins().await {
+    if let Err(err) = application_manager.load_bundled_plugins().await {
         tracing::error!("error loading bundled plugin(s): {:?}", err);
     }
 

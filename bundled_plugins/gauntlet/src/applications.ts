@@ -15,7 +15,7 @@ interface InternalApi {
     open_application(command: string[]): void
 }
 
-export default async function Default(): Promise<GeneratedCommand[]> {
+export default async function Applications(): Promise<GeneratedCommand[]> {
     return (await InternalApi.list_applications())
         .map(value => ({
             id: `${value.name}-${value.command.join("-")}`,

@@ -1,0 +1,37 @@
+[gauntlet]
+name = 'Gauntlet'
+description = 'Default Gauntlet functionality as a bundled plugin'
+
+[[entrypoint]]
+id = 'applications'
+name = 'Applications'
+path = 'src/applications.ts'
+type = 'command-generator'
+description = 'Run installed applications from your system'
+
+[[entrypoint]]
+id = 'settings'
+name = 'Gauntlet Settings'
+path = 'src/settings.tsx'
+type = 'command'
+description = 'Open Gauntlet Settings'
+
+[[entrypoint]]
+id = 'calculator'
+name = 'Calculator'
+path = 'src/calculator.tsx'
+type = 'inline-view'
+description = 'Calculator right under search bar'
+
+[permissions]
+main_search_bar = ["read"]
+clipboard = ["write"]
+
+[[supported_system]]
+os = 'linux'
+
+[[supported_system]]
+os = 'macos'
+
+[[supported_system]]
+os = 'windows'
