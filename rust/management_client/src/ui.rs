@@ -732,6 +732,7 @@ impl Application for ManagementAppModel {
             container(downloads)
                 .padding(4)
                 .width(Length::Fixed(400.0))
+                .max_height(500.0)
                 .style(ContainerStyle::Box)
                 .into()
         };

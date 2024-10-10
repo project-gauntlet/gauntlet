@@ -1,14 +1,13 @@
-use std::sync::Arc;
-use iced::{Alignment, Command, Length};
 use iced::alignment::Horizontal;
-use iced::widget::{column, container, row, Space, text};
+use iced::widget::{column, container, row, text, Space};
+use iced::{Alignment, Command, Length};
 
 use common::model::{PhysicalKey, PhysicalShortcut};
 use common::rpc::backend_api::{BackendApi, BackendApiError};
 
 use crate::components::shortcut_selector::ShortcutSelector;
-use crate::theme::Element;
 use crate::theme::shortcut_selector::ShortcutSelectorStyle;
+use crate::theme::Element;
 
 pub struct ManagementAppGeneralState {
     backend_api: Option<BackendApi>,

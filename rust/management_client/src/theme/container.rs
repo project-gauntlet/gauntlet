@@ -1,7 +1,7 @@
 use iced::Border;
 use iced::widget::container;
 
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_LIGHTEST, BACKGROUND_DARKER};
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_LIGHTEST, BACKGROUND_DARKER, BACKGROUND_LIGHTER};
 
 #[derive(Default)]
 pub enum ContainerStyle {
@@ -19,9 +19,9 @@ impl container::StyleSheet for GauntletSettingsTheme {
             ContainerStyle::Transparent => Default::default(),
             ContainerStyle::Box => {
                 container::Appearance {
-                    background: Some(BACKGROUND_LIGHTEST.to_iced().into()),
+                    background: Some(BACKGROUND_DARKER.to_iced().into()),
                     border: Border {
-                        color: BACKGROUND_DARKER.to_iced(),
+                        color: BACKGROUND_LIGHTER.to_iced(),
                         radius: 10.0.into(),
                         width: 1.0,
                     },
