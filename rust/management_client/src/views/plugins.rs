@@ -361,6 +361,23 @@ impl ManagementAppPluginsState {
                         let mut column_content = vec![content];
 
                         if !plugin.plugin_id.to_string().starts_with("bundled://") {
+                             let check_for_updates_text: Element<_> = text("Check for updates")
+                                .into();
+
+                            let check_for_updates_text_container: Element<_> = container(check_for_updates_text)
+                                .width(Length::Fill)
+                                .center_y()
+                                .center_x()
+                                .into();
+
+                            let check_for_updates_button: Element<_> = button(check_for_updates_text_container)
+                                .width(Length::Fill)
+                                .style(ButtonStyle::Primary)
+                                .on_press(ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: plugin.plugin_id.clone() })
+                                .into();
+
+                            column_content.push(check_for_updates_button);
+
                             let remove_text: Element<_> = text("Remove plugin")
                                 .into();
 
@@ -380,6 +397,7 @@ impl ManagementAppPluginsState {
                         }
 
                         let content: Element<_> = column(column_content)
+                            .spacing(8.0)
                             .into();
 
                         container(content)
