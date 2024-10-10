@@ -11,6 +11,27 @@ type = 'bool'
 default = true
 description = "test bool description"
 
+[[preferences]]
+id = 'testBool2'
+name = 'Test Boolean 2'
+type = 'bool'
+default = true
+description = "test bool description"
+
+[[preferences]]
+id = 'testBool3'
+name = 'Test Boolean 3'
+type = 'bool'
+default = true
+description = "test bool description"
+
+[[preferences]]
+id = 'testBool4'
+name = 'Test Boolean 4'
+type = 'bool'
+default = true
+description = "test bool description"
+
 
 [[entrypoint]]
 id = 'detail-view'

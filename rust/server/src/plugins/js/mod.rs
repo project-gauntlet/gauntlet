@@ -324,7 +324,7 @@ async fn start_js_runtime(
     let core_url = "gauntlet:core".parse().expect("should be valid");
     let unused_url = "gauntlet:unused".parse().expect("should be valid");
 
-    let numbat_context = if plugin_id.to_string() == "builtin://calculator" {
+    let numbat_context = if plugin_id.to_string() == "bundled://calculator" {
         Some(NumbatContext::new())
     } else {
         None

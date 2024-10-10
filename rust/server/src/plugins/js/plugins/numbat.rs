@@ -47,7 +47,7 @@ fn run_numbat(state: Rc<RefCell<OpState>>, input: String) -> anyhow::Result<Numb
     };
 
     let Some(context) = context else {
-        return Err(anyhow!("plugin id is not equal to 'builtin://calculator'"))
+        return Err(anyhow!("plugin id is not equal to 'bundled://calculator'"))
     };
 
     let mut context = context.0.borrow_mut();

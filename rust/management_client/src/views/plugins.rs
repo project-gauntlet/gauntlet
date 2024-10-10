@@ -349,7 +349,18 @@ impl ManagementAppPluginsState {
                                 .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
                         );
 
-                        if !plugin.plugin_id.to_string().starts_with("builtin://") {
+                        let content: Element<_> = column(column_content)
+                            .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
+                            .into();
+
+                        let content: Element<_> = scrollable(content)
+                            .height(Length::Fill)
+                            .width(Length::Fill)
+                            .into();
+
+                        let mut column_content = vec![content];
+
+                        if !plugin.plugin_id.to_string().starts_with("bundled://") {
                             let remove_text: Element<_> = text("Remove plugin")
                                 .into();
 
@@ -368,18 +379,13 @@ impl ManagementAppPluginsState {
                             column_content.push(remove_button);
                         }
 
-                        let column: Element<_> = column(column_content)
-                            .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
+                        let content: Element<_> = column(column_content)
                             .into();
 
-                        let column: Element<_> = scrollable(column)
-                            .width(Length::Fill)
-                            .into();
-
-                        container(column)
+                        container(content)
                             .width(Length::Fill)
                             .height(Length::Fill)
-                            .padding(Padding::from([4.0, 0.0]))
+                            .padding(Padding::from([4.0, 0.0, 0.0, 0.0]))
                             .into()
                     }
                 }
