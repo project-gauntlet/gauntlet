@@ -81,7 +81,7 @@ async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow::Res
     let DbReadPlugin { preferences, preferences_user_data, .. } = repository
         .get_plugin_by_id(&plugin_id.to_string()).await?;
 
-    Ok(all_preferences_required(preferences, preferences_user_data))
+    Ok(any_preferences_missing_value(preferences, preferences_user_data))
 }
 
 #[op]
@@ -104,11 +104,11 @@ async fn entrypoint_preferences_required(state: Rc<RefCell<OpState>>, entrypoint
     let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = repository
         .get_entrypoint_by_id(&plugin_id.to_string(), &entrypoint_id).await?;
 
-    Ok(all_preferences_required(preferences, preferences_user_data))
+    Ok(any_preferences_missing_value(preferences, preferences_user_data))
 }
 
 
-fn all_preferences_required(preferences: HashMap<String, DbPluginPreference>, preferences_user_data: HashMap<String, DbPluginPreferenceUserData>) -> bool {
+fn any_preferences_missing_value(preferences: HashMap<String, DbPluginPreference>, preferences_user_data: HashMap<String, DbPluginPreferenceUserData>) -> bool {
     for (name, preference) in preferences {
         match preferences_user_data.get(&name) {
             None => {

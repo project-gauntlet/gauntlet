@@ -9,7 +9,7 @@ id = 'testBool'
 name = 'Test Boolean'
 type = 'bool'
 default = true
-description = "test bool description"
+description = "test bool description, not super long description to test things"
 
 [[preferences]]
 id = 'testBool2'

@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-use std::fmt::Display;
-use iced::{Length, Padding};
+use crate::theme::button::ButtonStyle;
+use crate::theme::container::ContainerStyle;
+use crate::theme::text::TextStyle;
+use crate::theme::Element;
+use crate::views::plugins::PluginPreferenceUserDataState;
+use common::model::{EntrypointId, PluginId, PluginPreference};
 use iced::widget::{button, checkbox, column, container, pick_list, row, text, text_input};
+use iced::{Length, Padding};
 use iced_aw::core::icons;
 use iced_aw::number_input;
-use common::model::{EntrypointId, PluginId, PluginPreference};
-use crate::theme::button::ButtonStyle;
-use crate::theme::Element;
-use crate::theme::text::TextStyle;
-use crate::views::plugins::PluginPreferenceUserDataState;
+use std::collections::HashMap;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum PluginPreferencesMsg {
@@ -75,23 +76,27 @@ pub fn preferences_ui<'a>(
             .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
             .into();
 
-        column_content.push(preference_label);
+        let mut input_field_column = vec![];
+
+        input_field_column.push(preference_label);
 
         if !description.trim().is_empty() {
             let description = container(text(description))
                 .padding(Padding::from([4.0, 8.0]))
                 .into();
 
-            column_content.push(description);
+            input_field_column.push(description);
         }
 
-        let input_fields: Vec<Element<_>> = match preference {
+        let input_field: Element<_> = match preference {
             PluginPreference::Number { default, .. } => {
                 let value = match user_data {
                     None => None,
                     Some(PluginPreferenceUserDataState::Number { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
+
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let value = value.or(default.to_owned()).unwrap_or_default();
 
@@ -114,9 +119,10 @@ pub fn preferences_ui<'a>(
                 let input_field = container(input_field)
                     .width(Length::Fill)
                     .padding(Padding::from([4.0, 8.0]))
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
-                vec![input_field]
+                input_field
             }
             PluginPreference::String { default, .. } => {
                 let value = match user_data {
@@ -124,6 +130,8 @@ pub fn preferences_ui<'a>(
                     Some(PluginPreferenceUserDataState::String { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
+
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let default = default.to_owned().unwrap_or_default();
 
@@ -142,9 +150,10 @@ pub fn preferences_ui<'a>(
 
                 let input_field = container(input_field)
                     .padding(Padding::new(8.0))
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
-                vec![input_field]
+                input_field
             }
             PluginPreference::Enum { default, enum_values, .. } => {
                 let value = match user_data {
@@ -152,6 +161,8 @@ pub fn preferences_ui<'a>(
                     Some(PluginPreferenceUserDataState::Enum { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
+
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let enum_values: Vec<_> = enum_values.iter()
                     .map(|enum_item| SelectItem { label: enum_item.label.to_owned(), value: enum_item.value.to_owned() })
@@ -180,9 +191,10 @@ pub fn preferences_ui<'a>(
                 let input_field = container(input_field)
                     .padding(Padding::new(8.0))
                     .width(Length::Fill)
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
-                vec![input_field]
+                input_field
             }
             PluginPreference::Bool { default, .. } => {
                 let value = match user_data {
@@ -190,6 +202,8 @@ pub fn preferences_ui<'a>(
                     Some(PluginPreferenceUserDataState::Bool { value }) => value.to_owned(),
                     Some(_) => unreachable!()
                 };
+
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let input_field: Element<_> = checkbox(preference_name.clone(), value.or(default.to_owned()).unwrap_or(false))
                     .on_toggle(Box::new(move |value| {
@@ -206,16 +220,19 @@ pub fn preferences_ui<'a>(
 
                 let input_field = container(input_field)
                     .padding(Padding::new(8.0))
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
-                vec![input_field]
+                input_field
             }
-            PluginPreference::ListOfStrings { .. } => {
+            PluginPreference::ListOfStrings { default, .. } => {
                 let (value, new_value) = match user_data {
                     None => (None, "".to_owned()),
                     Some(PluginPreferenceUserDataState::ListOfStrings { value, new_value }) => (value.to_owned(), new_value.to_owned()),
                     Some(_) => unreachable!()
                 };
+
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let mut items: Vec<_> = value.clone()
                     .unwrap_or(vec![])
@@ -324,15 +341,24 @@ pub fn preferences_ui<'a>(
 
                 items.push(add_item);
 
-                items
+                let content: Element<_> = column(items)
+                    .into();
+
+                let content: Element<_>  = container(content)
+                    .padding(0)
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .into();
+
+                content
             }
-            PluginPreference::ListOfNumbers { .. } => {
+            PluginPreference::ListOfNumbers { default, .. } => {
                 let (value, new_value) = match user_data {
                     None => (None, 0.0),
                     Some(PluginPreferenceUserDataState::ListOfNumbers { value, new_value }) => (value.to_owned(), new_value.to_owned()),
                     Some(_) => unreachable!()
                 };
 
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let mut items: Vec<_> = value.clone()
                     .unwrap_or(vec![])
@@ -440,14 +466,24 @@ pub fn preferences_ui<'a>(
 
                 items.push(add_item);
 
-                items
+                let content: Element<_> = column(items)
+                    .into();
+
+                let content: Element<_>  = container(content)
+                    .padding(0)
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .into();
+
+                content
             }
-            PluginPreference::ListOfEnums { enum_values, .. } => {
+            PluginPreference::ListOfEnums { enum_values, default, .. } => {
                 let (value, new_value) = match user_data {
                     None => (None, None),
                     Some(PluginPreferenceUserDataState::ListOfEnums { value, new_value }) => (value.to_owned(), new_value.to_owned()),
                     Some(_) => unreachable!()
                 };
+
+                let missing = value.as_ref().or(default.as_ref()).is_none();
 
                 let mut items: Vec<_> = value.clone()
                     .unwrap_or(vec![])
@@ -567,15 +603,29 @@ pub fn preferences_ui<'a>(
 
                 items.push(add_item);
 
-                items
+                let content: Element<_> = column(items)
+                    .into();
+
+                let content: Element<_>  = container(content)
+                    .padding(0)
+                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .into();
+
+                content
             }
         };
 
-        for input_field in input_fields {
-            column_content.push(input_field);
-        }
+        input_field_column.push(input_field);
+
+        let content: Element<_> = column(input_field_column)
+            .into();
+
+        column_content.push(content);
     }
 
-    column(column_content)
-        .into() // todo width full?
+    let element: Element<_> = column(column_content)
+        .spacing(12)
+        .into();
+
+    element
 }

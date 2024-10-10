@@ -340,8 +340,10 @@ impl ManagementAppPluginsState {
                                 .padding(Padding::new(8.0))
                                 .into();
 
-                            column_content.push(description_label);
-                            column_content.push(description);
+                            let content: Element<_> = column(vec![description_label, description])
+                                .into();
+
+                            column_content.push(content);
                         }
 
                         column_content.push(
@@ -350,7 +352,7 @@ impl ManagementAppPluginsState {
                         );
 
                         let content: Element<_> = column(column_content)
-                            .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
+                            .spacing(12)
                             .into();
 
                         let content: Element<_> = scrollable(content)
@@ -403,7 +405,6 @@ impl ManagementAppPluginsState {
                         container(content)
                             .width(Length::Fill)
                             .height(Length::Fill)
-                            .padding(Padding::from([4.0, 0.0, 0.0, 0.0]))
                             .into()
                     }
                 }
@@ -450,8 +451,10 @@ impl ManagementAppPluginsState {
                                 .padding(Padding::new(8.0))
                                 .into();
 
-                            column_content.push(description_label);
-                            column_content.push(description);
+                            let content: Element<_> = column(vec![description_label, description])
+                                .into();
+
+                            column_content.push(content);
                         }
 
                         column_content.push(
@@ -460,7 +463,7 @@ impl ManagementAppPluginsState {
                         );
 
                         let column: Element<_> = column(column_content)
-                            .padding(Padding::from([0.0, 4.0, 0.0, 0.0]))
+                            .spacing(12)
                             .into();
 
                         let column: Element<_> = scrollable(column)
