@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
-use std::env;
+use std::{env, fs};
+use std::fs::Metadata;
 use std::path::{PathBuf};
 
 use freedesktop_entry_parser::parse_entry;
@@ -25,23 +26,34 @@ fn find_application_dirs() -> Option<Vec<PathBuf>> {
                 .join("share")
         }
     };
-    let extra_data_dirs = match env::var_os("XDG_DATA_DIRS") {
+
+    let mut extra_data_dirs = match env::var_os("XDG_DATA_DIRS") {
         Some(val) => {
             env::split_paths(&val).map(PathBuf::from).collect()
         },
         None => {
             vec![
                 PathBuf::from("/usr/local/share"),
-                PathBuf::from("/usr/share")
+                PathBuf::from("/usr/share"),
+                PathBuf::from("/var/lib/flatpak/exports/share"),
             ]
         }
     };
 
+    let flatpak = data_home.to_path_buf()
+        .join("flatpak")
+        .join("exports")
+        .join("share");
+
     let mut res = Vec::new();
-    res.push(data_home.join("applications"));
-    for dir in extra_data_dirs {
-        res.push(dir.join("applications"));
-    }
+    res.push(data_home);
+    res.push(flatpak);
+    res.append(&mut extra_data_dirs);
+
+    let res = res.into_iter()
+        .map(|d| d.join("applications"))
+        .collect();
+
     Some(res)
 }
 
@@ -58,30 +70,36 @@ pub fn get_apps() -> Vec<DesktopEntry> {
         let found_desktop_entries = WalkDir::new(app_dir.clone())
             .into_iter()
             .filter_map(|dir_entry| dir_entry.ok())
-            .filter(|dir_entry| dir_entry.file_type().is_file())
             .filter_map(|path| {
                 let path = path.path();
 
-                tracing::debug!("path: {:?}", path);
+                tracing::debug!("Found application at: {:?}", path);
 
-                match path.extension() {
-                    None => None,
-                    Some(extension) => {
-                        match extension.to_str() {
-                            Some("desktop") => {
+                // follows symlinks needed for flatpak
+                let Ok(metadata) = fs::metadata(path) else {
+                    return None;
+                };
 
-                                let desktop_id = path.strip_prefix(&app_dir)
-                                    .ok()?
-                                    .to_str()?
-                                    .to_owned();
+                if !metadata.is_file() {
+                    return None;
+                }
 
-                                let entry = create_app_entry(path.to_path_buf())?;
+                let Some(extension) = path.extension() else {
+                    return None;
+                };
 
-                                Some((desktop_id, entry))
-                            },
-                            _ => None,
-                        }
-                    }
+                match extension.to_str() {
+                    Some("desktop") => {
+                        let desktop_id = path.strip_prefix(&app_dir)
+                            .ok()?
+                            .to_str()?
+                            .to_owned();
+
+                        let entry = create_app_entry(path.to_path_buf())?;
+
+                        Some((desktop_id, entry))
+                    },
+                    _ => None,
                 }
             })
             .collect::<HashMap<_, _>>();
