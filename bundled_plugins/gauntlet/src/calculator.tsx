@@ -29,7 +29,7 @@ export default function Calculator(props: { text: string }): ReactNode | undefin
                 actions={
                     <ActionPanel>
                         <Action
-                            label={"Copy content"}
+                            label={"Copy result"}
                             onAction={async () => {
                                 await Clipboard.writeText(right)
                             }}
