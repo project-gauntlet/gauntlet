@@ -7,11 +7,28 @@ use iced_aw::core::icons;
 use common::model::{PhysicalKey, PhysicalShortcut};
 
 pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &PhysicalShortcut) -> (Element<'a, Message, Theme>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>) {
+    let (key_name, show_shift) = match shortcut.physical_key {
+        PhysicalKey::Enter => {
+            let key_name = if cfg!(target_os = "macos") {
+                text(icons::Bootstrap::ArrowReturnLeft)
+                    .font(icons::BOOTSTRAP_FONT)
+                    .into()
+            } else {
+                text("ENTER")
+                    .into()
+            };
 
-    let (key_name, show_shift) = physical_key_name(&shortcut.physical_key, shortcut.modifier_shift);
+            (key_name, shortcut.modifier_shift)
+        }
+        _ => {
+            let (key_name, show_shift) = physical_key_name(&shortcut.physical_key, shortcut.modifier_shift);
 
-    let key_name: Element<_, _> = text(key_name)
-        .into();
+            let key_name: Element<_, _> = text(key_name)
+                .into();
+
+            (key_name, show_shift)
+        }
+    };
 
     let alt_modifier_text = if shortcut.modifier_alt {
         if cfg!(target_os = "macos") {
