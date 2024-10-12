@@ -1012,7 +1012,7 @@ impl DataDbRepository {
                 .bind(new_entrypoint.description)
                 .bind(Json(new_entrypoint.actions))
                 .bind(Json(actions_user_data))
-                .bind(Json(new_entrypoint.icon_path))
+                .bind(new_entrypoint.icon_path)
                 .bind(uuid)
                 .execute(&mut *tx)
                 .await?;

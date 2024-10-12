@@ -66,7 +66,7 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
         .map(|item| {
             let entrypoint_icon_path = match item.entrypoint_icon {
                 None => None,
-                Some(data) => Some(icon_cache.save_entrypoint_icon_to_cache(&plugin_uuid, &item.entrypoint_uuid, data)?),
+                Some(data) => Some(icon_cache.save_entrypoint_icon_to_cache(&plugin_uuid, &item.entrypoint_uuid, &data)?),
             };
 
             let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
@@ -125,7 +125,7 @@ async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Ve
             let entrypoint_icon_path = match entrypoint.icon_path {
                 None => None,
                 Some(path_to_asset) => {
-                    match icon_asset_data.remove(&(entrypoint.id, path_to_asset)) {
+                    match icon_asset_data.get(&(entrypoint.id, path_to_asset)) {
                         None => None,
                         Some(data) => Some(icon_cache.save_entrypoint_icon_to_cache(&plugin_uuid, &entrypoint.uuid, data)?)
                     }

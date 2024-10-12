@@ -35,7 +35,7 @@ impl IconCache {
         Ok(())
     }
 
-    pub fn save_entrypoint_icon_to_cache(&self, plugin_uuid: &str, entrypoint_uuid: &str, data: Vec<u8>) -> anyhow::Result<String> {
+    pub fn save_entrypoint_icon_to_cache(&self, plugin_uuid: &str, entrypoint_uuid: &str, data: impl AsRef<[u8]>) -> anyhow::Result<String> {
         let cache_dir = self.dirs.icon_cache_dir();
         let plugin_cache_dir = cache_dir.join(plugin_uuid);
         std::fs::create_dir_all(&plugin_cache_dir)?;
