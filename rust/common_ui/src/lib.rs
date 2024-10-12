@@ -14,7 +14,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &Ph
                     .font(icons::BOOTSTRAP_FONT)
                     .into()
             } else {
-                text("ENTER")
+                text("Enter")
                     .into()
             };
 
@@ -39,7 +39,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &Ph
             )
         } else {
             Some(
-                text("ALT")
+                text("Alt")
                     .into()
             )
         }
@@ -56,12 +56,12 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &Ph
             )
         } else if cfg!(target_os = "windows") {
             Some(
-                text("WIN") // is it possible to have shortcuts that use win?
+                text("Win") // is it possible to have shortcuts that use win?
                     .into()
             )
         } else {
             Some(
-                text("SUPER")
+                text("Super")
                     .into()
             )
         }
@@ -78,7 +78,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &Ph
             )
         } else {
             Some(
-                text("CTRL")
+                text("Ctrl")
                     .into()
             )
         }
@@ -95,7 +95,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &Ph
             )
         } else {
             Some(
-                text("SHIFT")
+                text("Shift")
                     .into()
             )
         }
