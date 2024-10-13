@@ -70,6 +70,9 @@ pub struct AppModel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
 
+    // ephemeral state
+    prompt: String,
+
     // state
     client_context: Arc<StdRwLock<ClientContext>>,
     global_state: GlobalState,
@@ -382,6 +385,9 @@ impl Application for AppModel {
                 #[cfg(any(target_os = "macos", target_os = "windows"))]
                 tray_icon: sys_tray::create_tray(),
 
+                // ephemeral state
+                prompt: "".to_string(),
+
                 // state
                 global_state,
                 client_context,
@@ -441,10 +447,10 @@ impl Application for AppModel {
                     Command::none()
                 } else {
                     match &mut self.global_state {
-                        GlobalState::MainView { focused_search_result, sub_state, prompt, ..} => {
+                        GlobalState::MainView { focused_search_result, sub_state, ..} => {
                             new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
-                            *prompt = new_prompt.clone();
+                            self.prompt = new_prompt.clone();
 
                             focused_search_result.reset(true);
 
@@ -459,8 +465,8 @@ impl Application for AppModel {
             }
             AppMsg::UpdateSearchResults => {
                 match &self.global_state {
-                    GlobalState::MainView { prompt, .. } => {
-                        self.search(prompt.clone(), false)
+                    GlobalState::MainView { .. } => {
+                        self.search(self.prompt.clone(), false)
                     }
                     _ => Command::none()
                 }
@@ -537,9 +543,9 @@ impl Application for AppModel {
                             },
                             Key::Named(Named::Backspace) => {
                                 match &mut self.global_state {
-                                    GlobalState::MainView { sub_state, search_field_id, prompt, .. } => {
+                                    GlobalState::MainView { sub_state, search_field_id, .. } => {
                                         match sub_state {
-                                            MainViewState::None => Self::backspace_prompt(prompt, search_field_id.clone()),
+                                            MainViewState::None => Self::backspace_prompt(&mut self.prompt, search_field_id.clone()),
                                             MainViewState::SearchResultActionPanel { .. } => Command::none(),
                                             MainViewState::InlineViewActionPanel { .. } => Command::none()
                                         }
@@ -550,7 +556,7 @@ impl Application for AppModel {
                             },
                             _ => {
                                 match &mut self.global_state {
-                                    GlobalState::MainView { sub_state, search_field_id, prompt, focused_search_result, .. } => {
+                                    GlobalState::MainView { sub_state, search_field_id, focused_search_result, .. } => {
                                         match sub_state {
                                             MainViewState::None => {
                                                 match physical_key_model(physical_key, modifiers) {
@@ -583,10 +589,10 @@ impl Application for AppModel {
                                                                 )
                                                             }
                                                         } else {
-                                                            Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)
+                                                            Self::append_prompt(&mut self.prompt, text, search_field_id.clone(), modifiers)
                                                         }
                                                     }
-                                                    _ => Self::append_prompt(prompt, text, search_field_id.clone(), modifiers)
+                                                    _ => Self::append_prompt(&mut self.prompt, text, search_field_id.clone(), modifiers)
                                                 }
                                             }
                                             MainViewState::SearchResultActionPanel { .. } => {
@@ -1262,8 +1268,8 @@ impl Application for AppModel {
                     }
                 }
             }
-            GlobalState::MainView { focused_search_result, sub_state, prompt, search_field_id, .. } => {
-                let input: Element<_> = text_input("Search...", prompt)
+            GlobalState::MainView { focused_search_result, sub_state, search_field_id, .. } => {
+                let input: Element<_> = text_input("Search...", &self.prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
                     .ignore_with_modifiers(true)
@@ -1550,6 +1556,8 @@ impl AppModel {
         commands.push(
             GlobalState::initial(&mut self.global_state, self.client_context.clone())
         );
+
+        self.prompt = "".to_string();
 
         let mut client_context = self.client_context.write().expect("lock is poisoned");
 

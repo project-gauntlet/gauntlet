@@ -20,7 +20,6 @@ pub enum GlobalState {
         search_field_id: text_input::Id,
 
         // ephemeral state
-        prompt: String,
         focused_search_result: ScrollHandle<SearchResult>,
 
         // state
@@ -69,7 +68,6 @@ impl GlobalState {
     pub fn new(search_field_id: text_input::Id, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
         GlobalState::MainView {
             search_field_id,
-            prompt: "".to_string(),
             focused_search_result: ScrollHandle::new(true),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
