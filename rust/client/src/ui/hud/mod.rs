@@ -4,6 +4,7 @@ use iced::window::{Level, Position, Settings};
 use iced::{window, Command, Size};
 use std::convert;
 use std::time::Duration;
+use iced::window::settings::PlatformSpecific;
 
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
