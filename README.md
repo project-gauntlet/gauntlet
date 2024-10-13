@@ -11,7 +11,7 @@ Web-first cross-platform application launcher with React-based plugins.
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
-https://github.com/user-attachments/assets/1aa790dc-fce9-4ac5-97d8-3b81b83acf2e
+https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
 
 ## Features
 
