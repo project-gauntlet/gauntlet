@@ -146,7 +146,10 @@ pub enum UiRequestData {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation,
     },
-    RequestSearchResultUpdate
+    RequestSearchResultUpdate,
+    ShowHud {
+        display: String
+    },
 }
 
 #[derive(Debug)]

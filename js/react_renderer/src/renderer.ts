@@ -122,6 +122,10 @@ export function getEntrypointPreferences(): Record<string, any> {
     return gauntletContextValue.entrypointPreferences()
 }
 
+export function showHudWindow(display: string): void {
+    InternalApi.show_hud(display)
+}
+
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
     const props = Object.fromEntries(
         Object.entries(properties)

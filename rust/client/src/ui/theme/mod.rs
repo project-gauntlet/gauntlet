@@ -123,6 +123,8 @@ pub struct GauntletTheme {
     loading_bar: ThemeLoadingBar,
     text_accessory: ThemePaddingTextColorSpacing,
     icon_accessory: ThemeIconAccessory,
+    hud: ThemeRoot,
+    hud_content: ThemePaddingOnly
 }
 
 impl Default for GauntletTheme {
@@ -617,6 +619,15 @@ impl GauntletTheme {
             icon_accessory: ThemeIconAccessory {
                 padding: padding(4.0, 4.0, 4.0, 16.0),
                 icon_color: text_lighter_color,
+            },
+            hud: ThemeRoot {
+                background_color: ThemeColor::new(0x1E1E1E, 0.7),
+                border_radius: 30.0,
+                border_width: 0.0,
+                border_color: TRANSPARENT,
+            },
+            hud_content: ThemePaddingOnly {
+                padding: padding_axis(8.0, 16.0),
             },
         }
     }

@@ -158,6 +158,21 @@ async fn fetch_action_id_for_shortcut(
     Ok(result)
 }
 
+#[op]
+async fn show_hud(state: Rc<RefCell<OpState>>, display: String) -> anyhow::Result<()> {
+    let data = JsUiRequestData::ShowHud {
+        display
+    };
+
+    match make_request(&state, data).context("ShowHud frontend response")? {
+        JsUiResponseData::Nothing => {
+            tracing::trace!("Calling show_hud returned");
+            Ok(())
+        }
+        value @ _ => panic!("unsupported response type {:?}", value),
+    }
+}
+
 fn from_js_to_intermediate_widget(state: Rc<RefCell<OpState>>, scope: &mut v8::HandleScope, ui_widget: JsUiWidget, component_model: &ComponentModel, shared_types: &IndexMap<String, SharedType>) -> anyhow::Result<UiWidget> {
     let children = ui_widget.widget_children.into_iter()
         .map(|child| from_js_to_intermediate_widget(state.clone(), scope, child, component_model, shared_types))

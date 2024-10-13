@@ -1,5 +1,5 @@
 // @ts-ignore TODO how to add declaration for this?
-import { getAssetDataSync, getPluginPreferences, getEntrypointPreferences,  } from "gauntlet:renderer";
+import { getAssetDataSync, getPluginPreferences, getEntrypointPreferences, showHudWindow } from "gauntlet:renderer";
 
 // @ts-expect-error does typescript support such symbol declarations?
 const denoCore: DenoCore = Deno[Deno.internal].core;
@@ -15,6 +15,10 @@ export function pluginPreferences<T extends Record<string, any>>(): T {
 
 export function entrypointPreferences<T extends Record<string, any>>(): T {
     return getEntrypointPreferences()
+}
+
+export function showHud(display: string): void {
+    return showHudWindow(display)
 }
 
 export interface GeneratedCommand {

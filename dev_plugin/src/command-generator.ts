@@ -1,4 +1,4 @@
-import { GeneratedCommand } from "@project-gauntlet/api/helpers";
+import { GeneratedCommand, showHud } from "@project-gauntlet/api/helpers";
 
 export default function CommandGenerator(): GeneratedCommand[] {
     return [
@@ -45,6 +45,7 @@ export default function CommandGenerator(): GeneratedCommand[] {
             id: 'generated-test-3',
             name: 'Generated Item 3',
             fn: () => {
+                showHud("HUD test display")
                 console.log('generated-test-3')
             }
         },

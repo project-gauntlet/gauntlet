@@ -35,7 +35,7 @@ use crate::model::UiViewEvent;
 use crate::ui::inline_view_container::{inline_view_action_panel, inline_view_container};
 use crate::ui::search_list::search_list;
 use crate::ui::theme::{Element, ThemableWidget};
-use crate::ui::theme::container::ContainerStyle;
+use crate::ui::theme::container::{ContainerStyle, ContainerStyleInner};
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::view_container::view_container;
 use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentRenderContext, ComponentWidgetEvent};
@@ -52,8 +52,10 @@ mod sys_tray;
 mod custom_widgets;
 mod scroll_handle;
 mod state;
+mod hud;
 
 pub use theme::GauntletTheme;
+use crate::ui::hud::{close_hud_window, show_hud_window};
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
 use crate::ui::widget_container::PluginWidgetContainer;
@@ -72,6 +74,7 @@ pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
     global_state: GlobalState,
     search_results: Vec<SearchResult>,
+    hud_display: Option<String>
 }
 
 
@@ -151,6 +154,12 @@ pub enum AppMsg {
     OpenPluginView(PluginId, EntrypointId),
     InlineViewShortcuts {
         shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>
+    },
+    ShowHud {
+        display: String
+    },
+    CloseHudWindow {
+        id: window::Id
     },
 }
 
@@ -377,13 +386,18 @@ impl Application for AppModel {
                 global_state,
                 client_context,
                 search_results: vec![],
+                hud_display: None,
             },
             Command::batch(commands),
         )
     }
 
-    fn title(&self, _window: window::Id) -> String {
-        "Gauntlet".to_owned()
+    fn title(&self, window: window::Id) -> String {
+        if window != window::Id::MAIN {
+            "Gauntlet".to_owned()
+        } else {
+            "Gauntlet HUD".to_owned()
+        }
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -983,10 +997,63 @@ impl Application for AppModel {
 
                 Command::none()
             }
+            AppMsg::ShowHud { display } => {
+                self.hud_display = Some(display);
+
+                show_hud_window(
+                    #[cfg(target_os = "linux")]
+                    self.wayland,
+                )
+            }
+            AppMsg::CloseHudWindow { id } => {
+                self.hud_display = None;
+
+                close_hud_window(
+                    #[cfg(target_os = "linux")]
+                    self.wayland,
+                    id
+                )
+            }
         }
     }
 
-    fn view(&self, _window: window::Id) -> Element<'_, Self::Message> {
+    fn view(&self, window: window::Id) -> Element<'_, Self::Message> {
+        if window != window::Id::MAIN {
+            return match &self.hud_display {
+                Some(hud_display) => {
+                    let hud: Element<_> = text(&hud_display)
+                        .into();
+
+                    let hud = container(hud)
+                        .center_x()
+                        .center_y()
+                        .height(Length::Fill)
+                        .themed(ContainerStyle::HudInner);
+
+                    let hud = container(hud)
+                        .center_x()
+                        .center_y()
+                        .height(Length::Fill)
+                        .themed(ContainerStyle::Hud);
+
+                    let hud = container(hud)
+                        .height(Length::Fill)
+                        .width(Length::Fill)
+                        .center_x()
+                        .center_y()
+                        .style(ContainerStyleInner::Transparent)
+                        .into();
+
+                    hud
+                }
+                None => {
+                    horizontal_space()
+                        .into()
+                }
+            }
+        }
+
+
         match &self.global_state {
             GlobalState::ErrorView { error_view } => {
                 match error_view {
@@ -1823,6 +1890,13 @@ async fn request_loop(
                     responder.respond(UiResponseData::Nothing);
 
                     AppMsg::UpdateSearchResults
+                }
+                UiRequestData::ShowHud { display } => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::ShowHud {
+                        display
+                    }
                 }
             }
         };

@@ -111,4 +111,17 @@ impl FrontendApi {
 
         Ok(())
     }
+
+    pub async fn show_hud(
+        &mut self,
+        display: String,
+    ) -> Result<(), FrontendApiError> {
+        let request = UiRequestData::ShowHud {
+            display,
+        };
+
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
+
+        Ok(())
+    }
 }

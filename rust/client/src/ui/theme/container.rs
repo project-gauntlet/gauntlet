@@ -57,6 +57,8 @@ pub enum ContainerStyle {
     IconAccessory,
     InlineInner,
     InlineName,
+    HudInner,
+    Hud,
 }
 
 #[derive(Default)]
@@ -74,6 +76,7 @@ pub enum ContainerStyleInner {
     ContentImage,
     RootBottomPanel,
     InlineInner,
+    Hud,
 }
 
 
@@ -217,6 +220,21 @@ impl container::StyleSheet for GauntletTheme {
                         color: theme.border_color.to_iced(),
                     },
                     ..Appearance::default()
+                }
+            }
+            ContainerStyleInner::Hud => {
+                let theme = &self.hud;
+                let background_color = &theme.background_color;
+
+                Appearance {
+                    text_color: None,
+                    background: Some(background_color.to_iced().into()),
+                    border: Border {
+                        radius: theme.border_radius.into(),
+                        width: theme.border_width,
+                        color: theme.border_color.to_iced(),
+                    },
+                    shadow: Default::default(),
                 }
             }
         }
@@ -395,6 +413,12 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::IconAccessory => {
                 self.padding(theme.icon_accessory.padding.to_iced())
+            }
+            ContainerStyle::HudInner => {
+                self.padding(theme.hud_content.padding.to_iced())
+            }
+            ContainerStyle::Hud => {
+                self.style(ContainerStyleInner::Hud)
             }
         }.into()
     }

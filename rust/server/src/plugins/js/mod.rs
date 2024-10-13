@@ -46,7 +46,7 @@ use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
 use crate::plugins::js::search::reload_search_index;
-use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_plugin_error_view, show_preferences_required_view};
+use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view};
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem};
 
@@ -506,6 +506,7 @@ deno_core::extension!(
         show_preferences_required_view,
         op_component_model,
         fetch_action_id_for_shortcut,
+        show_hud,
 
         // preferences
         get_plugin_preferences,
@@ -631,6 +632,12 @@ async fn make_request_async(plugin_id: PluginId, plugin_name: String, frontend_a
             };
 
             frontend_api.show_plugin_error_view(plugin_id, entrypoint_id, render_location).await?;
+
+            Ok(JsUiResponseData::Nothing)
+        }
+        JsUiRequestData::ShowHud { display } => {
+
+            frontend_api.show_hud(display).await?;
 
             Ok(JsUiResponseData::Nothing)
         }

@@ -28,7 +28,10 @@ pub enum JsUiRequestData {
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool
-    }
+    },
+    ShowHud {
+        display: String
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
