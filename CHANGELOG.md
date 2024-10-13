@@ -8,6 +8,99 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://github.com/project-gauntlet/tools/blob/main/CHANGELOG.md)
 
 ## [Unreleased]
+### General
+- Main view now has action bar and action panel 
+  - Action bar displays current primary action depending on focused result item
+  - <kbd>ALT</kbd> + <kbd>K</kbd> (<kbd>OPT</kbd> + <kbd>K</kbd> on macOS) is available to open action panel
+  - Content of action panel can be defined by plugins
+    - `"inline-view"` and `"command-generator"` entrypoint types can now specify custom actions on main view
+    - Plugin can also provide shortcut that will be available depending on focused result item without opening the action panel 
+- Primary and secondary actions
+  - First action in action panel is now considered primary and can be run using <kbd>ENTER</kbd> without opening action panel
+  - Second action in action panel is now considered secondary and can be run using <kbd>SHIFT</kbd> + <kbd>ENTER</kbd> without opening action panel
+  - Works for all places that can define actions: `"inline-view"`, `"command-generator"` and `"view"` entrypoint types
+- Action panel now supports keyboard navigation
+- All bundled plugins are merged into one
+- It is now possible to update plugin using "Check for updates" button in settings
+
+### Bundled plugin
+#### `Applications`
+- Add Flatpak application support on Linux
+- Fixed no applications being shown on macOS Sequoia (15)
+- Fixed crash on macOS if macOS version only contains two segments, e.g. `15.0` vs `15.0.1`
+- Fixed some applications not having icons on macOS
+
+#### `Calculator`
+- It is now possible to copy result of calculation using primary action and its shortcut
+  - After copying, popup is shown to indicate that the result was copied
+- Updated `numbat` dependency to [1.14.0](https://github.com/sharkdp/numbat/releases/tag/v1.14.0)
+  - Notable change: "Add lowercase aliases for currency units"
+
+### Plugin API
+- Plugin permissions reworked
+  - **BREAKING CHANGE**: Plugin manifest property `permissions.ffi` removed
+    - FFI in Deno is an unstable feature
+    - May be brought back in future
+  - **BREAKING CHANGE**: Plugin manifest property `permissions.high_resolution_time` removed
+    - This is done in preparation for Deno update, newer versions of which removed this permission
+  - **BREAKING CHANGE**: Plugin manifest property `permissions.fs_read_access` renamed to `permissions.filesystem.read`
+  - **BREAKING CHANGE**: Plugin manifest property `permissions.fs_write_access` renamed to `permissions.filesystem.write`
+  - **BREAKING CHANGE**: Plugin manifest property `permissions.run_subprocess` has been split into 2 properties: `permissions.exec.command` and `permissions.exec.executable`
+    - `command` is for commands on `PATH`, e.g. `"ls"`
+    - `executable` is for absolute paths to binary, e.g. `"/usr/bin/ls"`
+  - **BREAKING CHANGE**: Windows-style paths are not allowed in plugins that do not support Windows
+  - **BREAKING CHANGE**: Unix-style paths are not allowed in plugins that do not support Linux or macOS
+  - **BREAKING CHANGE**: Plugin manifest property `permissions.network` now can only contain domain and optionally port of URL
+  - **BREAKING CHANGE**: Path permissions (`permissions.filesystem.read`, `permissions.filesystem.write` and `permissions.exec.executable`) now can only contain absolute paths
+  - Path permissions (`permissions.filesystem.read`, `permissions.filesystem.write` and `permissions.exec.executable`) can now contain variables which will be replaced at plugin load time
+    - Examples: `{linux:user-home}/.local/share`, `{common:plugin-cache}/my-plugin-cache`
+    - Variables can only be used at the beginning of the path
+    - List of currently available variables
+      - `{macos:user-home}`
+        - Resolves to `$HOME`, i.e. `/Users/<username>`
+        - Only available if plugin supports macOS
+      - `{linux:user-home}`
+        - Resolves to `$HOME`, i.e. `/home/<username>`
+        - Only available if plugin supports Linux
+      - `{windows:user-home}`
+        - Resolves to `{FOLDERID_Profile}`, i.e. `C:\Users\<username>`
+        - Only available if plugin supports Windows
+      - `{common:plugin-data}`
+        - On Windows: `{FOLDERID_RoamingAppData}\Gauntlet\data\plugins\<plugin-uuid>`
+        - On Linux: `$XDG_DATA_HOME/gauntlet/plugins/<plugin-uuid>`
+        - On macOS: `$HOME/Library/Application Support/dev.project-gauntlet.gauntlet/plugins/<plugin-uuid>`
+      - `{common:plugin-cache}`
+        - On Windows:  `{FOLDERID_LocalAppData}\Gauntlet\cache\plugins\<plugin-uuid>`
+        - On Linux:  `$XDG_CACHE_HOME/gauntlet/plugins/<plugin-uuid>`
+        - On macOS:  `$HOME/Library/Application Support/dev.project-gauntlet.gauntlet/plugins/<plugin-uuid>`
+- `<Grid.Item/>`'s `title` property is now optional
+- `<Grid.Item/>` have a new `accessory` property, which provides an ability to specify text and/or icon under the grid cell
+- `<List.Item/>` have a new `accessories` property, which provides an ability to specify one or multiple text and/or icon items on the right side of list item
+- **BREAKING CHANGE**: `<Action>`'s `title` property renamed to `label`
+- Added `entrypoint.icon` plugin manifest property that accepts path to image inside plugin's `assets` directory
+- Added `showHud` function that will create a simple popup window with text provided to that function 
+
+### Theming API
+- **BREAKING CHANGE**: Current color theme version increased to `3`
+- **BREAKING CHANGE**: Current everything theme version increased to `3`
+
+### UI/UX Improvements
+- Grid styling refined
+- Inline view styling refined
+- Plugin and entrypoint names of rendered inline view are now shown above that inline view
+- Made color of text slightly more bright 
+- Focused (by keyboard navigation) and hovered (by hovering with mouse) search items now have distinct styling
+- Slightly increased size of icons in main search view
+- Plugin ID is now shown in sidebar in settings when plugin is selected
+- "Remove plugin" button has been moved to the bottom of the sidebar in settings
+- In settings required preferences that do not have value provided or do not have default value are now highlighted  
+- Names of keys of shortcuts were changed from all upper-case to first letter only upper-case 
+
+### Fixes
+- Fixed panic when trying to stop already stopped plugin
+- Fixed crash on macOS if `openssl@v3` library is not installed
+- Fixed inline view still being shown after main view was closed and reopened
+- Fixed download info panel in settings sometimes going outside of window size and being cut off
 
 ## [9] - 2024-09-15
 
@@ -49,7 +142,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
   - Refined styling to accommodate this change
   - **BREAKING CHANGE**: Current color theme version increased to `2` 
   - **BREAKING CHANGE**: Current everything theme version increased to `2` 
-  
+
 ### `Applications` plugin
 - Add macOS System settings items like Sound, Network, etc
   - Both pre- and post-Ventura macOS settings are supported

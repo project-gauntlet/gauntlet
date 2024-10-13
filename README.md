@@ -23,14 +23,16 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
         - Dynamically provide list of one-shot commands
         - Render quick "inline" content directly under main search bar based on value in it
         - Get content from and add to Clipboard
-    - Currently, 3 bundled plugins are provided
-        - Applications: provides list of applications
-        - Calculator: shows result of mathematical operations directly under main search bar
-          - Powered by [Numbat](https://github.com/sharkdp/numbat)
-        - Settings: open Gauntlet Settings from Gauntlet itself
     - Plugins are distributed as separate branch in Git repository, meaning plugin distribution doesn't need any central
       server
     - Plugins IDs are just Git Repository URLs
+- Built-in functionality is provided by bundled plugin
+  - Applications: shows applications installed on the system in search results
+  - Calculator: shows result of mathematical operations directly under main search bar
+    - Includes converting currency using exchange rates
+    - Powered by [Numbat](https://github.com/sharkdp/numbat)
+  - Settings: open Gauntlet Settings
+  - More to come, see [#15](https://github.com/project-gauntlet/gauntlet/issues/15)
 - [React](https://github.com/facebook/react)-based UI for plugins
     - Implemented using custom React Reconciler (no Electron)
     - [iced-rs](https://github.com/iced-rs/iced) is used for UI
@@ -41,12 +43,13 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
 - Frecency-based search result ordering
    - Frecency is a combination of frequency and recency
    - More often the item is used the higher in the result list it will be, but items used a lot in the past will be ranked lower than items used the same amount of times recently
+   - Currently, there is no fuzzy matching. Results are matched per word by substring  
 - Designed with cross-platform in mind
     - Permissions
         - By default, plugins do not have access to host system
-        - If plugin asked for access to filesystem, env variables, FFI or running commands, it is required to specify
+        - If plugin asked for access to filesystem, env variables or running commands, it is required to specify
           which operating systems it supports.
-        - If plugin doesn't use filesystem, env variables, ffi or running commands and just uses network and/or UI, it
+        - If plugin doesn't use filesystem, env variables or running commands and just uses network and/or UI, it
           is cross-platform
     - Shortcuts
         - Plugins are allowed to use only limited set of keys for shortcuts to support widest possible range of keyboards 
@@ -67,30 +70,25 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
    - Both X11 and Wayland (via LayerShell protocol) are supported
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
-    - built-in "Applications" plugin is not yet implemented. See [#9](https://github.com/project-gauntlet/gauntlet/issues/9)
+    - Bundled "Applications" plugin is not yet implemented. See [#9](https://github.com/project-gauntlet/gauntlet/issues/9)
 
-##### UI
+##### Planned features
 
-###### Implemented
+- See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
+- See [#15](https://github.com/project-gauntlet/gauntlet/issues/15)
+- See [#16](https://github.com/project-gauntlet/gauntlet/issues/16)
 
-- Detail
-- Form
-- Action Panel
-- List
-- Grid
-- Inline
-  - View directly under main search bar
-  - Requires separate permission to be explicitly specified in manifest because it reads everything user enters in main search bar
-- Settings window
-- Action Shortcuts
-- Theming
+##### Plugin APIs
 
-###### Planned
-
-See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
-
-##### APIs
-
+- UI
+  - Detail
+  - Form
+  - Action Panel
+  - List
+  - Grid
+  - Inline
+      - View directly under main search bar
+      - Requires separate permission to be explicitly specified in manifest because it reads everything user enters in main search bar
 - Stack-based Navigation
 - Assets
   - Files placed into `assets` directory in root of plugin repository are accessible at plugin runtime using `assetData` function 
@@ -99,6 +97,9 @@ See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
 - Clipboard
   - Accessible via `Clipboard` api
   - Requires separate permission to be explicitly specified in manifest
+- HUD
+  - Shows small popup window with feedback information
+  - Accessible via `showHud` function
 - React Helper Hooks
     - `usePromise`
         - Helper to run promises in a context of React view
@@ -119,10 +120,6 @@ See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
         - Helper to run `fetch()` with caching done automatically
         - Follows `stale-while-revalidate` caching strategy
         - Uses `useCachedPromise` Hook internally
-
-###### Planned
-
-See [#13](https://github.com/project-gauntlet/gauntlet/issues/13)
 
 ## Getting Started
 
@@ -260,15 +257,33 @@ path = 'src/inline-view.tsx'
 type = 'inline-view'
 description = 'Some entrypoint description' # required
 
-[permissions] # For allowed values see: https://docs.deno.com/runtime/manual/basics/permissions
-environment = ["ENV_VAR_NAME"] # array of strings, if specified requires supported_system to be specified as well
-high_resolution_time = false # boolean
-network = ["github.com"] # array of strings
-ffi = ["path/to/dynamic/lib"] # array of strings, if specified requires supported_system to be specified as well
-fs_read_access = ["path/to/something"] # array of strings, if specified requires supported_system to be specified as well
-fs_write_access = ["path/to/something"] # array of strings, if specified requires supported_system to be specified as well
-run_subprocess = ["program"] # array of strings, if specified requires supported_system to be specified as well
-system = ["apiName"] # array of strings, if specified requires supported_system to be specified as well
+[permissions]
+network = ["github.com", "example.com:8833"]
+clipboard = ["read", "write", "clear"]
+main_search_bar = ["read"]
+
+# if specified requires supported_system to be specified as well
+environment = ["ENV_VAR_NAME"] 
+
+# if specified requires supported_system to be specified as well
+system = ["apiName"]
+
+# if specified requires supported_system to be specified as well
+[permissions.filesystem]
+read = [
+    "C:\\ProgramFiles\\test",
+    "C:/ProgramFiles/test",
+    "{windows:user-home}\\test",
+    "{windows:user-home}/test",
+    "{linux:user-home}/test",
+    "/etc/test"
+]
+write = ["/home/exidex/.test"]
+
+# if specified requires supported_system to be specified as well
+[permissions.exec]
+command = ["ls"]
+executable = ["/usr/bin/ls"]
 
 [[supported_system]]
 os = 'linux' # 'linux', 'windows' or 'macos'
@@ -319,7 +334,7 @@ Server is an application that exposes gRPC server.
 All plugins run on server.
 Each plugin in its own sandboxed Deno Worker.
 In plugin manifest it is possible to configure permissions which will allow plugin to have access to filesystem,
-network, environment variables, ffi or subprocess execution.
+network, environment variables or subprocess execution.
 Server saves plugins themselves and state of plugins into SQLite database.
 
 Frontend is GUI module that uses [iced-rs](https://github.com/iced-rs/iced) as a GUI framework. It is run in the same process as a server.
@@ -345,13 +360,6 @@ Each component runs in a separate thread. Main thread is the thread that renders
 Plugins (or rather its compiled state: manifest, js code and assets) are distributed via Git repository in `gauntlet/release` branch (similar to GitHub Pages).
 Which means there is no one central place required for plugin distribution.
 And to install plugin all you need is Git repository url.
-
-Application defines set of React components to use for plugins.
-Creating and validating components involves some boilerplate.
-Component model was created for help manage is.
-It is essentially a json file which defines what components exist, what properties and event handler they have.
-This file is then used
-to generate TypeScript typings for `@project-gauntlet/api` and Rust validation code for server and frontend.
 
 ## Application packaging for Linux
 
