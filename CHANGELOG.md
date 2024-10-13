@@ -8,6 +8,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://github.com/project-gauntlet/tools/blob/main/CHANGELOG.md)
 
 ## [Unreleased]
+
+## [10] - 2024-10-13
 ### General
 - Main view now has action bar and action panel 
   - Action bar displays current primary action depending on focused result item
