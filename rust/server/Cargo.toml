@@ -30,7 +30,7 @@ client = { path = "../client" }
 walkdir = "2.4.0"
 include_dir = "0.7.3"
 open = "5"
-numbat = "1.13.0"
+numbat = "1.14.0"
 uuid = "1.8"
 resvg = { version = "0.41", default-features = false}
 image = "0.25"
