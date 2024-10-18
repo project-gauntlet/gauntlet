@@ -4,7 +4,6 @@ use iced::window::{Level, Position, Settings};
 use iced::{window, Command, Size};
 use std::convert;
 use std::time::Duration;
-use iced::window::settings::PlatformSpecific;
 
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
@@ -23,7 +22,7 @@ pub fn show_hud_window(
         visible: true,
         level: Level::AlwaysOnTop,
         #[cfg(target_os = "macos")]
-        platform_specific: PlatformSpecific {
+        platform_specific: iced::window::settings::PlatformSpecific {
             activation_policy: window::settings::ActivationPolicy::Accessory,
             activate_ignoring_other_apps: false,
             ..Default::default()
@@ -32,19 +31,21 @@ pub fn show_hud_window(
         ..Default::default()
     };
 
-    let (id, show_command) = window::spawn(settings);
-
-    let close_command = Command::perform(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
-        AppMsg::CloseHudWindow { id }
-    }, convert::identity);
-
-
     #[cfg(target_os = "linux")]
     if wayland {
-        iced::wayland::commands::layer_surface::get_layer_surface(layer_shell_settings())
+        let id = window::Id::unique();
+
+        let show_command = iced::wayland::commands::layer_surface::get_layer_surface(layer_shell_settings(id));
+        let close_command = in_2_seconds(AppMsg::CloseHudWindow { id });
+
+        Command::batch([
+            show_command,
+            close_command
+        ])
     } else {
+        let (id, show_command) = window::spawn(settings);
+        let close_command = in_2_seconds(AppMsg::CloseHudWindow { id });
+
         Command::batch([
             show_command,
             close_command
@@ -52,10 +53,15 @@ pub fn show_hud_window(
     }
 
     #[cfg(not(target_os = "linux"))]
-    Command::batch([
-        show_command,
-        close_command
-    ])
+    {
+        let (id, show_command) = window::spawn(settings);
+        let close_command = in_2_seconds(AppMsg::CloseHudWindow { id });
+
+        Command::batch([
+            show_command,
+            close_command
+        ])
+    }
 }
 
 pub fn close_hud_window(
@@ -63,23 +69,21 @@ pub fn close_hud_window(
     wayland: bool,
     id: window::Id
 ) -> Command<AppMsg> {
-    let command = window::close(id);
-
     #[cfg(target_os = "linux")]
     if wayland {
         iced::wayland::commands::layer_surface::destroy_layer_surface(id)
     } else {
-        command
+        window::close(id)
     }
 
     #[cfg(not(target_os = "linux"))]
-    command
+    window::close(id)
 }
 
 #[cfg(target_os = "linux")]
-fn layer_shell_settings() -> iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings {
+fn layer_shell_settings(id: window::Id) -> iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings {
     iced::wayland::runtime::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings {
-        id: window::Id::unique(),
+        id,
         layer: iced::wayland::commands::layer_surface::Layer::Overlay,
         keyboard_interactivity: iced::wayland::commands::layer_surface::KeyboardInteractivity::None,
         pointer_interactivity: false,
@@ -91,4 +95,12 @@ fn layer_shell_settings() -> iced::wayland::runtime::command::platform_specific:
         size: Some((Some(HUD_WINDOW_WIDTH as u32), Some(HUD_WINDOW_HEIGHT as u32))),
         size_limits: Limits::new(Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT), Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT)),
     }
+}
+
+fn in_2_seconds(msg: AppMsg) -> Command<AppMsg> {
+    Command::perform(async move {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        msg
+    }, convert::identity)
 }
