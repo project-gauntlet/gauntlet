@@ -326,7 +326,8 @@ export const createHostConfig = (): HostConfig<
     },
 
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
-        InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
+        // TODO Deno.inspect is always executed
+        InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren, { depth: Number.MAX_VALUE })}`)
 
         container.widgetChildren = newChildren
 

@@ -912,9 +912,7 @@ impl Application for AppModel {
                                         };
                                         let render_location = UiRenderLocation::InlineView;
 
-                                        Command::batch([
-                                            Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
-                                        ])
+                                        Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
                                     }
                                     None => Command::none()
                                 }
@@ -1553,16 +1551,6 @@ impl AppModel {
             GlobalState::ErrorView { .. } => {}
         }
 
-        commands.push(
-            GlobalState::initial(&mut self.global_state, self.client_context.clone())
-        );
-
-        self.prompt = "".to_string();
-
-        let mut client_context = self.client_context.write().expect("lock is poisoned");
-
-        client_context.clear_all_inline_views();
-
         Command::batch(commands)
     }
 
@@ -1598,6 +1586,12 @@ impl AppModel {
     }
 
     fn reset_window_state(&mut self) -> Command<AppMsg> {
+        self.prompt = "".to_string();
+
+        let mut client_context = self.client_context.write().expect("lock is poisoned");
+
+        client_context.clear_all_inline_views();
+
         let mut commands = vec![
             GlobalState::initial(&mut self.global_state, self.client_context.clone()),
         ];
