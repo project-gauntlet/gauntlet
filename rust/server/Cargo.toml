@@ -34,7 +34,7 @@ numbat = "1.14.0"
 uuid = "1.8"
 resvg = { version = "0.41", default-features = false}
 image = "0.25"
-arboard = "3.4.0"
+arboard = { version = "=3.2.1", features = ["wayland-data-control"] } # TODO update when dependency hell is solved
 global-hotkey = "0.4.2"
 ureq = "2.10.0"
 bytes = "1.6.0"
