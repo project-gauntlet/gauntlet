@@ -1352,7 +1352,7 @@ fn render_plugin_root<'a>(
     let primary_action = action_panel.as_mut()
         .map(|panel| panel.find_first())
         .flatten()
-        .map(|label| {
+        .map(|(label, widget_id)| {
             let shortcut = PhysicalShortcut {
                 physical_key: PhysicalKey::Enter,
                 modifier_shift: false,
@@ -1361,7 +1361,7 @@ fn render_plugin_root<'a>(
                 modifier_meta: false
             };
 
-            (label.to_string(), shortcut)
+            (label.to_string(), widget_id, shortcut)
         });
 
     match plugin_view_state {
@@ -1376,6 +1376,7 @@ fn render_plugin_root<'a>(
                 None::<&ScrollHandle<UiWidgetId>>,
                 entrypoint_name,
                 || ComponentWidgetEvent::ToggleActionPanel { widget_id },
+                |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id },
                 |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
             )
         }
@@ -1390,6 +1391,7 @@ fn render_plugin_root<'a>(
                 Some(&focused_action_item),
                 entrypoint_name,
                 || ComponentWidgetEvent::ToggleActionPanel { widget_id },
+                |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id },
                 |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
             )
         }
@@ -1407,7 +1409,7 @@ impl ActionPanel {
         self.items.iter().map(|item| item.action_count()).sum()
     }
 
-    pub fn find_first(&self) -> Option<String> {
+    pub fn find_first(&self) -> Option<(String, UiWidgetId)> {
         ActionPanelItem::find_first(&self.items)
     }
 }
@@ -1435,11 +1437,11 @@ impl ActionPanelItem {
         }
     }
 
-    fn find_first(items: &[ActionPanelItem]) -> Option<String> {
+    fn find_first(items: &[ActionPanelItem]) -> Option<(String, UiWidgetId)> {
         for item in items {
             match item {
-                ActionPanelItem::Action { label, .. } => {
-                    return Some(label.to_string())
+                ActionPanelItem::Action { label, widget_id, .. } => {
+                    return Some((label.to_string(), *widget_id))
                 }
                 ActionPanelItem::ActionSection { items, .. } => {
                     if let Some(item) = Self::find_first(items) {
@@ -1653,11 +1655,12 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
     content: Element<'a, T>,
-    primary_action: Option<(String, PhysicalShortcut)>,
+    primary_action: Option<(String, UiWidgetId, PhysicalShortcut)>,
     action_panel: Option<ActionPanel>,
     action_panel_scroll_handle: Option<&ScrollHandle<ACTION>>,
     entrypoint_name: String,
     on_panel_toggle_click: impl Fn() -> T,
+    on_panel_primary_click: impl Fn(UiWidgetId) -> T,
     on_action_click: impl Fn(UiWidgetId) -> T,
 ) -> Element<'a, T>  {
     let entrypoint_name: Element<_> = text(entrypoint_name)
@@ -1666,7 +1669,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     let panel_height = 16 + 8 + 2;  // TODO get value from theme
 
     let primary_action = match primary_action {
-        Some((label, shortcut)) => {
+        Some((label, widget_id, shortcut)) => {
             let label: Element<_> = text(label)
                 .themed(TextStyle::RootBottomPanelPrimaryActionText);
 
@@ -1676,7 +1679,14 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
             let shortcut = render_shortcut(&shortcut);
 
             let content: Element<_> = row(vec![label, shortcut])
-                .themed(RowStyle::RootBottomPanelPrimaryAction);
+                .into();
+
+            let content: Element<_> = button(content)
+                .on_press(on_panel_primary_click(widget_id))
+                .themed(ButtonStyle::RootBottomPanelPrimaryActionButton);
+
+            let content: Element<_> = container(content)
+                .themed(ContainerStyle::RootBottomPanelPrimaryActionButton);
 
             Some(content)
         }
@@ -1974,6 +1984,9 @@ pub enum ComponentWidgetEvent {
         widget_id: UiWidgetId,
     },
     PreviousView,
+    RunPrimaryAction {
+        widget_id: UiWidgetId,
+    },
 }
 
 impl ComponentWidgetEvent {
@@ -2082,6 +2095,11 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::PreviousView => {
                 panic!("handle event on PreviousView event is not supposed to be called")
             }
+            ComponentWidgetEvent::RunPrimaryAction { widget_id } => {
+                Some(UiViewEvent::AppEvent {
+                    event: AppMsg::OnAnyActionPluginViewAnyPanel { widget_id }
+                })
+            }
         }
     }
 
@@ -2101,6 +2119,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
             ComponentWidgetEvent::ListItemClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::GridItemClick { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::RunPrimaryAction { widget_id } => widget_id,
             ComponentWidgetEvent::PreviousView => panic!("widget_id on PreviousView event is not supposed to be called"),
         }.to_owned()
     }

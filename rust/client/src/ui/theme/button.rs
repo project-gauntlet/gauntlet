@@ -19,6 +19,7 @@ pub enum ButtonStyle {
     MainListItemFocused,
     MetadataLink,
     RootBottomPanelActionToggleButton,
+    RootBottomPanelPrimaryActionButton,
     RootTopPanelBackButton,
     MetadataTagItem,
 }
@@ -34,6 +35,11 @@ impl ButtonStyle {
 
         match self {
             ButtonStyle::RootBottomPanelActionToggleButton => {
+                let theme = &theme.root_bottom_panel_action_toggle_button;
+
+                theme.padding.to_iced()
+            },
+            ButtonStyle::RootBottomPanelPrimaryActionButton => {
                 let theme = &theme.root_bottom_panel_action_toggle_button;
 
                 theme.padding.to_iced()
@@ -81,7 +87,7 @@ impl ButtonStyle {
 
     fn appearance(&self, theme: &GauntletTheme, state: ButtonState) -> Appearance {
         let (background_color, background_color_hover, text_color, text_color_hover, border_radius, border_width, border_color) = match &self {
-            ButtonStyle::RootBottomPanelActionToggleButton => {
+            ButtonStyle::RootBottomPanelPrimaryActionButton | ButtonStyle::RootBottomPanelActionToggleButton => {
                 let theme = &theme.root_bottom_panel_action_toggle_button;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             },

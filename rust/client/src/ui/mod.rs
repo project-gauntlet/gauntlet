@@ -120,10 +120,6 @@ pub enum AppMsg {
     ToggleActionPanel {
         keyboard: bool
     },
-    OnEntrypointAction {
-        keyboard: bool,
-        widget_id: UiWidgetId
-    },
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -164,6 +160,20 @@ pub enum AppMsg {
     CloseHudWindow {
         id: window::Id
     },
+    OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus,
+    OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result: SearchResult },
+    OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result: SearchResult, widget_id: UiWidgetId },
+    OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnAnyActionPluginViewAnyPanel { widget_id: UiWidgetId },
+    OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result: SearchResult },
+    OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus,
+    OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnAnyActionMainViewAnyPanelMouse { widget_id: UiWidgetId },
+    OnPrimaryActionMainViewActionPanelMouse { widget_id: UiWidgetId },
+    ResetMainViewState,
+    OnAnyActionMainViewNoPanelKeyboardAtIndex { index: usize },
 }
 
 pub struct AppFlags {
@@ -896,97 +906,144 @@ impl Application for AppModel {
 
                 Command::none()
             }
-            AppMsg::OnEntrypointAction { keyboard, widget_id} => {
+            AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus => {
+                Command::perform(async {}, move |_| AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index: 0 })
+            }
+            AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
+                Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_result, None))
+            }
+            AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id } => {
+                let run_action_command = if widget_id == 0 {
+                    Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_result, None))
+                } else {
+                    Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_result, Some(widget_id - 1)))
+                };
+
+                Command::batch([
+                    run_action_command,
+                    Command::perform(async {}, |_| AppMsg::ResetMainViewState)
+                ])
+            }
+            AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
+                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                match client_context.get_first_inline_view_container() {
+                    Some(container) => {
+                        let plugin_id = container.get_plugin_id();
+
+                        let widget_event = ComponentWidgetEvent::RunAction {
+                            widget_id,
+                        };
+                        let render_location = UiRenderLocation::InlineView;
+
+                        Command::batch([
+                            Command::perform(async {}, move |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                            Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                        ])
+                    }
+                    None => Command::none()
+                }
+            }
+            AppMsg::OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id } => {
+                Command::perform(async {}, move |_| AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
+            }
+            AppMsg::OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id } => {
+                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                let plugin_id = client_context.get_view_plugin_id();
+
+                let widget_event = ComponentWidgetEvent::RunAction {
+                    widget_id,
+                };
+                let render_location = UiRenderLocation::View;
+
+                Command::batch([
+                    Command::perform(async {}, move |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                    Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                ])
+            }
+            AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id: _ } => {
+                // widget_id here is always 0
+                match &self.global_state {
+                    GlobalState::MainView { focused_search_result, .. } => {
+                        if let Some(search_result) = focused_search_result.get(&self.search_results) {
+                            let search_result = search_result.clone();
+                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result })
+                        } else {
+                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus)
+                        }
+                    }
+                    GlobalState::PluginView { .. } => Command::none(),
+                    GlobalState::ErrorView { .. } => Command::none()
+                }
+            }
+            AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus => {
+                Command::perform(async {}, move |_| AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index: 1 })
+            }
+            AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
+                Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_result, Some(0)))
+            }
+            AppMsg::OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id } => {
+                Command::perform(async {}, move |_| AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
+            }
+            AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
+                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                if let Some(container) = client_context.get_first_inline_view_container() {
+                    let plugin_id = container.get_plugin_id();
+                    let action_ids = container.get_action_ids();
+
+                    match action_ids.get(index) {
+                        Some(widget_id) => {
+                            let widget_id = *widget_id;
+
+                            let widget_event = ComponentWidgetEvent::RunAction {
+                                widget_id,
+                            };
+                            let render_location = UiRenderLocation::InlineView;
+
+                            Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                        }
+                        None => Command::none()
+                    }
+                } else {
+                    Command::none()
+                }
+            }
+            AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id } => {
                 match &mut self.global_state {
                     GlobalState::MainView { focused_search_result, sub_state, .. } => {
                         match sub_state {
-                            MainViewState::None => {
-                                let client_context = self.client_context.read().expect("lock is poisoned");
-
-                                match client_context.get_first_inline_view_container() {
-                                    Some(container) => {
-                                        let plugin_id = container.get_plugin_id();
-
-                                        let widget_event = ComponentWidgetEvent::RunAction {
-                                            widget_id,
-                                        };
-                                        let render_location = UiRenderLocation::InlineView;
-
-                                        Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
-                                    }
-                                    None => Command::none()
-                                }
-                            },
+                            MainViewState::None => Command::none(),
                             MainViewState::SearchResultActionPanel { .. } => {
-                                if let Some(search_item) = focused_search_result.get(&self.search_results) {
-                                    MainViewState::initial(sub_state);
-
-                                    let search_item = search_item.clone();
-                                    if widget_id == 0 {
-                                        Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
-                                    } else {
-                                        Command::perform(async {}, move |_| AppMsg::RunSearchItemAction(search_item, Some(widget_id - 1)))
-                                    }
+                                if let Some(search_result) = focused_search_result.get(&self.search_results) {
+                                    let search_result = search_result.clone();
+                                    Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
                                 } else {
                                     Command::none()
                                 }
                             }
                             MainViewState::InlineViewActionPanel { .. } => {
-                                let client_context = self.client_context.read().expect("lock is poisoned");
-
-                                match client_context.get_first_inline_view_container() {
-                                    Some(container) => {
-                                        let plugin_id = container.get_plugin_id();
-
-                                        let widget_event = ComponentWidgetEvent::RunAction {
-                                            widget_id,
-                                        };
-                                        let render_location = UiRenderLocation::InlineView;
-
-                                        Command::batch([
-                                            Command::perform(async {}, move |_| AppMsg::ToggleActionPanel { keyboard }),
-                                            Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
-                                        ])
-                                    }
-                                    None => Command::none()
-                                }
+                                Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
                             }
                         }
                     }
                     GlobalState::ErrorView { .. } => Command::none(),
-                    GlobalState::PluginView { client_context, sub_state, .. } => {
-                        match sub_state {
-                            PluginViewState::None => {
-                                let client_context =  client_context.read().expect("lock is poisoned");
-
-                                let plugin_id = client_context.get_view_plugin_id();
-
-                                let widget_event = ComponentWidgetEvent::RunAction {
-                                    widget_id,
-                                };
-
-                                let render_location = UiRenderLocation::View;
-
-                                Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
-                            },
-                            PluginViewState::ActionPanel { .. } => {
-                                let client_context =  client_context.read().expect("lock is poisoned");
-
-                                let plugin_id = client_context.get_view_plugin_id();
-
-                                let widget_event = ComponentWidgetEvent::RunAction {
-                                    widget_id,
-                                };
-                                let render_location = UiRenderLocation::View;
-
-                                Command::batch([
-                                    Command::perform(async {}, move |_| AppMsg::ToggleActionPanel { keyboard }),
-                                    Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
-                                ])
-                            }
-                        }
-                    }
+                    GlobalState::PluginView { .. } => Command::none()
                 }
+            }
+            AppMsg::OnAnyActionPluginViewAnyPanel { widget_id } => {
+                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                let plugin_id = client_context.get_view_plugin_id();
+
+                let widget_event = ComponentWidgetEvent::RunAction {
+                    widget_id,
+                };
+
+                let render_location = UiRenderLocation::View;
+
+                Command::perform(async {}, move |_| AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
             }
             AppMsg::OpenPluginView(plugin_id, entrypoint_id) => {
                 self.open_plugin_view(plugin_id, entrypoint_id)
@@ -1017,6 +1074,17 @@ impl Application for AppModel {
                     self.wayland,
                     id
                 )
+            }
+            AppMsg::ResetMainViewState => {
+                match &mut self.global_state {
+                    GlobalState::MainView { sub_state, .. } => {
+                        MainViewState::initial(sub_state);
+
+                        Command::none()
+                    }
+                    GlobalState::ErrorView { .. } => Command::none(),
+                    GlobalState::PluginView { .. } => Command::none(),
+                }
             }
         }
     }
@@ -1346,12 +1414,14 @@ impl Application for AppModel {
                         })
                         .collect();
 
+                    let primary_action_widget_id = 0;
+
                     if actions.len() == 0 {
-                        (Some((label, default_shortcut)), None)
+                        (Some((label, primary_action_widget_id, default_shortcut)), None)
                     } else {
                         let primary_action = ActionPanelItem::Action {
                             label: label.clone(),
-                            widget_id: 0,
+                            widget_id: primary_action_widget_id,
                             physical_shortcut: Some(default_shortcut.clone()),
                         };
 
@@ -1362,7 +1432,7 @@ impl Application for AppModel {
                             items: actions,
                         };
 
-                        (Some((label, default_shortcut)), Some(action_panel))
+                        (Some((label, primary_action_widget_id, default_shortcut)), Some(action_panel))
                     }
                 } else {
                     match inline_view_action_panel(self.client_context.clone()) {
@@ -1370,7 +1440,7 @@ impl Application for AppModel {
                         Some(action_panel) => {
                             match action_panel.find_first() {
                                 None => (None, None),
-                                Some(action) => {
+                                Some((label, widget_id)) => {
                                     let shortcut = PhysicalShortcut {
                                         physical_key: PhysicalKey::Enter,
                                         modifier_shift: false,
@@ -1379,7 +1449,7 @@ impl Application for AppModel {
                                         modifier_meta: false
                                     };
 
-                                    (Some((action, shortcut)), Some(action_panel))
+                                    (Some((label, widget_id, shortcut)), Some(action_panel))
                                 }
                             }
                         }
@@ -1398,7 +1468,8 @@ impl Application for AppModel {
                             None::<&ScrollHandle<SearchResultEntrypointAction>>,
                             "".to_string(),
                             || AppMsg::ToggleActionPanel { keyboard: false },
-                            |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
+                            |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
+                            |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
                         )
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
@@ -1412,7 +1483,8 @@ impl Application for AppModel {
                             Some(focused_action_item),
                             "".to_string(),
                             || AppMsg::ToggleActionPanel { keyboard: false },
-                            |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
+                            |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
+                            |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
                         )
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item, .. } => {
@@ -1426,7 +1498,8 @@ impl Application for AppModel {
                             Some(focused_action_item),
                             "".to_string(),
                             || AppMsg::ToggleActionPanel { keyboard: false },
-                            |widget_id| AppMsg::OnEntrypointAction { widget_id, keyboard: false }
+                            |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
+                            |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
                         )
                     }
                 };

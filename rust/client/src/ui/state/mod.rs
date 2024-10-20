@@ -134,36 +134,26 @@ pub trait Focus<T> {
 impl Focus<SearchResult> for GlobalState {
     fn primary(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
-            GlobalState::MainView { focused_search_result, sub_state, client_context, .. } => {
+            GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
-                        if let Some(search_item) = focused_search_result.get(focus_list) {
-                            let search_item = search_item.clone();
-                            Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, None))
+                        if let Some(search_result) = focused_search_result.get(focus_list) {
+                            let search_result = search_result.clone();
+                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result })
                         } else {
-                            let client_context = client_context.read().expect("lock is poisoned");
-
-                            if let Some(container) = client_context.get_first_inline_view_container() {
-                                let action_ids = container.get_action_ids();
-
-                                match action_ids.get(0) {
-                                    Some(widget_id) => {
-                                        let widget_id = *widget_id;
-
-                                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
-                                    }
-                                    None => Command::none()
-                                }
-                            } else {
-                                Command::none()
-                            }
+                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus)
                         }
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
                         match focused_action_item.index {
                             None => Command::none(),
                             Some(widget_id) => {
-                                Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                                if let Some(search_result) = focused_search_result.get(&focus_list) {
+                                    let search_result = search_result.clone();
+                                    Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
+                                } else {
+                                    Command::none()
+                                }
                             }
                         }
                     }
@@ -171,7 +161,7 @@ impl Focus<SearchResult> for GlobalState {
                         match focused_action_item.index {
                             None => Command::none(),
                             Some(widget_id) => {
-                                Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                                Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
                             }
                         }
                     }
@@ -186,7 +176,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(0) {
                             let widget_id = *widget_id;
-                            Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
                         } else {
                             Command::none()
                         }
@@ -194,7 +184,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::ActionPanel { focused_action_item, .. } => {
                         if let Some(widget_id) = focused_action_item.get(&action_ids) {
                             let widget_id = *widget_id;
-                            Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id })
                         } else {
                             Command::none()
                         }
@@ -210,26 +200,11 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::MainView { focused_search_result, sub_state, client_context, .. } => {
                 match sub_state {
                     MainViewState::None => {
-                        if let Some(search_item) = focused_search_result.get(focus_list) {
-                            let search_item = search_item.clone();
-                            Command::perform(async {}, |_| AppMsg::RunSearchItemAction(search_item, Some(0)))
+                        if let Some(search_result) = focused_search_result.get(focus_list) {
+                            let search_result = search_result.clone();
+                            Command::perform(async {}, move |_| AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result })
                         } else {
-                            let client_context = client_context.read().expect("lock is poisoned");
-
-                            if let Some(container) = client_context.get_first_inline_view_container() {
-                                let action_ids = container.get_action_ids();
-
-                                match action_ids.get(1) {
-                                    Some(widget_id) => {
-                                        let widget_id = *widget_id;
-
-                                        Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
-                                    }
-                                    None => Command::none()
-                                }
-                            } else {
-                                Command::none()
-                            }
+                            Command::perform(async {}, move |_| AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus)
                         }
                     }
                     MainViewState::SearchResultActionPanel { .. } | MainViewState::InlineViewActionPanel { .. } => {
@@ -247,7 +222,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(1) {
                             let widget_id = *widget_id;
-                            Command::perform(async {}, move |_| AppMsg::OnEntrypointAction { widget_id, keyboard: true })
+                            Command::perform(async {}, move |_| AppMsg::OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
                         } else {
                             Command::none()
                         }

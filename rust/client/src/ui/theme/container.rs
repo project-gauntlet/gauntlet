@@ -59,6 +59,7 @@ pub enum ContainerStyle {
     InlineName,
     HudInner,
     Hud,
+    RootBottomPanelPrimaryActionButton,
 }
 
 #[derive(Default)]
@@ -403,6 +404,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::RootBottomPanelPrimaryActionText => {
                 self.padding(theme.root_bottom_panel_primary_action_text.padding.to_iced())
+            }
+            ContainerStyle::RootBottomPanelPrimaryActionButton => {
+                self.padding(Padding::from([0.0, theme.root_bottom_panel.spacing, 0.0, 0.0]))
             }
             ContainerStyle::TextAccessory => {
                 self.padding(theme.text_accessory.padding.to_iced())

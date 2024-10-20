@@ -1,6 +1,6 @@
-use iced::{Padding, Renderer};
+use crate::ui::theme::{get_theme, Element, GauntletTheme, ThemableWidget};
 use iced::widget::Row;
-use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
+use iced::Renderer;
 
 pub enum RowStyle {
     ActionShortcut,
@@ -9,7 +9,6 @@ pub enum RowStyle {
     GridSectionTitle,
     GridItemTitle,
     RootBottomPanel,
-    RootBottomPanelPrimaryAction,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletTheme, Renderer> {
@@ -38,9 +37,6 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletT
             }
             RowStyle::RootBottomPanel => {
                 self.spacing(theme.root_bottom_panel.spacing)
-            }
-            RowStyle::RootBottomPanelPrimaryAction => {
-                self.padding(Padding::from([0.0, theme.root_bottom_panel.spacing, 0.0, 0.0]))
             }
         }.into()
     }
