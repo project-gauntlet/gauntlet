@@ -21,6 +21,7 @@ use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_st
 use crate::plugins::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginRuntimeData, start_plugin_runtime};
+use crate::plugins::js::clipboard::Clipboard;
 use crate::plugins::js::permissions::{PluginPermissions, PluginPermissionsClipboard, PluginPermissionsExec, PluginPermissionsFileSystem, PluginPermissionsMainSearchBar};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
@@ -53,7 +54,8 @@ pub struct ApplicationManager {
     frontend_api: FrontendApi,
     global_hotkey_manager: GlobalHotKeyManager,
     current_hotkey: Mutex<Option<HotKey>>,
-    dirs: Dirs
+    dirs: Dirs,
+    clipboard: Clipboard,
 }
 
 impl ApplicationManager {
@@ -67,6 +69,7 @@ impl ApplicationManager {
         let run_status_holder = RunStatusHolder::new();
         let search_index = SearchIndex::create_index(frontend_api.clone())?;
         let global_hotkey_manager = GlobalHotKeyManager::new()?;
+        let clipboard = Clipboard::new()?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
@@ -82,6 +85,7 @@ impl ApplicationManager {
             icon_cache,
             frontend_api,
             global_hotkey_manager,
+            clipboard,
             current_hotkey: Mutex::new(None),
             dirs
         };
@@ -564,7 +568,8 @@ impl ApplicationManager {
             search_index: self.search_index.clone(),
             icon_cache: self.icon_cache.clone(),
             frontend_api: self.frontend_api.clone(),
-            dirs: self.dirs.clone()
+            dirs: self.dirs.clone(),
+            clipboard: self.clipboard.clone(),
         };
 
         self.start_plugin_runtime(data);

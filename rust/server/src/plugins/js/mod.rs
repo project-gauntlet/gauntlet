@@ -37,7 +37,7 @@ use crate::plugins::applications::{get_apps, DesktopEntry};
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
-use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
+use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text, Clipboard};
 use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
@@ -57,7 +57,7 @@ mod assets;
 mod preferences;
 mod search;
 mod command_generators;
-mod clipboard;
+pub mod clipboard;
 pub mod permissions;
 
 pub struct PluginRuntimeData {
@@ -74,6 +74,7 @@ pub struct PluginRuntimeData {
     pub icon_cache: IconCache,
     pub frontend_api: FrontendApi,
     pub dirs: Dirs,
+    pub clipboard: Clipboard,
 }
 
 pub struct PluginCode {
@@ -252,7 +253,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                      data.db_repository,
                                      data.search_index,
                                      data.icon_cache,
-                                     data.dirs
+                                     data.dirs,
+                                     data.clipboard
                                  ).await
                             })
                         } => {
@@ -294,6 +296,7 @@ async fn start_js_runtime(
     search_index: SearchIndex,
     icon_cache: IconCache,
     dirs: Dirs,
+    clipboard: Clipboard,
 ) -> anyhow::Result<()> {
 
     let dev_plugin = plugin_id.to_string().starts_with("file://");
@@ -353,7 +356,8 @@ async fn start_js_runtime(
                 repository,
                 search_index,
                 icon_cache,
-                numbat_context
+                numbat_context,
+                clipboard,
             )],
             // maybe_inspector_server: Some(inspector_server.clone()),
             // should_wait_for_inspector_session: true,
@@ -543,6 +547,7 @@ deno_core::extension!(
         search_index: SearchIndex,
         icon_cache: IconCache,
         numbat_context: Option<NumbatContext>,
+        clipboard: Clipboard,
     },
     state = |state, options| {
         state.put(options.event_receiver);
@@ -553,6 +558,7 @@ deno_core::extension!(
         state.put(options.search_index);
         state.put(options.icon_cache);
         state.put(options.numbat_context);
+        state.put(options.clipboard);
     },
 );
 

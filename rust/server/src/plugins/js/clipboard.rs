@@ -1,52 +1,34 @@
 use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::Rc;
-use anyhow::anyhow;
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+use anyhow::{anyhow, Context, Error};
 use arboard::ImageData;
 use deno_core::{op, OpState};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
 use crate::plugins::js::permissions::PluginPermissionsClipboard;
-use crate::plugins::js::PluginData;
+use crate::plugins::js::{clipboard, PluginData};
 
-fn unknown_err_clipboard(err: arboard::Error) -> anyhow::Error {
-    anyhow!("UNKNOWN_ERROR: {:?}", err)
+#[derive(Clone)]
+pub struct Clipboard {
+    clipboard: Arc<RwLock<arboard::Clipboard>>,
 }
 
-fn unknown_err_image(err: image::ImageError) -> anyhow::Error {
-    anyhow!("UNKNOWN_ERROR: {:?}", err)
-}
+impl Clipboard {
+    pub fn new() -> anyhow::Result<Self> {
+        let clipboard = arboard::Clipboard::new()
+            .context("error while creating clipboard")?;
 
-fn unable_to_convert_image_err() -> anyhow::Error {
-    anyhow!("UNABLE_TO_CONVERT_IMAGE")
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ClipboardData {
-    text_data: Option<String>,
-    png_data: Option<Vec<u8>>
-}
-
-#[op]
-async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<ClipboardData> {
-    {
-        let state = state.borrow();
-
-        let allow = state
-            .borrow::<PluginData>()
-            .permissions()
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Read);
-
-        if !allow {
-            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
-        }
+        Ok(Self {
+            clipboard: Arc::new(RwLock::new(clipboard)),
+        })
     }
 
-    spawn_blocking(|| {
-        let mut clipboard = arboard::Clipboard::new()
-            .map_err(|err| unknown_err_clipboard(err))?;
+    fn read(&self) -> anyhow::Result<ClipboardData> {
+        let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
         let png_data = match clipboard.get_image() {
             Ok(data) => {
@@ -86,29 +68,10 @@ async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<Clipboard
             text_data,
             png_data,
         })
-    }).await?
-}
-
-
-#[op]
-async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Option<String>> {
-    {
-        let state = state.borrow();
-
-        let allow = state
-            .borrow::<PluginData>()
-            .permissions()
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Read);
-
-        if !allow {
-            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
-        }
     }
 
-    spawn_blocking(|| {
-        let mut clipboard = arboard::Clipboard::new()
-            .map_err(|err| unknown_err_clipboard(err))?;
+    fn read_text(&self) -> anyhow::Result<Option<String>> {
+        let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
         let data = match clipboard.get_text() {
             Ok(data) => Some(data),
@@ -123,28 +86,10 @@ async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Opti
         };
 
         Ok(data)
-    }).await?
-}
-
-#[op]
-async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
-    {
-        let state = state.borrow();
-
-        let allow = state
-            .borrow::<PluginData>()
-            .permissions()
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Write);
-
-        if !allow {
-            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
-        }
     }
 
-    spawn_blocking(|| {
-        let mut clipboard = arboard::Clipboard::new()
-            .map_err(|err| unknown_err_clipboard(err))?;
+    fn write(&self, data: ClipboardData) -> anyhow::Result<()> {
+        let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
         if let Some(png_data) = data.png_data {
 
@@ -175,16 +120,113 @@ async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> an
         }
 
         Ok(())
-    }).await?
+    }
+
+    fn write_text(&self, data: String) -> anyhow::Result<()> {
+        let mut clipboard = self.clipboard.write().expect("lock is poisoned");
+
+        clipboard.set_text(data)
+            .map_err(|err| unknown_err_clipboard(err))?;
+
+        Ok(())
+    }
+
+    fn clear(&self) -> anyhow::Result<()> {
+        let mut clipboard = self.clipboard.write().expect("lock is poisoned");
+
+        clipboard.clear()
+            .map_err(|err| unknown_err_clipboard(err))?;
+
+        Ok(())
+    }
+}
+
+fn unknown_err_clipboard(err: arboard::Error) -> Error {
+    anyhow!("UNKNOWN_ERROR: {:?}", err)
+}
+
+fn unknown_err_image(err: image::ImageError) -> Error {
+    anyhow!("UNKNOWN_ERROR: {:?}", err)
+}
+
+fn unable_to_convert_image_err() -> Error {
+    anyhow!("UNABLE_TO_CONVERT_IMAGE")
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ClipboardData {
+    text_data: Option<String>,
+    png_data: Option<Vec<u8>>
 }
 
 #[op]
-async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyhow::Result<()> {
-    {
+async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<ClipboardData> {
+    let clipboard = {
         let state = state.borrow();
 
-        let allow = state
-            .borrow::<PluginData>()
+        let plugin_data = state
+            .borrow::<PluginData>();
+
+        let allow = plugin_data
+            .permissions()
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Read);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+        }
+
+        tracing::debug!("Reading from clipboard, plugin id: {:?}", plugin_data.plugin_id);
+
+        let clipboard = state
+            .borrow::<Clipboard>()
+            .clone();
+
+        clipboard
+    };
+
+    spawn_blocking(move || clipboard.read()).await?
+}
+
+
+#[op]
+async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Option<String>> {
+    let clipboard = {
+        let state = state.borrow();
+
+        let plugin_data = state
+            .borrow::<PluginData>();
+
+        let allow = plugin_data
+            .permissions()
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Read);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+        }
+
+        tracing::debug!("Reading text from clipboard, plugin id: {:?}", plugin_data.plugin_id);
+
+        let clipboard = state
+            .borrow::<Clipboard>()
+            .clone();
+
+        clipboard
+    };
+
+    spawn_blocking(move || clipboard.read_text()).await?
+}
+
+#[op]
+async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
+    let clipboard = {
+        let state = state.borrow();
+
+        let plugin_data = state
+            .borrow::<PluginData>();
+
+        let allow = plugin_data
             .permissions()
             .clipboard
             .contains(&PluginPermissionsClipboard::Write);
@@ -192,26 +234,57 @@ async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyh
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
         }
-    }
 
-    spawn_blocking(|| {
-        let mut clipboard = arboard::Clipboard::new()
-            .map_err(|err| unknown_err_clipboard(err))?;
+        tracing::debug!("Writing to clipboard, plugin id: {:?}", plugin_data.plugin_id);
 
-        clipboard.set_text(data)
-            .map_err(|err| unknown_err_clipboard(err))?;
+        let clipboard = state
+            .borrow::<Clipboard>()
+            .clone();
 
-        Ok(())
-    }).await?
+        clipboard
+    };
+
+    spawn_blocking(move || clipboard.write(data)).await?
+}
+
+#[op]
+async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyhow::Result<()> {
+    let clipboard = {
+        let state = state.borrow();
+
+        let plugin_data = state
+            .borrow::<PluginData>();
+
+        let allow = plugin_data
+            .permissions()
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Write);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+        }
+
+        tracing::debug!("Writing text to clipboard, plugin id: {:?}", plugin_data.plugin_id);
+
+        let clipboard = state
+            .borrow::<Clipboard>()
+            .clone();
+
+        clipboard
+    };
+
+    spawn_blocking(move || clipboard.write_text(data)).await?
 }
 
 #[op]
 async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
-    {
+    let clipboard = {
         let state = state.borrow();
 
-        let allow = state
-            .borrow::<PluginData>()
+        let plugin_data = state
+            .borrow::<PluginData>();
+
+        let allow = plugin_data
             .permissions()
             .clipboard
             .contains(&PluginPermissionsClipboard::Clear);
@@ -219,14 +292,15 @@ async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard"));
         }
-    }
 
-    spawn_blocking(|| {
-        let mut clipboard = arboard::Clipboard::new()
-            .map_err(|err| unknown_err_clipboard(err))?;
+        tracing::debug!("Clearing clipboard, plugin id: {:?}", plugin_data.plugin_id);
 
-        clipboard.clear()?;
+        let clipboard = state
+            .borrow::<Clipboard>()
+            .clone();
 
-        Ok(())
-    }).await?
+        clipboard
+    };
+
+    spawn_blocking(move || clipboard.clear()).await?
 }
