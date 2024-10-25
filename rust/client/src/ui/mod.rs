@@ -14,6 +14,7 @@ use iced::keyboard::{Key, Modifiers};
 use iced::keyboard::key::Named;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
 use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
+use iced::widget::text::Shaping;
 use iced::widget::text_input::focus;
 use iced::window::{Level, Position, Screenshot};
 use iced::window::settings::PlatformSpecific;
@@ -1094,6 +1095,7 @@ impl Application for AppModel {
             return match &self.hud_display {
                 Some(hud_display) => {
                     let hud: Element<_> = text(&hud_display)
+                        .shaping(Shaping::Advanced)
                         .into();
 
                     let hud = container(hud)
@@ -1155,6 +1157,7 @@ impl Application for AppModel {
                         };
 
                         let description: Element<_> = text(description_text)
+                            .shaping(Shaping::Advanced)
                             .into();
 
                         let description = container(description)
@@ -1250,6 +1253,7 @@ impl Application for AppModel {
                             .themed(ContainerStyle::PluginErrorViewDescription);
 
                         let error_description: Element<_> = text(display)
+                            .shaping(Shaping::Advanced)
                             .into();
 
                         let error_description = container(error_description)

@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use iced::{Alignment, Command, Length, Padding};
 use iced::widget::{button, column, container, row, scrollable, text, text_input, vertical_rule};
+use iced::widget::text::Shaping;
 use iced_aw::core::icons;
 
 use common::{settings_env_data_from_string, SettingsEnvData};
@@ -309,11 +310,15 @@ impl ManagementAppPluginsState {
                             .into()
                     }
                     Some(plugin) => {
-                        let name = container(text(&plugin.plugin_name))
+                        let name = text(&plugin.plugin_name)
+                            .shaping(Shaping::Advanced);
+
+                        let name = container(name)
                             .padding(Padding::new(8.0))
                             .into();
 
                         let id: Element<_> = text(&plugin.plugin_id.to_string())
+                            .shaping(Shaping::Advanced)
                             .style(TextStyle::Subtitle)
                             .into();
 
@@ -336,7 +341,10 @@ impl ManagementAppPluginsState {
                                 .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
                                 .into();
 
-                            let description = container(text(&plugin.plugin_description))
+                            let description = text(&plugin.plugin_description)
+                                .shaping(Shaping::Advanced);
+
+                            let description = container(description)
                                 .padding(Padding::new(8.0))
                                 .into();
 
@@ -429,7 +437,10 @@ impl ManagementAppPluginsState {
                             .into()
                     }
                     Some(entrypoint) => {
-                        let name = container(text(&entrypoint.entrypoint_name))
+                        let name = text(&entrypoint.entrypoint_name)
+                            .shaping(Shaping::Advanced);
+
+                        let name = container(name)
                             .padding(Padding::new(8.0))
                             .into();
 

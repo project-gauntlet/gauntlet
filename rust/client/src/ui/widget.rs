@@ -13,6 +13,7 @@ use iced::widget::image::Handle;
 use iced::widget::tooltip::Position;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
 use iced::{Alignment, Font, Length};
+use iced::widget::text::Shaping;
 use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
@@ -322,6 +323,7 @@ impl ComponentWidgetWrapper {
                     link
                 } else {
                     let href: Element<_> = text(href)
+                        .shaping(Shaping::Advanced)
                         .into();
 
                     tooltip(link, href, Position::Top)
@@ -568,7 +570,10 @@ impl ComponentWidgetWrapper {
                     panic!("unexpected state kind {:?}", state)
                 };
 
-                let button = button(text(state_value.to_string()))
+                let button_text = text(state_value.to_string())
+                    .shaping(Shaping::Advanced);
+
+                let button = button(button_text)
                     .on_press(ComponentWidgetEvent::ToggleDatePicker { widget_id });
 
                 // TODO unable to customize buttons here, split to separate button styles
@@ -667,6 +672,7 @@ impl ComponentWidgetWrapper {
                                     }
                                     Some(label) => {
                                         let label: Element<_> = text(label)
+                                            .shaping(Shaping::Advanced)
                                             .horizontal_alignment(Horizontal::Right)
                                             .width(Length::Fill)
                                             .into();
@@ -752,6 +758,7 @@ impl ComponentWidgetWrapper {
                 };
 
                 let name: Element<_> = text(format!("{} - {}", plugin_name, entrypoint_name))
+                    .shaping(Shaping::Advanced)
                     .themed(TextStyle::InlineName);
 
                 let name: Element<_> = container(name)
@@ -813,12 +820,14 @@ impl ComponentWidgetWrapper {
                     });
 
                 let title: Element<_> = text(title)
+                    .shaping(Shaping::Advanced)
                     .into();
 
                 let subtitle: Element<_> = match description {
                     None => horizontal_space().into(),
                     Some(subtitle) => {
                         text(subtitle)
+                            .shaping(Shaping::Advanced)
                             .themed(TextStyle::EmptyViewSubtitle)
                     }
                 };
@@ -865,6 +874,7 @@ impl ComponentWidgetWrapper {
                     None => content,
                     Some(tooltip_text) => {
                         let tooltip_text: Element<_> = text(tooltip_text)
+                            .shaping(Shaping::Advanced)
                             .into();
 
                         tooltip(content, tooltip_text, Position::Top)
@@ -890,6 +900,7 @@ impl ComponentWidgetWrapper {
                     });
 
                 let text_content: Element<_> = text(text_value)
+                    .shaping(Shaping::Advanced)
                     .themed(TextStyle::TextAccessory);
 
                 let mut content: Vec<Element<_>> = vec![];
@@ -916,6 +927,7 @@ impl ComponentWidgetWrapper {
                     None => content,
                     Some(tooltip_text) => {
                         let tooltip_text: Element<_> = text(tooltip_text)
+                            .shaping(Shaping::Advanced)
                             .into();
 
                         tooltip(content, tooltip_text, Position::Top)
@@ -943,6 +955,7 @@ impl ComponentWidgetWrapper {
                     });
 
                 let title: Element<_> = text(title)
+                    .shaping(Shaping::Advanced)
                     .into();
                 let title: Element<_> = container(title)
                     .themed(ContainerStyle::ListItemTitle);
@@ -958,6 +971,7 @@ impl ComponentWidgetWrapper {
 
                 if let Some(subtitle) = subtitle {
                     let subtitle: Element<_> = text(subtitle)
+                        .shaping(Shaping::Advanced)
                         .themed(TextStyle::ListItemSubtitle);
                     let subtitle: Element<_> = container(subtitle)
                         .themed(ContainerStyle::ListItemSubtitle);
@@ -1099,6 +1113,7 @@ impl ComponentWidgetWrapper {
                 if let Some(title) = title {
                     // TODO text truncation when iced supports it
                     let title = text(title)
+                        .shaping(Shaping::Advanced)
                         .themed(TextStyle::GridItemTitle);
 
                     sub_content_left.push(title);
@@ -1106,6 +1121,7 @@ impl ComponentWidgetWrapper {
 
                 if let Some(subtitle) = subtitle {
                     let subtitle = text(subtitle)
+                        .shaping(Shaping::Advanced)
                         .themed(TextStyle::GridItemSubTitle);
 
                     sub_content_left.push(subtitle);
@@ -1244,6 +1260,7 @@ impl Display for SelectItem {
 
 fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
     let label: Element<_> = text(label)
+        .shaping(Shaping::Advanced)
         .themed(TextStyle::MetadataItemLabel);
 
     let label = container(label)
@@ -1296,6 +1313,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
 
     if let Some(title) = title {
         let title: Element<_> = text(title)
+            .shaping(Shaping::Advanced)
             .size(15)
             .themed(theme_kind_title_text);
 
@@ -1304,6 +1322,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
 
     if let Some(subtitle) = subtitle {
         let subtitle: Element<_> = text(subtitle)
+            .shaping(Shaping::Advanced)
             .size(15)
             .themed(theme_kind_subtitle_text);
 
@@ -1529,6 +1548,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
     if let Some(title) = title {
         let text: Element<_> = text(title)
+            .shaping(Shaping::Advanced)
             .font(Font {
                 weight: Weight::Bold,
                 ..Font::DEFAULT
@@ -1578,6 +1598,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
                     let text: Element<_> = text(label)
+                        .shaping(Shaping::Advanced)
                         .into();
 
                     let space: Element<_> = horizontal_space()
@@ -1588,6 +1609,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
                         .into()
                 } else {
                     text(label)
+                        .shaping(Shaping::Advanced)
                         .into()
                 };
 
@@ -1664,6 +1686,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     on_action_click: impl Fn(UiWidgetId) -> T,
 ) -> Element<'a, T>  {
     let entrypoint_name: Element<_> = text(entrypoint_name)
+        .shaping(Shaping::Advanced)
         .into();
 
     let panel_height = 16 + 8 + 2;  // TODO get value from theme
@@ -1671,6 +1694,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     let primary_action = match primary_action {
         Some((label, widget_id, shortcut)) => {
             let label: Element<_> = text(label)
+                .shaping(Shaping::Advanced)
                 .themed(TextStyle::RootBottomPanelPrimaryActionText);
 
             let label: Element<_> = container(label)
@@ -1813,7 +1837,8 @@ fn render_text_part<'a>(value: &str, context: ComponentRenderContext) -> Element
         ComponentRenderContext::InlineRoot { .. } => panic!("not supposed to be passed to text part")
     };
 
-    let mut text = text(value);
+    let mut text = text(value)
+        .shaping(Shaping::Advanced);
 
     if let Some(size) = header {
         text = text

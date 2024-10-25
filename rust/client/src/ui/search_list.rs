@@ -5,7 +5,7 @@ use iced::widget::button;
 use iced::widget::component;
 use iced::widget::row;
 use iced::widget::text;
-
+use iced::widget::text::Shaping;
 use common::model::SearchResult;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
@@ -64,6 +64,7 @@ impl<'a, Message> Component<Message, GauntletTheme> for SearchList<'a, Message> 
             .enumerate()
             .map(|(index, search_result)| {
                 let main_text: Element<_> = text(&search_result.entrypoint_name)
+                    .shaping(Shaping::Advanced)
                     .into();
                 let main_text: Element<_> = container(main_text)
                     .themed(ContainerStyle::MainListItemText);
@@ -73,6 +74,7 @@ impl<'a, Message> Component<Message, GauntletTheme> for SearchList<'a, Message> 
                     .into();
 
                 let sub_text: Element<_> = text(&search_result.plugin_name)
+                    .shaping(Shaping::Advanced)
                     .themed(TextStyle::MainListItemSubtext);
                 let sub_text: Element<_> = container(sub_text)
                     .themed(ContainerStyle::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible

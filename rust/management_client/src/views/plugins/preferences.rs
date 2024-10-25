@@ -10,6 +10,7 @@ use iced_aw::core::icons;
 use iced_aw::number_input;
 use std::collections::HashMap;
 use std::fmt::Display;
+use iced::widget::text::Shaping;
 
 #[derive(Debug, Clone)]
 pub enum PluginPreferencesMsg {
@@ -68,6 +69,7 @@ pub fn preferences_ui<'a>(
         let description = description.to_owned();
 
         let preference_label: Element<_> = text(&preference_name)
+            .shaping(Shaping::Advanced)
             .size(14)
             .style(TextStyle::Subtitle)
             .into();
@@ -81,7 +83,10 @@ pub fn preferences_ui<'a>(
         input_field_column.push(preference_label);
 
         if !description.trim().is_empty() {
-            let description = container(text(description))
+            let description = text(description)
+                .shaping(Shaping::Advanced);
+
+            let description = container(description)
                 .padding(Padding::from([4.0, 8.0]))
                 .into();
 

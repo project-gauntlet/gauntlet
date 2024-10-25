@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use iced::{Alignment, alignment, Application, color, Command, executor, font, futures, Length, Padding, Settings, Size, Subscription, time, window};
+use iced::advanced::text::Shaping;
 use iced::advanced::Widget;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, mouse_area, row, scrollable, text};
 use iced_aw::{floating_element, Spinner};
@@ -343,6 +344,7 @@ impl Application for ManagementAppModel {
                         .into();
 
                     let error_description: Element<_> = text(display)
+                        .shaping(Shaping::Advanced)
                         .into();
 
                     let error_description = container(error_description)
@@ -612,6 +614,7 @@ impl Application for ManagementAppModel {
                                 .into();
 
                             let plugin_id: Element<_> = text(plugin_id.to_string())
+                                .shaping(Shaping::Advanced)
                                 .style(TextStyle::Subtitle)
                                 .size(14)
                                 .into();
@@ -647,6 +650,7 @@ impl Application for ManagementAppModel {
                                 .into();
 
                             let plugin_id: Element<_> = text(plugin_id.to_string())
+                                .shaping(Shaping::Advanced)
                                 .style(TextStyle::Subtitle)
                                 .size(14)
                                 .into();
@@ -663,6 +667,7 @@ impl Application for ManagementAppModel {
                                 .into();
 
                             let message: Element<_> = text(message.to_string())
+                                .shaping(Shaping::Advanced)
                                 .into();
 
                             let message: Element<_> = container(message)
@@ -688,6 +693,7 @@ impl Application for ManagementAppModel {
                                 .into();
 
                             let plugin_id: Element<_> = text(plugin_id.to_string())
+                                .shaping(Shaping::Advanced)
                                 .size(14)
                                 .style(TextStyle::Subtitle)
                                 .into();

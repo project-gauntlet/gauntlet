@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use iced::{Command, Length, Renderer};
+use iced::advanced::text::Shaping;
 use iced::widget::{button, checkbox, container, horizontal_space, row, scrollable, Space, text};
 use iced_aw::core::icons;
 use iced_table::table;
@@ -258,7 +259,10 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
-                        container(text(&plugin.plugin_name))
+                        let plugin_name = text(&plugin.plugin_name)
+                            .shaping(Shaping::Advanced);
+
+                        container(plugin_name)
                             .center_y()
                             .into()
                     }
@@ -268,6 +272,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
                         let text: Element<_> = text(&entrypoint.entrypoint_name)
+                            .shaping(Shaping::Advanced)
                             .into();
 
                         let text: Element<_> = row(vec![

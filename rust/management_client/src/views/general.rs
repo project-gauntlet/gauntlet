@@ -1,7 +1,7 @@
 use iced::alignment::Horizontal;
 use iced::widget::{column, container, row, text, Space};
 use iced::{Alignment, Command, Length};
-
+use iced::widget::text::Shaping;
 use common::model::{PhysicalKey, PhysicalShortcut};
 use common::rpc::backend_api::{BackendApi, BackendApiError};
 
@@ -109,6 +109,7 @@ impl ManagementAppGeneralState {
 
     fn view_field<'a>(&self, label: &str, input: Element<'a, ManagementAppGeneralMsgIn>) -> Element<'a, ManagementAppGeneralMsgIn> {
         let label: Element<_> = text(label)
+            .shaping(Shaping::Advanced)
             .horizontal_alignment(Horizontal::Right)
             .width(Length::Fill)
             .into();
