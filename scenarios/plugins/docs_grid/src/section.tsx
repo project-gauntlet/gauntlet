@@ -18,40 +18,62 @@ export default function Main(): ReactElement {
     return (
         <Grid>
             <Grid.Section title="The High Republic">
-                <Grid.Item id="the-blade-1" title="The Blade 1">
-                    <Grid.Item.Content.Image source={{ url: theBlade1 }}/>
+                <Grid.Item title="The Blade 1">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: theBlade1 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="the-blade-2" title="The Blade 2">
-                    <Grid.Item.Content.Image source={{ url: theBlade2 }}/>
+                <Grid.Item title="The Blade 2">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: theBlade2 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="the-blade-3" title="The Blade 3">
-                    <Grid.Item.Content.Image source={{ url: theBlade3 }}/>
+                <Grid.Item title="The Blade 3">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: theBlade3 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="the-blade-4" title="The Blade 4">
-                    <Grid.Item.Content.Image source={{ url: theBlade4 }}/>
+                <Grid.Item title="The Blade 4">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: theBlade4 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
             </Grid.Section>
             <Grid.Section title="Darth Vader">
-                <Grid.Item id="darth-vader-1" title="Darth Vader 1">
-                    <Grid.Item.Content.Image source={{ url: vader1 }}/>
+                <Grid.Item title="Darth Vader 1">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader1 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="darth-vader-2" title="Darth Vader 2">
-                    <Grid.Item.Content.Image source={{ url: vader2 }}/>
+                <Grid.Item title="Darth Vader 2">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader2 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="darth-vader-3" title="Darth Vader 3">
-                    <Grid.Item.Content.Image source={{ url: vader3 }}/>
+                <Grid.Item title="Darth Vader 3">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader3 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="darth-vader-4" title="Darth Vader 4">
-                    <Grid.Item.Content.Image source={{ url: vader4 }}/>
+                <Grid.Item title="Darth Vader 4">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader4 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="darth-vader-5" title="Darth Vader 5">
-                    <Grid.Item.Content.Image source={{ url: vader5 }}/>
+                <Grid.Item title="Darth Vader 5">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader5 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="darth-vader-6" title="Darth Vader 6">
-                    <Grid.Item.Content.Image source={{ url: vader6 }}/>
+                <Grid.Item title="Darth Vader 6">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader6 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item id="darth-vader-7" title="Darth Vader 7">
-                    <Grid.Item.Content.Image source={{ url: vader7 }}/>
+                <Grid.Item title="Darth Vader 7">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Image source={{ url: vader7 }}/>
+                    </Grid.Item.Content>
                 </Grid.Item>
             </Grid.Section>
         </Grid>

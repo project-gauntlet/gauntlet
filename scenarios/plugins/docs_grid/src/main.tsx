@@ -1,12 +1,6 @@
 import { ReactElement } from "react";
 import { Grid } from "@project-gauntlet/api/components";
 
-async function readFile(url: string): Promise<ArrayBuffer> {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return await blob.arrayBuffer()
-}
-
 const nabooImage = "https://static.wikia.nocookie.net/star-wars-canon/images/2/24/NabooFull-SW.png/revision/latest/scale-to-width-down/150?cb=20151218205422"
 const rylothImage = "https://static.wikia.nocookie.net/star-wars-canon/images/4/48/Dagobah_ep3.jpg/revision/latest/scale-to-width-down/150?cb=20161103221846"
 const tatooineImage = "https://static.wikia.nocookie.net/star-wars-canon/images/b/b7/Ryloth_Rebels.png/revision/latest/scale-to-width-down/150?cb=20161103040944"
@@ -20,32 +14,50 @@ const dantooineImage = "https://static.wikia.nocookie.net/starwars/images/a/a5/D
 export default function Main(): ReactElement {
     return (
         <Grid>
-            <Grid.Item id="naboo" title="Naboo">
-                <Grid.Item.Content.Image source={{ url: nabooImage }}/>
+            <Grid.Item title="Naboo">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: nabooImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="ryloth" title="Ryloth">
-                <Grid.Item.Content.Image source={{ url: rylothImage }}/>
+            <Grid.Item title="Ryloth">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: rylothImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="tatooine" title="Tatooine">
-                <Grid.Item.Content.Image source={{ url: tatooineImage }}/>
+            <Grid.Item title="Tatooine">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: tatooineImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="dagobah" title="Dagobah">
-                <Grid.Item.Content.Image source={{ url: dagobahImage }}/>
+            <Grid.Item title="Dagobah">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: dagobahImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="coruscant" title="Coruscant">
-                <Grid.Item.Content.Image source={{ url: coruscantImage }}/>
+            <Grid.Item title="Coruscant">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: coruscantImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="endor" title="Endor">
-                <Grid.Item.Content.Image source={{ url: endorImage }}/>
+            <Grid.Item title="Endor">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: endorImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="deathstar" title="Death Star">
-                <Grid.Item.Content.Image source={{ url: deathstarImage }}/>
+            <Grid.Item title="Death Star">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: deathstarImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="dathomir" title="Dathomir">
-                <Grid.Item.Content.Image source={{ url: dathomirImage }}/>
+            <Grid.Item title="Dathomir">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: dathomirImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
-            <Grid.Item id="dantooine" title="Dantooine">
-                <Grid.Item.Content.Image source={{ url: dantooineImage }}/>
+            <Grid.Item title="Dantooine">
+                <Grid.Item.Content>
+                    <Grid.Item.Content.Image source={{ url: dantooineImage }}/>
+                </Grid.Item.Content>
             </Grid.Item>
         </Grid>
     )

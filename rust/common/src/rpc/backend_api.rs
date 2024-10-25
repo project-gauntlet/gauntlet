@@ -203,7 +203,7 @@ impl BackendForFrontendApi {
 pub enum BackendApiError {
     #[error("Timeout Error")]
     Timeout,
-    #[error("Internal Backend Error")]
+    #[error("Internal Backend Error: {display:?}")]
     Internal {
         display: String
     },

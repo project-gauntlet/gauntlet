@@ -25,7 +25,6 @@ pub async fn start_scenario_runner_frontend(
     let scenario_plugin_dir = scenario_dir
         .join("plugins")
         .join(&plugin_name)
-        .join("dist")
         .to_str()
         .expect("scenario_plugin_dir is invalid UTF-8")
         .to_string();
@@ -152,7 +151,7 @@ async fn request_loop(mut request_receiver: RequestReceiver<UiRequestData, UiRes
         let (request_data, responder) = request_receiver.recv().await;
 
         match request_data {
-            UiRequestData::ShowWindow | UiRequestData::ClearInlineView { .. } => {
+            UiRequestData::ShowHud { .. } | UiRequestData::ShowWindow | UiRequestData::ClearInlineView { .. } => {
                 unreachable!()
             }
             UiRequestData::RequestSearchResultUpdate => {

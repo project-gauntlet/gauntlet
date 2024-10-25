@@ -148,7 +148,6 @@ pub enum AppMsg {
         screenshot: Screenshot
     },
     Close,
-    ResetWindowState,
     ShowBackendError(BackendForFrontendApiError),
     ClosePluginView(PluginId),
     OpenPluginView(PluginId, EntrypointId),
@@ -285,11 +284,14 @@ impl Application for AppModel {
         let backend_api = BackendForFrontendApi::new(backend_sender);
 
         let mut commands = vec![
-            Command::perform(async {}, |_| AppMsg::ResetWindowState),
             font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
         ];
 
         if !wayland {
+            commands.push(
+                window::gain_focus(window::Id::MAIN),
+            );
+
             commands.push(
                 window::change_level(window::Id::MAIN, Level::AlwaysOnTop),
             )
@@ -714,7 +716,6 @@ impl Application for AppModel {
                 result.expect("unable to load font");
                 Command::none()
             }
-            AppMsg::ResetWindowState => self.reset_window_state(),
             AppMsg::ShowWindow => self.show_window(),
             AppMsg::HideWindow => self.hide_window(),
             AppMsg::ShowPreferenceRequiredView {
