@@ -9,6 +9,7 @@ pub enum RowStyle {
     GridSectionTitle,
     GridItemTitle,
     RootBottomPanel,
+    RootTopPanel,
 }
 
 impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletTheme, Renderer> {
@@ -37,6 +38,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletT
             }
             RowStyle::RootBottomPanel => {
                 self.spacing(theme.root_bottom_panel.spacing)
+            }
+            RowStyle::RootTopPanel => {
+                self.spacing(theme.root_top_panel.spacing)
             }
         }.into()
     }

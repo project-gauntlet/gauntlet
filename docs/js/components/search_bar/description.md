@@ -1,0 +1,1 @@
+Adds search bar above the content

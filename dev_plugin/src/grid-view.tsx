@@ -1,5 +1,5 @@
-import { Grid, IconAccessory, Icons, TextAccessory } from "@project-gauntlet/api/components";
-import { ReactElement } from "react";
+import { Grid, IconAccessory, Icons, List, TextAccessory } from "@project-gauntlet/api/components";
+import { ReactElement, useState } from "react";
 import { useStorage } from "@project-gauntlet/api/hooks";
 
 export default function GridView(): ReactElement {
@@ -10,18 +10,33 @@ export default function GridView(): ReactElement {
     const [val3, setValue3] = useStorage("grid-view-test-3", "");
     const [val4, setValue4] = useStorage<string>("grid-view-test-4", "");
 
+    const [searchText, setSearchText] = useState<string | undefined>("");
+
     return (
         <Grid>
+            <Grid.SearchBar
+                placeholder={"Search something..."}
+                value={searchText}
+                onChange={setSearchText}
+            />
             {
-                numbers.map(value => (
-                    <Grid.Item title={"Title " + value}>
-                        <Grid.Item.Content>
-                            <Grid.Item.Content.Paragraph>
-                                Test Paragraph {value}
-                            </Grid.Item.Content.Paragraph>
-                        </Grid.Item.Content>
-                    </Grid.Item>
-                ))
+                numbers.map(value => {
+                    const title = "Title " + value;
+
+                    if (title.toLowerCase().includes(searchText?.toLowerCase() ?? "")) {
+                        return (
+                            <Grid.Item title={"Title " + value}>
+                                <Grid.Item.Content>
+                                    <Grid.Item.Content.Paragraph>
+                                        Test Paragraph {value}
+                                    </Grid.Item.Content.Paragraph>
+                                </Grid.Item.Content>
+                            </Grid.Item>
+                        )
+                    } else {
+                        return undefined
+                    }
+                })
             }
             <Grid.Section title="Section 1">
                 <Grid.Item title="Title Section 1 1">

@@ -132,6 +132,11 @@ declare global {
                 icon?: ImageSource | Icons;
                 tooltip?: string;
             };
+            ["gauntlet:search_bar"]: {
+                value?: string;
+                placeholder?: string;
+                onChange?: (value: string | undefined) => void;
+            };
             ["gauntlet:list_item"]: {
                 children?: ElementComponent<typeof TextAccessory | typeof IconAccessory>;
                 title: string;
@@ -145,7 +150,7 @@ declare global {
                 subtitle?: string;
             };
             ["gauntlet:list"]: {
-                children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+                children?: ElementComponent<typeof ActionPanel | typeof SearchBar | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
                 isLoading?: boolean;
             };
             ["gauntlet:grid_item"]: {
@@ -161,7 +166,7 @@ declare global {
                 columns?: number;
             };
             ["gauntlet:grid"]: {
-                children?: ElementComponent<typeof ActionPanel | typeof EmptyView | typeof GridItem | typeof GridSection>;
+                children?: ElementComponent<typeof ActionPanel | typeof SearchBar | typeof EmptyView | typeof GridItem | typeof GridSection>;
                 isLoading?: boolean;
                 columns?: number;
             };
@@ -660,6 +665,14 @@ export interface TextAccessoryProps {
 export const TextAccessory: FC<TextAccessoryProps> = (props: TextAccessoryProps): ReactNode => {
     return <gauntlet:accessory_text text={props.text} icon={props.icon} tooltip={props.tooltip}></gauntlet:accessory_text>;
 };
+export interface SearchBarProps {
+    value?: string;
+    placeholder?: string;
+    onChange?: (value: string | undefined) => void;
+}
+export const SearchBar: FC<SearchBarProps> = (props: SearchBarProps): ReactNode => {
+    return <gauntlet:search_bar value={props.value} placeholder={props.placeholder} onChange={props.onChange}></gauntlet:search_bar>;
+};
 export interface ListItemProps {
     title: string;
     subtitle?: string;
@@ -682,11 +695,12 @@ export const ListSection: FC<ListSectionProps> & {
 };
 ListSection.Item = ListItem;
 export interface ListProps {
-    children?: ElementComponent<typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+    children?: ElementComponent<typeof SearchBar | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
     actions?: ElementComponent<typeof ActionPanel>;
     isLoading?: boolean;
 }
 export const List: FC<ListProps> & {
+    SearchBar: typeof SearchBar;
     EmptyView: typeof EmptyView;
     Detail: typeof Detail;
     Item: typeof ListItem;
@@ -694,6 +708,7 @@ export const List: FC<ListProps> & {
 } = (props: ListProps): ReactNode => {
     return <gauntlet:list isLoading={props.isLoading}>{props.actions as any}{props.children}</gauntlet:list>;
 };
+List.SearchBar = SearchBar;
 List.EmptyView = EmptyView;
 List.Detail = Detail;
 List.Item = ListItem;
@@ -724,18 +739,20 @@ export const GridSection: FC<GridSectionProps> & {
 };
 GridSection.Item = GridItem;
 export interface GridProps {
-    children?: ElementComponent<typeof EmptyView | typeof GridItem | typeof GridSection>;
+    children?: ElementComponent<typeof SearchBar | typeof EmptyView | typeof GridItem | typeof GridSection>;
     isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
 }
 export const Grid: FC<GridProps> & {
+    SearchBar: typeof SearchBar;
     EmptyView: typeof EmptyView;
     Item: typeof GridItem;
     Section: typeof GridSection;
 } = (props: GridProps): ReactNode => {
     return <gauntlet:grid isLoading={props.isLoading} columns={props.columns}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
+Grid.SearchBar = SearchBar;
 Grid.EmptyView = EmptyView;
 Grid.Item = GridItem;
 Grid.Section = GridSection;

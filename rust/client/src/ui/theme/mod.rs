@@ -25,7 +25,7 @@ mod loading_bar;
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
 
 const CURRENT_COLOR_THEME_VERSION: u64 = 3;
-const CURRENT_THEME_VERSION: u64 = 3;
+const CURRENT_THEME_VERSION: u64 = 4;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletColorTheme {
@@ -114,7 +114,7 @@ pub struct GauntletTheme {
     root_bottom_panel_action_toggle_text: ThemePaddingTextColor,
     root_bottom_panel_primary_action_text: ThemePaddingTextColor,
     root_content: ThemePaddingOnly,
-    root_top_panel: ThemePaddingOnly,
+    root_top_panel: ThemePaddingSpacing,
     root_top_panel_button: ThemeButton,
     metadata_link: ThemeLink,
     separator: ThemeSeparator,
@@ -380,8 +380,9 @@ impl GauntletTheme {
             metadata_separator: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
-            root_top_panel: ThemePaddingOnly {
+            root_top_panel: ThemePaddingSpacing {
                 padding: padding_all(12.0),
+                spacing: 12.0,
             },
             root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
@@ -904,6 +905,12 @@ pub struct ThemeIconAccessory {
 pub struct ThemePaddingTextColorSpacing {
     padding: ThemePadding,
     text_color: ThemeColor,
+    spacing: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemePaddingSpacing {
+    padding: ThemePadding,
     spacing: f32,
 }
 

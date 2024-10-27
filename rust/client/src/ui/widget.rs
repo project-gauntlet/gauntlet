@@ -10,10 +10,10 @@ use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
 use iced::widget::image::Handle;
+use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
 use iced::{Alignment, Font, Length};
-use iced::widget::text::Shaping;
 use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
@@ -22,7 +22,6 @@ use iced_aw::{floating_element, GridRow};
 use itertools::Itertools;
 
 use crate::model::UiViewEvent;
-use crate::ui::AppMsg;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::PluginViewState;
@@ -38,6 +37,7 @@ use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
 use crate::ui::theme::{Element, ThemableWidget};
+use crate::ui::AppMsg;
 
 #[derive(Clone, Debug)]
 pub struct ComponentWidgetWrapper {
@@ -64,6 +64,9 @@ pub enum ComponentWidgetState {
     },
     Select {
         state_value: Option<String>
+    },
+    SearchBar {
+        state_value: String
     },
     Detail {
         show_action_panel: bool,
@@ -107,6 +110,9 @@ impl ComponentWidgetState {
             },
             ComponentWidget::Select { value, .. } => ComponentWidgetState::Select {
                 state_value: value.to_owned()
+            },
+            ComponentWidget::SearchBar { value, .. } => ComponentWidgetState::SearchBar {
+                state_value: value.to_owned().unwrap_or("".to_owned())
             },
             ComponentWidget::Detail { .. } => ComponentWidgetState::Detail {
                 show_action_panel: false,
@@ -1034,7 +1040,7 @@ impl ComponentWidgetWrapper {
 
                             items.push(child.render_widget(ComponentRenderContext::List { widget_id }))
                         },
-                        ComponentWidget::EmptyView { .. } | ComponentWidget::Detail { .. } => {},
+                        ComponentWidget::EmptyView { .. } | ComponentWidget::Detail { .. } | ComponentWidget::SearchBar { .. } => {},
                         _ => panic!("unexpected widget kind {:?}", widget)
                     }
                 }
@@ -1183,7 +1189,7 @@ impl ComponentWidgetWrapper {
 
                             items.push(child.render_widget(ComponentRenderContext::Grid { widget_id }))
                         },
-                        ComponentWidget::EmptyView { .. } => {},
+                        ComponentWidget::EmptyView { .. } | ComponentWidget::SearchBar { .. } => {},
                         _ => panic!("unexpected widget kind {:?}", widget)
                     }
                 }
@@ -1211,6 +1217,15 @@ impl ComponentWidgetWrapper {
 
                 render_plugin_root(show_action_panel, widget_id, children, content, context, is_loading.unwrap_or(false))
             }
+            ComponentWidget::SearchBar { placeholder, .. } => {
+                let ComponentWidgetState::SearchBar { state_value } = state else {
+                    panic!("unexpected state kind {:?}", state)
+                };
+
+                text_input(placeholder.as_deref().unwrap_or_default(), state_value)
+                    .on_input(move |value| ComponentWidgetEvent::OnChangeSearchBar { widget_id, value })
+                    .themed(TextInputStyle::PluginSearchBar)
+            }
         }
     }
 
@@ -1223,7 +1238,7 @@ impl ComponentWidgetWrapper {
     }
 }
 
-fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
+fn create_top_panel<'a>(children: &[ComponentWidgetWrapper]) -> Element<'a, ComponentWidgetEvent> {
     let icon = text(icons::Bootstrap::ArrowLeft)
         .font(icons::BOOTSTRAP_FONT);
 
@@ -1231,12 +1246,13 @@ fn create_top_panel<'a>() -> Element<'a, ComponentWidgetEvent> {
         .on_press(ComponentWidgetEvent::PreviousView)
         .themed(ButtonStyle::RootTopPanelBackButton);
 
-    let space = Space::with_width(Length::FillPortion(3))
-        .into();
+    let search_bar_element = render_child_by_type(children, |widget| matches!(widget, ComponentWidget::SearchBar { .. }), ComponentRenderContext::None)
+        .ok()
+        .unwrap_or_else(|| Space::with_width(Length::FillPortion(3)).into());
 
-    let top_panel: Element<_> = row(vec![back_button, space])
+    let top_panel: Element<_> = row(vec![back_button, search_bar_element])
         .align_items(Alignment::Center)
-        .into();
+        .themed(RowStyle::RootTopPanel);
 
     let top_panel: Element<_> = container(top_panel)
         .width(Length::Fill)
@@ -1356,7 +1372,7 @@ fn render_plugin_root<'a>(
         panic!("not supposed to be passed to root item: {:?}", context)
     };
 
-    let top_panel = create_top_panel();
+    let top_panel = create_top_panel(children);
 
     let top_separator = if is_loading {
         LoadingBar::new()
@@ -1984,6 +2000,10 @@ pub enum ComponentWidgetEvent {
         widget_id: UiWidgetId,
         value: String
     },
+    OnChangeSearchBar {
+        widget_id: UiWidgetId,
+        value: String
+    },
     SubmitDatePicker {
         widget_id: UiWidgetId,
         value: String
@@ -2106,6 +2126,18 @@ impl ComponentWidgetEvent {
 
                 Some(create_password_field_on_change_event(widget_id, Some(value)))
             }
+            ComponentWidgetEvent::OnChangeSearchBar { widget_id, value } => {
+                {
+                    let (widget, ref mut state) = &mut *widget.get_mut();
+                    let ComponentWidgetState::SearchBar { state_value } = state else {
+                        panic!("unexpected state kind, widget: {:?} state: {:?}", widget, state)
+                    };
+
+                    *state_value = value.clone();
+                }
+
+                Some(create_search_bar_on_change_event(widget_id, Some(value)))
+            }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
                 Some(UiViewEvent::AppEvent {
                     event: AppMsg::ToggleActionPanel { keyboard: false }
@@ -2141,6 +2173,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::SelectPickList { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangeTextField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
+            ComponentWidgetEvent::OnChangeSearchBar { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
             ComponentWidgetEvent::ListItemClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::GridItemClick { widget_id, .. } => widget_id,

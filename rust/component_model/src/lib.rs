@@ -1011,6 +1011,20 @@ pub fn create_component_model() -> Vec<Component> {
         children_none(),
     );
 
+    let search_bar_component = component(
+        "search_bar",
+        mark_doc!("/search_bar/description.md"),
+        "SearchBar",
+        [
+            property("value", mark_doc!("/search_bar/props/value.md"),true, PropertyType::String),
+            property("placeholder", mark_doc!("/search_bar/props/placeholder.md"),true, PropertyType::String),
+            event("onChange", mark_doc!("/search_bar/props/onChange.md"),true, [
+                property("value", "".to_string(), true, PropertyType::String)
+            ])
+        ],
+        children_none(),
+    );
+
     let list_item_component = component(
         "list_item",
         mark_doc!("/list_item/description.md"),
@@ -1047,6 +1061,7 @@ pub fn create_component_model() -> Vec<Component> {
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
         ],
         children_members([
+            member("SearchBar", &search_bar_component),
             member("EmptyView", &empty_view_component),
             member("Detail", &detail_component),
             member("Item", &list_item_component),
@@ -1099,6 +1114,7 @@ pub fn create_component_model() -> Vec<Component> {
             // inset
         ],
         children_members([
+            member("SearchBar", &search_bar_component),
             member("EmptyView", &empty_view_component),
             member("Item", &grid_item_component),
             member("Section", &grid_section_component),
@@ -1223,6 +1239,8 @@ pub fn create_component_model() -> Vec<Component> {
 
         accessory_icon_component,
         accessory_text_component,
+
+        search_bar_component,
 
         list_item_component,
         list_section_component,

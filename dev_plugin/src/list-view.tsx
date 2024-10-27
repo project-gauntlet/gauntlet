@@ -10,12 +10,27 @@ export default function ListView(): ReactElement {
         setId(id);
     };
 
+    const [searchText, setSearchText] = useState<string | undefined>("");
+
     return (
         <List>
+            <List.SearchBar
+                placeholder={"Search something..."}
+                value={searchText}
+                onChange={setSearchText}
+            />
             {
-                numbers.map(value => (
-                    <List.Item title={"Title " + value} onClick={onClick}/>
-                ))
+                numbers.map(value => {
+                    const title = "Title " + value;
+
+                    if (title.toLowerCase().includes(searchText?.toLowerCase() ?? "")) {
+                        return (
+                            <List.Item title={title} onClick={onClick}/>
+                        )
+                    } else {
+                        return undefined
+                    }
+                })
             }
             <List.Section title={"Selected id: " + id} subtitle="Test subtitle">
                 <List.Section.Item title="Title Section 1" icon={Icons.Clipboard} onClick={onClick}/>

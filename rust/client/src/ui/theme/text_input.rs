@@ -1,8 +1,8 @@
-use iced::{Border, Color, Renderer};
 use iced::widget::{text_input, TextInput};
+use iced::{Border, Color, Renderer};
 use text_input::Appearance;
 
-use crate::ui::theme::{Element, GauntletTheme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
+use crate::ui::theme::{Element, GauntletTheme, ThemableWidget, NOT_INTENDED_TO_BE_USED};
 
 #[derive(Default)]
 pub enum TextInputStyle {
@@ -10,6 +10,7 @@ pub enum TextInputStyle {
     ShouldNotBeUsed,
 
     MainSearch,
+    PluginSearchBar,
     FormInput,
 }
 
@@ -42,7 +43,7 @@ impl text_input::StyleSheet for GauntletTheme {
                     icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
                 }
             },
-            TextInputStyle::MainSearch => {
+            TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
                 Appearance {
                     background: Color::TRANSPARENT.into(),
                     border: Border {
@@ -80,7 +81,7 @@ impl text_input::StyleSheet for GauntletTheme {
                     icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
                 }
             },
-            TextInputStyle::MainSearch => {
+            TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
                 Appearance {
                     background: Color::TRANSPARENT.into(),
                     border: Border {
@@ -126,8 +127,17 @@ impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for TextInput<'a, Mess
     type Kind = TextInputStyle;
 
     fn themed(self, kind: TextInputStyle) -> Element<'a, Message> {
-        self.style(kind)
-            // .padding() // TODO 
-            .into()
+        match kind {
+            TextInputStyle::PluginSearchBar => {
+                self.style(kind)
+                    .padding(0)
+                    .into()
+            }
+            _ => {
+                self.style(kind)
+                    // .padding() // TODO
+                    .into()
+            }
+        }
     }
 }
