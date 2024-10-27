@@ -21,6 +21,7 @@ export default function Main(props: { text: string }): ReactElement {
 
 function Separator() {
     return (
+        // docs-code-segment:start separator
         <Inline>
             <Inline.Left>
                 <Inline.Left.Paragraph>
@@ -34,11 +35,13 @@ function Separator() {
                 </Inline.Right.Paragraph>
             </Inline.Right>
         </Inline>
+        // docs-code-segment:end
     )
 }
 
 function ThreeSection() {
     return (
+        // docs-code-segment:start three-section
         <Inline>
             <Inline.Left>
                 <Inline.Left.Paragraph>
@@ -56,11 +59,13 @@ function ThreeSection() {
                 </Inline.Right.Paragraph>
             </Inline.Right>
         </Inline>
+        // docs-code-segment:end
     )
 }
 
 function TwoSection() {
     return (
+        // docs-code-segment:start two-section
         <Inline>
             <Inline.Left>
                 <Inline.Left.Paragraph>
@@ -73,5 +78,6 @@ function TwoSection() {
                 </Inline.Right.Paragraph>
             </Inline.Right>
         </Inline>
+        // docs-code-segment:end
     )
 }

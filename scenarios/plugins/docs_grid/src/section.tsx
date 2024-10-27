@@ -16,6 +16,7 @@ const vader7 = "https://static.wikia.nocookie.net/starwars/images/f/fa/DarthVade
 
 export default function Main(): ReactElement {
     return (
+        // docs-code-segment:start
         <Grid>
             <Grid.Section title="The High Republic">
                 <Grid.Item title="The Blade 1">
@@ -77,5 +78,6 @@ export default function Main(): ReactElement {
                 </Grid.Item>
             </Grid.Section>
         </Grid>
+        // docs-code-segment:end
     )
 }

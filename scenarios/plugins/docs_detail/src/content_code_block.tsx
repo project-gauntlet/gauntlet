@@ -11,6 +11,7 @@ const code = `
 
 export default function Main(): ReactNode {
     return (
+        // docs-code-segment:start
         <Detail>
             <Detail.Content>
                 <Detail.Content.CodeBlock>
@@ -18,5 +19,6 @@ export default function Main(): ReactNode {
                 </Detail.Content.CodeBlock>
             </Detail.Content>
         </Detail>
+        // docs-code-segment:end
     )
 }

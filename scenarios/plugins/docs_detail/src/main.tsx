@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 
 export default function Main(): ReactNode {
     return (
+        // docs-code-segment:start
         <Detail>
             <Detail.Metadata>
                 <Detail.Metadata.Value label={"Designation"}>Sentient</Detail.Metadata.Value>
@@ -34,5 +35,6 @@ export default function Main(): ReactNode {
                 </Detail.Content.Paragraph>
             </Detail.Content>
         </Detail>
+        // docs-code-segment:end
     )
 }

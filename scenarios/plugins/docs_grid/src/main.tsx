@@ -13,6 +13,7 @@ const dantooineImage = "https://static.wikia.nocookie.net/starwars/images/a/a5/D
 
 export default function Main(): ReactElement {
     return (
+        // docs-code-segment:start
         <Grid>
             <Grid.Item title="Naboo">
                 <Grid.Item.Content>
@@ -60,5 +61,6 @@ export default function Main(): ReactElement {
                 </Grid.Item.Content>
             </Grid.Item>
         </Grid>
+        // docs-code-segment:end
     )
 }

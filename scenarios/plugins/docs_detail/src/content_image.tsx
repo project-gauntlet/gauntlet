@@ -5,10 +5,12 @@ const imgUrl = "https://static.wikia.nocookie.net/starwars/images/a/ae/The_Whill
 
 export default function Main(): ReactNode {
     return (
+        // docs-code-segment:start
         <Detail>
             <Detail.Content>
                 <Detail.Content.Image source={{ url: imgUrl }}/>
             </Detail.Content>
         </Detail>
+        // docs-code-segment:end
     )
 }

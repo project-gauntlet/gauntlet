@@ -5,8 +5,10 @@ const alderaanImage = "https://static.wikia.nocookie.net/starwars/images/4/4a/Al
 
 export default function Main(): ReactElement {
     return (
+        // docs-code-segment:start
         <List>
             <List.EmptyView title={"Nothing here"} description={"But there was something"} image={{ url: alderaanImage }}/>
         </List>
+        // docs-code-segment:end
     )
 }

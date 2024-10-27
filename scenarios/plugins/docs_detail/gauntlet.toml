@@ -2,96 +2,122 @@
 name = 'Docs Detail'
 description = ''
 
+# docs-code-segment:start content
 [[entrypoint]]
 id = 'content'
 name = 'Content'
 path = 'src/content.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start content-code-block
 [[entrypoint]]
 id = 'content-code-block'
 name = 'Content Code Block'
 path = 'src/content_code_block.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start content-header
 [[entrypoint]]
 id = 'content-header'
 name = 'Content Header'
 path = 'src/content_header.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start content-horizontal-break
 [[entrypoint]]
 id = 'content-horizontal-break'
 name = 'Content Horizontal Break'
 path = 'src/content_horizontal_break.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start content-image
 [[entrypoint]]
 id = 'content-image'
 name = 'Content Image'
 path = 'src/content_image.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start content-paragraph
 [[entrypoint]]
 id = 'content-paragraph'
 name = 'Content Paragraph'
 path = 'src/content_paragraph.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start main
 [[entrypoint]]
 id = 'main'
 name = 'Main'
 path = 'src/main.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start metadata
 [[entrypoint]]
 id = 'metadata'
 name = 'Metadata'
 path = 'src/metadata.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start metadata-icon
 [[entrypoint]]
 id = 'metadata-icon'
 name = 'Metadata Icon'
 path = 'src/metadata_icon.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start metadata-link
 [[entrypoint]]
 id = 'metadata-link'
 name = 'Metadata Link'
 path = 'src/metadata_link.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start metadata-separator
 [[entrypoint]]
 id = 'metadata-separator'
 name = 'Metadata Separator'
 path = 'src/metadata_separator.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start metadata-tag-list
 [[entrypoint]]
 id = 'metadata-tag-list'
 name = 'Metadata Tag List'
 path = 'src/metadata_tag_list.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start metadata-value
 [[entrypoint]]
 id = 'metadata-value'
 name = 'Metadata Value'
 path = 'src/metadata_value.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
 [permissions]
 network = ["static.wikia.nocookie.net"]

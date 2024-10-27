@@ -3,6 +3,7 @@ import { List } from "@project-gauntlet/api/components";
 
 export default function Main(): ReactElement {
     return (
+        // docs-code-segment:start
         <List>
             <List.Item title="Adarian"/>
             <List.Item title="Aruzan"/>
@@ -15,5 +16,6 @@ export default function Main(): ReactElement {
             <List.Item title="Houk"/>
             <List.Item title="Inleshat"/>
         </List>
+        // docs-code-segment:end
     )
 }

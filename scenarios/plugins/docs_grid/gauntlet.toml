@@ -3,26 +3,32 @@ name = 'Docs Grid'
 description = ''
 
 
+# docs-code-segment:start empty-view
 [[entrypoint]]
 id = 'empty-view'
 name = 'Empty View'
 path = 'src/empty_view.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start main
 [[entrypoint]]
 id = 'main'
 name = 'Main'
 path = 'src/main.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
+# docs-code-segment:start section
 [[entrypoint]]
 id = 'section'
 name = 'Section'
 path = 'src/section.tsx'
 type = 'view'
 description = ''
+# docs-code-segment:end
 
 
 [permissions]

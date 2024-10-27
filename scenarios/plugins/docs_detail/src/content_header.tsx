@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 
 export default function Main(): ReactNode {
     return (
+        // docs-code-segment:start
         <Detail>
             <Detail.Content>
                 <Detail.Content.H1>
@@ -25,5 +26,6 @@ export default function Main(): ReactNode {
                 </Detail.Content.H6>
             </Detail.Content>
         </Detail>
+        // docs-code-segment:end
     )
 }

@@ -3,6 +3,7 @@ import { List } from "@project-gauntlet/api/components";
 
 export default function Main(): ReactElement {
     return (
+        // docs-code-segment:start
         <List>
             <List.Item title="Star Wars"/>
             <List.Section title="Species">
@@ -17,5 +18,6 @@ export default function Main(): ReactElement {
                 <List.Item title="Coruscant"/>
             </List.Section>
         </List>
+        // docs-code-segment:end
     )
 }
