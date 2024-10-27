@@ -118,6 +118,7 @@ pub enum SearchResultEntrypointType {
 #[derive(Debug)]
 pub enum UiResponseData {
     Nothing,
+    Err(anyhow::Error),
 }
 
 #[derive(Debug)]
@@ -149,6 +150,9 @@ pub enum UiRequestData {
     RequestSearchResultUpdate,
     ShowHud {
         display: String
+    },
+    SetGlobalShortcut {
+        shortcut: PhysicalShortcut
     },
 }
 

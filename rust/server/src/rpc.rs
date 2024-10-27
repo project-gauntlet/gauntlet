@@ -75,7 +75,7 @@ impl BackendServer for BackendServerImpl {
             tracing::warn!(target = "rpc", "error occurred when handling 'set_global_shortcut' request {:?}", err)
         }
 
-        Ok(())
+        result
     }
 
     async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {

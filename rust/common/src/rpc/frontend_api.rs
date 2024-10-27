@@ -1,12 +1,15 @@
+use anyhow::anyhow;
 use thiserror::Error;
 use utils::channel::{RequestError, RequestSender};
 
-use crate::model::{EntrypointId, PluginId, UiRenderLocation, UiRequestData, UiResponseData, UiWidget};
+use crate::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation, UiRequestData, UiResponseData, UiWidget};
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum FrontendApiError {
     #[error("Frontend wasn't able to process request in a timely manner")]
     TimeoutError,
+    #[error("Other error: {0:?}")]
+    OtherError(#[from] anyhow::Error),
 }
 
 impl From<RequestError> for FrontendApiError {
@@ -29,14 +32,14 @@ impl FrontendApi {
         }
     }
 
-    pub async fn request_search_results_update(&mut self) -> Result<(), FrontendApiError> {
+    pub async fn request_search_results_update(&self) -> Result<(), FrontendApiError> {
         let _ = self.frontend_sender.send_receive(UiRequestData::RequestSearchResultUpdate).await;
 
         Ok(())
     }
 
     pub async fn replace_view(
-        &mut self,
+        &self,
         plugin_id: PluginId,
         plugin_name: String,
         entrypoint_id: EntrypointId,
@@ -55,29 +58,35 @@ impl FrontendApi {
             container,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
 
         Ok(())
     }
 
-    pub async fn clear_inline_view(&mut self, plugin_id: PluginId) -> Result<(), FrontendApiError> {
+    pub async fn clear_inline_view(&self, plugin_id: PluginId) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ClearInlineView {
             plugin_id,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
 
         Ok(())
     }
 
     pub async fn show_window(&self) -> Result<(), FrontendApiError> {
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await?;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(UiRequestData::ShowWindow).await? else {
+            unreachable!()
+        };
 
         Ok(())
     }
 
     pub async fn show_preference_required_view(
-        &mut self,
+        &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
@@ -90,13 +99,15 @@ impl FrontendApi {
             entrypoint_preferences_required,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
 
         Ok(())
     }
 
     pub async fn show_plugin_error_view(
-        &mut self,
+        &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation,
@@ -107,21 +118,43 @@ impl FrontendApi {
             render_location,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
 
         Ok(())
     }
 
     pub async fn show_hud(
-        &mut self,
+        &self,
         display: String,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ShowHud {
             display,
         };
 
-        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await?;
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
 
         Ok(())
+    }
+
+    pub async fn set_global_shortcut(
+        &self,
+        shortcut: PhysicalShortcut
+    ) -> anyhow::Result<()> {
+        let request = UiRequestData::SetGlobalShortcut {
+            shortcut,
+        };
+
+        let data = self.frontend_sender.send_receive(request)
+            .await
+            .map_err(|err| anyhow!("error: {:?}", err))?;
+
+        match data {
+            UiResponseData::Nothing => Ok(()),
+            UiResponseData::Err(err) => Err(err)
+        }
     }
 }

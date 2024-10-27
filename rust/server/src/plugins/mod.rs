@@ -5,9 +5,7 @@ use std::thread;
 use std::time::Duration;
 use anyhow::anyhow;
 use deno_core::futures::channel::mpsc::Sender;
-use global_hotkey::GlobalHotKeyManager;
-use global_hotkey::hotkey::HotKey;
-use include_dir::{Dir, include_dir};
+use include_dir::{include_dir, Dir};
 use tokio::runtime::Handle;
 
 use common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
@@ -17,10 +15,9 @@ use utils::channel::RequestSender;
 use common::dirs::Dirs;
 use crate::model::{ActionShortcutKey, JsKeyboardEventOrigin};
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_from_str, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions};
-use crate::plugins::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
+use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginActionShortcutKind, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginMainSearchBarPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::{AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginRuntimeData, start_plugin_runtime};
+use crate::plugins::js::{start_plugin_runtime, AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginRuntimeData};
 use crate::plugins::js::clipboard::Clipboard;
 use crate::plugins::js::permissions::{PluginPermissions, PluginPermissionsClipboard, PluginPermissionsExec, PluginPermissionsFileSystem, PluginPermissionsMainSearchBar};
 use crate::plugins::loader::PluginLoader;
@@ -37,7 +34,6 @@ mod download_status;
 mod applications;
 mod icon_cache;
 pub(super) mod frecency;
-mod global_shortcut;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [
     ("gauntlet", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist")),
@@ -52,8 +48,6 @@ pub struct ApplicationManager {
     run_status_holder: RunStatusHolder,
     icon_cache: IconCache,
     frontend_api: FrontendApi,
-    global_hotkey_manager: GlobalHotKeyManager,
-    current_hotkey: Mutex<Option<HotKey>>,
     dirs: Dirs,
     clipboard: Clipboard,
 }
@@ -68,12 +62,9 @@ impl ApplicationManager {
         let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
         let search_index = SearchIndex::create_index(frontend_api.clone())?;
-        let global_hotkey_manager = GlobalHotKeyManager::new()?;
         let clipboard = Clipboard::new()?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
-
-        register_listener(frontend_api.clone());
 
         let manager = Self {
             config_reader,
@@ -84,9 +75,7 @@ impl ApplicationManager {
             run_status_holder,
             icon_cache,
             frontend_api,
-            global_hotkey_manager,
             clipboard,
-            current_hotkey: Mutex::new(None),
             dirs
         };
 
@@ -290,21 +279,7 @@ impl ApplicationManager {
     async fn register_global_shortcut(&self) -> anyhow::Result<()> {
         let shortcut = self.db_repository.get_global_shortcut().await?;
 
-        tracing::info!("Registering new global shortcut: {:?}", shortcut);
-
-        let mut hotkey_guard = self.current_hotkey.lock()
-            .expect("lock is poisoned");
-
-        if let Some(current_hotkey) = *hotkey_guard {
-            self.global_hotkey_manager.unregister(current_hotkey)?;
-        }
-
-        let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
-        *hotkey_guard = Some(hotkey);
-
-        self.global_hotkey_manager.register(hotkey)?;
-
-        Ok(())
+        self.frontend_api.set_global_shortcut(shortcut).await
     }
 
     pub async fn reload_config(&self) -> anyhow::Result<()> {

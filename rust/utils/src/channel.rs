@@ -3,6 +3,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::error::Elapsed;
 
+#[derive(Debug)]
 pub enum RequestError {
     TimeoutError,
 }

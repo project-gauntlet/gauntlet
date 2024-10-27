@@ -1,17 +1,20 @@
 use global_hotkey::hotkey::{Code, HotKey, Modifiers};
+use iced::futures::channel::mpsc::Sender;
+use iced::futures::SinkExt;
 use tokio::runtime::Handle;
 use common::model::{PhysicalKey, PhysicalShortcut};
 use common::rpc::frontend_api::FrontendApi;
+use crate::ui::AppMsg;
 
-pub fn register_listener(frontend_api: FrontendApi) {
+pub fn register_listener(msg_sender: Sender<AppMsg>) {
     let handle = Handle::current();
 
     global_hotkey::GlobalHotKeyEvent::set_event_handler(Some(move |e: global_hotkey::GlobalHotKeyEvent| {
-        let mut frontend_api = frontend_api.clone();
+        let mut msg_sender = msg_sender.clone();
 
         if let global_hotkey::HotKeyState::Released = e.state() {
             handle.spawn(async move {
-                if let Err(err) = frontend_api.show_window().await {
+                if let Err(err) = msg_sender.send(AppMsg::ShowWindow).await {
                     tracing::warn!(target = "rpc", "error occurred when receiving shortcut event {:?}", err)
                 }
             });

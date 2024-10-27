@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock as StdRwLock};
+use std::sync::{Arc, Mutex as StdMutex, Mutex, RwLock as StdRwLock};
 use anyhow::anyhow;
+use global_hotkey::GlobalHotKeyManager;
+use global_hotkey::hotkey::HotKey;
 use iced::{event, executor, font, futures, keyboard, subscription, window, Alignment, Command, Event, Font, Length, Padding, Pixels, Settings, Size, Subscription};
 use iced::advanced::graphics::core::SmolStr;
 use iced::advanced::layout::Limits;
@@ -21,7 +23,7 @@ use iced::window::settings::PlatformSpecific;
 use iced_aw::core::icons;
 use serde::Deserialize;
 use tokio::runtime::Handle;
-use tokio::sync::RwLock as TokioRwLock;
+use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 use tonic::transport::Server;
 
 use client_context::ClientContext;
@@ -30,7 +32,7 @@ use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFron
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
 use common_ui::physical_key_model;
-use utils::channel::{channel, RequestReceiver, RequestSender};
+use utils::channel::{channel, RequestReceiver, RequestSender, Responder};
 
 use crate::model::UiViewEvent;
 use crate::ui::inline_view_container::{inline_view_action_panel, inline_view_container};
@@ -56,6 +58,7 @@ mod state;
 mod hud;
 
 pub use theme::GauntletTheme;
+use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::ui::hud::{close_hud_window, show_hud_window};
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
@@ -64,6 +67,8 @@ use crate::ui::widget_container::PluginWidgetContainer;
 pub struct AppModel {
     // logic
     backend_api: BackendForFrontendApi,
+    global_hotkey_manager: Arc<StdRwLock<GlobalHotKeyManager>>,
+    current_hotkey: Arc<StdMutex<Option<HotKey>>>,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     focused: bool,
     theme: GauntletTheme,
@@ -174,6 +179,10 @@ pub enum AppMsg {
     OnPrimaryActionMainViewActionPanelMouse { widget_id: UiWidgetId },
     ResetMainViewState,
     OnAnyActionMainViewNoPanelKeyboardAtIndex { index: usize },
+    SetGlobalShortcut {
+        shortcut: PhysicalShortcut,
+        responder: Arc<Mutex<Option<Responder<UiResponseData>>>>
+    },
 }
 
 pub struct AppFlags {
@@ -283,6 +292,9 @@ impl Application for AppModel {
 
         let backend_api = BackendForFrontendApi::new(backend_sender);
 
+        let global_hotkey_manager = GlobalHotKeyManager::new()
+            .expect("unable to create global hot key manager");
+
         let mut commands = vec![
             font::load(icons::BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
         ];
@@ -391,6 +403,8 @@ impl Application for AppModel {
             AppModel {
                 // logic
                 backend_api,
+                global_hotkey_manager: Arc::new(StdRwLock::new(global_hotkey_manager)),
+                current_hotkey: Arc::new(StdMutex::new(None)),
                 frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
                 focused: false,
                 theme: GauntletTheme::new(),
@@ -1088,6 +1102,49 @@ impl Application for AppModel {
                     GlobalState::PluginView { .. } => Command::none(),
                 }
             }
+            AppMsg::SetGlobalShortcut { shortcut, responder } => {
+                tracing::info!("Registering new global shortcut: {:?}", shortcut);
+
+                let run = || {
+                    let global_hotkey_manager = self.global_hotkey_manager
+                        .read()
+                        .expect("lock is poisoned");
+
+                    let mut hotkey_guard = self.current_hotkey
+                        .lock()
+                        .expect("lock is poisoned");
+
+                    if let Some(current_hotkey) = *hotkey_guard {
+                        global_hotkey_manager.unregister(current_hotkey)?;
+                    }
+
+                    let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
+                    *hotkey_guard = Some(hotkey);
+
+                    global_hotkey_manager.register(hotkey)?;
+
+                    Ok(())
+                };
+
+                // responder is not clone and send, and we need to consume it
+                // so we wrap it in arc mutex option
+                let mut responder = responder
+                    .lock()
+                    .expect("lock is poisoned")
+                    .take()
+                    .expect("there should always be a responder here");
+
+                match run() {
+                    Ok(()) => {
+                        responder.respond(UiResponseData::Nothing);
+                    }
+                    Err(err) => {
+                        responder.respond(UiResponseData::Err(err));
+                    }
+                }
+
+                Command::none()
+            }
         }
     }
 
@@ -1557,6 +1614,7 @@ impl Application for AppModel {
         let frontend_receiver = self.frontend_receiver.clone();
 
         struct RequestLoop;
+        struct GlobalShortcutListener;
 
         let events_subscription = event::listen_with(|event, status| match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(event)),
@@ -1567,6 +1625,17 @@ impl Application for AppModel {
         });
 
         Subscription::batch([
+            subscription::channel(
+                std::any::TypeId::of::<GlobalShortcutListener>(),
+                10,
+                |sender| async move {
+                    register_listener(sender.clone());
+
+                    std::future::pending::<()>().await;
+
+                    unreachable!()
+                },
+            ),
             events_subscription,
             subscription::channel(
                 std::any::TypeId::of::<RequestLoop>(),
@@ -1976,6 +2045,12 @@ async fn request_loop(
 
                     AppMsg::ShowHud {
                         display
+                    }
+                }
+                UiRequestData::SetGlobalShortcut { shortcut } => {
+                    AppMsg::SetGlobalShortcut {
+                        shortcut,
+                        responder: Arc::new(Mutex::new(Some(responder)))
                     }
                 }
             }

@@ -6,6 +6,7 @@ use crate::ui::GauntletTheme;
 
 pub(in crate) mod ui;
 pub(in crate) mod model;
+pub mod global_shortcut;
 
 pub fn start_client(
     minimized: bool,
