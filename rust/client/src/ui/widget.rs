@@ -267,6 +267,46 @@ impl ComponentWidgetWrapper {
             .collect()
     }
 
+    pub fn keyboard_navigation_width(&self) -> Option<usize> {
+        self.get_all_widgets()
+            .into_iter()
+            .find_map(|component| {
+                let (widget, _) = &*component.get();
+
+                match widget {
+                    ComponentWidget::Grid { columns, .. } => Some(grid_width(columns)),
+                    ComponentWidget::List { .. } => Some(1),
+                    _ => None
+                }
+            })
+    }
+
+    pub fn keyboard_navigation_total(&self) -> usize {
+        self.get_all_widgets()
+            .into_iter()
+            .filter(|component| {
+                let (widget, _) = &*component.get();
+
+                // TODO this will produce incorrect results if grid uses item list and vice versa
+                matches!(widget, ComponentWidget::GridItem { .. } | ComponentWidget::ListItem { .. })
+            })
+            .count()
+    }
+
+    pub fn has_search_bar(&self) -> bool {
+        self.get_all_widgets()
+            .into_iter()
+            .find(|component| {
+                let (widget, _) = &*component.get();
+
+                match widget {
+                    ComponentWidget::SearchBar { .. } => true,
+                    _ => false
+                }
+            })
+            .is_some()
+    }
+
     fn get(&self) -> RwLockReadGuard<'_, (ComponentWidget, ComponentWidgetState)> {
         self.inner.read().expect("lock is poisoned")
     }
@@ -1000,10 +1040,16 @@ impl ComponentWidgetWrapper {
                     .align_items(Alignment::Center)
                     .into();
 
+                let style = if false {
+                    ButtonStyle::ListItemFocused
+                } else {
+                    ButtonStyle::ListItem
+                };
+
                 button(content)
                     .on_press(ComponentWidgetEvent::ListItemClick { widget_id })
                     .width(Length::Fill)
-                    .themed(ButtonStyle::ListItem)
+                    .themed(style)
             }
             ComponentWidget::ListSection { children, title, subtitle } => {
                 let content = render_children(children, context);
@@ -1109,10 +1155,16 @@ impl ComponentWidgetWrapper {
                     .height(130) // TODO dynamic height
                     .into();
 
+                let style = if false {
+                    ButtonStyle::GridItemFocused
+                } else {
+                    ButtonStyle::GridItem
+                };
+
                 let content: Element<_> = button(content)
                     .on_press(ComponentWidgetEvent::GridItemClick { widget_id })
                     .width(Length::Fill)
-                    .themed(ButtonStyle::GridItem);
+                    .themed(style);
 
                 let mut sub_content_left = vec![];
 
@@ -1289,6 +1341,10 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
         .into()
 }
 
+fn grid_width(columns: &Option<f64>) -> usize {
+    columns.map(|value| value.trunc() as usize).unwrap_or(5)
+}
+
 fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&str>,*/ columns: &Option<f64>, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
     // let (width, height) = match aspect_ratio {
     //     None => (1, 1),
@@ -1302,15 +1358,15 @@ fn render_grid<'a>(children: &[ComponentWidgetWrapper], /*aspect_ratio: Option<&
     //     Some(value) => panic!("unsupported aspect_ratio {:?}", value)
     // };
 
-    let row_length = columns.map(|value| value.trunc() as usize).unwrap_or(5);
+    let grid_width = grid_width(columns);
 
     let rows: Vec<GridRow<_, _, _>> = render_children(children, context)
         .into_iter()
-        .chunks(row_length)
+        .chunks(grid_width)
         .into_iter()
         .map(|row_items| {
             let mut row_items: Vec<_> = row_items.collect();
-            row_items.resize_with(row_length, || horizontal_space().into());
+            row_items.resize_with(grid_width, || horizontal_space().into());
 
             grid_row(row_items).into()
         })

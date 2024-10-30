@@ -91,4 +91,15 @@ impl PluginWidgetContainer {
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
         self.root_widget.get_action_ids()
     }
+    pub fn keyboard_navigation_width(&self) -> Option<usize> {
+        self.root_widget.keyboard_navigation_width()
+    }
+
+    pub fn keyboard_navigation_total(&self) -> usize {
+        self.root_widget.keyboard_navigation_total()
+    }
+
+    pub fn has_search_bar(&self) -> bool {
+        self.root_widget.has_search_bar()
+    }
 }

@@ -14,7 +14,9 @@ pub enum ButtonStyle {
     Action,
     ActionFocused,
     GridItem,
+    GridItemFocused,
     ListItem,
+    ListItemFocused,
     MainListItem,
     MainListItemFocused,
     MetadataLink,
@@ -49,7 +51,7 @@ impl ButtonStyle {
 
                 theme.padding.to_iced()
             },
-            ButtonStyle::GridItem => {
+            ButtonStyle::GridItem | ButtonStyle::GridItemFocused  => {
                 let theme = &theme.grid_item;
 
                 theme.padding.to_iced()
@@ -59,7 +61,7 @@ impl ButtonStyle {
 
                 theme.padding.to_iced()
             }
-            ButtonStyle::ListItem => {
+            ButtonStyle::ListItem | ButtonStyle::ListItemFocused => {
                 let theme = &theme.list_item;
 
                 theme.padding.to_iced()
@@ -99,6 +101,10 @@ impl ButtonStyle {
                 let theme = &theme.grid_item;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
+            ButtonStyle::GridItemFocused => {
+                let theme = &theme.grid_item;
+                (Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+            }
             ButtonStyle::Action => {
                 let theme = &theme.action;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
@@ -110,6 +116,10 @@ impl ButtonStyle {
             ButtonStyle::ListItem => {
                 let theme = &theme.list_item;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+            }
+            ButtonStyle::ListItemFocused => {
+                let theme = &theme.list_item;
+                (Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::MainListItem => {
                 let theme = &theme.main_list_item;

@@ -555,7 +555,11 @@ impl Application for AppModel {
                         match key {
                             Key::Named(Named::ArrowUp) => self.global_state.up(&self.search_results),
                             Key::Named(Named::ArrowDown) => self.global_state.down(&self.search_results),
+                            Key::Named(Named::ArrowLeft) => self.global_state.left(&self.search_results),
+                            Key::Named(Named::ArrowRight) => self.global_state.right(&self.search_results),
                             Key::Named(Named::Escape) => self.global_state.back(),
+                            Key::Named(Named::Tab) if !modifiers.shift() => self.global_state.next(),
+                            Key::Named(Named::Tab) if modifiers.shift() => self.global_state.previous(),
                             Key::Named(Named::Enter) => {
                                 if modifiers.logo() || modifiers.alt() || modifiers.control() {
                                     Command::none() // to avoid not wanted "enter" presses

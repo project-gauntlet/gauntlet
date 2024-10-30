@@ -42,16 +42,17 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn focus_next(&mut self, total_item_amount: usize) -> Command<AppMsg> {
-        self.offset = if self.offset < 8 {
+    pub fn focus_next_row(&mut self, total_items: usize, total_columns: usize) -> Command<AppMsg> {
+        self.offset = if self.offset < 7 {
             self.offset + 1
         } else {
-            8
+            7
         };
 
         match self.index.as_mut() {
             None => {
-                if total_item_amount > 0 {
+                // focus first
+                if total_items > 0 {
                     self.index = Some(0);
 
                     self.scroll_to(0)
@@ -60,8 +61,10 @@ impl<T> ScrollHandle<T> {
                 }
             }
             Some(index) => {
-                if *index < total_item_amount - 1 {
-                    *index = *index + 1;
+                // focus next row only if there is an item on it
+                let new_index = *index + total_columns;
+                if new_index < total_items {
+                    *index = new_index;
 
                     let index = *index;
 
@@ -73,7 +76,7 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn focus_previous(&mut self) -> Command<AppMsg> {
+    pub fn focus_previous_row(&mut self, total_columns: usize) -> Command<AppMsg> {
         self.offset = if self.offset > 1 {
             self.offset - 1
         } else {
@@ -83,13 +86,49 @@ impl<T> ScrollHandle<T> {
         match self.index.as_mut() {
             None => Command::none(),
             Some(index) => {
-                if *index > 0 {
-                    *index = *index - 1;
+                match index.checked_sub(total_columns) { // basically a check if result is >= 0
+                    Some(new_index) => {
+                        *index = new_index;
 
-                    let index = *index;
+                        let index = *index;
 
-                    self.scroll_to(index)
+                        self.scroll_to(index)
+                    }
+                    None => Command::none()
+                }
+            }
+        }
+    }
+
+    pub fn focus_next_column(&mut self, total_items: usize, total_columns: usize) -> Command<AppMsg> {
+        match self.index.as_mut() {
+            None => Command::none(),
+            Some(index) => {
+                // put focus on next column only if it doesn't put it on next row
+                // and if there is an item there
+                let new_index = *index + 1;
+                if *index % total_columns != 0 && new_index <= total_items {
+                    *index = new_index;
+                }
+
+                Command::none()
+            }
+        }
+    }
+
+    pub fn focus_previous_column(&mut self, total_columns: usize) -> Command<AppMsg> {
+        match self.index.as_mut() {
+            None => Command::none(),
+            Some(index) => {
+                // put focus on previous column only if it doesn't put it on previous row
+                if *index == 0 {
+                    Command::none()
                 } else {
+                    let new_index = *index - 1;
+                    if new_index % total_columns != 0 {
+                        *index = new_index;
+                    }
+
                     Command::none()
                 }
             }

@@ -109,4 +109,16 @@ impl ClientContext {
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
         self.view.get_action_ids()
     }
+
+    pub fn keyboard_navigation_width(&self) -> Option<usize> {
+        self.view.keyboard_navigation_width()
+    }
+
+    pub fn keyboard_navigation_total(&self) -> usize {
+        self.view.keyboard_navigation_total()
+    }
+
+    pub fn has_search_bar(&self) -> bool {
+        self.view.has_search_bar()
+    }
 }
