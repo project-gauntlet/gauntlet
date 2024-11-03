@@ -109,7 +109,7 @@ impl SearchIndex {
     }
 
     pub fn save_for_plugin(&mut self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>, refresh_search_list: bool) -> tantivy::Result<()> {
-        tracing::debug!("Reloading search index for plugin {:?} {:?} using following data: {:?}", plugin_id, plugin_name, search_items);
+        tracing::debug!("Reloading search index for plugin {:?}", plugin_id);
 
         // writer panics if another writer exists
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");

@@ -530,12 +530,37 @@ deno_core::extension!(
         run_numbat,
 
         // plugins applications
+        crate::plugins::js::plugins::applications::current_os,
+
+        // plugins applications linux
         #[cfg(target_os = "linux")]
         crate::plugins::js::plugins::applications::linux_app_from_path,
         #[cfg(target_os = "linux")]
         crate::plugins::js::plugins::applications::linux_application_dirs,
         #[cfg(target_os = "linux")]
         crate::plugins::js::plugins::applications::linux_open_application,
+
+        // plugins applications macos
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_major_version,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_settings_pre_13,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_settings_13_and_post,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_open_setting_13_and_post,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_open_setting_pre_13,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_system_applications,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_application_dirs,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_app_from_arbitrary_path,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_app_from_path,
+        #[cfg(target_os = "macos")]
+        crate::plugins::js::plugins::applications::macos_open_application,
 
         // plugins settings
         open_settings,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use cacao::filesystem::{FileManager, SearchPathDirectory, SearchPathDomainMask};
@@ -12,91 +12,10 @@ use objc2_foundation::{CGFloat, CGPoint, CGRect, NSDictionary, NSInteger, NSPoin
 use plist::Dictionary;
 use regex::Regex;
 use serde::Deserialize;
+use crate::plugins::js::plugins::applications::{DesktopApplication, DesktopPathAction, DesktopSettings13AndPostData, DesktopSettingsPre13Data};
 
-use crate::plugins::applications::{DesktopEntry, resize_icon};
 
-pub fn get_apps() -> Vec<DesktopEntry> {
-    let file_manager = FileManager::default();
-
-    let all_items = [
-        get_applications(&file_manager),
-        get_settings(&file_manager),
-    ];
-
-    all_items
-        .into_iter()
-        .flatten()
-        .collect()
-}
-
-fn get_applications(file_manager: &FileManager) -> Vec<DesktopEntry> {
-
-    let finder_application = vec![PathBuf::from("/System/Library/CoreServices/Finder.app")];
-    let finder_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/Applications"));
-
-    let core_services_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Applications"));
-
-    // these are covered by recursion on SearchPathDirectory::Applications
-    // let user_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::User);
-    // let local_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Local);
-    // let system_admin_applications_dir = get_applications_with_kind(&file_manager, SearchPathDirectory::AdminApplications, SearchPathDomainMask::Domain);
-
-    let user_applications_dir = get_applications_with_kind(file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::User);
-    let local_applications_dir = get_applications_with_kind(file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Local);
-    let system_applications_dir = get_applications_with_kind(file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Domain);
-
-    let all_applications = [
-        finder_application,
-        finder_applications,
-        core_services_applications,
-        // user_admin_applications_dir,
-        // local_admin_applications_dir,
-        // system_admin_applications_dir,
-        user_applications_dir,
-        local_applications_dir,
-        system_applications_dir
-    ];
-
-    let all_applications: Vec<_> = all_applications
-        .into_iter()
-        .flatten()
-        .collect();
-
-    tracing::debug!("Found following macOS applications: {:?}", all_applications);
-
-    let all_applications = all_applications
-        .into_iter()
-        .map(|path| {
-            let name = path.file_stem()
-                .expect(&format!("invalid path: {:?}", path))
-                .to_string_lossy()
-                .to_string();
-
-            let info_path = path.join("Contents").join("Info.plist");
-
-            let info: Option<Info> = plist::from_file(info_path)
-                .ok();
-
-            let name = info.as_ref()
-                .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
-                .unwrap_or(name);
-
-            let icon = get_application_icon(&path)
-                .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
-                .ok();
-
-            DesktopEntry {
-                name,
-                icon,
-                command: vec!["open".to_string(), path.to_string_lossy().to_string()],
-            }
-        })
-        .collect::<Vec<_>>();
-
-    all_applications
-}
-
-fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
+pub fn macos_major_version() -> u8 {
     let system_version: SystemVersion = plist::from_file("/System/Library/CoreServices/SystemVersion.plist")
         .expect("SystemVersion.plist doesn't follow expected format");
 
@@ -110,119 +29,220 @@ fn get_settings(file_manager: &FileManager) -> Vec<DesktopEntry> {
         .parse()
         .expect("SystemVersion.plist ProductVersion major doesn't match expected format");
 
-    tracing::debug!("Indexing settings for macOS version: {}", major_version);
+    tracing::debug!("macOS version: {}", major_version);
 
-    if major_version >= 13 {  // Ventura and higher
-        let sidebar: Vec<SidebarSection> = plist::from_file("/System/Applications/System Settings.app/Contents/Resources/Sidebar.plist")
-            .expect("Sidebar.plist doesn't follow expected format");
+    major_version
+}
 
-        let preferences_ids: Vec<_> = sidebar.into_iter()
-            .flat_map(|section| match section {
-                SidebarSection::Content { content } => content,
-                SidebarSection::Title { .. } => vec![]
-            })
-            .collect();
+pub fn macos_system_applications() -> Vec<PathBuf> {
+    let finder_application = vec![PathBuf::from("/System/Library/CoreServices/Finder.app")];
+    let finder_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/Applications"));
 
-        tracing::debug!("Found following macOS setting preference ids: {:?}", &preferences_ids);
+    let core_services_applications = get_applications_in_dir(PathBuf::from("/System/Library/CoreServices/Applications"));
 
-        let extensions: HashMap<_, _> = get_extensions_in_dir(PathBuf::from("/System/Library/ExtensionKit/Extensions"))
-            .into_iter()
-            .filter_map(|path| {
-                fn read_plist(path: &Path) -> anyhow::Result<(String, (String, PathBuf))> {
-                    let name = path.file_stem()
-                        .expect(&format!("invalid path: {:?}", path))
-                        .to_string_lossy()
-                        .to_string();
+    let all_applications = [
+        finder_application,
+        finder_applications,
+        core_services_applications,
+    ];
 
-                    let info_path = path.join("Contents").join("Info.plist");
+    let all_applications: Vec<_> = all_applications
+        .into_iter()
+        .flatten()
+        .collect();
 
-                    let info = plist::from_file::<_, Info>(info_path.as_path())
-                        .context(format!("Unexpected Info.plist for System Extensions: {}", &info_path.display()))?;
+    all_applications
+}
 
-                    let name = info.bundle_display_name
-                        .clone()
-                        .or_else(|| info.bundle_name.clone())
-                        .unwrap_or(name);
 
-                    Ok((info.bundle_id, (name, path.to_path_buf())))
-                }
+pub fn macos_application_dirs() -> Vec<PathBuf> {
+    let file_manager = FileManager::default();
 
-                read_plist(&path)
-                    .inspect_err(|err| tracing::error!("error while reading system extension Info.plist {:?}: {:?}", path, err))
-                    .ok()
-            })
-            .collect();
+    let user_applications_dir = get_path(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::User);
+    let local_applications_dir = get_path(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Local);
+    let system_applications_dir = get_path(&file_manager, SearchPathDirectory::Applications, SearchPathDomainMask::Domain);
 
-        tracing::debug!("Found following macOS setting extensions: {:?}", &extensions);
+    let all_applications = [
+        user_applications_dir,
+        local_applications_dir,
+        system_applications_dir,
+    ];
 
-        preferences_ids.into_iter()
-            .filter_map(|preferences_id| {
-                match extensions.get(&preferences_id) {
-                    None => {
-                        // todo some settings panel items return none here
-                        tracing::debug!("Unknown preference id found: {}", &preferences_id);
+    let all_applications: Vec<_> = all_applications
+        .into_iter()
+        .flatten()
+        .collect();
 
-                        None
-                    }
-                    Some((name, path)) => {
-                        let icon = get_application_icon(&path)
-                            .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
-                            .ok();
+    all_applications
+}
 
-                        Some(
-                            DesktopEntry {
-                                name: name.to_string(),
-                                icon,
-                                command: vec![
-                                    "open".to_string(),
-                                    format!("x-apple.systempreferences:{}", preferences_id)
-                                ],
-                            }
-                        )
-                    }
-                }
-            })
-            .collect()
-    } else {
-        let user_pref_panes_dir = get_pref_panes_with_kind(file_manager, SearchPathDirectory::Library, SearchPathDomainMask::User);
-        let local_pref_panes_dir = get_pref_panes_with_kind(file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Local);
-        let system_pref_panes_dir = get_pref_panes_with_kind(file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Domain);
+pub fn macos_app_from_arbitrary_path(path: PathBuf) -> Option<DesktopPathAction> {
+    let path = path.ancestors()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .find_map(|path| {
+            let Some(extension) = path.extension() else {
+                return None;
+            };
 
-        let all_settings = [
-            user_pref_panes_dir,
-            local_pref_panes_dir,
-            system_pref_panes_dir,
-        ];
+            let Some("app") = extension.to_str() else {
+                return None;
+            };
 
-        let all_settings: Vec<_> = all_settings
-            .into_iter()
-            .flatten()
-            .collect();
+            Some(path)
+        });
 
-        tracing::debug!("Found following macOS settings: {:?}", all_settings);
+    let Some(path) = path else {
+        return None;
+    };
 
-        let all_settings = all_settings.into_iter()
-            .map(|path| {
-                let name = path.file_stem() // TODO is there a proper way?
+    macos_app_from_path(path)
+}
+
+pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
+    if !path.is_dir() {
+        return None
+    }
+
+    let name = path.file_stem()
+        .expect(&format!("invalid path: {:?}", path))
+        .to_str()
+        .expect("non-uft8 paths are not supported")
+        .to_string();
+
+    let info_path = path.join("Contents").join("Info.plist");
+
+    let info: Option<Info> = plist::from_file(info_path)
+        .ok();
+
+    let name = info.as_ref()
+        .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
+        .unwrap_or(name);
+
+    let icon = get_application_icon(&path)
+        .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
+        .ok();
+
+    let path = path.to_str().expect("non-uft8 paths are not supported").to_string();
+
+    Some(DesktopPathAction::Add {
+        id: path.clone(),
+        data: DesktopApplication {
+            name,
+            path,
+            icon,
+        },
+    })
+}
+
+pub fn macos_settings_pre_13() -> Vec<DesktopSettingsPre13Data> {
+    let file_manager = FileManager::default();
+
+    let user_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::User);
+    let local_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Local);
+    let system_pref_panes_dir = get_pref_panes_with_kind(&file_manager, SearchPathDirectory::Library, SearchPathDomainMask::Domain);
+
+    let all_settings = [
+        user_pref_panes_dir,
+        local_pref_panes_dir,
+        system_pref_panes_dir,
+    ];
+
+    let all_settings: Vec<_> = all_settings
+        .into_iter()
+        .flatten()
+        .collect();
+
+    tracing::debug!("Found following macOS settings: {:?}", all_settings);
+
+    let all_settings = all_settings.into_iter()
+        .map(|path| {
+            let name = path.file_stem() // TODO is there a proper way got get the name?
+                .expect(&format!("invalid path: {:?}", &path))
+                .to_string_lossy()
+                .to_string();
+
+            DesktopSettingsPre13Data {
+                name,
+                path: path.to_str().expect("non-uft8 paths are not supported").to_string(),
+                icon: None,
+            }
+        })
+        .collect();
+
+    all_settings
+}
+
+pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
+    let sidebar: Vec<SidebarSection> = plist::from_file("/System/Applications/System Settings.app/Contents/Resources/Sidebar.plist")
+        .expect("Sidebar.plist doesn't follow expected format");
+
+    let preferences_ids: Vec<_> = sidebar.into_iter()
+        .flat_map(|section| match section {
+            SidebarSection::Content { content } => content,
+            SidebarSection::Title { .. } => vec![]
+        })
+        .collect();
+
+    tracing::debug!("Found following macOS setting preference ids: {:?}", &preferences_ids);
+
+    let extensions: HashMap<_, _> = get_extensions_in_dir(PathBuf::from("/System/Library/ExtensionKit/Extensions"))
+        .into_iter()
+        .filter_map(|path| {
+            fn read_plist(path: &Path) -> anyhow::Result<(String, (String, PathBuf))> {
+                let name = path.file_stem()
                     .expect(&format!("invalid path: {:?}", path))
                     .to_string_lossy()
                     .to_string();
 
-                DesktopEntry {
-                    name,
-                    icon: None,
-                    command: vec![
-                        "open".to_string(),
-                        "-b".to_string(),
-                        "com.apple.systempreferences".to_string(),
-                        path.to_string_lossy().to_string()
-                    ],
-                }
-            })
-            .collect();
+                let info_path = path.join("Contents").join("Info.plist");
 
-        all_settings
-    }
+                let info = plist::from_file::<_, Info>(info_path.as_path())
+                    .context(format!("Unexpected Info.plist for System Extensions: {}", &info_path.display()))?;
+
+                let name = info.bundle_display_name
+                    .clone()
+                    .or_else(|| info.bundle_name.clone())
+                    .unwrap_or(name);
+
+                Ok((info.bundle_id, (name, path.to_path_buf())))
+            }
+
+            read_plist(&path)
+                .inspect_err(|err| tracing::error!("error while reading system extension Info.plist {:?}: {:?}", path, err))
+                .ok()
+        })
+        .collect();
+
+    tracing::debug!("Found following macOS setting extensions: {:?}", &extensions);
+
+    preferences_ids.into_iter()
+        .filter_map(|preferences_id| {
+            match extensions.get(&preferences_id) {
+                None => {
+                    // todo some settings panel items return none here
+                    tracing::debug!("Unknown preference id found: {}", &preferences_id);
+
+                    None
+                }
+                Some((name, path)) => {
+                    let icon = get_application_icon(&path)
+                        .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
+                        .ok();
+
+                    Some(
+                        DesktopSettings13AndPostData {
+                            name: name.to_string(),
+                            preferences_id,
+                            icon,
+                        }
+                    )
+                }
+            }
+        })
+        .collect()
 }
 
 fn get_pref_panes_with_kind(file_manager: &FileManager, directory: SearchPathDirectory, mask: SearchPathDomainMask) -> Vec<PathBuf> {
@@ -259,6 +279,26 @@ fn get_items_with_kind<F>(
             tracing::error!("error reading {:?} {:?} directory: {:?}", directory, mask, err);
 
             vec![]
+        }
+    }
+}
+
+fn get_path(
+    file_manager: &FileManager,
+    directory: SearchPathDirectory,
+    mask: SearchPathDomainMask,
+) -> Option<PathBuf> {
+    match file_manager.get_directory(directory.clone(), mask.clone()) {
+        Ok(url) => {
+            let applications_dir = url.to_file_path()
+                .expect("returned application url is not a file path");
+
+            Some(applications_dir)
+        }
+        Err(err) => {
+            tracing::error!("error reading {:?} {:?} directory: {:?}", directory, mask, err);
+
+            None
         }
     }
 }
@@ -355,41 +395,6 @@ fn get_application_icon(app_path: &Path) -> anyhow::Result<Vec<u8>> {
 
         Ok(bytes)
     }
-}
-
-fn get_png_from_icon_path(icon_path: PathBuf) -> Option<Vec<u8>> {
-    let icon_file = std::fs::File::open(icon_path.clone())
-        .inspect_err(|err| tracing::debug!("error while opening icns {:?}: {:?}", icon_path, err))
-        .ok()?;
-
-    let icon_family = icns::IconFamily::read(icon_file)
-        .inspect_err(|err| tracing::debug!("error while reading icns {:?}: {:?}", icon_path, err))
-        .ok()?;
-
-    let bytes = icon_family.available_icons()
-        .into_iter()
-        .max_by_key(|icon_type| icon_type.screen_width())
-        .and_then(|icon_type| {
-            icon_family.get_icon_with_type(icon_type)
-                .inspect_err(|err| tracing::debug!("error while extracting image from icns {:?}: {:?}", icon_path, err))
-                .ok()
-        })
-        .and_then(|image| {
-            let mut buffer = vec![];
-
-            let result = image.write_png(&mut buffer);
-
-            match result {
-                Ok(_) => {
-                    resize_icon(buffer)
-                        .inspect_err(|err| tracing::debug!("error while resizing image {:?}: {:?}", icon_path, err))
-                        .ok()
-                },
-                Err(_) => None,
-            }
-        });
-
-    bytes
 }
 
 #[derive(Deserialize)]
