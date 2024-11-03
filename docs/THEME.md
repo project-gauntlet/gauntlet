@@ -20,13 +20,20 @@ Theming is only applied to main window and doesn't affect settings
 
 ### Creating a custom theme
 
-Gauntlet provides 2 CLI commands to generate sample. Sample is just a default theme that has been saved to file.
-- `gauntlet generate-sample-color-theme`
-- `gauntlet generate-sample-theme`
+Gauntlet provides 2 CLI commands to generate sample: `generate-sample-color-theme` and `generate-sample-color-theme`. Sample is just a default theme that has been saved to file.
 
 Running the command will create sample file, print location of that sample file
 and will print location to which theme file will need to be saved to be detected by application
 
 Currently, theme change is only applied after application restart
 
-Any errors in theme parsing will be shown in application logs 
+Any errors in theme parsing will be shown in application logs
+
+#### Linux
+- `gauntlet generate-sample-color-theme`
+- `gauntlet generate-sample-theme`
+
+#### macOS
+Note: the binary is not on the PATH
+- `/Applications/Gauntlet.app/Contents/MacOS/Gauntlet generate-sample-color-theme`
+- `/Applications/Gauntlet.app/Contents/MacOS/Gauntlet generate-sample-theme`
