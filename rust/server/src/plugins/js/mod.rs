@@ -14,12 +14,12 @@ use deno_core::futures::executor::block_on;
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use deno_core::{futures, op, serde_v8, v8, FastString, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, OpState, ResolutionKind, StaticModuleLoader};
-use deno_runtime::BootstrapOptions;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::deno_io::{Stdio, StdioPipe};
 use deno_runtime::permissions::{Descriptor, EnvDescriptor, NetDescriptor, Permissions, PermissionsContainer, PermissionsOptions, ReadDescriptor, UnaryPermission, WriteDescriptor};
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
+use deno_runtime::BootstrapOptions;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -32,8 +32,7 @@ use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, Se
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
-use crate::model::{IntermediateUiEvent, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, JsKeyboardEventOrigin, PreferenceUserData};
-use crate::plugins::applications::{get_apps, DesktopEntry};
+use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
@@ -41,7 +40,6 @@ use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_r
 use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
-use crate::plugins::js::plugins::applications::{list_applications, open_application};
 use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
@@ -532,8 +530,12 @@ deno_core::extension!(
         run_numbat,
 
         // plugins applications
-        list_applications,
-        open_application,
+        #[cfg(target_os = "linux")]
+        crate::plugins::js::plugins::applications::linux_app_from_path,
+        #[cfg(target_os = "linux")]
+        crate::plugins::js::plugins::applications::linux_application_dirs,
+        #[cfg(target_os = "linux")]
+        crate::plugins::js::plugins::applications::linux_open_application,
 
         // plugins settings
         open_settings,

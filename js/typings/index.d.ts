@@ -110,6 +110,7 @@ interface InternalApi {
     clear_inline_view(): void;
 
     get_command_generator_entrypoint_ids(): Promise<string[]>
+
     get_plugin_preferences(): Record<string, any>;
     get_entrypoint_preferences(entrypointId: string): Record<string, any>;
     plugin_preferences_required(): Promise<boolean>;

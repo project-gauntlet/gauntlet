@@ -1,19 +1,17 @@
-use std::collections::hash_map::Entry::Vacant;
-use std::collections::HashMap;
-use std::{env, fs};
+use std::collections::{HashMap, HashSet};
 use std::fs::Metadata;
-use std::path::{PathBuf};
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
+use crate::plugins::js::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
+use common::dirs::Dirs;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
-use image::ImageFormat;
 use image::imageops::FilterType;
-use serde::Serialize;
+use image::ImageFormat;
 use walkdir::WalkDir;
-use common::dirs::Dirs;
-use crate::plugins::applications::{DesktopEntry, resize_icon};
 
-fn find_application_dirs() -> Option<Vec<PathBuf>> {
+pub fn linux_application_dirs() -> Vec<PathBuf> {
     let data_home = match env::var_os("XDG_DATA_HOME") {
         Some(val) => {
             PathBuf::from(val)
@@ -50,79 +48,65 @@ fn find_application_dirs() -> Option<Vec<PathBuf>> {
     res.push(flatpak);
     res.append(&mut extra_data_dirs);
 
-    let res = res.into_iter()
+    res.into_iter()
         .map(|d| d.join("applications"))
-        .collect();
-
-    Some(res)
+        .collect()
 }
 
-pub fn get_apps() -> Vec<DesktopEntry> {
-    let app_dirs = find_application_dirs()
-        .unwrap_or_default()
+pub fn linux_app_from_path(path: PathBuf) -> Option<DesktopPathAction> {
+    let app_directories = linux_application_dirs();
+
+    let relative_to_app_dir = app_directories
         .into_iter()
-        .filter(|dir| dir.exists())
-        .collect::<Vec<_>>();
+        .find_map(|app_path| path.strip_prefix(app_path).ok());
 
-    let mut result: HashMap<String, DesktopEntry> = HashMap::new();
+    let Some(relative_to_app_dir) = relative_to_app_dir else {
+        return None;
+    };
 
-    for app_dir in app_dirs {
-        let found_desktop_entries = WalkDir::new(app_dir.clone())
-            .into_iter()
-            .filter_map(|dir_entry| dir_entry.ok())
-            .filter_map(|path| {
-                let path = path.path();
+    let Some(relative_to_app_dir) = relative_to_app_dir.to_str() else {
+        return None;
+    };
 
-                tracing::debug!("Found application at: {:?}", path);
+    let Some(extension) = path.extension() else {
+        return None;
+    };
 
-                // follows symlinks needed for flatpak
-                let Ok(metadata) = fs::metadata(path) else {
-                    return None;
-                };
+    let Some("desktop") = extension.to_str() else {
+        return None;
+    };
 
-                if !metadata.is_file() {
-                    return None;
-                }
+    let desktop_file_id = relative_to_app_dir.replace("/", "-");
 
-                let Some(extension) = path.extension() else {
-                    return None;
-                };
+    if !path.exists() {
+        tracing::debug!("Removing application at: {:?}", path);
+        Some(DesktopPathAction::Remove { id: desktop_file_id })
+    } else {
+        // follows symlinks needed for flatpak
+        let Ok(metadata) = fs::metadata(&path) else {
+            return None;
+        };
 
-                match extension.to_str() {
-                    Some("desktop") => {
-                        let desktop_id = path.strip_prefix(&app_dir)
-                            .ok()?
-                            .to_str()?
-                            .to_owned();
+        if !metadata.is_file() {
+            return None;
+        }
 
-                        let entry = create_app_entry(path.to_path_buf())?;
+        if let Some(entry) = create_app_entry(&path) {
+            tracing::debug!("Adding application at: {:?}", path);
 
-                        Some((desktop_id, entry))
-                    },
-                    _ => None,
-                }
+            Some(DesktopPathAction::Add {
+                id: desktop_file_id,
+                data: entry
             })
-            .collect::<HashMap<_, _>>();
-
-        for (path, desktop_entry) in found_desktop_entries {
-            if let Vacant(entry) = result.entry(path) {
-                entry.insert(desktop_entry);
-            }
+        } else {
+            None
         }
     }
-
-    result.into_values().collect()
 }
 
-fn create_app_entry(path: PathBuf) -> Option<DesktopEntry> {
-    let desktop_filename = path.file_name()
-        .expect("desktop file doesn't have filename")
-        .to_os_string()
-        .into_string()
-        .ok()?;
-
-    let entry = parse_entry(&path)
-        .inspect_err(|err| tracing::warn!("error parsing .desktop file at path {:?}: {:?}", &path, err))
+fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
+    let entry = parse_entry(desktop_file_path)
+        .inspect_err(|err| tracing::warn!("error parsing .desktop file at path {:?}: {:?}", desktop_file_path, err))
         .ok()?;
 
     let entry = entry.section("Desktop Entry");
@@ -132,12 +116,10 @@ fn create_app_entry(path: PathBuf) -> Option<DesktopEntry> {
     let no_display = entry.attr("NoDisplay").map(|val| val == "true").unwrap_or(false);
     let hidden = entry.attr("Hidden").map(|val| val == "true").unwrap_or(false);
     // TODO NotShowIn, OnlyShowIn https://wiki.archlinux.org/title/desktop_entries
-    // TODO DBusActivatable
+
     if no_display || hidden {
         return None
     }
-
-    let command = vec!["gtk-launch".to_string(), desktop_filename];
 
     let icon = icon
         .map(|icon| {
@@ -186,14 +168,13 @@ fn create_app_entry(path: PathBuf) -> Option<DesktopEntry> {
         })
         .map(|res| {
             res
-                .inspect_err(|err| tracing::warn!("error processing icon {:?}: {:?}", &path, err))
+                .inspect_err(|err| tracing::warn!("error processing icon of {:?}: {:?}", desktop_file_path, err))
                 .ok()
         })
         .flatten();
 
-    Some(DesktopEntry {
+    Some(DesktopApplication {
         name: name.to_string(),
         icon,
-        command,
     })
 }

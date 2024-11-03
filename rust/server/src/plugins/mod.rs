@@ -31,7 +31,6 @@ mod config_reader;
 mod loader;
 mod run_status;
 mod download_status;
-mod applications;
 mod icon_cache;
 pub(super) mod frecency;
 

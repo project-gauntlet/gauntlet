@@ -27,6 +27,13 @@ description = 'Calculator right under search bar'
 main_search_bar = ["read"]
 clipboard = ["write"]
 
+[permissions.filesystem]
+read = [
+    # technically only uses locations defined by XDG Desktop Entry Specification, but
+    # the spec allows for customization via XDG_DATA_DIRS and XDG_DATA_HOME env vars so it can be any path
+    "/"
+]
+
 [[supported_system]]
 os = 'linux'
 

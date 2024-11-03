@@ -224,7 +224,6 @@ async function runLoop() {
             }
             case "ReloadSearchIndex": {
                 runCommandGenerators()
-                    .then(() => reloadSearchIndex(false));
                 break;
             }
             case "RefreshSearchIndex": {
@@ -240,8 +239,9 @@ denoCore.setPromiseRejectCallback((_type, _promise, reason) => {
     console.error("Rejected promise", reason)
 })
 
-runCommandGenerators()
-    .then(() => reloadSearchIndex(true));
+reloadSearchIndex(true)
+
+runCommandGenerators();
 
 (async () => {
     await runLoop()

@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tantivy::{doc, Index, IndexReader, ReloadPolicy, Searcher};
+use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher};
 use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
@@ -74,7 +74,7 @@ impl SearchIndex {
 
         let index_reader = index
             .reader_builder()
-            .reload_policy(ReloadPolicy::OnCommit)
+            .reload_policy(ReloadPolicy::Manual)
             .try_into()?;
 
         Ok(Self {
@@ -95,12 +95,13 @@ impl SearchIndex {
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
         let mut entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
 
-        let mut index_writer = self.index.writer(5_000_000)?;
+        let mut index_writer = self.index.writer::<TantivyDocument>(15_000_000)?;
 
         index_writer.delete_query(Box::new(
             TermQuery::new(Term::from_field_text(self.plugin_id, &plugin_id.to_string()), IndexRecordOption::Basic)
         ))?;
         index_writer.commit()?;
+        self.index_reader.reload()?;
 
         entrypoint_data.remove(&plugin_id);
 
@@ -114,7 +115,7 @@ impl SearchIndex {
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
         let mut entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
 
-        let mut index_writer = self.index.writer(3_000_000)?;
+        let mut index_writer = self.index.writer::<TantivyDocument>(15_000_000)?;
 
         index_writer.delete_query(Box::new(
             TermQuery::new(Term::from_field_text(self.plugin_id, &plugin_id.to_string()), IndexRecordOption::Basic)
@@ -130,6 +131,7 @@ impl SearchIndex {
         }
 
         index_writer.commit()?;
+        self.index_reader.reload()?;
 
         let data = search_items.iter()
             .map(|item| {
@@ -171,6 +173,8 @@ impl SearchIndex {
     }
 
     pub fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
+        let entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
+
         let searcher = self.index_reader.searcher();
 
         let query_parser = QueryParser::new(
@@ -184,7 +188,7 @@ impl SearchIndex {
         let mut index = 0;
 
         let fetch = std::iter::from_fn(|| -> Option<anyhow::Result<Vec<(SearchResult, f64)>>> {
-            let result = self.fetch(&query, TopDocs::with_limit(20).and_offset(index * 20), &searcher);
+            let result = self.fetch(&entrypoint_data, &query, TopDocs::with_limit(20).and_offset(index * 20), &searcher);
 
             index += 1;
 
@@ -208,22 +212,22 @@ impl SearchIndex {
             .flatten()
             .collect::<Vec<_>>();
 
-        result.sort_by(|(_, score_a), (_, score_b)| score_b.partial_cmp(score_a).unwrap_or(Ordering::Less));
+        result.sort_by(|(_, score_a), (_, score_b)| score_b.total_cmp(score_a));
 
         let result = result.into_iter()
             .map(|(item, _)| item)
             .collect::<Vec<_>>();
 
+        drop(entrypoint_data);
+
         Ok(result)
     }
 
-    fn fetch(&self, query: &dyn Query, collector: TopDocs, searcher: &Searcher) -> anyhow::Result<Vec<(SearchResult, f64)>> {
-        let entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
-
-        let get_str_field = |retrieved_doc: &Document, field: Field| -> String {
+    fn fetch(&self, entrypoint_data: &HashMap<PluginId, HashMap<EntrypointId, EntrypointData>>, query: &dyn Query, collector: TopDocs, searcher: &Searcher) -> anyhow::Result<Vec<(SearchResult, f64)>> {
+        let get_str_field = |retrieved_doc: &TantivyDocument, field: Field| -> String {
             retrieved_doc.get_first(field)
                 .unwrap_or_else(|| panic!("there should be a field with name {:?}", searcher.schema().get_field_name(field)))
-                .as_text()
+                .as_str()
                 .unwrap_or_else(|| panic!("field with name {:?} should contain string", searcher.schema().get_field_name(field)))
                 .to_owned()
         };
@@ -231,7 +235,7 @@ impl SearchIndex {
         let result = searcher.search(query, &collector)?
             .into_iter()
             .map(|(_score, doc_address)| {
-                let retrieved_doc = searcher.doc(doc_address)
+                let retrieved_doc = searcher.doc::<TantivyDocument>(doc_address)
                     .expect("index should contain just searched results");
 
                 let entrypoint_id = EntrypointId::from_string(get_str_field(&retrieved_doc, self.entrypoint_id));
@@ -243,7 +247,7 @@ impl SearchIndex {
                     .get(&plugin_id)
                     .expect("Plugin should always exist in entrypoint data")
                     .get(&entrypoint_id)
-                    .expect("Plugin should always exist in entrypoint data");
+                    .expect("Entrypoint should always exist in plugin in entrypoint data");
 
                 let entrypoint_actions = entrypoint_data.actions.iter()
                     .map(|data| SearchResultEntrypointAction {

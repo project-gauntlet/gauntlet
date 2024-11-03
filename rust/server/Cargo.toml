@@ -9,7 +9,7 @@ deno_runtime = { version = "0.126.0" }
 tokio = "1.28.1"
 tokio-util = "0.7.11"
 toml = "0.8.10"
-tantivy = "0.20.2"
+tantivy = "0.22.0"
 zstd-sys = "=2.0.9" # TODO REMOVE https://github.com/gyscos/zstd-rs/issues/270
 regex = "1.9.3"
 once_cell = "1.18.0"

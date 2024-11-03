@@ -6,12 +6,14 @@
     "dev": "gauntlet dev"
   },
   "dependencies": {
-    "@project-gauntlet/api": "file:../../js/api"
+    "@project-gauntlet/api": "file:../../js/api",
+    "@std/async": "npm:@jsr/std__async@^1.0.8",
+    "@std/fs": "npm:@jsr/std__fs@^1.0.5"
   },
   "devDependencies": {
-    "@types/react": "^18.2.14",
     "@project-gauntlet/deno": "file:../../js/deno",
     "@project-gauntlet/tools": "file:../../tools",
+    "@types/react": "^18.2.14",
     "typescript": "^5.3.3"
   }
 }

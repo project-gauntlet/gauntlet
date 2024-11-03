@@ -22,7 +22,6 @@ export function showHud(display: string): void {
 }
 
 export interface GeneratedCommand {
-    id: string
     name: string
     icon?: ArrayBuffer
     fn: () => void
@@ -34,6 +33,11 @@ export interface GeneratedCommandAction {
     label: string
     fn: () => void
 }
+
+export type GeneratorProps = {
+    add: (id: string, data: GeneratedCommand) => void,
+    remove: (id: string) => void,
+};
 
 export const Clipboard: Clipboard = {
     read: async function (): Promise<{ "text/plain"?: string | undefined; "image/png"?: Blob | undefined; }> {
