@@ -68,9 +68,9 @@ impl PluginWidgetContainer {
     pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        let state = state.get_mut(&event.widget_id()).expect(&format!("requested state should always be present for event with widget id: {}", &event.widget_id()));
-
-        event.handle(plugin_id, state)
+        // TODO for events like typing, synchronous render should be implemented instead of ignoring events
+        state.get_mut(&event.widget_id())
+            .and_then(|state| event.handle(plugin_id, state))
     }
 
     pub fn render_root_widget<'a>(
