@@ -26,6 +26,7 @@ pub enum GlobalState {
         client_context: Arc<StdRwLock<ClientContext>>,
         sub_state: MainViewState,
         pending_plugin_view_data: Option<PluginViewData>,
+        pending_plugin_view_loading_bar: LoadingBarState,
     },
     ErrorView {
         error_view: ErrorViewData,
@@ -70,6 +71,14 @@ pub enum ErrorViewData {
     },
 }
 
+#[derive(Debug, Clone)]
+pub enum LoadingBarState {
+    Off,
+    Pending,
+    On
+}
+
+
 impl GlobalState {
     pub fn new(search_field_id: text_input::Id, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
         GlobalState::MainView {
@@ -78,6 +87,7 @@ impl GlobalState {
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
             client_context,
+            pending_plugin_view_loading_bar: LoadingBarState::Off,
         }
     }
 
@@ -198,7 +208,7 @@ impl Focus<SearchResult> for GlobalState {
 
     fn secondary(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
-            GlobalState::MainView { focused_search_result, sub_state, client_context, .. } => {
+            GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         if let Some(search_result) = focused_search_result.get(focus_list) {

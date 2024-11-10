@@ -59,7 +59,7 @@ use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_liste
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::hud::{close_hud_window, show_hud_window};
 use crate::ui::scroll_handle::ScrollHandle;
-use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
+use crate::ui::state::{ErrorViewData, Focus, GlobalState, LoadingBarState, MainViewState, PluginViewData, PluginViewState};
 use crate::ui::widget_container::PluginWidgetContainer;
 pub use theme::GauntletTheme;
 
@@ -188,6 +188,8 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         show: bool
     },
+    PendingPluginViewLoadingBar,
+    ShowPluginViewLoadingBar,
 }
 
 pub struct AppFlags {
@@ -454,7 +456,10 @@ impl Application for AppModel {
                             action_shortcuts: HashMap::new(),
                         });
 
-                        self.open_plugin_view(plugin_id, entrypoint_id)
+                        Command::batch([
+                            self.open_plugin_view(plugin_id, entrypoint_id),
+                            Command::perform(async move { AppMsg::PendingPluginViewLoadingBar }, std::convert::identity)
+                        ])
                     }
                     GlobalState::ErrorView { .. } => {
                         Command::none()
@@ -515,7 +520,11 @@ impl Application for AppModel {
             }
             AppMsg::ReplaceView { top_level_view, render_location, has_children } => {
                 match &mut self.global_state {
-                    GlobalState::MainView { pending_plugin_view_data, focused_search_result, .. } => {
+                    GlobalState::MainView { pending_plugin_view_data, focused_search_result, pending_plugin_view_loading_bar, .. } => {
+
+                        if let LoadingBarState::Pending = pending_plugin_view_loading_bar {
+                            *pending_plugin_view_loading_bar = LoadingBarState::Off;
+                        }
 
                         if has_children {
                             if let UiRenderLocation::InlineView = render_location {
@@ -1166,6 +1175,26 @@ impl Application for AppModel {
 
                 Command::none()
             }
+            AppMsg::PendingPluginViewLoadingBar => {
+                if let GlobalState::MainView { pending_plugin_view_loading_bar, .. } = &mut self.global_state {
+                    *pending_plugin_view_loading_bar = LoadingBarState::Pending;
+                }
+
+                Command::perform(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+                    AppMsg::ShowPluginViewLoadingBar
+                }, std::convert::identity)
+            }
+            AppMsg::ShowPluginViewLoadingBar => {
+                if let GlobalState::MainView { pending_plugin_view_loading_bar, .. } = &mut self.global_state {
+                    if let LoadingBarState::Pending = pending_plugin_view_loading_bar {
+                        *pending_plugin_view_loading_bar = LoadingBarState::On;
+                    }
+                }
+
+                Command::none()
+            }
         }
     }
 
@@ -1417,7 +1446,7 @@ impl Application for AppModel {
                     }
                 }
             }
-            GlobalState::MainView { focused_search_result, sub_state, search_field_id, .. } => {
+            GlobalState::MainView { focused_search_result, sub_state, search_field_id, pending_plugin_view_loading_bar, .. } => {
                 let input: Element<_> = text_input("Search...", &self.prompt)
                     .on_input(AppMsg::PromptChanged)
                     .on_submit(AppMsg::PromptSubmit)
@@ -1450,7 +1479,7 @@ impl Application for AppModel {
                     .width(Length::Fill)
                     .themed(ContainerStyle::MainSearchBar);
 
-                let separator = if !self.loading_bar_state.is_empty() {
+                let separator = if matches!(pending_plugin_view_loading_bar, LoadingBarState::On) || !self.loading_bar_state.is_empty() {
                     LoadingBar::new()
                         .into()
                 } else {
