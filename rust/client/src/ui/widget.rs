@@ -8,8 +8,9 @@ use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
 use iced::{Alignment, Font, Length};
+use iced::widget::image::Handle;
 use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
@@ -38,14 +39,20 @@ use crate::ui::AppMsg;
 #[derive(Debug)]
 pub struct ComponentWidgets<'b> {
     root_widget: &'b mut Option<RootWidget>,
-    state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>
+    state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+    images: &'b HashMap<UiWidgetId, bytes::Bytes>
 }
 
 impl<'b> ComponentWidgets<'b> {
-    pub fn new(root_widget: &'b mut Option<RootWidget>, state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>) -> ComponentWidgets<'b> {
+    pub fn new(
+        root_widget: &'b mut Option<RootWidget>,
+        state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+        images: &'b HashMap<UiWidgetId, bytes::Bytes>
+    ) -> ComponentWidgets<'b> {
         Self {
             root_widget,
-            state
+            state,
+            images
         }
     }
 
@@ -653,7 +660,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_image_widget<'a>(&self, widget: &ImageWidget, centered: bool) -> Element<'a, ComponentWidgetEvent> {
         // TODO image size, height and width
-        let content: Element<_> = render_image(&widget.source, None);
+        let content: Element<_> = self.render_image(widget.__id__, &widget.source, None);
 
         let mut content = container(content)
             .width(Length::Fill);
@@ -1066,7 +1073,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_empty_view_widget<'a>(&self, widget: &EmptyViewWidget) -> Element<'a, ComponentWidgetEvent> {
         let image: Option<Element<_>> = widget.image
             .as_ref()
-            .map(|image| render_image(image, Some(TextStyle::EmptyViewSubtitle)));
+            .map(|image| self.render_image(widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
 
         let title: Element<_> = text(&widget.title)
             .shaping(Shaping::Advanced)
@@ -1112,7 +1119,7 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_icon_accessory<'a>(&self, widget: &IconAccessoryWidget) -> Element<'a, ComponentWidgetEvent> {
-        let icon = render_image(&widget.icon, Some(TextStyle::IconAccessory));
+        let icon = self.render_image(widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
 
         let content = container(icon)
             .center_x()
@@ -1135,7 +1142,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_text_accessory<'a>(&self, widget: &TextAccessoryWidget) -> Element<'a, ComponentWidgetEvent> {
         let icon: Option<Element<_>> = widget.icon
             .as_ref()
-            .map(|icon| render_image(icon, Some(TextStyle::TextAccessory)));
+            .map(|icon| self.render_image(widget.__id__, icon, Some(TextStyle::TextAccessory)));
 
         let text_content: Element<_> = text(&widget.text)
             .shaping(Shaping::Advanced)
@@ -1302,7 +1309,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_list_item_widget<'a>(&self, widget: &ListItemWidget) -> Element<'a, ComponentWidgetEvent> {
         let icon: Option<Element<_>> = widget.icon
             .as_ref()
-            .map(|icon| render_image(icon, None));
+            .map(|icon| self.render_image(widget.__id__, icon, None));
 
         let title: Element<_> = text(&widget.title)
             .shaping(Shaping::Advanced)
@@ -1640,29 +1647,33 @@ impl<'b> ComponentWidgets<'b> {
             }
         }
     }
-}
 
-fn render_image<'a>(image: &Image, icon_style: Option<TextStyle>) -> Element<'a, ComponentWidgetEvent> {
-    match image {
-        Image::ImageSource(source) => {
-            // TODO image support
-            // image(Handle::from_memory(bytes.clone()))
-            //     .into()
-
-            horizontal_space()
-                .into()
-        }
-        Image::Icons(icon) => {
-            match icon_style {
-                None => {
-                    text(icon_to_bootstrap(icon))
-                        .font(icons::BOOTSTRAP_FONT)
-                        .into()
+    fn render_image<'a>(&self, widget_id: UiWidgetId, image_data: &Image, icon_style: Option<TextStyle>) -> Element<'a, ComponentWidgetEvent> {
+        match image_data {
+            Image::ImageSource(_) => {
+                match self.images.get(&widget_id) {
+                    Some(bytes) => {
+                        image(Handle::from_memory(bytes.clone()))
+                            .into()
+                    }
+                    None => {
+                        horizontal_space()
+                            .into()
+                    }
                 }
-                Some(icon_style) => {
-                    text(icon_to_bootstrap(icon))
-                        .font(icons::BOOTSTRAP_FONT)
-                        .themed(icon_style)
+            }
+            Image::Icons(icon) => {
+                match icon_style {
+                    None => {
+                        text(icon_to_bootstrap(icon))
+                            .font(icons::BOOTSTRAP_FONT)
+                            .into()
+                    }
+                    Some(icon_style) => {
+                        text(icon_to_bootstrap(icon))
+                            .font(icons::BOOTSTRAP_FONT)
+                            .themed(icon_style)
+                    }
                 }
             }
         }

@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 pub struct PluginWidgetContainer {
     root_widget: Arc<Mutex<Option<RootWidget>>>,
     state: Arc<Mutex<HashMap<UiWidgetId, ComponentWidgetState>>>,
+    images: HashMap<UiWidgetId, bytes::Bytes>,
     plugin_id: Option<PluginId>,
     plugin_name: Option<String>,
     entrypoint_id: Option<EntrypointId>,
@@ -23,6 +24,7 @@ impl PluginWidgetContainer {
         Self {
             root_widget: Arc::new(Mutex::new(None)),
             state: Arc::new(Mutex::new(HashMap::new())),
+            images: HashMap::new(),
             plugin_id: None,
             plugin_name: None,
             entrypoint_id: None,
@@ -38,13 +40,22 @@ impl PluginWidgetContainer {
         self.entrypoint_id.clone().expect("entrypoint id should always exist after render")
     }
 
-    pub fn replace_view(&mut self, container: RootWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
+    pub fn replace_view(
+        &mut self,
+        container: RootWidget,
+        images: HashMap<UiWidgetId, bytes::Bytes>,
+        plugin_id: &PluginId,
+        plugin_name: &str,
+        entrypoint_id: &EntrypointId,
+        entrypoint_name: &str
+    ) {
         tracing::trace!("replace_view is called. container: {:?}", container);
 
         self.plugin_id = Some(plugin_id.clone());
         self.plugin_name = Some(plugin_name.to_string());
         self.entrypoint_id = Some(entrypoint_id.clone());
         self.entrypoint_name = Some(entrypoint_name.to_string());
+        self.images = images;
 
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
@@ -81,7 +92,7 @@ impl PluginWidgetContainer {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state)
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images)
             .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts)
     }
 
@@ -89,7 +100,7 @@ impl PluginWidgetContainer {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state)
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images)
             .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
     }
 
@@ -97,41 +108,41 @@ impl PluginWidgetContainer {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state).toggle_action_panel()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).toggle_action_panel()
     }
 
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state).get_action_ids()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).get_action_ids()
     }
 
     pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state).get_action_panel(action_shortcuts)
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).get_action_panel(action_shortcuts)
     }
 
     pub fn keyboard_navigation_width(&self) -> Option<usize> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state).keyboard_navigation_width()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).keyboard_navigation_width()
     }
 
     pub fn keyboard_navigation_total(&self) -> usize {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state).keyboard_navigation_total()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).keyboard_navigation_total()
     }
 
     pub fn has_search_bar(&self) -> bool {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state).has_search_bar()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).has_search_bar()
     }
 }

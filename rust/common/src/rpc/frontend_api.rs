@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use anyhow::anyhow;
 use thiserror::Error;
 use utils::channel::{RequestError, RequestSender};
 
-use crate::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData};
+use crate::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 
 #[derive(Error, Debug)]
 pub enum FrontendApiError {
@@ -47,6 +48,7 @@ impl FrontendApi {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
+        images: HashMap<UiWidgetId, bytes::Bytes>,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
             plugin_id,
@@ -56,6 +58,7 @@ impl FrontendApi {
             render_location,
             top_level_view,
             container,
+            images,
         };
 
         let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {

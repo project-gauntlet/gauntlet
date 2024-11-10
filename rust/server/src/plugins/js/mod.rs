@@ -637,13 +637,13 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
 
 async fn make_request_async(plugin_id: PluginId, plugin_name: String, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id, entrypoint_name } => {
+        JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id, entrypoint_name, images } => {
             let render_location = match render_location { // TODO into?
                 JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
                 JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
-            frontend_api.replace_view(plugin_id, plugin_name, entrypoint_id, entrypoint_name, render_location, top_level_view, container).await?;
+            frontend_api.replace_view(plugin_id, plugin_name, entrypoint_id, entrypoint_name, render_location, top_level_view, container, images).await?;
 
             Ok(JsUiResponseData::Nothing)
         }

@@ -9,7 +9,7 @@ use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use indexmap::IndexMap;
 use serde::{de, Deserialize, Deserializer};
 use serde::de::Error;
-use common::model::{EntrypointId, PhysicalKey, PluginId, RootWidget, UiPropertyValue, UiWidget};
+use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, EntrypointId, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Image, ImageSource, ImageSourceAsset, ImageSourceUrl, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectItemWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiPropertyValue, UiWidget, UiWidgetId, WidgetVisitor};
 use component_model::{Component, Property, PropertyType, SharedType};
 use component_model::Component::Root;
 use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
@@ -81,18 +81,25 @@ fn op_react_replace_view<'a>(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
-    let comp_state = state.borrow();
-    let entrypoint_names = comp_state.borrow::<PluginData>();
-
     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
-    let entrypoint_name = entrypoint_names.entrypoint_names
-        .get(&entrypoint_id)
-        .expect("entrypoint name for id should always exist")
-        .to_string();
+    let entrypoint_name = {
+        let comp_state = state.borrow();
+
+        let plugin_data = comp_state.borrow::<PluginData>();
+
+        let entrypoint_name = plugin_data.entrypoint_names
+            .get(&entrypoint_id)
+            .expect("entrypoint name for id should always exist")
+            .to_string();
+
+        entrypoint_name
+    };
 
     let mut deserializer = serde_v8::Deserializer::new(scope, container.v8_value, None);
     let container = RootWidget::deserialize(&mut deserializer)?;
+
+    let images = ImageGatherer::run_gatherer(state.clone(), &container)?;
 
     let data = JsUiRequestData::ReplaceView {
         entrypoint_id,
@@ -100,6 +107,7 @@ fn op_react_replace_view<'a>(
         render_location,
         top_level_view,
         container,
+        images,
     };
 
     match make_request(&state, data).context("ReplaceView frontend response")? {
@@ -200,22 +208,38 @@ async fn update_loading_bar(state: Rc<RefCell<OpState>>, entrypoint_id: String, 
     }
 }
 
+struct ImageGatherer {
+    state: Rc<RefCell<OpState>>,
+    image_sources: HashMap<UiWidgetId, anyhow::Result<bytes::Bytes>>
+}
 
-// TODO move to separate file
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum ImageSourceOld {
-    Asset {
-        asset: String
-    },
-    Url {
-        url: String
+impl WidgetVisitor for ImageGatherer {
+    fn image(&mut self, widget_id: UiWidgetId, widget: &Image) {
+        if let Image::ImageSource(image_source) = &widget {
+            self.image_sources.insert(widget_id, get_image_date(self.state.clone(), image_source));
+        }
     }
 }
 
-fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: ImageSourceOld) -> anyhow::Result<(String, UiPropertyValue)> {
+impl ImageGatherer {
+    fn run_gatherer(state: Rc<RefCell<OpState>>, root_widget: &RootWidget) -> anyhow::Result<HashMap<UiWidgetId, bytes::Bytes>> {
+        let mut gatherer = Self {
+            state,
+            image_sources: HashMap::new()
+        };
+
+        gatherer.root_widget(root_widget);
+
+        gatherer.image_sources
+            .into_iter()
+            .map(|(widget_id, image)| image.map(|image| (widget_id, image)))
+            .collect::<anyhow::Result<_>>()
+    }
+}
+
+fn get_image_date(state: Rc<RefCell<OpState>>, source: &ImageSource) -> anyhow::Result<bytes::Bytes> {
     match source {
-        ImageSourceOld::Asset { asset } => {
+        ImageSource::ImageSourceAsset(ImageSourceAsset { asset }) => {
             let bytes = {
                 let state = state.borrow();
 
@@ -233,9 +257,9 @@ fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: Image
                 })?
             };
 
-            Ok((name, UiPropertyValue::Bytes(bytes::Bytes::from(bytes))))
+            Ok(bytes::Bytes::from(bytes))
         }
-        ImageSourceOld::Url { url } => {
+        ImageSource::ImageSourceUrl(ImageSourceUrl { url }) => {
             // FIXME implement error handling so it doesn't error whole view
             // TODO implement caching
 
@@ -246,7 +270,7 @@ fn convert_image_source(state: Rc<RefCell<OpState>>, name: String, source: Image
                 .collect::<std::io::Result<Vec<u8>>>()?
                 .into();
 
-            Ok((name, UiPropertyValue::Bytes(bytes)))
+            Ok(bytes)
         }
     }
 }

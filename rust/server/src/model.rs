@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, UiPropertyValue, UiWidgetId};
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,7 @@ pub enum JsUiRequestData {
         render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
+        images: HashMap<UiWidgetId, bytes::Bytes>,
     },
     ClearInlineView,
     ShowPluginErrorView {

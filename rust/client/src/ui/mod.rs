@@ -2007,13 +2007,15 @@ async fn request_loop(
                     entrypoint_name,
                     render_location,
                     top_level_view,
-                    container
+                    container,
+                    images
                 } => {
                     let has_children = container.content.is_some();
 
                     client_context.replace_view(
                         render_location,
                         container,
+                        images,
                         &plugin_id,
                         &plugin_name,
                         &entrypoint_id,
