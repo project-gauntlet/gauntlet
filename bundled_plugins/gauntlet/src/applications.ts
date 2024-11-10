@@ -47,7 +47,7 @@ interface InternalApi {
 
     linux_open_application(desktop_id: string): void
     linux_application_dirs(): string[]
-    linux_app_from_path(path: string): undefined | DesktopPathAction<LinuxDesktopApplicationData>
+    linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
 
     macos_major_version(): number
 
@@ -58,8 +58,8 @@ interface InternalApi {
 
     macos_system_applications(): string[]
     macos_application_dirs(): string[]
-    macos_app_from_path(path: string): undefined | DesktopPathAction<MacOSDesktopApplicationData>
-    macos_app_from_arbitrary_path(path: string): undefined | DesktopPathAction<MacOSDesktopApplicationData>
+    macos_app_from_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
+    macos_app_from_arbitrary_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     macos_open_application(app_path: String): void
 }
 
@@ -106,7 +106,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
             }
 
             for (const path of InternalApi.macos_system_applications()) {
-                const app = InternalApi.macos_app_from_path(path)
+                const app = await InternalApi.macos_app_from_path(path)
                 if (app) {
                     switch (app.type) {
                         case "add": {
@@ -146,7 +146,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
 
 async function genericGenerator<DATA>(
     directoriesToWatch: string[],
-    appFromPath: (path: string) => undefined | DesktopPathAction<DATA>,
+    appFromPath: (path: string) => Promise<undefined | DesktopPathAction<DATA>>,
     commandFromApp: (id: string, data: DATA) => GeneratedCommand,
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
@@ -165,7 +165,7 @@ async function genericGenerator<DATA>(
 
     for (const path of paths) {
         for await (const dirEntry of walk(path, walkOpts)) {
-            const app = appFromPath(dirEntry.path);
+            const app = await appFromPath(dirEntry.path);
             if (app) {
                 switch (app.type) {
                     case "add": {
@@ -180,13 +180,13 @@ async function genericGenerator<DATA>(
     const watcher = Deno.watchFs(paths);
 
     const handle = debounce(
-        (event: Deno.FsEvent) => {
+        async (event: Deno.FsEvent) => {
             switch (event.kind) {
                 case "create":
                 case "modify":
                 case "remove": {
                     for (const path of event.paths) {
-                        const app = appFromPath(path);
+                        const app = await appFromPath(path);
                         if (app) {
                             switch (app.type) {
                                 case "remove": {

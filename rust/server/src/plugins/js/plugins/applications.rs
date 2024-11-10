@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use image::ImageFormat;
 use image::imageops::FilterType;
 use serde::Serialize;
+use tokio::task::spawn_blocking;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -69,8 +70,8 @@ pub fn current_os() -> &'static str {
 
 #[cfg(target_os = "linux")]
 #[op]
-pub fn linux_app_from_path(path: String) -> Option<DesktopPathAction> {
-    linux::linux_app_from_path(PathBuf::from(path))
+pub async fn linux_app_from_path(path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+    Ok(spawn_blocking(|| linux::linux_app_from_path(PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "linux")]
@@ -99,14 +100,14 @@ pub fn macos_major_version() -> u8 {
 
 #[cfg(target_os = "macos")]
 #[op]
-pub fn macos_app_from_path(path: String) -> Option<DesktopPathAction> {
-    macos::macos_app_from_path(&PathBuf::from(path))
+pub async fn macos_app_from_path(path: String) -> Result<Option<DesktopPathAction>> {
+    Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "macos")]
 #[op]
-pub fn macos_app_from_arbitrary_path(path: String) -> Option<DesktopPathAction> {
-    macos::macos_app_from_arbitrary_path(PathBuf::from(path))
+pub async fn macos_app_from_arbitrary_path(path: String) -> Result<Option<DesktopPathAction>> {
+    Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "macos")]
