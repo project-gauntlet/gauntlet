@@ -470,7 +470,7 @@ impl<'b> ComponentWidgets<'b> {
                                 let content = self.render_detail_widget(widget, false);
 
                                 self.render_plugin_root(
-                                    show_action_panel,
+                                    *show_action_panel,
                                     widget.__id__,
                                     &None,
                                     &widget.content.actions,
@@ -980,7 +980,7 @@ impl<'b> ComponentWidgets<'b> {
             .themed(ContainerStyle::Form);
 
         self.render_plugin_root(
-            show_action_panel,
+            *show_action_panel,
             widget_id,
             &None,
             &widget.content.actions,
@@ -1271,7 +1271,7 @@ impl<'b> ComponentWidgets<'b> {
             .into();
 
         self.render_plugin_root(
-            show_action_panel,
+            *show_action_panel,
             widget_id,
             &list_widget.content.search_bar,
             &list_widget.content.actions,
@@ -1419,7 +1419,7 @@ impl<'b> ComponentWidgets<'b> {
             .themed(ContainerStyle::Grid);
 
         self.render_plugin_root(
-            show_action_panel,
+            *show_action_panel,
             grid_widget.__id__,
             &grid_widget.content.search_bar,
             &grid_widget.content.actions,
@@ -1567,7 +1567,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_plugin_root<'a>(
         &self,
-        show_action_panel: &bool,
+        show_action_panel: bool,
         widget_id: UiWidgetId,
         search_bar: &Option<SearchBarWidget>,
         action_panel: &Option<ActionPanelWidget>,
@@ -1618,7 +1618,8 @@ impl<'b> ComponentWidgets<'b> {
                     entrypoint_name,
                     || ComponentWidgetEvent::ToggleActionPanel { widget_id },
                     |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id },
-                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
+                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id },
+                    || ComponentWidgetEvent::Noop,
                 )
             }
             PluginViewState::ActionPanel { focused_action_item } => {
@@ -1633,7 +1634,8 @@ impl<'b> ComponentWidgets<'b> {
                     entrypoint_name,
                     || ComponentWidgetEvent::ToggleActionPanel { widget_id },
                     |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id },
-                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id }
+                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id },
+                    || ComponentWidgetEvent::Noop,
                 )
             }
         }
@@ -1981,7 +1983,7 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
 }
 
 pub fn render_root<'a, T: 'a + Clone, ACTION>(
-    show_action_panel: &bool,
+    show_action_panel: bool,
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
     content: Element<'a, T>,
@@ -1992,6 +1994,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     on_panel_toggle_click: impl Fn() -> T,
     on_panel_primary_click: impl Fn(UiWidgetId) -> T,
     on_action_click: impl Fn(UiWidgetId) -> T,
+    noop_msg: impl Fn() -> T,
 ) -> Element<'a, T>  {
     let entrypoint_name: Element<_> = text(entrypoint_name)
         .shaping(Shaping::Advanced)
@@ -2109,13 +2112,9 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_panel])
         .into();
 
-    let content = if hide_action_panel {
-        content
-    } else {
-        mouse_area(content)
-            .on_press(on_panel_toggle_click())
-            .into()
-    };
+    let content: Element<_> = mouse_area(content)
+        .on_press(if hide_action_panel { noop_msg() } else { on_panel_toggle_click() })
+        .into();
 
     let action_panel_element = match (action_panel, action_panel_scroll_handle) {
         (Some(action_panel), Some(action_panel_scroll_handle)) => render_action_panel(action_panel, on_action_click, action_panel_scroll_handle),
@@ -2227,6 +2226,7 @@ pub enum ComponentWidgetEvent {
     RunPrimaryAction {
         widget_id: UiWidgetId,
     },
+    Noop,
 }
 
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
@@ -2338,8 +2338,8 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::GridItemClick { widget_id } => {
                 Some(create_grid_item_on_click_event(widget_id))
             }
-            ComponentWidgetEvent::PreviousView => {
-                panic!("handle event on PreviousView event is not supposed to be called")
+            ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => {
+                panic!("widget_id on these events is not supposed to be called")
             }
             ComponentWidgetEvent::RunPrimaryAction { widget_id } => {
                 Some(UiViewEvent::AppEvent {
@@ -2367,7 +2367,7 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::ListItemClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::GridItemClick { widget_id, .. } => widget_id,
             ComponentWidgetEvent::RunPrimaryAction { widget_id } => widget_id,
-            ComponentWidgetEvent::PreviousView => panic!("widget_id on PreviousView event is not supposed to be called"),
+            ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => panic!("widget_id on these events is not supposed to be called"),
         }.to_owned()
     }
 }

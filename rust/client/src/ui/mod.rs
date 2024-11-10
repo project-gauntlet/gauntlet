@@ -724,6 +724,7 @@ impl Application for AppModel {
                 self.hide_window()
             }
             AppMsg::IcedEvent(_) => Command::none(),
+            AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::Noop, .. } => Command::none(),
             AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => self.global_state.back(),
             AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
                 self.handle_plugin_event(widget_event, plugin_id, render_location)
@@ -1524,7 +1525,7 @@ impl Application for AppModel {
                 let root = match sub_state {
                     MainViewState::None => {
                         render_root(
-                            &false,
+                            false,
                             input,
                             separator,
                             content,
@@ -1535,11 +1536,12 @@ impl Application for AppModel {
                             || AppMsg::ToggleActionPanel { keyboard: false },
                             |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
                             |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
+                            || AppMsg::Noop,
                         )
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
                         render_root(
-                            &true,
+                            true,
                             input,
                             separator,
                             content,
@@ -1550,11 +1552,12 @@ impl Application for AppModel {
                             || AppMsg::ToggleActionPanel { keyboard: false },
                             |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
                             |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
+                            || AppMsg::Noop,
                         )
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item, .. } => {
                         render_root(
-                            &true,
+                            true,
                             input,
                             separator,
                             content,
@@ -1565,6 +1568,7 @@ impl Application for AppModel {
                             || AppMsg::ToggleActionPanel { keyboard: false },
                             |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
                             |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
+                            || AppMsg::Noop,
                         )
                     }
                 };
