@@ -82,10 +82,8 @@ pub enum PropertyType {
     Function {
         arguments: Vec<Property>
     },
-    #[serde(rename = "image_source")]
-    ImageSource,
-    #[serde(rename = "enum")]
-    Enum {
+    #[serde(rename = "shared_type_ref")]
+    SharedTypeRef {
         name: String
     },
     #[serde(rename = "union")]
@@ -96,70 +94,39 @@ pub enum PropertyType {
     Array {
         item: Box<PropertyType>
     },
-    #[serde(rename = "object")]
-    Object {
-        name: String,
-    },
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum PropertyKind {
+    Event,
+    Component,
+    Property
 }
 
 impl PropertyType {
-    pub fn is_in_children(&self) -> bool {
+    // whether the component property, after being sent to rust, is in react properties, children, or a function
+    pub fn kind(&self) -> PropertyKind {
         match self {
-            PropertyType::String => false,
-            PropertyType::Number => false,
-            PropertyType::Boolean => false,
-            PropertyType::Component { .. } => true,
-            PropertyType::Function { .. } => false,
-            PropertyType::ImageSource => false,
-            PropertyType::Enum { .. } => false,
+            PropertyType::String => PropertyKind::Property,
+            PropertyType::Number => PropertyKind::Property,
+            PropertyType::Boolean => PropertyKind::Property,
+            PropertyType::Component { .. } => PropertyKind::Component,
+            PropertyType::Function { .. } => PropertyKind::Event,
+            PropertyType::SharedTypeRef { .. } => PropertyKind::Property,
             PropertyType::Union { items } => {
-                let all_in = items.iter().all(|prop_type| prop_type.is_in_children());
-                let any_in = items.iter().any(|prop_type| prop_type.is_in_children());
-
-                if all_in && any_in {
-                    true
-                } else {
-                    let all_not_in = items.iter().all(|prop_type| !prop_type.is_in_children());
-                    let any_not_in = items.iter().any(|prop_type| !prop_type.is_in_children());
-                    if all_not_in && any_not_in {
-                        false
-                    } else {
-                        panic!("all items in union should be of the same kind")
-                    }
+                if items.is_empty() {
+                    panic!("Union property cannot be empty")
                 }
-            }
-            PropertyType::Array { item } => item.is_in_children(),
-            PropertyType::Object { .. } => false,
-        }
-    }
 
-    pub fn is_in_property(&self) -> bool {
-        match self {
-            PropertyType::String => true,
-            PropertyType::Number => true,
-            PropertyType::Boolean => true,
-            PropertyType::Component { .. } => false,
-            PropertyType::Function { .. } => false,
-            PropertyType::ImageSource => true,
-            PropertyType::Enum { .. } => true,
-            PropertyType::Union { items } => {
-                let all_in = items.iter().all(|prop_type| prop_type.is_in_property());
-                let any_in = items.iter().any(|prop_type| prop_type.is_in_property());
+                let first_variant = &items[0];
 
-                if all_in && any_in {
-                    true
-                } else {
-                    let all_not_in = items.iter().all(|prop_type| !prop_type.is_in_property());
-                    let any_not_in = items.iter().any(|prop_type| !prop_type.is_in_property());
-                    if all_not_in && any_not_in {
-                        false
-                    } else {
-                        panic!("all items in union should be of the same kind")
-                    }
-                }
+                if !items.iter().all(|variant| variant.kind() == first_variant.kind()) {
+                    panic!("all items in union should be of the same kind: {:?}", items)
+                };
+
+                first_variant.kind()
             }
-            PropertyType::Array { item } => item.is_in_property(),
-            PropertyType::Object { .. } => true,
+            PropertyType::Array { item } => item.kind(),
         }
     }
 }
@@ -174,7 +141,22 @@ pub enum SharedType {
     #[serde(rename = "object")]
     Object {
         items: IndexMap<String, PropertyType>
+    },
+    #[serde(rename = "union")]
+    Union {
+        items: Vec<PropertyType>
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
+pub enum Arity {
+    #[serde(rename = "zero_or_one")]
+    ZeroOrOne,
+    #[serde(rename = "one")]
+    One,
+    #[serde(rename = "zero_or_more")]
+    ZeroOrMore,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -182,13 +164,15 @@ pub enum SharedType {
 pub enum Children {
     #[serde(rename = "string_or_members")]
     StringOrMembers {
-        members: IndexMap<String, ComponentRef>,
+        ordered_members: IndexMap<String, ComponentRef>,
+        per_type_members: IndexMap<String, ComponentRef>,
         #[serde(rename = "textPartInternalName")]
         text_part_internal_name: String,
     },
     #[serde(rename = "members")]
     Members {
-        members: IndexMap<String, ComponentRef>,
+        ordered_members: IndexMap<String, ComponentRef>,
+        per_type_members: IndexMap<String, ComponentRef>,
     },
     #[serde(rename = "string")]
     String {
@@ -206,22 +190,27 @@ pub struct ComponentRef {
     pub component_internal_name: String,
     #[serde(rename = "componentName")]
     pub component_name: ComponentName,
+    pub arity: Arity,
 }
 
-fn children_string_or_members<I>(members: I) -> Children
-    where I: IntoIterator<Item=(String, ComponentRef)>
+fn children_string_or_members<I1, I2>(ordered_members: I1, per_type_members: I2) -> Children
+where I1: IntoIterator<Item=(String, ComponentRef)>,
+      I2: IntoIterator<Item=(String, ComponentRef)>
 {
     Children::StringOrMembers {
         text_part_internal_name: "text_part".to_owned(),
-        members: members.into_iter().collect(),
+        ordered_members: ordered_members.into_iter().collect(),
+        per_type_members: per_type_members.into_iter().collect(),
     }
 }
 
-fn children_members<I>(members: I) -> Children
-    where I: IntoIterator<Item=(String, ComponentRef)>
+fn children_members<I1, I2>(ordered_members: I1, per_type_members: I2) -> Children
+where I1: IntoIterator<Item=(String, ComponentRef)>,
+      I2: IntoIterator<Item=(String, ComponentRef)>
 {
     Children::Members {
-        members: members.into_iter().collect(),
+        ordered_members: ordered_members.into_iter().collect(),
+        per_type_members: per_type_members.into_iter().collect(),
     }
 }
 
@@ -236,7 +225,7 @@ fn children_none() -> Children {
     Children::None
 }
 
-fn member(member_name: impl ToString, component: &Component) -> (String, ComponentRef) {
+fn member(member_name: impl ToString, component: &Component, arity: Arity) -> (String, ComponentRef) {
     match component {
         Component::Standard { internal_name, name, .. } => {
             (
@@ -244,6 +233,7 @@ fn member(member_name: impl ToString, component: &Component) -> (String, Compone
                 ComponentRef {
                     component_internal_name: internal_name.to_owned(),
                     component_name: name.to_owned(),
+                    arity
                 }
             )
         }
@@ -265,13 +255,14 @@ fn component<I>(internal_name: impl ToString, description: String, name: impl To
     }
 }
 
-fn component_ref(component: &Component) -> PropertyType {
+fn component_ref(component: &Component, arity: Arity) -> PropertyType {
     match component {
         Component::Standard { internal_name, name, .. } => {
             PropertyType::Component {
                 reference: ComponentRef {
                     component_internal_name: internal_name.to_owned(),
                     component_name: name.to_owned(),
+                    arity
                 }
             }
         }
@@ -305,7 +296,7 @@ fn root(children: &[&Component]) -> Component {
             .map(|child| {
                 match child {
                     Component::Standard { internal_name, name, .. } => {
-                        ComponentRef { component_name: name.to_owned(), component_internal_name: internal_name.to_owned() }
+                        ComponentRef { component_name: name.to_owned(), component_internal_name: internal_name.to_owned(), arity: Arity::ZeroOrOne }
                     }
                     Component::Root { .. } => panic!("invalid root child"),
                     Component::TextPart { .. } => panic!("invalid root child"),
@@ -543,6 +534,40 @@ fn root(children: &[&Component]) -> Component {
 
                 ].into_iter().map(|s| s.to_string()).collect()
             }),
+            ("ImageSourceUrl".to_owned(), SharedType::Object {
+                items: {
+                    let mut map = IndexMap::new();
+                    map.insert("url".to_string(), PropertyType::String);
+                    map
+                },
+            }),
+            ("ImageSourceAsset".to_owned(), SharedType::Object {
+                items: {
+                    let mut map = IndexMap::new();
+                    map.insert("asset".to_string(), PropertyType::String);
+                    map
+                },
+            }),
+            ("ImageSource".to_owned(), SharedType::Union {
+                items: vec![
+                    PropertyType::SharedTypeRef {
+                        name: "ImageSourceUrl".to_owned()
+                    },
+                    PropertyType::SharedTypeRef {
+                        name: "ImageSourceAsset".to_owned()
+                    },
+                ]
+            }),
+            ("Image".to_owned(), SharedType::Union {
+                items: vec![
+                    PropertyType::SharedTypeRef {
+                        name: "ImageSource".to_owned()
+                    },
+                    PropertyType::SharedTypeRef {
+                        name: "Icons".to_owned()
+                    }
+                ],
+            }),
         ]),
     }
 }
@@ -590,9 +615,12 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/action_panel_section/props/title.md"), true, PropertyType::String),
         ],
-        children_members([
-            member("Action", &action_component),
-        ]),
+        children_members(
+            [
+                member("Action", &action_component, Arity::ZeroOrMore),
+            ],
+            []
+        ),
     );
 
 
@@ -603,10 +631,13 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/action_panel/props/title.md"), true, PropertyType::String),
         ],
-        children_members([
-            member("Action", &action_component),
-            member("Section", &action_panel_section_component),
-        ]),
+        children_members(
+            [
+                member("Action", &action_component, Arity::ZeroOrMore),
+                member("Section", &action_panel_section_component, Arity::ZeroOrMore),
+            ],
+            []
+        ),
     );
 
 
@@ -639,9 +670,12 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("label", mark_doc!("/metadata_tag_list/props/label.md"), false, PropertyType::String)
         ],
-        children_members([
-            member("Item", &metadata_tag_item_component),
-        ]),
+        children_members(
+            [
+                member("Item", &metadata_tag_item_component, Arity::ZeroOrMore),
+            ],
+            [],
+        ),
     );
 
     let metadata_separator_component = component(
@@ -657,7 +691,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/metadata_icon/description.md"),
         "MetadataIcon",
         [
-            property("icon", mark_doc!("/metadata_icon/props/icon.md"), false, PropertyType::Enum { name: "Icons".to_owned() }),
+            property("icon", mark_doc!("/metadata_icon/props/icon.md"), false, PropertyType::SharedTypeRef { name: "Icons".to_owned() }),
             property("label", mark_doc!("/metadata_icon/props/label.md"), false, PropertyType::String),
         ],
         children_none(),
@@ -678,13 +712,16 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/metadata/description.md"),
         "Metadata",
         [],
-        children_members([
-            member("TagList", &metadata_tag_list_component),
-            member("Link", &metadata_link_component),
-            member("Value", &metadata_value_component),
-            member("Icon", &metadata_icon_component),
-            member("Separator", &metadata_separator_component),
-        ]),
+        children_members(
+            [
+                member("TagList", &metadata_tag_list_component, Arity::ZeroOrMore),
+                member("Link", &metadata_link_component, Arity::ZeroOrMore),
+                member("Value", &metadata_value_component, Arity::ZeroOrMore),
+                member("Icon", &metadata_icon_component, Arity::ZeroOrMore),
+                member("Separator", &metadata_separator_component, Arity::ZeroOrMore),
+            ],
+            [],
+        ),
     );
 
     // let link_component = component(
@@ -701,7 +738,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/image/description.md"),
         "Image",
         [
-            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] })
+            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::SharedTypeRef { name: "Image".to_owned() })
         ],
         children_none(),
     );
@@ -795,20 +832,23 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/content/description.md"),
         "Content",
         [],
-        children_members([
-            member("Paragraph", &paragraph_component),
-            // member("Link", &link_component),
-            member("Image", &image_component), // TODO color
-            member("H1", &h1_component),
-            member("H2", &h2_component),
-            member("H3", &h3_component),
-            member("H4", &h4_component),
-            member("H5", &h5_component),
-            member("H6", &h6_component),
-            member("HorizontalBreak", &horizontal_break_component),
-            member("CodeBlock", &code_block_component),
-            // member("Code", &code_component),
-        ]),
+        children_members(
+            [
+                member("Paragraph", &paragraph_component, Arity::ZeroOrMore),
+                // member("Link", &link_component),
+                member("Image", &image_component, Arity::ZeroOrMore), // TODO color
+                member("H1", &h1_component, Arity::ZeroOrMore),
+                member("H2", &h2_component, Arity::ZeroOrMore),
+                member("H3", &h3_component, Arity::ZeroOrMore),
+                member("H4", &h4_component, Arity::ZeroOrMore),
+                member("H5", &h5_component, Arity::ZeroOrMore),
+                member("H6", &h6_component, Arity::ZeroOrMore),
+                member("HorizontalBreak", &horizontal_break_component, Arity::ZeroOrMore),
+                member("CodeBlock", &code_block_component, Arity::ZeroOrMore),
+                // member("Code", &code_component),
+            ],
+            []
+        ),
     );
 
     let detail_component = component(
@@ -817,12 +857,15 @@ pub fn create_component_model() -> Vec<Component> {
         "Detail",
         [
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            property("actions", mark_doc!("/detail/props/actions.md"), true, component_ref(&action_panel_component))
+            property("actions", mark_doc!("/detail/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne))
         ],
-        children_members([
-            member("Metadata", &metadata_component),
-            member("Content", &content_component),
-        ]),
+        children_members(
+            [],
+            [
+                member("Metadata", &metadata_component, Arity::ZeroOrOne),
+                member("Content", &content_component, Arity::ZeroOrOne),
+            ],
+        ),
     );
 
 
@@ -911,9 +954,12 @@ pub fn create_component_model() -> Vec<Component> {
                 property("value", "".to_string(), true, PropertyType::String)
             ])
         ],
-        children_members([
-            member("Item", &select_item_component)
-        ]),
+        children_members(
+            [
+                member("Item", &select_item_component, Arity::ZeroOrMore )
+            ],
+            []
+        ),
     );
 
     // let multi_select_component = component(
@@ -937,18 +983,21 @@ pub fn create_component_model() -> Vec<Component> {
         "Form",
         [
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            property("actions", mark_doc!("/form/props/actions.md"), true, component_ref(&action_panel_component)),
+            property("actions", mark_doc!("/form/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
         ],
-        children_members([
-            member("TextField", &text_field_component),
-            member("PasswordField", &password_field_component),
-            // member("TextArea", &text_area_component),
-            member("Checkbox", &checkbox_component),
-            member("DatePicker", &date_picker_component),
-            member("Select", &select_component),
-            // member("MultiSelect", &multi_select_component),
-            member("Separator", &separator_component),
-        ]),
+        children_members(
+            [
+                member("TextField", &text_field_component, Arity::ZeroOrMore),
+                member("PasswordField", &password_field_component, Arity::ZeroOrMore),
+                // member("TextArea", &text_area_component),
+                member("Checkbox", &checkbox_component, Arity::ZeroOrMore),
+                member("DatePicker", &date_picker_component, Arity::ZeroOrMore),
+                member("Select", &select_component, Arity::ZeroOrMore),
+                // member("MultiSelect", &multi_select_component),
+                member("Separator", &separator_component, Arity::ZeroOrMore),
+            ],
+            []
+        ),
     );
 
     let inline_separator_component = component(
@@ -956,7 +1005,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/inline_separator/description.md"),
         "InlineSeparator",
         [
-            property("icon", mark_doc!("/inline_separator/props/icon.md"), true, PropertyType::Enum { name: "Icons".to_owned() }),
+            property("icon", mark_doc!("/inline_separator/props/icon.md"), true, PropertyType::SharedTypeRef { name: "Icons".to_owned() }),
         ],
         children_none(),
     );
@@ -966,14 +1015,17 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/inline/description.md"),
         "Inline",
         [
-            property("actions", mark_doc!("/inline/props/actions.md"), true, component_ref(&action_panel_component)),
+            property("actions", mark_doc!("/inline/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
         ],
-        children_members([
-            member("Left", &content_component),
-            member("Separator", &inline_separator_component),
-            member("Right", &content_component),
-            member("Center", &content_component),
-        ]),
+        children_members(
+            [
+                member("Left", &content_component, Arity::ZeroOrOne),
+                member("Separator", &inline_separator_component, Arity::ZeroOrMore),
+                member("Right", &content_component, Arity::ZeroOrOne),
+                member("Center", &content_component, Arity::ZeroOrOne),
+            ],
+            []
+        ),
     );
 
     let empty_view_component = component(
@@ -983,7 +1035,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/empty_view/props/title.md"),false, PropertyType::String),
             property("description", mark_doc!("/empty_view/props/description.md"),true, PropertyType::String),
-            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
         ],
         children_none(),
     );
@@ -994,7 +1046,7 @@ pub fn create_component_model() -> Vec<Component> {
         "TextAccessory",
         [
             property("text", mark_doc!("/accessory_text/props/text.md"),false, PropertyType::String),
-            property("icon", mark_doc!("/accessory_text/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("icon", mark_doc!("/accessory_text/props/icon.md"),true, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
             property("tooltip", mark_doc!("/accessory_text/props/tooltip.md"),true, PropertyType::String),
         ],
         children_none(),
@@ -1005,7 +1057,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/accessory_icon/description.md"),
         "IconAccessory",
         [
-            property("icon", mark_doc!("/accessory_icon/props/icon.md"),false, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
+            property("icon", mark_doc!("/accessory_icon/props/icon.md"),false, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
             property("tooltip", mark_doc!("/accessory_icon/props/tooltip.md"),true, PropertyType::String),
         ],
         children_none(),
@@ -1032,8 +1084,8 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
-            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::Union { items: vec![PropertyType::ImageSource, PropertyType::Enum { name: "Icons".to_owned() }] }),
-            property("accessories", mark_doc!("/list_item/props/accessories.md"),true, PropertyType::Array { item: Box::new(PropertyType::Union { items: vec![component_ref(&accessory_text_component), component_ref(&accessory_icon_component)]}) }),
+            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
+            property("accessories", mark_doc!("/list_item/props/accessories.md"),true, PropertyType::Array { item: Box::new(PropertyType::Union { items: vec![component_ref(&accessory_text_component, Arity::ZeroOrMore), component_ref(&accessory_icon_component, Arity::ZeroOrMore)]}) }),
             event("onClick", mark_doc!("/list_item/props/onClick.md"), true, [])
         ],
         children_none(),
@@ -1047,9 +1099,12 @@ pub fn create_component_model() -> Vec<Component> {
             property("title", mark_doc!("/list_section/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_section/props/subtitle.md"),true, PropertyType::String),
         ],
-        children_members([
-            member("Item", &list_item_component),
-        ]),
+        children_members(
+            [
+                member("Item", &list_item_component, Arity::ZeroOrMore),
+            ],
+            []
+        ),
     );
 
     let list_component = component(
@@ -1057,16 +1112,20 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/list/description.md"),
         "List",
         [
-            property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component)),
+            property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
         ],
-        children_members([
-            member("SearchBar", &search_bar_component),
-            member("EmptyView", &empty_view_component),
-            member("Detail", &detail_component),
-            member("Item", &list_item_component),
-            member("Section", &list_section_component),
-        ]),
+        children_members(
+            [
+                member("Item", &list_item_component, Arity::ZeroOrMore),
+                member("Section", &list_section_component, Arity::ZeroOrMore),
+            ],
+            [
+                member("SearchBar", &search_bar_component, Arity::ZeroOrOne),
+                member("EmptyView", &empty_view_component, Arity::ZeroOrOne),
+                member("Detail", &detail_component, Arity::ZeroOrOne),
+            ]
+        ),
     );
 
     let grid_item_component = component(
@@ -1076,12 +1135,15 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/grid_item/props/title.md"), true, PropertyType::String),
             property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
-            property("accessory", mark_doc!("/grid_item/props/accessory.md"),true, component_ref(&accessory_icon_component)),
+            property("accessory", mark_doc!("/grid_item/props/accessory.md"),true, component_ref(&accessory_icon_component, Arity::ZeroOrOne)),
             event("onClick", mark_doc!("/grid_item/props/onClick.md"), true, [])
         ],
-        children_members([
-            member("Content", &content_component),
-        ]),
+        children_members(
+            [],
+            [
+                member("Content", &content_component, Arity::One),
+            ]
+        ),
     );
 
     let grid_section_component = component(
@@ -1096,9 +1158,12 @@ pub fn create_component_model() -> Vec<Component> {
             // fit
             // inset
         ],
-        children_members([
-            member("Item", &grid_item_component),
-        ]),
+        children_members(
+            [
+                member("Item", &grid_item_component, Arity::ZeroOrMore),
+            ],
+            []
+        ),
     );
 
     let grid_component = component(
@@ -1107,18 +1172,22 @@ pub fn create_component_model() -> Vec<Component> {
         "Grid",
         [
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            property("actions", mark_doc!("/grid/props/actions.md"),true, component_ref(&action_panel_component)),
+            property("actions", mark_doc!("/grid/props/actions.md"),true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
             // property("aspectRatio", true, PropertyType::String),
             property("columns", mark_doc!("/grid/props/columns.md"),true, PropertyType::Number), // TODO default
             // fit
             // inset
         ],
-        children_members([
-            member("SearchBar", &search_bar_component),
-            member("EmptyView", &empty_view_component),
-            member("Item", &grid_item_component),
-            member("Section", &grid_section_component),
-        ]),
+        children_members(
+            [
+                member("Item", &grid_item_component, Arity::ZeroOrMore),
+                member("Section", &grid_section_component, Arity::ZeroOrMore),
+            ],
+            [
+                member("SearchBar", &search_bar_component, Arity::ZeroOrOne),
+                member("EmptyView", &empty_view_component, Arity::ZeroOrOne),
+            ]
+        ),
     );
 
     let text_part = text_part();

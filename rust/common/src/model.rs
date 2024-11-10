@@ -5,6 +5,8 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use gix_url::Scheme;
 use gix_url::Url;
+use serde::{Deserialize, Deserializer};
+use serde::de::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PluginId(Arc<str>);
@@ -134,7 +136,7 @@ pub enum UiRequestData {
         entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
-        container: UiWidget,
+        container: RootWidget,
     },
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
@@ -226,6 +228,23 @@ pub enum KeyboardEventOrigin {
     PluginView,
 }
 
+fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error> where D: Deserializer<'de>, V: Deserialize<'de> {
+    let res = Option::<Vec<V>>::deserialize(deserializer)?;
+
+    match res {
+        None => Ok(None),
+        Some(mut res) => {
+            match res.len() {
+                0 => Ok(None),
+                1 => Ok(Some(res.remove(0))),
+                _ => Err(Error::custom("only zero or one allowed"))
+            }
+        }
+    }
+}
+
+include!(concat!(env!("OUT_DIR"), "/components.rs"));
+
 #[derive(Debug, Clone)]
 pub struct UiWidget {
     pub widget_id: UiWidgetId,
@@ -243,60 +262,6 @@ pub enum UiPropertyValue {
     Array(Vec<UiPropertyValue>),
     Object(HashMap<String, UiPropertyValue>),
     Undefined,
-}
-
-impl UiPropertyValue {
-    pub fn as_string(&self) -> Option<&str> {
-        if let UiPropertyValue::String(val) = self {
-            Some(val)
-        } else {
-            None
-        }
-    }
-    pub fn as_number(&self) -> Option<&f64> {
-        if let UiPropertyValue::Number(val) = self {
-            Some(val)
-        } else {
-            None
-        }
-    }
-    pub fn as_bool(&self) -> Option<&bool> {
-        if let UiPropertyValue::Bool(val) = self {
-            Some(val)
-        } else {
-            None
-        }
-    }
-    pub fn as_bytes(&self) -> Option<&[u8]> {
-        if let UiPropertyValue::Bytes(val) = self {
-            Some(val)
-        } else {
-            None
-        }
-    }
-    pub fn as_array<T>(&self) -> Option<Vec<T>> {
-        // currently array is only used for component refs which are not properties
-        // implement if needed
-        unimplemented!()
-    }
-    pub fn as_object<T: UiPropertyValueToStruct>(&self) -> Option<T> {
-        if let UiPropertyValue::Object(val) = self {
-            Some(UiPropertyValueToStruct::convert(val).expect("invalid object"))
-        } else {
-            None
-        }
-    }
-    pub fn as_union<T: UiPropertyValueToEnum>(&self) -> anyhow::Result<T> {
-        UiPropertyValueToEnum::convert(self)
-    }
-}
-
-pub trait UiPropertyValueToStruct {
-    fn convert(value: &HashMap<String, UiPropertyValue>) -> anyhow::Result<Self> where Self: Sized;
-}
-
-pub trait UiPropertyValueToEnum {
-    fn convert(value: &UiPropertyValue) -> anyhow::Result<Self> where Self: Sized;
 }
 
 pub type UiWidgetId = usize;

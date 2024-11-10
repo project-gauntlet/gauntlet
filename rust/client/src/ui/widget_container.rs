@@ -1,12 +1,17 @@
-use std::collections::HashMap;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiWidget, UiWidgetId};
+use std::collections::hash_map::Entry;
 use crate::model::UiViewEvent;
-use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
-use crate::ui::widget::{ActionPanel, ComponentRenderContext, ComponentWidgetEvent, ComponentWidgetWrapper};
+use crate::ui::widget::{create_state, ActionPanel, ComponentWidgetEvent, ComponentWidgetState, ComponentWidgets};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidgetId};
+use std::collections::HashMap;
+use std::mem;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct PluginWidgetContainer {
-    root_widget: ComponentWidgetWrapper,
+    root_widget: Arc<Mutex<Option<RootWidget>>>,
+    state: Arc<Mutex<HashMap<UiWidgetId, ComponentWidgetState>>>,
     plugin_id: Option<PluginId>,
     plugin_name: Option<String>,
     entrypoint_id: Option<EntrypointId>,
@@ -16,7 +21,8 @@ pub struct PluginWidgetContainer {
 impl PluginWidgetContainer {
     pub fn new() -> Self {
         Self {
-            root_widget: ComponentWidgetWrapper::root(0),
+            root_widget: Arc::new(Mutex::new(None)),
+            state: Arc::new(Mutex::new(HashMap::new())),
             plugin_id: None,
             plugin_name: None,
             entrypoint_id: None,
@@ -28,37 +34,11 @@ impl PluginWidgetContainer {
         self.plugin_id.clone().expect("plugin id should always exist after render")
     }
 
-    pub fn get_plugin_name(&self) -> String {
-        self.plugin_name.clone().expect("plugin name should always exist after render")
-    }
-
     pub fn get_entrypoint_id(&self) -> EntrypointId {
         self.entrypoint_id.clone().expect("entrypoint id should always exist after render")
     }
 
-    pub fn get_entrypoint_name(&self) -> String {
-        self.entrypoint_name.clone().expect("entrypoint id should always exist after render")
-    }
-
-    pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
-        self.root_widget.get_action_panel(action_shortcuts)
-    }
-
-    pub fn render_widget<'a>(&self, context: ComponentRenderContext) -> Element<'a, ComponentWidgetEvent> {
-        self.root_widget.render_widget(context)
-    }
-
-    fn create_component_widget(&mut self, ui_widget: UiWidget) -> ComponentWidgetWrapper {
-        let children = ui_widget.widget_children
-            .into_iter()
-            .map(|ui_widget| self.create_component_widget(ui_widget))
-            .collect();
-
-        ComponentWidgetWrapper::widget(ui_widget.widget_id, &ui_widget.widget_type, ui_widget.widget_properties, children)
-            .expect("unable to create widget")
-    }
-
-    pub fn replace_view(&mut self, container: UiWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
+    pub fn replace_view(&mut self, container: RootWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
         tracing::trace!("replace_view is called. container: {:?}", container);
 
         self.plugin_id = Some(plugin_id.clone());
@@ -66,40 +46,92 @@ impl PluginWidgetContainer {
         self.entrypoint_id = Some(entrypoint_id.clone());
         self.entrypoint_name = Some(entrypoint_name.to_string());
 
-        let children = container.widget_children.into_iter()
-            .map(|child| self.create_component_widget(child))
-            .collect::<Vec<_>>();
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
 
-        self.root_widget.find_child_with_id(container.widget_id)
-            .unwrap_or_else(|| panic!("widget with id {:?} doesn't exist", container.widget_id))
-            .set_children(children)
-            .expect("unable to set children");
+        // use new state with values from old state but only widget ids which exists in new state
+        // so we this way we use already existing values but remove state for removed widgets
+        let old_state = mem::replace(state.deref_mut(), create_state(&container));
+
+        for (key, value) in old_state.into_iter() {
+            match state.entry(key) {
+                Entry::Occupied(mut entry) => {
+                    entry.insert(value);
+                }
+                Entry::Vacant(_) => {}
+            }
+        }
+
+        *root_widget = Some(container);
     }
 
     pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
-        let widget = self.root_widget
-            .find_child_with_id(event.widget_id())
-            .expect("created event for non existing widget?");
+        let mut state = self.state.lock().expect("lock is poisoned");
 
-        event.handle(plugin_id, widget)
+        let state = state.get_mut(&event.widget_id()).expect(&format!("requested state should always be present for event with widget id: {}", &event.widget_id()));
+
+        event.handle(plugin_id, state)
+    }
+
+    pub fn render_root_widget<'a>(
+        &self,
+        plugin_view_state: &PluginViewState,
+        action_shortcuts: &HashMap<String, PhysicalShortcut>,
+    ) -> Element<'a, ComponentWidgetEvent> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state)
+            .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts)
+    }
+
+    pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state)
+            .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
     }
 
     pub fn toggle_action_panel(&self) {
-        self.root_widget.toggle_action_panel()
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state).toggle_action_panel()
     }
 
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
-        self.root_widget.get_action_ids()
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state).get_action_ids()
     }
+
+    pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state).get_action_panel(action_shortcuts)
+    }
+
     pub fn keyboard_navigation_width(&self) -> Option<usize> {
-        self.root_widget.keyboard_navigation_width()
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state).keyboard_navigation_width()
     }
 
     pub fn keyboard_navigation_total(&self) -> usize {
-        self.root_widget.keyboard_navigation_total()
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state).keyboard_navigation_total()
     }
 
     pub fn has_search_bar(&self) -> bool {
-        self.root_widget.has_search_bar()
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state).has_search_bar()
     }
 }

@@ -3,7 +3,6 @@ use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use tokio::runtime::Handle;
 use common::model::{PhysicalKey, PhysicalShortcut};
-use common::rpc::frontend_api::FrontendApi;
 use crate::ui::AppMsg;
 
 pub fn register_listener(msg_sender: Sender<AppMsg>) {

@@ -32,7 +32,7 @@ use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, Se
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
-use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, JsUiWidget, PreferenceUserData};
+use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, PreferenceUserData};
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};

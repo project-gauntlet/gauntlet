@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use thiserror::Error;
 use utils::channel::{RequestError, RequestSender};
 
-use crate::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation, UiRequestData, UiResponseData, UiWidget};
+use crate::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData};
 
 #[derive(Error, Debug)]
 pub enum FrontendApiError {
@@ -46,7 +46,7 @@ impl FrontendApi {
         entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
-        container: UiWidget,
+        container: RootWidget,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
             plugin_id,

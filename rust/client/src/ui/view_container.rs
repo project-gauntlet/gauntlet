@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use iced::widget::Component;
 use iced::widget::component;
+use iced::widget::Component;
 
 use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation};
 
-use crate::ui::{AppMsg};
 use crate::ui::client_context::ClientContext;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::{Element, GauntletTheme};
-use crate::ui::widget::{ComponentRenderContext, ComponentWidgetEvent};
+use crate::ui::widget::ComponentWidgetEvent;
+use crate::ui::AppMsg;
 
 pub struct ViewContainer {
     client_context: Arc<RwLock<ClientContext>>,
@@ -61,11 +61,10 @@ impl Component<AppMsg, GauntletTheme> for ViewContainer {
     fn view(&self, _state: &Self::State) -> Element<Self::Event> {
         let client_context = self.client_context.read().expect("lock is poisoned");
         let view_container = client_context.get_view_container();
-        view_container.render_widget(ComponentRenderContext::Root {
-            entrypoint_name: self.entrypoint_name.clone(),
-            action_shortcuts: self.action_shortcuts.clone(),
-            plugin_view_state: self.plugin_view_state.clone()
-        })
+        view_container.render_root_widget(
+            &self.plugin_view_state,
+            &self.action_shortcuts,
+        )
     }
 }
 

@@ -241,31 +241,6 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
     const root = modelInput.find((component): component is RootComponent => component.type === "root");
     if (root != null) {
-        // image special case
-        // export type ImageSource = { asset: string } | { url: string };
-
-        const imageSourceDeclaration = ts.factory.createTypeAliasDeclaration(
-            [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
-            ts.factory.createIdentifier("ImageSource"),
-            undefined,
-            ts.factory.createUnionTypeNode([
-                ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature(
-                    undefined,
-                    ts.factory.createIdentifier("asset"),
-                    undefined,
-                    ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
-                )]),
-                ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature(
-                    undefined,
-                    ts.factory.createIdentifier("url"),
-                    undefined,
-                    ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
-                )])
-            ])
-        );
-
-        publicDeclarations.push(imageSourceDeclaration)
-
         for (const [name, sharedType] of Object.entries(root.sharedTypes)) {
 
             switch (sharedType.type) {
@@ -298,6 +273,19 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                                     makeType(type)
                                 )
                             })
+                        )
+                    )
+
+                    publicDeclarations.push(declaration)
+                    break;
+                }
+                case "union": {
+                    const declaration = ts.factory.createTypeAliasDeclaration(
+                        [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
+                        ts.factory.createIdentifier(name),
+                        undefined,
+                        ts.factory.createUnionTypeNode(
+                            sharedType.items.map(type => makeType(type))
                         )
                     )
 
@@ -407,10 +395,11 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
 
         let componentType: ts.TypeReferenceNode | ts.IntersectionTypeNode;
         if (component.children.type == "members" || component.children.type == "string_or_members") {
+            const members = { ...component.children.ordered_members, ...component.children.per_type_members }
             componentType = ts.factory.createIntersectionTypeNode([
                 componentFCType,
                 ts.factory.createTypeLiteralNode(
-                    Object.entries(component.children.members).map(([memberName, member]) => {
+                    Object.entries(members).map(([memberName, member]) => {
                         return ts.factory.createPropertySignature(
                             undefined,
                             ts.factory.createIdentifier(memberName),
@@ -432,7 +421,8 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
         switch (component.children.type) {
             case "string_or_members":
             case "members": {
-                memberAssignments = Object.entries(component.children.members).map(([memberName, member]) => {
+                const members = { ...component.children.ordered_members, ...component.children.per_type_members }
+                memberAssignments = Object.entries(members).map(([memberName, member]) => {
                     return ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(
                         ts.factory.createPropertyAccessExpression(
                             ts.factory.createIdentifier(component.name),
@@ -581,11 +571,13 @@ function makePropertyTypes(component: StandardComponent, componentPropsInChildre
 function makeChildrenType(type: Children, additionalComponentRefs: ComponentRef[]): ts.TypeNode {
     switch (type.type) {
         case "members": {
+            const members = { ...type.ordered_members, ...type.per_type_members }
+
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier("ElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
-                        [...additionalComponentRefs, ...Object.values(type.members)].map(member => (
+                        [...additionalComponentRefs, ...Object.values(members)].map(member => (
                             ts.factory.createTypeQueryNode(
                                 ts.factory.createIdentifier(member.componentName),
                                 undefined
@@ -596,11 +588,13 @@ function makeChildrenType(type: Children, additionalComponentRefs: ComponentRef[
             )
         }
         case "string_or_members": {
+            const members = { ...type.ordered_members, ...type.ordered_members }
+
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier("StringOrElementComponent"),
                 [
                     ts.factory.createUnionTypeNode(
-                        [...additionalComponentRefs, ...Object.values(type.members)].map(member => (
+                        [...additionalComponentRefs, ...Object.values(members)].map(member => (
                             ts.factory.createTypeQueryNode(
                                 ts.factory.createIdentifier(member.componentName),
                                 undefined
@@ -679,22 +673,10 @@ function makeType(type: PropertyType): ts.TypeNode {
                 ]
             )
         }
-        case "image_source": {
-            return ts.factory.createTypeReferenceNode(
-                ts.factory.createIdentifier("ImageSource"),
-                undefined
-            )
-        }
         case "array": {
             return ts.factory.createArrayTypeNode(makeType(type.item))
         }
-        case "enum": {
-            return ts.factory.createTypeReferenceNode(
-                ts.factory.createIdentifier(type.name),
-                undefined
-            )
-        }
-        case "object": {
+        case "shared_type_ref": {
             return ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier(type.name),
                 undefined
@@ -727,16 +709,10 @@ function isInProperty(propertyType: PropertyType) {
         case "component": {
             return false
         }
-        case "image_source": {
-            return true
-        }
         case "array": {
             return isInProperty(propertyType.item)
         }
-        case "enum": {
-            return true
-        }
-        case "object": {
+        case "shared_type_ref": {
             return true
         }
         case "union": {
@@ -771,16 +747,10 @@ function collectAllComponentRefs(propertyType: PropertyType): ComponentRef[] {
         case "component": {
             return [propertyType.reference]
         }
-        case "image_source": {
-            return []
-        }
         case "array": {
             return collectAllComponentRefs(propertyType.item)
         }
-        case "enum": {
-            return []
-        }
-        case "object": {
+        case "shared_type_ref": {
             return []
         }
         case "union": {

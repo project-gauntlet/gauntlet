@@ -19,6 +19,15 @@ export default function GridView(): ReactElement {
                 value={searchText}
                 onChange={setSearchText}
             />
+            <Grid.Section title="Section Before">
+                <Grid.Item title="Section Title">
+                    <Grid.Item.Content>
+                        <Grid.Item.Content.Paragraph>
+                            Test Paragraph Section 1 1
+                        </Grid.Item.Content.Paragraph>
+                    </Grid.Item.Content>
+                </Grid.Item>
+            </Grid.Section>
             {
                 numbers.map(value => {
                     const title = "Title " + value;

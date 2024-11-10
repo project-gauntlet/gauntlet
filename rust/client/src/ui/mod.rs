@@ -1,33 +1,31 @@
+use anyhow::anyhow;
+use global_hotkey::hotkey::HotKey;
+use global_hotkey::GlobalHotKeyManager;
+use iced::advanced::graphics::core::SmolStr;
+use iced::advanced::layout::Limits;
+use iced::futures::channel::mpsc::Sender;
+use iced::futures::SinkExt;
+use iced::keyboard::key::Named;
+use iced::keyboard::{Key, Modifiers};
+use iced::multi_window::Application;
+use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
+use iced::widget::text::Shaping;
+use iced::widget::text_input::focus;
+use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
+use iced::window::settings::PlatformSpecific;
+use iced::window::{Level, Position, Screenshot};
+use iced::{event, executor, font, futures, keyboard, subscription, window, Alignment, Command, Event, Font, Length, Padding, Pixels, Settings, Size, Subscription};
+use iced_aw::core::icons;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex as StdMutex, Mutex, RwLock as StdRwLock};
-use anyhow::anyhow;
-use global_hotkey::GlobalHotKeyManager;
-use global_hotkey::hotkey::HotKey;
-use iced::{event, executor, font, futures, keyboard, subscription, window, Alignment, Command, Event, Font, Length, Padding, Pixels, Settings, Size, Subscription};
-use iced::advanced::graphics::core::SmolStr;
-use iced::advanced::layout::Limits;
-use iced::multi_window::Application;
-use iced::futures::channel::mpsc::Sender;
-use iced::futures::SinkExt;
-use iced::keyboard::{Key, Modifiers};
-use iced::keyboard::key::Named;
-use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
-use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
-use iced::widget::text::Shaping;
-use iced::widget::text_input::focus;
-use iced::window::{Level, Position, Screenshot};
-use iced::window::settings::PlatformSpecific;
-use iced_aw::core::icons;
-use serde::Deserialize;
-use tokio::runtime::Handle;
 use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -37,11 +35,11 @@ use utils::channel::{channel, RequestReceiver, RequestSender, Responder};
 use crate::model::UiViewEvent;
 use crate::ui::inline_view_container::{inline_view_action_panel, inline_view_container};
 use crate::ui::search_list::search_list;
-use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::theme::container::{ContainerStyle, ContainerStyleInner};
 use crate::ui::theme::text_input::TextInputStyle;
+use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::view_container::view_container;
-use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentRenderContext, ComponentWidgetEvent};
+use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentWidgetEvent};
 
 mod view_container;
 mod search_list;
@@ -57,12 +55,12 @@ mod scroll_handle;
 mod state;
 mod hud;
 
-pub use theme::GauntletTheme;
 use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::ui::hud::{close_hud_window, show_hud_window};
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
 use crate::ui::widget_container::PluginWidgetContainer;
+pub use theme::GauntletTheme;
 
 pub struct AppModel {
     // logic
@@ -345,14 +343,15 @@ impl Application for AppModel {
                     let ui_widget = ui_widget_from_scenario(container);
                     let has_children = ui_widget.widget_children.len() != 0;
 
-                    context.replace_view(
-                        render_location,
-                        ui_widget,
-                        &plugin_id,
-                        "Screenshot Plugin",
-                        &entrypoint_id,
-                        "Screenshot Entrypoint",
-                    );
+                    // TODO
+                    // context.replace_view(
+                    //     render_location,
+                    //     ui_widget,
+                    //     &plugin_id,
+                    //     "Screenshot Plugin",
+                    //     &entrypoint_id,
+                    //     "Screenshot Entrypoint",
+                    // );
 
                     let context = Arc::new(StdRwLock::new(context));
 
@@ -1525,14 +1524,14 @@ impl Application for AppModel {
                 let root = match sub_state {
                     MainViewState::None => {
                         render_root(
-                            false,
+                            &false,
                             input,
                             separator,
                             content,
                             primary_action,
                             action_panel,
                             None::<&ScrollHandle<SearchResultEntrypointAction>>,
-                            "".to_string(),
+                            "",
                             || AppMsg::ToggleActionPanel { keyboard: false },
                             |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
                             |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
@@ -1540,14 +1539,14 @@ impl Application for AppModel {
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
                         render_root(
-                            true,
+                            &true,
                             input,
                             separator,
                             content,
                             primary_action,
                             action_panel,
                             Some(focused_action_item),
-                            "".to_string(),
+                            "",
                             || AppMsg::ToggleActionPanel { keyboard: false },
                             |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
                             |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
@@ -1555,14 +1554,14 @@ impl Application for AppModel {
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item, .. } => {
                         render_root(
-                            true,
+                            &true,
                             input,
                             separator,
                             content,
                             primary_action,
                             action_panel,
                             Some(focused_action_item),
-                            "".to_string(),
+                            "",
                             || AppMsg::ToggleActionPanel { keyboard: false },
                             |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
                             |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
@@ -1984,7 +1983,7 @@ async fn request_loop(
                     top_level_view,
                     container
                 } => {
-                    let has_children = container.widget_children.len() != 0;
+                    let has_children = container.content.is_some();
 
                     client_context.replace_view(
                         render_location,

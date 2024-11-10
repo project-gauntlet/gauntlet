@@ -121,7 +121,7 @@ interface InternalApi {
 
     show_hud(display: string): void;
 
-    op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: UiWidget): void;
+    op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: any): void;
     show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;
 
     fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string | undefined>;
@@ -152,7 +152,7 @@ type RootComponent = {
     sharedTypes: Record<string, SharedType>
 }
 
-type SharedType = SharedTypeEnum | SharedTypeObject
+type SharedType = SharedTypeEnum | SharedTypeObject | SharedTypeUnion
 
 type SharedTypeEnum = {
     type: "enum",
@@ -162,6 +162,11 @@ type SharedTypeEnum = {
 type SharedTypeObject = {
     type: "object",
     items: Record<string, PropertyType>
+}
+
+type SharedTypeUnion = {
+    type: "union",
+    items: PropertyType[]
 }
 
 type TextPartComponent = {
@@ -178,12 +183,14 @@ type Children = ChildrenMembers | ChildrenString | ChildrenNone | ChildrenString
 
 type ChildrenMembers = {
     type: "members",
-    members: Record<string, ComponentRef>
+    ordered_members: Record<string, ComponentRef>
+    per_type_members: Record<string, ComponentRef>
 }
 type ChildrenStringOrMembers = {
     type: "string_or_members",
     textPartInternalName: string,
-    members: Record<string, ComponentRef>
+    ordered_members: Record<string, ComponentRef>
+    per_type_members: Record<string, ComponentRef>
 }
 type ChildrenString = {
     type: "string"
@@ -198,7 +205,7 @@ type ComponentRef = {
     componentName: string,
 }
 
-type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeComponent | TypeFunction | TypeImageSource | TypeImageEnum | TypeImageArray | TypeImageUnion | TypeImageObject
+type PropertyType = TypeString | TypeNumber | TypeBoolean | TypeComponent | TypeFunction | TypeSharedTypeRef | TypeImageArray | TypeImageUnion
 
 type TypeString = {
     type: "string"
@@ -217,11 +224,8 @@ type TypeFunction = {
     type: "function"
     arguments: Property[]
 }
-type TypeImageSource = {
-    type: "image_source"
-}
-type TypeImageEnum = {
-    type: "enum"
+type TypeSharedTypeRef = {
+    type: "shared_type_ref"
     name: string
 }
 type TypeImageUnion = {
@@ -231,8 +235,4 @@ type TypeImageUnion = {
 type TypeImageArray = {
     type: "array"
     item: PropertyType
-}
-type TypeImageObject = {
-    type: "object"
-    name: string
 }

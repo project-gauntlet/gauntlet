@@ -7,7 +7,7 @@ use common::model::UiRenderLocation;
 
 use crate::ui::client_context::ClientContext;
 use crate::ui::theme::{Element, GauntletTheme};
-use crate::ui::widget::{ActionPanel, ComponentRenderContext, ComponentWidgetEvent};
+use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
 use crate::ui::AppMsg;
 
 pub struct InlineViewContainer {
@@ -48,10 +48,7 @@ impl Component<AppMsg, GauntletTheme> for InlineViewContainer {
 
         match containers.first() {
             Some((_, container)) => {
-                container.render_widget(ComponentRenderContext::InlineRoot {
-                    plugin_name: container.get_plugin_name(),
-                    entrypoint_name: container.get_entrypoint_name(),
-                })
+                container.render_inline_root_widget()
             }
             None => {
                 horizontal_space()

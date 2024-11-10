@@ -1,9 +1,5 @@
-use std::collections::HashMap;
-
-use deno_core::serde_v8;
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, RootWidget, UiPropertyValue, UiWidgetId};
 use serde::{Deserialize, Serialize};
-
-use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, UiPropertyValue, UiWidget, UiWidgetId};
 
 #[derive(Debug)]
 pub enum JsUiResponseData {
@@ -17,7 +13,7 @@ pub enum JsUiRequestData {
         entrypoint_name: String,
         render_location: JsUiRenderLocation,
         top_level_view: bool,
-        container: UiWidget,
+        container: RootWidget,
     },
     ClearInlineView,
     ShowPluginErrorView {
@@ -108,18 +104,6 @@ pub enum JsUiPropertyValue {
         value: bool
     },
     Undefined,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct JsUiWidget<'a> {
-    #[serde(rename = "widgetId")]
-    pub widget_id: UiWidgetId,
-    #[serde(rename = "widgetType")]
-    pub widget_type: String,
-    #[serde(rename = "widgetProperties")]
-    pub widget_properties: HashMap<String, serde_v8::Value<'a>>,
-    #[serde(rename = "widgetChildren")]
-    pub widget_children: Vec<JsUiWidget<'a>>,
 }
 
 #[derive(Debug)]

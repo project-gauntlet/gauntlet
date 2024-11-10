@@ -42,7 +42,7 @@ declare global {
                 children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
             };
             ["gauntlet:image"]: {
-                source: ImageSource | Icons;
+                source: Image;
             };
             ["gauntlet:h1"]: {
                 children?: StringComponent;
@@ -121,15 +121,15 @@ declare global {
             ["gauntlet:empty_view"]: {
                 title: string;
                 description?: string;
-                image?: ImageSource | Icons;
+                image?: Image;
             };
             ["gauntlet:accessory_icon"]: {
-                icon: ImageSource | Icons;
+                icon: Image;
                 tooltip?: string;
             };
             ["gauntlet:accessory_text"]: {
                 text: string;
-                icon?: ImageSource | Icons;
+                icon?: Image;
                 tooltip?: string;
             };
             ["gauntlet:search_bar"]: {
@@ -141,7 +141,7 @@ declare global {
                 children?: ElementComponent<typeof TextAccessory | typeof IconAccessory>;
                 title: string;
                 subtitle?: string;
-                icon?: ImageSource | Icons;
+                icon?: Image;
                 onClick?: () => void;
             };
             ["gauntlet:list_section"]: {
@@ -150,7 +150,7 @@ declare global {
                 subtitle?: string;
             };
             ["gauntlet:list"]: {
-                children?: ElementComponent<typeof ActionPanel | typeof SearchBar | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+                children?: ElementComponent<typeof ActionPanel | typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
                 isLoading?: boolean;
             };
             ["gauntlet:grid_item"]: {
@@ -166,7 +166,7 @@ declare global {
                 columns?: number;
             };
             ["gauntlet:grid"]: {
-                children?: ElementComponent<typeof ActionPanel | typeof SearchBar | typeof EmptyView | typeof GridItem | typeof GridSection>;
+                children?: ElementComponent<typeof ActionPanel | typeof GridItem | typeof GridSection | typeof SearchBar | typeof EmptyView>;
                 isLoading?: boolean;
                 columns?: number;
             };
@@ -180,11 +180,6 @@ export type EmptyNode = boolean | null | undefined;
 export type ElementComponent<Comp extends FC<any>> = Element<Comp> | EmptyNode | Iterable<ElementComponent<Comp>>;
 export type StringComponent = StringNode | EmptyNode | Iterable<StringComponent>;
 export type StringOrElementComponent<Comp extends FC<any>> = StringNode | EmptyNode | Element<Comp> | Iterable<StringOrElementComponent<Comp>>;
-export type ImageSource = {
-    asset: string;
-} | {
-    url: string;
-};
 export enum Icons {
     PersonAdd = "PersonAdd",
     Airplane = "Airplane",
@@ -358,6 +353,14 @@ export enum Icons {
     Indent = "Indent",
     Unindent = "Unindent"
 }
+export type ImageSourceUrl = {
+    url: string;
+};
+export type ImageSourceAsset = {
+    asset: string;
+};
+export type ImageSource = ImageSourceUrl | ImageSourceAsset;
+export type Image = ImageSource | Icons;
 export interface ActionProps {
     id?: string;
     label: string;
@@ -448,7 +451,7 @@ Metadata.Value = MetadataValue;
 Metadata.Icon = MetadataIcon;
 Metadata.Separator = MetadataSeparator;
 export interface ImageProps {
-    source: ImageSource | Icons;
+    source: Image;
 }
 export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
     return <gauntlet:image source={props.source}></gauntlet:image>;
@@ -645,13 +648,13 @@ Inline.Center = Content;
 export interface EmptyViewProps {
     title: string;
     description?: string;
-    image?: ImageSource | Icons;
+    image?: Image;
 }
 export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
     return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}></gauntlet:empty_view>;
 };
 export interface IconAccessoryProps {
-    icon: ImageSource | Icons;
+    icon: Image;
     tooltip?: string;
 }
 export const IconAccessory: FC<IconAccessoryProps> = (props: IconAccessoryProps): ReactNode => {
@@ -659,7 +662,7 @@ export const IconAccessory: FC<IconAccessoryProps> = (props: IconAccessoryProps)
 };
 export interface TextAccessoryProps {
     text: string;
-    icon?: ImageSource | Icons;
+    icon?: Image;
     tooltip?: string;
 }
 export const TextAccessory: FC<TextAccessoryProps> = (props: TextAccessoryProps): ReactNode => {
@@ -676,7 +679,7 @@ export const SearchBar: FC<SearchBarProps> = (props: SearchBarProps): ReactNode 
 export interface ListItemProps {
     title: string;
     subtitle?: string;
-    icon?: ImageSource | Icons;
+    icon?: Image;
     accessories?: (ElementComponent<typeof TextAccessory> | ElementComponent<typeof IconAccessory>)[];
     onClick?: () => void;
 }
@@ -695,24 +698,24 @@ export const ListSection: FC<ListSectionProps> & {
 };
 ListSection.Item = ListItem;
 export interface ListProps {
-    children?: ElementComponent<typeof SearchBar | typeof EmptyView | typeof Detail | typeof ListItem | typeof ListSection>;
+    children?: ElementComponent<typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
     actions?: ElementComponent<typeof ActionPanel>;
     isLoading?: boolean;
 }
 export const List: FC<ListProps> & {
+    Item: typeof ListItem;
+    Section: typeof ListSection;
     SearchBar: typeof SearchBar;
     EmptyView: typeof EmptyView;
     Detail: typeof Detail;
-    Item: typeof ListItem;
-    Section: typeof ListSection;
 } = (props: ListProps): ReactNode => {
     return <gauntlet:list isLoading={props.isLoading}>{props.actions as any}{props.children}</gauntlet:list>;
 };
+List.Item = ListItem;
+List.Section = ListSection;
 List.SearchBar = SearchBar;
 List.EmptyView = EmptyView;
 List.Detail = Detail;
-List.Item = ListItem;
-List.Section = ListSection;
 export interface GridItemProps {
     children?: ElementComponent<typeof Content>;
     title?: string;
@@ -739,20 +742,20 @@ export const GridSection: FC<GridSectionProps> & {
 };
 GridSection.Item = GridItem;
 export interface GridProps {
-    children?: ElementComponent<typeof SearchBar | typeof EmptyView | typeof GridItem | typeof GridSection>;
+    children?: ElementComponent<typeof GridItem | typeof GridSection | typeof SearchBar | typeof EmptyView>;
     isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
 }
 export const Grid: FC<GridProps> & {
-    SearchBar: typeof SearchBar;
-    EmptyView: typeof EmptyView;
     Item: typeof GridItem;
     Section: typeof GridSection;
+    SearchBar: typeof SearchBar;
+    EmptyView: typeof EmptyView;
 } = (props: GridProps): ReactNode => {
     return <gauntlet:grid isLoading={props.isLoading} columns={props.columns}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
-Grid.SearchBar = SearchBar;
-Grid.EmptyView = EmptyView;
 Grid.Item = GridItem;
 Grid.Section = GridSection;
+Grid.SearchBar = SearchBar;
+Grid.EmptyView = EmptyView;

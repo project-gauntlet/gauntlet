@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, UiRenderLocation, UiWidget, UiWidgetId};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
 use crate::model::UiViewEvent;
 
 use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
@@ -74,7 +74,7 @@ impl ClientContext {
         self.view.get_entrypoint_id()
     }
 
-    pub fn replace_view(&mut self, render_location: UiRenderLocation, container: UiWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
+    pub fn replace_view(&mut self, render_location: UiRenderLocation, container: RootWidget, plugin_id: &PluginId, plugin_name: &str, entrypoint_id: &EntrypointId, entrypoint_name: &str) {
         match render_location {
             UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, plugin_id, plugin_name, entrypoint_id, entrypoint_name),
             UiRenderLocation::View => self.get_mut_view_container().replace_view(container, plugin_id, plugin_name, entrypoint_id, entrypoint_name)

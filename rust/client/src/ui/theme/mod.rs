@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use iced::{application, Color, Padding};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::Error;
 use common::dirs::Dirs;
 
 pub mod button;

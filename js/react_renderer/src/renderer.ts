@@ -326,12 +326,15 @@ export const createHostConfig = (): HostConfig<
     },
 
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
-        // TODO Deno.inspect is always executed
-        InternalApi.op_log_trace("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren, { depth: Number.MAX_VALUE })}`)
+        // InternalApi.op_log_info("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren, { depth: Number.MAX_VALUE })}`)
 
         container.widgetChildren = newChildren
 
-        InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), container)
+        const containerComponent = { content: newChildren.map(value => convertComponents(value)) }
+
+        // InternalApi.op_log_info("renderer_js_persistence", `Converted container: ${Deno.inspect(containerComponent, { depth: Number.MAX_VALUE })}`)
+
+        InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), containerComponent)
     },
 
     cloneHiddenInstance(
@@ -352,6 +355,26 @@ export const createHostConfig = (): HostConfig<
     */
     supportsHydration: false
 });
+
+
+function convertComponents(widget: UiWidget): any  {
+    const component: any = {
+        __id__: widget.widgetId,
+        __type__: widget.widgetType,
+        ...widget.widgetProperties
+    }
+
+    for (const [name, value] of Object.entries(component)) {
+        if (typeof value === "function") {
+            delete component[name]
+        }
+    }
+
+    component.content = widget.widgetChildren
+        .map(child => convertComponents(child))
+
+    return component
+}
 
 function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): string[] | null {
     const uniqueProps = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
