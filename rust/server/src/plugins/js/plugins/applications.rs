@@ -100,13 +100,13 @@ pub fn macos_major_version() -> u8 {
 
 #[cfg(target_os = "macos")]
 #[op]
-pub async fn macos_app_from_path(path: String) -> Result<Option<DesktopPathAction>> {
+pub async fn macos_app_from_path(path: String) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "macos")]
 #[op]
-pub async fn macos_app_from_arbitrary_path(path: String) -> Result<Option<DesktopPathAction>> {
+pub async fn macos_app_from_arbitrary_path(path: String) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path))).await?)
 }
 
