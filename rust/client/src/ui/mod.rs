@@ -56,6 +56,7 @@ mod state;
 mod hud;
 
 use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
+use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::hud::{close_hud_window, show_hud_window};
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, MainViewState, PluginViewData, PluginViewState};
@@ -81,6 +82,7 @@ pub struct AppModel {
     client_context: Arc<StdRwLock<ClientContext>>,
     global_state: GlobalState,
     search_results: Vec<SearchResult>,
+    loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
     hud_display: Option<String>
 }
 
@@ -180,6 +182,11 @@ pub enum AppMsg {
     SetGlobalShortcut {
         shortcut: PhysicalShortcut,
         responder: Arc<Mutex<Option<Responder<UiResponseData>>>>
+    },
+    UpdateLoadingBar {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        show: bool
     },
 }
 
@@ -418,6 +425,7 @@ impl Application for AppModel {
                 global_state,
                 client_context,
                 search_results: vec![],
+                loading_bar_state: HashMap::new(),
                 hud_display: None,
             },
             Command::batch(commands),
@@ -1149,6 +1157,15 @@ impl Application for AppModel {
 
                 Command::none()
             }
+            AppMsg::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
+                if show {
+                    self.loading_bar_state.insert((plugin_id, entrypoint_id), ());
+                } else {
+                    self.loading_bar_state.remove(&(plugin_id, entrypoint_id));
+                }
+
+                Command::none()
+            }
         }
     }
 
@@ -1433,8 +1450,13 @@ impl Application for AppModel {
                     .width(Length::Fill)
                     .themed(ContainerStyle::MainSearchBar);
 
-                let separator = horizontal_rule(1)
-                    .into();
+                let separator = if !self.loading_bar_state.is_empty() {
+                    LoadingBar::new()
+                        .into()
+                } else {
+                    horizontal_rule(1)
+                        .into()
+                };
 
                 let content: Element<_> = column(vec![
                     inline_view_container(self.client_context.clone()).into(),
@@ -2058,6 +2080,15 @@ async fn request_loop(
                     AppMsg::SetGlobalShortcut {
                         shortcut,
                         responder: Arc::new(Mutex::new(Some(responder)))
+                    }
+                }
+                UiRequestData::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::UpdateLoadingBar {
+                        plugin_id,
+                        entrypoint_id,
+                        show
                     }
                 }
             }

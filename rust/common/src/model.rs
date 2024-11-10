@@ -153,6 +153,11 @@ pub enum UiRequestData {
     ShowHud {
         display: String
     },
+    UpdateLoadingBar {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        show: bool
+    },
     SetGlobalShortcut {
         shortcut: PhysicalShortcut
     },

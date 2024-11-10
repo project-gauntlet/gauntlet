@@ -120,6 +120,7 @@ interface InternalApi {
     reload_search_index(searchItems: AdditionalSearchItem[], refreshSearchList: boolean): Promise<void>;
 
     show_hud(display: string): void;
+    update_loading_bar(entrypoint_id: string, show: boolean): void;
 
     op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: any): void;
     show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;

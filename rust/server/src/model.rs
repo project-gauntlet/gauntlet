@@ -1,4 +1,4 @@
-use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, RootWidget, UiPropertyValue, UiWidgetId};
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, UiPropertyValue, UiWidgetId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
@@ -27,6 +27,11 @@ pub enum JsUiRequestData {
     },
     ShowHud {
         display: String
+    },
+    UpdateLoadingBar {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        show: bool
     },
 }
 

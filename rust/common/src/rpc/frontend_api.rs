@@ -140,6 +140,25 @@ impl FrontendApi {
         Ok(())
     }
 
+    pub async fn update_loading_bar(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        show: bool
+    ) -> Result<(), FrontendApiError> {
+        let request = UiRequestData::UpdateLoadingBar {
+            plugin_id,
+            entrypoint_id,
+            show,
+        };
+
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
     pub async fn set_global_shortcut(
         &self,
         shortcut: PhysicalShortcut

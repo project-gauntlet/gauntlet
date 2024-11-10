@@ -76,7 +76,9 @@ export async function runCommandGenerators(): Promise<void> {
             // noinspection ES6MissingAwait
             (async () => {
                 try {
+                    InternalApi.update_loading_bar(generatorEntrypointId, true)
                     let cleanup = await generator({ add, remove })
+                    InternalApi.update_loading_bar(generatorEntrypointId, false)
                     if (typeof cleanup === "function") {
                         generatorCleanups[generatorEntrypointId] = cleanup
                     }

@@ -9,7 +9,7 @@ use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use indexmap::IndexMap;
 use serde::{de, Deserialize, Deserializer};
 use serde::de::Error;
-use common::model::{EntrypointId, PhysicalKey, RootWidget, UiPropertyValue, UiWidget};
+use common::model::{EntrypointId, PhysicalKey, PluginId, RootWidget, UiPropertyValue, UiWidget};
 use component_model::{Component, Property, PropertyType, SharedType};
 use component_model::Component::Root;
 use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
@@ -171,6 +171,35 @@ async fn show_hud(state: Rc<RefCell<OpState>>, display: String) -> anyhow::Resul
         value @ _ => panic!("unsupported response type {:?}", value),
     }
 }
+
+#[op]
+async fn update_loading_bar(state: Rc<RefCell<OpState>>, entrypoint_id: String, show: bool) -> anyhow::Result<()> {
+    let plugin_id = {
+        let state = state.borrow();
+
+        let plugin_id = state
+            .borrow::<PluginData>()
+            .plugin_id()
+            .clone();
+
+        plugin_id
+    };
+
+    let data = JsUiRequestData::UpdateLoadingBar {
+        plugin_id: PluginId::from_string(plugin_id),
+        entrypoint_id: EntrypointId::from_string(entrypoint_id),
+        show,
+    };
+
+    match make_request(&state, data).context("UpdateLoadingBar response")? {
+        JsUiResponseData::Nothing => {
+            tracing::trace!("Calling update_loading_bar returned");
+            Ok(())
+        }
+        value @ _ => panic!("unsupported response type {:?}", value),
+    }
+}
+
 
 // TODO move to separate file
 #[derive(Debug, Deserialize)]

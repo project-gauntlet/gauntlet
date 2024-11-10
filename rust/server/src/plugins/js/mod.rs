@@ -37,14 +37,14 @@ use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepositor
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
 use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text, Clipboard};
-use crate::plugins::js::command_generators::get_command_generator_entrypoint_ids;
+use crate::plugins::js::command_generators::{get_command_generator_entrypoint_ids};
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
 use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
 use crate::plugins::js::search::reload_search_index;
-use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view};
+use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view, update_loading_bar};
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem};
 
@@ -509,6 +509,7 @@ deno_core::extension!(
         op_component_model,
         fetch_action_id_for_shortcut,
         show_hud,
+        update_loading_bar,
 
         // preferences
         get_plugin_preferences,
@@ -671,6 +672,12 @@ async fn make_request_async(plugin_id: PluginId, plugin_name: String, frontend_a
         JsUiRequestData::ShowHud { display } => {
 
             frontend_api.show_hud(display).await?;
+
+            Ok(JsUiResponseData::Nothing)
+        }
+        JsUiRequestData::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
+
+            frontend_api.update_loading_bar(plugin_id, entrypoint_id, show).await?;
 
             Ok(JsUiResponseData::Nothing)
         }
