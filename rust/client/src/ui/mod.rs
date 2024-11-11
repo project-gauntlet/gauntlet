@@ -21,13 +21,14 @@ use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex as StdMutex, Mutex, RwLock as StdRwLock};
+use serde::Deserialize;
 use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 use tonic::transport::Server;
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
-use common::scenario_convert::{ui_render_location_from_scenario, ui_widget_from_scenario};
+use common::scenario_convert::{ui_render_location_from_scenario};
 use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
 use common_ui::physical_key_model;
 use utils::channel::{channel, RequestReceiver, RequestSender, Responder};
@@ -342,25 +343,25 @@ impl Application for AppModel {
             );
 
             match event {
-                ScenarioFrontendEvent::ReplaceView { entrypoint_id, render_location, top_level_view, container } => {
+                ScenarioFrontendEvent::ReplaceView { entrypoint_id, render_location, top_level_view, container, images } => {
                     let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
                     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
                     let mut context = ClientContext::new();
 
                     let render_location = ui_render_location_from_scenario(render_location);
-                    let ui_widget = ui_widget_from_scenario(container);
-                    let has_children = ui_widget.widget_children.len() != 0;
+                    let container = RootWidget::deserialize(container).expect("should always be valid");
+                    let has_children = container.content.is_some();
 
-                    // TODO
-                    // context.replace_view(
-                    //     render_location,
-                    //     ui_widget,
-                    //     &plugin_id,
-                    //     "Screenshot Plugin",
-                    //     &entrypoint_id,
-                    //     "Screenshot Entrypoint",
-                    // );
+                    context.replace_view(
+                        render_location,
+                        container,
+                        images,
+                        &plugin_id,
+                        "Screenshot Plugin",
+                        &entrypoint_id,
+                        "Screenshot Entrypoint",
+                    );
 
                     let context = Arc::new(StdRwLock::new(context));
 
@@ -2037,6 +2038,8 @@ async fn request_loop(
                     render_location,
                     top_level_view,
                     container,
+                    #[cfg(feature = "scenario_runner")]
+                    container_value: _,
                     images
                 } => {
                     let has_children = container.content.is_some();

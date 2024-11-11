@@ -8091,6 +8091,7 @@ dependencies = [
  "resvg",
  "scenario_runner",
  "serde",
+ "serde-value",
  "sqlx",
  "tantivy",
  "tempfile",

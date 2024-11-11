@@ -28,7 +28,7 @@ use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
 use common::dirs::Dirs;
-use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidget, UiWidgetId};
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
@@ -637,13 +637,33 @@ fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::
 
 async fn make_request_async(plugin_id: PluginId, plugin_name: String, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
     match data {
-        JsUiRequestData::ReplaceView { render_location, top_level_view, container, entrypoint_id, entrypoint_name, images } => {
+        JsUiRequestData::ReplaceView {
+            entrypoint_id,
+            entrypoint_name,
+            render_location,
+            top_level_view,
+            container,
+            #[cfg(feature = "scenario_runner")]
+            container_value,
+            images
+        } => {
             let render_location = match render_location { // TODO into?
                 JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
                 JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
-            frontend_api.replace_view(plugin_id, plugin_name, entrypoint_id, entrypoint_name, render_location, top_level_view, container, images).await?;
+            frontend_api.replace_view(
+                plugin_id,
+                plugin_name,
+                entrypoint_id,
+                entrypoint_name,
+                render_location,
+                top_level_view,
+                container,
+                #[cfg(feature = "scenario_runner")]
+                container_value,
+                images
+            ).await?;
 
             Ok(JsUiResponseData::Nothing)
         }

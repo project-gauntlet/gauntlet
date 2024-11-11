@@ -8,26 +8,6 @@ pub enum ScenarioUiRenderLocation {
     View
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScenarioUiWidget {
-    pub widget_id: UiWidgetId,
-    pub widget_type: String,
-    pub widget_properties: HashMap<String, ScenarioUiPropertyValue>,
-    pub widget_children: Vec<ScenarioUiWidget>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ScenarioUiPropertyValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-    #[serde(with="base64")]
-    Bytes(Vec<u8>),
-    Object(HashMap<String, ScenarioUiPropertyValue>),
-    Array(Vec<ScenarioUiPropertyValue>),
-    Undefined,
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum ScenarioFrontendEvent {
@@ -35,7 +15,9 @@ pub enum ScenarioFrontendEvent {
         entrypoint_id: String,
         render_location: ScenarioUiRenderLocation,
         top_level_view: bool,
-        container: ScenarioUiWidget,
+        container: serde_value::Value,
+        #[serde(with="base64")]
+        images: HashMap<UiWidgetId, bytes::Bytes>,
     },
     ShowPreferenceRequiredView {
         entrypoint_id: String,
@@ -49,18 +31,31 @@ pub enum ScenarioFrontendEvent {
 }
 
 mod base64 {
+    use std::collections::HashMap;
+    use std::str::FromStr;
     use serde::{Serialize, Deserialize};
     use serde::{Deserializer, Serializer};
     use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+    use crate::model::UiWidgetId;
 
-    pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
-        let base64 = base64::engine::general_purpose::STANDARD.encode(v);
-        String::serialize(&base64, s)
+    pub fn serialize<S: Serializer>(v: &HashMap<UiWidgetId, bytes::Bytes>, s: S) -> Result<S::Ok, S::Error> {
+        let map = v.iter()
+            .map(|(key, value)| (key.to_string(), STANDARD.encode(value)))
+            .collect();
+
+        HashMap::<String, String>::serialize(&map, s)
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
-        let base64 = String::deserialize(d)?;
-        base64::engine::general_purpose::STANDARD.decode(base64.as_bytes())
-            .map_err(|e| serde::de::Error::custom(e))
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<HashMap<UiWidgetId, bytes::Bytes>, D::Error> {
+        HashMap::<String, String>::deserialize(d)?
+            .into_iter()
+            .map(|(key, value)| {
+                STANDARD.decode(value.as_bytes())
+                    .map_err(|e| serde::de::Error::custom(e))
+                    .map(|vec| (UiWidgetId::from_str(&key).expect("should not fail"), bytes::Bytes::from(vec)))
+            })
+            .collect()
+
     }
 }

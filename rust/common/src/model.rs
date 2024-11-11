@@ -137,6 +137,8 @@ pub enum UiRequestData {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
+        #[cfg(feature = "scenario_runner")]
+        container_value: serde_value::Value,
         images: HashMap<UiWidgetId, bytes::Bytes>,
     },
     ShowPreferenceRequiredView {
@@ -500,14 +502,6 @@ pub trait WidgetVisitor {
             }
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct UiWidget {
-    pub widget_id: UiWidgetId,
-    pub widget_type: String,
-    pub widget_properties: HashMap<String, UiPropertyValue>,
-    pub widget_children: Vec<UiWidget>,
 }
 
 #[derive(Debug, Clone)]

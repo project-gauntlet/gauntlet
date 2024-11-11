@@ -48,6 +48,8 @@ impl FrontendApi {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
+        #[cfg(feature = "scenario_runner")]
+        container_value: serde_value::Value,
         images: HashMap<UiWidgetId, bytes::Bytes>,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
@@ -58,6 +60,8 @@ impl FrontendApi {
             render_location,
             top_level_view,
             container,
+            #[cfg(feature = "scenario_runner")]
+            container_value,
             images,
         };
 

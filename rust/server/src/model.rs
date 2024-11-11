@@ -15,6 +15,8 @@ pub enum JsUiRequestData {
         render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
+        #[cfg(feature = "scenario_runner")]
+        container_value: serde_value::Value,
         images: HashMap<UiWidgetId, bytes::Bytes>,
     },
     ClearInlineView,

@@ -4,7 +4,7 @@ use std::path::Path;
 use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PluginId, UiRequestData, UiResponseData};
 use common::rpc::backend_api::{BackendApi, BackendForFrontendApi};
 use common::rpc::backend_server::wait_for_backend_server;
-use common::scenario_convert::{ui_render_location_to_scenario, ui_widget_to_scenario};
+use common::scenario_convert::{ui_render_location_to_scenario};
 use common::scenario_model::ScenarioFrontendEvent;
 use utils::channel::{RequestReceiver, RequestSender};
 
@@ -151,18 +151,29 @@ async fn request_loop(mut request_receiver: RequestReceiver<UiRequestData, UiRes
         let (request_data, responder) = request_receiver.recv().await;
 
         match request_data {
-            UiRequestData::ShowHud { .. } | UiRequestData::ShowWindow | UiRequestData::ClearInlineView { .. } => {
+            UiRequestData::UpdateLoadingBar { .. } | UiRequestData::ShowHud { .. } | UiRequestData::ShowWindow | UiRequestData::ClearInlineView { .. } => {
                 unreachable!()
             }
-            UiRequestData::RequestSearchResultUpdate => {
+            UiRequestData::SetGlobalShortcut { .. } | UiRequestData::RequestSearchResultUpdate => {
                 // noop
             }
-            UiRequestData::ReplaceView { plugin_id: _, plugin_name: _, entrypoint_id, entrypoint_name: _, render_location, top_level_view, container } => {
+            UiRequestData::ReplaceView {
+                plugin_id: _,
+                plugin_name: _,
+                entrypoint_id,
+                entrypoint_name: _,
+                render_location,
+                top_level_view,
+                container: _,
+                container_value,
+                images
+            } => {
                 let event = ScenarioFrontendEvent::ReplaceView {
                     entrypoint_id: entrypoint_id.to_string(),
                     render_location: ui_render_location_to_scenario(render_location),
                     top_level_view,
-                    container: ui_widget_to_scenario(container),
+                    container: container_value,
+                    images,
                 };
 
                 scenario_sender.send(event)
