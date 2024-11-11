@@ -260,7 +260,7 @@ impl GauntletTheme {
             action: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: TRANSPARENT,
-                background_color_focused: background_lighter_color,
+                background_color_focused: background_lightest_color,
                 background_color_hovered: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -351,7 +351,7 @@ impl GauntletTheme {
             grid_item: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: background_lighter_color,
-                background_color_focused: background_lightest_color,
+                background_color_focused: background_darker_color,
                 background_color_hovered: background_lightest_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
@@ -422,7 +422,7 @@ impl GauntletTheme {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
                 background_color_focused: background_lighter_color,
-                background_color_hovered: background_lighter_color,
+                background_color_hovered: background_darker_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
                 border_radius: BUTTON_BORDER_RADIUS,

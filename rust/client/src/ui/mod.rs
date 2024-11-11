@@ -34,21 +34,17 @@ use common_ui::physical_key_model;
 use utils::channel::{channel, RequestReceiver, RequestSender, Responder};
 
 use crate::model::UiViewEvent;
-use crate::ui::inline_view_container::{inline_view_action_panel, inline_view_container};
 use crate::ui::search_list::search_list;
 use crate::ui::theme::container::{ContainerStyle, ContainerStyleInner};
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::{Element, ThemableWidget};
-use crate::ui::view_container::view_container;
 use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentWidgetEvent};
 
-mod view_container;
 mod search_list;
 mod widget;
 mod theme;
 mod client_context;
 mod widget_container;
-mod inline_view_container;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod sys_tray;
 mod custom_widgets;
@@ -1488,8 +1484,28 @@ impl Application for AppModel {
                         .into()
                 };
 
+                let client_context = self.client_context.read().expect("lock is poisoned");
+
+                let inline_view = match client_context.get_all_inline_view_containers().first() {
+                    Some((plugin_id, container)) => {
+                        let plugin_id = plugin_id.clone();
+                        container.render_inline_root_widget()
+                            .map(move |widget_event| {
+                                AppMsg::WidgetEvent {
+                                    plugin_id: plugin_id.clone(),
+                                    render_location: UiRenderLocation::InlineView,
+                                    widget_event,
+                                }
+                            })
+                    }
+                    None => {
+                        horizontal_space()
+                            .into()
+                    }
+                };
+
                 let content: Element<_> = column(vec![
-                    inline_view_container(self.client_context.clone()).into(),
+                    inline_view,
                     list,
                 ]).into();
 
@@ -1553,7 +1569,9 @@ impl Application for AppModel {
                         (Some((label, primary_action_widget_id, default_shortcut)), Some(action_panel))
                     }
                 } else {
-                    match inline_view_action_panel(self.client_context.clone()) {
+                    let client_context = self.client_context.read().expect("lock is poisoned");
+
+                    match client_context.get_first_inline_view_action_panel() {
                         None => (None, None),
                         Some(action_panel) => {
                             match action_panel.find_first() {
@@ -1632,25 +1650,19 @@ impl Application for AppModel {
 
                 root
             }
-            GlobalState::PluginView { plugin_view_data, sub_state, ..  } => {
-                let PluginViewData {
-                    top_level_view: _,
-                    plugin_id,
-                    plugin_name,
-                    entrypoint_id,
-                    entrypoint_name,
-                    action_shortcuts,
-                } = plugin_view_data;
+            GlobalState::PluginView { plugin_view_data, sub_state, focused_item, ..  } => {
+                let PluginViewData { plugin_id, action_shortcuts, .. } = plugin_view_data;
 
-                let container_element: Element<_> = view_container(
-                    self.client_context.clone(),
-                    sub_state.clone(),
-                    plugin_id.to_owned(),
-                    plugin_name.to_owned(),
-                    entrypoint_id.to_owned(),
-                    entrypoint_name.to_owned(),
-                    action_shortcuts.to_owned(),
-                ).into();
+                let client_context = self.client_context.read().expect("lock is poisoned");
+                let view_container = client_context.get_view_container();
+
+                let container_element = view_container
+                    .render_root_widget(sub_state, action_shortcuts, focused_item)
+                    .map(|widget_event| AppMsg::WidgetEvent {
+                        plugin_id: plugin_id.clone(),
+                        render_location: UiRenderLocation::View,
+                        widget_event,
+                    });
 
                 let element: Element<_> = container(container_element)
                     .width(Length::Fill)

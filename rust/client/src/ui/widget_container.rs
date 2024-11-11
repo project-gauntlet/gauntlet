@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::ui::scroll_handle::ScrollHandle;
 
 pub struct PluginWidgetContainer {
     root_widget: Arc<Mutex<Option<RootWidget>>>,
@@ -88,12 +89,13 @@ impl PluginWidgetContainer {
         &self,
         plugin_view_state: &PluginViewState,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
+        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images)
-            .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts)
+            .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts, focused_item)
     }
 
     pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {

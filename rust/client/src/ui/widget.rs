@@ -455,6 +455,7 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: Option<&String>,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
+        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         match &self.root_widget {
             None => {
@@ -489,8 +490,8 @@ impl<'b> ComponentWidgets<'b> {
                                 )
                             },
                             RootWidgetMembers::Form(widget) => self.render_form_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
-                            RootWidgetMembers::List(widget) => self.render_list_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
-                            RootWidgetMembers::Grid(widget) => self.render_grid_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
+                            RootWidgetMembers::List(widget) => self.render_list_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts, focused_item),
+                            RootWidgetMembers::Grid(widget) => self.render_grid_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts, focused_item),
                             _ => {
                                 panic!("used inline widget in non-inline place")
                             }
@@ -1187,12 +1188,14 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
+        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = list_widget.__id__;
         let RootState { show_action_panel } = self.root_state(widget_id);
 
         let mut pending: Vec<&ListItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
+        let index_counter = &Cell::new(0);
 
         for members in &list_widget.content.ordered_members {
             match &members {
@@ -1203,7 +1206,7 @@ impl<'b> ComponentWidgets<'b> {
                     if !pending.is_empty() {
                         let content: Vec<_> = pending
                             .iter()
-                            .map(|widget| self.render_list_item_widget(widget))
+                            .map(|widget| self.render_list_item_widget(widget, focused_item.index, index_counter))
                             .collect();
 
                         let content: Element<_> = column(content)
@@ -1214,7 +1217,7 @@ impl<'b> ComponentWidgets<'b> {
                         pending = vec![];
                     }
 
-                    items.push(self.render_list_section_widget(widget))
+                    items.push(self.render_list_section_widget(widget, focused_item.index, index_counter))
                 },
             }
         }
@@ -1222,7 +1225,7 @@ impl<'b> ComponentWidgets<'b> {
         if !pending.is_empty() {
             let content: Vec<_> = pending
                 .iter()
-                .map(|widget| self.render_list_item_widget(widget))
+                .map(|widget| self.render_list_item_widget(widget, focused_item.index, index_counter))
                 .collect();
 
             let content: Element<_> = column(content)
@@ -1246,6 +1249,7 @@ impl<'b> ComponentWidgets<'b> {
                 .themed(ContainerStyle::ListInner);
 
             let content: Element<_> = scrollable(content)
+                .id(focused_item.scrollable_id.clone())
                 .width(Length::Fill)
                 .into();
 
@@ -1290,12 +1294,17 @@ impl<'b> ComponentWidgets<'b> {
         )
     }
 
-    fn render_list_section_widget<'a>(&self, widget: &ListSectionWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_list_section_widget<'a>(
+        &self,
+        widget: &ListSectionWidget,
+        item_focus_index: Option<usize>,
+        index_counter: &Cell<usize>
+    ) -> Element<'a, ComponentWidgetEvent> {
         let content: Vec<_> = widget.content.ordered_members
             .iter()
             .map(|members| {
                 match members {
-                    ListSectionWidgetOrderedMembers::ListItem(widget) => self.render_list_item_widget(widget)
+                    ListSectionWidgetOrderedMembers::ListItem(widget) => self.render_list_item_widget(widget, item_focus_index, index_counter)
                 }
             })
             .collect();
@@ -1306,7 +1315,12 @@ impl<'b> ComponentWidgets<'b> {
         render_section(content, Some(&widget.title), &widget.subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle, TextStyle::ListSectionSubtitle)
     }
 
-    fn render_list_item_widget<'a>(&self, widget: &ListItemWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_list_item_widget<'a>(
+        &self,
+        widget: &ListItemWidget,
+        item_focus_index: Option<usize>,
+        index_counter: &Cell<usize>
+    ) -> Element<'a, ComponentWidgetEvent> {
         let icon: Option<Element<_>> = widget.icon
             .as_ref()
             .map(|icon| self.render_image(widget.__id__, icon, None));
@@ -1361,11 +1375,18 @@ impl<'b> ComponentWidgets<'b> {
             .align_items(Alignment::Center)
             .into();
 
-        let style = if false {
-            ButtonStyle::ListItemFocused
-        } else {
-            ButtonStyle::ListItem
+        let style = match item_focus_index {
+            None => ButtonStyle::ListItem,
+            Some(focused_index) => {
+                if focused_index == index_counter.get() {
+                    ButtonStyle::ListItemFocused
+                } else {
+                    ButtonStyle::ListItem
+                }
+            }
         };
+
+        index_counter.set(index_counter.get() + 1);
 
         button(content)
             .on_press(ComponentWidgetEvent::ListItemClick { widget_id: widget.__id__ })
@@ -1379,11 +1400,13 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
+        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let RootState { show_action_panel } = self.root_state(grid_widget.__id__);
 
         let mut pending: Vec<&GridItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
+        let index_counter = &Cell::new(0);
 
         for members in &grid_widget.content.ordered_members {
             match &members {
@@ -1392,20 +1415,20 @@ impl<'b> ComponentWidgets<'b> {
                 }
                 GridWidgetOrderedMembers::GridSection(widget) => {
                     if !pending.is_empty() {
-                        let content = self.render_grid(&pending, &grid_widget.columns);
+                        let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
 
                         items.push(content);
 
                         pending = vec![];
                     }
 
-                    items.push(self.render_grid_section_widget(widget))
+                    items.push(self.render_grid_section_widget(widget, focused_item.index, index_counter))
                 }
             }
         }
 
         if !pending.is_empty() {
-            let content = self.render_grid(&pending, &grid_widget.columns);
+            let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
 
             items.push(content);
         }
@@ -1418,6 +1441,7 @@ impl<'b> ComponentWidgets<'b> {
             .themed(ContainerStyle::GridInner);
 
         let content: Element<_> = scrollable(content)
+            .id(focused_item.scrollable_id.clone())
             .width(Length::Fill)
             .into();
 
@@ -1438,7 +1462,12 @@ impl<'b> ComponentWidgets<'b> {
         )
     }
 
-    fn render_grid_section_widget<'a>(&self, widget: &GridSectionWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_grid_section_widget<'a>(
+        &self,
+        widget: &GridSectionWidget,
+        item_focus_index: Option<usize>,
+        index_counter: &Cell<usize>
+    ) -> Element<'a, ComponentWidgetEvent> {
         let items: Vec<_> = widget.content.ordered_members
             .iter()
             .map(|members| {
@@ -1448,22 +1477,34 @@ impl<'b> ComponentWidgets<'b> {
             })
             .collect();
 
-        let content = self.render_grid(&items, &widget.columns);
+        let content = self.render_grid(&items, &widget.columns, item_focus_index, index_counter);
 
         render_section(content, Some(&widget.title), &widget.subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle, TextStyle::GridSectionSubtitle)
     }
 
-    fn render_grid_item_widget<'a>(&self, widget: &GridItemWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_grid_item_widget<'a>(
+        &self,
+        widget: &GridItemWidget,
+        item_focus_index: Option<usize>,
+        index_counter: &Cell<usize>
+    ) -> Element<'a, ComponentWidgetEvent> {
         // TODO not needed column element?
         let content: Element<_> = column(vec![self.render_content_widget(&widget.content.content, true)])
             .height(130) // TODO dynamic height
             .into();
 
-        let style = if false {
-            ButtonStyle::GridItemFocused
-        } else {
-            ButtonStyle::GridItem
+        let style = match item_focus_index {
+            None => ButtonStyle::GridItem,
+            Some(focused_index) => {
+                if focused_index == index_counter.get() {
+                    ButtonStyle::GridItemFocused
+                } else {
+                    ButtonStyle::GridItem
+                }
+            }
         };
+
+        index_counter.set(index_counter.get() + 1);
 
         let content: Element<_> = button(content)
             .on_press(ComponentWidgetEvent::GridItemClick { widget_id: widget.__id__ })
@@ -1512,7 +1553,14 @@ impl<'b> ComponentWidgets<'b> {
         content
     }
 
-    fn render_grid<'a>(&self, items: &[&GridItemWidget], /*aspect_ratio: Option<&str>,*/ columns: &Option<f64>) -> Element<'a, ComponentWidgetEvent> {
+    fn render_grid<'a>(
+        &self,
+        items: &[&GridItemWidget],
+        /*aspect_ratio: Option<&str>,*/
+        columns: &Option<f64>,
+        item_focus_index: Option<usize>,
+        index_counter: &Cell<usize>
+    ) -> Element<'a, ComponentWidgetEvent> {
         // let (width, height) = match aspect_ratio {
         //     None => (1, 1),
         //     Some("1") => (1, 1),
@@ -1529,7 +1577,7 @@ impl<'b> ComponentWidgets<'b> {
 
         let rows: Vec<GridRow<_, _, _>> = items
             .iter()
-            .map(|widget| self.render_grid_item_widget(widget))
+            .map(|widget| self.render_grid_item_widget(widget, item_focus_index, index_counter))
             .chunks(grid_width)
             .into_iter()
             .map(|row_items| {
@@ -1858,10 +1906,10 @@ fn convert_action_panel(action_panel: &Option<ActionPanelWidget>, action_shortcu
     }
 }
 
-fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
+fn render_action_panel_items<'a, T: 'a + Clone>(
     title: Option<String>,
     items: Vec<ActionPanelItem>,
-    action_panel_scroll_handle: &ScrollHandle<ACTION>,
+    action_panel_focus_index: Option<usize>,
     on_action_click: &dyn Fn(UiWidgetId) -> T,
     index_counter: &Cell<usize>
 ) -> Vec<Element<'a, T>> {
@@ -1934,7 +1982,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
                         .into()
                 };
 
-                let style = match action_panel_scroll_handle.index {
+                let style = match action_panel_focus_index {
                     None => ButtonStyle::Action,
                     Some(focused_index) => {
                         if focused_index == index_counter.get() {
@@ -1960,7 +2008,7 @@ fn render_action_panel_items<'a, T: 'a + Clone, ACTION>(
 
                 columns.push(separator);
 
-                let content = render_action_panel_items(title, items, action_panel_scroll_handle, on_action_click, index_counter);
+                let content = render_action_panel_items(title, items, action_panel_focus_index, on_action_click, index_counter);
 
                 for content in content {
                     columns.push(content);
@@ -1979,7 +2027,7 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
     on_action_click: F,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
 ) -> Element<'a, T> {
-    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle, &on_action_click, &Cell::new(0));
+    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle.index, &on_action_click, &Cell::new(0));
 
     let actions: Element<_> = column(columns)
         .into();

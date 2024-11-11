@@ -2,7 +2,6 @@ mod main_view;
 mod plugin_view;
 
 use crate::ui::client_context::ClientContext;
-use crate::ui::inline_view_container::inline_view_action_panel;
 use crate::ui::scroll_handle::ScrollHandle;
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
@@ -373,7 +372,9 @@ impl Focus<SearchResult> for GlobalState {
                         }
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item } => {
-                        match inline_view_action_panel(client_context.clone()) {
+                        let client_context = client_context.read().expect("lock is poisoned");
+
+                        match client_context.get_first_inline_view_action_panel() {
                             Some(action_panel) => {
                                 if action_panel.action_count() != 0 {
                                     focused_action_item.focus_next_row(action_panel.action_count(), 1)
