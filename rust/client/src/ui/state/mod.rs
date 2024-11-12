@@ -2,11 +2,11 @@ mod main_view;
 mod plugin_view;
 
 use crate::ui::client_context::ClientContext;
-use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
 use crate::ui::AppMsg;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, UiWidgetId};
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult};
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
 use iced::Command;
@@ -33,9 +33,6 @@ pub enum GlobalState {
     PluginView {
         // logic
         client_context: Arc<StdRwLock<ClientContext>>,
-
-        // ephemeral state
-        focused_item: ScrollHandle<UiWidgetId>,
 
         // state
         plugin_view_data: PluginViewData,
@@ -82,7 +79,7 @@ impl GlobalState {
     pub fn new(search_field_id: text_input::Id, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
         GlobalState::MainView {
             search_field_id,
-            focused_search_result: ScrollHandle::new(true),
+            focused_search_result: ScrollHandle::new(true, ESTIMATED_MAIN_LIST_ITEM_HEIGHT),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
             client_context,
@@ -99,7 +96,6 @@ impl GlobalState {
     pub fn new_plugin(plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
         GlobalState::PluginView {
             client_context,
-            focused_item: ScrollHandle::new(false), // TODO first focused?
             plugin_view_data,
             sub_state: PluginViewState::new(),
         }
@@ -321,29 +317,30 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
-                        focused_search_result.focus_previous_row(1)
+                        focused_search_result.focus_previous()
+                            .unwrap_or_else(|| Command::none())
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item } => {
-                        focused_action_item.focus_previous_row(1)
+                        focused_action_item.focus_previous()
+                            .unwrap_or_else(|| Command::none())
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item } => {
-                        focused_action_item.focus_previous_row(1)
+                        focused_action_item.focus_previous()
+                            .unwrap_or_else(|| Command::none())
                     }
                 }
             }
             GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView { sub_state, client_context, focused_item, .. } => {
+            GlobalState::PluginView { sub_state, client_context, .. } => {
                 match sub_state {
                     PluginViewState::None => {
                         let client_context = client_context.read().expect("lock is poisoned");
 
-                        match client_context.keyboard_navigation_width() {
-                            None => Command::none(),
-                            Some(width) => focused_item.focus_previous_row(width)
-                        }
+                        client_context.focus_up()
                     },
                     PluginViewState::ActionPanel { focused_action_item } => {
-                        focused_action_item.focus_previous_row(1)
+                        focused_action_item.focus_previous()
+                            .unwrap_or_else(|| Command::none())
                     }
                 }
             },
@@ -355,7 +352,8 @@ impl Focus<SearchResult> for GlobalState {
                 match sub_state {
                     MainViewState::None => {
                         if focus_list.len() != 0 {
-                            focused_search_result.focus_next_row(focus_list.len(), 1)
+                            focused_search_result.focus_next(focus_list.len())
+                                .unwrap_or_else(|| Command::none())
                         } else {
                             Command::none()
                         }
@@ -363,7 +361,8 @@ impl Focus<SearchResult> for GlobalState {
                     MainViewState::SearchResultActionPanel { focused_action_item } => {
                         if let Some(search_item) = focused_search_result.get(focus_list) {
                             if search_item.entrypoint_actions.len() != 0 {
-                                focused_action_item.focus_next_row(search_item.entrypoint_actions.len() + 1, 1)
+                                focused_action_item.focus_next(search_item.entrypoint_actions.len() + 1)
+                                    .unwrap_or_else(|| Command::none())
                             } else {
                                 Command::none()
                             }
@@ -377,7 +376,8 @@ impl Focus<SearchResult> for GlobalState {
                         match client_context.get_first_inline_view_action_panel() {
                             Some(action_panel) => {
                                 if action_panel.action_count() != 0 {
-                                    focused_action_item.focus_next_row(action_panel.action_count(), 1)
+                                    focused_action_item.focus_next(action_panel.action_count())
+                                        .unwrap_or_else(|| Command::none())
                                 } else {
                                     Command::none()
                                 }
@@ -388,17 +388,12 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Command::none(),
-            GlobalState::PluginView { sub_state, client_context, focused_item, .. } => {
+            GlobalState::PluginView { sub_state, client_context, .. } => {
                 match sub_state {
                     PluginViewState::None => {
                         let client_context = client_context.read().expect("lock is poisoned");
 
-                        let total = client_context.keyboard_navigation_total();
-
-                        match client_context.keyboard_navigation_width() {
-                            None => Command::none(),
-                            Some(width) => focused_item.focus_next_row(total, width)
-                        }
+                        client_context.focus_down()
                     },
                     PluginViewState::ActionPanel { focused_action_item } => {
                         let client_context = client_context.read().expect("lock is poisoned");
@@ -406,7 +401,8 @@ impl Focus<SearchResult> for GlobalState {
                         let action_ids = client_context.get_action_ids();
 
                         if action_ids.len() != 0 {
-                            focused_action_item.focus_next_row(action_ids.len(), 1)
+                            focused_action_item.focus_next(action_ids.len())
+                                .unwrap_or_else(|| Command::none())
                         } else {
                             Command::none()
                         }
@@ -417,15 +413,12 @@ impl Focus<SearchResult> for GlobalState {
     }
     fn left(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
-            GlobalState::PluginView { client_context, sub_state, focused_item, .. } => {
+            GlobalState::PluginView { client_context, sub_state, .. } => {
                 match sub_state {
                     PluginViewState::None => {
                         let client_context = client_context.read().expect("lock is poisoned");
 
-                        match client_context.keyboard_navigation_width() {
-                            None => Command::none(),
-                            Some(width) => focused_item.focus_previous_column(width)
-                        }
+                        client_context.focus_left()
                     }
                     PluginViewState::ActionPanel { .. } => Command::none()
                 }
@@ -436,17 +429,12 @@ impl Focus<SearchResult> for GlobalState {
     }
     fn right(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
         match self {
-            GlobalState::PluginView { client_context, sub_state, focused_item, .. } => {
+            GlobalState::PluginView { client_context, sub_state, .. } => {
                 match sub_state {
                     PluginViewState::None => {
                         let client_context = client_context.read().expect("lock is poisoned");
 
-                        let total = client_context.keyboard_navigation_total();
-
-                        match client_context.keyboard_navigation_width() {
-                            None => Command::none(),
-                            Some(width) => focused_item.focus_next_column(total, width)
-                        }
+                        client_context.focus_right()
                     }
                     PluginViewState::ActionPanel { .. } => Command::none()
                 }

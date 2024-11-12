@@ -1,4 +1,4 @@
-use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
 use common::model::{SearchResultEntrypointAction, UiWidgetId};
 
 pub enum MainViewState {
@@ -24,13 +24,13 @@ impl MainViewState {
 
     pub fn search_result_action_panel(prev_state: &mut MainViewState, focus_first: bool) {
         *prev_state = Self::SearchResultActionPanel {
-            focused_action_item: ScrollHandle::new(focus_first),
+            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT),
         }
     }
 
     pub fn inline_result_action_panel(prev_state: &mut MainViewState, focus_first: bool) {
         *prev_state = Self::InlineViewActionPanel {
-            focused_action_item: ScrollHandle::new(focus_first),
+            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT),
         }
     }
 }

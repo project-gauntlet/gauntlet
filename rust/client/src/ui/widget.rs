@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 
@@ -6,11 +7,12 @@ use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMem
 use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
+use iced::widget::image::Handle;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
-use iced::{Alignment, Font, Length};
-use iced::widget::image::Handle;
+use iced::{Alignment, Command, Font, Length};
+use iced::futures::StreamExt;
 use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
@@ -20,7 +22,7 @@ use itertools::Itertools;
 
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
-use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_GRID_ITEM_HEIGHT, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
@@ -102,7 +104,11 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn root_state_mut(&mut self, widget_id: UiWidgetId) -> &mut RootState {
-        let state = self.state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+        Self::root_state_mut_on_field(&mut self.state, widget_id)
+    }
+
+    fn root_state_mut_on_field(state: &mut HashMap<UiWidgetId, ComponentWidgetState>, widget_id: UiWidgetId) -> &mut RootState {
+        let state = state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
 
         match state {
             ComponentWidgetState::Root(state) => state,
@@ -120,10 +126,10 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
         Some(members) => {
             match members {
                 RootWidgetMembers::Detail(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root());
+                    result.insert(widget.__id__, ComponentWidgetState::root(0.0));
                 }
                 RootWidgetMembers::Form(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root());
+                    result.insert(widget.__id__, ComponentWidgetState::root(0.0));
 
                     for members in &widget.content.ordered_members {
                         match members {
@@ -147,14 +153,14 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
                     }
                 }
                 RootWidgetMembers::List(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root());
+                    result.insert(widget.__id__, ComponentWidgetState::root(ESTIMATED_MAIN_LIST_ITEM_HEIGHT));
 
                     if let Some(widget) = &widget.content.search_bar {
                         result.insert(widget.__id__, ComponentWidgetState::text_field(&widget.value));
                     }
                 }
                 RootWidgetMembers::Grid(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root());
+                    result.insert(widget.__id__, ComponentWidgetState::root(ESTIMATED_GRID_ITEM_HEIGHT));
 
                     if let Some(widget) = &widget.content.search_bar {
                         result.insert(widget.__id__, ComponentWidgetState::text_field(&widget.value));
@@ -201,12 +207,14 @@ struct SelectState {
 #[derive(Debug, Clone)]
 struct RootState {
     show_action_panel: bool,
+    focused_item: ScrollHandle<UiWidgetId>,
 }
 
 impl ComponentWidgetState {
-    fn root() -> ComponentWidgetState {
+    fn root(item_height: f32) -> ComponentWidgetState {
         ComponentWidgetState::Root(RootState {
             show_action_panel: false,
+            focused_item: ScrollHandle::new(false, item_height), // TODO first focused?
         })
     }
 
@@ -320,34 +328,140 @@ impl<'b> ComponentWidgets<'b> {
         result
     }
 
-    pub fn keyboard_navigation_width(&self) -> Option<usize> {
+    pub fn focus_up(&mut self) -> Command<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return None;
+            return Command::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return None;
+            return Command::none();
         };
 
         match content {
-            RootWidgetMembers::List(_) => Some(1),
-            RootWidgetMembers::Grid(GridWidget { columns, .. }) => Some(grid_width(columns)),
-            _ => None
+            RootWidgetMembers::Detail(_) => Command::none(),
+            RootWidgetMembers::Form(_) => Command::none(),
+            RootWidgetMembers::Inline(_) => Command::none(),
+            RootWidgetMembers::List(widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
+
+                focused_item.focus_previous()
+                    .unwrap_or_else(|| Command::none())
+            }
+            RootWidgetMembers::Grid(grid_widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+
+                let Some(current_index) = &focused_item.index else {
+                    return Command::none();
+                };
+
+                let mut amount_per_section: Vec<(usize, usize)> = vec![];
+                let mut current_width: usize = 0;
+
+                {
+                    let mut cumulative_index = 0;
+                    let mut pending_section_size = 0;
+
+                    for members in &grid_widget.content.ordered_members {
+                        match &members {
+                            GridWidgetOrderedMembers::GridItem(_) => {
+                                pending_section_size = pending_section_size + 1;
+                            }
+                            GridWidgetOrderedMembers::GridSection(widget) => {
+                                if pending_section_size > 0 {
+                                    cumulative_index = cumulative_index + pending_section_size;
+                                    if cumulative_index >= (*current_index + 1) {
+                                        current_width = grid_width(&grid_widget.columns);
+                                        break
+                                    }
+
+                                    amount_per_section.push((pending_section_size, grid_width(&grid_widget.columns)));
+
+                                    pending_section_size = 0;
+                                }
+
+                                let section_amount = widget
+                                    .content
+                                    .ordered_members
+                                    .iter()
+                                    .filter(|members| matches!(members, GridSectionWidgetOrderedMembers::GridItem(_)))
+                                    .count();
+
+                                cumulative_index = cumulative_index + section_amount;
+                                if cumulative_index >= (*current_index + 1) {
+                                    current_width = grid_width(&widget.columns);
+                                    break
+                                }
+
+                                amount_per_section.push((section_amount, grid_width(&widget.columns)))
+                            }
+                        }
+                    }
+
+                    if pending_section_size > 0 {
+                        cumulative_index = cumulative_index + pending_section_size;
+                        if cumulative_index >= (*current_index + 1) {
+                            current_width = grid_width(&grid_widget.columns);
+                            // break
+                        } else {
+                            amount_per_section.push((pending_section_size, grid_width(&grid_widget.columns)));
+                        }
+                    }
+                }
+
+                let Some((amount_prev_section, width_prev_section)) = amount_per_section.iter().last() else {
+                    return Command::none()
+                };
+
+                let total_amount_prev_section: usize = amount_per_section.iter()
+                    .map(|(section, _)| section)
+                    .sum();
+
+                let inside_of_current_section = (current_index - total_amount_prev_section + 1)
+                    .checked_sub(current_width) // basically a check if result is >= 0
+                    .is_some();
+
+                if inside_of_current_section {
+                    let _ = focused_item.focus_previous_in(current_width);
+
+                    // focused_item.scroll_to(row_amount)
+                    Command::none()
+                } else {
+                    let last_row_amount_prev_section = amount_prev_section % width_prev_section;
+
+                    if last_row_amount_prev_section == 0 {
+                        let _ = focused_item.focus_previous_in(current_width);
+
+                        // focused_item.scroll_to(row_amount)
+                        Command::none()
+                    } else {
+                        let current_column_current_section = (current_index - amount_prev_section) % current_width;
+                        let _ = focused_item.focus_previous_in(max(current_column_current_section + 1, last_row_amount_prev_section));
+
+                        // focused_item.scroll_to(row_amount)
+                        Command::none()
+                    }
+                }
+            }
         }
     }
 
-    pub fn keyboard_navigation_total(&self) -> usize {
+    pub fn focus_down(&mut self) -> Command<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return 0;
+            return Command::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return 0;
+            return Command::none();
         };
 
         match content {
+            RootWidgetMembers::Detail(_) => Command::none(),
+            RootWidgetMembers::Form(_) => Command::none(),
+            RootWidgetMembers::Inline(_) => Command::none(),
             RootWidgetMembers::List(widget) => {
-                widget.content.ordered_members
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
+
+                let total = widget.content.ordered_members
                     .iter()
                     .flat_map(|members| {
                         match members {
@@ -364,10 +478,15 @@ impl<'b> ComponentWidgets<'b> {
                             }
                         }
                     })
-                    .count()
+                    .count();
+
+                focused_item.focus_next(total)
+                    .unwrap_or_else(|| Command::none())
             }
-            RootWidgetMembers::Grid(widget) => {
-                widget.content.ordered_members
+            RootWidgetMembers::Grid(grid_widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+
+                let total = grid_widget.content.ordered_members
                     .iter()
                     .flat_map(|members| {
                         match members {
@@ -384,25 +503,176 @@ impl<'b> ComponentWidgets<'b> {
                             }
                         }
                     })
-                    .count()
+                    .count();
+
+                let Some(current_index) = &focused_item.index else {
+                    let _ = focused_item.focus_next(total);
+
+                    return focused_item.scroll_to(0)
+                };
+
+                let mut amount_per_section: Vec<(usize, usize)> = vec![];
+                let mut amount_next_section: Option<(usize, usize)> = None;
+
+                {
+                    let mut cumulative_index = 0;
+                    let mut consume_one_more = false;
+                    let mut pending_section_size = 0;
+
+                    for members in &grid_widget.content.ordered_members {
+                        match &members {
+                            GridWidgetOrderedMembers::GridItem(_) => {
+                                pending_section_size = pending_section_size + 1;
+                            }
+                            GridWidgetOrderedMembers::GridSection(widget) => {
+                                if pending_section_size > 0 {
+                                    cumulative_index = cumulative_index + pending_section_size;
+                                    let section = (pending_section_size, grid_width(&grid_widget.columns));
+                                    if consume_one_more {
+                                        amount_next_section = Some(section);
+                                        break
+                                    } else {
+                                        amount_per_section.push(section);
+                                        if cumulative_index >= (*current_index + 1) {
+                                            consume_one_more = true;
+                                        }
+                                    }
+
+                                    pending_section_size = 0;
+                                }
+
+                                let section_amount = widget
+                                    .content
+                                    .ordered_members
+                                    .iter()
+                                    .filter(|members| matches!(members, GridSectionWidgetOrderedMembers::GridItem(_)))
+                                    .count();
+
+                                cumulative_index = cumulative_index + section_amount;
+                                let section = (section_amount, grid_width(&widget.columns));
+                                if consume_one_more {
+                                    amount_next_section = Some(section);
+                                    break
+                                } else {
+                                    amount_per_section.push(section);
+                                    if cumulative_index >= (*current_index + 1) {
+                                        consume_one_more = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if pending_section_size > 0 {
+                        if !consume_one_more {
+                            amount_per_section.push((pending_section_size, grid_width(&grid_widget.columns)));
+
+                            cumulative_index = cumulative_index + pending_section_size;
+                        }
+                    }
+                }
+
+                let Some((amount_current_section, width_current_section)) = amount_per_section.iter().last() else {
+                    return Command::none()
+                };
+
+                let total_amount_current_section: usize = amount_per_section.iter()
+                    .map(|(amount_prev_section, _)| amount_prev_section)
+                    .sum();
+
+                let inside_of_current_section = current_index + width_current_section <= total_amount_current_section - 1;
+
+                if inside_of_current_section {
+                    let _ = focused_item.focus_next_in(total, *width_current_section);
+
+                    // focused_item.scroll_to(row_amount)
+                    Command::none()
+                } else {
+                    let current_column_current_section = (total_amount_current_section - 1 - current_index) % width_current_section;
+
+                    if current_column_current_section == *width_current_section - 1 {
+                        let _ = focused_item.focus_next_in(total, *width_current_section);
+
+                        // focused_item.scroll_to(row_amount)
+                        Command::none()
+                    } else {
+                        let _ = focused_item.focus_next_in(total, current_column_current_section + 1);
+
+                        // focused_item.scroll_to(row_amount)
+                        Command::none()
+                    }
+                }
             }
-            _ => 0
         }
     }
 
-    pub fn has_search_bar(&self) -> bool {
+    pub fn focus_left(&mut self) -> Command<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return false;
+            return Command::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return false;
+            return Command::none();
         };
 
         match content {
-            RootWidgetMembers::List(widget) => widget.content.search_bar.is_some(),
-            RootWidgetMembers::Grid(widget) => widget.content.search_bar.is_some(),
-            _ => false
+            RootWidgetMembers::Detail(_) => Command::none(),
+            RootWidgetMembers::Form(_) => Command::none(),
+            RootWidgetMembers::Inline(_) => Command::none(),
+            RootWidgetMembers::List(_) => Command::none(),
+            RootWidgetMembers::Grid(widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
+
+                let _ = focused_item.focus_previous();
+
+                // focused_item.scroll_to(0)
+                // TODO
+                Command::none()
+            }
+        }
+    }
+
+    pub fn focus_right(&mut self) -> Command<AppMsg> {
+        let Some(root_widget) = &self.root_widget else {
+            return Command::none();
+        };
+
+        let Some(content) = &root_widget.content else {
+            return Command::none();
+        };
+
+        match content {
+            RootWidgetMembers::Detail(_) => Command::none(),
+            RootWidgetMembers::Form(_) => Command::none(),
+            RootWidgetMembers::Inline(_) => Command::none(),
+            RootWidgetMembers::List(_) => Command::none(),
+            RootWidgetMembers::Grid(grid_widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+
+                let total = grid_widget.content.ordered_members
+                    .iter()
+                    .flat_map(|members| {
+                        match members {
+                            GridWidgetOrderedMembers::GridItem(widget) => vec![widget],
+                            GridWidgetOrderedMembers::GridSection(widget) => {
+                                widget.content.ordered_members
+                                    .iter()
+                                    .map(|members| {
+                                        match members {
+                                            GridSectionWidgetOrderedMembers::GridItem(widget) => widget,
+                                        }
+                                    })
+                                    .collect()
+                            }
+                        }
+                    })
+                    .count();
+
+                let _ = focused_item.focus_next(total);
+
+                // focused_item.scroll_to(0)
+                Command::none()
+            }
         }
     }
 
@@ -455,7 +725,6 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: Option<&String>,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
-        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         match &self.root_widget {
             None => {
@@ -473,7 +742,7 @@ impl<'b> ComponentWidgets<'b> {
 
                         match content {
                             RootWidgetMembers::Detail(widget) => {
-                                let RootState { show_action_panel } = self.root_state(widget.__id__);
+                                let RootState { show_action_panel, .. } = self.root_state(widget.__id__);
 
                                 let content = self.render_detail_widget(widget, false);
 
@@ -490,8 +759,8 @@ impl<'b> ComponentWidgets<'b> {
                                 )
                             },
                             RootWidgetMembers::Form(widget) => self.render_form_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
-                            RootWidgetMembers::List(widget) => self.render_list_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts, focused_item),
-                            RootWidgetMembers::Grid(widget) => self.render_grid_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts, focused_item),
+                            RootWidgetMembers::List(widget) => self.render_list_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
+                            RootWidgetMembers::Grid(widget) => self.render_grid_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
                             _ => {
                                 panic!("used inline widget in non-inline place")
                             }
@@ -917,7 +1186,7 @@ impl<'b> ComponentWidgets<'b> {
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let RootState { show_action_panel } = self.root_state(widget_id);
+        let RootState { show_action_panel, .. } = self.root_state(widget_id);
 
         let items: Vec<Element<_>> = widget.content.ordered_members
             .iter()
@@ -1188,10 +1457,9 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
-        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = list_widget.__id__;
-        let RootState { show_action_panel } = self.root_state(widget_id);
+        let RootState { show_action_panel, focused_item } = self.root_state(widget_id);
 
         let mut pending: Vec<&ListItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
@@ -1400,9 +1668,8 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
-        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let RootState { show_action_panel } = self.root_state(grid_widget.__id__);
+        let RootState { show_action_panel, focused_item } = self.root_state(grid_widget.__id__);
 
         let mut pending: Vec<&GridItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];

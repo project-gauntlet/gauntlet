@@ -1,9 +1,10 @@
-use std::collections::HashMap;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
 use crate::model::UiViewEvent;
-
 use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
 use crate::ui::widget_container::PluginWidgetContainer;
+use crate::ui::AppMsg;
+use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
+use iced::Command;
+use std::collections::HashMap;
 
 pub struct ClientContext {
     inline_views: Vec<(PluginId, PluginWidgetContainer)>, // Vec to have stable ordering
@@ -119,15 +120,19 @@ impl ClientContext {
         self.view.get_action_ids()
     }
 
-    pub fn keyboard_navigation_width(&self) -> Option<usize> {
-        self.view.keyboard_navigation_width()
+    pub fn focus_up(&self) -> Command<AppMsg> {
+        self.view.focus_up()
     }
 
-    pub fn keyboard_navigation_total(&self) -> usize {
-        self.view.keyboard_navigation_total()
+    pub fn focus_down(&self) -> Command<AppMsg> {
+        self.view.focus_down()
     }
 
-    pub fn has_search_bar(&self) -> bool {
-        self.view.has_search_bar()
+    pub fn focus_left(&self) -> Command<AppMsg> {
+        self.view.focus_left()
+    }
+
+    pub fn focus_right(&self) -> Command<AppMsg> {
+        self.view.focus_right()
     }
 }

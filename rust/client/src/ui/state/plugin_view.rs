@@ -1,4 +1,4 @@
-use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
 use common::model::UiWidgetId;
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ impl PluginViewState {
 
     pub fn action_panel(prev_state: &mut PluginViewState, focus_first: bool) {
         *prev_state = Self::ActionPanel {
-            focused_action_item: ScrollHandle::new(focus_first),
+            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT),
         }
     }
 }

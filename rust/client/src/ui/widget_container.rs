@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use iced::Command;
+use crate::ui::AppMsg;
 use crate::ui::scroll_handle::ScrollHandle;
 
 pub struct PluginWidgetContainer {
@@ -89,13 +91,12 @@ impl PluginWidgetContainer {
         &self,
         plugin_view_state: &PluginViewState,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
-        focused_item: &ScrollHandle<UiWidgetId>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images)
-            .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts, focused_item)
+            .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts)
     }
 
     pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
@@ -127,24 +128,31 @@ impl PluginWidgetContainer {
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).get_action_panel(action_shortcuts)
     }
 
-    pub fn keyboard_navigation_width(&self) -> Option<usize> {
+    pub fn focus_up(&self) -> Command<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).keyboard_navigation_width()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_up()
     }
 
-    pub fn keyboard_navigation_total(&self) -> usize {
+    pub fn focus_down(&self) -> Command<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).keyboard_navigation_total()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_down()
     }
 
-    pub fn has_search_bar(&self) -> bool {
+    pub fn focus_left(&self) -> Command<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
-        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).has_search_bar()
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_left()
+    }
+
+    pub fn focus_right(&self) -> Command<AppMsg> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_right()
     }
 }

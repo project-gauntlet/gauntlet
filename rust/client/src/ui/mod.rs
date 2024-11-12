@@ -1650,14 +1650,14 @@ impl Application for AppModel {
 
                 root
             }
-            GlobalState::PluginView { plugin_view_data, sub_state, focused_item, ..  } => {
+            GlobalState::PluginView { plugin_view_data, sub_state, ..  } => {
                 let PluginViewData { plugin_id, action_shortcuts, .. } = plugin_view_data;
 
                 let client_context = self.client_context.read().expect("lock is poisoned");
                 let view_container = client_context.get_view_container();
 
                 let container_element = view_container
-                    .render_root_widget(sub_state, action_shortcuts, focused_item)
+                    .render_root_widget(sub_state, action_shortcuts)
                     .map(|widget_event| AppMsg::WidgetEvent {
                         plugin_id: plugin_id.clone(),
                         render_location: UiRenderLocation::View,

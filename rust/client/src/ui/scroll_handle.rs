@@ -4,9 +4,9 @@ use iced::widget::scrollable;
 use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
 use crate::ui::AppMsg;
 
-// TODO this size of item for main view list, incorrect for actions,
-//  but amount of actions is usually small so it is not that noticeable
-const ESTIMATED_ITEM_SIZE: f32 = 38.8;
+pub const ESTIMATED_MAIN_LIST_ITEM_HEIGHT: f32 = 38.8;
+pub const ESTIMATED_ACTION_ITEM_HEIGHT: f32 = 38.8; // TODO
+pub const ESTIMATED_GRID_ITEM_HEIGHT: f32 = 38.0; // TODO
 
 #[derive(Clone, Debug)]
 pub struct ScrollHandle<T> {
@@ -14,15 +14,17 @@ pub struct ScrollHandle<T> {
     pub scrollable_id: scrollable::Id,
     pub index: Option<usize>,
     offset: usize,
+    item_height: f32,
 }
 
 impl<T> ScrollHandle<T> {
-    pub fn new(first_focused: bool) -> ScrollHandle<T> {
+    pub fn new(first_focused: bool, item_height: f32) -> ScrollHandle<T> {
         ScrollHandle {
             phantom: PhantomData,
             scrollable_id: scrollable::Id::unique(),
             index: if first_focused { Some(0) } else { None },
             offset: 0,
+            item_height,
         }
     }
 
@@ -42,7 +44,11 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn focus_next_row(&mut self, total_items: usize, total_columns: usize) -> Command<AppMsg> {
+    pub fn focus_next(&mut self, total_item_amount: usize) -> Option<Command<AppMsg>> {
+        self.focus_next_in(total_item_amount, 1)
+    }
+
+    pub fn focus_next_in(&mut self, total_item_amount: usize, amount: usize) -> Option<Command<AppMsg>> {
         self.offset = if self.offset < 7 {
             self.offset + 1
         } else {
@@ -52,31 +58,35 @@ impl<T> ScrollHandle<T> {
         match self.index.as_mut() {
             None => {
                 // focus first
-                if total_items > 0 {
+                if total_item_amount > 0 {
                     self.index = Some(0);
 
-                    self.scroll_to(0)
+                    Some(self.scroll_to(0))
                 } else {
-                    Command::none()
+                    None
                 }
             }
             Some(index) => {
-                // focus next row only if there is an item on it
-                let new_index = *index + total_columns;
-                if new_index < total_items {
+                // focus next if there is an item
+                let new_index = *index + amount;
+                if new_index < total_item_amount {
                     *index = new_index;
 
                     let index = *index;
 
-                    self.scroll_to(index)
+                    Some(self.scroll_to(index))
                 } else {
-                    Command::none()
+                    None
                 }
             }
         }
     }
 
-    pub fn focus_previous_row(&mut self, total_columns: usize) -> Command<AppMsg> {
+    pub fn focus_previous(&mut self) -> Option<Command<AppMsg>> {
+        self.focus_previous_in(1)
+    }
+
+    pub fn focus_previous_in(&mut self, amount: usize) -> Option<Command<AppMsg>> {
         self.offset = if self.offset > 1 {
             self.offset - 1
         } else {
@@ -84,59 +94,24 @@ impl<T> ScrollHandle<T> {
         };
 
         match self.index.as_mut() {
-            None => Command::none(),
+            None => None,
             Some(index) => {
-                match index.checked_sub(total_columns) { // basically a check if result is >= 0
+                match index.checked_sub(amount) { // basically a check if result is >= 0
                     Some(new_index) => {
                         *index = new_index;
 
                         let index = *index;
 
-                        self.scroll_to(index)
+                        Some(self.scroll_to(index))
                     }
-                    None => Command::none()
+                    None => None
                 }
             }
         }
     }
 
-    pub fn focus_next_column(&mut self, total_items: usize, total_columns: usize) -> Command<AppMsg> {
-        match self.index.as_mut() {
-            None => Command::none(),
-            Some(index) => {
-                // put focus on next column only if it doesn't put it on next row
-                // and if there is an item there
-                let new_index = *index + 1;
-                if *index % total_columns != 0 && new_index <= total_items {
-                    *index = new_index;
-                }
-
-                Command::none()
-            }
-        }
-    }
-
-    pub fn focus_previous_column(&mut self, total_columns: usize) -> Command<AppMsg> {
-        match self.index.as_mut() {
-            None => Command::none(),
-            Some(index) => {
-                // put focus on previous column only if it doesn't put it on previous row
-                if *index == 0 {
-                    Command::none()
-                } else {
-                    let new_index = *index - 1;
-                    if new_index % total_columns != 0 {
-                        *index = new_index;
-                    }
-
-                    Command::none()
-                }
-            }
-        }
-    }
-
-    fn scroll_to<Message: 'static>(&self, index: usize) -> Command<Message> {
-        let pos_y = index as f32 * ESTIMATED_ITEM_SIZE - (self.offset as f32 * ESTIMATED_ITEM_SIZE);
+    pub fn scroll_to<Message: 'static>(&self, row_index: usize) -> Command<Message> {
+        let pos_y = row_index as f32 * self.item_height - (self.offset as f32 * self.item_height);
 
         scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
     }
