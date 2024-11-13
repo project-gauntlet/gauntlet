@@ -79,7 +79,7 @@ impl GlobalState {
     pub fn new(search_field_id: text_input::Id, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
         GlobalState::MainView {
             search_field_id,
-            focused_search_result: ScrollHandle::new(true, ESTIMATED_MAIN_LIST_ITEM_HEIGHT),
+            focused_search_result: ScrollHandle::new(true, ESTIMATED_MAIN_LIST_ITEM_HEIGHT, 7),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
             client_context,

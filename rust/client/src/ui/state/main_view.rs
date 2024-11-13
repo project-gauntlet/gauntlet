@@ -24,13 +24,13 @@ impl MainViewState {
 
     pub fn search_result_action_panel(prev_state: &mut MainViewState, focus_first: bool) {
         *prev_state = Self::SearchResultActionPanel {
-            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT),
+            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT, 7),
         }
     }
 
     pub fn inline_result_action_panel(prev_state: &mut MainViewState, focus_first: bool) {
         *prev_state = Self::InlineViewActionPanel {
-            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT),
+            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT, 7),
         }
     }
 }

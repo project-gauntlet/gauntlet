@@ -21,7 +21,7 @@ use std::fmt::{Debug, Display};
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::grid_navigation::{grid_down_offset, grid_up_offset, GridSectionData};
-use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_GRID_ITEM_HEIGHT, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
+use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
@@ -125,10 +125,10 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
         Some(members) => {
             match members {
                 RootWidgetMembers::Detail(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root(0.0));
+                    result.insert(widget.__id__, ComponentWidgetState::root(0.0, 0));
                 }
                 RootWidgetMembers::Form(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root(0.0));
+                    result.insert(widget.__id__, ComponentWidgetState::root(0.0, 0));
 
                     for members in &widget.content.ordered_members {
                         match members {
@@ -152,14 +152,43 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
                     }
                 }
                 RootWidgetMembers::List(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root(ESTIMATED_MAIN_LIST_ITEM_HEIGHT));
+                    result.insert(widget.__id__, ComponentWidgetState::root(ESTIMATED_MAIN_LIST_ITEM_HEIGHT, 7));
 
                     if let Some(widget) = &widget.content.search_bar {
                         result.insert(widget.__id__, ComponentWidgetState::text_field(&widget.value));
                     }
                 }
                 RootWidgetMembers::Grid(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root(ESTIMATED_GRID_ITEM_HEIGHT));
+                    // cursed heuristic
+                    let has_title = widget.content
+                        .ordered_members
+                        .iter()
+                        .flat_map(|members| match members {
+                            GridWidgetOrderedMembers::GridItem(widget) => vec![widget],
+                            GridWidgetOrderedMembers::GridSection(widget) => {
+                                widget.content.ordered_members
+                                    .iter()
+                                    .map(|members| match members {
+                                        GridSectionWidgetOrderedMembers::GridItem(widget) => widget
+                                    })
+                                    .collect()
+                            }
+                        })
+                        .next()
+                        .map(|widget| widget.title.is_some() || widget.subtitle.is_some())
+                        .unwrap_or_default();
+
+                    let (height, rows_per_view) = match grid_width(&widget.columns) {
+                        ..4 => (150.0, 0),
+                        4 => (150.0, 0),
+                        5 => (130.0, 0),
+                        6 => (110.0, 1),
+                        7 => (90.0, 3),
+                        8 => (if has_title { 50.0 } else { 50.0 }, if has_title { 3 } else { 4 }),
+                        8.. => (50.0, 4),
+                    };
+
+                    result.insert(widget.__id__, ComponentWidgetState::root(height, rows_per_view));
 
                     if let Some(widget) = &widget.content.search_bar {
                         result.insert(widget.__id__, ComponentWidgetState::text_field(&widget.value));
@@ -210,10 +239,10 @@ struct RootState {
 }
 
 impl ComponentWidgetState {
-    fn root(item_height: f32) -> ComponentWidgetState {
+    fn root(item_height: f32, rows_per_view: usize) -> ComponentWidgetState {
         ComponentWidgetState::Root(RootState {
             show_action_panel: false,
-            focused_item: ScrollHandle::new(false, item_height), // TODO first focused?
+            focused_item: ScrollHandle::new(false, item_height, rows_per_view), // TODO first focused?
         })
     }
 
@@ -428,9 +457,10 @@ impl<'b> ComponentWidgets<'b> {
                 match grid_up_offset(*current_index, amount_per_section_total) {
                     None => Command::none(),
                     Some(data) => {
-                        let _ = focused_item.focus_previous_in(data.offset);
-
-                        focused_item.scroll_to_offset(data.row_index, false)
+                        match focused_item.focus_previous_in(data.offset) {
+                            None => Command::none(),
+                            Some(_) => focused_item.scroll_to(data.row_index)
+                        }
                     }
                 }
             }
@@ -488,15 +518,16 @@ impl<'b> ComponentWidgets<'b> {
                 let Some(current_index) = &focused_item.index else {
                     let _ = focused_item.focus_next(total);
 
-                    return focused_item.scroll_to_offset(0, false)
+                    return focused_item.scroll_to(0)
                 };
 
                 match grid_down_offset(*current_index, amount_per_section_total) {
                     None => Command::none(),
                     Some(data) => {
-                        let _ = focused_item.focus_next_in(total, data.offset);
-
-                        focused_item.scroll_to_offset(data.row_index, false)
+                        match focused_item.focus_next_in(total, data.offset) {
+                            None => Command::none(),
+                            Some(_) => focused_item.scroll_to(data.row_index)
+                        }
                     }
                 }
             }
@@ -1650,11 +1681,21 @@ impl<'b> ComponentWidgets<'b> {
         &self,
         widget: &GridItemWidget,
         item_focus_index: Option<usize>,
-        index_counter: &Cell<usize>
+        index_counter: &Cell<usize>,
+        grid_width: usize
     ) -> Element<'a, ComponentWidgetEvent> {
-        // TODO not needed column element?
-        let content: Element<_> = column(vec![self.render_content_widget(&widget.content.content, true)])
-            .height(130) // TODO dynamic height
+        let height = match grid_width {
+            ..4 => 130,
+            4 => 150,
+            5 => 130,
+            6 => 110,
+            7 => 90,
+            8 => 70,
+            8.. => 50,
+        };
+
+        let content: Element<_> = container(self.render_content_widget(&widget.content.content, true))
+            .height(height)
             .into();
 
         let style = match item_focus_index {
@@ -1725,6 +1766,7 @@ impl<'b> ComponentWidgets<'b> {
         item_focus_index: Option<usize>,
         index_counter: &Cell<usize>
     ) -> Element<'a, ComponentWidgetEvent> {
+        // TODO
         // let (width, height) = match aspect_ratio {
         //     None => (1, 1),
         //     Some("1") => (1, 1),
@@ -1741,7 +1783,7 @@ impl<'b> ComponentWidgets<'b> {
 
         let rows: Vec<GridRow<_, _, _>> = items
             .iter()
-            .map(|widget| self.render_grid_item_widget(widget, item_focus_index, index_counter))
+            .map(|widget| self.render_grid_item_widget(widget, item_focus_index, index_counter, grid_width))
             .chunks(grid_width)
             .into_iter()
             .map(|row_items| {

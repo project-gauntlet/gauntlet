@@ -6,7 +6,6 @@ use crate::ui::AppMsg;
 
 pub const ESTIMATED_MAIN_LIST_ITEM_HEIGHT: f32 = 38.8;
 pub const ESTIMATED_ACTION_ITEM_HEIGHT: f32 = 38.8; // TODO
-pub const ESTIMATED_GRID_ITEM_HEIGHT: f32 = 190.0; // TODO
 
 #[derive(Clone, Debug)]
 pub struct ScrollHandle<T> {
@@ -14,16 +13,18 @@ pub struct ScrollHandle<T> {
     pub scrollable_id: scrollable::Id,
     pub index: Option<usize>,
     offset: usize,
+    rows_per_view: usize,
     item_height: f32,
 }
 
 impl<T> ScrollHandle<T> {
-    pub fn new(first_focused: bool, item_height: f32) -> ScrollHandle<T> {
+    pub fn new(first_focused: bool, item_height: f32, rows_per_view: usize) -> ScrollHandle<T> {
         ScrollHandle {
             phantom: PhantomData,
             scrollable_id: scrollable::Id::unique(),
             index: if first_focused { Some(0) } else { None },
             offset: 0,
+            rows_per_view,
             item_height,
         }
     }
@@ -45,14 +46,17 @@ impl<T> ScrollHandle<T> {
     }
 
     pub fn focus_next(&mut self, total_item_amount: usize) -> Option<Command<AppMsg>> {
-        self.focus_next_in(total_item_amount, 1)
+        match self.focus_next_in(total_item_amount, 1) {
+            None => None,
+            Some(index) => Some(self.scroll_to(index))
+        }
     }
 
-    pub fn focus_next_in(&mut self, total_item_amount: usize, amount: usize) -> Option<Command<AppMsg>> {
-        self.offset = if self.offset < 7 {
+    pub fn focus_next_in(&mut self, total_item_amount: usize, amount: usize) -> Option<usize> {
+        self.offset = if self.offset < self.rows_per_view {
             self.offset + 1
         } else {
-            7
+            self.rows_per_view
         };
 
         match self.index.as_mut() {
@@ -61,7 +65,7 @@ impl<T> ScrollHandle<T> {
                 if total_item_amount > 0 {
                     self.index = Some(0);
 
-                    Some(self.scroll_to(0))
+                    Some(0)
                 } else {
                     None
                 }
@@ -72,9 +76,7 @@ impl<T> ScrollHandle<T> {
                 if new_index < total_item_amount {
                     *index = new_index;
 
-                    let index = *index;
-
-                    Some(self.scroll_to(index))
+                    Some(*index)
                 } else {
                     None
                 }
@@ -83,10 +85,13 @@ impl<T> ScrollHandle<T> {
     }
 
     pub fn focus_previous(&mut self) -> Option<Command<AppMsg>> {
-        self.focus_previous_in(1)
+        match self.focus_previous_in(1) {
+            None => None,
+            Some(index) => Some(self.scroll_to(index))
+        }
     }
 
-    pub fn focus_previous_in(&mut self, amount: usize) -> Option<Command<AppMsg>> {
+    pub fn focus_previous_in(&mut self, amount: usize) -> Option<usize> {
         self.offset = if self.offset > 1 {
             self.offset - 1
         } else {
@@ -100,25 +105,18 @@ impl<T> ScrollHandle<T> {
                     Some(new_index) => {
                         *index = new_index;
 
-                        let index = *index;
-
-                        Some(self.scroll_to(index))
+                        Some(new_index)
                     }
                     None => None
                 }
             }
         }
     }
+
     pub fn scroll_to<Message: 'static>(&self, row_index: usize) -> Command<Message> {
-        self.scroll_to_offset(row_index, true)
-    }
+        let mut pos_y = row_index as f32 * self.item_height - (self.offset as f32 * self.item_height);
 
-    pub fn scroll_to_offset<Message: 'static>(&self, row_index: usize, no_offset: bool) -> Command<Message> {
-        let mut pos_y = row_index as f32 * self.item_height;
-
-        if !no_offset {
-            pos_y = pos_y - (self.offset as f32 * self.item_height);
-        }
+        println!("pos_y: {}, row_index: {}, item_height: {}, offset: {}", pos_y, row_index, self.item_height, self.offset);
 
         scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
     }

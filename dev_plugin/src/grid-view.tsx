@@ -143,12 +143,12 @@ export default function GridView(): ReactElement {
             </Grid.Section>
             <Grid.Section title="Section Other" columns={8}>
                 {
-                    Array.from({ length: 200 }, (_, k) => k + 1)
+                    Array.from({ length: 50 }, (_, k) => k + 1)
                         .map(value => (
-                                <Grid.Item title={"Title " + value}>
+                                <Grid.Item>
                                     <Grid.Item.Content>
                                         <Grid.Item.Content.Paragraph>
-                                            Test Paragraph {value}
+                                            Test {value}
                                         </Grid.Item.Content.Paragraph>
                                     </Grid.Item.Content>
                                 </Grid.Item>
