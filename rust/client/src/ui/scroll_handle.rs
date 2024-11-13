@@ -6,7 +6,7 @@ use crate::ui::AppMsg;
 
 pub const ESTIMATED_MAIN_LIST_ITEM_HEIGHT: f32 = 38.8;
 pub const ESTIMATED_ACTION_ITEM_HEIGHT: f32 = 38.8; // TODO
-pub const ESTIMATED_GRID_ITEM_HEIGHT: f32 = 38.0; // TODO
+pub const ESTIMATED_GRID_ITEM_HEIGHT: f32 = 190.0; // TODO
 
 #[derive(Clone, Debug)]
 pub struct ScrollHandle<T> {
@@ -109,9 +109,16 @@ impl<T> ScrollHandle<T> {
             }
         }
     }
-
     pub fn scroll_to<Message: 'static>(&self, row_index: usize) -> Command<Message> {
-        let pos_y = row_index as f32 * self.item_height - (self.offset as f32 * self.item_height);
+        self.scroll_to_offset(row_index, true)
+    }
+
+    pub fn scroll_to_offset<Message: 'static>(&self, row_index: usize, no_offset: bool) -> Command<Message> {
+        let mut pos_y = row_index as f32 * self.item_height;
+
+        if !no_offset {
+            pos_y = pos_y - (self.offset as f32 * self.item_height);
+        }
 
         scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
     }

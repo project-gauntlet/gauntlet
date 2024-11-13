@@ -1,27 +1,26 @@
-use std::cell::Cell;
-use std::cmp::max;
-use std::collections::HashMap;
-use std::fmt::{Debug, Display};
-
 use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, Image, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiWidgetId};
 use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
+use iced::futures::StreamExt;
 use iced::widget::image::Handle;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
 use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
 use iced::{Alignment, Command, Font, Length};
-use iced::futures::StreamExt;
 use iced_aw::core::icons;
 use iced_aw::date_picker::Date;
 use iced_aw::floating_element::Offset;
 use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
 use iced_aw::{floating_element, GridRow};
 use itertools::Itertools;
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::fmt::{Debug, Display};
 
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
+use crate::ui::grid_navigation::{grid_down_offset, grid_up_offset, GridSectionData};
 use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_GRID_ITEM_HEIGHT, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::button::ButtonStyle;
@@ -328,6 +327,76 @@ impl<'b> ComponentWidgets<'b> {
         result
     }
 
+    fn grid_section_sizes(grid_widget: &GridWidget) -> Vec<GridSectionData> {
+        let mut amount_per_section: Vec<GridSectionData> = vec![];
+        let mut pending_section_size = 0;
+
+        let mut cumulative_item_index = 0;
+        let mut cumulative_row_index = 0;
+
+        let mut cumulative_item_index_at_start = cumulative_item_index;
+        let mut cumulative_row_index_at_start = cumulative_row_index;
+
+        for members in &grid_widget.content.ordered_members {
+            match &members {
+                GridWidgetOrderedMembers::GridItem(_) => {
+                    pending_section_size = pending_section_size + 1;
+                }
+                GridWidgetOrderedMembers::GridSection(widget) => {
+                    if pending_section_size > 0 {
+                        let width = grid_width(&grid_widget.columns);
+                        amount_per_section.push(GridSectionData {
+                            start_index: cumulative_item_index_at_start,
+                            start_row_index: cumulative_row_index_at_start,
+                            amount_in_section: pending_section_size,
+                            width,
+                        });
+
+                        cumulative_item_index = cumulative_item_index + pending_section_size;
+                        cumulative_row_index = cumulative_row_index_at_start + (usize::div_ceil(pending_section_size, width));
+
+                        cumulative_item_index_at_start = cumulative_item_index;
+                        cumulative_row_index_at_start = cumulative_row_index;
+
+                        pending_section_size = 0;
+                    }
+
+                    let section_amount = widget
+                        .content
+                        .ordered_members
+                        .iter()
+                        .filter(|members| matches!(members, GridSectionWidgetOrderedMembers::GridItem(_)))
+                        .count();
+
+                    let width = grid_width(&widget.columns);
+                    amount_per_section.push(GridSectionData {
+                        start_index: cumulative_item_index_at_start,
+                        start_row_index: cumulative_row_index_at_start,
+                        amount_in_section: section_amount,
+                        width,
+                    });
+
+                    cumulative_item_index = cumulative_item_index + section_amount;
+                    cumulative_row_index = cumulative_row_index_at_start + (usize::div_ceil(section_amount, width));
+
+                    cumulative_item_index_at_start = cumulative_item_index;
+                    cumulative_row_index_at_start = cumulative_row_index;
+                }
+            }
+        }
+
+        if pending_section_size > 0 {
+            amount_per_section.push(GridSectionData {
+                start_index: cumulative_item_index_at_start,
+                start_row_index: cumulative_row_index_at_start,
+                amount_in_section: pending_section_size,
+                width: grid_width(&grid_widget.columns),
+            });
+        }
+
+        amount_per_section
+    }
+
     pub fn focus_up(&mut self) -> Command<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
             return Command::none();
@@ -354,91 +423,14 @@ impl<'b> ComponentWidgets<'b> {
                     return Command::none();
                 };
 
-                let mut amount_per_section: Vec<(usize, usize)> = vec![];
-                let mut current_width: usize = 0;
+                let amount_per_section_total = Self::grid_section_sizes(grid_widget);
 
-                {
-                    let mut cumulative_index = 0;
-                    let mut pending_section_size = 0;
+                match grid_up_offset(*current_index, amount_per_section_total) {
+                    None => Command::none(),
+                    Some(data) => {
+                        let _ = focused_item.focus_previous_in(data.offset);
 
-                    for members in &grid_widget.content.ordered_members {
-                        match &members {
-                            GridWidgetOrderedMembers::GridItem(_) => {
-                                pending_section_size = pending_section_size + 1;
-                            }
-                            GridWidgetOrderedMembers::GridSection(widget) => {
-                                if pending_section_size > 0 {
-                                    cumulative_index = cumulative_index + pending_section_size;
-                                    if cumulative_index >= (*current_index + 1) {
-                                        current_width = grid_width(&grid_widget.columns);
-                                        break
-                                    }
-
-                                    amount_per_section.push((pending_section_size, grid_width(&grid_widget.columns)));
-
-                                    pending_section_size = 0;
-                                }
-
-                                let section_amount = widget
-                                    .content
-                                    .ordered_members
-                                    .iter()
-                                    .filter(|members| matches!(members, GridSectionWidgetOrderedMembers::GridItem(_)))
-                                    .count();
-
-                                cumulative_index = cumulative_index + section_amount;
-                                if cumulative_index >= (*current_index + 1) {
-                                    current_width = grid_width(&widget.columns);
-                                    break
-                                }
-
-                                amount_per_section.push((section_amount, grid_width(&widget.columns)))
-                            }
-                        }
-                    }
-
-                    if pending_section_size > 0 {
-                        cumulative_index = cumulative_index + pending_section_size;
-                        if cumulative_index >= (*current_index + 1) {
-                            current_width = grid_width(&grid_widget.columns);
-                            // break
-                        } else {
-                            amount_per_section.push((pending_section_size, grid_width(&grid_widget.columns)));
-                        }
-                    }
-                }
-
-                let Some((amount_prev_section, width_prev_section)) = amount_per_section.iter().last() else {
-                    return Command::none()
-                };
-
-                let total_amount_prev_section: usize = amount_per_section.iter()
-                    .map(|(section, _)| section)
-                    .sum();
-
-                let inside_of_current_section = (current_index - total_amount_prev_section + 1)
-                    .checked_sub(current_width) // basically a check if result is >= 0
-                    .is_some();
-
-                if inside_of_current_section {
-                    let _ = focused_item.focus_previous_in(current_width);
-
-                    // focused_item.scroll_to(row_amount)
-                    Command::none()
-                } else {
-                    let last_row_amount_prev_section = amount_prev_section % width_prev_section;
-
-                    if last_row_amount_prev_section == 0 {
-                        let _ = focused_item.focus_previous_in(current_width);
-
-                        // focused_item.scroll_to(row_amount)
-                        Command::none()
-                    } else {
-                        let current_column_current_section = (current_index - amount_prev_section) % current_width;
-                        let _ = focused_item.focus_previous_in(max(current_column_current_section + 1, last_row_amount_prev_section));
-
-                        // focused_item.scroll_to(row_amount)
-                        Command::none()
+                        focused_item.scroll_to_offset(data.row_index, false)
                     }
                 }
             }
@@ -486,120 +478,25 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Grid(grid_widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
 
-                let total = grid_widget.content.ordered_members
+                let amount_per_section_total = Self::grid_section_sizes(grid_widget);
+
+                let total = amount_per_section_total
                     .iter()
-                    .flat_map(|members| {
-                        match members {
-                            GridWidgetOrderedMembers::GridItem(widget) => vec![widget],
-                            GridWidgetOrderedMembers::GridSection(widget) => {
-                                widget.content.ordered_members
-                                    .iter()
-                                    .map(|members| {
-                                        match members {
-                                            GridSectionWidgetOrderedMembers::GridItem(widget) => widget,
-                                        }
-                                    })
-                                    .collect()
-                            }
-                        }
-                    })
-                    .count();
+                    .map(|data| data.amount_in_section)
+                    .sum();
 
                 let Some(current_index) = &focused_item.index else {
                     let _ = focused_item.focus_next(total);
 
-                    return focused_item.scroll_to(0)
+                    return focused_item.scroll_to_offset(0, false)
                 };
 
-                let mut amount_per_section: Vec<(usize, usize)> = vec![];
-                let mut amount_next_section: Option<(usize, usize)> = None;
+                match grid_down_offset(*current_index, amount_per_section_total) {
+                    None => Command::none(),
+                    Some(data) => {
+                        let _ = focused_item.focus_next_in(total, data.offset);
 
-                {
-                    let mut cumulative_index = 0;
-                    let mut consume_one_more = false;
-                    let mut pending_section_size = 0;
-
-                    for members in &grid_widget.content.ordered_members {
-                        match &members {
-                            GridWidgetOrderedMembers::GridItem(_) => {
-                                pending_section_size = pending_section_size + 1;
-                            }
-                            GridWidgetOrderedMembers::GridSection(widget) => {
-                                if pending_section_size > 0 {
-                                    cumulative_index = cumulative_index + pending_section_size;
-                                    let section = (pending_section_size, grid_width(&grid_widget.columns));
-                                    if consume_one_more {
-                                        amount_next_section = Some(section);
-                                        break
-                                    } else {
-                                        amount_per_section.push(section);
-                                        if cumulative_index >= (*current_index + 1) {
-                                            consume_one_more = true;
-                                        }
-                                    }
-
-                                    pending_section_size = 0;
-                                }
-
-                                let section_amount = widget
-                                    .content
-                                    .ordered_members
-                                    .iter()
-                                    .filter(|members| matches!(members, GridSectionWidgetOrderedMembers::GridItem(_)))
-                                    .count();
-
-                                cumulative_index = cumulative_index + section_amount;
-                                let section = (section_amount, grid_width(&widget.columns));
-                                if consume_one_more {
-                                    amount_next_section = Some(section);
-                                    break
-                                } else {
-                                    amount_per_section.push(section);
-                                    if cumulative_index >= (*current_index + 1) {
-                                        consume_one_more = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if pending_section_size > 0 {
-                        if !consume_one_more {
-                            amount_per_section.push((pending_section_size, grid_width(&grid_widget.columns)));
-
-                            cumulative_index = cumulative_index + pending_section_size;
-                        }
-                    }
-                }
-
-                let Some((amount_current_section, width_current_section)) = amount_per_section.iter().last() else {
-                    return Command::none()
-                };
-
-                let total_amount_current_section: usize = amount_per_section.iter()
-                    .map(|(amount_prev_section, _)| amount_prev_section)
-                    .sum();
-
-                let inside_of_current_section = current_index + width_current_section <= total_amount_current_section - 1;
-
-                if inside_of_current_section {
-                    let _ = focused_item.focus_next_in(total, *width_current_section);
-
-                    // focused_item.scroll_to(row_amount)
-                    Command::none()
-                } else {
-                    let current_column_current_section = (total_amount_current_section - 1 - current_index) % width_current_section;
-
-                    if current_column_current_section == *width_current_section - 1 {
-                        let _ = focused_item.focus_next_in(total, *width_current_section);
-
-                        // focused_item.scroll_to(row_amount)
-                        Command::none()
-                    } else {
-                        let _ = focused_item.focus_next_in(total, current_column_current_section + 1);
-
-                        // focused_item.scroll_to(row_amount)
-                        Command::none()
+                        focused_item.scroll_to_offset(data.row_index, false)
                     }
                 }
             }

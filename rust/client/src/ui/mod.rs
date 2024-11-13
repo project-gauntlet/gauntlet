@@ -51,6 +51,7 @@ mod custom_widgets;
 mod scroll_handle;
 mod state;
 mod hud;
+mod grid_navigation;
 
 use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
