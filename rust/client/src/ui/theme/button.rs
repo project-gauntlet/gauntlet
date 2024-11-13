@@ -28,7 +28,8 @@ pub enum ButtonStyle {
 
 enum ButtonState {
     Active,
-    Hover
+    Hover,
+    Pressed,
 }
 
 impl ButtonStyle {
@@ -88,61 +89,61 @@ impl ButtonStyle {
     }
 
     fn appearance(&self, theme: &GauntletTheme, state: ButtonState) -> Appearance {
-        let (background_color, background_color_hover, text_color, text_color_hover, border_radius, border_width, border_color) = match &self {
+        let (background_color, background_color_hover, background_color_pressed, text_color, text_color_hover, border_radius, border_width, border_color) = match &self {
             ButtonStyle::RootBottomPanelPrimaryActionButton | ButtonStyle::RootBottomPanelActionToggleButton => {
                 let theme = &theme.root_bottom_panel_action_toggle_button;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             },
             ButtonStyle::RootTopPanelBackButton => {
                 let theme = &theme.root_top_panel_button;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             },
             ButtonStyle::GridItem => {
                 let theme = &theme.grid_item;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::GridItemFocused => {
                 let theme = &theme.grid_item;
-                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), Some(&theme.background_color), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::Action => {
                 let theme = &theme.action;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ActionFocused => {
                 let theme = &theme.action;
-                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), Some(&theme.background_color), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ListItem => {
                 let theme = &theme.list_item;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ListItemFocused => {
                 let theme = &theme.list_item;
-                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), Some(&theme.background_color), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::MainListItem => {
                 let theme = &theme.main_list_item;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::MainListItemFocused => {
                 let theme = &theme.main_list_item;
-                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color_focused), Some(&theme.background_color_focused), Some(&theme.background_color), &theme.text_color_hovered, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::MetadataLink => {
                 let theme = &theme.metadata_link;
-                (None, None, &theme.text_color, &theme.text_color_hovered, &0.0, &1.0, &TRANSPARENT)
+                (None, None, None, &theme.text_color, &theme.text_color_hovered, &0.0, &1.0, &TRANSPARENT)
             }
             ButtonStyle::MetadataTagItem => {
                 let theme = &theme.metadata_tag_item_button;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ShouldNotBeUsed => {
-                (Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), &NOT_INTENDED_TO_BE_USED, &NOT_INTENDED_TO_BE_USED, &0.0, &1.0, &TRANSPARENT)
+                (Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), &NOT_INTENDED_TO_BE_USED, &NOT_INTENDED_TO_BE_USED, &0.0, &1.0, &TRANSPARENT)
             }
             ButtonStyle::DatePicker => {
                 let theme = &theme.form_input_date_picker_buttons;
-                (Some(&theme.background_color), Some(&theme.background_color_hovered), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
+                (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
         };
 
@@ -159,6 +160,13 @@ impl ButtonStyle {
 
         match state {
             ButtonState::Active => active,
+            ButtonState::Pressed => {
+                Appearance {
+                    background: background_color_pressed.map(|color| color.to_iced().into()),
+                    text_color: text_color_hover.to_iced(),
+                    ..active
+                }
+            }
             ButtonState::Hover => {
                 Appearance {
                     background: background_color_hover.map(|color| color.to_iced().into()),
@@ -179,6 +187,10 @@ impl button::StyleSheet for GauntletTheme {
 
     fn hovered(&self, style: &Self::Style) -> Appearance {
         style.appearance(self, ButtonState::Hover)
+    }
+
+    fn pressed(&self, style: &Self::Style) -> Appearance {
+        style.appearance(self, ButtonState::Pressed)
     }
 }
 
