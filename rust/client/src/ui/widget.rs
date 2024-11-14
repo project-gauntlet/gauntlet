@@ -1525,10 +1525,12 @@ impl<'b> ComponentWidgets<'b> {
         let mut pending: Vec<&ListItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
         let index_counter = &Cell::new(0);
+        let mut first_section = true;
 
         for members in &list_widget.content.ordered_members {
             match &members {
                 ListWidgetOrderedMembers::ListItem(widget) => {
+                    first_section = false;
                     pending.push(widget)
                 },
                 ListWidgetOrderedMembers::ListSection(widget) => {
@@ -1546,7 +1548,9 @@ impl<'b> ComponentWidgets<'b> {
                         pending = vec![];
                     }
 
-                    items.push(self.render_list_section_widget(widget, focused_item.index, index_counter))
+                    items.push(self.render_list_section_widget(widget, focused_item.index, index_counter, first_section));
+
+                    first_section = false;
                 },
             }
         }
@@ -1627,7 +1631,8 @@ impl<'b> ComponentWidgets<'b> {
         &self,
         widget: &ListSectionWidget,
         item_focus_index: Option<usize>,
-        index_counter: &Cell<usize>
+        index_counter: &Cell<usize>,
+        first_section: bool,
     ) -> Element<'a, ComponentWidgetEvent> {
         let content: Vec<_> = widget.content.ordered_members
             .iter()
@@ -1641,7 +1646,9 @@ impl<'b> ComponentWidgets<'b> {
         let content = column(content)
             .into();
 
-        render_section(content, Some(&widget.title), &widget.subtitle, RowStyle::ListSectionTitle, TextStyle::ListSectionTitle, TextStyle::ListSectionSubtitle)
+        let section_title_style = if first_section { RowStyle::ListFirstSectionTitle } else { RowStyle::ListSectionTitle };
+
+        render_section(content, Some(&widget.title), &widget.subtitle, section_title_style, TextStyle::ListSectionTitle, TextStyle::ListSectionSubtitle)
     }
 
     fn render_list_item_widget<'a>(
@@ -1735,10 +1742,12 @@ impl<'b> ComponentWidgets<'b> {
         let mut pending: Vec<&GridItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
         let index_counter = &Cell::new(0);
+        let mut first_section = true;
 
         for members in &grid_widget.content.ordered_members {
             match &members {
                 GridWidgetOrderedMembers::GridItem(widget) => {
+                    first_section = false;
                     pending.push(widget)
                 }
                 GridWidgetOrderedMembers::GridSection(widget) => {
@@ -1750,7 +1759,9 @@ impl<'b> ComponentWidgets<'b> {
                         pending = vec![];
                     }
 
-                    items.push(self.render_grid_section_widget(widget, focused_item.index, index_counter))
+                    items.push(self.render_grid_section_widget(widget, focused_item.index, index_counter, first_section));
+
+                    first_section = false;
                 }
             }
         }
@@ -1794,7 +1805,8 @@ impl<'b> ComponentWidgets<'b> {
         &self,
         widget: &GridSectionWidget,
         item_focus_index: Option<usize>,
-        index_counter: &Cell<usize>
+        index_counter: &Cell<usize>,
+        first_section: bool
     ) -> Element<'a, ComponentWidgetEvent> {
         let items: Vec<_> = widget.content.ordered_members
             .iter()
@@ -1807,7 +1819,9 @@ impl<'b> ComponentWidgets<'b> {
 
         let content = self.render_grid(&items, &widget.columns, item_focus_index, index_counter);
 
-        render_section(content, Some(&widget.title), &widget.subtitle, RowStyle::GridSectionTitle, TextStyle::GridSectionTitle, TextStyle::GridSectionSubtitle)
+        let section_title_style = if first_section { RowStyle::GridFirstSectionTitle } else { RowStyle::GridSectionTitle };
+
+        render_section(content, Some(&widget.title), &widget.subtitle, section_title_style, TextStyle::GridSectionTitle, TextStyle::GridSectionSubtitle)
     }
 
     fn render_grid_item_widget<'a>(

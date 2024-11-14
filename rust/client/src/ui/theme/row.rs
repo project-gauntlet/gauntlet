@@ -1,11 +1,13 @@
 use crate::ui::theme::{get_theme, Element, GauntletTheme, ThemableWidget};
 use iced::widget::Row;
-use iced::Renderer;
+use iced::{Padding, Renderer};
 
 pub enum RowStyle {
     ActionShortcut,
     FormInput,
+    ListFirstSectionTitle,
     ListSectionTitle,
+    GridFirstSectionTitle,
     GridSectionTitle,
     GridItemTitle,
     RootBottomPanel,
@@ -31,6 +33,16 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletT
             }
             RowStyle::GridSectionTitle => {
                 self.padding(theme.grid_section_title.padding.to_iced())
+                    .spacing(theme.grid_section_title.spacing)
+            }
+            RowStyle::ListFirstSectionTitle => {
+                let padding = theme.list_section_title.padding.to_iced();
+                self.padding(Padding::from([padding.bottom, padding.right, padding.bottom, padding.left]))
+                    .spacing(theme.list_section_title.spacing)
+            }
+            RowStyle::GridFirstSectionTitle => {
+                let padding = theme.grid_section_title.padding.to_iced();
+                self.padding(Padding::from([0.0, padding.right, padding.bottom, padding.left]))
                     .spacing(theme.grid_section_title.spacing)
             }
             RowStyle::GridItemTitle => {
