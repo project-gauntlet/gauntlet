@@ -2030,6 +2030,7 @@ impl<'b> ComponentWidgets<'b> {
                     show_action_panel,
                     top_panel,
                     top_separator,
+                    None,
                     content,
                     primary_action,
                     action_panel,
@@ -2046,6 +2047,7 @@ impl<'b> ComponentWidgets<'b> {
                     show_action_panel,
                     top_panel,
                     top_separator,
+                    None,
                     content,
                     primary_action,
                     action_panel,
@@ -2409,6 +2411,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     show_action_panel: bool,
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
+    toast_text: Option<&str>,
     content: Element<'a, T>,
     primary_action: Option<(String, UiWidgetId, PhysicalShortcut)>,
     action_panel: Option<ActionPanel>,
@@ -2469,6 +2472,13 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
 
             let mut bottom_panel_content = vec![entrypoint_name];
 
+            if let Some(toast_text) = toast_text {
+                let toast_text = text(toast_text)
+                    .into();
+
+                bottom_panel_content.push(toast_text);
+            }
+
             let space = horizontal_space()
                 .into();
 
@@ -2509,7 +2519,18 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
             let space: Element<_> = Space::new(Length::Fill, panel_height)
                 .into();
 
-            let mut bottom_panel_content = vec![entrypoint_name, space];
+            let mut bottom_panel_content = vec![];
+
+            if let Some(toast_text) = toast_text {
+                let toast_text = text(toast_text)
+                    .into();
+
+                bottom_panel_content.push(toast_text);
+            } else {
+                bottom_panel_content.push(entrypoint_name);
+            }
+
+            bottom_panel_content.push(space);
 
             if let Some(primary_action) = primary_action {
                 bottom_panel_content.push(primary_action);

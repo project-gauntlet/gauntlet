@@ -1623,12 +1623,19 @@ impl Application for AppModel {
                     }
                 };
 
+                let toast_text = if !self.loading_bar_state.is_empty() {
+                    Some("Indexing...")
+                } else {
+                    None
+                };
+
                 let root = match sub_state {
                     MainViewState::None => {
                         render_root(
                             false,
                             input,
                             separator,
+                            toast_text,
                             content,
                             primary_action,
                             action_panel,
@@ -1645,6 +1652,7 @@ impl Application for AppModel {
                             true,
                             input,
                             separator,
+                            toast_text,
                             content,
                             primary_action,
                             action_panel,
@@ -1661,6 +1669,7 @@ impl Application for AppModel {
                             true,
                             input,
                             separator,
+                            toast_text,
                             content,
                             primary_action,
                             action_panel,
