@@ -647,9 +647,20 @@ impl<'b> ComponentWidgets<'b> {
                     .sum();
 
                 let Some(current_index) = &focused_item.index else {
+                    let unfocus = match &grid_widget.content.search_bar {
+                        None => Command::none(),
+                        Some(_) => {
+                            // there doesn't seem to be an unfocus command but focusing non-existing input will unfocus all
+                            text_input::focus(text_input::Id::unique())
+                        }
+                    };
+
                     let _ = focused_item.focus_next(total);
 
-                    return focused_item.scroll_to(0)
+                    return Command::batch([
+                        unfocus,
+                        focused_item.scroll_to(0)
+                    ])
                 };
 
                 match grid_down_offset(*current_index, amount_per_section_total) {
