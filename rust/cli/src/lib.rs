@@ -1,4 +1,3 @@
-use anyhow::{anyhow, Context};
 use clap::Parser;
 
 use client::{generate_color_theme_sample, generate_theme_sample, open_window};

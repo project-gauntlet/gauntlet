@@ -67,7 +67,7 @@ impl BackendServer for BackendServerImpl {
         Ok(())
     }
 
-    async fn set_global_shortcut(&self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+    async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
         let result = self.application_manager.set_global_shortcut(shortcut)
             .await;
 
@@ -78,9 +78,10 @@ impl BackendServer for BackendServerImpl {
         result
     }
 
-    async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+    async fn get_global_shortcut(&self) -> anyhow::Result<(Option<PhysicalShortcut>, Option<String>)> {
         let result = self.application_manager.get_global_shortcut()
-            .await?;
+            .await?
+            .unwrap_or((None, None));
 
         Ok(result)
     }

@@ -126,7 +126,7 @@ impl Application for ManagementAppModel {
                             None => ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop),
                             Some(shortcut) => {
                                 match shortcut {
-                                    Ok(shortcut) => ManagementAppMsg::General(ManagementAppGeneralMsgIn::SetShortcut(shortcut)),
+                                    Ok((shortcut, error)) => ManagementAppMsg::General(ManagementAppGeneralMsgIn::RefreshShortcut { shortcut, error }),
                                     Err(err) => ManagementAppMsg::HandleBackendError(err)
                                 }
                             }

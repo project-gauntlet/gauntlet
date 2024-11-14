@@ -6,7 +6,15 @@ use iced_aw::core::icons;
 
 use common::model::{PhysicalKey, PhysicalShortcut};
 
-pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(shortcut: &PhysicalShortcut) -> (Element<'a, Message, Theme>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>, Option<Element<'a, Message, Theme>>) {
+pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
+    shortcut: &PhysicalShortcut
+) -> (
+    Element<'a, Message, Theme>,
+    Option<Element<'a, Message, Theme>>,
+    Option<Element<'a, Message, Theme>>,
+    Option<Element<'a, Message, Theme>>,
+    Option<Element<'a, Message, Theme>>
+) {
     let (key_name, show_shift) = match shortcut.physical_key {
         PhysicalKey::Enter => {
             let key_name = if cfg!(target_os = "macos") {

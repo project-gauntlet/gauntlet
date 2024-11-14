@@ -178,7 +178,7 @@ pub enum AppMsg {
     ResetMainViewState,
     OnAnyActionMainViewNoPanelKeyboardAtIndex { index: usize },
     SetGlobalShortcut {
-        shortcut: PhysicalShortcut,
+        shortcut: Option<PhysicalShortcut>,
         responder: Arc<Mutex<Option<Responder<UiResponseData>>>>
     },
     UpdateLoadingBar {
@@ -1162,10 +1162,13 @@ impl Application for AppModel {
                         global_hotkey_manager.unregister(current_hotkey)?;
                     }
 
-                    let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
-                    *hotkey_guard = Some(hotkey);
+                    if let Some(shortcut) = shortcut {
+                        let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
 
-                    global_hotkey_manager.register(hotkey)?;
+                        *hotkey_guard = Some(hotkey);
+
+                        global_hotkey_manager.register(hotkey)?;
+                    }
 
                     Ok(())
                 };

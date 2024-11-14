@@ -68,12 +68,16 @@ message RpcSetEntrypointStateRequest {
 message RpcSetEntrypointStateResponse {
 }
 
-message RpcSetGlobalShortcutRequest {
+message RpcShortcut {
   string physical_key = 1;
   bool modifier_shift = 2;
   bool modifier_control = 3;
   bool modifier_alt = 4;
   bool modifier_meta = 5;
+}
+
+message RpcSetGlobalShortcutRequest {
+  optional RpcShortcut shortcut = 1;
 }
 
 message RpcSetGlobalShortcutResponse {
@@ -83,11 +87,8 @@ message RpcGetGlobalShortcutRequest {
 }
 
 message RpcGetGlobalShortcutResponse {
-  string physical_key = 1;
-  bool modifier_shift = 2;
-  bool modifier_control = 3;
-  bool modifier_alt = 4;
-  bool modifier_meta = 5;
+  optional RpcShortcut shortcut = 1;
+  optional string error = 2;
 }
 
 message RpcSetPreferenceValueRequest {

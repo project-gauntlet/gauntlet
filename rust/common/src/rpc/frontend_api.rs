@@ -168,7 +168,7 @@ impl FrontendApi {
 
     pub async fn set_global_shortcut(
         &self,
-        shortcut: PhysicalShortcut
+        shortcut: Option<PhysicalShortcut>
     ) -> anyhow::Result<()> {
         let request = UiRequestData::SetGlobalShortcut {
             shortcut,

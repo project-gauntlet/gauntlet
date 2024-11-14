@@ -23,7 +23,8 @@ where
 
     style: <Theme as StyleSheet>::Style,
 
-    on_shortcut_captured: Box<dyn Fn(PhysicalShortcut) -> Message + 'a>,
+    on_shortcut_captured: Box<dyn Fn(Option<PhysicalShortcut>) -> Message + 'a>,
+    on_capturing_change: Box<dyn Fn(bool) -> Message + 'a>,
 
     content: Element<'a, Message, Theme>,
 }
@@ -32,33 +33,45 @@ impl<'a, Message: 'a, Theme> ShortcutSelector<'a, Message, Theme>
 where
     Theme: StyleSheet + text::StyleSheet + container::StyleSheet + 'a
 {
-    pub fn new<F>(current_shortcut: &PhysicalShortcut, on_shortcut_captured: F, style: <Theme as StyleSheet>::Style) -> Self
+    pub fn new<F, F2>(
+        current_shortcut: &Option<PhysicalShortcut>,
+        on_shortcut_captured: F,
+        on_capturing_change: F2,
+        style: <Theme as StyleSheet>::Style
+    ) -> Self
         where
-            F: 'a + Fn(PhysicalShortcut) -> Message,
+            F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
+            F2: 'a + Fn(bool) -> Message,
     {
-
-        let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) = shortcut_to_text(current_shortcut);
-
         let mut content: Vec<Element<Message, Theme>> = vec![];
 
+        if let Some(current_shortcut) = current_shortcut {
+            let (
+                key_name,
+                alt_modifier_text,
+                meta_modifier_text,
+                control_modifier_text,
+                shift_modifier_text
+            ) = shortcut_to_text(current_shortcut);
 
-        if let Some(meta_modifier_text) = meta_modifier_text {
-            content.push(meta_modifier_text);
+            if let Some(meta_modifier_text) = meta_modifier_text {
+                content.push(meta_modifier_text);
+            }
+
+            if let Some(control_modifier_text) = control_modifier_text {
+                content.push(control_modifier_text);
+            }
+
+            if let Some(shift_modifier_text) = shift_modifier_text {
+                content.push(shift_modifier_text);
+            }
+
+            if let Some(alt_modifier_text) = alt_modifier_text {
+                content.push(alt_modifier_text);
+            }
+
+            content.push(key_name);
         }
-
-        if let Some(control_modifier_text) = control_modifier_text {
-            content.push(control_modifier_text);
-        }
-
-        if let Some(shift_modifier_text) = shift_modifier_text {
-            content.push(shift_modifier_text);
-        }
-
-        if let Some(alt_modifier_text) = alt_modifier_text {
-            content.push(alt_modifier_text);
-        }
-
-        content.push(key_name);
 
         let content: Element<_, _> = row(content)
             .spacing(8.0)
@@ -79,6 +92,7 @@ where
             style,
 
             on_shortcut_captured: Box::new(on_shortcut_captured),
+            on_capturing_change: Box::new(on_capturing_change),
 
             content,
         }
@@ -191,8 +205,22 @@ where
                     match event {
                         keyboard::Event::KeyReleased { physical_key, modifiers, .. } => {
                             match physical_key {
-                                keyboard::key::PhysicalKey::Backspace | keyboard::key::PhysicalKey::Escape => {
+                                keyboard::key::PhysicalKey::Backspace => {
                                     state.is_capturing = false;
+
+                                    let message = (self.on_capturing_change)(false);
+                                    shell.publish(message);
+
+                                    let message = (self.on_shortcut_captured)(None);
+                                    shell.publish(message);
+
+                                    event::Status::Ignored
+                                }
+                                keyboard::key::PhysicalKey::Escape => {
+                                    state.is_capturing = false;
+
+                                    let message = (self.on_capturing_change)(false);
+                                    shell.publish(message);
 
                                     event::Status::Ignored
                                 }
@@ -200,11 +228,13 @@ where
                                     match physical_key_model(physical_key, modifiers) {
                                         None => event::Status::Ignored,
                                         Some(shortcut) => {
-                                            let message = (self.on_shortcut_captured)(shortcut);
+                                            state.is_capturing = false;
 
+                                            let message = (self.on_capturing_change)(false);
                                             shell.publish(message);
 
-                                            state.is_capturing = false;
+                                            let message = (self.on_shortcut_captured)(Some(shortcut));
+                                            shell.publish(message);
 
                                             event::Status::Captured
                                         }
@@ -225,9 +255,15 @@ where
                         if cursor.is_over(layout.bounds()) {
                             state.is_capturing = true;
 
+                            let message = (self.on_capturing_change)(true);
+                            shell.publish(message);
+
                             event::Status::Captured
                         } else {
                             state.is_capturing = false;
+
+                            let message = (self.on_capturing_change)(false);
+                            shell.publish(message);
 
                             event::Status::Ignored
                         }

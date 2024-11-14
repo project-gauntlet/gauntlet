@@ -7,7 +7,7 @@ use tonic::transport::Channel;
 use utils::channel::{RequestError, RequestSender};
 
 use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -348,13 +348,17 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&mut self, shortcut: PhysicalShortcut) -> Result<(), BackendApiError> {
+    pub async fn set_global_shortcut(&mut self, shortcut: Option<PhysicalShortcut>) -> Result<(), BackendApiError> {
         let request = RpcSetGlobalShortcutRequest {
-            physical_key: shortcut.physical_key.to_value(),
-            modifier_shift: shortcut.modifier_shift,
-            modifier_control: shortcut.modifier_control,
-            modifier_alt: shortcut.modifier_alt,
-            modifier_meta: shortcut.modifier_meta,
+            shortcut: shortcut.map(|shortcut| {
+                RpcShortcut {
+                    physical_key: shortcut.physical_key.to_value(),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                }
+            })
         };
 
         self.client.set_global_shortcut(Request::new(request))
@@ -363,19 +367,25 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn get_global_shortcut(&mut self) -> Result<PhysicalShortcut, BackendApiError> {
+    pub async fn get_global_shortcut(&mut self) -> Result<(Option<PhysicalShortcut>, Option<String>), BackendApiError> {
         let response = self.client.get_global_shortcut(Request::new(RpcGetGlobalShortcutRequest::default()))
             .await?;
 
         let response = response.into_inner();
 
-        Ok(PhysicalShortcut {
-            physical_key: PhysicalKey::from_value(response.physical_key),
-            modifier_shift: response.modifier_shift,
-            modifier_control: response.modifier_control,
-            modifier_alt: response.modifier_alt,
-            modifier_meta: response.modifier_meta,
-        })
+        Ok((
+            response.shortcut
+                .map(|shortcut| {
+                    PhysicalShortcut {
+                        physical_key: PhysicalKey::from_value(shortcut.physical_key),
+                        modifier_shift: shortcut.modifier_shift,
+                        modifier_control: shortcut.modifier_control,
+                        modifier_alt: shortcut.modifier_alt,
+                        modifier_meta: shortcut.modifier_meta,
+                    }
+                }),
+            response.error
+        ))
     }
 
     pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, id: String, user_data: PluginPreferenceUserData) -> Result<(), BackendApiError> {

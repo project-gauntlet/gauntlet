@@ -227,7 +227,11 @@ pub struct DbSettingsGlobalShortcutData {
     pub modifier_shift: bool,
     pub modifier_control: bool,
     pub modifier_alt: bool,
-    pub modifier_meta: bool
+    pub modifier_meta: bool,
+    #[serde(default)]
+    pub unset: bool,
+    #[serde(default)]
+    pub error: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -831,7 +835,7 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
+    pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>, error: Option<String>) -> anyhow::Result<()> {
         // language=SQLite
         let sql = r#"
             INSERT INTO settings_data (id, global_shortcut)
@@ -842,12 +846,29 @@ impl DataDbRepository {
 
         let id = "settings_data"; // only one row in the table
 
-        let shortcut_data = DbSettingsGlobalShortcutData {
-            physical_key: shortcut.physical_key.to_value(),
-            modifier_shift: shortcut.modifier_shift,
-            modifier_control: shortcut.modifier_control,
-            modifier_alt: shortcut.modifier_alt,
-            modifier_meta: shortcut.modifier_meta,
+        let shortcut_data = match shortcut {
+            None => {
+                DbSettingsGlobalShortcutData {
+                    physical_key: "".to_string(),
+                    modifier_shift: false,
+                    modifier_control: false,
+                    modifier_alt: false,
+                    modifier_meta: false,
+                    unset: true,
+                    error,
+                }
+            }
+            Some(shortcut) => {
+                DbSettingsGlobalShortcutData {
+                    physical_key: shortcut.physical_key.to_value(),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                    unset: false,
+                    error,
+                }
+            }
         };
 
         sqlx::query(sql)
@@ -859,7 +880,7 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+    pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
         // language=SQLite
         let data = sqlx::query_as::<_, DbSettingsData>("SELECT * FROM settings_data")
             .fetch_optional(&self.pool)
@@ -869,33 +890,24 @@ impl DataDbRepository {
             Ok(Some(data)) => {
                 let shortcut_data = data.global_shortcut;
 
-                Ok(PhysicalShortcut {
-                    physical_key: PhysicalKey::from_value(shortcut_data.physical_key),
-                    modifier_shift: shortcut_data.modifier_shift,
-                    modifier_control: shortcut_data.modifier_control,
-                    modifier_alt: shortcut_data.modifier_alt,
-                    modifier_meta: shortcut_data.modifier_meta,
-                })
-            },
-            Ok(None) => {
-                if cfg!(target_os = "windows") {
-                    Ok(PhysicalShortcut {
-                        physical_key: PhysicalKey::Space,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: true,
-                        modifier_meta: false,
-                    })
+                let shortcut = if shortcut_data.unset {
+                    None
                 } else {
-                    Ok(PhysicalShortcut {
-                        physical_key: PhysicalKey::Space,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: true,
+                    Some(PhysicalShortcut {
+                        physical_key: PhysicalKey::from_value(shortcut_data.physical_key),
+                        modifier_shift: shortcut_data.modifier_shift,
+                        modifier_control: shortcut_data.modifier_control,
+                        modifier_alt: shortcut_data.modifier_alt,
+                        modifier_meta: shortcut_data.modifier_meta,
                     })
-                }
-            }
+                };
+
+                Ok(Some((
+                    shortcut,
+                    shortcut_data.error,
+                )))
+            },
+            Ok(None) => Ok(None),
             Err(err) => Err(anyhow!("Unable to get global shortcut from db: {:?}", err))
         }
     }

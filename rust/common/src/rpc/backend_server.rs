@@ -7,7 +7,7 @@ use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -68,12 +68,12 @@ pub trait BackendServer {
 
     async fn set_global_shortcut(
         &self,
-        shortcut: PhysicalShortcut
+        shortcut: Option<PhysicalShortcut>
     ) -> anyhow::Result<()>;
 
     async fn get_global_shortcut(
         &self,
-    ) -> anyhow::Result<PhysicalShortcut>;
+    ) -> anyhow::Result<(Option<PhysicalShortcut>, Option<String>)>;
 
     async fn set_preference_value(
         &self,
@@ -215,19 +215,23 @@ impl RpcBackend for RpcBackendServerImpl {
 
     async fn set_global_shortcut(&self, request: Request<RpcSetGlobalShortcutRequest>) -> Result<Response<RpcSetGlobalShortcutResponse>, Status> {
         let request = request.into_inner();
-        let physical_key = request.physical_key;
-        let modifier_shift = request.modifier_shift;
-        let modifier_control = request.modifier_control;
-        let modifier_alt = request.modifier_alt;
-        let modifier_meta = request.modifier_meta;
 
-        let shortcut = PhysicalShortcut {
-            physical_key: PhysicalKey::from_value(physical_key),
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta,
-        };
+        let shortcut = request.shortcut
+            .map(|shortcut| {
+                let physical_key = shortcut.physical_key;
+                let modifier_shift = shortcut.modifier_shift;
+                let modifier_control = shortcut.modifier_control;
+                let modifier_alt = shortcut.modifier_alt;
+                let modifier_meta = shortcut.modifier_meta;
+
+                PhysicalShortcut {
+                    physical_key: PhysicalKey::from_value(physical_key),
+                    modifier_shift,
+                    modifier_control,
+                    modifier_alt,
+                    modifier_meta,
+                }
+            });
 
         self.server.set_global_shortcut(shortcut)
             .await
@@ -237,16 +241,19 @@ impl RpcBackend for RpcBackendServerImpl {
     }
 
     async fn get_global_shortcut(&self, _request: Request<RpcGetGlobalShortcutRequest>) -> Result<Response<RpcGetGlobalShortcutResponse>, Status> {
-        let shortcut = self.server.get_global_shortcut()
+        let (shortcut, error) = self.server.get_global_shortcut()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcGetGlobalShortcutResponse {
-            physical_key: shortcut.physical_key.to_value(),
-            modifier_shift: shortcut.modifier_shift,
-            modifier_control: shortcut.modifier_control,
-            modifier_alt: shortcut.modifier_alt,
-            modifier_meta: shortcut.modifier_meta,
+            shortcut: shortcut.map(|shortcut| RpcShortcut {
+                physical_key: shortcut.physical_key.to_value(),
+                modifier_shift: shortcut.modifier_shift,
+                modifier_control: shortcut.modifier_control,
+                modifier_alt: shortcut.modifier_alt,
+                modifier_meta: shortcut.modifier_meta,
+            }),
+            error,
         }))
     }
 

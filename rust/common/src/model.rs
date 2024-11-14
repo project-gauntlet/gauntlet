@@ -162,7 +162,7 @@ pub enum UiRequestData {
         show: bool
     },
     SetGlobalShortcut {
-        shortcut: PhysicalShortcut
+        shortcut: Option<PhysicalShortcut>
     },
 }
 

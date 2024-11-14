@@ -78,9 +78,32 @@ impl ApplicationManager {
             dirs
         };
 
-        if let Err(err) = manager.register_global_shortcut().await {
-            tracing::warn!(target = "rpc", "error occurred when registering shortcut {:?}", err)
-        }
+        match manager.get_global_shortcut().await? {
+            None => {
+                let shortcut = if cfg!(target_os = "windows") {
+                    PhysicalShortcut {
+                        physical_key: PhysicalKey::Space,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: true,
+                        modifier_meta: false,
+                    }
+                } else {
+                    PhysicalShortcut {
+                        physical_key: PhysicalKey::Space,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: true,
+                    }
+                };
+
+                manager.set_global_shortcut(Some(shortcut)).await?
+            }
+            Some((shortcut, _)) => {
+                manager.set_global_shortcut(shortcut).await?
+            }
+        };
 
         Ok(manager)
     }
@@ -250,17 +273,18 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&self, shortcut: PhysicalShortcut) -> anyhow::Result<()> {
-        self.db_repository.set_global_shortcut(shortcut)
+    pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
+        let err = self.frontend_api.set_global_shortcut(shortcut.clone()).await;
+
+        let db_err = err.as_ref().map_err(|err| format!("{:#}", err)).err();
+
+        self.db_repository.set_global_shortcut(shortcut, db_err)
             .await?;
 
-        self.register_global_shortcut()
-            .await?;
-
-        Ok(())
+        err
     }
 
-    pub async fn get_global_shortcut(&self) -> anyhow::Result<PhysicalShortcut> {
+    pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
         self.db_repository.get_global_shortcut().await
     }
 
@@ -273,12 +297,6 @@ impl ApplicationManager {
             .await?;
 
         Ok(())
-    }
-
-    async fn register_global_shortcut(&self) -> anyhow::Result<()> {
-        let shortcut = self.db_repository.get_global_shortcut().await?;
-
-        self.frontend_api.set_global_shortcut(shortcut).await
     }
 
     pub async fn reload_config(&self) -> anyhow::Result<()> {
