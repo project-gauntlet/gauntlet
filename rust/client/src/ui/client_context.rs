@@ -84,7 +84,7 @@ impl ClientContext {
         plugin_name: &str,
         entrypoint_id: &EntrypointId,
         entrypoint_name: &str
-    ) {
+    ) -> AppMsg {
         match render_location {
             UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, images, plugin_id, plugin_name, entrypoint_id, entrypoint_name),
             UiRenderLocation::View => self.get_mut_view_container().replace_view(container, images, plugin_id, plugin_name, entrypoint_id, entrypoint_name)
@@ -110,6 +110,18 @@ impl ClientContext {
             UiRenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
             UiRenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)
         }
+    }
+
+    pub fn append_text(&self, text: &str) -> Command<AppMsg> {
+        self.view.append_text(text)
+    }
+
+    pub fn backspace_text(&self) -> Command<AppMsg> {
+        self.view.backspace_text()
+    }
+
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Command<AppMsg> {
+        self.view.focus_search_bar(widget_id)
     }
 
     pub fn toggle_action_panel(&self) {

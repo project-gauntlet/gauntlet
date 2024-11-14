@@ -2,7 +2,6 @@ use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMem
 use common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
-use iced::futures::StreamExt;
 use iced::widget::image::Handle;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
@@ -17,7 +16,6 @@ use itertools::Itertools;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
-
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::grid_navigation::{grid_down_offset, grid_up_offset, GridSectionData};
@@ -59,6 +57,19 @@ impl<'b> ComponentWidgets<'b> {
 
     fn text_field_state(&self, widget_id: UiWidgetId) -> &TextFieldState {
         let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+
+        match state {
+            ComponentWidgetState::TextField(state) => state,
+            _ => panic!("TextFieldState expected, {:?} found", state)
+        }
+    }
+
+    fn text_field_state_mut(&mut self, widget_id: UiWidgetId) -> &mut TextFieldState {
+        Self::text_field_state_mut_on_state(&mut self.state, widget_id)
+    }
+
+    fn text_field_state_mut_on_state(state: &mut HashMap<UiWidgetId, ComponentWidgetState>, widget_id: UiWidgetId) -> &mut TextFieldState {
+        let state = state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
 
         match state {
             ComponentWidgetState::TextField(state) => state,
@@ -213,6 +224,7 @@ pub enum ComponentWidgetState {
 
 #[derive(Debug, Clone)]
 struct TextFieldState {
+    text_input_id: text_input::Id,
     state_value: String
 }
 
@@ -242,12 +254,13 @@ impl ComponentWidgetState {
     fn root(item_height: f32, rows_per_view: usize) -> ComponentWidgetState {
         ComponentWidgetState::Root(RootState {
             show_action_panel: false,
-            focused_item: ScrollHandle::new(false, item_height, rows_per_view), // TODO first focused?
+            focused_item: ScrollHandle::new(false, item_height, rows_per_view),
         })
     }
 
     fn text_field(value: &Option<String>) -> ComponentWidgetState {
         ComponentWidgetState::TextField(TextFieldState {
+            text_input_id: text_input::Id::unique(),
             state_value: value.to_owned().unwrap_or_default()
         })
     }
@@ -424,6 +437,124 @@ impl<'b> ComponentWidgets<'b> {
         }
 
         amount_per_section
+    }
+
+    pub fn append_text(&mut self, text: &str) -> Command<AppMsg> {
+        let Some(root_widget) = &self.root_widget else {
+            return Command::none();
+        };
+
+        let Some(content) = &root_widget.content else {
+            return Command::none();
+        };
+
+        let widget_id = match content {
+            RootWidgetMembers::List(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return Command::none()
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            RootWidgetMembers::Grid(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return Command::none()
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            _ => return Command::none()
+        };
+
+        let TextFieldState { text_input_id, state_value } = ComponentWidgets::text_field_state_mut_on_state(&mut self.state, widget_id);
+
+        if let Some(value) = text.chars().next().filter(|c| !c.is_control()) {
+            *state_value = format!("{}{}", state_value, value);
+
+            text_input::focus(text_input_id.clone())
+        } else {
+            Command::none()
+        }
+    }
+
+    pub fn backspace_text(&mut self) -> Command<AppMsg> {
+        let Some(root_widget) = &self.root_widget else {
+            return Command::none();
+        };
+
+        let Some(content) = &root_widget.content else {
+            return Command::none();
+        };
+
+        let widget_id = match content {
+            RootWidgetMembers::List(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return Command::none()
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            RootWidgetMembers::Grid(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return Command::none()
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            _ => return Command::none()
+        };
+
+        let TextFieldState { text_input_id, state_value } = ComponentWidgets::text_field_state_mut_on_state(&mut self.state, widget_id);
+
+        let mut chars = state_value.chars();
+        chars.next_back();
+        *state_value = chars.as_str().to_owned();
+
+        text_input::focus(text_input_id.clone())
+    }
+
+    pub fn first_open(&self) -> AppMsg {
+        let Some(root_widget) = &self.root_widget else {
+            return AppMsg::Noop;
+        };
+
+        let Some(content) = &root_widget.content else {
+            return AppMsg::Noop;
+        };
+
+        let widget_id = match content {
+            RootWidgetMembers::List(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return AppMsg::Noop
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            RootWidgetMembers::Grid(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return AppMsg::Noop
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            _ => return AppMsg::Noop
+        };
+
+        AppMsg::FocusPluginViewSearchBar {
+            widget_id
+        }
+    }
+
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Command<AppMsg> {
+        let TextFieldState { text_input_id, .. } = self.text_field_state(widget_id);
+
+        text_input::focus(text_input_id.clone())
     }
 
     pub fn focus_up(&mut self) -> Command<AppMsg> {
@@ -1017,7 +1148,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_text_field_widget<'a>(&self, widget: &TextFieldWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let TextFieldState { state_value } = self.text_field_state(widget.__id__);
+        let TextFieldState { state_value, .. } = self.text_field_state(widget.__id__);
 
         text_input("", state_value)
             .on_input(move |value| ComponentWidgetEvent::OnChangeTextField { widget_id, value })
@@ -1026,7 +1157,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_password_field_widget<'a>(&self, widget: &PasswordFieldWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let TextFieldState { state_value } = self.text_field_state(widget_id);
+        let TextFieldState { state_value, .. } = self.text_field_state(widget_id);
 
         text_input("", state_value)
             .secure(true)
@@ -1309,9 +1440,11 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_search_bar_widget<'a>(&self, widget: &SearchBarWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let TextFieldState { state_value } = self.text_field_state(widget_id);
+        let TextFieldState { state_value, text_input_id } = self.text_field_state(widget_id);
 
         text_input(widget.placeholder.as_deref().unwrap_or_default(), state_value)
+            .id(text_input_id.clone())
+            .ignore_with_modifiers(true)
             .on_input(move |value| ComponentWidgetEvent::OnChangeSearchBar { widget_id, value })
             .themed(TextInputStyle::PluginSearchBar)
     }
@@ -2561,7 +2694,7 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::OnChangeTextField { widget_id, value } => {
                 {
-                    let ComponentWidgetState::TextField(TextFieldState { state_value }) = state else {
+                    let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
                         panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                     };
 
@@ -2572,7 +2705,7 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::OnChangePasswordField { widget_id, value } => {
                 {
-                    let ComponentWidgetState::TextField(TextFieldState { state_value }) = state else {
+                    let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
                         panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                     };
 
@@ -2583,7 +2716,7 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::OnChangeSearchBar { widget_id, value } => {
                 {
-                    let ComponentWidgetState::TextField(TextFieldState { state_value }) = state else {
+                    let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
                         panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                     };
 

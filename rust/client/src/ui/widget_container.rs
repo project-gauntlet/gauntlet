@@ -51,7 +51,7 @@ impl PluginWidgetContainer {
         plugin_name: &str,
         entrypoint_id: &EntrypointId,
         entrypoint_name: &str
-    ) {
+    ) -> AppMsg {
         tracing::trace!("replace_view is called. container: {:?}", container);
 
         self.plugin_id = Some(plugin_id.clone());
@@ -76,7 +76,19 @@ impl PluginWidgetContainer {
             }
         }
 
+        let first_open = match root_widget.as_ref() {
+            None => true,
+            Some(root_widget) => root_widget.content.is_none()
+        };
+
         *root_widget = Some(container);
+
+        if first_open {
+            ComponentWidgets::new(&mut root_widget, &mut state, &self.images)
+                .first_open()
+        } else {
+            AppMsg::Noop
+        }
     }
 
     pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
@@ -105,6 +117,27 @@ impl PluginWidgetContainer {
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images)
             .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
+    }
+
+    pub fn append_text(&self, text: &str) -> Command<AppMsg> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).append_text(text)
+    }
+
+    pub fn backspace_text(&self) -> Command<AppMsg> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).backspace_text()
+    }
+
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Command<AppMsg> {
+        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
+        let mut state = self.state.lock().expect("lock is poisoned");
+
+        ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_search_bar(widget_id)
     }
 
     pub fn toggle_action_panel(&self) {

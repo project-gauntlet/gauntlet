@@ -188,6 +188,9 @@ pub enum AppMsg {
     },
     PendingPluginViewLoadingBar,
     ShowPluginViewLoadingBar,
+    FocusPluginViewSearchBar {
+        widget_id: UiWidgetId
+    },
 }
 
 pub struct AppFlags {
@@ -350,7 +353,8 @@ impl Application for AppModel {
                     let container = RootWidget::deserialize(container).expect("should always be valid");
                     let has_children = container.content.is_some();
 
-                    context.replace_view(
+                    // ignore commands because screenshots are non-interactive
+                    let _ = context.replace_view(
                         render_location,
                         container,
                         images,
@@ -596,7 +600,16 @@ impl Application for AppModel {
                                         }
                                     }
                                     GlobalState::ErrorView { .. } => Command::none(),
-                                    GlobalState::PluginView { .. } => Command::none()
+                                    GlobalState::PluginView { sub_state, .. } => {
+                                        match sub_state {
+                                            PluginViewState::None => {
+                                                let mut client_context = self.client_context.write().expect("lock is poisoned");
+
+                                                client_context.backspace_text()
+                                            }
+                                            PluginViewState::ActionPanel { .. } => Command::none()
+                                        }
+                                    }
                                 }
                             },
                             _ => {
@@ -695,7 +708,7 @@ impl Application for AppModel {
                                         }
                                     }
                                     GlobalState::ErrorView { .. } => Command::none(),
-                                    GlobalState::PluginView { .. } => {
+                                    GlobalState::PluginView { sub_state, .. } => {
                                         match physical_key_model(physical_key, modifiers) {
                                             Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
                                                 Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
@@ -704,7 +717,19 @@ impl Application for AppModel {
                                                 if modifier_shift || modifier_control || modifier_alt || modifier_meta {
                                                     self.handle_plugin_view_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
                                                 } else {
-                                                    Command::none()
+                                                    match sub_state {
+                                                        PluginViewState::None => {
+                                                            match text {
+                                                                None => Command::none(),
+                                                                Some(text) => {
+                                                                    let mut client_context = self.client_context.write().expect("lock is poisoned");
+
+                                                                    client_context.append_text(text.as_str())
+                                                                }
+                                                            }
+                                                        }
+                                                        PluginViewState::ActionPanel { .. } => Command::none()
+                                                    }
                                                 }
                                             }
                                             _ => Command::none()
@@ -1192,6 +1217,11 @@ impl Application for AppModel {
                 }
 
                 Command::none()
+            }
+            AppMsg::FocusPluginViewSearchBar { widget_id } => {
+                let mut client_context = self.client_context.write().expect("lock is poisoned");
+
+                client_context.focus_search_bar(widget_id)
             }
         }
     }
@@ -2039,7 +2069,7 @@ async fn request_loop(
     loop {
         let (request_data, responder) = frontend_receiver.recv().await;
 
-        let app_msg = {
+        let app_msgs = {
             let mut client_context = client_context.write().expect("lock is poisoned");
 
             match request_data {
@@ -2057,7 +2087,7 @@ async fn request_loop(
                 } => {
                     let has_children = container.content.is_some();
 
-                    client_context.replace_view(
+                    let message = client_context.replace_view(
                         render_location,
                         container,
                         images,
@@ -2069,23 +2099,26 @@ async fn request_loop(
 
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ReplaceView {
-                        top_level_view,
-                        has_children,
-                        render_location
-                    }
+                    vec![
+                        AppMsg::ReplaceView {
+                            top_level_view,
+                            has_children,
+                            render_location,
+                        },
+                        message
+                    ]
                 }
                 UiRequestData::ClearInlineView { plugin_id } => {
                     client_context.clear_inline_view(&plugin_id);
 
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::Noop // refresh ui
+                    vec![AppMsg::Noop] // refresh ui
                 }
                 UiRequestData::ShowWindow => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ShowWindow
+                    vec![AppMsg::ShowWindow]
                 }
                 UiRequestData::ShowPreferenceRequiredView {
                     plugin_id,
@@ -2095,52 +2128,54 @@ async fn request_loop(
                 } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ShowPreferenceRequiredView {
+                    vec![AppMsg::ShowPreferenceRequiredView {
                         plugin_id,
                         entrypoint_id,
                         plugin_preferences_required,
                         entrypoint_preferences_required
-                    }
+                    }]
                 }
                 UiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ShowPluginErrorView {
+                    vec![AppMsg::ShowPluginErrorView {
                         plugin_id,
                         entrypoint_id,
                         render_location,
-                    }
+                    }]
                 }
                 UiRequestData::RequestSearchResultUpdate => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::UpdateSearchResults
+                    vec![AppMsg::UpdateSearchResults]
                 }
                 UiRequestData::ShowHud { display } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ShowHud {
+                    vec![AppMsg::ShowHud {
                         display
-                    }
+                    }]
                 }
                 UiRequestData::SetGlobalShortcut { shortcut } => {
-                    AppMsg::SetGlobalShortcut {
+                    vec![AppMsg::SetGlobalShortcut {
                         shortcut,
                         responder: Arc::new(Mutex::new(Some(responder)))
-                    }
+                    }]
                 }
                 UiRequestData::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::UpdateLoadingBar {
+                    vec![AppMsg::UpdateLoadingBar {
                         plugin_id,
                         entrypoint_id,
                         show
-                    }
+                    }]
                 }
             }
         };
 
-        let _ = sender.send(app_msg).await;
+        for app_msg in app_msgs {
+            let _ = sender.send(app_msg).await;
+        }
     }
 }
