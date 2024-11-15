@@ -15,13 +15,14 @@ impl date_picker::StyleSheet for GauntletComplexTheme {
 
     fn active(&self, _: &Self::Style) -> Appearance {
         let theme = get_theme();
+        let root_theme = &theme.root;
         let theme = &theme.form_input_date_picker;
 
         Appearance {
             background: theme.background_color.to_iced().into(),
-            border_radius: theme.border_radius,
-            border_width: theme.border_width,
-            border_color: theme.border_color.to_iced(),
+            border_radius: root_theme.border_radius,
+            border_width: root_theme.border_width,
+            border_color: root_theme.border_color.to_iced(),
             text_color: theme.text_color.to_iced(),
             text_attenuated_color: theme.text_attenuated_color.to_iced(),
             day_background: theme.day_background_color.to_iced().into(),

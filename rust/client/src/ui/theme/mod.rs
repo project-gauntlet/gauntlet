@@ -39,6 +39,10 @@ pub struct GauntletSimplifiedTheme {
     text_darkest_color: ThemeColor,
     primary_darker_color: ThemeColor,
     primary_lighter_color: ThemeColor,
+    root_border_radius: f32,
+    root_border_width: f32,
+    root_border_color: ThemeColor,
+    content_border_radius: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,7 +115,6 @@ pub struct GauntletComplexTheme {
     root_bottom_panel_action_toggle_button: ThemeButton,
     root_bottom_panel_action_toggle_text: ThemePaddingTextColor,
     root_bottom_panel_primary_action_text: ThemePaddingTextColor,
-    root_content: ThemePaddingOnly,
     root_top_panel: ThemePaddingSpacing,
     root_top_panel_button: ThemeButton,
     metadata_link: ThemeLink,
@@ -220,6 +223,10 @@ impl GauntletComplexTheme {
             text_darkest_color: TEXT_DARKEST,
             primary_darker_color: PRIMARY,
             primary_lighter_color: PRIMARY_HOVERED,
+            root_border_radius: 10.0,
+            root_border_width: 1.0,
+            root_border_color: BACKGROUND_LIGHTER,
+            content_border_radius: BUTTON_BORDER_RADIUS,
         }
     }
 
@@ -236,6 +243,10 @@ impl GauntletComplexTheme {
             text_darkest_color,
             primary_darker_color,
             primary_lighter_color,
+            root_border_width,
+            root_border_radius,
+            root_border_color,
+            content_border_radius,
         } = simplified_theme;
 
         GauntletComplexTheme {
@@ -243,9 +254,9 @@ impl GauntletComplexTheme {
             text: text_lightest_color,
             root: ThemeRoot {
                 background_color: background_darkest_color,
-                border_radius: 10.0,
-                border_width: 1.0,
-                border_color: background_lighter_color,
+                border_radius: root_border_radius,
+                border_width: root_border_width,
+                border_color: root_border_color,
             },
             action_panel: ThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
@@ -261,7 +272,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -272,7 +283,7 @@ impl GauntletComplexTheme {
                 padding: padding_axis(0.0, 8.0),
                 spacing: 8.0,
                 background_color: background_lightest_color,
-                border_radius: 4.0,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -289,7 +300,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: primary_lighter_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -319,7 +330,7 @@ impl GauntletComplexTheme {
             },
             content_image: ThemeImage {
                 padding: padding_all(0.0),
-                border_radius: 6.0,
+                border_radius: content_border_radius,
             },
             inline: ThemePaddingOnly {
                 padding: padding_axis(0.0, 8.0),
@@ -334,7 +345,7 @@ impl GauntletComplexTheme {
             inline_inner: ThemeInline {
                 padding: padding_all(8.0),
                 background_color: background_lighter_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -352,7 +363,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_lightest_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -369,7 +380,7 @@ impl GauntletComplexTheme {
             content_code_block_text: ThemeCode {
                 padding: padding_axis(4.0, 8.0),
                 background_color: background_lighter_color,
-                border_radius: 4.0,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -387,7 +398,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_lightest_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
-                border_radius: 6.0,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -403,7 +414,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
-                border_radius: 6.0,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -422,15 +433,12 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_darker_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             list_item_icon: ThemePaddingOnly {
                 padding: padding_axis(0.0, 4.0)
-            },
-            root_content: ThemePaddingOnly {
-                padding: padding_all(0.0), // TODO hardcode this?
             },
             detail_metadata: ThemePaddingOnly {
                 padding: padding_axis(0.0, 12.0),
@@ -489,7 +497,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_darker_color,
                 text_color: text_lightest_color,
                 text_color_hovered: text_lightest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -530,9 +538,6 @@ impl GauntletComplexTheme {
             },
             form_input_date_picker: ThemeDatePicker {
                 background_color: background_darkest_color,
-                border_radius: 10.0,
-                border_width: 1.0,
-                border_color: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_selected: text_darker_color,
                 text_color_hovered: text_darker_color,
@@ -548,7 +553,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: primary_lighter_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -557,8 +562,8 @@ impl GauntletComplexTheme {
                 background_color_unchecked: background_darkest_color,
                 background_color_checked_hovered: primary_lighter_color,
                 background_color_unchecked_hovered: background_lighter_color,
-                border_radius: 4.0,
-                border_width: 1.0,
+                border_radius: content_border_radius,
+                border_width: root_border_width,
                 border_color: primary_darker_color,
                 icon_color: background_darkest_color,
             },
@@ -567,8 +572,8 @@ impl GauntletComplexTheme {
                 background_color_hovered: primary_lighter_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
-                border_width: 1.0,
+                border_radius: content_border_radius,
+                border_width: root_border_width,
                 border_color: background_lighter_color,
             },
             form_input_select_menu: ThemeSelectMenu {
@@ -576,8 +581,8 @@ impl GauntletComplexTheme {
                 background_color_selected: background_lighter_color,
                 text_color: text_lightest_color,
                 text_color_selected: text_lightest_color,
-                border_radius: BUTTON_BORDER_RADIUS,
-                border_width: 1.0,
+                border_radius: content_border_radius,
+                border_width: root_border_width,
                 border_color: background_lighter_color,
             },
             form_input_text_field: ThemeTextField {
@@ -586,8 +591,8 @@ impl GauntletComplexTheme {
                 text_color: text_lightest_color,
                 text_color_placeholder: text_darker_color,
                 selection_color: background_lighter_color,
-                border_radius: 4.0,
-                border_width: 1.0,
+                border_radius: content_border_radius,
+                border_width: root_border_width,
                 border_color: background_lighter_color,
                 border_color_hovered: background_lighter_color,
             },
@@ -596,7 +601,7 @@ impl GauntletComplexTheme {
             },
             scrollbar: ThemeScrollbar {
                 color: primary_darker_color,
-                border_radius: 4.0,
+                border_radius: content_border_radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -655,7 +660,7 @@ const TEXT_DARKEST: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
 const PRIMARY: ThemeColor = ThemeColor::new(0xC79F60, 1.0);
 const PRIMARY_HOVERED: ThemeColor = ThemeColor::new(0xD7B37A, 1.0);
 
-const BUTTON_BORDER_RADIUS: f32 = 6.0;
+const BUTTON_BORDER_RADIUS: f32 = 4.0;
 
 const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ThemePadding {
     ThemePadding::Each {
@@ -813,10 +818,6 @@ pub struct ThemeInline {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeDatePicker {
     background_color: ThemeColor,
-
-    border_radius: f32,
-    border_width: f32,
-    border_color: ThemeColor,
 
     text_color: ThemeColor,
     text_color_selected: ThemeColor,

@@ -250,7 +250,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
 
         match name {
             ContainerStyle::RootInner => {
-                self.padding(theme.root_content.padding.to_iced())
+                self.padding(0.0)
             }
             ContainerStyle::ActionPanelTitle => {
                 self.padding(theme.action_panel_title.padding.to_iced())
