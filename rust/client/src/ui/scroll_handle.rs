@@ -116,8 +116,6 @@ impl<T> ScrollHandle<T> {
     pub fn scroll_to<Message: 'static>(&self, row_index: usize) -> Command<Message> {
         let mut pos_y = row_index as f32 * self.item_height - (self.offset as f32 * self.item_height);
 
-        println!("pos_y: {}, row_index: {}, item_height: {}, offset: {}", pos_y, row_index, self.item_height, self.offset);
-
         scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
     }
 }
