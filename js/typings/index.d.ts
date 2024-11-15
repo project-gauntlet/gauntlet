@@ -132,6 +132,11 @@ interface InternalApi {
     clipboard_write(data: { text_data?: string, png_data?: number[] }): Promise<void>;
     clipboard_write_text(data: string): Promise<void>;
     clipboard_clear(): Promise<void>;
+
+    environment_gauntlet_version(): number;
+    environment_is_development(): boolean;
+    environment_plugin_data_dir(): string;
+    environment_plugin_cache_dir(): string;
 }
 
 // component model types

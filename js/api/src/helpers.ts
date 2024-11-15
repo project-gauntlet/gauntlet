@@ -85,3 +85,26 @@ export interface Clipboard {
     writeText(data: string): Promise<void>;
     clear(): Promise<void>;
 }
+
+export const Environment: Environment = {
+    get gauntletVersion(): number {
+        return InternalApi.environment_gauntlet_version()
+    },
+    get isDevelopment(): boolean {
+        return InternalApi.environment_is_development()
+    },
+    get pluginDataDir(): string {
+        return InternalApi.environment_plugin_data_dir()
+    },
+    get pluginCacheDir(): string {
+        return InternalApi.environment_plugin_cache_dir()
+    },
+}
+
+export interface Environment {
+    get gauntletVersion(): number;
+    get isDevelopment(): boolean;
+    get pluginDataDir(): string;
+    get pluginCacheDir(): string;
+}
+

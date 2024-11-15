@@ -38,6 +38,7 @@ use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
 use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text, Clipboard};
 use crate::plugins::js::command_generators::{get_command_generator_entrypoint_ids};
+use crate::plugins::js::environment::{environment_gauntlet_version, environment_is_development, environment_plugin_cache_dir, environment_plugin_data_dir};
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
 use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
@@ -57,6 +58,7 @@ mod search;
 mod command_generators;
 pub mod clipboard;
 pub mod permissions;
+mod environment;
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -314,6 +316,8 @@ async fn start_js_runtime(
     };
 
     let local_storage_dir = dirs.plugin_local_storage(&plugin_uuid);
+    let plugin_cache_dir = dirs.plugin_cache(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
+    let plugin_data_dir = dirs.plugin_data(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
 
     // let _inspector_server = Arc::new(
     //     InspectorServer::new(
@@ -348,7 +352,16 @@ async fn start_js_runtime(
             module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
             extensions: vec![plugin_ext::init_ops_and_esm(
                 EventReceiver::new(event_stream),
-                PluginData::new(plugin_id, plugin_uuid, plugin_name, entrypoint_names, inline_view_entrypoint_id, runtime_permissions),
+                PluginData::new(
+                    plugin_id,
+                    plugin_uuid,
+                    plugin_name,
+                    entrypoint_names,
+                    plugin_cache_dir,
+                    plugin_data_dir,
+                    inline_view_entrypoint_id,
+                    runtime_permissions,
+                ),
                 frontend_api,
                 ComponentModel::new(component_model),
                 repository,
@@ -565,6 +578,12 @@ deno_core::extension!(
 
         // plugins settings
         open_settings,
+
+        // plugin environment
+        environment_gauntlet_version,
+        environment_is_development,
+        environment_plugin_data_dir,
+        environment_plugin_cache_dir,
     ],
     options = {
         event_receiver: EventReceiver,
@@ -761,6 +780,8 @@ pub struct PluginData {
     plugin_uuid: String,
     plugin_name: String,
     entrypoint_names: HashMap<EntrypointId, String>,
+    plugin_cache_dir: String,
+    plugin_data_dir: String,
     inline_view_entrypoint_id: Option<String>,
     permissions: PluginRuntimePermissions
 }
@@ -771,6 +792,8 @@ impl PluginData {
         plugin_uuid: String,
         plugin_name: String,
         entrypoint_names: HashMap<EntrypointId, String>,
+        plugin_cache_dir: String,
+        plugin_data_dir: String,
         inline_view_entrypoint_id: Option<String>,
         permissions: PluginRuntimePermissions
     ) -> Self {
@@ -779,6 +802,8 @@ impl PluginData {
             plugin_uuid,
             plugin_name,
             entrypoint_names,
+            plugin_cache_dir,
+            plugin_data_dir,
             inline_view_entrypoint_id,
             permissions
         }
@@ -794,6 +819,14 @@ impl PluginData {
 
     fn plugin_name(&self) -> &str {
         &self.plugin_name
+    }
+
+    fn plugin_cache_dir(&self) -> &str {
+        &self.plugin_cache_dir
+    }
+
+    fn plugin_data_dir(&self) -> &str {
+        &self.plugin_data_dir
     }
 
     fn inline_view_entrypoint_id(&self) -> Option<String> {
