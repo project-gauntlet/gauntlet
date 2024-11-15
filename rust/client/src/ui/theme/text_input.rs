@@ -2,7 +2,7 @@ use iced::widget::{text_input, TextInput};
 use iced::{Border, Color, Renderer};
 use text_input::Appearance;
 
-use crate::ui::theme::{Element, GauntletTheme, ThemableWidget, NOT_INTENDED_TO_BE_USED};
+use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget, NOT_INTENDED_TO_BE_USED};
 
 #[derive(Default)]
 pub enum TextInputStyle {
@@ -15,7 +15,7 @@ pub enum TextInputStyle {
 }
 
 // noinspection RsSortImplTraitMembers
-impl text_input::StyleSheet for GauntletTheme {
+impl text_input::StyleSheet for GauntletComplexTheme {
     type Style = TextInputStyle;
 
     fn active(&self, style: &Self::Style) -> Appearance {
@@ -123,7 +123,7 @@ impl text_input::StyleSheet for GauntletTheme {
     }
 }
 
-impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for TextInput<'a, Message, GauntletTheme, Renderer> {
+impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for TextInput<'a, Message, GauntletComplexTheme, Renderer> {
     type Kind = TextInputStyle;
 
     fn themed(self, kind: TextInputStyle) -> Element<'a, Message> {

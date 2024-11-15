@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 use iced::{Border, overlay};
 use iced::widget::{pick_list, PickList};
 
-use crate::ui::theme::{Element, GauntletTheme, get_theme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
 
 #[derive(Clone, Default)]
 pub enum PickListStyle {
@@ -17,7 +17,7 @@ pub enum MenuStyle {
     Default,
 }
 
-impl pick_list::StyleSheet for GauntletTheme {
+impl pick_list::StyleSheet for GauntletComplexTheme {
     type Style = PickListStyle;
 
     fn active(&self, _: &Self::Style) -> pick_list::Appearance {
@@ -61,7 +61,7 @@ fn pick_list_appearance(state: PickListState) -> pick_list::Appearance {
     }
 }
 
-impl overlay::menu::StyleSheet for GauntletTheme {
+impl overlay::menu::StyleSheet for GauntletComplexTheme {
     type Style = MenuStyle;
 
     fn appearance(&self, _: &Self::Style) -> overlay::menu::Appearance {
@@ -90,7 +90,7 @@ impl From<PickListStyle> for MenuStyle {
     }
 }
 
-impl<'a, Message: 'a + Clone + 'static, T, L, V> ThemableWidget<'a, Message> for PickList<'a, T, L, V, Message, GauntletTheme>
+impl<'a, Message: 'a + Clone + 'static, T, L, V> ThemableWidget<'a, Message> for PickList<'a, T, L, V, Message, GauntletComplexTheme>
 where
     T: ToString + PartialEq + Clone + 'a,
     L: Borrow<[T]> + 'a,

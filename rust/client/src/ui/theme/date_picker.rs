@@ -2,7 +2,7 @@ use iced::Color;
 use iced_aw::{date_picker, DatePicker};
 use iced_aw::date_picker::Appearance;
 
-use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 #[derive(Clone, Default)]
 pub enum DatePickerStyle {
@@ -10,7 +10,7 @@ pub enum DatePickerStyle {
     Default,
 }
 
-impl date_picker::StyleSheet for GauntletTheme {
+impl date_picker::StyleSheet for GauntletComplexTheme {
     type Style = DatePickerStyle;
 
     fn active(&self, _: &Self::Style) -> Appearance {
@@ -58,7 +58,7 @@ impl date_picker::StyleSheet for GauntletTheme {
     }
 }
 
-impl<'a, Message: 'a + Clone + 'static> ThemableWidget<'a, Message> for DatePicker<'a, Message, GauntletTheme> {
+impl<'a, Message: 'a + Clone + 'static> ThemableWidget<'a, Message> for DatePicker<'a, Message, GauntletComplexTheme> {
     type Kind = DatePickerStyle;
 
     fn themed(self, kind: DatePickerStyle) -> Element<'a, Message> {

@@ -1,4 +1,4 @@
-use crate::ui::theme::{get_theme, Element, GauntletTheme, ThemableWidget};
+use crate::ui::theme::{get_theme, Element, GauntletComplexTheme, ThemableWidget};
 use iced::widget::Row;
 use iced::{Padding, Renderer};
 
@@ -14,7 +14,7 @@ pub enum RowStyle {
     RootTopPanel,
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletTheme, Renderer> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletComplexTheme, Renderer> {
     type Kind = RowStyle;
 
     fn themed(self, name: RowStyle) -> Element<'a, Message> {

@@ -1,7 +1,7 @@
 use button::Appearance;
 use iced::{Border, Padding, Renderer};
 use iced::widget::{button, Button};
-use crate::ui::theme::{Element, GauntletTheme, get_theme, NOT_INTENDED_TO_BE_USED, padding_all, ThemableWidget, TRANSPARENT};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, padding_all, ThemableWidget, TRANSPARENT};
 
 #[derive(Default, Debug, Clone, Copy)]
 pub enum ButtonStyle {
@@ -88,7 +88,7 @@ impl ButtonStyle {
         }
     }
 
-    fn appearance(&self, theme: &GauntletTheme, state: ButtonState) -> Appearance {
+    fn appearance(&self, theme: &GauntletComplexTheme, state: ButtonState) -> Appearance {
         let (background_color, background_color_hover, background_color_pressed, text_color, text_color_hover, border_radius, border_width, border_color) = match &self {
             ButtonStyle::RootBottomPanelPrimaryActionButton | ButtonStyle::RootBottomPanelActionToggleButton => {
                 let theme = &theme.root_bottom_panel_action_toggle_button;
@@ -178,7 +178,7 @@ impl ButtonStyle {
     }
 }
 
-impl button::StyleSheet for GauntletTheme {
+impl button::StyleSheet for GauntletComplexTheme {
     type Style = ButtonStyle;
 
     fn active(&self, style: &Self::Style) -> Appearance {
@@ -194,7 +194,7 @@ impl button::StyleSheet for GauntletTheme {
     }
 }
 
-impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for Button<'a, Message, GauntletTheme, Renderer> {
+impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for Button<'a, Message, GauntletComplexTheme, Renderer> {
     type Kind = ButtonStyle;
 
     fn themed(self, kind: ButtonStyle) -> Element<'a, Message> {

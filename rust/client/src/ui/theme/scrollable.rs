@@ -2,9 +2,9 @@ use iced::{Border, Color};
 use iced::widget::scrollable;
 use scrollable::Appearance;
 
-use crate::ui::theme::{GauntletTheme, get_theme};
+use crate::ui::theme::{GauntletComplexTheme, get_theme};
 
-impl scrollable::StyleSheet for GauntletTheme {
+impl scrollable::StyleSheet for GauntletComplexTheme {
     type Style = ();
 
     fn active(&self, _: &Self::Style) -> Appearance {

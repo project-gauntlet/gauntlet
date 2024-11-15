@@ -2,7 +2,7 @@ use common::dirs::Dirs;
 use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
 use utils::channel::{RequestReceiver, RequestSender};
-use crate::ui::GauntletTheme;
+use crate::ui::GauntletComplexTheme;
 
 pub(in crate) mod ui;
 pub(in crate) mod model;
@@ -60,50 +60,50 @@ pub fn open_settings_window() {
         })
 }
 
-pub fn generate_theme_sample() -> anyhow::Result<()> {
+pub fn generate_complex_theme_sample() -> anyhow::Result<()> {
     let dirs = Dirs::new();
 
-    let sample_theme_file = dirs.sample_theme_file();
-    let theme_file = dirs.theme_file();
+    let sample_complex_theme_file = dirs.sample_complex_theme_file();
+    let complex_theme_file = dirs.complex_theme_file();
 
-    let theme = GauntletTheme::default_theme(GauntletTheme::default_color_theme());
+    let theme_complex = GauntletComplexTheme::default_theme(GauntletComplexTheme::default_simplified_theme());
 
-    let string = serde_json::to_string_pretty(&theme)?;
+    let string = serde_json::to_string_pretty(&theme_complex)?;
 
-    let sample_theme_parent = sample_theme_file
+    let sample_theme_parent = sample_complex_theme_file
         .parent()
         .expect("no parent?");
 
     std::fs::create_dir_all(sample_theme_parent)?;
 
-    std::fs::write(&sample_theme_file, string)?;
+    std::fs::write(&sample_complex_theme_file, string)?;
 
-    println!("Created sample using default theme at {:?}", sample_theme_file);
-    println!("Make changes and rename file to {:?}", theme_file.file_name().unwrap());
+    println!("Created sample using default complex theme at {:?}", sample_complex_theme_file);
+    println!("Make changes and rename file to {:?}", complex_theme_file.file_name().unwrap());
 
     Ok(())
 }
 
-pub fn generate_color_theme_sample() -> anyhow::Result<()> {
+pub fn generate_simplified_theme_sample() -> anyhow::Result<()> {
     let dirs = Dirs::new();
 
-    let sample_theme_color_file = dirs.sample_theme_color_file();
-    let theme_color_file = dirs.theme_color_file();
+    let sample_simplified_theme_file = dirs.sample_simplified_theme_color_file();
+    let simplified_theme_file = dirs.theme_simplified_file();
 
-    let theme = GauntletTheme::default_color_theme();
+    let theme = GauntletComplexTheme::default_simplified_theme();
 
     let string = serde_json::to_string_pretty(&theme)?;
 
-    let sample_theme_parent = sample_theme_color_file
+    let sample_theme_parent = sample_simplified_theme_file
         .parent()
         .expect("no parent?");
 
     std::fs::create_dir_all(sample_theme_parent)?;
 
-    std::fs::write(&sample_theme_color_file, string)?;
+    std::fs::write(&sample_simplified_theme_file, string)?;
 
-    println!("Created sample using default color theme at {:?}", sample_theme_color_file);
-    println!("Make changes and rename file to {:?}", theme_color_file.file_name().unwrap());
+    println!("Created sample using default simplified theme at {:?}", sample_simplified_theme_file);
+    println!("Make changes and rename file to {:?}", simplified_theme_file.file_name().unwrap());
 
     Ok(())
 }

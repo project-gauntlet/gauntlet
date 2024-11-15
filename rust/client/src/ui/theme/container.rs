@@ -3,7 +3,7 @@ use iced::{Border, Color, Length, Padding, Renderer};
 use iced::border::Radius;
 use iced::widget::{Container, container};
 
-use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 pub enum ContainerStyle {
     ActionPanel,
@@ -81,7 +81,7 @@ pub enum ContainerStyleInner {
 }
 
 
-impl container::StyleSheet for GauntletTheme {
+impl container::StyleSheet for GauntletComplexTheme {
     type Style = ContainerStyleInner;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
@@ -242,7 +242,7 @@ impl container::StyleSheet for GauntletTheme {
     }
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, GauntletTheme, Renderer> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, GauntletComplexTheme, Renderer> {
     type Kind = ContainerStyle;
 
     fn themed(self, name: ContainerStyle) -> Element<'a, Message> {

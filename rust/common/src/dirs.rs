@@ -55,20 +55,20 @@ impl Dirs {
         self.config_dir().join("config.toml")
     }
 
-    pub fn theme_file(&self) -> PathBuf {
+    pub fn complex_theme_file(&self) -> PathBuf {
+        self.config_dir().join("complex-theme.json")
+    }
+
+    pub fn sample_complex_theme_file(&self) -> PathBuf {
+        self.config_dir().join("complex-theme.sample.json")
+    }
+
+    pub fn theme_simplified_file(&self) -> PathBuf {
         self.config_dir().join("theme.json")
     }
 
-    pub fn theme_color_file(&self) -> PathBuf {
-        self.config_dir().join("color_theme.json")
-    }
-
-    pub fn sample_theme_file(&self) -> PathBuf {
+    pub fn sample_simplified_theme_color_file(&self) -> PathBuf {
         self.config_dir().join("theme.sample.json")
-    }
-
-    pub fn sample_theme_color_file(&self) -> PathBuf {
-        self.config_dir().join("color_theme.sample.json")
     }
 
     pub fn config_dir(&self) -> PathBuf {

@@ -1,7 +1,7 @@
 use iced::widget::{rule, Rule};
 use rule::Appearance;
 
-use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 #[derive(Default)]
 pub enum RuleStyle {
@@ -11,7 +11,7 @@ pub enum RuleStyle {
     PrimaryActionSeparator,
 }
 
-impl rule::StyleSheet for GauntletTheme {
+impl rule::StyleSheet for GauntletComplexTheme {
     type Style = RuleStyle;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
@@ -46,7 +46,7 @@ impl rule::StyleSheet for GauntletTheme {
     }
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for Rule<GauntletTheme> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Rule<GauntletComplexTheme> {
     type Kind = RuleStyle;
 
     fn themed(self, kind: RuleStyle) -> Element<'a, Message> {

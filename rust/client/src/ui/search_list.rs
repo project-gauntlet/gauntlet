@@ -8,7 +8,7 @@ use iced::widget::text;
 use iced::widget::text::Shaping;
 use common::model::SearchResult;
 use crate::ui::scroll_handle::ScrollHandle;
-use crate::ui::theme::{Element, GauntletTheme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::image::ImageStyle;
@@ -46,7 +46,7 @@ impl<'a, Message> SearchList<'a, Message> {
     }
 }
 
-impl<'a, Message> Component<Message, GauntletTheme> for SearchList<'a, Message> {
+impl<'a, Message> Component<Message, GauntletComplexTheme> for SearchList<'a, Message> {
     type State = ();
     type Event = SelectItemEvent;
 

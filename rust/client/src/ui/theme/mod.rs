@@ -21,13 +21,13 @@ pub mod grid;
 pub mod tooltip;
 mod loading_bar;
 
-pub type Element<'a, Message> = iced::Element<'a, Message, GauntletTheme>;
+pub type Element<'a, Message> = iced::Element<'a, Message, GauntletComplexTheme>;
 
-const CURRENT_COLOR_THEME_VERSION: u64 = 3;
-const CURRENT_THEME_VERSION: u64 = 4;
+const CURRENT_SIMPLIFIED_THEME_VERSION: u64 = 4;
+const CURRENT_COMPLEX_THEME_VERSION: u64 = 4;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletColorTheme {
+pub struct GauntletSimplifiedTheme {
     version: u64,
     background_darkest_color: ThemeColor,
     background_darker_color: ThemeColor,
@@ -37,13 +37,12 @@ pub struct GauntletColorTheme {
     text_lighter_color: ThemeColor,
     text_darker_color: ThemeColor,
     text_darkest_color: ThemeColor,
-    primary_color: ThemeColor,
-    primary_hovered_color: ThemeColor,
-    date_picker_text_darker: ThemeColor
+    primary_darker_color: ThemeColor,
+    primary_lighter_color: ThemeColor,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletTheme {
+pub struct GauntletComplexTheme {
     version: u64,
     text: ThemeColor,
     root: ThemeRoot,
@@ -126,25 +125,81 @@ pub struct GauntletTheme {
     hud_content: ThemePaddingOnly
 }
 
-impl Default for GauntletTheme {
+impl Default for GauntletComplexTheme {
     fn default() -> Self {
         unreachable!()
+    }
+}
+
+fn parse_json_theme<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_name: &str) -> Option<T> {
+    match std::fs::read_to_string(theme_file) {
+        Ok(value) => {
+            let result = serde_json::from_str::<serde_json::Value>(&value);
+
+            match result {
+                Ok(value) => {
+                    match value.get("version") {
+                        Some(serde_json::Value::Number(number)) => {
+                            match number.as_u64() {
+                                None => {
+                                    tracing::warn!("Version of read {} file is invalid", theme_name);
+                                    None
+                                }
+                                Some(CURRENT_SIMPLIFIED_THEME_VERSION) => {
+                                    match serde_json::from_value::<T>(value) {
+                                        Ok(value) => Some(value),
+                                        Err(err) => {
+                                            tracing::warn!("Unable to parse {} file: {}", theme_name, err);
+                                            None
+                                        }
+                                    }
+                                }
+                                Some(_) => {
+                                    tracing::warn!("Version of read {} file doesn't match expected, theme: {}, expected: {}", theme_name, number, CURRENT_SIMPLIFIED_THEME_VERSION);
+                                    None
+                                }
+                            }
+                        }
+                        _ => {
+                            tracing::warn!("Version of read {} file is not a number", theme_name);
+                            None
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!("Unable to parse {} file: {}", theme_name, err);
+                    None
+                }
+            }
+        }
+        Err(err) => {
+            match err.kind() {
+                ErrorKind::NotFound => {
+                    tracing::debug!("No {} file was found", theme_name);
+                    None
+                }
+                err @ _ => {
+                    tracing::warn!("Unable to read {} file: {}", theme_name, err);
+                    None
+                }
+            }
+        }
     }
 }
 
 // TODO add border on focus, lighter background on hover
 // TODO padding on button is padding, not margin, a lot of margins missing?
 
-impl GauntletTheme {
+impl GauntletComplexTheme {
     pub fn new() -> Self {
         let dirs = Dirs::new();
 
-        let theme = GauntletTheme::parse_file(dirs.theme_file(), "theme")
+        let theme = parse_json_theme(dirs.complex_theme_file(), "complex theme")
             .unwrap_or_else(|| {
-                let color_theme = GauntletTheme::parse_file(dirs.theme_color_file(), "color theme")
-                    .unwrap_or_else(|| GauntletTheme::default_color_theme());
+                let simplified_theme = parse_json_theme(dirs.theme_simplified_file(), "simplified theme")
+                    .unwrap_or_else(|| GauntletComplexTheme::default_simplified_theme());
 
-                GauntletTheme::default_theme(color_theme)
+                GauntletComplexTheme::default_theme(simplified_theme)
             });
 
         init_theme(theme.clone());
@@ -152,65 +207,9 @@ impl GauntletTheme {
         theme
     }
 
-    fn parse_file<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_name: &str) -> Option<T> {
-        match std::fs::read_to_string(theme_file) {
-            Ok(value) => {
-                let result = serde_json::from_str::<serde_json::Value>(&value);
-
-                match result {
-                    Ok(value) => {
-                        match value.get("version") {
-                            Some(serde_json::Value::Number(number)) => {
-                                match number.as_u64() {
-                                    None => {
-                                        tracing::warn!("Version of read {} file is invalid", theme_name);
-                                        None
-                                    }
-                                    Some(CURRENT_COLOR_THEME_VERSION) => {
-                                        match serde_json::from_value::<T>(value) {
-                                            Ok(value) => Some(value),
-                                            Err(err) => {
-                                                tracing::warn!("Unable to parse {} file: {}", theme_name, err);
-                                                None
-                                            }
-                                        }
-                                    }
-                                    Some(_) => {
-                                        tracing::warn!("Version of read {} file doesn't match expected, theme: {}, expected: {}", theme_name, number, CURRENT_COLOR_THEME_VERSION);
-                                        None
-                                    }
-                                }
-                            }
-                            _ => {
-                                tracing::warn!("Version of read {} file is not a number", theme_name);
-                                None
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        tracing::warn!("Unable to parse {} file: {}", theme_name, err);
-                        None
-                    }
-                }
-            }
-            Err(err) => {
-                match err.kind() {
-                    ErrorKind::NotFound => {
-                        tracing::debug!("No {} file was found", theme_name);
-                        None
-                    }
-                    err @ _ => {
-                        tracing::warn!("Unable to read {} file: {}", theme_name, err);
-                        None
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn default_color_theme() -> GauntletColorTheme {
-        GauntletColorTheme {
-            version: CURRENT_COLOR_THEME_VERSION,
+    pub fn default_simplified_theme() -> GauntletSimplifiedTheme {
+        GauntletSimplifiedTheme {
+            version: CURRENT_SIMPLIFIED_THEME_VERSION,
             background_lightest_color: BACKGROUND_LIGHTEST,
             background_lighter_color: BACKGROUND_LIGHTER,
             background_darker_color: BACKGROUND_DARKER,
@@ -219,14 +218,13 @@ impl GauntletTheme {
             text_lighter_color: TEXT_LIGHTER,
             text_darker_color: TEXT_DARKER,
             text_darkest_color: TEXT_DARKEST,
-            primary_color: PRIMARY,
-            primary_hovered_color: PRIMARY_HOVERED,
-            date_picker_text_darker: DATE_PICKER_TEXT_DARKER
+            primary_darker_color: PRIMARY,
+            primary_lighter_color: PRIMARY_HOVERED,
         }
     }
 
-    pub fn default_theme(color_theme: GauntletColorTheme) -> GauntletTheme {
-        let GauntletColorTheme {
+    pub fn default_theme(simplified_theme: GauntletSimplifiedTheme) -> GauntletComplexTheme {
+        let GauntletSimplifiedTheme {
             version: _,
             background_darkest_color,
             background_darker_color,
@@ -236,13 +234,12 @@ impl GauntletTheme {
             text_lighter_color,
             text_darker_color,
             text_darkest_color,
-            primary_color,
-            primary_hovered_color,
-            date_picker_text_darker
-        } = color_theme;
+            primary_darker_color,
+            primary_lighter_color,
+        } = simplified_theme;
 
-        GauntletTheme {
-            version: CURRENT_THEME_VERSION,
+        GauntletComplexTheme {
+            version: CURRENT_COMPLEX_THEME_VERSION,
             text: text_lightest_color,
             root: ThemeRoot {
                 background_color: background_darkest_color,
@@ -287,9 +284,9 @@ impl GauntletTheme {
             },
             metadata_tag_item_button: ThemeButton {
                 padding: padding_axis(2.0, 8.0),
-                background_color: primary_color,
-                background_color_focused: primary_hovered_color,
-                background_color_hovered: primary_hovered_color,
+                background_color: primary_darker_color,
+                background_color_focused: primary_lighter_color,
+                background_color_hovered: primary_lighter_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -539,16 +536,16 @@ impl GauntletTheme {
                 text_color: text_lightest_color,
                 text_color_selected: text_darker_color,
                 text_color_hovered: text_darker_color,
-                text_attenuated_color: date_picker_text_darker,
+                text_attenuated_color: text_darker_color,
                 day_background_color: background_lighter_color,
                 day_background_color_selected: background_lighter_color,
                 day_background_color_hovered: background_lighter_color,
             },
             form_input_date_picker_buttons: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: primary_color,
-                background_color_focused: primary_hovered_color,
-                background_color_hovered: primary_hovered_color,
+                background_color: primary_darker_color,
+                background_color_focused: primary_lighter_color,
+                background_color_hovered: primary_lighter_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -556,18 +553,18 @@ impl GauntletTheme {
                 border_color: TRANSPARENT,
             },
             form_input_checkbox: ThemeCheckbox {
-                background_color_checked: primary_color,
+                background_color_checked: primary_darker_color,
                 background_color_unchecked: background_darkest_color,
-                background_color_checked_hovered: primary_hovered_color,
+                background_color_checked_hovered: primary_lighter_color,
                 background_color_unchecked_hovered: background_lighter_color,
                 border_radius: 4.0,
                 border_width: 1.0,
-                border_color: primary_color,
+                border_color: primary_darker_color,
                 icon_color: background_darkest_color,
             },
             form_input_select: ThemeSelect {
-                background_color: primary_color,
-                background_color_hovered: primary_hovered_color,
+                background_color: primary_darker_color,
+                background_color_hovered: primary_lighter_color,
                 text_color: text_darkest_color,
                 text_color_hovered: text_darkest_color,
                 border_radius: BUTTON_BORDER_RADIUS,
@@ -598,7 +595,7 @@ impl GauntletTheme {
                 color: background_lighter_color
             },
             scrollbar: ThemeScrollbar {
-                color: primary_color,
+                color: primary_darker_color,
                 border_radius: 4.0,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
@@ -608,7 +605,7 @@ impl GauntletTheme {
                 background_color: background_darker_color,
             },
             loading_bar: ThemeLoadingBar {
-                loading_bar_color: primary_color,
+                loading_bar_color: primary_darker_color,
                 background_color: background_lighter_color,
             },
             text_accessory: ThemePaddingTextColorSpacing {
@@ -633,15 +630,15 @@ impl GauntletTheme {
     }
 }
 
-fn init_theme(theme: GauntletTheme) {
+fn init_theme(theme: GauntletComplexTheme) {
     THEME.set(theme).expect("already set");
 }
 
-fn get_theme() -> &'static GauntletTheme {
+fn get_theme() -> &'static GauntletComplexTheme {
     &THEME.get().expect("theme global var was not set")
 }
 
-static THEME: once_cell::sync::OnceCell<GauntletTheme> = once_cell::sync::OnceCell::new();
+static THEME: once_cell::sync::OnceCell<GauntletComplexTheme> = once_cell::sync::OnceCell::new();
 
 const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
 
@@ -657,7 +654,6 @@ const TEXT_DARKER: ThemeColor = ThemeColor::new(0x6B7785, 1.0);
 const TEXT_DARKEST: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
 const PRIMARY: ThemeColor = ThemeColor::new(0xC79F60, 1.0);
 const PRIMARY_HOVERED: ThemeColor = ThemeColor::new(0xD7B37A, 1.0);
-const DATE_PICKER_TEXT_DARKER: ThemeColor =  ThemeColor::new(0xCAC2B6, 0.3);
 
 const BUTTON_BORDER_RADIUS: f32 = 6.0;
 
@@ -998,7 +994,7 @@ pub trait ThemableWidget<'a, Message> {
     fn themed(self, name: Self::Kind) -> Element<'a, Message>;
 }
 
-impl application::StyleSheet for GauntletTheme {
+impl application::StyleSheet for GauntletComplexTheme {
     type Style = ();
 
     fn appearance(&self, _: &Self::Style) -> application::Appearance {

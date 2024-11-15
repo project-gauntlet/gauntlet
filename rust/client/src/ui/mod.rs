@@ -59,7 +59,7 @@ use crate::ui::hud::{close_hud_window, show_hud_window};
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, LoadingBarState, MainViewState, PluginViewData, PluginViewState};
 use crate::ui::widget_container::PluginWidgetContainer;
-pub use theme::GauntletTheme;
+pub use theme::GauntletComplexTheme;
 
 pub struct AppModel {
     // logic
@@ -68,7 +68,7 @@ pub struct AppModel {
     current_hotkey: Arc<StdMutex<Option<HotKey>>>,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     focused: bool,
-    theme: GauntletTheme,
+    theme: GauntletComplexTheme,
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
@@ -290,7 +290,7 @@ pub fn run(
 impl Application for AppModel {
     type Executor = executor::Default;
     type Message = AppMsg;
-    type Theme = GauntletTheme;
+    type Theme = GauntletComplexTheme;
     type Flags = AppFlags;
 
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
@@ -417,7 +417,7 @@ impl Application for AppModel {
                 current_hotkey: Arc::new(StdMutex::new(None)),
                 frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
                 focused: false,
-                theme: GauntletTheme::new(),
+                theme: GauntletComplexTheme::new(),
                 wayland,
                 #[cfg(any(target_os = "macos", target_os = "windows"))]
                 tray_icon: sys_tray::create_tray(),

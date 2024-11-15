@@ -2,7 +2,7 @@ use checkbox::Appearance;
 use iced::{Border, Renderer};
 use iced::widget::{checkbox, Checkbox};
 
-use crate::ui::theme::{Element, GauntletTheme, get_theme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
 
 #[derive(Default)]
 pub enum CheckboxStyle {
@@ -10,7 +10,7 @@ pub enum CheckboxStyle {
     Default,
 }
 
-impl checkbox::StyleSheet for GauntletTheme {
+impl checkbox::StyleSheet for GauntletComplexTheme {
     type Style = CheckboxStyle;
 
     fn active(&self, _: &Self::Style, is_checked: bool) -> Appearance {
@@ -69,7 +69,7 @@ impl checkbox::StyleSheet for GauntletTheme {
     }
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for Checkbox<'a, Message, GauntletTheme, Renderer> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Checkbox<'a, Message, GauntletComplexTheme, Renderer> {
     type Kind = CheckboxStyle;
 
     fn themed(self, style: CheckboxStyle) -> Element<'a, Message> {

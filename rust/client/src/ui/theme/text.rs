@@ -2,7 +2,7 @@ use iced::Renderer;
 use iced::widget::{Text, text};
 use text::Appearance;
 
-use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 #[derive(Clone, Default)]
 pub enum TextStyle {
@@ -27,7 +27,7 @@ pub enum TextStyle {
     RootBottomPanelActionToggleText,
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Renderer> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletComplexTheme, Renderer> {
     type Kind = TextStyle;
 
     fn themed(self, kind: TextStyle) -> Element<'a, Message> {
@@ -52,7 +52,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletTheme, Re
     }
 }
 
-impl text::StyleSheet for GauntletTheme {
+impl text::StyleSheet for GauntletComplexTheme {
     type Style = TextStyle;
 
     fn appearance(&self, style: Self::Style) -> Appearance {

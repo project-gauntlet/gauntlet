@@ -1,12 +1,12 @@
 use iced::Renderer;
 use iced_aw::Grid;
-use crate::ui::theme::{Element, GauntletTheme, get_theme, ThemableWidget};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 pub enum GridStyle {
     Default,
 }
 
-impl<'a, Message: 'a + 'static> ThemableWidget<'a, Message> for Grid<'a, Message, GauntletTheme, Renderer> {
+impl<'a, Message: 'a + 'static> ThemableWidget<'a, Message> for Grid<'a, Message, GauntletComplexTheme, Renderer> {
     type Kind = GridStyle;
 
     fn themed(self, kind: GridStyle) -> Element<'a, Message> {
