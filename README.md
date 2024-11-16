@@ -304,8 +304,8 @@ The Application has a simple command line interface
   - `gauntlet --minimized` - starts server without opening main window 
 - `gauntlet open` - opens application window, can be used instead of global shortcut
 - `gauntlet settings` - settings, plugin installation and removal, preferences, etc
-- `gauntlet generate-sample-color-theme` - generate sample color theme. See: [THEME.md](./docs/THEME.md)
-- `gauntlet generate-sample-theme` - generate sample theme. See: [THEME.md](./docs/THEME.md)
+- `gauntlet generate-sample-simple-theme` - generate sample of simple theme. See: [THEME.md](./docs/THEME.md)
+- `gauntlet generate-sample-complex-theme` - generate sample of complex theme. See: [THEME.md](./docs/THEME.md)
 
 ### Dev Tools
 

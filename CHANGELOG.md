@@ -9,6 +9,64 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### General
+- Primary action label on bottom bar is now a clickable button
+- It is now possible to unset global shortcut in settings
+- Implemented keyboard navigation support for `<List/>` and `<Grid/>`
+  - Note: `<Grid/>` scrolling while using keyboard navigation is still quite buggy and is work in progress
+
+### Bundled plugin
+#### `Applications`
+- Applications commands are now automatically added or removed when application is installed or uninstalled respectively
+- When loading the list of applications from OS, loading bar and "Indexing..." text in bottom panel is shown in main window
+
+### Plugin API
+- Added `<SearchBar/>` component in `<List/>` and `<Grid/>` which is text input field above content of the respective view
+- `"command-generator"` entrypoints have been reworked
+  - Now it is possible to update list of generated entrypoints (add or remove) after the main command generator function has finished running
+  - **BREAKING CHANGE**: Command Generator entrypoint function now accepts an object with `add: (id: string, data: GeneratedCommand) => void` and `remove: (id: string) => void` functions
+  - **BREAKING CHANGE**: Command Generator entrypoint function now should return nothing or a cleanup function e.g. close file watcher. Currently, it is called when disabling/enabling any of entrypoints in plugin, but it is not called when whole plugin is stopped
+  - While generator function itself is running (given that the function is async) the loading bar and "Indexing..." text in bottom panel will be shown in main window 
+- **BREAKING CHANGE**: Validation of React Component children is now a lot more strict with respect to what amount of children of specific type is allowed
+- **BREAKING CHANGE**: `assetData` helper function renamed to `assetDataSync`
+- Added async variant of `assetDataSync` helper function named `assetData` which returns `Promise<ArrayBuffer>`
+- Added Plugin Environment API
+  - `Environment.gauntletVersion` - `number`, current Gauntlet version
+  - `Environment.isDevelopment` - `boolean`, `true` if plugin was added with `npm run dev` as opposed to Settings UI
+  - `Environment.pluginCacheDir` - `string`, path to plugin cache directory, corresponds to `{common:plugin-cache}` variable in permissions
+  - `Environment.pluginDataDir` - `string`, path to plugin data directory, corresponds to `{common:plugin-data}` variable in permissions
+
+### Theming API
+- Themes slightly reworked
+  - "Color Theme" is renamed into "Simple Theme"
+    - **BREAKING CHANGE**: Sample generation CLI command was changed to `gauntlet generate-sample-simple-theme`
+    - **BREAKING CHANGE**: Theme file is renamed from `color_theme.json` to `simple-theme.json`
+  - "Everything Theme" or just "Theme" is renamed into "Complex Theme"
+    - **BREAKING CHANGE**: Sample generation CLI command was changed to `gauntlet generate-sample-complex-theme`
+    - **BREAKING CHANGE**: Theme file is renamed from `theme.json` to `complex-theme.json`
+  - It is now possible to customize color, width and radius of borders in Simple Theme 
+- **BREAKING CHANGE**: Current Simple Theme version increased to `4`
+- **BREAKING CHANGE**: Current Complex Theme version increased to `4`
+
+### UI/UX Improvements
+- Loading bar is now shown if opening plugin view takes more than 300 milliseconds
+- Pressed button state now has distinct styling, providing more clear indication that button was pressed
+- When registering global shortcut in settings fails, instead of showing error on whole settings screen now icon with on hover text is shown to the right of the setting field 
+- If registering global shortcut on application startup fails, error is now also shown in settings 
+- Fixed padding of grid and list section being too far down if it is first in the view
+- Fixed incorrect supported schemas label in Settings UI, http(s), ssh and git are the only supported schemas for plugin IDs
+- Better error for not supported plugin ID schemas
+
+### Fixes
+- Fixed global shortcut not working on Windows
+- Fixed emojis not working in a lot of places across the application
+- Fixed hud window not disappearing on Wayland
+- Fixed clipboard operations not working on KDE
+  - Note: `Clipboard.clear()` or `Clipboard.writeText("")` is still not working on KDE due to upstream bug
+- Fixed clipboard operations not working on Wayland
+- Fix primary action of first search result being called if primary action of inline view is called using enter key
+- Fix scrollable resetting when clicking action panel button in bottom panel
+
 ## [10] - 2024-10-13
 ### General
 - Main view now has action bar and action panel 
