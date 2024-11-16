@@ -58,6 +58,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 - Fixed padding of grid and list section being too far down if it is first in the view
 - Fixed incorrect supported schemas label in Settings UI, http(s), ssh and git are the only supported schemas for plugin IDs
 - Better error for not supported plugin ID schemas
+- `<Grid.Item/>` height is now dynamic and is based on `<Grid/>` or `<Grid.Section/>` `columns` property
 
 ### Fixes
 - Fixed global shortcut not working on Windows
