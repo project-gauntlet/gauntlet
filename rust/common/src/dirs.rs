@@ -63,12 +63,12 @@ impl Dirs {
         self.config_dir().join("complex-theme.sample.json")
     }
 
-    pub fn theme_simplified_file(&self) -> PathBuf {
-        self.config_dir().join("theme.json")
+    pub fn theme_simple_file(&self) -> PathBuf {
+        self.config_dir().join("simple-theme.json")
     }
 
-    pub fn sample_simplified_theme_color_file(&self) -> PathBuf {
-        self.config_dir().join("theme.sample.json")
+    pub fn sample_simple_theme_color_file(&self) -> PathBuf {
+        self.config_dir().join("simple-theme.sample.json")
     }
 
     pub fn config_dir(&self) -> PathBuf {

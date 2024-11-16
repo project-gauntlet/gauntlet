@@ -66,7 +66,7 @@ pub fn generate_complex_theme_sample() -> anyhow::Result<()> {
     let sample_complex_theme_file = dirs.sample_complex_theme_file();
     let complex_theme_file = dirs.complex_theme_file();
 
-    let theme_complex = GauntletComplexTheme::default_theme(GauntletComplexTheme::default_simplified_theme());
+    let theme_complex = GauntletComplexTheme::default_theme(GauntletComplexTheme::default_simple_theme());
 
     let string = serde_json::to_string_pretty(&theme_complex)?;
 
@@ -84,26 +84,26 @@ pub fn generate_complex_theme_sample() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn generate_simplified_theme_sample() -> anyhow::Result<()> {
+pub fn generate_simple_theme_sample() -> anyhow::Result<()> {
     let dirs = Dirs::new();
 
-    let sample_simplified_theme_file = dirs.sample_simplified_theme_color_file();
-    let simplified_theme_file = dirs.theme_simplified_file();
+    let sample_simple_theme_file = dirs.sample_simple_theme_color_file();
+    let simple_theme_file = dirs.theme_simple_file();
 
-    let theme = GauntletComplexTheme::default_simplified_theme();
+    let theme = GauntletComplexTheme::default_simple_theme();
 
     let string = serde_json::to_string_pretty(&theme)?;
 
-    let sample_theme_parent = sample_simplified_theme_file
+    let sample_theme_parent = sample_simple_theme_file
         .parent()
         .expect("no parent?");
 
     std::fs::create_dir_all(sample_theme_parent)?;
 
-    std::fs::write(&sample_simplified_theme_file, string)?;
+    std::fs::write(&sample_simple_theme_file, string)?;
 
-    println!("Created sample using default simplified theme at {:?}", sample_simplified_theme_file);
-    println!("Make changes and rename file to {:?}", simplified_theme_file.file_name().unwrap());
+    println!("Created sample using default simple theme at {:?}", sample_simple_theme_file);
+    println!("Make changes and rename file to {:?}", simple_theme_file.file_name().unwrap());
 
     Ok(())
 }

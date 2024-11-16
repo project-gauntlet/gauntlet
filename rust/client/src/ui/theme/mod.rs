@@ -23,11 +23,11 @@ mod loading_bar;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletComplexTheme>;
 
-const CURRENT_SIMPLIFIED_THEME_VERSION: u64 = 4;
+const CURRENT_SIMPLE_THEME_VERSION: u64 = 4;
 const CURRENT_COMPLEX_THEME_VERSION: u64 = 4;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletSimplifiedTheme {
+pub struct GauntletSimpleTheme {
     version: u64,
     background_darkest_color: ThemeColor,
     background_darker_color: ThemeColor,
@@ -148,7 +148,7 @@ fn parse_json_theme<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_
                                     tracing::warn!("Version of read {} file is invalid", theme_name);
                                     None
                                 }
-                                Some(CURRENT_SIMPLIFIED_THEME_VERSION) => {
+                                Some(CURRENT_SIMPLE_THEME_VERSION) => {
                                     match serde_json::from_value::<T>(value) {
                                         Ok(value) => Some(value),
                                         Err(err) => {
@@ -158,7 +158,7 @@ fn parse_json_theme<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_
                                     }
                                 }
                                 Some(_) => {
-                                    tracing::warn!("Version of read {} file doesn't match expected, theme: {}, expected: {}", theme_name, number, CURRENT_SIMPLIFIED_THEME_VERSION);
+                                    tracing::warn!("Version of read {} file doesn't match expected, theme: {}, expected: {}", theme_name, number, CURRENT_SIMPLE_THEME_VERSION);
                                     None
                                 }
                             }
@@ -199,10 +199,10 @@ impl GauntletComplexTheme {
 
         let theme = parse_json_theme(dirs.complex_theme_file(), "complex theme")
             .unwrap_or_else(|| {
-                let simplified_theme = parse_json_theme(dirs.theme_simplified_file(), "simplified theme")
-                    .unwrap_or_else(|| GauntletComplexTheme::default_simplified_theme());
+                let simple_theme = parse_json_theme(dirs.theme_simple_file(), "simple theme")
+                    .unwrap_or_else(|| GauntletComplexTheme::default_simple_theme());
 
-                GauntletComplexTheme::default_theme(simplified_theme)
+                GauntletComplexTheme::default_theme(simple_theme)
             });
 
         init_theme(theme.clone());
@@ -210,9 +210,9 @@ impl GauntletComplexTheme {
         theme
     }
 
-    pub fn default_simplified_theme() -> GauntletSimplifiedTheme {
-        GauntletSimplifiedTheme {
-            version: CURRENT_SIMPLIFIED_THEME_VERSION,
+    pub fn default_simple_theme() -> GauntletSimpleTheme {
+        GauntletSimpleTheme {
+            version: CURRENT_SIMPLE_THEME_VERSION,
             background_lightest_color: BACKGROUND_LIGHTEST,
             background_lighter_color: BACKGROUND_LIGHTER,
             background_darker_color: BACKGROUND_DARKER,
@@ -230,8 +230,8 @@ impl GauntletComplexTheme {
         }
     }
 
-    pub fn default_theme(simplified_theme: GauntletSimplifiedTheme) -> GauntletComplexTheme {
-        let GauntletSimplifiedTheme {
+    pub fn default_theme(simple_theme: GauntletSimpleTheme) -> GauntletComplexTheme {
+        let GauntletSimpleTheme {
             version: _,
             background_darkest_color,
             background_darker_color,
@@ -247,7 +247,7 @@ impl GauntletComplexTheme {
             root_border_radius,
             root_border_color,
             content_border_radius,
-        } = simplified_theme;
+        } = simple_theme;
 
         GauntletComplexTheme {
             version: CURRENT_COMPLEX_THEME_VERSION,
