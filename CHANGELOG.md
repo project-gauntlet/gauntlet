@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [11] - 2024-11-16
+
 ### General
 - Primary action label on bottom bar is now a clickable button
 - It is now possible to unset global shortcut in settings
