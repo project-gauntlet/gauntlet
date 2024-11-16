@@ -498,7 +498,7 @@ impl ManagementAppPluginsState {
                 let content: Element<_> = column(vec![
                     url_input,
                     text("Supported protocols:").into(),
-                    text("file, http(s), ssh").into(),
+                    text("http(s), ssh, git").into(),
                 ]).into();
 
                 container(content)

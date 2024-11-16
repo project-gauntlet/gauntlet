@@ -26,7 +26,17 @@ impl PluginId {
     pub fn try_to_git_url(&self) -> anyhow::Result<String> {
         let url = self.try_to_url()?;
 
-        Ok(url.to_bstring().to_string())
+        match url.scheme {
+            Scheme::Git | Scheme::Ssh | Scheme::Http | Scheme::Https => {
+                Ok(url.to_bstring().to_string())
+            }
+            Scheme::File => {
+                Err(anyhow!("'file' schema is not supported"))
+            }
+            Scheme::Ext(schema) => {
+                Err(anyhow!("'{}' schema is not supported", schema))
+            }
+        }
     }
 
     pub fn try_to_path(&self) -> anyhow::Result<PathBuf> {
