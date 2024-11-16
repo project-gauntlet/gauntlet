@@ -44,8 +44,7 @@ export async function runCommandGenerators(): Promise<void> {
     storedGeneratedCommands = {}
     generatorCleanups = {}
 
-    // noinspection ES6MissingAwait
-    reloadSearchIndex(true)
+    await reloadSearchIndex(true)
 
     const entrypointIds = await InternalApi.get_command_generator_entrypoint_ids();
     for (const generatorEntrypointId of entrypointIds) {
