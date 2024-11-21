@@ -1,0 +1,17 @@
+{
+  "name": "@project-gauntlet/docs-inline-two-sections",
+  "private": true,
+  "scripts": {
+    "build": "gauntlet build",
+    "dev": "gauntlet dev"
+  },
+  "dependencies": {
+    "@project-gauntlet/api": "file:../../js/api"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.14",
+    "@project-gauntlet/deno": "file:../../js/deno",
+    "@project-gauntlet/tools": "file:../../../tools",
+    "typescript": "^5.3.3"
+  }
+}

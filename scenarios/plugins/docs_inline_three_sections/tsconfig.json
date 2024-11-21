@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "ES2022",
+    "esModuleInterop": true,
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": ["@project-gauntlet/deno"]
+  },
+  "lib": ["ES2020"]
+}

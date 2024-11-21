@@ -1,5 +1,5 @@
 {
-  "name": "@project-gauntlet/docs-inline",
+  "name": "@project-gauntlet/docs-inline-three-sections",
   "private": true,
   "scripts": {
     "build": "gauntlet build",
