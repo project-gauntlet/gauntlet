@@ -3,7 +3,6 @@ import { Form } from "@project-gauntlet/api/components";
 
 export default function Main(): ReactElement {
     return (
-        // docs-code-segment:start
         <Form>
             <Form.TextField
                 label={"The Tragedy of Darth Plagueis the Wise"}
@@ -12,7 +11,6 @@ export default function Main(): ReactElement {
                 }}
             />
         </Form>
-        // docs-code-segment:end
     );
 };
 

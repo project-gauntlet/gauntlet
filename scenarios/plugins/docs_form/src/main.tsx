@@ -3,7 +3,6 @@ import { Form } from "@project-gauntlet/api/components";
 
 export default function Main(): ReactElement {
     return (
-        // docs-code-segment:start
         <Form>
             <Form.Select
                 label={"Food"}
@@ -52,7 +51,6 @@ export default function Main(): ReactElement {
                 }}
             />
         </Form>
-        // docs-code-segment:end
     );
 };
 
