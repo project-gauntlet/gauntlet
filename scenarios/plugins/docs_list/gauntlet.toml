@@ -39,6 +39,15 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start search-bar
+[[entrypoint]]
+id = 'search-bar'
+name = 'List Search bar'
+path = 'src/search_bar.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
 [permissions]
 network = ["static.wikia.nocookie.net"]
 

@@ -30,6 +30,50 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start search-bar
+[[entrypoint]]
+id = 'search-bar'
+name = 'Grid Search bar'
+path = 'src/search_bar.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-code-block
+[[entrypoint]]
+id = 'content-code'
+name = 'Grid Content Code Block'
+path = 'src/content_code_block.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-paragraph
+[[entrypoint]]
+id = 'content-paragraph'
+name = 'Grid Content Paragraph'
+path = 'src/content_paragraph.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-image
+[[entrypoint]]
+id = 'content-image'
+name = 'Grid Content Image'
+path = 'src/content_image.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-headers
+[[entrypoint]]
+id = 'content-headers'
+name = 'Grid Content Headers'
+path = 'src/content_headers.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
 
 [permissions]
 network = ["static.wikia.nocookie.net"]

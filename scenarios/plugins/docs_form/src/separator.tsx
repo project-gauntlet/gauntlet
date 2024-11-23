@@ -5,14 +5,14 @@ export default function Main(): ReactElement {
     return (
         <Form>
             <Form.TextField
-                label={"Toppings"}
+                label="Toppings"
                 onChange={value => {
                     console.log(`value: ${value}`)
                 }}
             />
             <Form.Separator/>
             <Form.TextField
-                label={"Condiments"}
+                label="Condiments"
                 onChange={value => {
                     console.log(`value: ${value}`)
                 }}

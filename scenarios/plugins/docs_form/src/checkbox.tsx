@@ -5,7 +5,7 @@ export default function Main(): ReactElement {
     return (
         <Form>
             <Form.Checkbox
-                label={"Cheese"}
+                label="Cheese"
                 value={true}
                 onChange={value => {
                     console.log(`value: ${value}`)

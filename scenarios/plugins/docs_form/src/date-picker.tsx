@@ -5,8 +5,8 @@ export default function Main(): ReactElement {
     return (
         <Form>
             <Form.DatePicker
-                label={"Date"}
-                value={"2024-03-22"}
+                label="Date"
+                value="2024-03-22"
                 onChange={value => {
                     console.log(`value: ${value}`)
                 }}

@@ -1,1 +1,1 @@
-List of accessories displayed on the right side of the list item
+List of accessories displayed on the right-hand side of the list item

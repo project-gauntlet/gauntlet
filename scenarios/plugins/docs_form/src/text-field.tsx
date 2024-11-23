@@ -5,7 +5,7 @@ export default function Main(): ReactElement {
     return (
         <Form>
             <Form.TextField
-                label={"The Tragedy of Darth Plagueis the Wise"}
+                label="The Tragedy of Darth Plagueis the Wise"
                 onChange={value => {
                     console.log(`value: ${value}`)
                 }}
