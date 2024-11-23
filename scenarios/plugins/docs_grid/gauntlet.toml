@@ -41,7 +41,7 @@ description = ''
 
 # docs-code-segment:start content-code-block
 [[entrypoint]]
-id = 'content-code'
+id = 'content-code-block'
 name = 'Grid Content Code Block'
 path = 'src/content_code_block.tsx'
 type = 'view'
