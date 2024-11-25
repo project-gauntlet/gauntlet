@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use iced::Command;
+use iced::Task;
 use iced::widget::scrollable;
 use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
 use crate::ui::AppMsg;
@@ -45,7 +45,7 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn focus_next(&mut self, total_item_amount: usize) -> Option<Command<AppMsg>> {
+    pub fn focus_next(&mut self, total_item_amount: usize) -> Option<Task<AppMsg>> {
         match self.focus_next_in(total_item_amount, 1) {
             None => None,
             Some(index) => Some(self.scroll_to(index))
@@ -84,7 +84,7 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn focus_previous(&mut self) -> Option<Command<AppMsg>> {
+    pub fn focus_previous(&mut self) -> Option<Task<AppMsg>> {
         match self.focus_previous_in(1) {
             None => None,
             Some(index) => Some(self.scroll_to(index))
@@ -113,8 +113,8 @@ impl<T> ScrollHandle<T> {
         }
     }
 
-    pub fn scroll_to<Message: 'static>(&self, row_index: usize) -> Command<Message> {
-        let mut pos_y = row_index as f32 * self.item_height - (self.offset as f32 * self.item_height);
+    pub fn scroll_to<Message: 'static>(&self, row_index: usize) -> Task<Message> {
+        let pos_y = row_index as f32 * self.item_height - (self.offset as f32 * self.item_height);
 
         scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y: pos_y })
     }

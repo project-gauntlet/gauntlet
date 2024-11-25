@@ -1,34 +1,49 @@
-use iced_aw::number_input;
-
+use iced_aw::style::Status;
+use iced_aw::number_input::{number_input, Style};
 use crate::theme::{GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT_DARKER, TEXT_LIGHTEST};
 
-#[derive(Default)]
-pub enum NumberInputStyle {
-    #[default]
-    Default
+impl number_input::ExtendedCatalog for GauntletSettingsTheme {
+    fn style(&self, class: &(), status: Status) -> Style {
+        number_input::Catalog::style(self, class, status)
+    }
 }
 
-impl number_input::StyleSheet for GauntletSettingsTheme {
-    type Style = NumberInputStyle;
+impl number_input::Catalog for GauntletSettingsTheme {
+    type Class<'a> = ();
 
-    fn active(&self, _: &Self::Style) -> number_input::Appearance {
-        number_input::Appearance {
-            button_background: Some(PRIMARY.to_iced().into()),
-            icon_color: TEXT_DARKER.to_iced(),
-        }
+    fn default<'a>() -> Self::Class<'a> {
+        ()
     }
 
-    fn pressed(&self, _: &Self::Style) -> number_input::Appearance {
-        number_input::Appearance {
-            button_background: Some(PRIMARY_HOVERED.to_iced().into()),
-            icon_color: TEXT_DARKER.to_iced(),
+    fn style(&self, _class: &Self::Class<'_>, status: Status) -> Style {
+        match status {
+            Status::Active => active(),
+            Status::Hovered => active(), // TODO proper style
+            Status::Pressed => pressed(),
+            Status::Disabled => disabled(),
+            Status::Focused => active(), // TODO proper style
+            Status::Selected => pressed(), // TODO proper style
         }
     }
+}
 
-    fn disabled(&self, _: &Self::Style) -> number_input::Appearance {
-        number_input::Appearance {
-            button_background: None,
-            icon_color: TEXT_LIGHTEST.to_iced(),
-        }
+fn active() -> Style {
+    Style {
+        button_background: Some(PRIMARY.to_iced().into()),
+        icon_color: TEXT_DARKER.to_iced(),
+    }
+}
+
+fn pressed() -> Style {
+    Style {
+        button_background: Some(PRIMARY_HOVERED.to_iced().into()),
+        icon_color: TEXT_DARKER.to_iced(),
+    }
+}
+
+fn disabled() -> Style {
+    Style {
+        button_background: None,
+        icon_color: TEXT_LIGHTEST.to_iced(),
     }
 }

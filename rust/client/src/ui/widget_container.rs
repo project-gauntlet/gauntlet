@@ -6,11 +6,10 @@ use crate::ui::widget::{create_state, ActionPanel, ComponentWidgetEvent, Compone
 use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidgetId};
 use std::collections::HashMap;
 use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use iced::Command;
+use std::ops::DerefMut;
+use std::sync::{Arc, Mutex};
+use iced::Task;
 use crate::ui::AppMsg;
-use crate::ui::scroll_handle::ScrollHandle;
 
 pub struct PluginWidgetContainer {
     root_widget: Arc<Mutex<Option<RootWidget>>>,
@@ -119,21 +118,21 @@ impl PluginWidgetContainer {
             .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
     }
 
-    pub fn append_text(&self, text: &str) -> Command<AppMsg> {
+    pub fn append_text(&self, text: &str) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).append_text(text)
     }
 
-    pub fn backspace_text(&self) -> Command<AppMsg> {
+    pub fn backspace_text(&self) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).backspace_text()
     }
 
-    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Command<AppMsg> {
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
@@ -161,28 +160,28 @@ impl PluginWidgetContainer {
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).get_action_panel(action_shortcuts)
     }
 
-    pub fn focus_up(&self) -> Command<AppMsg> {
+    pub fn focus_up(&self) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_up()
     }
 
-    pub fn focus_down(&self) -> Command<AppMsg> {
+    pub fn focus_down(&self) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_down()
     }
 
-    pub fn focus_left(&self) -> Command<AppMsg> {
+    pub fn focus_left(&self) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 
         ComponentWidgets::new(&mut root_widget, &mut state, &self.images).focus_left()
     }
 
-    pub fn focus_right(&self) -> Command<AppMsg> {
+    pub fn focus_right(&self) -> Task<AppMsg> {
         let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
         let mut state = self.state.lock().expect("lock is poisoned");
 

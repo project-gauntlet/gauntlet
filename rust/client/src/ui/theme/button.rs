@@ -1,14 +1,13 @@
-use button::Appearance;
+use button::Style;
 use iced::{Border, Padding, Renderer};
 use iced::widget::{button, Button};
+use iced::widget::button::Status;
 use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, padding_all, ThemableWidget, TRANSPARENT};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum ButtonStyle {
-    // #[default]
     ShouldNotBeUsed,
 
-    #[default] // TODO Not supposed to be default but unable to customize datepicker buttons right now
     DatePicker,
 
     Action,
@@ -24,12 +23,6 @@ pub enum ButtonStyle {
     RootBottomPanelPrimaryActionButton,
     RootTopPanelBackButton,
     MetadataTagItem,
-}
-
-enum ButtonState {
-    Active,
-    Hover,
-    Pressed,
 }
 
 impl ButtonStyle {
@@ -88,7 +81,7 @@ impl ButtonStyle {
         }
     }
 
-    fn appearance(&self, theme: &GauntletComplexTheme, state: ButtonState) -> Appearance {
+    fn appearance(&self, theme: &GauntletComplexTheme, state: Status) -> Style {
         let (background_color, background_color_hover, background_color_pressed, text_color, text_color_hover, border_radius, border_width, border_color) = match &self {
             ButtonStyle::RootBottomPanelPrimaryActionButton | ButtonStyle::RootBottomPanelActionToggleButton => {
                 let theme = &theme.root_bottom_panel_action_toggle_button;
@@ -147,7 +140,7 @@ impl ButtonStyle {
             }
         };
 
-        let active = Appearance {
+        let active = Style {
             background: background_color.map(|color| color.to_iced().into()),
             text_color: text_color.to_iced(),
             border: Border {
@@ -159,18 +152,24 @@ impl ButtonStyle {
         };
 
         match state {
-            ButtonState::Active => active,
-            ButtonState::Pressed => {
-                Appearance {
+            Status::Active => active,
+            Status::Pressed => {
+                Style {
                     background: background_color_pressed.map(|color| color.to_iced().into()),
                     text_color: text_color_hover.to_iced(),
                     ..active
                 }
             }
-            ButtonState::Hover => {
-                Appearance {
+            Status::Hovered => {
+                Style {
                     background: background_color_hover.map(|color| color.to_iced().into()),
                     text_color: text_color_hover.to_iced(),
+                    ..active
+                }
+            }
+            Status::Disabled => {
+                Style {
+                    background: Some(NOT_INTENDED_TO_BE_USED.to_iced().into()),
                     ..active
                 }
             }
@@ -178,19 +177,17 @@ impl ButtonStyle {
     }
 }
 
-impl button::StyleSheet for GauntletComplexTheme {
-    type Style = ButtonStyle;
+impl button::Catalog for GauntletComplexTheme {
+    type Class<'a> = ButtonStyle;
 
-    fn active(&self, style: &Self::Style) -> Appearance {
-        style.appearance(self, ButtonState::Active)
+    fn default<'a>() -> Self::Class<'a> {
+        // TODO Not supposed to be default but unable to customize datepicker buttons right now
+        // ButtonStyle::ShouldNotBeUsed
+        ButtonStyle::DatePicker
     }
 
-    fn hovered(&self, style: &Self::Style) -> Appearance {
-        style.appearance(self, ButtonState::Hover)
-    }
-
-    fn pressed(&self, style: &Self::Style) -> Appearance {
-        style.appearance(self, ButtonState::Pressed)
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        class.appearance(self, status)
     }
 }
 
@@ -198,6 +195,6 @@ impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for Button<'a, Message
     type Kind = ButtonStyle;
 
     fn themed(self, kind: ButtonStyle) -> Element<'a, Message> {
-        self.style(kind).padding(kind.padding()).into()
+        self.class(kind).padding(kind.padding()).into()
     }
 }

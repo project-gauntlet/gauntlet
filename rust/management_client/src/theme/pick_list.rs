@@ -1,49 +1,33 @@
 use iced::{Border, overlay};
 use iced::widget::pick_list;
-
 use crate::theme::{BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT_DARKEST, BACKGROUND_DARKER, BACKGROUND_DARKEST, TEXT_LIGHTEST};
 
-#[derive(Clone, Default)]
-pub enum PickListStyle {
-    #[default]
-    Default,
-}
+impl pick_list::Catalog for GauntletSettingsTheme {
+    type Class<'a> = ();
 
-#[derive(Clone, Default)]
-pub enum MenuStyle {
-    #[default]
-    Default,
-}
-
-impl pick_list::StyleSheet for GauntletSettingsTheme {
-    type Style = PickListStyle;
-
-    fn active(&self, _: &Self::Style) -> pick_list::Appearance {
-        pick_list_appearance(PickListState::Active)
+    fn default<'a>() -> <Self as pick_list::Catalog>::Class<'a> {
+        ()
     }
 
-    fn hovered(&self, _: &Self::Style) -> pick_list::Appearance {
-        pick_list_appearance(PickListState::Hovered)
+    fn style(&self, _class: &(), status: pick_list::Status) -> pick_list::Style {
+        pick_list_appearance(status)
     }
 }
 
-enum PickListState {
-    Active,
-    Hovered
-}
+fn pick_list_appearance(status: pick_list::Status) -> pick_list::Style {
+    use iced::widget::pick_list::Status;
 
-fn pick_list_appearance(state: PickListState) -> pick_list::Appearance {
-    let background_color = match state {
-        PickListState::Active => PRIMARY.to_iced(),
-        PickListState::Hovered => PRIMARY_HOVERED.to_iced(),
+    let background_color = match status {
+        Status::Active | Status::Opened => PRIMARY.to_iced(),
+        Status::Hovered => PRIMARY_HOVERED.to_iced(),
     };
 
-    let text_color = match state {
-        PickListState::Active => TEXT_DARKEST.to_iced(),
-        PickListState::Hovered => TEXT_DARKEST.to_iced(),
+    let text_color = match status {
+        Status::Active | Status::Opened => TEXT_DARKEST.to_iced(),
+        Status::Hovered => TEXT_DARKEST.to_iced(),
     };
 
-    pick_list::Appearance {
+    pick_list::Style {
         text_color,
         background: background_color.into(),
         placeholder_color: BACKGROUND_DARKER.to_iced(),
@@ -56,11 +40,15 @@ fn pick_list_appearance(state: PickListState) -> pick_list::Appearance {
     }
 }
 
-impl overlay::menu::StyleSheet for GauntletSettingsTheme {
-    type Style = MenuStyle;
+impl overlay::menu::Catalog for GauntletSettingsTheme {
+    type Class<'a> = ();
 
-    fn appearance(&self, _: &Self::Style) -> overlay::menu::Appearance {
-        overlay::menu::Appearance {
+    fn default<'a>() -> <Self as overlay::menu::Catalog>::Class<'a> {
+        ()
+    }
+
+    fn style(&self, _class: &()) -> overlay::menu::Style {
+        overlay::menu::Style {
             text_color: TEXT_LIGHTEST.to_iced(),
             background: BACKGROUND_DARKEST.to_iced().into(),
             border: Border {
@@ -70,14 +58,6 @@ impl overlay::menu::StyleSheet for GauntletSettingsTheme {
             },
             selected_text_color: TEXT_LIGHTEST.to_iced(),
             selected_background: BACKGROUND_DARKER.to_iced().into(),
-        }
-    }
-}
-
-impl From<PickListStyle> for MenuStyle {
-    fn from(pick_list: PickListStyle) -> Self {
-        match pick_list {
-            PickListStyle::Default => Self::Default,
         }
     }
 }

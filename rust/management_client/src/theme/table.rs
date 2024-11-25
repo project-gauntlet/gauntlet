@@ -1,19 +1,14 @@
-use iced::Border;
 use iced::widget::container;
+use iced::Border;
 
-use crate::theme::{BACKGROUND_DARKER, BACKGROUND_LIGHTEST, GauntletSettingsTheme, TEXT_LIGHTEST, BACKGROUND_LIGHTER};
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, TEXT_LIGHTEST};
 
-#[derive(Default, Clone)]
-pub enum TableStyle {
-    #[default]
-    Default
-}
 
-impl iced_table::StyleSheet for GauntletSettingsTheme {
-    type Style = TableStyle;
+impl iced_table::Catalog for GauntletSettingsTheme {
+    type Style = ();
 
-    fn header(&self, _: &Self::Style) -> container::Appearance {
-        container::Appearance {
+    fn header(&self, _: &Self::Style) -> container::Style {
+        container::Style {
             text_color: Some(TEXT_LIGHTEST.to_iced()),
             background: Some(BACKGROUND_DARKER.to_iced().into()),
             border: Border {
@@ -24,8 +19,8 @@ impl iced_table::StyleSheet for GauntletSettingsTheme {
         }
     }
 
-    fn footer(&self, _: &Self::Style) -> container::Appearance {
-        container::Appearance {
+    fn footer(&self, _: &Self::Style) -> container::Style {
+        container::Style {
             text_color: Some(TEXT_LIGHTEST.to_iced()),
             background: Some(BACKGROUND_DARKER.to_iced().into()),
             border: Border {
@@ -37,14 +32,14 @@ impl iced_table::StyleSheet for GauntletSettingsTheme {
     }
 
     // TODO selected and hovered upstream
-    fn row(&self, _: &Self::Style, index: usize) -> container::Appearance {
+    fn row(&self, _: &Self::Style, index: usize) -> container::Style {
         let background = if index % 2 == 0 {
             None
         } else {
             Some(BACKGROUND_DARKER.to_iced().into())
         };
 
-        container::Appearance {
+        container::Style {
             background,
             border: Border {
                 radius: 4.0.into(),
@@ -54,8 +49,8 @@ impl iced_table::StyleSheet for GauntletSettingsTheme {
         }
     }
 
-    fn divider(&self, _: &Self::Style, hovered: bool) -> container::Appearance {
-        container::Appearance {
+    fn divider(&self, _: &Self::Style, _hovered: bool) -> container::Style {
+        container::Style {
             ..Default::default()
         }
     }

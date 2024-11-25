@@ -1,38 +1,40 @@
 use iced::widget::text;
-
+use iced::widget::text::Style;
 use crate::theme::{DANGER_BRIGHT, GauntletSettingsTheme, SUCCESS, TEXT_DARKER};
 
-#[derive(Default, Clone)]
 pub enum TextStyle {
-    #[default]
     Default,
     Subtitle,
     Positive,
     Destructive,
 }
 
-impl text::StyleSheet for GauntletSettingsTheme {
-    type Style = TextStyle;
+impl text::Catalog for GauntletSettingsTheme {
+    type Class<'a> = TextStyle;
 
-    fn appearance(&self, style: Self::Style) -> text::Appearance {
-        match style {
+    fn default<'a>() -> Self::Class<'a> {
+        TextStyle::Default
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        match class {
             TextStyle::Default => {
-                text::Appearance {
+                Style {
                     color: None,
                 }
             }
             TextStyle::Subtitle => {
-                text::Appearance {
+                Style {
                     color: Some(TEXT_DARKER.to_iced()),
                 }
             }
             TextStyle::Positive => {
-                text::Appearance {
+                Style {
                     color: Some(SUCCESS.to_iced()),
                 }
             }
             TextStyle::Destructive => {
-                text::Appearance {
+                Style {
                     color: Some(DANGER_BRIGHT.to_iced()),
                 }
             }

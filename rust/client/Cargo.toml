@@ -7,6 +7,7 @@ tokio = "1.28.1"
 anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1"
 iced_aw.workspace = true
+iced_fonts.workspace = true
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }
@@ -27,7 +28,8 @@ tray-icon = { version = "0.15.1", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 iced.workspace = true
-iced.features = ["wayland"]
+# TODO
+#iced.features = ["wayland"]
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 iced.workspace = true

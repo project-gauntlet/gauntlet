@@ -1,21 +1,3 @@
-use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, Image, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiWidgetId};
-use common_ui::shortcut_to_text;
-use iced::alignment::{Horizontal, Vertical};
-use iced::font::Weight;
-use iced::widget::image::Handle;
-use iced::widget::text::Shaping;
-use iced::widget::tooltip::Position;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, text, text_input, tooltip, vertical_rule, Space};
-use iced::{Alignment, Command, Font, Length};
-use iced_aw::core::icons;
-use iced_aw::date_picker::Date;
-use iced_aw::floating_element::Offset;
-use iced_aw::helpers::{date_picker, grid, grid_row, wrap_horizontal};
-use iced_aw::{floating_element, GridRow};
-use itertools::Itertools;
-use std::cell::Cell;
-use std::collections::HashMap;
-use std::fmt::{Debug, Display};
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::grid_navigation::{grid_down_offset, grid_up_offset, GridSectionData};
@@ -33,6 +15,23 @@ use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
 use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::AppMsg;
+use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, Image, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiWidgetId};
+use common_ui::shortcut_to_text;
+use iced::alignment::{Horizontal, Vertical};
+use iced::font::Weight;
+use iced::widget::image::Handle;
+use iced::widget::text::Shaping;
+use iced::widget::tooltip::Position;
+use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, stack, text, text_input, tooltip, value, vertical_rule, Space};
+use iced::{Alignment, Font, Length, Task};
+use iced_aw::date_picker::Date;
+use iced_aw::helpers::{date_picker, grid, grid_row};
+use iced_aw::GridRow;
+use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
+use itertools::Itertools;
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::fmt::{Debug, Display};
 
 
 #[derive(Debug)]
@@ -439,20 +438,20 @@ impl<'b> ComponentWidgets<'b> {
         amount_per_section
     }
 
-    pub fn append_text(&mut self, text: &str) -> Command<AppMsg> {
+    pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return Command::none();
+            return Task::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return Command::none();
+            return Task::none();
         };
 
         let widget_id = match content {
             RootWidgetMembers::List(widget) => {
                 match &widget.content.search_bar {
                     None => {
-                        return Command::none()
+                        return Task::none()
                     }
                     Some(widget) => widget.__id__
                 }
@@ -460,12 +459,12 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Grid(widget) => {
                 match &widget.content.search_bar {
                     None => {
-                        return Command::none()
+                        return Task::none()
                     }
                     Some(widget) => widget.__id__
                 }
             }
-            _ => return Command::none()
+            _ => return Task::none()
         };
 
         let TextFieldState { text_input_id, state_value } = ComponentWidgets::text_field_state_mut_on_state(&mut self.state, widget_id);
@@ -475,24 +474,24 @@ impl<'b> ComponentWidgets<'b> {
 
             text_input::focus(text_input_id.clone())
         } else {
-            Command::none()
+            Task::none()
         }
     }
 
-    pub fn backspace_text(&mut self) -> Command<AppMsg> {
+    pub fn backspace_text(&mut self) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return Command::none();
+            return Task::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return Command::none();
+            return Task::none();
         };
 
         let widget_id = match content {
             RootWidgetMembers::List(widget) => {
                 match &widget.content.search_bar {
                     None => {
-                        return Command::none()
+                        return Task::none()
                     }
                     Some(widget) => widget.__id__
                 }
@@ -500,12 +499,12 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Grid(widget) => {
                 match &widget.content.search_bar {
                     None => {
-                        return Command::none()
+                        return Task::none()
                     }
                     Some(widget) => widget.__id__
                 }
             }
-            _ => return Command::none()
+            _ => return Task::none()
         };
 
         let TextFieldState { text_input_id, state_value } = ComponentWidgets::text_field_state_mut_on_state(&mut self.state, widget_id);
@@ -551,45 +550,45 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 
-    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Command<AppMsg> {
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
         let TextFieldState { text_input_id, .. } = self.text_field_state(widget_id);
 
         text_input::focus(text_input_id.clone())
     }
 
-    pub fn focus_up(&mut self) -> Command<AppMsg> {
+    pub fn focus_up(&mut self) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return Command::none();
+            return Task::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return Command::none();
+            return Task::none();
         };
 
         match content {
-            RootWidgetMembers::Detail(_) => Command::none(),
-            RootWidgetMembers::Form(_) => Command::none(),
-            RootWidgetMembers::Inline(_) => Command::none(),
+            RootWidgetMembers::Detail(_) => Task::none(),
+            RootWidgetMembers::Form(_) => Task::none(),
+            RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
 
                 focused_item.focus_previous()
-                    .unwrap_or_else(|| Command::none())
+                    .unwrap_or_else(|| Task::none())
             }
             RootWidgetMembers::Grid(grid_widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
 
                 let Some(current_index) = &focused_item.index else {
-                    return Command::none();
+                    return Task::none();
                 };
 
                 let amount_per_section_total = Self::grid_section_sizes(grid_widget);
 
                 match grid_up_offset(*current_index, amount_per_section_total) {
-                    None => Command::none(),
+                    None => Task::none(),
                     Some(data) => {
                         match focused_item.focus_previous_in(data.offset) {
-                            None => Command::none(),
+                            None => Task::none(),
                             Some(_) => focused_item.scroll_to(data.row_index)
                         }
                     }
@@ -598,19 +597,19 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 
-    pub fn focus_down(&mut self) -> Command<AppMsg> {
+    pub fn focus_down(&mut self) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return Command::none();
+            return Task::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return Command::none();
+            return Task::none();
         };
 
         match content {
-            RootWidgetMembers::Detail(_) => Command::none(),
-            RootWidgetMembers::Form(_) => Command::none(),
-            RootWidgetMembers::Inline(_) => Command::none(),
+            RootWidgetMembers::Detail(_) => Task::none(),
+            RootWidgetMembers::Form(_) => Task::none(),
+            RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
 
@@ -634,7 +633,7 @@ impl<'b> ComponentWidgets<'b> {
                     .count();
 
                 focused_item.focus_next(total)
-                    .unwrap_or_else(|| Command::none())
+                    .unwrap_or_else(|| Task::none())
             }
             RootWidgetMembers::Grid(grid_widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
@@ -648,7 +647,7 @@ impl<'b> ComponentWidgets<'b> {
 
                 let Some(current_index) = &focused_item.index else {
                     let unfocus = match &grid_widget.content.search_bar {
-                        None => Command::none(),
+                        None => Task::none(),
                         Some(_) => {
                             // there doesn't seem to be an unfocus command but focusing non-existing input will unfocus all
                             text_input::focus(text_input::Id::unique())
@@ -657,17 +656,17 @@ impl<'b> ComponentWidgets<'b> {
 
                     let _ = focused_item.focus_next(total);
 
-                    return Command::batch([
+                    return Task::batch([
                         unfocus,
                         focused_item.scroll_to(0)
                     ])
                 };
 
                 match grid_down_offset(*current_index, amount_per_section_total) {
-                    None => Command::none(),
+                    None => Task::none(),
                     Some(data) => {
                         match focused_item.focus_next_in(total, data.offset) {
-                            None => Command::none(),
+                            None => Task::none(),
                             Some(_) => focused_item.scroll_to(data.row_index)
                         }
                     }
@@ -676,20 +675,20 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 
-    pub fn focus_left(&mut self) -> Command<AppMsg> {
+    pub fn focus_left(&mut self) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return Command::none();
+            return Task::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return Command::none();
+            return Task::none();
         };
 
         match content {
-            RootWidgetMembers::Detail(_) => Command::none(),
-            RootWidgetMembers::Form(_) => Command::none(),
-            RootWidgetMembers::Inline(_) => Command::none(),
-            RootWidgetMembers::List(_) => Command::none(),
+            RootWidgetMembers::Detail(_) => Task::none(),
+            RootWidgetMembers::Form(_) => Task::none(),
+            RootWidgetMembers::Inline(_) => Task::none(),
+            RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
 
@@ -697,25 +696,25 @@ impl<'b> ComponentWidgets<'b> {
 
                 // focused_item.scroll_to(0)
                 // TODO
-                Command::none()
+                Task::none()
             }
         }
     }
 
-    pub fn focus_right(&mut self) -> Command<AppMsg> {
+    pub fn focus_right(&mut self) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
-            return Command::none();
+            return Task::none();
         };
 
         let Some(content) = &root_widget.content else {
-            return Command::none();
+            return Task::none();
         };
 
         match content {
-            RootWidgetMembers::Detail(_) => Command::none(),
-            RootWidgetMembers::Form(_) => Command::none(),
-            RootWidgetMembers::Inline(_) => Command::none(),
-            RootWidgetMembers::List(_) => Command::none(),
+            RootWidgetMembers::Detail(_) => Task::none(),
+            RootWidgetMembers::Form(_) => Task::none(),
+            RootWidgetMembers::Inline(_) => Task::none(),
+            RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(grid_widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
 
@@ -741,7 +740,7 @@ impl<'b> ComponentWidgets<'b> {
                 let _ = focused_item.focus_next(total);
 
                 // focused_item.scroll_to(0)
-                Command::none()
+                Task::none()
             }
         }
     }
@@ -883,7 +882,7 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_metadata_tag_list_widget<'a>(&self, widget: &MetadataTagListWidget) -> Element<'a, ComponentWidgetEvent> {
-        let content = widget.content.ordered_members
+        let content: Vec<Element<_>> = widget.content.ordered_members
             .iter()
             .map(|members| {
                 match members {
@@ -892,7 +891,8 @@ impl<'b> ComponentWidgets<'b> {
             })
             .collect();
 
-        let value = wrap_horizontal(content)
+        let value = row(content)
+            .wrap()
             .into();
 
         render_metadata_item(&widget.label, value)
@@ -902,8 +902,8 @@ impl<'b> ComponentWidgets<'b> {
     fn render_metadata_link_widget<'a>(&self, widget: &MetadataLinkWidget) -> Element<'a, ComponentWidgetEvent> {
         let content: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
-        let icon: Element<_> = text(icons::Bootstrap::BoxArrowUpRight)
-            .font(icons::BOOTSTRAP_FONT)
+        let icon: Element<_> = value(Bootstrap::BoxArrowUpRight)
+            .font(BOOTSTRAP_FONT)
             .size(16)
             .into();
 
@@ -911,7 +911,7 @@ impl<'b> ComponentWidgets<'b> {
             .themed(ContainerStyle::MetadataLinkIcon);
 
         let content: Element<_> = row([content, icon])
-            .align_items(Alignment::Center)
+            .align_y(Alignment::Center)
             .into();
 
         let link: Element<_> = button(content)
@@ -921,7 +921,7 @@ impl<'b> ComponentWidgets<'b> {
         let content: Element<_> = if widget.href.is_empty() {
             link
         } else {
-            let href: Element<_> = text(&widget.href)
+            let href: Element<_> = text(widget.href.to_string())
                 .shaping(Shaping::Advanced)
                 .into();
 
@@ -941,8 +941,8 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_metadata_icon_widget<'a>(&self, widget: &MetadataIconWidget) -> Element<'a, ComponentWidgetEvent> {
-        let value = text(icon_to_bootstrap(&widget.icon))
-            .font(icons::BOOTSTRAP_FONT)
+        let value = value(icon_to_bootstrap(&widget.icon))
+            .font(BOOTSTRAP_FONT)
             .size(26)
             .into();
 
@@ -992,7 +992,7 @@ impl<'b> ComponentWidgets<'b> {
             .width(Length::Fill);
 
         if centered {
-            content = content.center_x()
+            content = content.align_x(Horizontal::Center)
         }
 
         content.themed(ContainerStyle::ContentParagraph)
@@ -1006,7 +1006,7 @@ impl<'b> ComponentWidgets<'b> {
             .width(Length::Fill);
 
         if centered {
-            content = content.center_x()
+            content = content.align_x(Horizontal::Center)
         }
 
         content.themed(ContainerStyle::ContentImage)
@@ -1082,8 +1082,8 @@ impl<'b> ComponentWidgets<'b> {
             container(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .center_x()
-                .center_y()
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center)
                 .into()
         } else {
             content
@@ -1268,9 +1268,9 @@ impl<'b> ComponentWidgets<'b> {
                                 .into()
                         }
                         Some(label) => {
-                            let label: Element<_> = text(label)
+                            let label: Element<_> = text(label.to_string())
                                 .shaping(Shaping::Advanced)
-                                .horizontal_alignment(Horizontal::Right)
+                                .align_x(Horizontal::Right)
                                 .width(Length::Fill)
                                 .into();
 
@@ -1294,7 +1294,7 @@ impl<'b> ComponentWidgets<'b> {
                     ];
 
                     let row: Element<_> = row(content)
-                        .align_items(Alignment::Center)
+                        .align_y(Alignment::Center)
                         .themed(RowStyle::FormInput);
 
                     row
@@ -1347,11 +1347,11 @@ impl<'b> ComponentWidgets<'b> {
                     .into();
 
                 let top_rule = container(top_rule)
-                    .center_x()
+                    .align_x(Horizontal::Center)
                     .into();
 
-                let icon = text(icon_to_bootstrap(icon))
-                    .font(icons::BOOTSTRAP_FONT)
+                let icon = value(icon_to_bootstrap(icon))
+                    .font(BOOTSTRAP_FONT)
                     .size(45)
                     .themed(TextStyle::InlineSeparator);
 
@@ -1359,11 +1359,11 @@ impl<'b> ComponentWidgets<'b> {
                     .into();
 
                 let bot_rule = container(bot_rule)
-                    .center_x()
+                    .align_x(Horizontal::Center)
                     .into();
 
                 column([top_rule, icon, bot_rule])
-                    .align_items(Alignment::Center)
+                    .align_x(Alignment::Center)
                     .into()
             }
         }
@@ -1415,14 +1415,14 @@ impl<'b> ComponentWidgets<'b> {
             .as_ref()
             .map(|image| self.render_image(widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
 
-        let title: Element<_> = text(&widget.title)
+        let title: Element<_> = text(widget.title.to_string())
             .shaping(Shaping::Advanced)
             .into();
 
         let subtitle: Element<_> = match &widget.description {
             None => horizontal_space().into(),
             Some(subtitle) => {
-                text(subtitle)
+                text(subtitle.to_string())
                     .shaping(Shaping::Advanced)
                     .themed(TextStyle::EmptyViewSubtitle)
             }
@@ -1437,14 +1437,14 @@ impl<'b> ComponentWidgets<'b> {
         }
 
         let content: Element<_> = column(content)
-            .align_items(Alignment::Center)
+            .align_x(Alignment::Center)
             .into();
 
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .center_x()
-            .center_y()
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
             .into()
     }
 
@@ -1464,14 +1464,14 @@ impl<'b> ComponentWidgets<'b> {
         let icon = self.render_image(widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
 
         let content = container(icon)
-            .center_x()
-            .center_y()
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
             .themed(ContainerStyle::IconAccessory);
 
         match widget.tooltip.as_ref() {
             None => content,
             Some(tooltip_text) => {
-                let tooltip_text: Element<_> = text(tooltip_text)
+                let tooltip_text: Element<_> = text(tooltip_text.to_string())
                     .shaping(Shaping::Advanced)
                     .into();
 
@@ -1486,7 +1486,7 @@ impl<'b> ComponentWidgets<'b> {
             .as_ref()
             .map(|icon| self.render_image(widget.__id__, icon, Some(TextStyle::TextAccessory)));
 
-        let text_content: Element<_> = text(&widget.text)
+        let text_content: Element<_> = text(widget.text.to_string())
             .shaping(Shaping::Advanced)
             .themed(TextStyle::TextAccessory);
 
@@ -1502,18 +1502,18 @@ impl<'b> ComponentWidgets<'b> {
         content.push(text_content);
 
         let content: Element<_> = row(content)
-            .align_items(Alignment::Center)
+            .align_y(Alignment::Center)
             .into();
 
         let content = container(content)
-            .center_x()
-            .center_y()
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
             .themed(ContainerStyle::TextAccessory);
 
         match widget.tooltip.as_ref() {
             None => content,
             Some(tooltip_text) => {
-                let tooltip_text: Element<_> = text(tooltip_text)
+                let tooltip_text: Element<_> = text(tooltip_text.to_string())
                     .shaping(Shaping::Advanced)
                     .into();
 
@@ -1672,7 +1672,7 @@ impl<'b> ComponentWidgets<'b> {
             .as_ref()
             .map(|icon| self.render_image(widget.__id__, icon, None));
 
-        let title: Element<_> = text(&widget.title)
+        let title: Element<_> = text(widget.title.to_string())
             .shaping(Shaping::Advanced)
             .into();
         let title: Element<_> = container(title)
@@ -1688,7 +1688,7 @@ impl<'b> ComponentWidgets<'b> {
         }
 
         if let Some(subtitle) = &widget.subtitle {
-            let subtitle: Element<_> = text(subtitle)
+            let subtitle: Element<_> = text(subtitle.to_string())
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::ListItemSubtitle);
             let subtitle: Element<_> = container(subtitle)
@@ -1719,7 +1719,7 @@ impl<'b> ComponentWidgets<'b> {
         }
 
         let content: Element<_> = row(content)
-            .align_items(Alignment::Center)
+            .align_y(Alignment::Center)
             .into();
 
         let style = match item_focus_index {
@@ -1878,7 +1878,7 @@ impl<'b> ComponentWidgets<'b> {
 
         if let Some(title) = &widget.title {
             // TODO text truncation when iced supports it
-            let title = text(title)
+            let title = text(title.to_string())
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::GridItemTitle);
 
@@ -1886,7 +1886,7 @@ impl<'b> ComponentWidgets<'b> {
         }
 
         if let Some(subtitle) = &widget.subtitle {
-            let subtitle = text(subtitle)
+            let subtitle = text(subtitle.to_string())
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::GridItemSubTitle);
 
@@ -1961,8 +1961,8 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_top_panel<'a>(&self, search_bar: &Option<SearchBarWidget>) -> Element<'a, ComponentWidgetEvent> {
-        let icon = text(icons::Bootstrap::ArrowLeft)
-            .font(icons::BOOTSTRAP_FONT);
+        let icon = value(Bootstrap::ArrowLeft)
+            .font(BOOTSTRAP_FONT);
 
         let back_button: Element<_> = button(icon)
             .on_press(ComponentWidgetEvent::PreviousView)
@@ -1974,7 +1974,7 @@ impl<'b> ComponentWidgets<'b> {
             .unwrap_or_else(|| Space::with_width(Length::FillPortion(3)).into());
 
         let top_panel: Element<_> = row(vec![back_button, search_bar_element])
-            .align_items(Alignment::Center)
+            .align_y(Alignment::Center)
             .themed(RowStyle::RootTopPanel);
 
         let top_panel: Element<_> = container(top_panel)
@@ -2067,7 +2067,7 @@ impl<'b> ComponentWidgets<'b> {
             Image::ImageSource(_) => {
                 match self.images.get(&widget_id) {
                     Some(bytes) => {
-                        image(Handle::from_memory(bytes.clone()))
+                        image(Handle::from_bytes(bytes.clone()))
                             .into()
                     }
                     None => {
@@ -2079,13 +2079,13 @@ impl<'b> ComponentWidgets<'b> {
             Image::Icons(icon) => {
                 match icon_style {
                     None => {
-                        text(icon_to_bootstrap(icon))
-                            .font(icons::BOOTSTRAP_FONT)
+                        value(icon_to_bootstrap(icon))
+                            .font(BOOTSTRAP_FONT)
                             .into()
                     }
                     Some(icon_style) => {
-                        text(icon_to_bootstrap(icon))
-                            .font(icons::BOOTSTRAP_FONT)
+                        value(icon_to_bootstrap(icon))
+                            .font(BOOTSTRAP_FONT)
                             .themed(icon_style)
                     }
                 }
@@ -2109,7 +2109,7 @@ impl Display for SelectItem {
 
 
 fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
-    let label: Element<_> = text(label)
+    let label: Element<_> = text(label.to_string())
         .shaping(Shaping::Advanced)
         .themed(TextStyle::MetadataItemLabel);
 
@@ -2132,7 +2132,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     let mut title_content = vec![];
 
     if let Some(title) = title {
-        let title: Element<_> = text(title)
+        let title: Element<_> = text(title.to_string())
             .shaping(Shaping::Advanced)
             .size(15)
             .themed(theme_kind_title_text);
@@ -2141,7 +2141,7 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     }
 
     if let Some(subtitle) = subtitle {
-        let subtitle: Element<_> = text(subtitle)
+        let subtitle: Element<_> = text(subtitle.to_string())
             .shaping(Shaping::Advanced)
             .size(15)
             .themed(theme_kind_subtitle_text);
@@ -2340,7 +2340,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                         .into();
 
                     row([text, space, shortcut_element])
-                        .align_items(Alignment::Center)
+                        .align_y(Alignment::Center)
                         .into()
                 } else {
                     text(label)
@@ -2422,7 +2422,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     on_action_click: impl Fn(UiWidgetId) -> T,
     noop_msg: impl Fn() -> T,
 ) -> Element<'a, T>  {
-    let entrypoint_name: Element<_> = text(entrypoint_name)
+    let entrypoint_name: Element<_> = text(entrypoint_name.to_string())
         .shaping(Shaping::Advanced)
         .into();
 
@@ -2473,7 +2473,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
             let mut bottom_panel_content = vec![entrypoint_name];
 
             if let Some(toast_text) = toast_text {
-                let toast_text = text(toast_text)
+                let toast_text = text(toast_text.to_string())
                     .into();
 
                 bottom_panel_content.push(toast_text);
@@ -2488,7 +2488,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
                 bottom_panel_content.push(primary_action);
 
                 let rule: Element<_> = vertical_rule(1)
-                    .style(RuleStyle::PrimaryActionSeparator)
+                    .class(RuleStyle::PrimaryActionSeparator)
                     .into();
 
                 let rule: Element<_> = container(rule)
@@ -2510,7 +2510,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
             bottom_panel_content.push(action_panel_toggle);
 
             let bottom_panel: Element<_> = row(bottom_panel_content)
-                .align_items(Alignment::Center)
+                .align_y(Alignment::Center)
                 .themed(RowStyle::RootBottomPanel);
 
             (!show_action_panel, Some(action_panel), bottom_panel)
@@ -2522,7 +2522,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
             let mut bottom_panel_content = vec![];
 
             if let Some(toast_text) = toast_text {
-                let toast_text = text(toast_text)
+                let toast_text = text(toast_text.to_string())
                     .into();
 
                 bottom_panel_content.push(toast_text);
@@ -2537,7 +2537,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
             }
 
             let bottom_panel: Element<_> = row(bottom_panel_content)
-                .align_items(Alignment::Center)
+                .align_y(Alignment::Center)
                 .themed(RowStyle::RootBottomPanel);
 
             (true, None, bottom_panel)
@@ -2560,14 +2560,23 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
         .on_press(if hide_action_panel { noop_msg() } else { on_panel_toggle_click() })
         .into();
 
-    let action_panel_element = match (action_panel, action_panel_scroll_handle) {
-        (Some(action_panel), Some(action_panel_scroll_handle)) => render_action_panel(action_panel, on_action_click, action_panel_scroll_handle),
-        _ => Space::with_height(1).into(),
+    let mut content = vec![content];
+
+    if let (Some(action_panel), Some(action_panel_scroll_handle)) = (action_panel, action_panel_scroll_handle) {
+        if !hide_action_panel {
+            let action_panel = render_action_panel(action_panel, on_action_click, action_panel_scroll_handle);
+
+            let action_panel: Element<_>= container(action_panel)
+                .padding(common_ui::padding(0.0, 8.0, 48.0, 0.0))
+                .align_right(Length::Fill)
+                .align_bottom(Length::Fill)
+                .into();
+
+            content.push(action_panel);
+        }
     };
 
-    floating_element(content, action_panel_element)
-        .offset(Offset::from([8.0, 48.0])) // TODO calculate based on theme
-        .hide(hide_action_panel)
+    stack(content)
         .into()
 }
 
@@ -2851,227 +2860,227 @@ pub fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
     }
 }
 
-fn icon_to_bootstrap(icon: &Icons) -> icons::Bootstrap {
+fn icon_to_bootstrap(icon: &Icons) -> Bootstrap {
     match icon {
-        Icons::Airplane => icons::Bootstrap::Airplane,
-        Icons::Alarm => icons::Bootstrap::Alarm,
-        Icons::AlignCentre => icons::Bootstrap::AlignCenter,
-        Icons::AlignLeft => icons::Bootstrap::AlignStart,
-        Icons::AlignRight => icons::Bootstrap::AlignEnd,
-        // Icons::Anchor => icons::Bootstrap::,
-        Icons::ArrowClockwise => icons::Bootstrap::ArrowClockwise,
-        Icons::ArrowCounterClockwise => icons::Bootstrap::ArrowCounterclockwise,
-        Icons::ArrowDown => icons::Bootstrap::ArrowDown,
-        Icons::ArrowLeft => icons::Bootstrap::ArrowLeft,
-        Icons::ArrowRight => icons::Bootstrap::ArrowRight,
-        Icons::ArrowUp => icons::Bootstrap::ArrowUp,
-        Icons::ArrowLeftRight => icons::Bootstrap::ArrowLeftRight,
-        Icons::ArrowsContract => icons::Bootstrap::ArrowsAngleContract,
-        Icons::ArrowsExpand => icons::Bootstrap::ArrowsAngleExpand,
-        Icons::AtSymbol => icons::Bootstrap::At,
-        // Icons::BandAid => icons::Bootstrap::Bandaid,
-        Icons::Cash => icons::Bootstrap::Cash,
-        // Icons::BarChart => icons::Bootstrap::BarChart,
-        // Icons::BarCode => icons::Bootstrap::,
-        Icons::Battery => icons::Bootstrap::Battery,
-        Icons::BatteryCharging => icons::Bootstrap::BatteryCharging,
-        // Icons::BatteryDisabled => icons::Bootstrap::,
-        Icons::Bell => icons::Bootstrap::Bell,
-        Icons::BellDisabled => icons::Bootstrap::BellSlash,
-        // Icons::Bike => icons::Bootstrap::Bicycle,
-        // Icons::Binoculars => icons::Bootstrap::Binoculars,
-        // Icons::Bird => icons::Bootstrap::,
-        Icons::Bluetooth => icons::Bootstrap::Bluetooth,
-        // Icons::Boat => icons::Bootstrap::,
-        Icons::Bold => icons::Bootstrap::TypeBold,
-        // Icons::Bolt => icons::Bootstrap::,
-        // Icons::BoltDisabled => icons::Bootstrap::,
-        Icons::Book => icons::Bootstrap::Book,
-        Icons::Bookmark => icons::Bootstrap::Bookmark,
-        Icons::Box => icons::Bootstrap::Box,
-        // Icons::Brush => icons::Bootstrap::Brush,
-        Icons::Bug => icons::Bootstrap::Bug,
-        Icons::Building => icons::Bootstrap::Building,
-        Icons::BulletPoints => icons::Bootstrap::ListUl,
-        Icons::Calculator => icons::Bootstrap::Calculator,
-        Icons::Calendar => icons::Bootstrap::Calendar,
-        Icons::Camera => icons::Bootstrap::Camera,
-        Icons::Car => icons::Bootstrap::CarFront,
-        Icons::Cart => icons::Bootstrap::Cart,
-        // Icons::Cd => icons::Bootstrap::,
-        // Icons::Center => icons::Bootstrap::,
-        Icons::Checkmark => icons::Bootstrap::Checktwo,
-        // Icons::ChessPiece => icons::Bootstrap::,
-        Icons::ChevronDown => icons::Bootstrap::ChevronDown,
-        Icons::ChevronLeft => icons::Bootstrap::ChevronLeft,
-        Icons::ChevronRight => icons::Bootstrap::ChevronRight,
-        Icons::ChevronUp => icons::Bootstrap::ChevronUp,
-        Icons::ChevronExpand => icons::Bootstrap::ChevronExpand,
-        Icons::Circle => icons::Bootstrap::Circle,
-        // Icons::CircleProgress100 => icons::Bootstrap::,
-        // Icons::CircleProgress25 => icons::Bootstrap::,
-        // Icons::CircleProgress50 => icons::Bootstrap::,
-        // Icons::CircleProgress75 => icons::Bootstrap::,
-        // Icons::ClearFormatting => icons::Bootstrap::,
-        Icons::Clipboard => icons::Bootstrap::Clipboard,
-        Icons::Clock => icons::Bootstrap::Clock,
-        Icons::Cloud => icons::Bootstrap::Cloud,
-        Icons::CloudLightning => icons::Bootstrap::CloudLightning,
-        Icons::CloudRain => icons::Bootstrap::CloudRain,
-        Icons::CloudSnow => icons::Bootstrap::CloudSnow,
-        Icons::CloudSun => icons::Bootstrap::CloudSun,
-        Icons::Code => icons::Bootstrap::Code,
-        Icons::Gear => icons::Bootstrap::Gear,
-        Icons::Coin => icons::Bootstrap::Coin,
-        Icons::Command => icons::Bootstrap::Command,
-        Icons::Compass => icons::Bootstrap::Compass,
-        // Icons::ComputerChip => icons::Bootstrap::,
-        // Icons::Contrast => icons::Bootstrap::,
-        Icons::CreditCard => icons::Bootstrap::CreditCard,
-        Icons::Crop => icons::Bootstrap::Crop,
-        // Icons::Crown => icons::Bootstrap::,
-        Icons::Document => icons::Bootstrap::FileEarmark,
-        Icons::DocumentAdd => icons::Bootstrap::FileEarmarkPlus,
-        Icons::DocumentDelete => icons::Bootstrap::FileEarmarkX,
-        Icons::Dot => icons::Bootstrap::Dot,
-        Icons::Download => icons::Bootstrap::Download,
-        // Icons::Duplicate => icons::Bootstrap::,
-        Icons::Eject => icons::Bootstrap::Eject,
-        Icons::ThreeDots => icons::Bootstrap::ThreeDots,
-        Icons::Envelope => icons::Bootstrap::Envelope,
-        Icons::Eraser => icons::Bootstrap::Eraser,
-        Icons::ExclamationMark => icons::Bootstrap::ExclamationLg,
-        Icons::Eye => icons::Bootstrap::Eye,
-        Icons::EyeDisabled => icons::Bootstrap::EyeSlash,
-        Icons::EyeDropper => icons::Bootstrap::Eyedropper,
-        Icons::Female => icons::Bootstrap::GenderFemale,
-        Icons::Film => icons::Bootstrap::Film,
-        Icons::Filter => icons::Bootstrap::Filter,
-        Icons::Fingerprint => icons::Bootstrap::Fingerprint,
-        Icons::Flag => icons::Bootstrap::Flag,
-        Icons::Folder => icons::Bootstrap::Folder,
-        Icons::FolderAdd => icons::Bootstrap::FolderPlus,
-        Icons::FolderDelete => icons::Bootstrap::FolderMinus,
-        Icons::Forward => icons::Bootstrap::Forward,
-        Icons::GameController => icons::Bootstrap::Controller,
-        Icons::Virus => icons::Bootstrap::Virus,
-        Icons::Gift => icons::Bootstrap::Gift,
-        Icons::Glasses => icons::Bootstrap::Eyeglasses,
-        Icons::Globe => icons::Bootstrap::Globe,
-        Icons::Hammer => icons::Bootstrap::Hammer,
-        Icons::HardDrive => icons::Bootstrap::DeviceHdd,
-        Icons::Headphones => icons::Bootstrap::Headphones,
-        Icons::Heart => icons::Bootstrap::Heart,
-        // Icons::HeartDisabled => icons::Bootstrap::,
-        Icons::Heartbeat => icons::Bootstrap::Activity,
-        Icons::Hourglass => icons::Bootstrap::Hourglass,
-        Icons::House => icons::Bootstrap::House,
-        Icons::Image => icons::Bootstrap::Image,
-        Icons::Info => icons::Bootstrap::InfoLg,
-        Icons::Italics => icons::Bootstrap::TypeItalic,
-        Icons::Key => icons::Bootstrap::Key,
-        Icons::Keyboard => icons::Bootstrap::Keyboard,
-        Icons::Layers => icons::Bootstrap::Layers,
-        // Icons::Leaf => icons::Bootstrap::,
-        Icons::LightBulb => icons::Bootstrap::Lightbulb,
-        Icons::LightBulbDisabled => icons::Bootstrap::LightbulbOff,
-        Icons::Link => icons::Bootstrap::LinkFourfivedeg,
-        Icons::List => icons::Bootstrap::List,
-        Icons::Lock => icons::Bootstrap::Lock,
-        // Icons::LockDisabled => icons::Bootstrap::,
-        Icons::LockUnlocked => icons::Bootstrap::Unlock,
-        // Icons::Logout => icons::Bootstrap::,
-        // Icons::Lowercase => icons::Bootstrap::,
-        // Icons::MagnifyingGlass => icons::Bootstrap::,
-        Icons::Male => icons::Bootstrap::GenderMale,
-        Icons::Map => icons::Bootstrap::Map,
-        Icons::Maximize => icons::Bootstrap::Fullscreen,
-        Icons::Megaphone => icons::Bootstrap::Megaphone,
-        Icons::MemoryModule => icons::Bootstrap::Memory,
-        Icons::MemoryStick => icons::Bootstrap::UsbDrive,
-        Icons::Message => icons::Bootstrap::Chat,
-        Icons::Microphone => icons::Bootstrap::Mic,
-        Icons::MicrophoneDisabled => icons::Bootstrap::MicMute,
-        Icons::Minimize => icons::Bootstrap::FullscreenExit,
-        Icons::Minus => icons::Bootstrap::Dash,
-        Icons::Mobile => icons::Bootstrap::Phone,
-        // Icons::Monitor => icons::Bootstrap::,
-        Icons::Moon => icons::Bootstrap::Moon,
-        // Icons::Mountain => icons::Bootstrap::,
-        Icons::Mouse => icons::Bootstrap::Mouse,
-        Icons::Multiply => icons::Bootstrap::X,
-        Icons::Music => icons::Bootstrap::MusicNoteBeamed,
-        Icons::Network => icons::Bootstrap::BroadcastPin,
-        Icons::Paperclip => icons::Bootstrap::Paperclip,
-        Icons::Paragraph => icons::Bootstrap::TextParagraph,
-        Icons::Pause => icons::Bootstrap::Pause,
-        Icons::Pencil => icons::Bootstrap::Pencil,
-        Icons::Person => icons::Bootstrap::Person,
-        Icons::PersonAdd => icons::Bootstrap::PersonAdd,
-        Icons::PersonRemove => icons::Bootstrap::PersonDash,
-        Icons::Phone => icons::Bootstrap::Telephone,
-        // Icons::PhoneRinging => icons::Bootstrap::,
-        Icons::PieChart => icons::Bootstrap::PieChart,
-        Icons::Capsule => icons::Bootstrap::Capsule,
-        // Icons::Pin => icons::Bootstrap::,
-        // Icons::PinDisabled => icons::Bootstrap::,
-        Icons::Play => icons::Bootstrap::Play,
-        Icons::Plug => icons::Bootstrap::Plug,
-        Icons::Plus => icons::Bootstrap::Plus,
-        // Icons::PlusMinusDivideMultiply => icons::Bootstrap::,
-        Icons::Power => icons::Bootstrap::Power,
-        Icons::Printer => icons::Bootstrap::Printer,
-        Icons::QuestionMark => icons::Bootstrap::QuestionLg,
-        Icons::Quotes => icons::Bootstrap::Quote,
-        Icons::Receipt => icons::Bootstrap::Receipt,
-        Icons::Repeat => icons::Bootstrap::Repeat,
-        Icons::Reply => icons::Bootstrap::Reply,
-        Icons::Rewind => icons::Bootstrap::Rewind,
-        Icons::Rocket => icons::Bootstrap::Rocket,
-        // Icons::Ruler => icons::Bootstrap::,
-        Icons::Shield => icons::Bootstrap::Shield,
-        Icons::Shuffle => icons::Bootstrap::Shuffle,
-        Icons::Snippets => icons::Bootstrap::BodyText,
-        Icons::Snowflake => icons::Bootstrap::Snow,
-        // Icons::VolumeHigh => icons::Bootstrap::VolumeUp,
-        // Icons::VolumeLow => icons::Bootstrap::VolumeDown,
-        // Icons::VolumeOff => icons::Bootstrap::VolumeOff,
-        // Icons::VolumeOn => icons::Bootstrap::,
-        Icons::Star => icons::Bootstrap::Star,
-        // Icons::StarDisabled => icons::Bootstrap::,
-        Icons::Stop => icons::Bootstrap::Stop,
-        Icons::Stopwatch => icons::Bootstrap::Stopwatch,
-        Icons::StrikeThrough => icons::Bootstrap::TypeStrikethrough,
-        Icons::Sun => icons::Bootstrap::SunFill, // TODO why Sun isn't in iced_aw?
-        Icons::Scissors => icons::Bootstrap::Scissors,
-        // Icons::Syringe => icons::Bootstrap::,
-        Icons::Tag => icons::Bootstrap::Tag,
-        Icons::Thermometer => icons::Bootstrap::Thermometer,
-        Icons::Terminal => icons::Bootstrap::Terminal,
-        Icons::Text => icons::Bootstrap::Fonts,
-        Icons::TextCursor => icons::Bootstrap::CursorText,
-        // Icons::TextSelection => icons::Bootstrap::,
-        // Icons::Torch => icons::Bootstrap::,
-        // Icons::Train => icons::Bootstrap::,
-        Icons::Trash => icons::Bootstrap::Trash,
-        Icons::Tree => icons::Bootstrap::Tree,
-        Icons::Trophy => icons::Bootstrap::Trophy,
-        Icons::People => icons::Bootstrap::People,
-        Icons::Umbrella => icons::Bootstrap::Umbrella,
-        Icons::Underline => icons::Bootstrap::TypeUnderline,
-        Icons::Upload => icons::Bootstrap::Upload,
-        // Icons::Uppercase => icons::Bootstrap::,
-        Icons::Wallet => icons::Bootstrap::Wallet,
-        Icons::Wand => icons::Bootstrap::Magic,
-        // Icons::Warning => icons::Bootstrap::,
-        // Icons::Weights => icons::Bootstrap::,
-        Icons::Wifi => icons::Bootstrap::Wifi,
-        Icons::WifiDisabled => icons::Bootstrap::WifiOff,
-        Icons::Window => icons::Bootstrap::Window,
-        Icons::Tools => icons::Bootstrap::Tools,
-        Icons::Watch => icons::Bootstrap::Watch,
-        Icons::XMark => icons::Bootstrap::XLg,
-        Icons::Indent => icons::Bootstrap::Indent,
-        Icons::Unindent => icons::Bootstrap::Unindent,
+        Icons::Airplane => Bootstrap::Airplane,
+        Icons::Alarm => Bootstrap::Alarm,
+        Icons::AlignCentre => Bootstrap::AlignCenter,
+        Icons::AlignLeft => Bootstrap::AlignStart,
+        Icons::AlignRight => Bootstrap::AlignEnd,
+        // Icons::Anchor => Bootstrap::,
+        Icons::ArrowClockwise => Bootstrap::ArrowClockwise,
+        Icons::ArrowCounterClockwise => Bootstrap::ArrowCounterclockwise,
+        Icons::ArrowDown => Bootstrap::ArrowDown,
+        Icons::ArrowLeft => Bootstrap::ArrowLeft,
+        Icons::ArrowRight => Bootstrap::ArrowRight,
+        Icons::ArrowUp => Bootstrap::ArrowUp,
+        Icons::ArrowLeftRight => Bootstrap::ArrowLeftRight,
+        Icons::ArrowsContract => Bootstrap::ArrowsAngleContract,
+        Icons::ArrowsExpand => Bootstrap::ArrowsAngleExpand,
+        Icons::AtSymbol => Bootstrap::At,
+        // Icons::BandAid => Bootstrap::Bandaid,
+        Icons::Cash => Bootstrap::Cash,
+        // Icons::BarChart => Bootstrap::BarChart,
+        // Icons::BarCode => Bootstrap::,
+        Icons::Battery => Bootstrap::Battery,
+        Icons::BatteryCharging => Bootstrap::BatteryCharging,
+        // Icons::BatteryDisabled => Bootstrap::,
+        Icons::Bell => Bootstrap::Bell,
+        Icons::BellDisabled => Bootstrap::BellSlash,
+        // Icons::Bike => Bootstrap::Bicycle,
+        // Icons::Binoculars => Bootstrap::Binoculars,
+        // Icons::Bird => Bootstrap::,
+        Icons::Bluetooth => Bootstrap::Bluetooth,
+        // Icons::Boat => Bootstrap::,
+        Icons::Bold => Bootstrap::TypeBold,
+        // Icons::Bolt => Bootstrap::,
+        // Icons::BoltDisabled => Bootstrap::,
+        Icons::Book => Bootstrap::Book,
+        Icons::Bookmark => Bootstrap::Bookmark,
+        Icons::Box => Bootstrap::Box,
+        // Icons::Brush => Bootstrap::Brush,
+        Icons::Bug => Bootstrap::Bug,
+        Icons::Building => Bootstrap::Building,
+        Icons::BulletPoints => Bootstrap::ListUl,
+        Icons::Calculator => Bootstrap::Calculator,
+        Icons::Calendar => Bootstrap::Calendar,
+        Icons::Camera => Bootstrap::Camera,
+        Icons::Car => Bootstrap::CarFront,
+        Icons::Cart => Bootstrap::Cart,
+        // Icons::Cd => Bootstrap::,
+        // Icons::Center => Bootstrap::,
+        Icons::Checkmark => Bootstrap::Checktwo,
+        // Icons::ChessPiece => Bootstrap::,
+        Icons::ChevronDown => Bootstrap::ChevronDown,
+        Icons::ChevronLeft => Bootstrap::ChevronLeft,
+        Icons::ChevronRight => Bootstrap::ChevronRight,
+        Icons::ChevronUp => Bootstrap::ChevronUp,
+        Icons::ChevronExpand => Bootstrap::ChevronExpand,
+        Icons::Circle => Bootstrap::Circle,
+        // Icons::CircleProgress100 => Bootstrap::,
+        // Icons::CircleProgress25 => Bootstrap::,
+        // Icons::CircleProgress50 => Bootstrap::,
+        // Icons::CircleProgress75 => Bootstrap::,
+        // Icons::ClearFormatting => Bootstrap::,
+        Icons::Clipboard => Bootstrap::Clipboard,
+        Icons::Clock => Bootstrap::Clock,
+        Icons::Cloud => Bootstrap::Cloud,
+        Icons::CloudLightning => Bootstrap::CloudLightning,
+        Icons::CloudRain => Bootstrap::CloudRain,
+        Icons::CloudSnow => Bootstrap::CloudSnow,
+        Icons::CloudSun => Bootstrap::CloudSun,
+        Icons::Code => Bootstrap::Code,
+        Icons::Gear => Bootstrap::Gear,
+        Icons::Coin => Bootstrap::Coin,
+        Icons::Command => Bootstrap::Command,
+        Icons::Compass => Bootstrap::Compass,
+        // Icons::ComputerChip => Bootstrap::,
+        // Icons::Contrast => Bootstrap::,
+        Icons::CreditCard => Bootstrap::CreditCard,
+        Icons::Crop => Bootstrap::Crop,
+        // Icons::Crown => Bootstrap::,
+        Icons::Document => Bootstrap::FileEarmark,
+        Icons::DocumentAdd => Bootstrap::FileEarmarkPlus,
+        Icons::DocumentDelete => Bootstrap::FileEarmarkX,
+        Icons::Dot => Bootstrap::Dot,
+        Icons::Download => Bootstrap::Download,
+        // Icons::Duplicate => Bootstrap::,
+        Icons::Eject => Bootstrap::Eject,
+        Icons::ThreeDots => Bootstrap::ThreeDots,
+        Icons::Envelope => Bootstrap::Envelope,
+        Icons::Eraser => Bootstrap::Eraser,
+        Icons::ExclamationMark => Bootstrap::ExclamationLg,
+        Icons::Eye => Bootstrap::Eye,
+        Icons::EyeDisabled => Bootstrap::EyeSlash,
+        Icons::EyeDropper => Bootstrap::Eyedropper,
+        Icons::Female => Bootstrap::GenderFemale,
+        Icons::Film => Bootstrap::Film,
+        Icons::Filter => Bootstrap::Filter,
+        Icons::Fingerprint => Bootstrap::Fingerprint,
+        Icons::Flag => Bootstrap::Flag,
+        Icons::Folder => Bootstrap::Folder,
+        Icons::FolderAdd => Bootstrap::FolderPlus,
+        Icons::FolderDelete => Bootstrap::FolderMinus,
+        Icons::Forward => Bootstrap::Forward,
+        Icons::GameController => Bootstrap::Controller,
+        Icons::Virus => Bootstrap::Virus,
+        Icons::Gift => Bootstrap::Gift,
+        Icons::Glasses => Bootstrap::Eyeglasses,
+        Icons::Globe => Bootstrap::Globe,
+        Icons::Hammer => Bootstrap::Hammer,
+        Icons::HardDrive => Bootstrap::DeviceHdd,
+        Icons::Headphones => Bootstrap::Headphones,
+        Icons::Heart => Bootstrap::Heart,
+        // Icons::HeartDisabled => Bootstrap::,
+        Icons::Heartbeat => Bootstrap::Activity,
+        Icons::Hourglass => Bootstrap::Hourglass,
+        Icons::House => Bootstrap::House,
+        Icons::Image => Bootstrap::Image,
+        Icons::Info => Bootstrap::InfoLg,
+        Icons::Italics => Bootstrap::TypeItalic,
+        Icons::Key => Bootstrap::Key,
+        Icons::Keyboard => Bootstrap::Keyboard,
+        Icons::Layers => Bootstrap::Layers,
+        // Icons::Leaf => Bootstrap::,
+        Icons::LightBulb => Bootstrap::Lightbulb,
+        Icons::LightBulbDisabled => Bootstrap::LightbulbOff,
+        Icons::Link => Bootstrap::LinkFourfivedeg,
+        Icons::List => Bootstrap::List,
+        Icons::Lock => Bootstrap::Lock,
+        // Icons::LockDisabled => Bootstrap::,
+        Icons::LockUnlocked => Bootstrap::Unlock,
+        // Icons::Logout => Bootstrap::,
+        // Icons::Lowercase => Bootstrap::,
+        // Icons::MagnifyingGlass => Bootstrap::,
+        Icons::Male => Bootstrap::GenderMale,
+        Icons::Map => Bootstrap::Map,
+        Icons::Maximize => Bootstrap::Fullscreen,
+        Icons::Megaphone => Bootstrap::Megaphone,
+        Icons::MemoryModule => Bootstrap::Memory,
+        Icons::MemoryStick => Bootstrap::UsbDrive,
+        Icons::Message => Bootstrap::Chat,
+        Icons::Microphone => Bootstrap::Mic,
+        Icons::MicrophoneDisabled => Bootstrap::MicMute,
+        Icons::Minimize => Bootstrap::FullscreenExit,
+        Icons::Minus => Bootstrap::Dash,
+        Icons::Mobile => Bootstrap::Phone,
+        // Icons::Monitor => Bootstrap::,
+        Icons::Moon => Bootstrap::Moon,
+        // Icons::Mountain => Bootstrap::,
+        Icons::Mouse => Bootstrap::Mouse,
+        Icons::Multiply => Bootstrap::X,
+        Icons::Music => Bootstrap::MusicNoteBeamed,
+        Icons::Network => Bootstrap::BroadcastPin,
+        Icons::Paperclip => Bootstrap::Paperclip,
+        Icons::Paragraph => Bootstrap::TextParagraph,
+        Icons::Pause => Bootstrap::Pause,
+        Icons::Pencil => Bootstrap::Pencil,
+        Icons::Person => Bootstrap::Person,
+        Icons::PersonAdd => Bootstrap::PersonAdd,
+        Icons::PersonRemove => Bootstrap::PersonDash,
+        Icons::Phone => Bootstrap::Telephone,
+        // Icons::PhoneRinging => Bootstrap::,
+        Icons::PieChart => Bootstrap::PieChart,
+        Icons::Capsule => Bootstrap::Capsule,
+        // Icons::Pin => Bootstrap::,
+        // Icons::PinDisabled => Bootstrap::,
+        Icons::Play => Bootstrap::Play,
+        Icons::Plug => Bootstrap::Plug,
+        Icons::Plus => Bootstrap::Plus,
+        // Icons::PlusMinusDivideMultiply => Bootstrap::,
+        Icons::Power => Bootstrap::Power,
+        Icons::Printer => Bootstrap::Printer,
+        Icons::QuestionMark => Bootstrap::QuestionLg,
+        Icons::Quotes => Bootstrap::Quote,
+        Icons::Receipt => Bootstrap::Receipt,
+        Icons::Repeat => Bootstrap::Repeat,
+        Icons::Reply => Bootstrap::Reply,
+        Icons::Rewind => Bootstrap::Rewind,
+        Icons::Rocket => Bootstrap::Rocket,
+        // Icons::Ruler => Bootstrap::,
+        Icons::Shield => Bootstrap::Shield,
+        Icons::Shuffle => Bootstrap::Shuffle,
+        Icons::Snippets => Bootstrap::BodyText,
+        Icons::Snowflake => Bootstrap::Snow,
+        // Icons::VolumeHigh => Bootstrap::VolumeUp,
+        // Icons::VolumeLow => Bootstrap::VolumeDown,
+        // Icons::VolumeOff => Bootstrap::VolumeOff,
+        // Icons::VolumeOn => Bootstrap::,
+        Icons::Star => Bootstrap::Star,
+        // Icons::StarDisabled => Bootstrap::,
+        Icons::Stop => Bootstrap::Stop,
+        Icons::Stopwatch => Bootstrap::Stopwatch,
+        Icons::StrikeThrough => Bootstrap::TypeStrikethrough,
+        Icons::Sun => Bootstrap::SunFill, // TODO why Sun isn't in iced_aw?
+        Icons::Scissors => Bootstrap::Scissors,
+        // Icons::Syringe => Bootstrap::,
+        Icons::Tag => Bootstrap::Tag,
+        Icons::Thermometer => Bootstrap::Thermometer,
+        Icons::Terminal => Bootstrap::Terminal,
+        Icons::Text => Bootstrap::Fonts,
+        Icons::TextCursor => Bootstrap::CursorText,
+        // Icons::TextSelection => Bootstrap::,
+        // Icons::Torch => Bootstrap::,
+        // Icons::Train => Bootstrap::,
+        Icons::Trash => Bootstrap::Trash,
+        Icons::Tree => Bootstrap::Tree,
+        Icons::Trophy => Bootstrap::Trophy,
+        Icons::People => Bootstrap::People,
+        Icons::Umbrella => Bootstrap::Umbrella,
+        Icons::Underline => Bootstrap::TypeUnderline,
+        Icons::Upload => Bootstrap::Upload,
+        // Icons::Uppercase => Bootstrap::,
+        Icons::Wallet => Bootstrap::Wallet,
+        Icons::Wand => Bootstrap::Magic,
+        // Icons::Warning => Bootstrap::,
+        // Icons::Weights => Bootstrap::,
+        Icons::Wifi => Bootstrap::Wifi,
+        Icons::WifiDisabled => Bootstrap::WifiOff,
+        Icons::Window => Bootstrap::Window,
+        Icons::Tools => Bootstrap::Tools,
+        Icons::Watch => Bootstrap::Watch,
+        Icons::XMark => Bootstrap::XLg,
+        Icons::Indent => Bootstrap::Indent,
+        Icons::Unindent => Bootstrap::Unindent,
     }
 }

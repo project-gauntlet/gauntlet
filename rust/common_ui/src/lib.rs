@@ -1,12 +1,29 @@
-use iced::advanced::widget::Text;
-use iced::Element;
+use iced::{Element, Padding, Pixels};
+use iced::border::Radius;
 use iced::keyboard::Modifiers;
-use iced::widget::text;
-use iced_aw::core::icons;
+use iced::widget::{text, value};
+use iced_aw::iced_fonts::{bootstrap, Bootstrap, BOOTSTRAP_FONT};
 
 use common::model::{PhysicalKey, PhysicalShortcut};
 
-pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
+pub fn padding(top: impl Into<Pixels>, right: impl Into<Pixels>, bottom: impl Into<Pixels>, left: impl Into<Pixels>) -> Padding {
+    Padding {
+        top: top.into().0,
+        right: right.into().0,
+        bottom: bottom.into().0,
+        left: left.into().0
+    }
+}
+pub fn radius(top_left: impl Into<Pixels>, top_right: impl Into<Pixels>, bottom_right: impl Into<Pixels>, bottom_left: impl Into<Pixels>) -> Radius {
+    Radius {
+        top_left: top_left.into().0,
+        top_right: top_right.into().0,
+        bottom_right: bottom_right.into().0,
+        bottom_left: bottom_left.into().0
+    }
+}
+
+pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
     shortcut: &PhysicalShortcut
 ) -> (
     Element<'a, Message, Theme>,
@@ -18,8 +35,8 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
     let (key_name, show_shift) = match shortcut.physical_key {
         PhysicalKey::Enter => {
             let key_name = if cfg!(target_os = "macos") {
-                text(icons::Bootstrap::ArrowReturnLeft)
-                    .font(icons::BOOTSTRAP_FONT)
+                value(Bootstrap::ArrowReturnLeft)
+                    .font(BOOTSTRAP_FONT)
                     .into()
             } else {
                 text("Enter")
@@ -41,8 +58,8 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
     let alt_modifier_text = if shortcut.modifier_alt {
         if cfg!(target_os = "macos") {
             Some(
-                text(icons::Bootstrap::Option)
-                    .font(icons::BOOTSTRAP_FONT)
+                value(Bootstrap::Option)
+                    .font(BOOTSTRAP_FONT)
                     .into()
             )
         } else {
@@ -58,8 +75,8 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
     let meta_modifier_text = if shortcut.modifier_meta {
         if cfg!(target_os = "macos") {
             Some(
-                text(icons::Bootstrap::Command)
-                    .font(icons::BOOTSTRAP_FONT)
+                value(Bootstrap::Command)
+                    .font(BOOTSTRAP_FONT)
                     .into()
             )
         } else if cfg!(target_os = "windows") {
@@ -81,7 +98,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
         if cfg!(target_os = "macos") {
             Some(
                 text("^") // TODO bootstrap doesn't have proper macos ctrl icon
-                    .font(icons::BOOTSTRAP_FONT)
+                    .font(BOOTSTRAP_FONT)
                     .into()
             )
         } else {
@@ -97,8 +114,8 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
     let shift_modifier_text = if show_shift && shortcut.modifier_shift {
         if cfg!(target_os = "macos") {
             Some(
-                text(icons::Bootstrap::Shift)
-                    .font(icons::BOOTSTRAP_FONT)
+                value(Bootstrap::Shift)
+                    .font(BOOTSTRAP_FONT)
                     .into()
             )
         } else {
@@ -114,203 +131,202 @@ pub fn shortcut_to_text<'a, Message, Theme: text::StyleSheet + 'a>(
     (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text)
 }
 
-pub fn physical_key_model(key: iced::keyboard::key::PhysicalKey, modifiers: Modifiers) -> Option<PhysicalShortcut> {
+pub fn physical_key_model(key: iced::keyboard::key::Code, modifiers: Modifiers) -> Option<PhysicalShortcut> {
     let model_key = match key {
-        iced::keyboard::key::PhysicalKey::Backquote => PhysicalKey::Backquote,
-        iced::keyboard::key::PhysicalKey::Backslash => PhysicalKey::Backslash,
-        iced::keyboard::key::PhysicalKey::BracketLeft => PhysicalKey::BracketLeft,
-        iced::keyboard::key::PhysicalKey::BracketRight => PhysicalKey::BracketRight,
-        iced::keyboard::key::PhysicalKey::Comma => PhysicalKey::Comma,
-        iced::keyboard::key::PhysicalKey::Digit0 => PhysicalKey::Digit0,
-        iced::keyboard::key::PhysicalKey::Digit1 => PhysicalKey::Digit1,
-        iced::keyboard::key::PhysicalKey::Digit2 => PhysicalKey::Digit2,
-        iced::keyboard::key::PhysicalKey::Digit3 => PhysicalKey::Digit3,
-        iced::keyboard::key::PhysicalKey::Digit4 => PhysicalKey::Digit4,
-        iced::keyboard::key::PhysicalKey::Digit5 => PhysicalKey::Digit5,
-        iced::keyboard::key::PhysicalKey::Digit6 => PhysicalKey::Digit6,
-        iced::keyboard::key::PhysicalKey::Digit7 => PhysicalKey::Digit7,
-        iced::keyboard::key::PhysicalKey::Digit8 => PhysicalKey::Digit8,
-        iced::keyboard::key::PhysicalKey::Digit9 => PhysicalKey::Digit9,
-        iced::keyboard::key::PhysicalKey::Equal => PhysicalKey::Equal,
-        iced::keyboard::key::PhysicalKey::IntlBackslash => PhysicalKey::IntlBackslash,
-        iced::keyboard::key::PhysicalKey::IntlRo => PhysicalKey::IntlRo,
-        iced::keyboard::key::PhysicalKey::IntlYen => PhysicalKey::IntlYen,
-        iced::keyboard::key::PhysicalKey::KeyA => PhysicalKey::KeyA,
-        iced::keyboard::key::PhysicalKey::KeyB => PhysicalKey::KeyB,
-        iced::keyboard::key::PhysicalKey::KeyC => PhysicalKey::KeyC,
-        iced::keyboard::key::PhysicalKey::KeyD => PhysicalKey::KeyD,
-        iced::keyboard::key::PhysicalKey::KeyE => PhysicalKey::KeyE,
-        iced::keyboard::key::PhysicalKey::KeyF => PhysicalKey::KeyF,
-        iced::keyboard::key::PhysicalKey::KeyG => PhysicalKey::KeyG,
-        iced::keyboard::key::PhysicalKey::KeyH => PhysicalKey::KeyH,
-        iced::keyboard::key::PhysicalKey::KeyI => PhysicalKey::KeyI,
-        iced::keyboard::key::PhysicalKey::KeyJ => PhysicalKey::KeyJ,
-        iced::keyboard::key::PhysicalKey::KeyK => PhysicalKey::KeyK,
-        iced::keyboard::key::PhysicalKey::KeyL => PhysicalKey::KeyL,
-        iced::keyboard::key::PhysicalKey::KeyM => PhysicalKey::KeyM,
-        iced::keyboard::key::PhysicalKey::KeyN => PhysicalKey::KeyN,
-        iced::keyboard::key::PhysicalKey::KeyO => PhysicalKey::KeyO,
-        iced::keyboard::key::PhysicalKey::KeyP => PhysicalKey::KeyP,
-        iced::keyboard::key::PhysicalKey::KeyQ => PhysicalKey::KeyQ,
-        iced::keyboard::key::PhysicalKey::KeyR => PhysicalKey::KeyR,
-        iced::keyboard::key::PhysicalKey::KeyS => PhysicalKey::KeyS,
-        iced::keyboard::key::PhysicalKey::KeyT => PhysicalKey::KeyT,
-        iced::keyboard::key::PhysicalKey::KeyU => PhysicalKey::KeyU,
-        iced::keyboard::key::PhysicalKey::KeyV => PhysicalKey::KeyV,
-        iced::keyboard::key::PhysicalKey::KeyW => PhysicalKey::KeyW,
-        iced::keyboard::key::PhysicalKey::KeyX => PhysicalKey::KeyX,
-        iced::keyboard::key::PhysicalKey::KeyY => PhysicalKey::KeyY,
-        iced::keyboard::key::PhysicalKey::KeyZ => PhysicalKey::KeyZ,
-        iced::keyboard::key::PhysicalKey::Minus => PhysicalKey::Minus,
-        iced::keyboard::key::PhysicalKey::Period => PhysicalKey::Period,
-        iced::keyboard::key::PhysicalKey::Quote => PhysicalKey::Quote,
-        iced::keyboard::key::PhysicalKey::Semicolon => PhysicalKey::Semicolon,
-        iced::keyboard::key::PhysicalKey::Slash => PhysicalKey::Slash,
-        iced::keyboard::key::PhysicalKey::Backspace => PhysicalKey::Backspace,
-        iced::keyboard::key::PhysicalKey::CapsLock => PhysicalKey::CapsLock,
-        iced::keyboard::key::PhysicalKey::ContextMenu => PhysicalKey::ContextMenu,
-        iced::keyboard::key::PhysicalKey::Enter => PhysicalKey::Enter,
-        iced::keyboard::key::PhysicalKey::Space => PhysicalKey::Space,
-        iced::keyboard::key::PhysicalKey::Tab => PhysicalKey::Tab,
-        iced::keyboard::key::PhysicalKey::Convert => PhysicalKey::Convert,
-        iced::keyboard::key::PhysicalKey::KanaMode => PhysicalKey::KanaMode,
-        iced::keyboard::key::PhysicalKey::Lang1 => PhysicalKey::Lang1,
-        iced::keyboard::key::PhysicalKey::Lang2 => PhysicalKey::Lang2,
-        iced::keyboard::key::PhysicalKey::Lang3 => PhysicalKey::Lang3,
-        iced::keyboard::key::PhysicalKey::Lang4 => PhysicalKey::Lang4,
-        iced::keyboard::key::PhysicalKey::Lang5 => PhysicalKey::Lang5,
-        iced::keyboard::key::PhysicalKey::NonConvert => PhysicalKey::NonConvert,
-        iced::keyboard::key::PhysicalKey::Delete => PhysicalKey::Delete,
-        iced::keyboard::key::PhysicalKey::End => PhysicalKey::End,
-        iced::keyboard::key::PhysicalKey::Help => PhysicalKey::Help,
-        iced::keyboard::key::PhysicalKey::Home => PhysicalKey::Home,
-        iced::keyboard::key::PhysicalKey::Insert => PhysicalKey::Insert,
-        iced::keyboard::key::PhysicalKey::PageDown => PhysicalKey::PageDown,
-        iced::keyboard::key::PhysicalKey::PageUp => PhysicalKey::PageUp,
-        iced::keyboard::key::PhysicalKey::ArrowDown => PhysicalKey::ArrowDown,
-        iced::keyboard::key::PhysicalKey::ArrowLeft => PhysicalKey::ArrowLeft,
-        iced::keyboard::key::PhysicalKey::ArrowRight => PhysicalKey::ArrowRight,
-        iced::keyboard::key::PhysicalKey::ArrowUp => PhysicalKey::ArrowUp,
-        iced::keyboard::key::PhysicalKey::NumLock => PhysicalKey::NumLock,
-        iced::keyboard::key::PhysicalKey::Numpad0 => PhysicalKey::Numpad0,
-        iced::keyboard::key::PhysicalKey::Numpad1 => PhysicalKey::Numpad1,
-        iced::keyboard::key::PhysicalKey::Numpad2 => PhysicalKey::Numpad2,
-        iced::keyboard::key::PhysicalKey::Numpad3 => PhysicalKey::Numpad3,
-        iced::keyboard::key::PhysicalKey::Numpad4 => PhysicalKey::Numpad4,
-        iced::keyboard::key::PhysicalKey::Numpad5 => PhysicalKey::Numpad5,
-        iced::keyboard::key::PhysicalKey::Numpad6 => PhysicalKey::Numpad6,
-        iced::keyboard::key::PhysicalKey::Numpad7 => PhysicalKey::Numpad7,
-        iced::keyboard::key::PhysicalKey::Numpad8 => PhysicalKey::Numpad8,
-        iced::keyboard::key::PhysicalKey::Numpad9 => PhysicalKey::Numpad9,
-        iced::keyboard::key::PhysicalKey::NumpadAdd => PhysicalKey::NumpadAdd,
-        iced::keyboard::key::PhysicalKey::NumpadBackspace => PhysicalKey::NumpadBackspace,
-        iced::keyboard::key::PhysicalKey::NumpadClear => PhysicalKey::NumpadClear,
-        iced::keyboard::key::PhysicalKey::NumpadClearEntry => PhysicalKey::NumpadClearEntry,
-        iced::keyboard::key::PhysicalKey::NumpadComma => PhysicalKey::NumpadComma,
-        iced::keyboard::key::PhysicalKey::NumpadDecimal => PhysicalKey::NumpadDecimal,
-        iced::keyboard::key::PhysicalKey::NumpadDivide => PhysicalKey::NumpadDivide,
-        iced::keyboard::key::PhysicalKey::NumpadEnter => PhysicalKey::NumpadEnter,
-        iced::keyboard::key::PhysicalKey::NumpadEqual => PhysicalKey::NumpadEqual,
-        iced::keyboard::key::PhysicalKey::NumpadHash => PhysicalKey::NumpadHash,
-        iced::keyboard::key::PhysicalKey::NumpadMemoryAdd => PhysicalKey::NumpadMemoryAdd,
-        iced::keyboard::key::PhysicalKey::NumpadMemoryClear => PhysicalKey::NumpadMemoryClear,
-        iced::keyboard::key::PhysicalKey::NumpadMemoryRecall => PhysicalKey::NumpadMemoryRecall,
-        iced::keyboard::key::PhysicalKey::NumpadMemoryStore => PhysicalKey::NumpadMemoryStore,
-        iced::keyboard::key::PhysicalKey::NumpadMemorySubtract => PhysicalKey::NumpadMemorySubtract,
-        iced::keyboard::key::PhysicalKey::NumpadMultiply => PhysicalKey::NumpadMultiply,
-        iced::keyboard::key::PhysicalKey::NumpadParenLeft => PhysicalKey::NumpadParenLeft,
-        iced::keyboard::key::PhysicalKey::NumpadParenRight => PhysicalKey::NumpadParenRight,
-        iced::keyboard::key::PhysicalKey::NumpadStar => PhysicalKey::NumpadStar,
-        iced::keyboard::key::PhysicalKey::NumpadSubtract => PhysicalKey::NumpadSubtract,
-        iced::keyboard::key::PhysicalKey::Escape => PhysicalKey::Escape,
-        iced::keyboard::key::PhysicalKey::Fn => PhysicalKey::Fn,
-        iced::keyboard::key::PhysicalKey::FnLock => PhysicalKey::FnLock,
-        iced::keyboard::key::PhysicalKey::PrintScreen => PhysicalKey::PrintScreen,
-        iced::keyboard::key::PhysicalKey::ScrollLock => PhysicalKey::ScrollLock,
-        iced::keyboard::key::PhysicalKey::Pause => PhysicalKey::Pause,
-        iced::keyboard::key::PhysicalKey::BrowserBack => PhysicalKey::BrowserBack,
-        iced::keyboard::key::PhysicalKey::BrowserFavorites => PhysicalKey::BrowserFavorites,
-        iced::keyboard::key::PhysicalKey::BrowserForward => PhysicalKey::BrowserForward,
-        iced::keyboard::key::PhysicalKey::BrowserHome => PhysicalKey::BrowserHome,
-        iced::keyboard::key::PhysicalKey::BrowserRefresh => PhysicalKey::BrowserRefresh,
-        iced::keyboard::key::PhysicalKey::BrowserSearch => PhysicalKey::BrowserSearch,
-        iced::keyboard::key::PhysicalKey::BrowserStop => PhysicalKey::BrowserStop,
-        iced::keyboard::key::PhysicalKey::Eject => PhysicalKey::Eject,
-        iced::keyboard::key::PhysicalKey::LaunchApp1 => PhysicalKey::LaunchApp1,
-        iced::keyboard::key::PhysicalKey::LaunchApp2 => PhysicalKey::LaunchApp2,
-        iced::keyboard::key::PhysicalKey::LaunchMail => PhysicalKey::LaunchMail,
-        iced::keyboard::key::PhysicalKey::MediaPlayPause => PhysicalKey::MediaPlayPause,
-        iced::keyboard::key::PhysicalKey::MediaSelect => PhysicalKey::MediaSelect,
-        iced::keyboard::key::PhysicalKey::MediaStop => PhysicalKey::MediaStop,
-        iced::keyboard::key::PhysicalKey::MediaTrackNext => PhysicalKey::MediaTrackNext,
-        iced::keyboard::key::PhysicalKey::MediaTrackPrevious => PhysicalKey::MediaTrackPrevious,
-        iced::keyboard::key::PhysicalKey::Power => PhysicalKey::Power,
-        iced::keyboard::key::PhysicalKey::Sleep => PhysicalKey::Sleep,
-        iced::keyboard::key::PhysicalKey::AudioVolumeDown => PhysicalKey::AudioVolumeDown,
-        iced::keyboard::key::PhysicalKey::AudioVolumeMute => PhysicalKey::AudioVolumeMute,
-        iced::keyboard::key::PhysicalKey::AudioVolumeUp => PhysicalKey::AudioVolumeUp,
-        iced::keyboard::key::PhysicalKey::WakeUp => PhysicalKey::WakeUp,
-        iced::keyboard::key::PhysicalKey::Abort => PhysicalKey::Abort,
-        iced::keyboard::key::PhysicalKey::Resume => PhysicalKey::Resume,
-        iced::keyboard::key::PhysicalKey::Suspend => PhysicalKey::Suspend,
-        iced::keyboard::key::PhysicalKey::Again => PhysicalKey::Again,
-        iced::keyboard::key::PhysicalKey::Copy => PhysicalKey::Copy,
-        iced::keyboard::key::PhysicalKey::Cut => PhysicalKey::Cut,
-        iced::keyboard::key::PhysicalKey::Find => PhysicalKey::Find,
-        iced::keyboard::key::PhysicalKey::Open => PhysicalKey::Open,
-        iced::keyboard::key::PhysicalKey::Paste => PhysicalKey::Paste,
-        iced::keyboard::key::PhysicalKey::Props => PhysicalKey::Props,
-        iced::keyboard::key::PhysicalKey::Select => PhysicalKey::Select,
-        iced::keyboard::key::PhysicalKey::Undo => PhysicalKey::Undo,
-        iced::keyboard::key::PhysicalKey::Hiragana => PhysicalKey::Hiragana,
-        iced::keyboard::key::PhysicalKey::Katakana => PhysicalKey::Katakana,
-        iced::keyboard::key::PhysicalKey::F1 => PhysicalKey::F1,
-        iced::keyboard::key::PhysicalKey::F2 => PhysicalKey::F2,
-        iced::keyboard::key::PhysicalKey::F3 => PhysicalKey::F3,
-        iced::keyboard::key::PhysicalKey::F4 => PhysicalKey::F4,
-        iced::keyboard::key::PhysicalKey::F5 => PhysicalKey::F5,
-        iced::keyboard::key::PhysicalKey::F6 => PhysicalKey::F6,
-        iced::keyboard::key::PhysicalKey::F7 => PhysicalKey::F7,
-        iced::keyboard::key::PhysicalKey::F8 => PhysicalKey::F8,
-        iced::keyboard::key::PhysicalKey::F9 => PhysicalKey::F9,
-        iced::keyboard::key::PhysicalKey::F10 => PhysicalKey::F10,
-        iced::keyboard::key::PhysicalKey::F11 => PhysicalKey::F11,
-        iced::keyboard::key::PhysicalKey::F12 => PhysicalKey::F12,
-        iced::keyboard::key::PhysicalKey::F13 => PhysicalKey::F13,
-        iced::keyboard::key::PhysicalKey::F14 => PhysicalKey::F14,
-        iced::keyboard::key::PhysicalKey::F15 => PhysicalKey::F15,
-        iced::keyboard::key::PhysicalKey::F16 => PhysicalKey::F16,
-        iced::keyboard::key::PhysicalKey::F17 => PhysicalKey::F17,
-        iced::keyboard::key::PhysicalKey::F18 => PhysicalKey::F18,
-        iced::keyboard::key::PhysicalKey::F19 => PhysicalKey::F19,
-        iced::keyboard::key::PhysicalKey::F20 => PhysicalKey::F20,
-        iced::keyboard::key::PhysicalKey::F21 => PhysicalKey::F21,
-        iced::keyboard::key::PhysicalKey::F22 => PhysicalKey::F22,
-        iced::keyboard::key::PhysicalKey::F23 => PhysicalKey::F23,
-        iced::keyboard::key::PhysicalKey::F24 => PhysicalKey::F24,
-        iced::keyboard::key::PhysicalKey::F25 => PhysicalKey::F25,
-        iced::keyboard::key::PhysicalKey::F26 => PhysicalKey::F26,
-        iced::keyboard::key::PhysicalKey::F27 => PhysicalKey::F27,
-        iced::keyboard::key::PhysicalKey::F28 => PhysicalKey::F28,
-        iced::keyboard::key::PhysicalKey::F29 => PhysicalKey::F29,
-        iced::keyboard::key::PhysicalKey::F30 => PhysicalKey::F30,
-        iced::keyboard::key::PhysicalKey::F31 => PhysicalKey::F31,
-        iced::keyboard::key::PhysicalKey::F32 => PhysicalKey::F32,
-        iced::keyboard::key::PhysicalKey::F33 => PhysicalKey::F33,
-        iced::keyboard::key::PhysicalKey::F34 => PhysicalKey::F34,
-        iced::keyboard::key::PhysicalKey::F35 => PhysicalKey::F35,
-        iced::keyboard::key::PhysicalKey::Meta
-        | iced::keyboard::key::PhysicalKey::AltLeft
-        | iced::keyboard::key::PhysicalKey::AltRight
-        | iced::keyboard::key::PhysicalKey::ControlLeft
-        | iced::keyboard::key::PhysicalKey::ControlRight
-        | iced::keyboard::key::PhysicalKey::ShiftRight
-        | iced::keyboard::key::PhysicalKey::ShiftLeft
-        | iced::keyboard::key::PhysicalKey::SuperLeft
-        | iced::keyboard::key::PhysicalKey::SuperRight
-        | iced::keyboard::key::PhysicalKey::Hyper
-        | iced::keyboard::key::PhysicalKey::Turbo
-        | iced::keyboard::key::PhysicalKey::Unidentified
+        iced::keyboard::key::Code::Backquote => PhysicalKey::Backquote,
+        iced::keyboard::key::Code::Backslash => PhysicalKey::Backslash,
+        iced::keyboard::key::Code::BracketLeft => PhysicalKey::BracketLeft,
+        iced::keyboard::key::Code::BracketRight => PhysicalKey::BracketRight,
+        iced::keyboard::key::Code::Comma => PhysicalKey::Comma,
+        iced::keyboard::key::Code::Digit0 => PhysicalKey::Digit0,
+        iced::keyboard::key::Code::Digit1 => PhysicalKey::Digit1,
+        iced::keyboard::key::Code::Digit2 => PhysicalKey::Digit2,
+        iced::keyboard::key::Code::Digit3 => PhysicalKey::Digit3,
+        iced::keyboard::key::Code::Digit4 => PhysicalKey::Digit4,
+        iced::keyboard::key::Code::Digit5 => PhysicalKey::Digit5,
+        iced::keyboard::key::Code::Digit6 => PhysicalKey::Digit6,
+        iced::keyboard::key::Code::Digit7 => PhysicalKey::Digit7,
+        iced::keyboard::key::Code::Digit8 => PhysicalKey::Digit8,
+        iced::keyboard::key::Code::Digit9 => PhysicalKey::Digit9,
+        iced::keyboard::key::Code::Equal => PhysicalKey::Equal,
+        iced::keyboard::key::Code::IntlBackslash => PhysicalKey::IntlBackslash,
+        iced::keyboard::key::Code::IntlRo => PhysicalKey::IntlRo,
+        iced::keyboard::key::Code::IntlYen => PhysicalKey::IntlYen,
+        iced::keyboard::key::Code::KeyA => PhysicalKey::KeyA,
+        iced::keyboard::key::Code::KeyB => PhysicalKey::KeyB,
+        iced::keyboard::key::Code::KeyC => PhysicalKey::KeyC,
+        iced::keyboard::key::Code::KeyD => PhysicalKey::KeyD,
+        iced::keyboard::key::Code::KeyE => PhysicalKey::KeyE,
+        iced::keyboard::key::Code::KeyF => PhysicalKey::KeyF,
+        iced::keyboard::key::Code::KeyG => PhysicalKey::KeyG,
+        iced::keyboard::key::Code::KeyH => PhysicalKey::KeyH,
+        iced::keyboard::key::Code::KeyI => PhysicalKey::KeyI,
+        iced::keyboard::key::Code::KeyJ => PhysicalKey::KeyJ,
+        iced::keyboard::key::Code::KeyK => PhysicalKey::KeyK,
+        iced::keyboard::key::Code::KeyL => PhysicalKey::KeyL,
+        iced::keyboard::key::Code::KeyM => PhysicalKey::KeyM,
+        iced::keyboard::key::Code::KeyN => PhysicalKey::KeyN,
+        iced::keyboard::key::Code::KeyO => PhysicalKey::KeyO,
+        iced::keyboard::key::Code::KeyP => PhysicalKey::KeyP,
+        iced::keyboard::key::Code::KeyQ => PhysicalKey::KeyQ,
+        iced::keyboard::key::Code::KeyR => PhysicalKey::KeyR,
+        iced::keyboard::key::Code::KeyS => PhysicalKey::KeyS,
+        iced::keyboard::key::Code::KeyT => PhysicalKey::KeyT,
+        iced::keyboard::key::Code::KeyU => PhysicalKey::KeyU,
+        iced::keyboard::key::Code::KeyV => PhysicalKey::KeyV,
+        iced::keyboard::key::Code::KeyW => PhysicalKey::KeyW,
+        iced::keyboard::key::Code::KeyX => PhysicalKey::KeyX,
+        iced::keyboard::key::Code::KeyY => PhysicalKey::KeyY,
+        iced::keyboard::key::Code::KeyZ => PhysicalKey::KeyZ,
+        iced::keyboard::key::Code::Minus => PhysicalKey::Minus,
+        iced::keyboard::key::Code::Period => PhysicalKey::Period,
+        iced::keyboard::key::Code::Quote => PhysicalKey::Quote,
+        iced::keyboard::key::Code::Semicolon => PhysicalKey::Semicolon,
+        iced::keyboard::key::Code::Slash => PhysicalKey::Slash,
+        iced::keyboard::key::Code::Backspace => PhysicalKey::Backspace,
+        iced::keyboard::key::Code::CapsLock => PhysicalKey::CapsLock,
+        iced::keyboard::key::Code::ContextMenu => PhysicalKey::ContextMenu,
+        iced::keyboard::key::Code::Enter => PhysicalKey::Enter,
+        iced::keyboard::key::Code::Space => PhysicalKey::Space,
+        iced::keyboard::key::Code::Tab => PhysicalKey::Tab,
+        iced::keyboard::key::Code::Convert => PhysicalKey::Convert,
+        iced::keyboard::key::Code::KanaMode => PhysicalKey::KanaMode,
+        iced::keyboard::key::Code::Lang1 => PhysicalKey::Lang1,
+        iced::keyboard::key::Code::Lang2 => PhysicalKey::Lang2,
+        iced::keyboard::key::Code::Lang3 => PhysicalKey::Lang3,
+        iced::keyboard::key::Code::Lang4 => PhysicalKey::Lang4,
+        iced::keyboard::key::Code::Lang5 => PhysicalKey::Lang5,
+        iced::keyboard::key::Code::NonConvert => PhysicalKey::NonConvert,
+        iced::keyboard::key::Code::Delete => PhysicalKey::Delete,
+        iced::keyboard::key::Code::End => PhysicalKey::End,
+        iced::keyboard::key::Code::Help => PhysicalKey::Help,
+        iced::keyboard::key::Code::Home => PhysicalKey::Home,
+        iced::keyboard::key::Code::Insert => PhysicalKey::Insert,
+        iced::keyboard::key::Code::PageDown => PhysicalKey::PageDown,
+        iced::keyboard::key::Code::PageUp => PhysicalKey::PageUp,
+        iced::keyboard::key::Code::ArrowDown => PhysicalKey::ArrowDown,
+        iced::keyboard::key::Code::ArrowLeft => PhysicalKey::ArrowLeft,
+        iced::keyboard::key::Code::ArrowRight => PhysicalKey::ArrowRight,
+        iced::keyboard::key::Code::ArrowUp => PhysicalKey::ArrowUp,
+        iced::keyboard::key::Code::NumLock => PhysicalKey::NumLock,
+        iced::keyboard::key::Code::Numpad0 => PhysicalKey::Numpad0,
+        iced::keyboard::key::Code::Numpad1 => PhysicalKey::Numpad1,
+        iced::keyboard::key::Code::Numpad2 => PhysicalKey::Numpad2,
+        iced::keyboard::key::Code::Numpad3 => PhysicalKey::Numpad3,
+        iced::keyboard::key::Code::Numpad4 => PhysicalKey::Numpad4,
+        iced::keyboard::key::Code::Numpad5 => PhysicalKey::Numpad5,
+        iced::keyboard::key::Code::Numpad6 => PhysicalKey::Numpad6,
+        iced::keyboard::key::Code::Numpad7 => PhysicalKey::Numpad7,
+        iced::keyboard::key::Code::Numpad8 => PhysicalKey::Numpad8,
+        iced::keyboard::key::Code::Numpad9 => PhysicalKey::Numpad9,
+        iced::keyboard::key::Code::NumpadAdd => PhysicalKey::NumpadAdd,
+        iced::keyboard::key::Code::NumpadBackspace => PhysicalKey::NumpadBackspace,
+        iced::keyboard::key::Code::NumpadClear => PhysicalKey::NumpadClear,
+        iced::keyboard::key::Code::NumpadClearEntry => PhysicalKey::NumpadClearEntry,
+        iced::keyboard::key::Code::NumpadComma => PhysicalKey::NumpadComma,
+        iced::keyboard::key::Code::NumpadDecimal => PhysicalKey::NumpadDecimal,
+        iced::keyboard::key::Code::NumpadDivide => PhysicalKey::NumpadDivide,
+        iced::keyboard::key::Code::NumpadEnter => PhysicalKey::NumpadEnter,
+        iced::keyboard::key::Code::NumpadEqual => PhysicalKey::NumpadEqual,
+        iced::keyboard::key::Code::NumpadHash => PhysicalKey::NumpadHash,
+        iced::keyboard::key::Code::NumpadMemoryAdd => PhysicalKey::NumpadMemoryAdd,
+        iced::keyboard::key::Code::NumpadMemoryClear => PhysicalKey::NumpadMemoryClear,
+        iced::keyboard::key::Code::NumpadMemoryRecall => PhysicalKey::NumpadMemoryRecall,
+        iced::keyboard::key::Code::NumpadMemoryStore => PhysicalKey::NumpadMemoryStore,
+        iced::keyboard::key::Code::NumpadMemorySubtract => PhysicalKey::NumpadMemorySubtract,
+        iced::keyboard::key::Code::NumpadMultiply => PhysicalKey::NumpadMultiply,
+        iced::keyboard::key::Code::NumpadParenLeft => PhysicalKey::NumpadParenLeft,
+        iced::keyboard::key::Code::NumpadParenRight => PhysicalKey::NumpadParenRight,
+        iced::keyboard::key::Code::NumpadStar => PhysicalKey::NumpadStar,
+        iced::keyboard::key::Code::NumpadSubtract => PhysicalKey::NumpadSubtract,
+        iced::keyboard::key::Code::Escape => PhysicalKey::Escape,
+        iced::keyboard::key::Code::Fn => PhysicalKey::Fn,
+        iced::keyboard::key::Code::FnLock => PhysicalKey::FnLock,
+        iced::keyboard::key::Code::PrintScreen => PhysicalKey::PrintScreen,
+        iced::keyboard::key::Code::ScrollLock => PhysicalKey::ScrollLock,
+        iced::keyboard::key::Code::Pause => PhysicalKey::Pause,
+        iced::keyboard::key::Code::BrowserBack => PhysicalKey::BrowserBack,
+        iced::keyboard::key::Code::BrowserFavorites => PhysicalKey::BrowserFavorites,
+        iced::keyboard::key::Code::BrowserForward => PhysicalKey::BrowserForward,
+        iced::keyboard::key::Code::BrowserHome => PhysicalKey::BrowserHome,
+        iced::keyboard::key::Code::BrowserRefresh => PhysicalKey::BrowserRefresh,
+        iced::keyboard::key::Code::BrowserSearch => PhysicalKey::BrowserSearch,
+        iced::keyboard::key::Code::BrowserStop => PhysicalKey::BrowserStop,
+        iced::keyboard::key::Code::Eject => PhysicalKey::Eject,
+        iced::keyboard::key::Code::LaunchApp1 => PhysicalKey::LaunchApp1,
+        iced::keyboard::key::Code::LaunchApp2 => PhysicalKey::LaunchApp2,
+        iced::keyboard::key::Code::LaunchMail => PhysicalKey::LaunchMail,
+        iced::keyboard::key::Code::MediaPlayPause => PhysicalKey::MediaPlayPause,
+        iced::keyboard::key::Code::MediaSelect => PhysicalKey::MediaSelect,
+        iced::keyboard::key::Code::MediaStop => PhysicalKey::MediaStop,
+        iced::keyboard::key::Code::MediaTrackNext => PhysicalKey::MediaTrackNext,
+        iced::keyboard::key::Code::MediaTrackPrevious => PhysicalKey::MediaTrackPrevious,
+        iced::keyboard::key::Code::Power => PhysicalKey::Power,
+        iced::keyboard::key::Code::Sleep => PhysicalKey::Sleep,
+        iced::keyboard::key::Code::AudioVolumeDown => PhysicalKey::AudioVolumeDown,
+        iced::keyboard::key::Code::AudioVolumeMute => PhysicalKey::AudioVolumeMute,
+        iced::keyboard::key::Code::AudioVolumeUp => PhysicalKey::AudioVolumeUp,
+        iced::keyboard::key::Code::WakeUp => PhysicalKey::WakeUp,
+        iced::keyboard::key::Code::Abort => PhysicalKey::Abort,
+        iced::keyboard::key::Code::Resume => PhysicalKey::Resume,
+        iced::keyboard::key::Code::Suspend => PhysicalKey::Suspend,
+        iced::keyboard::key::Code::Again => PhysicalKey::Again,
+        iced::keyboard::key::Code::Copy => PhysicalKey::Copy,
+        iced::keyboard::key::Code::Cut => PhysicalKey::Cut,
+        iced::keyboard::key::Code::Find => PhysicalKey::Find,
+        iced::keyboard::key::Code::Open => PhysicalKey::Open,
+        iced::keyboard::key::Code::Paste => PhysicalKey::Paste,
+        iced::keyboard::key::Code::Props => PhysicalKey::Props,
+        iced::keyboard::key::Code::Select => PhysicalKey::Select,
+        iced::keyboard::key::Code::Undo => PhysicalKey::Undo,
+        iced::keyboard::key::Code::Hiragana => PhysicalKey::Hiragana,
+        iced::keyboard::key::Code::Katakana => PhysicalKey::Katakana,
+        iced::keyboard::key::Code::F1 => PhysicalKey::F1,
+        iced::keyboard::key::Code::F2 => PhysicalKey::F2,
+        iced::keyboard::key::Code::F3 => PhysicalKey::F3,
+        iced::keyboard::key::Code::F4 => PhysicalKey::F4,
+        iced::keyboard::key::Code::F5 => PhysicalKey::F5,
+        iced::keyboard::key::Code::F6 => PhysicalKey::F6,
+        iced::keyboard::key::Code::F7 => PhysicalKey::F7,
+        iced::keyboard::key::Code::F8 => PhysicalKey::F8,
+        iced::keyboard::key::Code::F9 => PhysicalKey::F9,
+        iced::keyboard::key::Code::F10 => PhysicalKey::F10,
+        iced::keyboard::key::Code::F11 => PhysicalKey::F11,
+        iced::keyboard::key::Code::F12 => PhysicalKey::F12,
+        iced::keyboard::key::Code::F13 => PhysicalKey::F13,
+        iced::keyboard::key::Code::F14 => PhysicalKey::F14,
+        iced::keyboard::key::Code::F15 => PhysicalKey::F15,
+        iced::keyboard::key::Code::F16 => PhysicalKey::F16,
+        iced::keyboard::key::Code::F17 => PhysicalKey::F17,
+        iced::keyboard::key::Code::F18 => PhysicalKey::F18,
+        iced::keyboard::key::Code::F19 => PhysicalKey::F19,
+        iced::keyboard::key::Code::F20 => PhysicalKey::F20,
+        iced::keyboard::key::Code::F21 => PhysicalKey::F21,
+        iced::keyboard::key::Code::F22 => PhysicalKey::F22,
+        iced::keyboard::key::Code::F23 => PhysicalKey::F23,
+        iced::keyboard::key::Code::F24 => PhysicalKey::F24,
+        iced::keyboard::key::Code::F25 => PhysicalKey::F25,
+        iced::keyboard::key::Code::F26 => PhysicalKey::F26,
+        iced::keyboard::key::Code::F27 => PhysicalKey::F27,
+        iced::keyboard::key::Code::F28 => PhysicalKey::F28,
+        iced::keyboard::key::Code::F29 => PhysicalKey::F29,
+        iced::keyboard::key::Code::F30 => PhysicalKey::F30,
+        iced::keyboard::key::Code::F31 => PhysicalKey::F31,
+        iced::keyboard::key::Code::F32 => PhysicalKey::F32,
+        iced::keyboard::key::Code::F33 => PhysicalKey::F33,
+        iced::keyboard::key::Code::F34 => PhysicalKey::F34,
+        iced::keyboard::key::Code::F35 => PhysicalKey::F35,
+        iced::keyboard::key::Code::Meta
+        | iced::keyboard::key::Code::AltLeft
+        | iced::keyboard::key::Code::AltRight
+        | iced::keyboard::key::Code::ControlLeft
+        | iced::keyboard::key::Code::ControlRight
+        | iced::keyboard::key::Code::ShiftRight
+        | iced::keyboard::key::Code::ShiftLeft
+        | iced::keyboard::key::Code::SuperLeft
+        | iced::keyboard::key::Code::SuperRight
+        | iced::keyboard::key::Code::Hyper
+        | iced::keyboard::key::Code::Turbo
         | _ => {
             return None
         }

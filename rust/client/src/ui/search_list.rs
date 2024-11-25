@@ -104,7 +104,7 @@ impl<'a, Message> Component<Message, GauntletComplexTheme> for SearchList<'a, Me
                 button_content.push(sub_text);
 
                 let button_content: Element<_> = row(button_content)
-                    .align_items(Alignment::Center)
+                    .align_y(Alignment::Center)
                     .into();
 
                 let style = match self.focused_search_result {

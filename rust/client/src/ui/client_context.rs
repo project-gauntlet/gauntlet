@@ -3,7 +3,7 @@ use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
 use crate::ui::widget_container::PluginWidgetContainer;
 use crate::ui::AppMsg;
 use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
-use iced::Command;
+use iced::Task;
 use std::collections::HashMap;
 
 pub struct ClientContext {
@@ -112,15 +112,15 @@ impl ClientContext {
         }
     }
 
-    pub fn append_text(&self, text: &str) -> Command<AppMsg> {
+    pub fn append_text(&self, text: &str) -> Task<AppMsg> {
         self.view.append_text(text)
     }
 
-    pub fn backspace_text(&self) -> Command<AppMsg> {
+    pub fn backspace_text(&self) -> Task<AppMsg> {
         self.view.backspace_text()
     }
 
-    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Command<AppMsg> {
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
         self.view.focus_search_bar(widget_id)
     }
 
@@ -132,19 +132,19 @@ impl ClientContext {
         self.view.get_action_ids()
     }
 
-    pub fn focus_up(&self) -> Command<AppMsg> {
+    pub fn focus_up(&self) -> Task<AppMsg> {
         self.view.focus_up()
     }
 
-    pub fn focus_down(&self) -> Command<AppMsg> {
+    pub fn focus_down(&self) -> Task<AppMsg> {
         self.view.focus_down()
     }
 
-    pub fn focus_left(&self) -> Command<AppMsg> {
+    pub fn focus_left(&self) -> Task<AppMsg> {
         self.view.focus_left()
     }
 
-    pub fn focus_right(&self) -> Command<AppMsg> {
+    pub fn focus_right(&self) -> Task<AppMsg> {
         self.view.focus_right()
     }
 }

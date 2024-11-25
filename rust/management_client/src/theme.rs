@@ -1,4 +1,4 @@
-use iced::application::{Appearance, StyleSheet};
+use iced::application::{Appearance, DefaultStyle};
 
 pub mod container;
 pub mod text;
@@ -11,17 +11,14 @@ pub mod checkbox;
 pub mod pick_list;
 pub mod scrollable;
 pub mod shortcut_selector;
-mod spinner;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletSettingsTheme>;
 
 #[derive(Default)]
 pub struct GauntletSettingsTheme;
 
-impl StyleSheet for GauntletSettingsTheme {
-    type Style = ();
-
-    fn appearance(&self, _: &Self::Style) -> Appearance {
+impl DefaultStyle for GauntletSettingsTheme {
+    fn default_style(&self) -> Appearance {
         Appearance {
             background_color: BACKGROUND_DARKEST.to_iced(),
             text_color: TEXT_LIGHTEST.to_iced(),

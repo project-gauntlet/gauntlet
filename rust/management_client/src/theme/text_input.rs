@@ -1,75 +1,48 @@
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, NOT_INTENDED_TO_BE_USED, TEXT_DARKER, TEXT_LIGHTEST, TRANSPARENT};
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, TEXT_DARKER, TEXT_LIGHTEST, TRANSPARENT};
 use iced::widget::text_input;
-use iced::widget::text_input::Appearance;
-use iced::{Border, Color};
+use iced::widget::text_input::{Status, Style};
+use iced::{Background, Border};
 
-#[derive(Default)]
 pub enum TextInputStyle {
-    #[default]
     FormInput
 }
 
-//noinspection RsSortImplTraitMembers
-impl text_input::StyleSheet for GauntletSettingsTheme {
-    type Style = TextInputStyle;
+impl text_input::Catalog for GauntletSettingsTheme {
+    type Class<'a> = TextInputStyle;
 
-    fn active(&self, style: &Self::Style) -> Appearance {
-        match style {
-            TextInputStyle::FormInput => {
-                Appearance {
-                    background: TRANSPARENT.to_iced().into(),
-                    border: Border {
-                        radius: 4.0.into(),
-                        width: 1.0,
-                        color: BACKGROUND_DARKER.to_iced().into(),
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            }
-        }
+    fn default<'a>() -> Self::Class<'a> {
+        TextInputStyle::FormInput
     }
 
-    fn focused(&self, style: &Self::Style) -> Appearance {
-        match style {
-            TextInputStyle::FormInput => {
-                Appearance {
-                    background: BACKGROUND_DARKER.to_iced().into(),
-                    border: Border {
-                        radius: 4.0.into(),
-                        width: 1.0,
-                        color: BACKGROUND_DARKER.to_iced().into(),
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            }
-        }
-    }
-
-    fn disabled(&self, _: &Self::Style) -> Appearance {
-        Appearance {
-            background: BACKGROUND_DARKER.to_iced().into(),
+    fn style(&self, _class: &Self::Class<'_>, status: Status) -> Style {
+        let active = Style {
+            background: Background::Color(TRANSPARENT.to_iced().into()),
             border: Border {
                 radius: 4.0.into(),
                 width: 1.0,
                 color: BACKGROUND_DARKER.to_iced().into(),
             },
-            icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
+            icon: TEXT_LIGHTEST.to_iced(),
+            placeholder: TEXT_DARKER.to_iced(),
+            value: TEXT_LIGHTEST.to_iced(),
+            selection: BACKGROUND_DARKER.to_iced(),
+        };
+
+        match status {
+            Status::Active => active,
+            Status::Hovered => Style {
+                background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
+                ..active
+            },
+            Status::Focused => Style {
+                background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
+                ..active
+            },
+            Status::Disabled => Style {
+                background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
+                value: active.placeholder,
+                ..active
+            },
         }
-    }
-
-    fn placeholder_color(&self, _: &Self::Style) -> Color {
-        TEXT_DARKER.to_iced()
-    }
-
-    fn value_color(&self, _: &Self::Style) -> Color {
-        TEXT_LIGHTEST.to_iced()
-    }
-
-    fn disabled_color(&self, style: &Self::Style) -> Color {
-        self.placeholder_color(style)
-    }
-
-    fn selection_color(&self, _: &Self::Style) -> Color {
-        BACKGROUND_DARKER.to_iced()
     }
 }

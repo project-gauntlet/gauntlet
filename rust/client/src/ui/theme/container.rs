@@ -1,8 +1,6 @@
-use container::Appearance;
-use iced::{Border, Color, Length, Padding, Renderer};
-use iced::border::Radius;
+use iced::{Border, Color, Length, Renderer};
 use iced::widget::{Container, container};
-
+use iced::widget::container::Style;
 use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 pub enum ContainerStyle {
@@ -62,9 +60,7 @@ pub enum ContainerStyle {
     RootBottomPanelPrimaryActionButton,
 }
 
-#[derive(Default)]
 pub enum ContainerStyleInner {
-    #[default]
     Transparent,
 
     Tooltip,
@@ -81,18 +77,22 @@ pub enum ContainerStyleInner {
 }
 
 
-impl container::StyleSheet for GauntletComplexTheme {
-    type Style = ContainerStyleInner;
+impl container::Catalog for GauntletComplexTheme {
+    type Class<'a> = ContainerStyleInner;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        match style {
+    fn default<'a>() -> Self::Class<'a> {
+        ContainerStyleInner::Transparent
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        match class {
             ContainerStyleInner::Transparent => Default::default(),
             ContainerStyleInner::ActionPanel => {
                 let root_theme = &self.root;
                 let panel_theme = &self.action_panel;
                 let background_color = &panel_theme.background_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -109,7 +109,7 @@ impl container::StyleSheet for GauntletComplexTheme {
                 let background_color = &theme.background_color;
                 let border_color = &theme.border_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -125,7 +125,7 @@ impl container::StyleSheet for GauntletComplexTheme {
                 let background_color = &theme.background_color;
                 let border_color = &theme.border_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -140,7 +140,7 @@ impl container::StyleSheet for GauntletComplexTheme {
                 let theme = &self.root;
                 let background_color = &theme.background_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -155,7 +155,7 @@ impl container::StyleSheet for GauntletComplexTheme {
                 let theme = &self.root;
                 let background_color = &theme.background_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -171,7 +171,7 @@ impl container::StyleSheet for GauntletComplexTheme {
                 let tooltip_theme = &self.tooltip;
                 let background_color = &tooltip_theme.background_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -187,47 +187,47 @@ impl container::StyleSheet for GauntletComplexTheme {
 
                 // TODO this border radius doesn't work on image, for some reason
 
-                Appearance {
+                Style {
                     border: Border {
                         radius: theme.border_radius.into(),
                         width: 0.0,
                         color: Color::TRANSPARENT,
                     },
-                    ..Appearance::default()
+                    ..Style::default()
                 }
             }
             ContainerStyleInner::RootBottomPanel => {
                 let root_theme = &self.root;
                 let panel_theme = &self.root_bottom_panel;
 
-                Appearance {
+                Style {
                     background: Some(panel_theme.background_color.to_iced().into()),
                     border: Border {
-                        radius: Radius::from([0.0, 0.0, root_theme.border_radius, root_theme.border_radius]),
+                        radius: common_ui::radius(0.0, 0.0, root_theme.border_radius, root_theme.border_radius),
                         width: root_theme.border_width,
                         color: root_theme.border_color.to_iced(),
                     },
-                    ..Appearance::default()
+                    ..Style::default()
                 }
             }
             ContainerStyleInner::InlineInner => {
                 let theme = &self.inline_inner;
 
-                Appearance {
+                Style {
                     background: Some(theme.background_color.to_iced().into()),
                     border: Border {
                         radius: theme.border_radius.into(),
                         width: theme.border_width,
                         color: theme.border_color.to_iced(),
                     },
-                    ..Appearance::default()
+                    ..Style::default()
                 }
             }
             ContainerStyleInner::Hud => {
                 let theme = &self.hud;
                 let background_color = &theme.background_color;
 
-                Appearance {
+                Style {
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -256,15 +256,15 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.action_panel_title.padding.to_iced())
             }
             ContainerStyle::ActionShortcutModifier => {
-                self.style(ContainerStyleInner::ActionShortcutModifier)
+                self.class(ContainerStyleInner::ActionShortcutModifier)
                     .padding(theme.action_shortcut_modifier.padding.to_iced())
             }
             ContainerStyle::ActionShortcutModifiersInit => {
                 let horizontal_spacing = theme.action_shortcut_modifier.spacing;
-                self.padding(Padding::from([0.0, horizontal_spacing, 0.0, 0.0]))
+                self.padding(common_ui::padding(0.0, horizontal_spacing, 0.0, 0.0))
             }
             ContainerStyle::ActionPanel => {
-                self.style(ContainerStyleInner::ActionPanel)
+                self.class(ContainerStyleInner::ActionPanel)
                     .padding(theme.action_panel.padding.to_iced())
                     .height(Length::Fixed(250.0))
                     .width(Length::Fixed(350.0))
@@ -282,7 +282,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.metadata_item_value.padding.to_iced())
             }
             ContainerStyle::RootBottomPanel => {
-                self.style(ContainerStyleInner::RootBottomPanel)
+                self.class(ContainerStyleInner::RootBottomPanel)
                     .padding(theme.root_bottom_panel.padding.to_iced())
             }
             ContainerStyle::RootTopPanel => {
@@ -307,11 +307,11 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.content_code_block.padding.to_iced())
             }
             ContainerStyle::ContentCodeBlockText => {
-                self.style(ContainerStyleInner::ContentCodeBlockText)
+                self.class(ContainerStyleInner::ContentCodeBlockText)
                     .padding(theme.content_code_block_text.padding.to_iced())
             }
             ContainerStyle::ContentImage => {
-                self.style(ContainerStyleInner::ContentImage)
+                self.class(ContainerStyleInner::ContentImage)
                     .padding(theme.content_image.padding.to_iced())
             }
             ContainerStyle::DetailContentInner => {
@@ -340,7 +340,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                     .height(120)
                     .max_height(120)
                     .padding(theme.inline_inner.padding.to_iced())
-                    .style(ContainerStyleInner::InlineInner)
+                    .class(ContainerStyleInner::InlineInner)
             }
             ContainerStyle::InlineName => {
                 self.padding(theme.inline_name.padding.to_iced())
@@ -349,7 +349,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.empty_view_image.padding.to_iced())
             }
             ContainerStyle::Main => {
-                self.style(ContainerStyleInner::Main)
+                self.class(ContainerStyleInner::Main)
             }
             ContainerStyle::MainListItemText => {
                 self.padding(theme.main_list_item_text.padding.to_iced())
@@ -370,7 +370,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.main_search_bar.padding.to_iced())
             }
             ContainerStyle::Root => {
-                self.style(ContainerStyleInner::Root)
+                self.class(ContainerStyleInner::Root)
             }
             ContainerStyle::PluginErrorViewTitle => {
                 self.padding(theme.plugin_error_view_title.padding.to_iced())
@@ -406,14 +406,14 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.root_bottom_panel_primary_action_text.padding.to_iced())
             }
             ContainerStyle::RootBottomPanelPrimaryActionButton => {
-                self.padding(Padding::from([0.0, theme.root_bottom_panel.spacing, 0.0, 0.0]))
+                self.padding(common_ui::padding(0.0, theme.root_bottom_panel.spacing, 0.0, 0.0))
             }
             ContainerStyle::TextAccessory => {
                 self.padding(theme.text_accessory.padding.to_iced())
             }
             ContainerStyle::TextAccessoryIcon => {
                 let horizontal_spacing = theme.text_accessory.spacing;
-                self.padding(Padding::from([0.0, horizontal_spacing, 0.0, 0.0]))
+                self.padding(common_ui::padding(0.0, horizontal_spacing, 0.0, 0.0))
             }
             ContainerStyle::IconAccessory => {
                 self.padding(theme.icon_accessory.padding.to_iced())
@@ -422,7 +422,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.hud_content.padding.to_iced())
             }
             ContainerStyle::Hud => {
-                self.style(ContainerStyleInner::Hud)
+                self.class(ContainerStyleInner::Hud)
             }
         }.into()
     }

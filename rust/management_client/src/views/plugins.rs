@@ -2,11 +2,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use iced::{Alignment, Command, Length, Padding};
-use iced::widget::{button, column, container, row, scrollable, text, text_input, vertical_rule};
+use iced::{padding, Alignment, Length, Padding, Task};
+use iced::widget::{button, column, container, row, scrollable, text, text_input, value, vertical_rule};
 use iced::widget::text::Shaping;
-use iced_aw::core::icons;
-
+use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use common::{settings_env_data_from_string, SettingsEnvData};
 use common::model::{EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin};
 use common::rpc::backend_api::{BackendApi, BackendApiError};
@@ -85,11 +84,11 @@ impl ManagementAppPluginsState {
         }
     }
 
-    pub fn update(&mut self, message: ManagementAppPluginMsgIn) -> Command<ManagementAppPluginMsgOut> {
+    pub fn update(&mut self, message: ManagementAppPluginMsgIn) -> Task<ManagementAppPluginMsgOut> {
         let backend_api = match &self.backend_api {
             Some(backend_api) => backend_api.clone(),
             None => {
-                return Command::none()
+                return Task::none()
             }
         };
 
@@ -102,7 +101,7 @@ impl ManagementAppPluginsState {
                             PluginTableMsgOut::SetPluginState { enabled, plugin_id } => {
                                 let mut backend_client = backend_api.clone();
 
-                                Command::perform(
+                                Task::perform(
                                     async move {
                                         backend_client.set_plugin_state(plugin_id, enabled)
                                             .await?;
@@ -118,7 +117,7 @@ impl ManagementAppPluginsState {
                             PluginTableMsgOut::SetEntrypointState { enabled, plugin_id, entrypoint_id } => {
                                 let mut backend_client = backend_api.clone();
 
-                                Command::perform(
+                                Task::perform(
                                     async move {
                                         backend_client.set_entrypoint_state(plugin_id, entrypoint_id, enabled)
                                             .await?;
@@ -132,7 +131,7 @@ impl ManagementAppPluginsState {
                                 )
                             }
                             PluginTableMsgOut::SelectItem(selected_item) => {
-                                Command::perform(async move { selected_item }, ManagementAppPluginMsgOut::SelectedItem)
+                                Task::perform(async move { selected_item }, ManagementAppPluginMsgOut::SelectedItem)
                             }
                             PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
                                 let plugins = {
@@ -145,7 +144,7 @@ impl ManagementAppPluginsState {
 
                                 self.apply_plugin_reload(plugins);
 
-                                Command::none()
+                                Task::none()
                             }
                         }
                     }
@@ -159,7 +158,7 @@ impl ManagementAppPluginsState {
 
                         let mut backend_api = backend_api.clone();
 
-                        Command::perform(
+                        Task::perform(
                             async move {
                                 backend_api.set_preference_value(plugin_id, entrypoint_id, id, user_data.to_user_data())
                                     .await?;
@@ -174,7 +173,7 @@ impl ManagementAppPluginsState {
             ManagementAppPluginMsgIn::RequestPluginReload => {
                 let mut backend_api = backend_api.clone();
 
-                Command::perform(
+                Task::perform(
                     async move {
                         let plugins = backend_api.plugins()
                             .await?;
@@ -187,14 +186,14 @@ impl ManagementAppPluginsState {
             ManagementAppPluginMsgIn::PluginsReloaded(plugins) => {
                 self.apply_plugin_reload(plugins);
 
-                Command::none()
+                Task::none()
             }
             ManagementAppPluginMsgIn::RemovePlugin { plugin_id } => {
                 self.selected_item = SelectedItem::None;
 
                 let mut backend_client = backend_api.clone();
 
-                Command::perform(
+                Task::perform(
                     async move {
                         backend_client.remove_plugin(plugin_id)
                             .await?;
@@ -208,18 +207,15 @@ impl ManagementAppPluginsState {
                 )
             }
             ManagementAppPluginMsgIn::DownloadPlugin { plugin_id } => {
-                Command::perform(
-                    async {  },
-                    |_| ManagementAppPluginMsgOut::DownloadPlugin { plugin_id }
-                )
+                Task::done(ManagementAppPluginMsgOut::DownloadPlugin { plugin_id })
             }
             ManagementAppPluginMsgIn::SelectItem(selected_item) => {
                 self.selected_item = selected_item;
 
-                Command::none()
+                Task::none()
             }
             ManagementAppPluginMsgIn::Noop => {
-                Command::none()
+                Task::none()
             }
         }
     }
@@ -247,7 +243,7 @@ impl ManagementAppPluginsState {
         let mut plugin_data = self.plugin_data.borrow_mut();
 
         plugin_data.plugins_state = plugins.iter()
-            .map(|(id, plugin)| {
+            .map(|(id, _plugin)| {
                 let show_entrypoints = plugin_data.plugins_state
                     .get(&id)
                     .map(|data| data.show_entrypoints)
@@ -284,11 +280,11 @@ impl ManagementAppPluginsState {
                 let text3: Element<_> = text("Click '+' to add new plugin").into();
 
                 let text_column = column(vec![text1, text2, text3])
-                    .align_items(Alignment::Center);
+                    .align_x(Alignment::Center);
 
                 container(text_column)
-                    .center_y()
-                    .center_x()
+                    .align_y(Alignment::Center)
+                    .align_x(Alignment::Center)
                     .height(Length::Fill)
                     .width(Length::Fill)
                     .into()
@@ -303,27 +299,27 @@ impl ManagementAppPluginsState {
                         let loading_text: Element<_> = text("Loading...").into();
 
                         container(loading_text)
-                            .center_y()
-                            .center_x()
+                            .align_y(Alignment::Center)
+                            .align_x(Alignment::Center)
                             .height(Length::Fill)
                             .width(Length::Fill)
                             .into()
                     }
                     Some(plugin) => {
-                        let name = text(&plugin.plugin_name)
+                        let name = text(plugin.plugin_name.to_string())
                             .shaping(Shaping::Advanced);
 
                         let name = container(name)
                             .padding(Padding::new(8.0))
                             .into();
 
-                        let id: Element<_> = text(&plugin.plugin_id.to_string())
+                        let id: Element<_> = text(plugin.plugin_id.to_string())
                             .shaping(Shaping::Advanced)
-                            .style(TextStyle::Subtitle)
+                            .class(TextStyle::Subtitle)
                             .into();
 
                         let id = container(id)
-                            .padding(Padding::from([0.0, 8.0, 8.0, 8.0]))
+                            .padding(padding::bottom(8.0))
                             .into();
 
                         let mut column_content = vec![
@@ -334,14 +330,14 @@ impl ManagementAppPluginsState {
                         if !plugin.plugin_description.is_empty() {
                             let description_label: Element<_> = text("Description")
                                 .size(14)
-                                .style(TextStyle::Subtitle)
+                                .class(TextStyle::Subtitle)
                                 .into();
 
                             let description_label = container(description_label)
-                                .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                                .padding(padding::bottom(8.0))
                                 .into();
 
-                            let description = text(&plugin.plugin_description)
+                            let description = text(plugin.plugin_description.to_string())
                                 .shaping(Shaping::Advanced);
 
                             let description = container(description)
@@ -376,13 +372,13 @@ impl ManagementAppPluginsState {
 
                             let check_for_updates_text_container: Element<_> = container(check_for_updates_text)
                                 .width(Length::Fill)
-                                .center_y()
-                                .center_x()
+                                .align_y(Alignment::Center)
+                                .align_x(Alignment::Center)
                                 .into();
 
                             let check_for_updates_button: Element<_> = button(check_for_updates_text_container)
                                 .width(Length::Fill)
-                                .style(ButtonStyle::Primary)
+                                .class(ButtonStyle::Primary)
                                 .on_press(ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: plugin.plugin_id.clone() })
                                 .into();
 
@@ -393,13 +389,13 @@ impl ManagementAppPluginsState {
 
                             let remove_button_text_container: Element<_> = container(remove_text)
                                 .width(Length::Fill)
-                                .center_y()
-                                .center_x()
+                                .align_y(Alignment::Center)
+                                .align_x(Alignment::Center)
                                 .into();
 
                             let remove_button: Element<_> = button(remove_button_text_container)
                                 .width(Length::Fill)
-                                .style(ButtonStyle::Destructive)
+                                .class(ButtonStyle::Destructive)
                                 .on_press(ManagementAppPluginMsgIn::RemovePlugin { plugin_id: plugin.plugin_id.clone() })
                                 .into();
 
@@ -430,14 +426,14 @@ impl ManagementAppPluginsState {
                         let loading_text: Element<_> = text("Loading...").into();
 
                         container(loading_text)
-                            .center_y()
-                            .center_x()
+                            .align_y(Alignment::Center)
+                            .align_x(Alignment::Center)
                             .height(Length::Fill)
                             .width(Length::Fill)
                             .into()
                     }
                     Some(entrypoint) => {
-                        let name = text(&entrypoint.entrypoint_name)
+                        let name = text(entrypoint.entrypoint_name.to_string())
                             .shaping(Shaping::Advanced);
 
                         let name = container(name)
@@ -451,14 +447,14 @@ impl ManagementAppPluginsState {
                         if !entrypoint.entrypoint_description.is_empty() {
                             let description_label: Element<_> = text("Description")
                                 .size(14)
-                                .style(TextStyle::Subtitle)
+                                .class(TextStyle::Subtitle)
                                 .into();
 
                             let description_label = container(description_label)
-                                .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                                .padding(padding::bottom(8.0))
                                 .into();
 
-                            let description = container(text(&entrypoint.entrypoint_description))
+                            let description = container(text(entrypoint.entrypoint_description.to_string()))
                                 .padding(Padding::new(8.0))
                                 .into();
 
@@ -505,7 +501,7 @@ impl ManagementAppPluginsState {
                     .padding(Padding::new(8.0))
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .center_x()
+                    .align_x(Alignment::Center)
                     .into()
             }
         };
@@ -524,14 +520,14 @@ impl ManagementAppPluginsState {
         let top_button_text = if plugin_url.is_some() {
             text("Download plugin")
         } else {
-            text(icons::Bootstrap::Plus)
-                .font(icons::BOOTSTRAP_FONT)
+            value(Bootstrap::Plus)
+                .font(BOOTSTRAP_FONT)
         };
 
         let top_button_text_container: Element<_> = container(top_button_text)
             .width(Length::Fill)
-            .center_y()
-            .center_x()
+            .align_y(Alignment::Center)
+            .align_x(Alignment::Center)
             .into();
 
         let top_button_action = match plugin_url {

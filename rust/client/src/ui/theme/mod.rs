@@ -1,6 +1,7 @@
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use iced::{application, Color, Padding};
+use iced::application::DefaultStyle;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use common::dirs::Dirs;
@@ -995,10 +996,8 @@ pub trait ThemableWidget<'a, Message> {
     fn themed(self, name: Self::Kind) -> Element<'a, Message>;
 }
 
-impl application::StyleSheet for GauntletComplexTheme {
-    type Style = ();
-
-    fn appearance(&self, _: &Self::Style) -> application::Appearance {
+impl DefaultStyle for GauntletComplexTheme {
+    fn default_style(&self) -> application::Appearance {
         let theme = get_theme();
 
         application::Appearance {

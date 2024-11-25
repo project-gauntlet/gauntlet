@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use iced::{Command, Length, Renderer};
+use iced::{Alignment, Length, Renderer, Task};
 use iced::advanced::text::Shaping;
-use iced::widget::{button, checkbox, container, horizontal_space, row, scrollable, Space, text};
-use iced_aw::core::icons;
+use iced::widget::{button, checkbox, container, horizontal_space, row, scrollable, Space, text, value};
+use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use iced_table::table;
 
 use common::model::{EntrypointId, PluginId, SettingsEntrypointType, SettingsPlugin};
@@ -47,7 +47,7 @@ pub struct PluginTableState {
 }
 
 pub enum PluginTableUpdateResult {
-    Command(Command<()>),
+    Command(Task<()>),
     Value(PluginTableMsgOut)
 }
 
@@ -202,19 +202,19 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
             ColumnKind::Name => {
                 container(text("Name"))
                     .height(Length::Fixed(30.0))
-                    .center_y()
+                    .align_y(Alignment::Center)
                     .into()
             }
             ColumnKind::Type => {
                 container(text("Type"))
                     .height(Length::Fixed(30.0))
-                    .center_y()
+                    .align_y(Alignment::Center)
                     .into()
             }
             ColumnKind::EnableToggle => {
                 container(text("Enabled"))
                     .height(Length::Fixed(30.0))
-                    .center_y()
+                    .align_y(Alignment::Center)
                     .into()
             }
         }
@@ -233,10 +233,10 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin_data = plugin_data.plugins_state.get(&plugin_id).unwrap();
 
-                        let icon = if plugin_data.show_entrypoints { icons::Bootstrap::CaretDown } else { icons::Bootstrap::CaretRight };
+                        let icon = if plugin_data.show_entrypoints { Bootstrap::CaretDown } else { Bootstrap::CaretRight };
 
-                        let icon: Element<_> = text(icon)
-                            .font(icons::BOOTSTRAP_FONT)
+                        let icon: Element<_> = value(icon)
+                            .font(BOOTSTRAP_FONT)
                             .into();
 
                         button(icon)
@@ -244,7 +244,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             .width(Length::Fill)
                             .height(Length::Fixed(40.0))
                             .padding(8.0)
-                            .style(ButtonStyle::TableRow)
+                            .class(ButtonStyle::TableRow)
                             .into()
                     }
                     Row::Entrypoint { .. } => {
@@ -259,11 +259,11 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
-                        let plugin_name = text(&plugin.plugin_name)
+                        let plugin_name = text(plugin.plugin_name.to_string())
                             .shaping(Shaping::Advanced);
 
                         container(plugin_name)
-                            .center_y()
+                            .align_y(Alignment::Center)
                             .into()
                     }
                     Row::Entrypoint { plugin_data, plugin_id, entrypoint_id } => {
@@ -271,7 +271,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
 
-                        let text: Element<_> = text(&entrypoint.entrypoint_name)
+                        let text: Element<_> = text(entrypoint.entrypoint_name.to_string())
                             .shaping(Shaping::Advanced)
                             .into();
 
@@ -281,7 +281,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         ]).into();
 
                         container(text)
-                            .center_y()
+                            .align_y(Alignment::Center)
                             .into()
                     }
                 };
@@ -308,7 +308,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                 };
 
                 button(content)
-                    .style(ButtonStyle::TableRow)
+                    .class(ButtonStyle::TableRow)
                     .on_press(PluginTableMsgIn::SelectItem(msg))
                     .width(Length::Fill)
                     .height(Length::Fixed(40.0))
@@ -333,8 +333,8 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             SettingsEntrypointType::CommandGenerator => "Command Generator"
                         };
 
-                        container(text(entrypoint_type))
-                            .center_y()
+                        container(text(entrypoint_type.to_string()))
+                            .align_y(Alignment::Center)
                             .into()
                     }
                 };
@@ -361,7 +361,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                 };
 
                 button(content)
-                    .style(ButtonStyle::TableRow)
+                    .class(ButtonStyle::TableRow)
                     .on_press(PluginTableMsgIn::SelectItem(msg))
                     .width(Length::Fill)
                     .height(Length::Fixed(40.0))
@@ -421,8 +421,8 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                 container(checkbox)
                     .width(Length::Fill)
                     .height(Length::Fixed(40.0))
-                    .center_y()
-                    .center_x()
+                    .align_y(Alignment::Center)
+                    .align_x(Alignment::Center)
                     .into()
             }
         }

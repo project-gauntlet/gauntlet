@@ -1,12 +1,10 @@
+use iced::widget::text_input::{Status, Style};
 use iced::widget::{text_input, TextInput};
 use iced::{Border, Color, Renderer};
-use text_input::Appearance;
 
 use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget, NOT_INTENDED_TO_BE_USED};
 
-#[derive(Default)]
 pub enum TextInputStyle {
-    #[default]
     ShouldNotBeUsed,
 
     MainSearch,
@@ -14,112 +12,129 @@ pub enum TextInputStyle {
     FormInput,
 }
 
-// noinspection RsSortImplTraitMembers
-impl text_input::StyleSheet for GauntletComplexTheme {
-    type Style = TextInputStyle;
+impl text_input::Catalog for GauntletComplexTheme {
+    type Class<'a> = TextInputStyle;
 
-    fn active(&self, style: &Self::Style) -> Appearance {
-        match style {
-            TextInputStyle::ShouldNotBeUsed => {
-                Appearance {
-                    background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-                    border: Border {
-                        color: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-                        ..Border::default()
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            },
-            TextInputStyle::FormInput => {
-                let theme = &self.form_input_text_field;
+    fn default<'a>() -> Self::Class<'a> {
+        TextInputStyle::ShouldNotBeUsed
+    }
 
-                Appearance {
-                    background: theme.background_color.to_iced().into(),
-                    border: Border {
-                        radius: theme.border_radius.into(),
-                        width: theme.border_width,
-                        color: theme.border_color.to_iced().into(),
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            },
-            TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
-                Appearance {
-                    background: Color::TRANSPARENT.into(),
-                    border: Border {
-                        color: Color::TRANSPARENT,
-                        ..Border::default()
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            },
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        match status {
+            Status::Active => active(self, class),
+            Status::Hovered => focused(self, class), // TODO proper style
+            Status::Focused => focused(self, class),
+            Status::Disabled => disabled(),
         }
     }
+}
 
-    fn focused(&self, style: &Self::Style) -> Appearance {
-        match style {
-            TextInputStyle::ShouldNotBeUsed => {
-                Appearance {
-                    background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-                    border: Border {
-                        color: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-                        ..Border::default()
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            },
-            TextInputStyle::FormInput => {
-                let theme = &self.form_input_text_field;
+fn active(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
+    match style {
+        TextInputStyle::ShouldNotBeUsed => {
+            Style {
+                background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                border: Border {
+                    color: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                    ..Border::default()
+                },
+                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+                placeholder: NOT_INTENDED_TO_BE_USED.to_iced(),
+                value: NOT_INTENDED_TO_BE_USED.to_iced(),
+                selection: NOT_INTENDED_TO_BE_USED.to_iced(),
+            }
+        },
+        TextInputStyle::FormInput => {
+            let theme = &theme.form_input_text_field;
 
-                Appearance {
-                    background: theme.background_color_hovered.to_iced().into(),
-                    border: Border {
-                        radius: theme.border_radius.into(),
-                        width: theme.border_width,
-                        color: theme.border_color_hovered.to_iced().into(),
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            },
-            TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
-                Appearance {
-                    background: Color::TRANSPARENT.into(),
-                    border: Border {
-                        color: Color::TRANSPARENT,
-                        ..Border::default()
-                    },
-                    icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-                }
-            },
-        }
+            Style {
+                background: theme.background_color.to_iced().into(),
+                border: Border {
+                    radius: theme.border_radius.into(),
+                    width: theme.border_width,
+                    color: theme.border_color.to_iced().into(),
+                },
+                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+                placeholder: theme.text_color_placeholder.to_iced(),
+                value: theme.text_color.to_iced(),
+                selection: theme.selection_color.to_iced(),
+            }
+        },
+        TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
+            Style {
+                background: Color::TRANSPARENT.into(),
+                border: Border {
+                    color: Color::TRANSPARENT,
+                    ..Border::default()
+                },
+                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+                placeholder: theme.form_input_text_field.text_color_placeholder.to_iced(), // TODO fix
+                value: theme.form_input_text_field.text_color.to_iced(), // TODO fix
+                selection: theme.form_input_text_field.selection_color.to_iced(), // TODO fix
+            }
+        },
     }
+}
 
-    fn disabled(&self, _: &Self::Style) -> Appearance {
-        Appearance {
-            background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-            border: Border {
-                radius: 2.0.into(),
-                width: 1.0,
-                color: Color::TRANSPARENT,
-            },
-            icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-        }
+fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
+    match style {
+        TextInputStyle::ShouldNotBeUsed => {
+            Style {
+                background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                border: Border {
+                    color: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                    ..Border::default()
+                },
+                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+                placeholder: NOT_INTENDED_TO_BE_USED.to_iced(),
+                value: NOT_INTENDED_TO_BE_USED.to_iced(),
+                selection: NOT_INTENDED_TO_BE_USED.to_iced(),
+            }
+        },
+        TextInputStyle::FormInput => {
+            let theme = &theme.form_input_text_field;
+
+            Style {
+                background: theme.background_color_hovered.to_iced().into(),
+                border: Border {
+                    radius: theme.border_radius.into(),
+                    width: theme.border_width,
+                    color: theme.border_color_hovered.to_iced().into(),
+                },
+                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+                placeholder: theme.text_color_placeholder.to_iced(),
+                value: theme.text_color.to_iced(),
+                selection: theme.selection_color.to_iced(),
+            }
+        },
+        TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
+            Style {
+                background: Color::TRANSPARENT.into(),
+                border: Border {
+                    color: Color::TRANSPARENT,
+                    ..Border::default()
+                },
+                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+                placeholder: theme.form_input_text_field.text_color_placeholder.to_iced(), // TODO fix
+                value: theme.form_input_text_field.text_color.to_iced(), // TODO fix
+                selection: theme.form_input_text_field.selection_color.to_iced(), // TODO fix
+            }
+        },
     }
+}
 
-    fn placeholder_color(&self, _: &Self::Style) -> Color {
-        self.form_input_text_field.text_color_placeholder.to_iced()
-    }
-
-    fn value_color(&self, _: &Self::Style) -> Color {
-        self.form_input_text_field.text_color.to_iced()
-    }
-
-    fn disabled_color(&self, style: &Self::Style) -> Color {
-        self.placeholder_color(style)
-    }
-
-    fn selection_color(&self, _: &Self::Style) -> Color {
-        self.form_input_text_field.selection_color.to_iced()
+fn disabled() -> Style {
+    Style {
+        background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+        border: Border {
+            radius: 2.0.into(),
+            width: 1.0,
+            color: Color::TRANSPARENT,
+        },
+        icon: NOT_INTENDED_TO_BE_USED.to_iced(),
+        placeholder: NOT_INTENDED_TO_BE_USED.to_iced(),
+        value: NOT_INTENDED_TO_BE_USED.to_iced(),
+        selection: NOT_INTENDED_TO_BE_USED.to_iced(),
     }
 }
 
@@ -129,12 +144,12 @@ impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for TextInput<'a, Mess
     fn themed(self, kind: TextInputStyle) -> Element<'a, Message> {
         match kind {
             TextInputStyle::PluginSearchBar => {
-                self.style(kind)
+                self.class(kind)
                     .padding(0)
                     .into()
             }
             _ => {
-                self.style(kind)
+                self.class(kind)
                     // .padding() // TODO
                     .into()
             }

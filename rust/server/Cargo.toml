@@ -44,6 +44,9 @@ scenario_runner = { path = "../scenario_runner", optional = true }
 itertools = "0.10.5"
 vergen-pretty = "0.3.5"
 
+# TODO REMOVE when updating dependencies
+async-channel = "=2.3.1" # because concurrent-queue version is incorrect in automatically pulled version
+
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = "0.2.153"
 

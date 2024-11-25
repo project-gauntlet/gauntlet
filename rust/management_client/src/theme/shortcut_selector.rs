@@ -1,21 +1,20 @@
-use iced::Border;
-use iced::widget::container::Appearance;
 use crate::components::shortcut_selector;
-use crate::theme::{BUTTON_BORDER_RADIUS, GauntletSettingsTheme, PRIMARY, BACKGROUND_DARKER};
+use crate::components::shortcut_selector::Status;
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, BUTTON_BORDER_RADIUS, PRIMARY};
+use iced::widget::container::Style;
+use iced::Border;
 
-#[derive(Default)]
-pub enum ShortcutSelectorStyle {
-    #[default]
-    Default,
-}
+impl shortcut_selector::Catalog for GauntletSettingsTheme {
+    type Class<'a> = ();
 
-impl shortcut_selector::StyleSheet for GauntletSettingsTheme {
-    type Style = ShortcutSelectorStyle;
+    fn default<'a>() -> Self::Class<'a> {
+        ()
+    }
 
-    fn active(&self, style: &Self::Style) -> Appearance {
-        match style {
-            ShortcutSelectorStyle::Default => {
-                Appearance {
+    fn style(&self, _class: &Self::Class<'_>, status: Status) -> Style {
+        match status {
+            Status::Active => {
+                Style {
                     background: Some(BACKGROUND_DARKER.to_iced().into()),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
@@ -24,13 +23,8 @@ impl shortcut_selector::StyleSheet for GauntletSettingsTheme {
                     ..Default::default()
                 }
             }
-        }
-    }
-
-    fn capturing(&self, style: &Self::Style) -> Appearance {
-        match style {
-            ShortcutSelectorStyle::Default => {
-                Appearance {
+            Status::Capturing => {
+                Style {
                     background: Some(BACKGROUND_DARKER.to_iced().into()),
                     border: Border {
                         radius: BUTTON_BORDER_RADIUS.into(),

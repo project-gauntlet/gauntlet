@@ -5,12 +5,12 @@ use crate::theme::Element;
 use crate::views::plugins::PluginPreferenceUserDataState;
 use common::model::{EntrypointId, PluginId, PluginPreference};
 use iced::widget::{button, checkbox, column, container, pick_list, row, text, text_input};
-use iced::{Length, Padding};
-use iced_aw::core::icons;
+use iced::{padding, widget, Length, Padding};
 use iced_aw::number_input;
 use std::collections::HashMap;
 use std::fmt::Display;
 use iced::widget::text::Shaping;
+use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 
 #[derive(Debug, Clone)]
 pub enum PluginPreferencesMsg {
@@ -68,14 +68,14 @@ pub fn preferences_ui<'a>(
         let preference_name = preference_name.to_owned();
         let description = description.to_owned();
 
-        let preference_label: Element<_> = text(&preference_name)
+        let preference_label: Element<_> = text(preference_name.clone())
             .shaping(Shaping::Advanced)
             .size(14)
-            .style(TextStyle::Subtitle)
+            .class(TextStyle::Subtitle)
             .into();
 
         let preference_label = container(preference_label)
-            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+            .padding(padding::left(8.0))
             .into();
 
         let mut input_field_column = vec![];
@@ -105,8 +105,7 @@ pub fn preferences_ui<'a>(
 
                 let value = value.or(default.to_owned()).unwrap_or_default();
 
-                let input_field: Element<_> = number_input(value, f64::MAX, std::convert::identity)
-                    .bounds((f64::MIN, f64::MAX))
+                let input_field: Element<_> = number_input(value, f64::MIN..f64::MAX, std::convert::identity)
                     .width(Length::Fill)
                     .into();
 
@@ -124,7 +123,7 @@ pub fn preferences_ui<'a>(
                 let input_field = container(input_field)
                     .width(Length::Fill)
                     .padding(Padding::from([4.0, 8.0]))
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 input_field
@@ -155,7 +154,7 @@ pub fn preferences_ui<'a>(
 
                 let input_field = container(input_field)
                     .padding(Padding::new(8.0))
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 input_field
@@ -196,7 +195,7 @@ pub fn preferences_ui<'a>(
                 let input_field = container(input_field)
                     .padding(Padding::new(8.0))
                     .width(Length::Fill)
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 input_field
@@ -225,7 +224,7 @@ pub fn preferences_ui<'a>(
 
                 let input_field = container(input_field)
                     .padding(Padding::new(8.0))
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 input_field
@@ -255,11 +254,11 @@ pub fn preferences_ui<'a>(
                             .padding(Padding::new(4.0))
                             .into();
 
-                        let remove_icon = text(icons::Bootstrap::Dash)
-                            .font(icons::BOOTSTRAP_FONT);
+                        let remove_icon = widget::value(Bootstrap::Dash)
+                            .font(BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
-                            .style(ButtonStyle::Primary)
+                            .class(ButtonStyle::Primary)
                             .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
@@ -273,7 +272,7 @@ pub fn preferences_ui<'a>(
                             .into();
 
                         let remove_button = container(remove_button)
-                            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                            .padding(padding::bottom(8.0))
                             .into();
 
                         let item: Element<_> = row([item_text, remove_button])
@@ -311,18 +310,18 @@ pub fn preferences_ui<'a>(
                     })
                 };
 
-                let add_icon: Element<_> = text(icons::Bootstrap::Plus)
-                    .font(icons::BOOTSTRAP_FONT)
+                let add_icon: Element<_> = widget::value(Bootstrap::Plus)
+                    .font(BOOTSTRAP_FONT)
                     .into();
 
                 let add_button: Element<_> = button(add_icon)
-                    .style(ButtonStyle::Primary)
+                    .class(ButtonStyle::Primary)
                     .on_press_maybe(add_msg)
                     .padding(Padding::from([5.0, 7.0]))
                     .into();
 
                 let add_button: Element<_> = container(add_button)
-                    .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                    .padding(padding::bottom(8.0))
                     .into();
 
                 let add_text_input: Element<_> = text_input("Enter value...", &new_value)
@@ -351,7 +350,7 @@ pub fn preferences_ui<'a>(
 
                 let content: Element<_>  = container(content)
                     .padding(0)
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 content
@@ -381,11 +380,11 @@ pub fn preferences_ui<'a>(
                             .padding(Padding::new(4.0))
                             .into();
 
-                        let remove_icon = text(icons::Bootstrap::Dash)
-                            .font(icons::BOOTSTRAP_FONT);
+                        let remove_icon = widget::value(Bootstrap::Dash)
+                            .font(BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
-                            .style(ButtonStyle::Primary)
+                            .class(ButtonStyle::Primary)
                             .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
@@ -399,7 +398,7 @@ pub fn preferences_ui<'a>(
                             .into();
 
                         let remove_button = container(remove_button)
-                            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                            .padding(padding::bottom(8.0))
                             .into();
 
                         let item: Element<_> = row([item_text, remove_button])
@@ -423,12 +422,12 @@ pub fn preferences_ui<'a>(
                     }
                 };
 
-                let add_icon: Element<_> = text(icons::Bootstrap::Plus)
-                    .font(icons::BOOTSTRAP_FONT)
+                let add_icon: Element<_> = widget::value(Bootstrap::Plus)
+                    .font(BOOTSTRAP_FONT)
                     .into();
 
                 let add_button: Element<_> = button(add_icon)
-                    .style(ButtonStyle::Primary)
+                    .class(ButtonStyle::Primary)
                     .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id: plugin_id.clone(),
                         entrypoint_id: entrypoint_id.clone(),
@@ -442,11 +441,10 @@ pub fn preferences_ui<'a>(
                     .into();
 
                 let add_button: Element<_> = container(add_button)
-                    .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                    .padding(padding::bottom(8.0))
                     .into();
 
-                let add_number_input: Element<_> = number_input(new_value, f64::MAX, std::convert::identity)
-                    .bounds((f64::MIN, f64::MAX))
+                let add_number_input: Element<_> = number_input(new_value, f64::MIN..f64::MAX, std::convert::identity)
                     .width(Length::Fill)
                     .into();
 
@@ -476,7 +474,7 @@ pub fn preferences_ui<'a>(
 
                 let content: Element<_>  = container(content)
                     .padding(0)
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 content
@@ -506,11 +504,11 @@ pub fn preferences_ui<'a>(
                             .padding(Padding::new(4.0))
                             .into();
 
-                        let remove_icon = text(icons::Bootstrap::Dash)
-                            .font(icons::BOOTSTRAP_FONT);
+                        let remove_icon = widget::value(Bootstrap::Dash)
+                            .font(BOOTSTRAP_FONT);
 
                         let remove_button: Element<_> = button(remove_icon)
-                            .style(ButtonStyle::Primary)
+                            .class(ButtonStyle::Primary)
                             .on_press(PluginPreferencesMsg::UpdatePreferenceValue {
                                 plugin_id: plugin_id.clone(),
                                 entrypoint_id: entrypoint_id.clone(),
@@ -524,7 +522,7 @@ pub fn preferences_ui<'a>(
                             .into();
 
                         let remove_button = container(remove_button)
-                            .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                            .padding(padding::bottom(8.0))
                             .into();
 
                         let item: Element<_> = row([item_text, remove_button])
@@ -564,18 +562,18 @@ pub fn preferences_ui<'a>(
                 };
 
 
-                let add_icon: Element<_> = text(icons::Bootstrap::Plus)
-                    .font(icons::BOOTSTRAP_FONT)
+                let add_icon: Element<_> = widget::value(Bootstrap::Plus)
+                    .font(BOOTSTRAP_FONT)
                     .into();
 
                 let add_button: Element<_> = button(add_icon)
-                    .style(ButtonStyle::Primary)
+                    .class(ButtonStyle::Primary)
                     .on_press_maybe(add_msg)
                     .padding(Padding::from([5.0, 7.0]))
                     .into();
 
                 let add_button: Element<_> = container(add_button)
-                    .padding(Padding::from([0.0, 0.0, 0.0, 8.0]))
+                    .padding(padding::bottom(8.0))
                     .into();
 
                 let enum_values: Vec<_> = enum_values.iter()
@@ -613,7 +611,7 @@ pub fn preferences_ui<'a>(
 
                 let content: Element<_>  = container(content)
                     .padding(0)
-                    .style(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
+                    .class(if missing { ContainerStyle::TextInputMissingValue } else { ContainerStyle::Transparent  })
                     .into();
 
                 content

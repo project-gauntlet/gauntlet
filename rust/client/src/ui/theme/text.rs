@@ -1,7 +1,6 @@
 use iced::Renderer;
 use iced::widget::{Text, text};
-use text::Appearance;
-
+use iced::widget::text::Style;
 use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
 
 #[derive(Clone, Default)]
@@ -35,75 +34,79 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletComplexTh
             TextStyle::MetadataItemLabel => {
                 let theme = get_theme();
 
-                self.style(kind)
+                self.class(kind)
                     .size(theme.metadata_item_label.text_size)
                     .into()
             }
             TextStyle::InlineName => {
                 self.size(15)
-                    .style(kind)
+                    .class(kind)
                     .into()
             }
             _ => {
-                self.style(kind)
+                self.class(kind)
                     .into()
             }
         }
     }
 }
 
-impl text::StyleSheet for GauntletComplexTheme {
-    type Style = TextStyle;
+impl text::Catalog for GauntletComplexTheme {
+    type Class<'a> = TextStyle;
 
-    fn appearance(&self, style: Self::Style) -> Appearance {
-        match style {
+    fn default<'a>() -> Self::Class<'a> {
+        TextStyle::Default
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        match class {
             TextStyle::Default => Default::default(),
-            TextStyle::EmptyViewSubtitle => Appearance {
+            TextStyle::EmptyViewSubtitle => Style {
                 color: Some(self.empty_view_subtitle.text_color.to_iced()),
             },
-            TextStyle::ListItemSubtitle => Appearance {
+            TextStyle::ListItemSubtitle => Style {
                 color: Some(self.list_item_subtitle.text_color.to_iced()),
             },
-            TextStyle::ListSectionTitle => Appearance {
+            TextStyle::ListSectionTitle => Style {
                 color: Some(self.list_section_title.text_color.to_iced()),
             },
-            TextStyle::ListSectionSubtitle => Appearance {
+            TextStyle::ListSectionSubtitle => Style {
                 color: Some(self.list_section_subtitle.text_color.to_iced()),
             },
-            TextStyle::GridSectionTitle => Appearance {
+            TextStyle::GridSectionTitle => Style {
                 color: Some(self.grid_section_title.text_color.to_iced()),
             },
-            TextStyle::GridSectionSubtitle => Appearance{
+            TextStyle::GridSectionSubtitle => Style{
                 color: Some(self.grid_section_subtitle.text_color.to_iced()),
             },
-            TextStyle::MainListItemSubtext => Appearance {
+            TextStyle::MainListItemSubtext => Style {
                 color: Some(self.main_list_item_sub_text.text_color.to_iced()),
             },
-            TextStyle::MetadataItemLabel => Appearance {
+            TextStyle::MetadataItemLabel => Style {
                 color: Some(self.metadata_item_label.text_color.to_iced()),
             },
-            TextStyle::TextAccessory => Appearance {
+            TextStyle::TextAccessory => Style {
                 color: Some(self.text_accessory.text_color.to_iced()),
             },
-            TextStyle::IconAccessory => Appearance {
+            TextStyle::IconAccessory => Style {
                 color: Some(self.icon_accessory.icon_color.to_iced()),
             },
-            TextStyle::GridItemTitle => Appearance {
+            TextStyle::GridItemTitle => Style {
                 color: Some(self.grid_item_title.text_color.to_iced()),
             },
-            TextStyle::GridItemSubTitle => Appearance {
+            TextStyle::GridItemSubTitle => Style {
                 color: Some(self.grid_item_subtitle.text_color.to_iced()),
             },
-            TextStyle::InlineName => Appearance {
+            TextStyle::InlineName => Style {
                 color: Some(self.inline_name.text_color.to_iced()),
             },
-            TextStyle::InlineSeparator => Appearance {
+            TextStyle::InlineSeparator => Style {
                 color: Some(self.inline_separator.text_color.to_iced()),
             },
-            TextStyle::RootBottomPanelPrimaryActionText => Appearance {
+            TextStyle::RootBottomPanelPrimaryActionText => Style {
                 color: Some(self.root_bottom_panel_primary_action_text.text_color.to_iced()),
             },
-            TextStyle::RootBottomPanelActionToggleText => Appearance {
+            TextStyle::RootBottomPanelActionToggleText => Style {
                 color: Some(self.root_bottom_panel_action_toggle_text.text_color.to_iced()),
             }
         }

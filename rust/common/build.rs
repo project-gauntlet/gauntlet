@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -132,7 +131,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             .unique_by(|component_ref| component_ref.component_name.clone())
                             .collect::<Vec<_>>();
 
-                        let mut per_type_component_refs = per_type_members
+                        let per_type_component_refs = per_type_members
                             .iter()
                             .map(|(_member_name, component_ref)| component_ref)
                             .collect::<Vec<_>>();

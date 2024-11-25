@@ -1,5 +1,5 @@
 use crate::ui::custom_widgets::loading_bar;
-use crate::ui::custom_widgets::loading_bar::{Appearance, LoadingBar};
+use crate::ui::custom_widgets::loading_bar::{LoadingBar, Style};
 use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::GauntletComplexTheme;
 
@@ -9,18 +9,22 @@ pub enum LoadingBarStyle {
     Default,
 }
 
-impl loading_bar::StyleSheet for GauntletComplexTheme {
-    type Style = LoadingBarStyle;
+impl loading_bar::Catalog for GauntletComplexTheme {
+    type Class<'a> = LoadingBarStyle;
 
-    fn appearance(&self, _style: &Self::Style) -> Appearance {
-        Appearance {
+    fn default<'a>() -> Self::Class<'a> {
+        LoadingBarStyle::Default
+    }
+
+    fn style(&self, _class: &Self::Class<'_>) -> Style {
+        Style {
             background_color: self.loading_bar.background_color.to_iced(),
             loading_bar_color: self.loading_bar.loading_bar_color.to_iced(),
         }
     }
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for LoadingBar<GauntletComplexTheme> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for LoadingBar<'a, GauntletComplexTheme> {
     type Kind = LoadingBarStyle;
 
     fn themed(self, _kind: LoadingBarStyle) -> Element<'a, Message> {

@@ -10,6 +10,7 @@ thiserror = "1.0.48"
 iced.workspace = true
 iced_aw.workspace = true
 iced_table.workspace = true
+iced_fonts.workspace = true
 tracing = "0.1"
 tracing-subscriber = "0.3"
 common = { path = "../common" }

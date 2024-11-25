@@ -1,8 +1,9 @@
+use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget};
 use iced::Color;
-use iced_aw::{date_picker, DatePicker};
-use iced_aw::date_picker::Appearance;
-
-use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
+use iced_aw::date_picker::Style;
+use iced_aw::style::date_picker::Catalog;
+use iced_aw::style::Status;
+use iced_aw::DatePicker;
 
 #[derive(Clone, Default)]
 pub enum DatePickerStyle {
@@ -10,59 +11,73 @@ pub enum DatePickerStyle {
     Default,
 }
 
-impl date_picker::StyleSheet for GauntletComplexTheme {
-    type Style = DatePickerStyle;
+impl Catalog for GauntletComplexTheme {
+    type Class<'a> = DatePickerStyle;
 
-    fn active(&self, _: &Self::Style) -> Appearance {
-        let theme = get_theme();
-        let root_theme = &theme.root;
-        let theme = &theme.form_input_date_picker;
-
-        Appearance {
-            background: theme.background_color.to_iced().into(),
-            border_radius: root_theme.border_radius,
-            border_width: root_theme.border_width,
-            border_color: root_theme.border_color.to_iced(),
-            text_color: theme.text_color.to_iced(),
-            text_attenuated_color: theme.text_attenuated_color.to_iced(),
-            day_background: theme.day_background_color.to_iced().into(),
-        }
+    fn default<'a>() -> Self::Class<'a> {
+        DatePickerStyle::Default
     }
 
-    fn selected(&self, style: &Self::Style) -> Appearance {
-        let theme = get_theme();
-        let theme = &theme.form_input_date_picker;
-
-        Appearance {
-            day_background: theme.day_background_color_selected.to_iced().into(),
-            text_color: theme.text_color_selected.to_iced(),
-            ..self.active(style)
-        }
-    }
-
-    fn hovered(&self, style: &Self::Style) -> Appearance {
-        let theme = get_theme();
-        let theme = &theme.form_input_date_picker;
-
-        Appearance {
-            day_background: theme.day_background_color_hovered.to_iced().into(),
-            text_color: theme.text_color_hovered.to_iced(),
-            ..self.active(style)
-        }
-    }
-
-    fn focused(&self, style: &Self::Style) -> Appearance {
-        Appearance {
-            border_color: Color::from_rgb(0.5, 0.5, 0.5), // TODO move to theme?
-            ..self.active(style)
+    fn style(&self, _class: &Self::Class<'_>, status: Status) -> Style {
+        match status {
+            Status::Active => active(self),
+            Status::Hovered => hovered(self),
+            Status::Pressed => hovered(self), // TODO proper styling
+            Status::Disabled => hovered(self), // TODO proper styling
+            Status::Focused => focused(self),
+            Status::Selected => selected(self)
         }
     }
 }
+
+
+fn active(theme: &GauntletComplexTheme) -> Style {
+    let root_theme = &theme.root;
+    let theme = &theme.form_input_date_picker;
+
+    Style {
+        background: theme.background_color.to_iced().into(),
+        border_radius: root_theme.border_radius,
+        border_width: root_theme.border_width,
+        border_color: root_theme.border_color.to_iced(),
+        text_color: theme.text_color.to_iced(),
+        text_attenuated_color: theme.text_attenuated_color.to_iced(),
+        day_background: theme.day_background_color.to_iced().into(),
+    }
+}
+
+fn selected(theme: &GauntletComplexTheme) -> Style {
+    let form_theme = &theme.form_input_date_picker;
+
+    Style {
+        day_background: form_theme.day_background_color_selected.to_iced().into(),
+        text_color: form_theme.text_color_selected.to_iced(),
+        ..active(theme)
+    }
+}
+
+fn hovered(theme: &GauntletComplexTheme) -> Style {
+    let form_theme = &theme.form_input_date_picker;
+
+    Style {
+        day_background: form_theme.day_background_color_hovered.to_iced().into(),
+        text_color: form_theme.text_color_hovered.to_iced(),
+        ..active(theme)
+    }
+}
+
+fn focused(theme: &GauntletComplexTheme) -> Style {
+    Style {
+        border_color: Color::from_rgb(0.5, 0.5, 0.5), // TODO move to theme?
+        ..active(theme)
+    }
+}
+
 
 impl<'a, Message: 'a + Clone + 'static> ThemableWidget<'a, Message> for DatePicker<'a, Message, GauntletComplexTheme> {
     type Kind = DatePickerStyle;
 
     fn themed(self, kind: DatePickerStyle) -> Element<'a, Message> {
-        self.style(kind).into()
+        self.class(kind).into()
     }
 }

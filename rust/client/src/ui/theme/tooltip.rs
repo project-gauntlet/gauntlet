@@ -16,7 +16,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Tooltip<'a, Message, Gaunt
 
         match kind {
             TooltipStyle::Tooltip => {
-                self.style(ContainerStyleInner::Tooltip)
+                self.class(ContainerStyleInner::Tooltip)
                     .padding(theme.tooltip.padding)
             }
         }.into()

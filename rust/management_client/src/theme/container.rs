@@ -1,25 +1,27 @@
-use iced::{Border, Color};
+use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, BACKGROUND_LIGHTER, BACKGROUND_LIGHTEST, DANGER, TRANSPARENT};
 use iced::widget::container;
+use iced::widget::container::Style;
+use iced::{Border, Color};
 
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_LIGHTEST, BACKGROUND_DARKER, BACKGROUND_LIGHTER, DANGER, TRANSPARENT};
-
-#[derive(Default)]
 pub enum ContainerStyle {
-    #[default]
     Transparent,
     Box,
     TextInputLike,
     TextInputMissingValue
 }
 
-impl container::StyleSheet for GauntletSettingsTheme {
-    type Style = ContainerStyle;
+impl container::Catalog for GauntletSettingsTheme {
+    type Class<'a> = ContainerStyle;
 
-    fn appearance(&self, style: &Self::Style) -> container::Appearance {
-        match style {
+    fn default<'a>() -> Self::Class<'a> {
+        ContainerStyle::Transparent
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        match class {
             ContainerStyle::Transparent => Default::default(),
             ContainerStyle::Box => {
-                container::Appearance {
+                Style {
                     background: Some(BACKGROUND_DARKER.to_iced().into()),
                     border: Border {
                         color: BACKGROUND_LIGHTER.to_iced(),
@@ -30,7 +32,7 @@ impl container::StyleSheet for GauntletSettingsTheme {
                 }
             }
             ContainerStyle::TextInputLike => {
-                container::Appearance {
+                Style {
                     background: Some(BACKGROUND_LIGHTEST.to_iced().into()),
                     border: Border {
                         radius: 4.0.into(),
@@ -43,7 +45,7 @@ impl container::StyleSheet for GauntletSettingsTheme {
             ContainerStyle::TextInputMissingValue => {
                 let color = DANGER.to_iced();
 
-                container::Appearance {
+                Style {
                     background: Some(Color::new(color.r, color.g, color.b, 0.3).into()),
                     border: Border {
                         color: TRANSPARENT.to_iced(),

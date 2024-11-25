@@ -9,7 +9,7 @@ use crate::ui::AppMsg;
 use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult};
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
-use iced::Command;
+use iced::Task;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock as StdRwLock};
 
@@ -101,73 +101,73 @@ impl GlobalState {
         }
     }
 
-    pub fn initial(prev_global_state: &mut GlobalState, client_context: Arc<StdRwLock<ClientContext>>) -> Command<AppMsg> {
+    pub fn initial(prev_global_state: &mut GlobalState, client_context: Arc<StdRwLock<ClientContext>>) -> Task<AppMsg> {
         let search_field_id = text_input::Id::unique();
 
         *prev_global_state = GlobalState::new(search_field_id.clone(), client_context);
 
-        Command::batch([
+        Task::batch([
             focus(search_field_id),
-            Command::perform(async {}, |_| AppMsg::UpdateSearchResults),
+            Task::perform(async {}, |_| AppMsg::UpdateSearchResults),
         ])
     }
 
-    pub fn error(prev_global_state: &mut GlobalState, error_view_data: ErrorViewData) -> Command<AppMsg> {
+    pub fn error(prev_global_state: &mut GlobalState, error_view_data: ErrorViewData) -> Task<AppMsg> {
         *prev_global_state = GlobalState::new_error(error_view_data);
 
-        Command::none()
+        Task::none()
     }
 
-    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> Command<AppMsg> {
+    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> Task<AppMsg> {
         *prev_global_state = GlobalState::new_plugin(plugin_view_data, client_context);
 
-        Command::none()
+        Task::none()
     }
 }
 
 pub trait Focus<T> {
-    fn primary(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn secondary(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn back(&mut self) -> Command<AppMsg>;
-    fn next(&mut self) -> Command<AppMsg>;
-    fn previous(&mut self) -> Command<AppMsg>;
-    fn up(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn down(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn left(&mut self, focus_list: &[T]) -> Command<AppMsg>;
-    fn right(&mut self, focus_list: &[T]) -> Command<AppMsg>;
+    fn primary(&mut self, focus_list: &[T]) -> Task<AppMsg>;
+    fn secondary(&mut self, focus_list: &[T]) -> Task<AppMsg>;
+    fn back(&mut self) -> Task<AppMsg>;
+    fn next(&mut self) -> Task<AppMsg>;
+    fn previous(&mut self) -> Task<AppMsg>;
+    fn up(&mut self, focus_list: &[T]) -> Task<AppMsg>;
+    fn down(&mut self, focus_list: &[T]) -> Task<AppMsg>;
+    fn left(&mut self, focus_list: &[T]) -> Task<AppMsg>;
+    fn right(&mut self, focus_list: &[T]) -> Task<AppMsg>;
 }
 
 impl Focus<SearchResult> for GlobalState {
-    fn primary(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn primary(&mut self, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         if let Some(search_result) = focused_search_result.get(focus_list) {
                             let search_result = search_result.clone();
-                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result })
+                            Task::done(AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result })
                         } else {
-                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus)
+                            Task::done(AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus)
                         }
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
                         match focused_action_item.index {
-                            None => Command::none(),
+                            None => Task::none(),
                             Some(widget_id) => {
                                 if let Some(search_result) = focused_search_result.get(&focus_list) {
                                     let search_result = search_result.clone();
-                                    Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
+                                    Task::done(AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
                                 } else {
-                                    Command::none()
+                                    Task::none()
                                 }
                             }
                         }
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item } => {
                         match focused_action_item.index {
-                            None => Command::none(),
+                            None => Task::none(),
                             Some(widget_id) => {
-                                Command::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
+                                Task::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
                             }
                         }
                     }
@@ -182,40 +182,40 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(0) {
                             let widget_id = *widget_id;
-                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
+                            Task::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     },
                     PluginViewState::ActionPanel { focused_action_item, .. } => {
                         if let Some(widget_id) = focused_action_item.get(&action_ids) {
                             let widget_id = *widget_id;
-                            Command::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id })
+                            Task::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id })
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     }
                 }
             }
-            GlobalState::ErrorView { .. } => Command::none()
+            GlobalState::ErrorView { .. } => Task::none()
         }
     }
 
-    fn secondary(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn secondary(&mut self, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         if let Some(search_result) = focused_search_result.get(focus_list) {
                             let search_result = search_result.clone();
-                            Command::perform(async {}, move |_| AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result })
+                            Task::done(AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result })
                         } else {
-                            Command::perform(async {}, move |_| AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus)
+                            Task::done(AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus)
                         }
                     }
                     MainViewState::SearchResultActionPanel { .. } | MainViewState::InlineViewActionPanel { .. } => {
                         // secondary does nothing when action panel is opened
-                        Command::none()
+                        Task::none()
                     }
                 }
             }
@@ -228,35 +228,35 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(1) {
                             let widget_id = *widget_id;
-                            Command::perform(async {}, move |_| AppMsg::OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
+                            Task::perform(async {}, move |_| AppMsg::OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     },
                     PluginViewState::ActionPanel { .. } => {
                         // secondary does nothing when action panel is opened
-                        Command::none()
+                        Task::none()
                     }
                 }
             }
-            GlobalState::ErrorView { .. } => Command::none()
+            GlobalState::ErrorView { .. } => Task::none()
         }
     }
 
-    fn back(&mut self) -> Command<AppMsg> {
+    fn back(&mut self) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
-                        Command::perform(async {}, |_| AppMsg::HideWindow)
+                        Task::perform(async {}, |_| AppMsg::HideWindow)
                     }
                     MainViewState::SearchResultActionPanel { .. } => {
                         MainViewState::initial(sub_state);
-                        Command::none()
+                        Task::none()
                     }
                     MainViewState::InlineViewActionPanel { .. } => {
                         MainViewState::initial(sub_state);
-                        Command::none()
+                        Task::none()
                     }
                 }
             }
@@ -278,59 +278,59 @@ impl Focus<SearchResult> for GlobalState {
 
                             let client_context = client_context.clone();
 
-                            Command::batch([
-                                Command::perform(async {}, |_| AppMsg::ClosePluginView(plugin_id)),
+                            Task::batch([
+                                Task::done(AppMsg::ClosePluginView(plugin_id)),
                                 GlobalState::initial(self, client_context)
                             ])
                         } else {
                             let plugin_id = plugin_id.clone();
                             let entrypoint_id = entrypoint_id.clone();
-                            Command::perform(async {}, |_| AppMsg::OpenPluginView(plugin_id, entrypoint_id))
+                            Task::done(AppMsg::OpenPluginView(plugin_id, entrypoint_id))
                         }
                     }
                     PluginViewState::ActionPanel { .. } => {
-                        Command::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
+                        Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
                     }
                 }
             }
             GlobalState::ErrorView { .. } => {
-                Command::perform(async {}, |_| AppMsg::HideWindow)
+                Task::perform(async {}, |_| AppMsg::HideWindow)
             }
         }
     }
-    fn next(&mut self) -> Command<AppMsg> {
+    fn next(&mut self) -> Task<AppMsg> {
         match self {
-            GlobalState::MainView { .. } => Command::none(),
-            GlobalState::PluginView { .. } => Command::none(),
-            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::MainView { .. } => Task::none(),
+            GlobalState::PluginView { .. } => Task::none(),
+            GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn previous(&mut self) -> Command<AppMsg> {
+    fn previous(&mut self) -> Task<AppMsg> {
         match self {
-            GlobalState::MainView { .. } => Command::none(),
-            GlobalState::PluginView { .. } => Command::none(),
-            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::MainView { .. } => Task::none(),
+            GlobalState::PluginView { .. } => Task::none(),
+            GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn up(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn up(&mut self, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         focused_search_result.focus_previous()
-                            .unwrap_or_else(|| Command::none())
+                            .unwrap_or_else(|| Task::none())
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item } => {
                         focused_action_item.focus_previous()
-                            .unwrap_or_else(|| Command::none())
+                            .unwrap_or_else(|| Task::none())
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item } => {
                         focused_action_item.focus_previous()
-                            .unwrap_or_else(|| Command::none())
+                            .unwrap_or_else(|| Task::none())
                     }
                 }
             }
-            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::ErrorView { .. } => Task::none(),
             GlobalState::PluginView { sub_state, client_context, .. } => {
                 match sub_state {
                     PluginViewState::None => {
@@ -340,34 +340,34 @@ impl Focus<SearchResult> for GlobalState {
                     },
                     PluginViewState::ActionPanel { focused_action_item } => {
                         focused_action_item.focus_previous()
-                            .unwrap_or_else(|| Command::none())
+                            .unwrap_or_else(|| Task::none())
                     }
                 }
             },
         }
     }
-    fn down(&mut self, focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn down(&mut self, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, client_context, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         if focus_list.len() != 0 {
                             focused_search_result.focus_next(focus_list.len())
-                                .unwrap_or_else(|| Command::none())
+                                .unwrap_or_else(|| Task::none())
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     }
                     MainViewState::SearchResultActionPanel { focused_action_item } => {
                         if let Some(search_item) = focused_search_result.get(focus_list) {
                             if search_item.entrypoint_actions.len() != 0 {
                                 focused_action_item.focus_next(search_item.entrypoint_actions.len() + 1)
-                                    .unwrap_or_else(|| Command::none())
+                                    .unwrap_or_else(|| Task::none())
                             } else {
-                                Command::none()
+                                Task::none()
                             }
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item } => {
@@ -377,17 +377,17 @@ impl Focus<SearchResult> for GlobalState {
                             Some(action_panel) => {
                                 if action_panel.action_count() != 0 {
                                     focused_action_item.focus_next(action_panel.action_count())
-                                        .unwrap_or_else(|| Command::none())
+                                        .unwrap_or_else(|| Task::none())
                                 } else {
-                                    Command::none()
+                                    Task::none()
                                 }
                             }
-                            None => Command::none()
+                            None => Task::none()
                         }
                     }
                 }
             }
-            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::ErrorView { .. } => Task::none(),
             GlobalState::PluginView { sub_state, client_context, .. } => {
                 match sub_state {
                     PluginViewState::None => {
@@ -402,16 +402,16 @@ impl Focus<SearchResult> for GlobalState {
 
                         if action_ids.len() != 0 {
                             focused_action_item.focus_next(action_ids.len())
-                                .unwrap_or_else(|| Command::none())
+                                .unwrap_or_else(|| Task::none())
                         } else {
-                            Command::none()
+                            Task::none()
                         }
                     }
                 }
             }
         }
     }
-    fn left(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn left(&mut self, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::PluginView { client_context, sub_state, .. } => {
                 match sub_state {
@@ -420,14 +420,14 @@ impl Focus<SearchResult> for GlobalState {
 
                         client_context.focus_left()
                     }
-                    PluginViewState::ActionPanel { .. } => Command::none()
+                    PluginViewState::ActionPanel { .. } => Task::none()
                 }
             },
-            GlobalState::MainView { .. } => Command::none(),
-            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::MainView { .. } => Task::none(),
+            GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn right(&mut self, _focus_list: &[SearchResult]) -> Command<AppMsg> {
+    fn right(&mut self, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::PluginView { client_context, sub_state, .. } => {
                 match sub_state {
@@ -436,11 +436,11 @@ impl Focus<SearchResult> for GlobalState {
 
                         client_context.focus_right()
                     }
-                    PluginViewState::ActionPanel { .. } => Command::none()
+                    PluginViewState::ActionPanel { .. } => Task::none()
                 }
             },
-            GlobalState::MainView { .. } => Command::none(),
-            GlobalState::ErrorView { .. } => Command::none(),
+            GlobalState::MainView { .. } => Task::none(),
+            GlobalState::ErrorView { .. } => Task::none(),
         }
     }
 }

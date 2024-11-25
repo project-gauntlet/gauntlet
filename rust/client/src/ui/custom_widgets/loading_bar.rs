@@ -10,7 +10,6 @@ use iced::advanced::Shell;
 use iced::advanced::Widget;
 use iced::event::Status;
 use iced::mouse::Cursor;
-use iced::{window, Color};
 use iced::Border;
 use iced::Element;
 use iced::Event;
@@ -18,22 +17,23 @@ use iced::Length;
 use iced::Rectangle;
 use iced::Shadow;
 use iced::Size;
+use iced::{window, Color};
 use std::time::{Duration, Instant};
 
-pub struct LoadingBar<Theme>
+pub struct LoadingBar<'a, Theme>
 where
-    Theme: StyleSheet,
+    Theme: Catalog,
 {
     width: Length,
     segment_width: f32,
     height: Length,
     rate: Duration,
-    style: <Theme as StyleSheet>::Style,
+    class: <Theme as Catalog>::Class<'a>,
 }
 
-impl<Theme> Default for LoadingBar<Theme>
+impl<'a, Theme> Default for LoadingBar<'a, Theme>
 where
-    Theme: StyleSheet,
+    Theme: Catalog,
 {
     fn default() -> Self {
         Self {
@@ -41,14 +41,14 @@ where
             segment_width: 200.0,
             height: Length::Fixed(1.0),
             rate: Duration::from_secs_f32(1.0),
-            style: <Theme as StyleSheet>::Style::default(),
+            class: <Theme as Catalog>::Class::default(),
         }
     }
 }
 
-impl<Theme> LoadingBar<Theme>
+impl<'a, Theme> LoadingBar<'a, Theme>
 where
-    Theme: StyleSheet,
+    Theme: Catalog,
 {
     #[must_use]
     pub fn new() -> Self {
@@ -74,8 +74,8 @@ where
     }
 
     #[must_use]
-    pub fn style(mut self, style: <Theme as StyleSheet>::Style) -> Self {
-        self.style = style;
+    pub fn class(mut self, class: <Theme as Catalog>::Class<'a>) -> Self {
+        self.class = class;
         self
     }
 }
@@ -89,10 +89,10 @@ fn is_visible(bounds: &Rectangle) -> bool {
     bounds.width > 0.0 && bounds.height > 0.0
 }
 
-impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for LoadingBar<Theme>
+impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for LoadingBar<'a, Theme>
 where
     Renderer: renderer::Renderer,
-    Theme: StyleSheet,
+    Theme: Catalog,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
@@ -124,7 +124,7 @@ where
 
         let position = bounds.position();
         let size = bounds.size();
-        let styling = theme.appearance(&self.style);
+        let styling = Catalog::style(theme, &self.class);
 
         renderer.fill_quad(
             renderer::Quad {
@@ -184,7 +184,7 @@ where
 
         let bounds = layout.bounds();
 
-        if let Event::Window(_id, window::Event::RedrawRequested(now)) = event {
+        if let Event::Window(window::Event::RedrawRequested(now)) = event {
             if is_visible(&bounds) {
                 let state = state.state.downcast_mut::<LoadingBarState>();
                 let duration = (now - state.last_update).as_secs_f32();
@@ -214,23 +214,26 @@ where
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Appearance {
+pub struct Style {
     pub background_color: Color,
     pub loading_bar_color: Color,
 }
 
-pub trait StyleSheet {
-    type Style: Default;
-    fn appearance(&self, style: &Self::Style) -> Appearance;
+pub trait Catalog {
+    type Class<'a>: Default;
+
+    fn default<'a>() -> Self::Class<'a>;
+
+    fn style(&self, class: &Self::Class<'_>) -> Style;
 }
 
 
-impl<'a, Message, Theme, Renderer> From<LoadingBar<Theme>> for Element<'a, Message, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> From<LoadingBar<'a, Theme>> for Element<'a, Message, Theme, Renderer>
 where
     Renderer: renderer::Renderer + 'a,
-    Theme: 'a + StyleSheet,
+    Theme: 'a + Catalog,
 {
-    fn from(spinner: LoadingBar<Theme>) -> Self {
+    fn from(spinner: LoadingBar<'a, Theme>) -> Self {
         Self::new(spinner)
     }
 }

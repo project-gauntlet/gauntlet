@@ -1,71 +1,80 @@
-use checkbox::Appearance;
 use iced::{Border, Renderer};
 use iced::widget::{checkbox, Checkbox};
-
+use iced::widget::checkbox::{Status, Style};
 use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
 
-#[derive(Default)]
 pub enum CheckboxStyle {
-    #[default]
     Default,
 }
 
-impl checkbox::StyleSheet for GauntletComplexTheme {
-    type Style = CheckboxStyle;
+impl checkbox::Catalog for GauntletComplexTheme {
+    type Class<'a> = CheckboxStyle;
 
-    fn active(&self, _: &Self::Style, is_checked: bool) -> Appearance {
-        let theme = &self.form_input_checkbox;
-
-        let background = if is_checked {
-            theme.background_color_checked.to_iced().into()
-        } else {
-            theme.background_color_unchecked.to_iced().into()
-        };
-
-        Appearance {
-            background,
-            icon_color: theme.icon_color.to_iced(),
-            border: Border {
-                radius: theme.border_radius.into(),
-                width: theme.border_width,
-                color: theme.border_color.to_iced().into(),
-            },
-            text_color: None,
-        }
+    fn default<'a>() -> Self::Class<'a> {
+        CheckboxStyle::Default
     }
 
-    fn hovered(&self, _: &Self::Style, is_checked: bool) -> Appearance {
-        let theme = &self.form_input_checkbox;
-
-        let background = if is_checked {
-            theme.background_color_checked_hovered.to_iced().into()
-        } else {
-            theme.background_color_unchecked_hovered.to_iced().into()
-        };
-
-        Appearance {
-            background,
-            icon_color: theme.icon_color.to_iced(),
-            border: Border {
-                radius: theme.border_radius.into(),
-                width: theme.border_width,
-                color: theme.border_color.to_iced().into(),
-            },
-            text_color: None,
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        match status {
+            Status::Active { is_checked } => active(self, is_checked),
+            Status::Hovered { is_checked } => hovered(self, is_checked),
+            Status::Disabled { is_checked } => disabled(is_checked)
         }
     }
+}
 
-    fn disabled(&self, _: &Self::Style, _is_checked: bool) -> Appearance {
-        Appearance {
-            background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-            icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
-            border: Border {
-                radius: 2.0.into(),
-                width: 1.0,
-                color: NOT_INTENDED_TO_BE_USED.to_iced(),
-            },
-            text_color: None,
-        }
+fn active(theme: &GauntletComplexTheme, is_checked: bool) -> Style {
+    let theme = &theme.form_input_checkbox;
+
+    let background = if is_checked {
+        theme.background_color_checked.to_iced().into()
+    } else {
+        theme.background_color_unchecked.to_iced().into()
+    };
+
+    Style {
+        background,
+        icon_color: theme.icon_color.to_iced(),
+        border: Border {
+            radius: theme.border_radius.into(),
+            width: theme.border_width,
+            color: theme.border_color.to_iced().into(),
+        },
+        text_color: None,
+    }
+}
+
+fn hovered(theme: &GauntletComplexTheme, is_checked: bool) -> Style {
+    let theme = &theme.form_input_checkbox;
+
+    let background = if is_checked {
+        theme.background_color_checked_hovered.to_iced().into()
+    } else {
+        theme.background_color_unchecked_hovered.to_iced().into()
+    };
+
+    Style {
+        background,
+        icon_color: theme.icon_color.to_iced(),
+        border: Border {
+            radius: theme.border_radius.into(),
+            width: theme.border_width,
+            color: theme.border_color.to_iced().into(),
+        },
+        text_color: None,
+    }
+}
+
+fn disabled(_is_checked: bool) -> Style {
+    Style {
+        background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+        icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
+        border: Border {
+            radius: 2.0.into(),
+            width: 1.0,
+            color: NOT_INTENDED_TO_BE_USED.to_iced(),
+        },
+        text_color: None,
     }
 }
 
@@ -77,7 +86,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Checkbox<'a, Message, Gaun
 
         match style {
             CheckboxStyle::Default => {
-                self.style(style)
+                self.class(style)
                     // .spacing() // TODO
                     // .size()
             }

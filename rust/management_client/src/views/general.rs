@@ -1,5 +1,4 @@
 use crate::components::shortcut_selector::ShortcutSelector;
-use crate::theme::shortcut_selector::ShortcutSelectorStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
 use common::model::PhysicalShortcut;
@@ -7,9 +6,9 @@ use common::rpc::backend_api::{BackendApi, BackendApiError};
 use iced::alignment::Horizontal;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
-use iced::widget::{column, container, row, text, tooltip, Space};
-use iced::{alignment, Alignment, Command, Length, Padding};
-use iced_aw::core::icons;
+use iced::widget::{column, container, row, text, tooltip, value, Space};
+use iced::{alignment, Alignment, Length, Padding, Task};
+use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use crate::theme::container::ContainerStyle;
 
 pub struct ManagementAppGeneralState {
@@ -46,11 +45,11 @@ impl ManagementAppGeneralState {
         }
     }
 
-    pub fn update(&mut self, message: ManagementAppGeneralMsgIn) -> Command<ManagementAppGeneralMsgOut> {
+    pub fn update(&mut self, message: ManagementAppGeneralMsgIn) -> Task<ManagementAppGeneralMsgOut> {
         let backend_api = match &self.backend_api {
             Some(backend_api) => backend_api.clone(),
             None => {
-                return Command::none()
+                return Task::none()
             }
         };
 
@@ -60,7 +59,7 @@ impl ManagementAppGeneralState {
 
                 let mut backend_api = backend_api.clone();
 
-                Command::perform(async move {
+                Task::perform(async move {
                     backend_api.set_global_shortcut(shortcut)
                         .await?;
 
@@ -68,18 +67,18 @@ impl ManagementAppGeneralState {
                 }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
             }
             ManagementAppGeneralMsgIn::Noop => {
-                Command::none()
+                Task::none()
             }
             ManagementAppGeneralMsgIn::RefreshShortcut { shortcut, error } => {
                 self.current_shortcut = shortcut;
                 self.current_shortcut_error = error;
 
-                Command::perform(async move {}, |_| ManagementAppGeneralMsgOut::Noop)
+                Task::perform(async move {}, |_| ManagementAppGeneralMsgOut::Noop)
             }
             ManagementAppGeneralMsgIn::CapturingChanged(capturing) => {
                 self.currently_capturing = capturing;
 
-                Command::none()
+                Task::none()
             }
         }
     }
@@ -90,7 +89,6 @@ impl ManagementAppGeneralState {
             &self.current_shortcut,
             move |value| { ManagementAppGeneralMsgIn::ShortcutCaptured(value) },
             move |value| { ManagementAppGeneralMsgIn::CapturingChanged(value) },
-            ShortcutSelectorStyle::Default
         ).into();
 
         let field: Element<_> = container(shortcut_selector)
@@ -114,10 +112,10 @@ impl ManagementAppGeneralState {
         content
     }
 
-    fn view_field<'a>(&self, label: &str, input: Element<'a, ManagementAppGeneralMsgIn>) -> Element<'a, ManagementAppGeneralMsgIn> {
+    fn view_field<'a>(&'a self, label: &'a str, input: Element<'a, ManagementAppGeneralMsgIn>) -> Element<'a, ManagementAppGeneralMsgIn> {
         let label: Element<_> = text(label)
             .shaping(Shaping::Advanced)
-            .horizontal_alignment(Horizontal::Right)
+            .align_x(Horizontal::Right)
             .width(Length::Fill)
             .into();
 
@@ -134,34 +132,34 @@ impl ManagementAppGeneralState {
         let after = if self.currently_capturing {
             let hint1: Element<_> = text("Backspace - Unset Shortcut")
                 .width(Length::Fill)
-                .style(TextStyle::Subtitle)
+                .class(TextStyle::Subtitle)
                 .into();
 
             let hint2: Element<_> = text("Escape - Stop Capturing")
                 .width(Length::Fill)
-                .style(TextStyle::Subtitle)
+                .class(TextStyle::Subtitle)
                 .into();
 
             column(vec![hint1, hint2])
                 .width(Length::FillPortion(3))
-                .align_items(Alignment::Center)
+                .align_x(Alignment::Center)
                 .padding(Padding::from([0.0, 8.0]))
                 .into()
         } else {
             if let Some(current_shortcut_error) = &self.current_shortcut_error {
-                let error_icon: Element<_> = text(icons::Bootstrap::ExclamationTriangleFill)
-                    .font(icons::BOOTSTRAP_FONT)
-                    .style(TextStyle::Destructive)
+                let error_icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
+                    .font(BOOTSTRAP_FONT)
+                    .class(TextStyle::Destructive)
                     .into();
 
                 let error_text: Element<_> = text(current_shortcut_error)
-                    .style(TextStyle::Destructive)
+                    .class(TextStyle::Destructive)
                     .into();
 
                 let error_text: Element<_> = container(error_text)
                     .padding(16.0)
                     .max_width(300)
-                    .style(ContainerStyle::Box)
+                    .class(ContainerStyle::Box)
                     .into();
 
                 let tooltip: Element<_> = tooltip(error_icon, error_text, Position::Bottom)
@@ -187,7 +185,7 @@ impl ManagementAppGeneralState {
         ];
 
         let row: Element<_> = row(content)
-            .align_items(Alignment::Center)
+            .align_y(Alignment::Center)
             .padding(12)
             .into();
 

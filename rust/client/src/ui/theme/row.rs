@@ -37,12 +37,12 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletC
             }
             RowStyle::ListFirstSectionTitle => {
                 let padding = theme.list_section_title.padding.to_iced();
-                self.padding(Padding::from([padding.bottom, padding.right, padding.bottom, padding.left]))
+                self.padding(common_ui::padding(padding.bottom, padding.right, padding.bottom, padding.left))
                     .spacing(theme.list_section_title.spacing)
             }
             RowStyle::GridFirstSectionTitle => {
                 let padding = theme.grid_section_title.padding.to_iced();
-                self.padding(Padding::from([0.0, padding.right, padding.bottom, padding.left]))
+                self.padding(common_ui::padding(0.0, padding.right, padding.bottom, padding.left))
                     .spacing(theme.grid_section_title.spacing)
             }
             RowStyle::GridItemTitle => {

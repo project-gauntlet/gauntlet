@@ -2,16 +2,17 @@ use iced::{alignment, Element, Event, Length, Padding, Rectangle, Renderer, Size
 use iced::advanced::{Clipboard, layout, Layout, mouse, renderer, Shell, Widget};
 use iced::advanced::graphics::core::{event, keyboard};
 use iced::advanced::widget::{Tree, tree};
+use iced::keyboard::key::Physical;
 use iced::mouse::Button;
 use iced::widget::{container, row, text};
-use iced::widget::container::{Appearance, draw_background, layout};
+use iced::widget::container::{draw_background, layout};
 
 use common::model::PhysicalShortcut;
 use common_ui::{physical_key_model, shortcut_to_text};
 
 pub struct ShortcutSelector<'a, Message, Theme>
 where
-    Theme: StyleSheet + text::StyleSheet + container::StyleSheet
+    Theme: Catalog + text::Catalog + container::Catalog
 {
     padding: Padding,
     width: Length,
@@ -21,8 +22,6 @@ where
     horizontal_alignment: alignment::Horizontal,
     vertical_alignment: alignment::Vertical,
 
-    style: <Theme as StyleSheet>::Style,
-
     on_shortcut_captured: Box<dyn Fn(Option<PhysicalShortcut>) -> Message + 'a>,
     on_capturing_change: Box<dyn Fn(bool) -> Message + 'a>,
 
@@ -31,13 +30,12 @@ where
 
 impl<'a, Message: 'a, Theme> ShortcutSelector<'a, Message, Theme>
 where
-    Theme: StyleSheet + text::StyleSheet + container::StyleSheet + 'a
+    Theme: Catalog + text::Catalog + container::Catalog + 'a
 {
     pub fn new<F, F2>(
         current_shortcut: &Option<PhysicalShortcut>,
         on_shortcut_captured: F,
         on_capturing_change: F2,
-        style: <Theme as StyleSheet>::Style
     ) -> Self
         where
             F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
@@ -89,8 +87,6 @@ where
             horizontal_alignment: alignment::Horizontal::Center,
             vertical_alignment: alignment::Vertical::Center,
 
-            style,
-
             on_shortcut_captured: Box::new(on_shortcut_captured),
             on_capturing_change: Box::new(on_capturing_change),
 
@@ -107,7 +103,7 @@ struct State {
 
 impl<'a, Message, Theme> Widget<Message, Theme, Renderer> for ShortcutSelector<'a, Message, Theme>
 where
-    Theme: StyleSheet + text::StyleSheet + container::StyleSheet
+    Theme: Catalog + text::Catalog + container::Catalog
 {
     fn size(&self) -> Size<Length> {
         Size {
@@ -148,10 +144,12 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let style = if state.is_capturing {
-            theme.capturing(&self.style)
+            Status::Capturing
         } else {
-            theme.active(&self.style)
+            Status::Active
         };
+
+        let style = Catalog::style(theme, &<Theme as Catalog>::default(), style);
 
         draw_background(renderer, &style, layout.bounds());
 
@@ -160,9 +158,7 @@ where
             renderer,
             theme,
             &renderer::Style {
-                text_color: style
-                    .text_color
-                    .unwrap_or(renderer_style.text_color),
+                text_color: renderer_style.text_color,
             },
             layout.children().next().unwrap(),
             cursor,
@@ -205,42 +201,47 @@ where
                     match event {
                         keyboard::Event::KeyReleased { physical_key, modifiers, .. } => {
                             match physical_key {
-                                keyboard::key::PhysicalKey::Backspace => {
-                                    state.is_capturing = false;
-
-                                    let message = (self.on_capturing_change)(false);
-                                    shell.publish(message);
-
-                                    let message = (self.on_shortcut_captured)(None);
-                                    shell.publish(message);
-
-                                    event::Status::Ignored
-                                }
-                                keyboard::key::PhysicalKey::Escape => {
-                                    state.is_capturing = false;
-
-                                    let message = (self.on_capturing_change)(false);
-                                    shell.publish(message);
-
-                                    event::Status::Ignored
-                                }
-                                _ => {
-                                    match physical_key_model(physical_key, modifiers) {
-                                        None => event::Status::Ignored,
-                                        Some(shortcut) => {
+                                Physical::Code(code) => {
+                                    match code {
+                                        keyboard::key::Code::Backspace => {
                                             state.is_capturing = false;
 
                                             let message = (self.on_capturing_change)(false);
                                             shell.publish(message);
 
-                                            let message = (self.on_shortcut_captured)(Some(shortcut));
+                                            let message = (self.on_shortcut_captured)(None);
                                             shell.publish(message);
 
-                                            event::Status::Captured
+                                            event::Status::Ignored
+                                        }
+                                        keyboard::key::Code::Escape => {
+                                            state.is_capturing = false;
+
+                                            let message = (self.on_capturing_change)(false);
+                                            shell.publish(message);
+
+                                            event::Status::Ignored
+                                        }
+                                        _ => {
+                                            match physical_key_model(code, modifiers) {
+                                                None => event::Status::Ignored,
+                                                Some(shortcut) => {
+                                                    state.is_capturing = false;
+
+                                                    let message = (self.on_capturing_change)(false);
+                                                    shell.publish(message);
+
+                                                    let message = (self.on_shortcut_captured)(Some(shortcut));
+                                                    shell.publish(message);
+
+                                                    event::Status::Captured
+                                                }
+                                            }
+
                                         }
                                     }
-
                                 }
+                                Physical::Unidentified(_) => event::Status::Ignored
                             }
                         }
                         _ => event::Status::Ignored
@@ -295,16 +296,23 @@ where
 impl<'a, Message, Theme> From<ShortcutSelector<'a, Message, Theme>> for Element<'a, Message, Theme>
 where
     Message: 'a,
-    Theme: StyleSheet + text::StyleSheet + container::StyleSheet + 'a
+    Theme: Catalog + text::Catalog + container::Catalog + 'a
 {
     fn from(shortcut_selector: ShortcutSelector<'a, Message, Theme>) -> Self {
         Self::new(shortcut_selector)
     }
 }
 
-pub trait StyleSheet {
-    type Style: Default;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Status {
+    Active,
+    Capturing
+}
 
-    fn active(&self, style: &Self::Style) -> Appearance;
-    fn capturing(&self, style: &Self::Style) -> Appearance;
+pub trait Catalog {
+    type Class<'a>;
+
+    fn default<'a>() -> Self::Class<'a>;
+
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> container::Style;
 }
