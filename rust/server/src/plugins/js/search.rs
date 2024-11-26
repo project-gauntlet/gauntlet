@@ -4,14 +4,14 @@ use crate::plugins::js::PluginData;
 use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction};
 use anyhow::Context;
 use common::model::{EntrypointId, SearchResultEntrypointType};
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[op]
-async fn reload_search_index(state: Rc<RefCell<OpState>>, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+#[op2(async)]
+pub async fn reload_search_index(state: Rc<RefCell<OpState>>, #[serde] generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
     let (plugin_id, plugin_uuid, repository, mut search_index, icon_cache) = {
         let state = state.borrow();
 

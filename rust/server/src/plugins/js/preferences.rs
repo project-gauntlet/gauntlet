@@ -1,15 +1,16 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 use deno_core::futures::executor::block_on;
 use crate::model::PreferenceUserData;
 use crate::plugins::data_db_repository::{DataDbRepository, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::js::PluginData;
 
 
-#[op]
-fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+#[op2]
+#[serde]
+pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 
@@ -34,8 +35,9 @@ fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap
     })
 }
 
-#[op]
-fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+#[op2]
+#[serde]
+pub fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: &str) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 
@@ -61,8 +63,8 @@ fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, entrypoint_id: &str) 
 }
 
 
-#[op]
-async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow::Result<bool> {
+#[op2(async)]
+pub async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow::Result<bool> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 
@@ -84,8 +86,8 @@ async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow::Res
     Ok(any_preferences_missing_value(preferences, preferences_user_data))
 }
 
-#[op]
-async fn entrypoint_preferences_required(state: Rc<RefCell<OpState>>, entrypoint_id: String) -> anyhow::Result<bool> {
+#[op2(async)]
+pub async fn entrypoint_preferences_required(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String) -> anyhow::Result<bool> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 

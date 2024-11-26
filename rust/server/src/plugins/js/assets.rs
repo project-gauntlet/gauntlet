@@ -1,12 +1,13 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use deno_core::{op, OpState};
-use deno_core::futures::executor::block_on;
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::js::PluginData;
+use deno_core::futures::executor::block_on;
+use deno_core::{op2, OpState};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-#[op]
-async fn asset_data(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result<Vec<u8>> {
+#[op2(async)]
+#[buffer]
+pub async fn asset_data(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Vec<u8>> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 
@@ -27,8 +28,9 @@ async fn asset_data(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result
     repository.get_asset_data(&plugin_id.to_string(), &path).await
 }
 
-#[op]
-fn asset_data_blocking(state: Rc<RefCell<OpState>>, path: String) -> anyhow::Result<Vec<u8>> {
+#[op2]
+#[buffer]
+pub fn asset_data_blocking(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Vec<u8>> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 

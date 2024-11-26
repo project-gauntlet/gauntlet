@@ -1,11 +1,19 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { runCommandGenerators, runGeneratedCommand, runGeneratedCommandAction } from "./command-generator";
 import { reloadSearchIndex } from "./search-index";
-import { clearRenderer } from "gauntlet:renderer";
-
-// @ts-expect-error does typescript support such symbol declarations?
-const denoCore: DenoCore = Deno[Deno.internal].core;
-const InternalApi = denoCore.ops;
+import { clearRenderer, render } from "ext:gauntlet/renderer.js";
+import {
+    clear_inline_view,
+    entrypoint_preferences_required,
+    fetch_action_id_for_shortcut,
+    op_inline_view_endpoint_id,
+    op_log_debug,
+    op_log_trace,
+    plugin_preferences_required,
+    show_plugin_error_view,
+    show_preferences_required_view,
+    op_plugin_get_pending_event
+} from "ext:core/ops";
 
 let latestRootUiWidget: UiWidget | undefined = undefined
 
@@ -46,16 +54,16 @@ function findAllActionHandlers(widget: UiWidget): { id: string, onAction: () => 
 }
 
 function handleEvent(event: ViewEvent) {
-    InternalApi.op_log_trace("plugin_event_handler", `Handling view event: ${Deno.inspect(event)}`);
-    InternalApi.op_log_trace("plugin_event_handler", `Root widget: ${Deno.inspect(latestRootUiWidget)}`);
+    op_log_trace("plugin_event_handler", `Handling view event: ${Deno.inspect(event)}`);
+    op_log_trace("plugin_event_handler", `Root widget: ${Deno.inspect(latestRootUiWidget)}`);
     if (latestRootUiWidget) {
         const widgetWithId = findWidgetWithId(latestRootUiWidget, event.widgetId);
-        InternalApi.op_log_trace("plugin_event_handler", `Found widget with id ${event.widgetId}: ${Deno.inspect(widgetWithId)}`)
+        op_log_trace("plugin_event_handler", `Found widget with id ${event.widgetId}: ${Deno.inspect(widgetWithId)}`)
 
         if (widgetWithId) {
             const property = widgetWithId.widgetProperties[event.eventName];
 
-            InternalApi.op_log_trace("plugin_event_handler", `Found event handler with name ${event.eventName}: ${Deno.inspect(property)}`)
+            op_log_trace("plugin_event_handler", `Found event handler with name ${event.eventName}: ${Deno.inspect(property)}`)
 
             if (property) {
                 if (typeof property === "function") {
@@ -78,7 +86,7 @@ function handleEvent(event: ViewEvent) {
                             }
                         });
 
-                    InternalApi.op_log_trace("plugin_event_handler", `Calling handler with arguments ${Deno.inspect(eventArgs)}`)
+                    op_log_trace("plugin_event_handler", `Calling handler with arguments ${Deno.inspect(eventArgs)}`)
 
                     property(...eventArgs);
                 } else {
@@ -90,7 +98,7 @@ function handleEvent(event: ViewEvent) {
 }
 
 async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
-    InternalApi.op_log_trace("plugin_event_handler", `Handling keyboard event: ${Deno.inspect(event)}`);
+    op_log_trace("plugin_event_handler", `Handling keyboard event: ${Deno.inspect(event)}`);
     switch (event.origin) {
         case "MainView": {
             runGeneratedCommandAction(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta)
@@ -100,7 +108,7 @@ async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
             if (latestRootUiWidget) {
                 const actionHandlers = findAllActionHandlers(latestRootUiWidget);
 
-                const id = await InternalApi.fetch_action_id_for_shortcut(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta);
+                const id = await fetch_action_id_for_shortcut(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta);
 
                 if (id) {
                     const actionHandler = actionHandlers.find(value => value.id === id);
@@ -116,31 +124,33 @@ async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
 }
 
 async function checkRequiredPreferences(entrypointId: string): Promise<boolean> {
-    const pluginPreferencesRequired = InternalApi.plugin_preferences_required();
-    const entrypointPreferencesRequired = InternalApi.entrypoint_preferences_required(entrypointId);
+    const pluginPreferencesRequired = plugin_preferences_required();
+    const entrypointPreferencesRequired = entrypoint_preferences_required(entrypointId);
 
     return pluginPreferencesRequired || entrypointPreferencesRequired;
 }
 
 async function checkRequiredPreferencesAndAsk(entrypointId: string): Promise<boolean> {
-    const pluginPreferencesRequired = await InternalApi.plugin_preferences_required();
-    const entrypointPreferencesRequired = await InternalApi.entrypoint_preferences_required(entrypointId);
+    const pluginPreferencesRequired = await plugin_preferences_required();
+    const entrypointPreferencesRequired = await entrypoint_preferences_required(entrypointId);
 
     const required = pluginPreferencesRequired || entrypointPreferencesRequired;
     if (required) {
-        InternalApi.show_preferences_required_view(entrypointId, pluginPreferencesRequired, entrypointPreferencesRequired)
+        show_preferences_required_view(entrypointId, pluginPreferencesRequired, entrypointPreferencesRequired)
     }
 
     return required;
 }
 
-async function runLoop() {
+export async function runPluginLoop() {
+    await runCommandGenerators();
+
     // runtime is stopped using tokio cancellation
     // noinspection InfiniteLoopJS
     while (true) {
-        InternalApi.op_log_trace("plugin_loop", "Waiting for next plugin event...")
-        const pluginEvent = await denoCore.opAsync("op_plugin_get_pending_event");
-        InternalApi.op_log_trace("plugin_loop", `Received plugin event: ${Deno.inspect(pluginEvent)}`)
+        op_log_trace("plugin_loop", "Waiting for next plugin event...")
+        const pluginEvent = await op_plugin_get_pending_event();
+        op_log_trace("plugin_loop", `Received plugin event: ${Deno.inspect(pluginEvent)}`)
         switch (pluginEvent.type) {
             case "ViewEvent": {
                 try {
@@ -165,11 +175,10 @@ async function runLoop() {
                     }
 
                     const View: FC = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
-                    const { render } = await import("gauntlet:renderer");
                     latestRootUiWidget = render(pluginEvent.entrypointId, "View", <View/>);
                 } catch (e) {
                     console.error("Error occurred when rendering view", pluginEvent.entrypointId, e)
-                    InternalApi.show_plugin_error_view(pluginEvent.entrypointId, "View")
+                    show_plugin_error_view(pluginEvent.entrypointId, "View")
                 }
                 break;
             }
@@ -199,7 +208,7 @@ async function runLoop() {
                 break;
             }
             case "OpenInlineView": {
-                const endpointId = InternalApi.op_inline_view_endpoint_id();
+                const endpointId = op_inline_view_endpoint_id();
 
                 if (endpointId) {
                     if (await checkRequiredPreferences(endpointId)) {
@@ -208,13 +217,12 @@ async function runLoop() {
 
                     try {
                         const Handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${endpointId}`)).default;
-                        const { render } = await import("gauntlet:renderer");
 
                         latestRootUiWidget = render(endpointId, "InlineView", <Handler text={pluginEvent.text}/>);
 
                         if (latestRootUiWidget.widgetChildren.length === 0) {
-                            InternalApi.op_log_debug("plugin_loop", `Inline view rendered no children, clearing inline view...`)
-                            InternalApi.clear_inline_view()
+                            op_log_debug("plugin_loop", `Inline view rendered no children, clearing inline view...`)
+                            clear_inline_view()
                         }
                     } catch (e) {
                         console.error("Error occurred when rendering inline view", e)
@@ -234,15 +242,3 @@ async function runLoop() {
         }
     }
 }
-
-denoCore.setPromiseRejectCallback((_type, _promise, reason) => {
-    console.error("Rejected promise", reason)
-})
-
-reloadSearchIndex(true)
-
-runCommandGenerators();
-
-(async () => {
-    await runLoop()
-})();

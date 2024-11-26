@@ -1,0 +1,14 @@
+{
+  "name": "@project-gauntlet/bridge-build",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build-generator && npm run run-generator",
+    "build-generator": "tsc",
+    "run-generator": "node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.67",
+    "typescript": "^5.7.2"
+  }
+}

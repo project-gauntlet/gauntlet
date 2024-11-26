@@ -22,11 +22,16 @@
     "disttypes"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && rollup --config rollup.config.ts --configPlugin typescript"
   },
   "devDependencies": {
     "@project-gauntlet/typings": "*",
-    "typescript": "^5.3.3"
+    "@rollup/plugin-alias": "^5.1.1",
+    "@types/react": "^18.2.35",
+    "rollup": "^4.27.4",
+    "tslib": "^2.6.2",
+    "typescript": "^5.7.2",
+    "glob": "^11.0.0"
   },
   "publishConfig": {
     "access": "public"

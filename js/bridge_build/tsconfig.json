@@ -5,8 +5,10 @@
     "esModuleInterop": true,
     "target": "ES2022",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "types": ["@project-gauntlet/typings", "@project-gauntlet/deno"]
+    "jsx": "react",
+    "types": ["@types/node"],
+    "outDir": "./dist"
   },
-  "lib": ["ES2020"]
+  "lib": ["ES2020"],
+  "include": ["./src"]
 }

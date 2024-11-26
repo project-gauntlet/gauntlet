@@ -1,6 +1,6 @@
 import { ReactNode, useRef, useId, useState, useCallback, useEffect, MutableRefObject, Dispatch, SetStateAction } from 'react';
 // @ts-ignore TODO how to add declaration for this?
-import { useGauntletContext } from "gauntlet:renderer";
+import { useGauntletContext } from "ext:gauntlet/renderer.js";
 
 export function useNavigation(): { popView: () => void, pushView: (component: ReactNode) => void } {
     const { popView, pushView }: { popView: () => void, pushView: (component: ReactNode) => void } = useGauntletContext();
