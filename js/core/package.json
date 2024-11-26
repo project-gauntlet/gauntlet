@@ -5,15 +5,16 @@
     "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
   },
   "devDependencies": {
+    "@project-gauntlet/api": "*",
+    "@project-gauntlet/deno": "*",
+    "@project-gauntlet/typings": "*",
+    "@rollup/plugin-alias": "^5.1.1",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",
     "@types/react": "^18.2.35",
-    "@project-gauntlet/api": "*",
-    "@project-gauntlet/typings": "*",
-    "@project-gauntlet/deno": "*",
-    "rollup": "^4.3.0",
+    "rollup": "^4.27.4",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.2"
   }
 }

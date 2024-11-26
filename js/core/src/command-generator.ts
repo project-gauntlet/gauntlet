@@ -1,8 +1,10 @@
+import {
+    fetch_action_id_for_shortcut,
+    get_command_generator_entrypoint_ids,
+    op_log_info,
+    update_loading_bar
+} from "ext:core/ops";
 import { reloadSearchIndex } from "./search-index";
-
-// @ts-expect-error does typescript support such symbol declarations?
-const denoCore: DenoCore = Deno[Deno.internal].core;
-const InternalApi = denoCore.ops;
 
 interface GeneratedCommand { // TODO is it possible to import api here
     name: string
@@ -46,15 +48,15 @@ export async function runCommandGenerators(): Promise<void> {
 
     await reloadSearchIndex(true)
 
-    const entrypointIds = await InternalApi.get_command_generator_entrypoint_ids();
+    const entrypointIds = await get_command_generator_entrypoint_ids();
     for (const generatorEntrypointId of entrypointIds) {
         try {
             const generator: Generator = (await import(`gauntlet:entrypoint?${generatorEntrypointId}`)).default;
 
-            InternalApi.op_log_info("command_generator", `Running command generator entrypoint ${generatorEntrypointId}`)
+            op_log_info("command_generator", `Running command generator entrypoint ${generatorEntrypointId}`)
 
             const add = (id: string, data: GeneratedCommand) => {
-                InternalApi.op_log_info("command_generator", `Adding entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+                op_log_info("command_generator", `Adding entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
 
                 const lookupId = generatorEntrypointId + ":" + id;
 
@@ -67,7 +69,7 @@ export async function runCommandGenerators(): Promise<void> {
                 reloadSearchIndex(true)
             }
             const remove = (id: string) => {
-                InternalApi.op_log_info("command_generator", `Removing entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+                op_log_info("command_generator", `Removing entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
                 const lookupId = generatorEntrypointId + ":" + id;
 
                 delete storedGeneratedCommands[lookupId]
@@ -78,9 +80,9 @@ export async function runCommandGenerators(): Promise<void> {
             // noinspection ES6MissingAwait
             (async () => {
                 try {
-                    InternalApi.update_loading_bar(generatorEntrypointId, true)
+                    update_loading_bar(generatorEntrypointId, true)
                     let cleanup = await generator({ add, remove })
-                    InternalApi.update_loading_bar(generatorEntrypointId, false)
+                    update_loading_bar(generatorEntrypointId, false)
                     if (typeof cleanup === "function") {
                         generatorCleanups[generatorEntrypointId] = cleanup
                     }
@@ -113,7 +115,7 @@ export async function runGeneratedCommandAction(entrypointId: string, key: strin
     const command = storedGeneratedCommands[entrypointId];
 
     if (command) {
-        const id = await InternalApi.fetch_action_id_for_shortcut(command.generatorEntrypointId, key, modifierShift, modifierControl, modifierAlt, modifierMeta);
+        const id = await fetch_action_id_for_shortcut(command.generatorEntrypointId, key, modifierShift, modifierControl, modifierAlt, modifierMeta);
         if (id) {
             const action = command.command.actions?.find(value => value.ref == id);
             if (action) {

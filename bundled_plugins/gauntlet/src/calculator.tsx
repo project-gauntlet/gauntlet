@@ -1,14 +1,7 @@
 import { Action, ActionPanel, Content, Icons, Inline } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
 import { Clipboard, showHud } from "@project-gauntlet/api/helpers";
-
-// @ts-expect-error
-const denoCore: DenoCore = Deno[Deno.internal].core;
-const InternalApi: InternalApi = denoCore.ops;
-
-interface InternalApi {
-    run_numbat(input: string): { left: string, right: string }
-}
+import { run_numbat } from "gauntlet:bridge/internal-all";
 
 export default function Calculator(props: { text: string }): ReactNode | undefined {
     const text = props.text;
@@ -20,7 +13,7 @@ export default function Calculator(props: { text: string }): ReactNode | undefin
     let result;
 
     try {
-         result = InternalApi.run_numbat(text);
+         result = run_numbat(text);
     } catch (e) {
         // this view is executed on every key press in main search bar
         // when numbat run fails it means expression is not valid so we return here and do not show inline view

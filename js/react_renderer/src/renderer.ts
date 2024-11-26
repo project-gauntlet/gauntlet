@@ -1,10 +1,16 @@
 import ReactReconciler, { HostConfig, OpaqueHandle } from "react-reconciler";
-import { createContext, FC, ReactNode, useContext } from 'react';
+import { createContext, ReactNode, useContext } from 'react';
 import { DefaultEventPriority } from 'react-reconciler/constants';
-
-// @ts-expect-error does typescript support such symbol declarations?
-const denoCore: DenoCore = Deno[Deno.internal].core;
-const InternalApi = denoCore.ops;
+import {
+    asset_data,
+    asset_data_blocking,
+    get_entrypoint_preferences,
+    get_plugin_preferences,
+    op_component_model,
+    op_log_trace,
+    op_react_replace_view,
+    show_hud
+} from "ext:core/ops";
 
 // Usage of MessageChannel seems to block Deno runtime from exiting
 // causing plugin to be in stuck state where it is disabled but still have running runtime
@@ -89,11 +95,11 @@ class GauntletContextValue {
     };
 
     entrypointPreferences = () => {
-        return InternalApi.get_entrypoint_preferences(this.entrypointId())
+        return get_entrypoint_preferences(this.entrypointId())
     }
 
     pluginPreferences = () => {
-        return InternalApi.get_plugin_preferences()
+        return get_plugin_preferences()
     }
 }
 
@@ -105,12 +111,12 @@ export function useGauntletContext() {
 }
 
 export async function getAssetData(path: string): Promise<ArrayBuffer> {
-    const vecU8 = await InternalApi.asset_data(path);
+    const vecU8 = await asset_data(path);
     return new Uint8Array(vecU8).buffer; // FIXME move array creation into rust if possible
 }
 
 export function getAssetDataSync(path: string): ArrayBuffer {
-    const vecU8 = InternalApi.asset_data_blocking(path);
+    const vecU8 = asset_data_blocking(path);
     return new Uint8Array(vecU8).buffer;
 }
 
@@ -123,7 +129,7 @@ export function getEntrypointPreferences(): Record<string, any> {
 }
 
 export function showHudWindow(display: string): void {
-    InternalApi.show_hud(display)
+    show_hud(display)
 }
 
 function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
@@ -168,9 +174,9 @@ export const createHostConfig = (): HostConfig<
         hostContext: HostContext,
         _internalHandle: OpaqueHandle,
     ): Instance => {
-        InternalApi.op_log_trace("renderer_js_common", `createInstance is called, type: ${type}, props: ${Deno.inspect(props)}, rootContainer: ${Deno.inspect(rootContainer)}`)
+        op_log_trace("renderer_js_common", `createInstance is called, type: ${type}, props: ${Deno.inspect(props)}, rootContainer: ${Deno.inspect(rootContainer)}`)
         const instance = createWidget(hostContext, type, props)
-        InternalApi.op_log_trace("renderer_js_common", `createInstance returned, widget: ${Deno.inspect(instance)}`)
+        op_log_trace("renderer_js_common", `createInstance returned, widget: ${Deno.inspect(instance)}`)
 
         return instance;
     },
@@ -181,15 +187,15 @@ export const createHostConfig = (): HostConfig<
         hostContext: HostContext,
         _internalHandle: OpaqueHandle
     ): TextInstance => {
-        InternalApi.op_log_trace("renderer_js_common", `createTextInstance is called, text: ${text}, rootContainer: ${Deno.inspect(rootContainer)}`)
+        op_log_trace("renderer_js_common", `createTextInstance is called, text: ${text}, rootContainer: ${Deno.inspect(rootContainer)}`)
         const textInstance = createWidget(hostContext, "gauntlet:text_part", { value: text })
-        InternalApi.op_log_trace("renderer_js_common", `createTextInstance returned, widget: ${Deno.inspect(textInstance)}`)
+        op_log_trace("renderer_js_common", `createTextInstance returned, widget: ${Deno.inspect(textInstance)}`)
 
         return textInstance;
     },
 
     appendInitialChild: (parentInstance: Instance, child: Instance | TextInstance): void => {
-        InternalApi.op_log_trace("renderer_js_common", `appendInitialChild is called, parentInstance: ${Deno.inspect(parentInstance)}, child: ${Deno.inspect(child)}`)
+        op_log_trace("renderer_js_common", `appendInitialChild is called, parentInstance: ${Deno.inspect(parentInstance)}, child: ${Deno.inspect(child)}`)
 
         parentInstance.widgetChildren.push(child)
     },
@@ -201,7 +207,7 @@ export const createHostConfig = (): HostConfig<
         _rootContainer: RootUiWidget,
         _hostContext: HostContext
     ): boolean => {
-        InternalApi.op_log_trace("renderer_js_common", `finalizeInitialChildren is called, instance: ${Deno.inspect(instance)}, type: ${type}, props: ${Deno.inspect(props)}`)
+        op_log_trace("renderer_js_common", `finalizeInitialChildren is called, instance: ${Deno.inspect(instance)}, type: ${type}, props: ${Deno.inspect(props)}`)
         return false;
     },
 
@@ -213,16 +219,16 @@ export const createHostConfig = (): HostConfig<
         _rootContainer: RootUiWidget,
         _hostContext: HostContext,
     ): UpdatePayload | null => {
-        InternalApi.op_log_trace("renderer_js_common", `prepareUpdate is called, instance: ${Deno.inspect(instance)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}`)
+        op_log_trace("renderer_js_common", `prepareUpdate is called, instance: ${Deno.inspect(instance)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}`)
         const diff = shallowDiff(oldProps, newProps);
-        InternalApi.op_log_trace("renderer_js_common", `prepareUpdate shallowDiff returned: ${Deno.inspect(diff)}`)
+        op_log_trace("renderer_js_common", `prepareUpdate shallowDiff returned: ${Deno.inspect(diff)}`)
         return diff;
     },
     shouldSetTextContent: (_type: ComponentType, _props: PropsWithChildren): boolean => {
         return false;
     },
     getRootHostContext: (_rootContainer: RootUiWidget): HostContext | null => {
-        const componentModel = InternalApi.op_component_model();
+        const componentModel = op_component_model();
 
         return new HostContext(1, componentModel);
     },
@@ -286,7 +292,7 @@ export const createHostConfig = (): HostConfig<
         keepChildren: boolean,
         recyclableInstance: null | Instance,
     ): Instance {
-        InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}, keepChildren: ${keepChildren}, recyclableInstance: ${Deno.inspect(recyclableInstance)}`)
+        op_log_trace("renderer_js_persistence", `cloneInstance is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}, keepChildren: ${keepChildren}, recyclableInstance: ${Deno.inspect(recyclableInstance)}`)
 
         let clonedInstance: Instance;
 
@@ -304,37 +310,37 @@ export const createHostConfig = (): HostConfig<
             }
         }
 
-        InternalApi.op_log_trace("renderer_js_persistence", `cloneInstance returned, widget: ${Deno.inspect(clonedInstance)}`)
+        op_log_trace("renderer_js_persistence", `cloneInstance returned, widget: ${Deno.inspect(clonedInstance)}`)
 
         return clonedInstance;
     },
 
     createContainerChildSet(container: RootUiWidget): ChildSet {
-        InternalApi.op_log_trace("renderer_js_persistence", `createContainerChildSet is called, container: ${Deno.inspect(container)}`)
+        op_log_trace("renderer_js_persistence", `createContainerChildSet is called, container: ${Deno.inspect(container)}`)
 
         return []
     },
 
     appendChildToContainerChildSet(childSet: ChildSet, child: Instance | TextInstance): void {
-        InternalApi.op_log_trace("renderer_js_persistence", `appendChildToContainerChildSet is called, childSet: ${Deno.inspect(childSet)}, child: ${Deno.inspect(child)}`)
+        op_log_trace("renderer_js_persistence", `appendChildToContainerChildSet is called, childSet: ${Deno.inspect(childSet)}, child: ${Deno.inspect(child)}`)
 
         childSet.push(child);
     },
 
     finalizeContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
-        InternalApi.op_log_trace("renderer_js_persistence", `finalizeContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
+        op_log_trace("renderer_js_persistence", `finalizeContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren)}`)
     },
 
     replaceContainerChildren(container: RootUiWidget, newChildren: ChildSet): void {
-        // InternalApi.op_log_info("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren, { depth: Number.MAX_VALUE })}`)
+        // op_log_info("renderer_js_persistence", `replaceContainerChildren is called, container: ${Deno.inspect(container)}, newChildren: ${Deno.inspect(newChildren, { depth: Number.MAX_VALUE })}`)
 
         container.widgetChildren = newChildren
 
         const containerComponent = { content: newChildren.map(value => convertComponents(value)) }
 
-        // InternalApi.op_log_info("renderer_js_persistence", `Converted container: ${Deno.inspect(containerComponent, { depth: Number.MAX_VALUE })}`)
+        // op_log_info("renderer_js_persistence", `Converted container: ${Deno.inspect(containerComponent, { depth: Number.MAX_VALUE })}`)
 
-        InternalApi.op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), containerComponent)
+        op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), containerComponent)
     },
 
     cloneHiddenInstance(

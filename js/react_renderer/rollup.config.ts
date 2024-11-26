@@ -3,6 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import replace from "@rollup/plugin-replace";
 import { defineConfig, RollupOptions } from "rollup";
+import alias from '@rollup/plugin-alias';
 
 const config = (nodeEnv: string, outDir: string): RollupOptions => {
     return {
@@ -16,7 +17,7 @@ const config = (nodeEnv: string, outDir: string): RollupOptions => {
                 sourcemap: 'inline',
             }
         ],
-        external: ["react", "react/jsx-runtime"],
+        external: [/^ext:.+/],
         plugins: [
             nodeResolve(),
             commonjs({
@@ -34,7 +35,13 @@ const config = (nodeEnv: string, outDir: string): RollupOptions => {
                     '–': "-",
                     '—': "-"
                 }
-            })
+            }),
+            alias({
+                entries: [
+                    { find: 'react/jsx-runtime', replacement: 'ext:gauntlet/react-jsx-runtime.js' },
+                    { find: 'react', replacement: 'ext:gauntlet/react.js' },
+                ]
+            }),
         ]
     }
 }

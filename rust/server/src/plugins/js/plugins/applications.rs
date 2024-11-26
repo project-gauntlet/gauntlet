@@ -1,4 +1,4 @@
-use deno_core::op;
+use deno_core::op2;
 use std::path::PathBuf;
 use image::ImageFormat;
 use image::imageops::FilterType;
@@ -63,19 +63,22 @@ pub struct DesktopSettings13AndPostData {
 }
 
 
-#[op]
+#[op2]
+#[string]
 pub fn current_os() -> &'static str {
     std::env::consts::OS
 }
 
 #[cfg(target_os = "linux")]
-#[op]
-pub async fn linux_app_from_path(path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+#[op2(async)]
+#[serde]
+pub async fn linux_app_from_path(#[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| linux::linux_app_from_path(PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "linux")]
-#[op]
+#[op2]
+#[serde]
 pub fn linux_application_dirs() -> Vec<String> {
     linux::linux_application_dirs()
         .into_iter()
@@ -84,8 +87,8 @@ pub fn linux_application_dirs() -> Vec<String> {
 }
 
 #[cfg(target_os = "linux")]
-#[op]
-pub fn linux_open_application(desktop_file_id: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Result<()> {
 
     spawn_detached("gtk-launch", &[desktop_file_id])?;
 
@@ -93,25 +96,28 @@ pub fn linux_open_application(desktop_file_id: String) -> anyhow::Result<()> {
 }
 
 #[cfg(target_os = "macos")]
-#[op]
+#[op2(fast)]
 pub fn macos_major_version() -> u8 {
     macos::macos_major_version()
 }
 
 #[cfg(target_os = "macos")]
-#[op]
-pub async fn macos_app_from_path(path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+#[op2(async)]
+#[serde]
+pub async fn macos_app_from_path(#[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "macos")]
-#[op]
-pub async fn macos_app_from_arbitrary_path(path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+#[op2(async)]
+#[serde]
+pub async fn macos_app_from_arbitrary_path(#[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "macos")]
-#[op]
+#[op2]
+#[serde]
 pub fn macos_system_applications() -> Vec<String> {
     macos::macos_system_applications()
         .into_iter()
@@ -120,7 +126,8 @@ pub fn macos_system_applications() -> Vec<String> {
 }
 
 #[cfg(target_os = "macos")]
-#[op]
+#[op2]
+#[serde]
 pub fn macos_application_dirs() -> Vec<String> {
     macos::macos_application_dirs()
         .into_iter()
@@ -129,8 +136,8 @@ pub fn macos_application_dirs() -> Vec<String> {
 }
 
 #[cfg(target_os = "macos")]
-#[op]
-pub fn macos_open_application(app_path: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn macos_open_application(#[string] app_path: String) -> anyhow::Result<()> {
 
     spawn_detached("open", &[app_path])?;
 
@@ -138,20 +145,22 @@ pub fn macos_open_application(app_path: String) -> anyhow::Result<()> {
 }
 
 #[cfg(target_os = "macos")]
-#[op]
+#[op2]
+#[serde]
 pub fn macos_settings_pre_13() -> Vec<DesktopSettingsPre13Data> {
     macos::macos_settings_pre_13()
 }
 
 #[cfg(target_os = "macos")]
-#[op]
+#[op2]
+#[serde]
 pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
     macos::macos_settings_13_and_post()
 }
 
 #[cfg(target_os = "macos")]
-#[op]
-pub fn macos_open_setting_13_and_post(preferences_id: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> anyhow::Result<()> {
 
     spawn_detached(
         "open",
@@ -164,8 +173,8 @@ pub fn macos_open_setting_13_and_post(preferences_id: String) -> anyhow::Result<
 }
 
 #[cfg(target_os = "macos")]
-#[op]
-pub fn macos_open_setting_pre_13(setting_path: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Result<()> {
 
     spawn_detached(
         "open",

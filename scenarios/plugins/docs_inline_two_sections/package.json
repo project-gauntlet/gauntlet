@@ -12,6 +12,6 @@
     "@types/react": "^18.2.14",
     "@project-gauntlet/deno": "file:../../js/deno",
     "@project-gauntlet/tools": "file:../../../tools",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.2"
   }
 }
