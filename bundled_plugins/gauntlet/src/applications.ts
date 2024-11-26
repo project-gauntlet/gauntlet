@@ -1,78 +1,35 @@
 import { GeneratedCommand, GeneratorProps } from "@project-gauntlet/api/helpers";
 import { walk, WalkOptions } from "@std/fs/walk";
 import { debounce } from "@std/async/debounce";
-
-// @ts-expect-error
-const denoCore: DenoCore = Deno[Deno.internal].core;
-const InternalApi: InternalApi = denoCore.ops;
-
-type LinuxDesktopApplicationData = {
-    name: string
-    icon: ArrayBuffer | undefined,
-}
-
-type MacOSDesktopApplicationData = {
-    name: string
-    path: string,
-    icon: ArrayBuffer | undefined,
-}
-
-type DesktopPathAction<DATA> = DesktopPathActionAdd<DATA> | DesktopPathActionRemove
-
-type DesktopPathActionAdd<DATA> = {
-    type: "add",
-    id: string,
-    data: DATA
-}
-
-type DesktopPathActionRemove = {
-    type: "remove"
-    id: string
-}
-
-type MacOSDesktopSettingsPre13Data = {
-    name: string
-    path: string,
-    icon: ArrayBuffer | undefined,
-}
-
-type MacOSDesktopSettings13AndPostData = {
-    name: string
-    preferences_id: string
-    icon: ArrayBuffer | undefined,
-}
-
-interface InternalApi {
-    current_os(): string
-
-    linux_open_application(desktop_id: string): void
-    linux_application_dirs(): string[]
-    linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
-
-    macos_major_version(): number
-
-    macos_settings_pre_13(): MacOSDesktopSettingsPre13Data[]
-    macos_settings_13_and_post(): MacOSDesktopSettings13AndPostData[]
-    macos_open_setting_13_and_post(preferences_id: String): void
-    macos_open_setting_pre_13(setting_path: String): void
-
-    macos_system_applications(): string[]
-    macos_application_dirs(): string[]
-    macos_app_from_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
-    macos_app_from_arbitrary_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
-    macos_open_application(app_path: String): void
-}
+import { current_os } from "gauntlet:bridge/internal-all";
+import {
+    linux_app_from_path,
+    linux_application_dirs,
+    linux_open_application,
+} from "gauntlet:bridge/internal-linux";
+import {
+    macos_app_from_arbitrary_path,
+    macos_app_from_path,
+    macos_application_dirs,
+    macos_major_version,
+    macos_open_application,
+    macos_open_setting_13_and_post,
+    macos_open_setting_pre_13,
+    macos_settings_13_and_post,
+    macos_settings_pre_13,
+    macos_system_applications
+} from "gauntlet:bridge/internal-macos";
 
 export default async function Applications({ add, remove }: GeneratorProps): Promise<void | (() => void)> {
-    switch (InternalApi.current_os()) {
+    switch (current_os()) {
         case "linux": {
             return await genericGenerator(
-                InternalApi.linux_application_dirs(),
-                path => InternalApi.linux_app_from_path(path),
+                linux_application_dirs(),
+                path => linux_app_from_path(path),
                 (id, data) => ({
                     name: data.name,
                     fn: () => {
-                        InternalApi.linux_open_application(id)
+                        linux_open_application(id)
                     },
                     icon: data.icon, // TODO lazy icons
                 }),
@@ -81,32 +38,32 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
             );
         }
         case "macos": {
-            const majorVersion = InternalApi.macos_major_version();
+            const majorVersion = macos_major_version();
 
             if (majorVersion >= 13) {
-                for (const setting of InternalApi.macos_settings_13_and_post()) {
+                for (const setting of macos_settings_13_and_post()) {
                     add(`settings:${setting.preferences_id}`, {
                         name: setting.name,
                         fn: () => {
-                            InternalApi.macos_open_setting_13_and_post(setting.preferences_id)
+                            macos_open_setting_13_and_post(setting.preferences_id)
                         },
                         icon: setting.icon,
                     })
                 }
             } else {
-                for (const setting of InternalApi.macos_settings_pre_13()) {
+                for (const setting of macos_settings_pre_13()) {
                     add(`settings:${setting.path}`, {
                         name: setting.name,
                         fn: () => {
-                            InternalApi.macos_open_setting_pre_13(setting.path)
+                            macos_open_setting_pre_13(setting.path)
                         },
                         icon: setting.icon,
                     })
                 }
             }
 
-            for (const path of InternalApi.macos_system_applications()) {
-                const app = await InternalApi.macos_app_from_path(path)
+            for (const path of macos_system_applications()) {
+                const app = await macos_app_from_path(path)
                 if (app) {
                     switch (app.type) {
                         case "add": {
@@ -114,7 +71,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                             add(data.path, {
                                 name: data.name,
                                 fn: () => {
-                                    InternalApi.macos_open_application(data.path)
+                                    macos_open_application(data.path)
                                 },
                                 icon: data.icon,
                             })
@@ -127,12 +84,12 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
             }
 
             return await genericGenerator(
-                InternalApi.macos_application_dirs(),
-                path => InternalApi.macos_app_from_arbitrary_path(path),
+                macos_application_dirs(),
+                path => macos_app_from_arbitrary_path(path),
                 (_id, data) => ({
                     name: data.name,
                     fn: () => {
-                        InternalApi.macos_open_application(data.path)
+                        macos_open_application(data.path)
                     },
                     icon: data.icon,
                 }),

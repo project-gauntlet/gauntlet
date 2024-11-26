@@ -7,19 +7,21 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use deno_core::futures::executor::block_on;
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
-use deno_core::{futures, op, serde_v8, v8, FastString, ModuleLoader, ModuleSource, ModuleSourceFuture, ModuleType, OpState, ResolutionKind, StaticModuleLoader};
+use deno_core::{futures, op2, serde_v8, v8, FastString, ModuleLoadResponse, ModuleLoader, ModuleSource, ModuleSourceCode, ModuleSourceFuture, ModuleType, OpState, RequestedModuleType, ResolutionKind, StaticModuleLoader};
+use deno_core::url::Url;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::deno_io::{Stdio, StdioPipe};
-use deno_runtime::permissions::{Descriptor, EnvDescriptor, NetDescriptor, Permissions, PermissionsContainer, PermissionsOptions, ReadDescriptor, UnaryPermission, WriteDescriptor};
-use deno_runtime::worker::MainWorker;
+use deno_runtime::worker::{MainWorker, WorkerServiceOptions};
 use deno_runtime::worker::WorkerOptions;
 use deno_runtime::BootstrapOptions;
+use deno_runtime::deno_fs::{FileSystem, FileSystemRc, RealFs};
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -41,6 +43,7 @@ use crate::plugins::js::command_generators::{get_command_generator_entrypoint_id
 use crate::plugins::js::environment::{environment_gauntlet_version, environment_is_development, environment_plugin_cache_dir, environment_plugin_data_dir};
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
+use crate::plugins::js::plugins::applications::current_os;
 use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::js::plugins::settings::open_settings;
 use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
@@ -298,8 +301,8 @@ async fn start_js_runtime(
     dirs: Dirs,
     clipboard: Clipboard,
 ) -> anyhow::Result<()> {
-
-    let dev_plugin = plugin_id.to_string().starts_with("file://");
+    let plugin_id_str = plugin_id.to_string();
+    let dev_plugin = plugin_id_str.starts_with("file://");
 
     let (stdout, stderr) = if dev_plugin {
         let (out_log_file, err_log_file) = dirs.plugin_log_files(&plugin_uuid);
@@ -310,75 +313,101 @@ async fn start_js_runtime(
         let out_log_file = File::create(out_log_file)?;
         let err_log_file = File::create(err_log_file)?;
 
-        (StdioPipe::File(out_log_file), StdioPipe::File(err_log_file))
+        (StdioPipe::file(out_log_file), StdioPipe::file(err_log_file))
     } else {
-        (StdioPipe::Inherit, StdioPipe::Inherit)
+        (StdioPipe::inherit(), StdioPipe::inherit())
     };
 
     let local_storage_dir = dirs.plugin_local_storage(&plugin_uuid);
     let plugin_cache_dir = dirs.plugin_cache(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
     let plugin_data_dir = dirs.plugin_data(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
 
-    // let _inspector_server = Arc::new(
-    //     InspectorServer::new(
-    //         "127.0.0.1:9229".parse::<SocketAddr>().unwrap(),
-    //         "test",
-    //     )
-    // );
+    let init_url: ModuleSpecifier = "gauntlet:init".parse().expect("should be valid");
 
-    let core_url = "gauntlet:core".parse().expect("should be valid");
-    let unused_url = "gauntlet:unused".parse().expect("should be valid");
-
-    let numbat_context = if plugin_id.to_string() == "bundled://gauntlet" {
+    let numbat_context = if plugin_id_str == "bundled://gauntlet" {
         Some(NumbatContext::new())
     } else {
         None
     };
 
-    let permissions_container = permissions_to_deno(&permissions, &dirs, &plugin_uuid)?;
+    let fs: Arc<dyn FileSystem> = Arc::new(RealFs);
+
+    let permissions_container = permissions_to_deno(fs.clone(), &permissions, &dirs, &plugin_uuid)?;
 
     let runtime_permissions = PluginRuntimePermissions {
         clipboard: permissions.clipboard,
     };
 
+    let gauntlet_esm = if cfg!(feature = "release") && !dev_plugin {
+        prod::gauntlet_esm::init_ops_and_esm()
+    } else {
+        dev::gauntlet_esm::init_ops_and_esm()
+    };
+
+    let mut extensions = vec![
+        gauntlet::init_ops(
+            EventReceiver::new(event_stream),
+            PluginData::new(
+                plugin_id,
+                plugin_uuid,
+                plugin_name,
+                entrypoint_names,
+                plugin_cache_dir,
+                plugin_data_dir,
+                inline_view_entrypoint_id,
+                runtime_permissions,
+            ),
+            frontend_api,
+            ComponentModel::new(component_model),
+            repository,
+            search_index,
+            icon_cache,
+            numbat_context,
+            clipboard,
+        ),
+        gauntlet_esm,
+    ];
+
+    if plugin_id_str == "bundled://gauntlet" {
+        extensions.push(gauntlet_internal_all::init_ops_and_esm());
+
+        #[cfg(target_os = "macos")]
+        extensions.push(gauntlet_internal_macos::init_ops_and_esm());
+
+        #[cfg(target_os = "linux")]
+        extensions.push(gauntlet_internal_linux::init_ops_and_esm());
+    }
+
     let mut worker = MainWorker::bootstrap_from_options(
-        unused_url,
-        permissions_container,
+        init_url.clone(),
+        WorkerServiceOptions {
+            blob_store: Arc::new(Default::default()),
+            broadcast_channel: Default::default(),
+            feature_checker: Arc::new(Default::default()),
+            fs,
+            module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
+            node_services: None,
+            npm_process_state_provider: None,
+            permissions: permissions_container,
+            root_cert_store_provider: None,
+            fetch_dns_resolver: Default::default(),
+            shared_array_buffer_store: None,
+            compiled_wasm_module_store: None,
+            v8_code_cache: None,
+        },
         WorkerOptions {
             bootstrap: BootstrapOptions {
-                is_tty: false,
+                is_stderr_tty: false,
+                is_stdout_tty: false,
                 ..Default::default()
             },
-            module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
-            extensions: vec![plugin_ext::init_ops_and_esm(
-                EventReceiver::new(event_stream),
-                PluginData::new(
-                    plugin_id,
-                    plugin_uuid,
-                    plugin_name,
-                    entrypoint_names,
-                    plugin_cache_dir,
-                    plugin_data_dir,
-                    inline_view_entrypoint_id,
-                    runtime_permissions,
-                ),
-                frontend_api,
-                ComponentModel::new(component_model),
-                repository,
-                search_index,
-                icon_cache,
-                numbat_context,
-                clipboard,
-            )],
-            // maybe_inspector_server: Some(inspector_server.clone()),
-            // should_wait_for_inspector_session: true,
-            // should_break_on_first_statement: true,
+            extensions,
             maybe_inspector_server: None,
             should_wait_for_inspector_session: false,
             should_break_on_first_statement: false,
             origin_storage_dir: Some(local_storage_dir),
             stdio: Stdio {
-                stdin: StdioPipe::Inherit,
+                stdin: StdioPipe::inherit(),
                 stdout,
                 stderr,
             },
@@ -386,7 +415,7 @@ async fn start_js_runtime(
         },
     );
 
-    worker.execute_side_module(&core_url).await?;
+    worker.execute_main_module(&init_url).await?;
     worker.run_event_loop(false).await?;
 
     Ok(())
@@ -412,16 +441,16 @@ impl CustomModuleLoader {
 }
 
 const MODULES: [(&str, &str); 10] = [
-    ("gauntlet:renderer:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/prod/renderer.js"))),
-    ("gauntlet:renderer:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react_renderer/dist/dev/renderer.js"))),
-    ("gauntlet:react:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react.production.min.js"))),
-    ("gauntlet:react:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react.development.js"))),
-    ("gauntlet:react-jsx-runtime:prod", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/prod/react-jsx-runtime.production.min.js"))),
-    ("gauntlet:react-jsx-runtime:dev", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/react/dist/dev/react-jsx-runtime.development.js"))),
-    ("gauntlet:core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
-    ("gauntlet:api-components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/dist/gen/components.js"))),
-    ("gauntlet:api-hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/dist/hooks.js"))),
-    ("gauntlet:api-helpers", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/api/dist/helpers.js"))),
+    ("gauntlet:init", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
+    ("gauntlet:bridge/components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-components.js"))),
+    ("gauntlet:bridge/hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-hooks.js"))),
+    ("gauntlet:bridge/helpers", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-helpers.js"))),
+    ("gauntlet:bridge/core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-core.js"))),
+    ("gauntlet:bridge/react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-react.js"))),
+    ("gauntlet:bridge/react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-react-jsx-runtime.js"))),
+    ("gauntlet:bridge/internal-all", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-all.js"))),
+    ("gauntlet:bridge/internal-linux", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-linux.js"))),
+    ("gauntlet:bridge/internal-macos", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-macos.js"))),
 ];
 
 impl ModuleLoader for CustomModuleLoader {
@@ -429,7 +458,7 @@ impl ModuleLoader for CustomModuleLoader {
         &self,
         specifier: &str,
         referrer: &str,
-        kind: ResolutionKind,
+        _kind: ResolutionKind,
     ) -> Result<ModuleSpecifier, anyhow::Error> {
         static PLUGIN_ENTRYPOINT_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:entrypoint\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
         static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
@@ -445,56 +474,69 @@ impl ModuleLoader for CustomModuleLoader {
             }
         }
 
-        let prod_react = cfg!(feature = "release") && !self.dev_plugin;
-
         let specifier = match (specifier, referrer) {
-            ("gauntlet:core", _) => "gauntlet:core",
-            ("gauntlet:renderer", _) => if prod_react { "gauntlet:renderer:prod" } else { "gauntlet:renderer:dev" },
-            ("react", _) => if prod_react { "gauntlet:react:prod" } else { "gauntlet:react:dev" },
-            ("react/jsx-runtime", _) => if prod_react { "gauntlet:react-jsx-runtime:prod" } else { "gauntlet:react-jsx-runtime:dev" },
-            ("@project-gauntlet/api/components", _) => "gauntlet:api-components",
-            ("@project-gauntlet/api/hooks", _) => "gauntlet:api-hooks",
-            ("@project-gauntlet/api/helpers", _) => "gauntlet:api-helpers",
+            ("gauntlet:init", _) => "gauntlet:init",
+            ("gauntlet:core", _) => "gauntlet:bridge/core",
+            ("gauntlet:bridge/internal-all", _) => "gauntlet:bridge/internal-all",
+            ("gauntlet:bridge/internal-linux", _) => "gauntlet:bridge/internal-linux",
+            ("gauntlet:bridge/internal-macos", _) => "gauntlet:bridge/internal-macos",
+            ("react", _) => "gauntlet:bridge/react",
+            ("react/jsx-runtime", _) => "gauntlet:bridge/react-jsx-runtime",
+            ("@project-gauntlet/api/components", _) => "gauntlet:bridge/components",
+            ("@project-gauntlet/api/hooks", _) => "gauntlet:bridge/hooks",
+            ("@project-gauntlet/api/helpers", _) => "gauntlet:bridge/helpers",
             _ => {
-                return Err(anyhow!("Could not resolve module with specifier: {} and referrer: {}", specifier, referrer));
+                return Err(anyhow!("Illegal import with specifier '{}' and referrer '{}'", specifier, referrer))
             }
         };
 
-        self.static_loader.resolve(specifier, referrer, kind)
+        Ok(Url::parse(specifier)?)
     }
 
     fn load(
         &self,
         module_specifier: &ModuleSpecifier,
         maybe_referrer: Option<&ModuleSpecifier>,
-        is_dynamic: bool,
-    ) -> Pin<Box<ModuleSourceFuture>> {
+        is_dyn_import: bool,
+        requested_module_type: RequestedModuleType,
+    ) -> ModuleLoadResponse {
+
         let mut specifier = module_specifier.clone();
         specifier.set_query(None);
 
-        if &specifier == &"gauntlet:entrypoint".parse().unwrap() || &specifier == &"gauntlet:module".parse().unwrap() {
-            let module = get_js_code(module_specifier, &self.code.js);
+        match specifier.as_str() {
+            "gauntlet:init" => {
+                self.static_loader.load(module_specifier, maybe_referrer, is_dyn_import, requested_module_type)
+            }
+            "gauntlet:entrypoint" | "gauntlet:module" => {
+                match module_specifier.query() {
+                    None => {
+                        ModuleLoadResponse::Sync(Err(anyhow!("Module specifier doesn't have query part")))
+                    },
+                    Some(entrypoint_id) => {
+                        let result = self.code.js
+                            .get(entrypoint_id)
+                            .ok_or(anyhow!("Cannot find JS code path: {:?}", entrypoint_id))
+                            .map(|js| ModuleSourceCode::String(js.clone().into()))
+                            .map(|js| ModuleSource::new(ModuleType::JavaScript, js, module_specifier, None));
 
-            return futures::future::ready(module).boxed_local();
+                        ModuleLoadResponse::Sync(result)
+                    }
+                }
+            }
+            _ => {
+                if specifier.as_str().starts_with("gauntlet:bridge/"){
+                    self.static_loader.load(module_specifier, maybe_referrer, is_dyn_import, requested_module_type)
+                } else {
+                    ModuleLoadResponse::Sync(Err(anyhow!("Module not found: specifier '{}' and referrer '{:?}'", specifier, maybe_referrer.map(|url| url.as_str()))))
+                }
+            }
         }
-
-        self.static_loader.load(module_specifier, maybe_referrer, is_dynamic)
     }
 }
 
-fn get_js_code(module_specifier: &ModuleSpecifier, js: &HashMap<String, String>) -> anyhow::Result<ModuleSource> {
-    let entrypoint_id = module_specifier.query().expect("invalid specifier, should be validated earlier");
-
-    let js = js.get(entrypoint_id).ok_or(anyhow!("no code provided for view: {:?}", entrypoint_id))?;
-
-    let module = ModuleSource::new(ModuleType::JavaScript, js.clone().into(), module_specifier);
-
-    Ok(module)
-}
-
-
 deno_core::extension!(
-    plugin_ext,
+    gauntlet,
     ops = [
         // core
         op_plugin_get_pending_event,
@@ -540,45 +582,6 @@ deno_core::extension!(
         clipboard_write_text,
         clipboard_clear,
 
-        // plugins numbat
-        run_numbat,
-
-        // plugins applications
-        crate::plugins::js::plugins::applications::current_os,
-
-        // plugins applications linux
-        #[cfg(target_os = "linux")]
-        crate::plugins::js::plugins::applications::linux_app_from_path,
-        #[cfg(target_os = "linux")]
-        crate::plugins::js::plugins::applications::linux_application_dirs,
-        #[cfg(target_os = "linux")]
-        crate::plugins::js::plugins::applications::linux_open_application,
-
-        // plugins applications macos
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_major_version,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_settings_pre_13,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_settings_13_and_post,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_open_setting_13_and_post,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_open_setting_pre_13,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_system_applications,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_application_dirs,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_app_from_arbitrary_path,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_app_from_path,
-        #[cfg(target_os = "macos")]
-        crate::plugins::js::plugins::applications::macos_open_application,
-
-        // plugins settings
-        open_settings,
-
         // plugin environment
         environment_gauntlet_version,
         environment_is_development,
@@ -609,8 +612,102 @@ deno_core::extension!(
     },
 );
 
-#[op]
-async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiEvent> {
+mod prod {
+    deno_core::extension!(
+        gauntlet_esm,
+        esm_entry_point = "ext:gauntlet/bootstrap.js",
+        esm = [
+            "ext:gauntlet/bootstrap.js" =  "../../js/bridge_build/dist/bridge-bootstrap.js",
+            "ext:gauntlet/core.js" =  "../../js/core/dist/core.js",
+            "ext:gauntlet/api/components.js" =  "../../js/api/dist/gen/components.js",
+            "ext:gauntlet/api/hooks.js" =  "../../js/api/dist/hooks.js",
+            "ext:gauntlet/api/helpers.js" =  "../../js/api/dist/helpers.js",
+            "ext:gauntlet/renderer.js" =  "../../js/react_renderer/dist/prod/renderer.js",
+            "ext:gauntlet/react.js" =  "../../js/react/dist/prod/react.production.min.js",
+            "ext:gauntlet/react-jsx-runtime.js" =  "../../js/react/dist/prod/react-jsx-runtime.production.min.js",
+        ],
+    );
+}
+
+#[allow(long_running_const_eval)] // dev renderer is 22K line file which triggers rust lint
+mod dev {
+    deno_core::extension!(
+        gauntlet_esm,
+        esm_entry_point = "ext:gauntlet/bootstrap.js",
+        esm = [
+            "ext:gauntlet/bootstrap.js" =  "../../js/bridge_build/dist/bridge-bootstrap.js",
+            "ext:gauntlet/core.js" =  "../../js/core/dist/core.js",
+            "ext:gauntlet/api/components.js" =  "../../js/api/dist/gen/components.js",
+            "ext:gauntlet/api/hooks.js" =  "../../js/api/dist/hooks.js",
+            "ext:gauntlet/api/helpers.js" =  "../../js/api/dist/helpers.js",
+            "ext:gauntlet/renderer.js" =  "../../js/react_renderer/dist/dev/renderer.js",
+            "ext:gauntlet/react.js" =  "../../js/react/dist/dev/react.development.js",
+            "ext:gauntlet/react-jsx-runtime.js" =  "../../js/react/dist/dev/react-jsx-runtime.development.js",
+        ],
+    );
+}
+
+deno_core::extension!(
+    gauntlet_internal_all,
+    ops = [
+        // plugins numbat
+        run_numbat,
+
+        // plugins applications
+        current_os,
+
+        // plugins settings
+        open_settings,
+    ],
+    esm_entry_point = "ext:gauntlet/internal-all/bootstrap.js",
+    esm = [
+        "ext:gauntlet/internal-all/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-all-bootstrap.js",
+        "ext:gauntlet/internal-all.js" =  "../../js/core/dist/internal-all.js",
+    ]
+);
+
+#[cfg(target_os = "linux")]
+deno_core::extension!(
+    gauntlet_internal_linux,
+    ops = [
+        // plugins applications linux
+        crate::plugins::js::plugins::applications::linux_app_from_path,
+        crate::plugins::js::plugins::applications::linux_application_dirs,
+        crate::plugins::js::plugins::applications::linux_open_application,
+    ],
+    esm_entry_point = "ext:gauntlet/internal-linux/bootstrap.js",
+    esm = [
+        "ext:gauntlet/internal-linux/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-linux-bootstrap.js",
+        "ext:gauntlet/internal-linux.js" =  "../../js/core/dist/internal-linux.js",
+    ]
+);
+
+#[cfg(target_os = "macos")]
+deno_core::extension!(
+    gauntlet_internal_macos,
+    ops = [
+        // plugins applications macos
+        crate::plugins::js::plugins::applications::macos_major_version,
+        crate::plugins::js::plugins::applications::macos_settings_pre_13,
+        crate::plugins::js::plugins::applications::macos_settings_13_and_post,
+        crate::plugins::js::plugins::applications::macos_open_setting_13_and_post,
+        crate::plugins::js::plugins::applications::macos_open_setting_pre_13,
+        crate::plugins::js::plugins::applications::macos_system_applications,
+        crate::plugins::js::plugins::applications::macos_application_dirs,
+        crate::plugins::js::plugins::applications::macos_app_from_arbitrary_path,
+        crate::plugins::js::plugins::applications::macos_app_from_path,
+        crate::plugins::js::plugins::applications::macos_open_application,
+    ],
+    esm_entry_point = "ext:gauntlet/internal-macos/bootstrap.js",
+    esm = [
+        "ext:gauntlet/internal-macos/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-macos-bootstrap.js",
+        "ext:gauntlet/internal-macos.js" =  "../../js/core/dist/internal-macos.js",
+    ]
+);
+
+#[op2(async)]
+#[serde]
+pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiEvent> {
     let event_stream = {
         state.borrow()
             .borrow::<EventReceiver>()

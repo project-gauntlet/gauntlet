@@ -1,12 +1,15 @@
-use deno_runtime::permissions::{Descriptor, EnvDescriptor, NetDescriptor, Permissions, PermissionsContainer, ReadDescriptor, RunDescriptor, SysDescriptor, UnaryPermission, WriteDescriptor};
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use anyhow::anyhow;
+use deno_runtime::deno_fs::{FileSystemRc, RealFs};
+use deno_runtime::deno_permissions::{AllowRunDescriptor, EnvDescriptor, EnvQueryDescriptor, NetDescriptor, Permissions, PermissionsContainer, QueryDescriptor, ReadDescriptor, RunQueryDescriptor, SysDescriptor, SysDescriptorParseError, UnaryPermission, WriteDescriptor};
+use deno_runtime::permissions::RuntimePermissionDescriptorParser;
+use tonic::codegen::Body;
 use typed_path::Utf8TypedPath;
 use common::dirs::Dirs;
-use common::model::PluginId;
 use crate::plugins::loader::VARIABLE_PATTERN;
 
 pub struct PluginPermissions {
@@ -41,26 +44,30 @@ pub enum PluginPermissionsMainSearchBar {
     Read,
 }
 
-pub fn permissions_to_deno(permissions: &PluginPermissions, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<PermissionsContainer> {
-    Ok(PermissionsContainer::new(Permissions {
-        read: path_permission(&permissions.filesystem.read, ReadDescriptor, dirs, plugin_uuid)?,
-        write: path_permission(&permissions.filesystem.write, WriteDescriptor, dirs, plugin_uuid)?,
-        net: net_permission(&permissions.network),
-        env: env_permission(&permissions.environment),
-        sys: sys_permission(&permissions.system),
-        run: run_permission(&permissions.exec, dirs, plugin_uuid)?,
-        ffi: Permissions::new_ffi(&None, &None, false).expect("new_ffi should always succeed"),
-        hrtime: Permissions::new_hrtime(true, false),
-    }))
+pub fn permissions_to_deno(fs: FileSystemRc, permissions: &PluginPermissions, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<PermissionsContainer> {
+    Ok(PermissionsContainer::new(
+        Arc::new(RuntimePermissionDescriptorParser::new(fs)),
+        Permissions {
+            read: path_permission(&permissions.filesystem.read, ReadDescriptor, dirs, plugin_uuid)?,
+            write: path_permission(&permissions.filesystem.write, WriteDescriptor, dirs, plugin_uuid)?,
+            net: net_permission(&permissions.network),
+            env: env_permission(&permissions.environment),
+            sys: sys_permission(&permissions.system)?,
+            run: run_permission(&permissions.exec, dirs, plugin_uuid)?,
+            ffi: Permissions::new_unary(None, None, false),
+            import: UnaryPermission::default(),
+            all: Permissions::new_all(false),
+        }
+    ))
 }
 
-fn path_permission<T: Descriptor + Hash>(
+fn path_permission<P: Eq + Hash, T: QueryDescriptor<AllowDesc = P, DenyDesc = P> + Hash>(
     paths: &[String],
-    to_permission: fn(PathBuf) -> T,
+    to_permission: fn(PathBuf) -> P,
     dirs: &Dirs,
     plugin_uuid: &str
 ) -> anyhow::Result<UnaryPermission<T>> {
-    let granted = paths
+    let allow_list = paths
         .into_iter()
         .map(|path| {
             augment_path(path, dirs, plugin_uuid)
@@ -71,91 +78,90 @@ fn path_permission<T: Descriptor + Hash>(
         .filter_map(std::convert::identity)
         .collect::<HashSet<_>>();
 
-    Ok(UnaryPermission {
-        prompt: false,
-        granted_global: false,
-        flag_denied_global: false,
-        granted_list: granted,
-        ..Default::default()
-    })
+    let allow_list = if allow_list.is_empty() {
+        None
+    } else {
+        Some(allow_list)
+    };
+
+    Ok(Permissions::new_unary(allow_list, None, false))
 }
 
 fn net_permission(domain_and_ports: &[String]) -> UnaryPermission<NetDescriptor> {
-    let granted = domain_and_ports
-        .into_iter()
-        .map(|domain_and_port| {
-            NetDescriptor::from_str(&domain_and_port)
-                .expect("should be validated when loading")
-        })
-        .collect();
+    let allow_list = if domain_and_ports.is_empty() {
+        None
+    } else {
+        let allow_list = domain_and_ports.into_iter()
+            .map(|domain_and_port| {
+                NetDescriptor::parse(&domain_and_port)
+                    .expect("should be validated when loading")
+            })
+            .collect();
 
-    UnaryPermission {
-        prompt: false,
-        granted_global: false,
-        flag_denied_global: false,
-        granted_list: granted,
-        ..Default::default()
-    }
+        Some(allow_list)
+    };
+
+    Permissions::new_unary(allow_list, None, false)
 }
 
-fn env_permission(envs: &[String]) -> UnaryPermission<EnvDescriptor> {
-    let granted = envs
-        .into_iter()
-        .map(|env| EnvDescriptor::new(env))
-        .collect();
+fn env_permission(envs: &[String]) -> UnaryPermission<EnvQueryDescriptor> {
+    let allow_list = if envs.is_empty() {
+        None
+    } else {
+        let allow_list = envs.into_iter()
+            .map(|env| EnvDescriptor::new(env))
+            .collect();
 
-    UnaryPermission {
-        prompt: false,
-        granted_global: false,
-        flag_denied_global: false,
-        granted_list: granted,
-        ..Default::default()
-    }
+        Some(allow_list)
+    };
+
+    Permissions::new_unary(allow_list, None, false)
 }
 
-fn sys_permission(system: &[String]) -> UnaryPermission<SysDescriptor> {
-    let granted = system
-        .into_iter()
-        .map(|system| SysDescriptor(system.to_owned()))
-        .collect();
+fn sys_permission(system: &[String]) -> anyhow::Result<UnaryPermission<SysDescriptor>> {
+    let allow_list = if system.is_empty() {
+        None
+    } else {
+        let allow_list = system.into_iter()
+            .map(|system| SysDescriptor::parse(system.to_owned()))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .collect();
 
-    UnaryPermission {
-        prompt: false,
-        granted_global: false,
-        flag_denied_global: false,
-        granted_list: granted,
-        ..Default::default()
-    }
+        Some(allow_list)
+    };
+
+    Ok(Permissions::new_unary(allow_list, None, false))
 }
 
-fn run_permission(permissions: &PluginPermissionsExec, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<UnaryPermission<RunDescriptor>> {
+fn run_permission(permissions: &PluginPermissionsExec, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<UnaryPermission<RunQueryDescriptor>> {
     let granted_executable = permissions.executable
         .iter()
         .map(|path| {
             augment_path(path, dirs, plugin_uuid)
-                .map(|path| path.map(|path| RunDescriptor::Path(path)))
+                .map(|path| path.map(|path| AllowRunDescriptor(path)))
         })
         .collect::<anyhow::Result<Vec<_>>>()?
         .into_iter()
         .filter_map(std::convert::identity)
-        .collect::<HashSet<_>>();
+        .collect::<Vec<_>>();
 
     let granted_command = permissions.command
         .iter()
-        .map(|cmd| RunDescriptor::Name(cmd.to_owned()))
-        .collect::<HashSet<_>>();
+        .map(|cmd| AllowRunDescriptor(PathBuf::from(cmd)))
+        .collect::<Vec<_>>();
 
     let mut granted = HashSet::new();
     granted.extend(granted_executable);
     granted.extend(granted_command);
 
-    Ok(UnaryPermission {
-        prompt: false,
-        granted_global: false,
-        flag_denied_global: false,
-        granted_list: granted,
-        ..Default::default()
-    })
+    let allow_list = if granted.is_empty() {
+        None
+    } else {
+        Some(granted)
+    };
+
+    Ok(Permissions::new_unary(allow_list, None, false))
 }
 
 fn augment_path(path: &String, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<Option<PathBuf>> {

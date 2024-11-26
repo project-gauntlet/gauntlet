@@ -1,12 +1,13 @@
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginEntrypointType};
 use crate::plugins::js::PluginData;
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 
-#[op]
-async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> anyhow::Result<Vec<String>> {
+#[op2(async)]
+#[serde]
+pub async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> anyhow::Result<Vec<String>> {
     let (plugin_id, repository) = {
         let state = state.borrow();
 

@@ -1,9 +1,16 @@
 // @ts-ignore TODO how to add declaration for this?
-import { getAssetData, getAssetDataSync, getPluginPreferences, getEntrypointPreferences, showHudWindow } from "gauntlet:renderer";
-
-// @ts-expect-error does typescript support such symbol declarations?
-const denoCore: DenoCore = Deno[Deno.internal].core;
-const InternalApi = denoCore.ops;
+import { getAssetData, getAssetDataSync, getPluginPreferences, getEntrypointPreferences, showHudWindow } from "ext:gauntlet/renderer.js";
+import {
+    clipboard_clear,
+    clipboard_read,
+    clipboard_read_text,
+    clipboard_write,
+    clipboard_write_text,
+    environment_gauntlet_version,
+    environment_is_development,
+    environment_plugin_cache_dir,
+    environment_plugin_data_dir
+} from "ext:core/ops";
 
 export function assetDataSync(path: string): ArrayBuffer {
     return getAssetDataSync(path)
@@ -45,7 +52,7 @@ export type GeneratorProps = {
 
 export const Clipboard: Clipboard = {
     read: async function (): Promise<{ "text/plain"?: string | undefined; "image/png"?: Blob | undefined; }> {
-        const data = await InternalApi.clipboard_read();
+        const data = await clipboard_read();
 
         const result: { "text/plain"?: string; "image/png"?: Blob; } = {};
 
@@ -60,21 +67,21 @@ export const Clipboard: Clipboard = {
         return result
     },
     readText: async function (): Promise<string | undefined> {
-        return await InternalApi.clipboard_read_text()
+        return await clipboard_read_text()
     },
     write: async function (data: { "text/plain"?: string | undefined; "image/png"?: Blob | undefined; }): Promise<void> {
         const text_data = data["text/plain"];
         const png_data = data["image/png"];
-        return await InternalApi.clipboard_write({
+        return await clipboard_write({
             text_data: text_data,
             png_data: png_data != undefined ? Array.from(new Uint8Array(png_data as any)) : undefined, // TODO arraybuffer? fix when migrating to deno's op2
         })
     },
     writeText: async function (data: string): Promise<void> {
-        return await InternalApi.clipboard_write_text(data)
+        return await clipboard_write_text(data)
     },
     clear: async function (): Promise<void> {
-        await InternalApi.clipboard_clear()
+        await clipboard_clear()
     }
 }
 
@@ -88,16 +95,16 @@ export interface Clipboard {
 
 export const Environment: Environment = {
     get gauntletVersion(): number {
-        return InternalApi.environment_gauntlet_version()
+        return environment_gauntlet_version()
     },
     get isDevelopment(): boolean {
-        return InternalApi.environment_is_development()
+        return environment_is_development()
     },
     get pluginDataDir(): string {
-        return InternalApi.environment_plugin_data_dir()
+        return environment_plugin_data_dir()
     },
     get pluginCacheDir(): string {
-        return InternalApi.environment_plugin_cache_dir()
+        return environment_plugin_cache_dir()
     },
 }
 

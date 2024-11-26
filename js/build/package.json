@@ -23,9 +23,9 @@
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",
-    "@types/node": "^18.17.1",
+    "@types/node": "^18.19.67",
     "@types/cross-spawn": "^6.0.6",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.2"
   }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::rc::Rc;
 use anyhow::{anyhow, Context};
-use deno_core::{op, OpState, serde_v8, v8};
+use deno_core::{op2, OpState, serde_v8, v8};
 use deno_core::futures::executor::block_on;
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use indexmap::IndexMap;
@@ -16,8 +16,8 @@ use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::js::{ComponentModel, make_request, PluginData};
 
-#[op]
-fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, render_location: JsUiRenderLocation) -> anyhow::Result<()> {
+#[op2]
+pub fn show_plugin_error_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, #[serde] render_location: JsUiRenderLocation) -> anyhow::Result<()> {
     let data = JsUiRequestData::ShowPluginErrorView {
         entrypoint_id: EntrypointId::from_string(entrypoint_id),
         render_location,
@@ -32,8 +32,8 @@ fn show_plugin_error_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, re
     }
 }
 
-#[op]
-fn show_preferences_required_view(state: Rc<RefCell<OpState>>, entrypoint_id: String, plugin_preferences_required: bool, entrypoint_preferences_required: bool) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn show_preferences_required_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, plugin_preferences_required: bool, entrypoint_preferences_required: bool) -> anyhow::Result<()> {
     let data = JsUiRequestData::ShowPreferenceRequiredView {
         entrypoint_id: EntrypointId::from_string(entrypoint_id),
         plugin_preferences_required,
@@ -49,8 +49,8 @@ fn show_preferences_required_view(state: Rc<RefCell<OpState>>, entrypoint_id: St
     }
 }
 
-#[op]
-fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
     let data = JsUiRequestData::ClearInlineView;
 
     match make_request(&state, data).context("ClearInlineView frontend response")? {
@@ -62,22 +62,23 @@ fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
     }
 }
 
-#[op]
-fn op_inline_view_endpoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
+#[op2]
+#[string]
+pub fn op_inline_view_endpoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
     state.borrow()
         .borrow::<PluginData>()
         .inline_view_entrypoint_id()
         .clone()
 }
 
-#[op(v8)]
-fn op_react_replace_view<'a>(
+#[op2]
+pub fn op_react_replace_view<'a>(
     scope: &mut v8::HandleScope,
     state: Rc<RefCell<OpState>>,
-    render_location: JsUiRenderLocation,
+    #[serde] render_location: JsUiRenderLocation,
     top_level_view: bool,
-    entrypoint_id: &str,
-    container: serde_v8::Value<'a>,
+    #[string] entrypoint_id: &str,
+    #[serde] container: serde_v8::Value<'a>,
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
@@ -124,19 +125,21 @@ fn op_react_replace_view<'a>(
     }
 }
 
-#[op]
-fn op_component_model(state: Rc<RefCell<OpState>>) -> HashMap<String, Component> {
+#[op2]
+#[serde]
+pub fn op_component_model(state: Rc<RefCell<OpState>>) -> HashMap<String, Component> {
     state.borrow()
         .borrow::<ComponentModel>()
         .components
         .clone()
 }
 
-#[op]
-async fn fetch_action_id_for_shortcut(
+#[op2(async)]
+#[string]
+pub async fn fetch_action_id_for_shortcut(
     state: Rc<RefCell<OpState>>,
-    entrypoint_id: String,
-    key: String,
+    #[string] entrypoint_id: String,
+    #[string] key: String,
     modifier_shift: bool,
     modifier_control: bool,
     modifier_alt: bool,
@@ -170,8 +173,8 @@ async fn fetch_action_id_for_shortcut(
     Ok(result)
 }
 
-#[op]
-async fn show_hud(state: Rc<RefCell<OpState>>, display: String) -> anyhow::Result<()> {
+#[op2(async)]
+pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) -> anyhow::Result<()> {
     let data = JsUiRequestData::ShowHud {
         display
     };
@@ -185,8 +188,8 @@ async fn show_hud(state: Rc<RefCell<OpState>>, display: String) -> anyhow::Resul
     }
 }
 
-#[op]
-async fn update_loading_bar(state: Rc<RefCell<OpState>>, entrypoint_id: String, show: bool) -> anyhow::Result<()> {
+#[op2(async)]
+pub async fn update_loading_bar(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, show: bool) -> anyhow::Result<()> {
     let plugin_id = {
         let state = state.borrow();
 

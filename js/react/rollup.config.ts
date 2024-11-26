@@ -1,6 +1,7 @@
 import commonjs from '@rollup/plugin-commonjs';
 import replace from "@rollup/plugin-replace";
 import { defineConfig, RollupOptions } from "rollup";
+import alias from "@rollup/plugin-alias";
 
 
 const fixedDevExports = `
@@ -54,7 +55,7 @@ const config = (nodeEnv: string, reactBundle: string, outDir: string): RollupOpt
             dir: outDir,
             format: 'esm',
         },
-        external: ['react'],
+        external: [/^ext:.+/],
         plugins: [
             commonjs(),
             replace({
@@ -65,7 +66,13 @@ const config = (nodeEnv: string, reactBundle: string, outDir: string): RollupOpt
                     // To fix exports in development bundle https://github.com/rollup/plugins/issues/1546
                     'export { react_development as default };': fixedDevExports,
                 }
-            })
+            }),
+            alias({
+                entries: [
+                    { find: 'react/jsx-runtime', replacement: 'ext:gauntlet/react-jsx-runtime.js' },
+                    { find: 'react', replacement: 'ext:gauntlet/react.js' },
+                ]
+            }),
         ]
     }
 }

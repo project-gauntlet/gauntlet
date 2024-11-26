@@ -9,7 +9,7 @@
     "run-generator": "node dist/index.js"
   },
   "devDependencies": {
-    "@types/node": "^18.17.1",
-    "typescript": "^5.3.3"
+    "@types/node": "^18.19.67",
+    "typescript": "^5.7.2"
   }
 }

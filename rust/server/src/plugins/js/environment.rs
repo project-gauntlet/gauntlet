@@ -1,15 +1,15 @@
 use crate::plugins::js::PluginData;
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 
-#[op]
-fn environment_gauntlet_version() -> u16 {
+#[op2(fast)]
+pub fn environment_gauntlet_version() -> u16 {
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../VERSION"))
         .parse()
         .expect("version is not a number?")
 }
 
-#[op]
-fn environment_is_development(state: &mut OpState) -> bool {
+#[op2(fast)]
+pub fn environment_is_development(state: &mut OpState) -> bool {
     let plugin_id = state
         .borrow::<PluginData>()
         .plugin_id();
@@ -19,16 +19,18 @@ fn environment_is_development(state: &mut OpState) -> bool {
         .starts_with("file://")
 }
 
-#[op]
-fn environment_plugin_data_dir(state: &mut OpState) -> String {
+#[op2]
+#[string]
+pub fn environment_plugin_data_dir(state: &mut OpState) -> String {
     state
         .borrow::<PluginData>()
         .plugin_data_dir()
         .to_string()
 }
 
-#[op]
-fn environment_plugin_cache_dir(state: &mut OpState) -> String {
+#[op2]
+#[string]
+pub fn environment_plugin_cache_dir(state: &mut OpState) -> String {
     state
         .borrow::<PluginData>()
         .plugin_cache_dir()

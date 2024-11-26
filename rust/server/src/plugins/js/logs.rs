@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 use crate::plugins::js::PluginData;
 
-#[op]
-fn op_log_trace(state: Rc<RefCell<OpState>>, target: String, message: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn op_log_trace(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
     let plugin_id = state.borrow()
         .borrow::<PluginData>()
         .plugin_id()
@@ -15,8 +15,8 @@ fn op_log_trace(state: Rc<RefCell<OpState>>, target: String, message: String) ->
     Ok(())
 }
 
-#[op]
-fn op_log_debug(state: Rc<RefCell<OpState>>, target: String, message: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn op_log_debug(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
     let plugin_id = state.borrow()
         .borrow::<PluginData>()
         .plugin_id()
@@ -27,8 +27,8 @@ fn op_log_debug(state: Rc<RefCell<OpState>>, target: String, message: String) ->
     Ok(())
 }
 
-#[op]
-fn op_log_info(state: Rc<RefCell<OpState>>, target: String, message: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn op_log_info(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
     let plugin_id = state.borrow()
         .borrow::<PluginData>()
         .plugin_id()
@@ -39,8 +39,8 @@ fn op_log_info(state: Rc<RefCell<OpState>>, target: String, message: String) -> 
     Ok(())
 }
 
-#[op]
-fn op_log_warn(state: Rc<RefCell<OpState>>, target: String, message: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn op_log_warn(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
     let plugin_id = state.borrow()
         .borrow::<PluginData>()
         .plugin_id()
@@ -51,8 +51,8 @@ fn op_log_warn(state: Rc<RefCell<OpState>>, target: String, message: String) -> 
     Ok(())
 }
 
-#[op]
-fn op_log_error(state: Rc<RefCell<OpState>>, target: String, message: String) -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn op_log_error(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
     let plugin_id = state.borrow()
         .borrow::<PluginData>()
         .plugin_id()

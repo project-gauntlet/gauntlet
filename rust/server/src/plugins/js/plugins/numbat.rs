@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 use numbat::markup::{Formatter, PlainTextFormatter};
 use numbat::module_importer::BuiltinModuleImporter;
 use numbat::pretty_print::PrettyPrint;
@@ -34,8 +34,9 @@ struct NumbatResult {
     right: String,
 }
 
-#[op]
-fn run_numbat(state: Rc<RefCell<OpState>>, input: String) -> anyhow::Result<NumbatResult> {
+#[op2]
+#[serde]
+pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> anyhow::Result<NumbatResult> {
     let context = {
         let state = state.borrow();
 

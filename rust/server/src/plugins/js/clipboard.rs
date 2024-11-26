@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use anyhow::{anyhow, Context, Error};
 use arboard::ImageData;
-use deno_core::{op, OpState};
+use deno_core::{op2, OpState};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
@@ -159,8 +159,9 @@ struct ClipboardData {
     png_data: Option<Vec<u8>>
 }
 
-#[op]
-async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<ClipboardData> {
+#[op2(async)]
+#[serde]
+pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<ClipboardData> {
     let clipboard = {
         let state = state.borrow();
 
@@ -189,8 +190,9 @@ async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<Clipboard
 }
 
 
-#[op]
-async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Option<String>> {
+#[op2(async)]
+#[string]
+pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Option<String>> {
     let clipboard = {
         let state = state.borrow();
 
@@ -218,8 +220,8 @@ async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Opti
     spawn_blocking(move || clipboard.read_text()).await?
 }
 
-#[op]
-async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
+#[op2(async)]
+pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: ClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
     let clipboard = {
         let state = state.borrow();
 
@@ -247,8 +249,8 @@ async fn clipboard_write(state: Rc<RefCell<OpState>>, data: ClipboardData) -> an
     spawn_blocking(move || clipboard.write(data)).await?
 }
 
-#[op]
-async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyhow::Result<()> {
+#[op2(async)]
+pub async fn clipboard_write_text(state: Rc<RefCell<OpState>>, #[string] data: String) -> anyhow::Result<()> {
     let clipboard = {
         let state = state.borrow();
 
@@ -276,8 +278,8 @@ async fn clipboard_write_text(state: Rc<RefCell<OpState>>, data: String) -> anyh
     spawn_blocking(move || clipboard.write_text(data)).await?
 }
 
-#[op]
-async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+#[op2(async)]
+pub async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
     let clipboard = {
         let state = state.borrow();
 

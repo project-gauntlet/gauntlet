@@ -5,13 +5,12 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde-value = "0.7.0"
-deno_core = { version = "0.204.0" }
-deno_runtime = { version = "0.126.0" }
+deno_core = { version = "0.321.0" } # deno 2.1.1
+deno_runtime = { version = "0.188.0" }
 tokio = "1.28.1"
 tokio-util = "0.7.11"
 toml = "0.8.10"
 tantivy = "0.22.0"
-zstd-sys = "=2.0.9" # TODO REMOVE https://github.com/gyscos/zstd-rs/issues/270
 regex = "1.9.3"
 once_cell = "1.18.0"
 git2 = { version = "0.19.0", features = ["vendored-libgit2", "vendored-openssl"] }
@@ -21,7 +20,7 @@ anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1.0.48"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-sqlx = { version = "0.7", features = [ "runtime-tokio", "json", "sqlite" ] }
+sqlx = { version = "0.8.2", features = [ "runtime-tokio", "json", "sqlite" ] }
 common = { path = "../common" }
 utils = { path = "../utils" }
 component_model = { path = "../component_model" }
@@ -43,9 +42,6 @@ typed-path = "0.9"
 scenario_runner = { path = "../scenario_runner", optional = true }
 itertools = "0.10.5"
 vergen-pretty = "0.3.5"
-
-# TODO REMOVE when updating dependencies
-async-channel = "=2.3.1" # because concurrent-queue version is incorrect in automatically pulled version
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = "0.2.153"

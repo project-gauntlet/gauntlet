@@ -9,10 +9,10 @@
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-replace": "^5.0.5",
+    "@rollup/plugin-replace": "^6.0.1",
     "@rollup/plugin-typescript": "^11.1.5",
-    "rollup": "^4.3.0",
+    "rollup": "^4.27.4",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.2"
   }
 }

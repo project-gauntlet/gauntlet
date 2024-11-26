@@ -1,7 +1,7 @@
-use deno_core::op;
+use deno_core::op2;
 
-#[op]
-fn open_settings() -> anyhow::Result<()> {
+#[op2(fast)]
+pub fn open_settings() -> anyhow::Result<()> {
     std::process::Command::new(std::env::current_exe()?)
         .args(["settings"])
         .spawn()?;
