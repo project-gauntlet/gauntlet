@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use iced::{Alignment, Length, Renderer, Task};
 use iced::advanced::text::Shaping;
+use iced::id::Id;
 use iced::widget::{button, checkbox, container, horizontal_space, row, scrollable, Space, text, value};
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use iced_table::table;
@@ -42,8 +43,8 @@ pub enum PluginTableMsgOut {
 pub struct PluginTableState {
     columns: Vec<Column>,
     rows: Vec<Row>,
-    header: scrollable::Id,
-    body: scrollable::Id,
+    header: Id,
+    body: Id,
 }
 
 pub enum PluginTableUpdateResult {
@@ -61,8 +62,8 @@ impl PluginTableState {
                 Column::new(ColumnKind::EnableToggle),
             ],
             rows: vec![],
-            header: scrollable::Id::unique(),
-            body: scrollable::Id::unique(),
+            header: Id::unique(),
+            body: Id::unique(),
         }
     }
 

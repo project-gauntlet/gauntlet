@@ -93,6 +93,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let background_color = &panel_theme.background_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -110,6 +111,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let border_color = &theme.border_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -126,6 +128,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let border_color = &theme.border_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -141,6 +144,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let background_color = &theme.background_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -156,6 +160,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let background_color = &theme.background_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -172,6 +177,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let background_color = &tooltip_theme.background_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {
@@ -228,6 +234,7 @@ impl container::Catalog for GauntletComplexTheme {
                 let background_color = &theme.background_color;
 
                 Style {
+                    icon_color: None,
                     text_color: None,
                     background: Some(background_color.to_iced().into()),
                     border: Border {

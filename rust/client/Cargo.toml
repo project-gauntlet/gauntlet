@@ -28,8 +28,7 @@ tray-icon = { version = "0.15.1", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 iced.workspace = true
-# TODO
-#iced.features = ["wayland"]
+iced.features = ["wayland"]
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 iced.workspace = true

@@ -131,7 +131,7 @@ pub struct GauntletComplexTheme {
 
 impl Default for GauntletComplexTheme {
     fn default() -> Self {
-        unreachable!()
+        panic!("should not be called")
     }
 }
 
@@ -1003,6 +1003,7 @@ impl DefaultStyle for GauntletComplexTheme {
         application::Appearance {
             background_color: Color::TRANSPARENT,
             text_color: theme.text.to_iced(),
+            icon_color: theme.text.to_iced(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
+use iced::id::Id;
 use iced::Task;
-use iced::widget::scrollable;
 use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
 use crate::ui::AppMsg;
 
@@ -10,7 +10,7 @@ pub const ESTIMATED_ACTION_ITEM_HEIGHT: f32 = 38.8; // TODO
 #[derive(Clone, Debug)]
 pub struct ScrollHandle<T> {
     phantom: PhantomData<T>,
-    pub scrollable_id: scrollable::Id,
+    pub scrollable_id: Id,
     pub index: Option<usize>,
     offset: usize,
     rows_per_view: usize,
@@ -21,7 +21,7 @@ impl<T> ScrollHandle<T> {
     pub fn new(first_focused: bool, item_height: f32, rows_per_view: usize) -> ScrollHandle<T> {
         ScrollHandle {
             phantom: PhantomData,
-            scrollable_id: scrollable::Id::unique(),
+            scrollable_id: Id::unique(),
             index: if first_focused { Some(0) } else { None },
             offset: 0,
             rows_per_view,
