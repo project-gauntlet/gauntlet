@@ -66,7 +66,7 @@ pub struct AppModel {
     global_hotkey_manager: Arc<StdRwLock<GlobalHotKeyManager>>,
     current_hotkey: Arc<StdMutex<Option<HotKey>>>,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
-    main_window_id: window::Id,
+    main_window_id: Option<window::Id>,
     focused: bool,
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -194,6 +194,25 @@ pub enum AppMsg {
 const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
+fn window_settings() -> window::Settings {
+    window::Settings {
+        size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+        position: Position::Centered,
+        resizable: false,
+        decorations: false,
+        transparent: true,
+        // todo macoss
+        // #[cfg(target_os = "macos")]
+        // platform_specific: PlatformSpecific {
+        //     activation_policy: window::settings::ActivationPolicy::Accessory,
+        //     activate_ignoring_other_apps: false,
+        //     ..Default::default()
+        // },
+        ..Default::default()
+    }
+}
+
+
 #[cfg(target_os = "linux")]
 fn layer_shell_settings(main_window_id: window::Id) -> iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings {
     iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings {
@@ -210,6 +229,34 @@ fn layer_shell_settings(main_window_id: window::Id) -> iced::platform_specific::
         size_limits: Limits::new(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT), Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
     }
 }
+
+fn open_main_window_non_wayland() -> (window::Id, Task<AppMsg>) {
+    let (main_window_id, open_task) = window::open(window_settings());
+
+    let mut tasks = vec![];
+
+    tasks.push(
+        open_task.map(|_| AppMsg::Noop),
+    );
+
+    tasks.push(
+        window::gain_focus(main_window_id),
+    );
+
+    tasks.push(
+        window::change_level(main_window_id, Level::AlwaysOnTop),
+    );
+
+    (main_window_id, Task::batch(tasks))
+}
+
+#[cfg(target_os = "linux")]
+fn open_main_window_wayland() -> (window::Id, Task<AppMsg>) {
+    let main_window_id = window::Id::unique();
+
+    (main_window_id, iced::platform_specific::shell::commands::layer_surface::get_layer_surface(layer_shell_settings(main_window_id)))
+}
+
 
 pub fn run(
     minimized: bool,
@@ -247,51 +294,27 @@ fn new(
     let global_hotkey_manager = GlobalHotKeyManager::new()
         .expect("unable to create global hot key manager");
 
-    let (main_window_id, open_window) = if !wayland {
-        let settings = window::Settings {
-            size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-            position: Position::Centered,
-            resizable: false,
-            decorations: false,
-            transparent: true,
-            visible: !minimized,
-            // todo macoss
-            // #[cfg(target_os = "macos")]
-            // platform_specific: PlatformSpecific {
-            //     activation_policy: window::settings::ActivationPolicy::Accessory,
-            //     activate_ignoring_other_apps: false,
-            //     ..Default::default()
-            // },
-            ..Default::default()
+    let mut tasks = vec![
+        font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
+    ];
+
+    let main_window_id = if !minimized {
+        #[cfg(target_os = "linux")]
+        let (main_window_id, open_task) =  if wayland {
+            open_main_window_wayland()
+        } else {
+            open_main_window_non_wayland()
         };
 
-        let (main_window_id, open_task) = window::open(settings);
+        #[cfg(not(target_os = "linux"))]
+        let (main_window_id, open_task) = open_main_window_non_wayland();
 
-        let mut commands = vec![];
+        tasks.push(open_task);
 
-        commands.push(
-            open_task.map(|_| AppMsg::Noop),
-        );
-
-        commands.push(
-            window::gain_focus(main_window_id),
-        );
-
-        commands.push(
-            window::change_level(main_window_id, Level::AlwaysOnTop),
-        );
-
-        (main_window_id, Task::batch(commands))
+        Some(main_window_id)
     } else {
-        let main_window_id = window::Id::unique();
-
-        (main_window_id, iced::platform_specific::shell::commands::layer_surface::get_layer_surface(layer_shell_settings(main_window_id)))
+        None
     };
-
-    let mut commands = vec![
-        font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
-        open_window
-    ];
 
     let (client_context, global_state) = if cfg!(feature = "scenario_runner") {
         let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
@@ -309,7 +332,7 @@ fn new(
         let event: ScenarioFrontendEvent = serde_json::from_str(&gen_in)
             .expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
 
-        commands.push(
+        tasks.push(
             Task::perform(
                 async {
                     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -342,7 +365,7 @@ fn new(
 
                 let context = Arc::new(StdRwLock::new(context));
 
-                commands.push(Task::perform(async { }, move |_| AppMsg::ReplaceView { top_level_view, has_children, render_location }));
+                tasks.push(Task::perform(async { }, move |_| AppMsg::ReplaceView { top_level_view, has_children, render_location }));
 
                 let state= match render_location {
                     UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique(), context.clone()),
@@ -408,15 +431,22 @@ fn new(
             loading_bar_state: HashMap::new(),
             hud_display: None,
         },
-        Task::batch(commands),
+        Task::batch(tasks),
     )
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
-    if window == state.main_window_id {
-        "Gauntlet".to_owned()
-    } else {
-        "Gauntlet HUD".to_owned()
+    match state.main_window_id {
+        Some(main_window_id) => {
+            if window == main_window_id {
+                "Gauntlet".to_owned()
+            } else {
+                "Gauntlet HUD".to_owned()
+            }
+        }
+        None => {
+            "Gauntlet HUD".to_owned()
+        }
     }
 }
 
@@ -851,7 +881,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             fs::create_dir_all(Path::new(&save_path).parent().expect("no parent?"))
                 .expect("unable to create scenario out directories");
 
-            window::screenshot(state.main_window_id)
+            let window_id = state.main_window_id
+                .expect("window id should be present when making screenshot");
+
+            window::screenshot(window_id)
                 .map(move |screenshot| AppMsg::ScreenshotDone {
                     save_path: save_path.clone(),
                     screenshot,
@@ -1193,43 +1226,57 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 }
 
 fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
-    if window != state.main_window_id {
-        return match &state.hud_display {
-            Some(hud_display) => {
-                let hud: Element<_> = text(hud_display.to_string())
-                    .shaping(Shaping::Advanced)
-                    .into();
-
-                let hud = container(hud)
-                    .align_x(Horizontal::Center)
-                    .align_y(Vertical::Center)
-                    .height(Length::Fill)
-                    .themed(ContainerStyle::HudInner);
-
-                let hud = container(hud)
-                    .align_x(Horizontal::Center)
-                    .align_y(Vertical::Center)
-                    .height(Length::Fill)
-                    .themed(ContainerStyle::Hud);
-
-                let hud = container(hud)
-                    .height(Length::Fill)
-                    .width(Length::Fill)
-                    .align_x(Horizontal::Center)
-                    .align_y(Vertical::Center)
-                    .class(ContainerStyleInner::Transparent)
-                    .into();
-
-                hud
-            }
-            None => {
-                horizontal_space()
-                    .into()
+    match state.main_window_id {
+        None => {
+            view_hud(state)
+        }
+        Some(main_window_id) => {
+            if window != main_window_id {
+                view_hud(state)
+            } else {
+                view_main(state)
             }
         }
     }
+}
 
+fn view_hud(state: &AppModel) -> Element<'_, AppMsg> {
+    match &state.hud_display {
+        Some(hud_display) => {
+            let hud: Element<_> = text(hud_display.to_string())
+                .shaping(Shaping::Advanced)
+                .into();
 
+            let hud = container(hud)
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center)
+                .height(Length::Fill)
+                .themed(ContainerStyle::HudInner);
+
+            let hud = container(hud)
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center)
+                .height(Length::Fill)
+                .themed(ContainerStyle::Hud);
+
+            let hud = container(hud)
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center)
+                .class(ContainerStyleInner::Transparent)
+                .into();
+
+            hud
+        }
+        None => {
+            horizontal_space()
+                .into()
+        }
+    }
+}
+
+fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
     match &state.global_state {
         GlobalState::ErrorView { error_view } => {
             match error_view {
@@ -1744,27 +1791,26 @@ impl AppModel {
     }
 
     fn hide_window(&mut self) -> Task<AppMsg> {
+        let Some(main_window_id) = self.main_window_id else {
+            return Task::none()
+        };
+
         let mut commands = vec![];
 
         #[cfg(target_os = "linux")]
         if self.wayland {
-            use iced::platform_specific::shell::commands::layer_surface::KeyboardInteractivity;
-
             commands.push(
-                iced::platform_specific::shell::commands::layer_surface::destroy_layer_surface(self.main_window_id),
-            );
-            commands.push(
-                iced::platform_specific::shell::commands::layer_surface::set_keyboard_interactivity(self.main_window_id, KeyboardInteractivity::None),
+                iced::platform_specific::shell::commands::layer_surface::destroy_layer_surface(main_window_id),
             );
         } else {
             commands.push(
-                window::change_mode(self.main_window_id, window::Mode::Hidden)
+                window::close(main_window_id)
             );
         };
 
         #[cfg(not(target_os = "linux"))]
         commands.push(
-            window::change_mode(self.main_window_id, window::Mode::Hidden)
+            window::close(main_window_id)
         );
 
         match &self.global_state {
@@ -1779,34 +1825,22 @@ impl AppModel {
     }
 
     fn show_window(&mut self) -> Task<AppMsg> {
-        let mut commands = vec![];
-
         #[cfg(target_os = "linux")]
-        if self.wayland {
-            use iced::platform_specific::shell::commands::layer_surface::KeyboardInteractivity;
-
-            commands.push(
-                iced::platform_specific::shell::commands::layer_surface::get_layer_surface(layer_shell_settings(self.main_window_id)),
-            );
-            commands.push(
-                iced::platform_specific::shell::commands::layer_surface::set_keyboard_interactivity(self.main_window_id, KeyboardInteractivity::Exclusive),
-            );
+        let (main_window_id, open_task) =  if self.wayland {
+            open_main_window_wayland()
         } else {
-            commands.push(
-                window::change_mode(self.main_window_id, window::Mode::Windowed)
-            );
+            open_main_window_non_wayland()
         };
 
         #[cfg(not(target_os = "linux"))]
-        commands.push(
-            window::change_mode(self.main_window_id, window::Mode::Windowed)
-        );
+        let (main_window_id, open_task) = open_main_window_non_wayland();
 
-        commands.push(
+        self.main_window_id = Some(main_window_id);
+
+        Task::batch([
+            open_task,
             self.reset_window_state()
-        );
-
-        Task::batch(commands)
+        ])
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
@@ -1816,17 +1850,7 @@ impl AppModel {
 
         client_context.clear_all_inline_views();
 
-        let mut commands = vec![
-            GlobalState::initial(&mut self.global_state, self.client_context.clone()),
-        ];
-
-        if !self.wayland {
-            commands.push(
-                window::gain_focus(self.main_window_id),
-            );
-        }
-
-        Task::batch(commands)
+        GlobalState::initial(&mut self.global_state, self.client_context.clone())
     }
 
     fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
