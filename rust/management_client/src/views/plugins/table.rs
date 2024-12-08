@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use iced::{Alignment, Length, Renderer, Task};
 use iced::advanced::text::Shaping;
-use iced::id::Id;
 use iced::widget::{button, checkbox, container, horizontal_space, row, scrollable, Space, text, value};
+use iced::widget::scrollable::Id;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use iced_table::table;
 

@@ -83,6 +83,12 @@ pub struct AppModel {
     hud_display: Option<String>
 }
 
+#[cfg(target_os = "linux")]
+mod layer_shell {
+    #[iced_layershell::to_layer_message(multi)]
+    #[derive(Debug, Clone)]
+    pub enum LayerShellAppMsg {}
+}
 
 #[derive(Debug, Clone)]
 pub enum AppMsg {
@@ -189,6 +195,19 @@ pub enum AppMsg {
     FocusPluginViewSearchBar {
         widget_id: UiWidgetId
     },
+    #[cfg(target_os = "linux")]
+    LayerShell(layer_shell::LayerShellAppMsg)
+}
+
+#[cfg(target_os = "linux")]
+impl TryInto<iced_layershell::actions::LayershellCustomActionsWithId> for AppMsg {
+    type Error = Self;
+    fn try_into(self) -> Result<iced_layershell::actions::LayershellCustomActionsWithId, Self::Error> {
+        match self {
+            Self::LayerShell(msg) => msg.try_into().map_err(|msg| Self::LayerShell(msg)),
+            _ => Err(self)
+        }
+    }
 }
 
 const WINDOW_WIDTH: f32 = 750.0;
@@ -214,19 +233,16 @@ fn window_settings() -> window::Settings {
 
 
 #[cfg(target_os = "linux")]
-fn layer_shell_settings(main_window_id: window::Id) -> iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings {
-    iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings {
-        id: main_window_id,
-        layer: iced::platform_specific::shell::commands::layer_surface::Layer::Overlay,
-        keyboard_interactivity: iced::platform_specific::shell::commands::layer_surface::KeyboardInteractivity::Exclusive,
-        pointer_interactivity: true,
-        anchor: iced::platform_specific::shell::commands::layer_surface::Anchor::empty(),
-        output: Default::default(),
-        namespace: "Gauntlet".to_string(),
+fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
+    iced_layershell::reexport::NewLayerShellSettings {
+        layer: iced_layershell::reexport::Layer::Overlay,
+        keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::Exclusive,
+        events_transparent: false,
+        anchor: iced_layershell::reexport::Anchor::empty(),
         margin: Default::default(),
-        exclusive_zone: 0,
-        size: Some((Some(WINDOW_WIDTH as u32), Some(WINDOW_HEIGHT as u32))),
-        size_limits: Limits::new(Size::new(WINDOW_WIDTH, WINDOW_HEIGHT), Size::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+        exclusive_zone: Some(0),
+        size: Some((WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)),
+        use_last_output: false,
     }
 }
 
@@ -252,9 +268,10 @@ fn open_main_window_non_wayland() -> (window::Id, Task<AppMsg>) {
 
 #[cfg(target_os = "linux")]
 fn open_main_window_wayland() -> (window::Id, Task<AppMsg>) {
-    let main_window_id = window::Id::unique();
+    let id = window::Id::unique();
+    let settings = layer_shell_settings();
 
-    (main_window_id, iced::platform_specific::shell::commands::layer_surface::get_layer_surface(layer_shell_settings(main_window_id)))
+    (id, Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell { id, settings })))
 }
 
 
@@ -263,15 +280,33 @@ pub fn run(
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
     backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 ) {
+    let theme = GauntletComplexTheme::new();
+
     #[cfg(target_os = "linux")]
-    let wayland = std::env::var("WAYLAND_DISPLAY")
-        .or_else(|_| std::env::var("WAYLAND_SOCKET"))
-        .is_ok();
+    let result = {
+        let wayland = std::env::var("WAYLAND_DISPLAY")
+            .or_else(|_| std::env::var("WAYLAND_SOCKET"))
+            .is_ok();
+
+        if wayland {
+            run_wayland(minimized, frontend_receiver, backend_sender, theme)
+        } else {
+            run_non_wayland(minimized, frontend_receiver, backend_sender, theme)
+        }
+    };
 
     #[cfg(not(target_os = "linux"))]
-    let wayland = false;
+    let result = run_non_wayland(minimized, frontend_receiver, backend_sender, theme);
 
-    let theme = GauntletComplexTheme::new();
+    result.expect("Unable to start application")
+}
+
+fn run_non_wayland(
+    minimized: bool,
+    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    theme: GauntletComplexTheme,
+) -> anyhow::Result<()> {
 
     iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(title, update, view)
         .subscription(subscription)
@@ -279,8 +314,38 @@ pub fn run(
             let theme = theme.clone();
             move |_, _| theme.clone()
         })
-        .run_with(move || new(frontend_receiver, backend_sender, wayland, minimized))
-        .expect("Unable to start application")
+        .run_with(move || new(frontend_receiver, backend_sender, false, minimized))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn run_wayland(
+    minimized: bool,
+    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    theme: GauntletComplexTheme,
+) -> anyhow::Result<()> {
+    iced_layershell::build_pattern::daemon("Gauntlet", update, view, wayland_remove_id_info)
+        .layer_settings(iced_layershell::settings::LayerShellSettings {
+            start_mode: iced_layershell::settings::StartMode::Background,
+            events_transparent: true,
+            keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::None,
+            size: Some((0, 0)),
+            ..Default::default()
+        })
+        .subscription(subscription)
+        .theme({
+            let theme = theme.clone();
+            move |_| theme.clone()
+        })
+        .run_with(move || new(frontend_receiver, backend_sender, true, minimized))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn wayland_remove_id_info(_state: &mut AppModel, _id: window::Id) {
 }
 
 fn new(
@@ -753,25 +818,18 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(Event::Window(window::Event::Focused)) => {
-            state.on_focused()
+            if state.wayland {
+                Task::none()
+            } else {
+                state.on_focused()
+            }
         }
         AppMsg::IcedEvent(Event::Window(window::Event::Unfocused)) => {
-            state.on_unfocused()
-        }
-        #[cfg(target_os = "linux")]
-        AppMsg::IcedEvent(
-            Event::PlatformSpecific(
-                iced::core::event::PlatformSpecific::Wayland(
-                    iced::core::event::wayland::Event::Layer(
-                        iced::event::wayland::LayerEvent::Unfocused,
-                        _,
-                        _
-                    )
-                )
-            )
-        ) => {
-            // wayland layer shell doesn't have the same unfocused problem as the other platforms
-            state.hide_window()
+            if state.wayland {
+                state.hide_window()
+            } else {
+                state.on_unfocused()
+            }
         }
         AppMsg::IcedEvent(_) => Task::none(),
         AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::Noop, .. } => Task::none(),
@@ -1221,6 +1279,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             let mut client_context = state.client_context.write().expect("lock is poisoned");
 
             client_context.focus_search_bar(widget_id)
+        }
+        AppMsg::LayerShell(_) => {
+            // handled by library
+            Task::none()
         }
     }
 }
@@ -1800,7 +1862,7 @@ impl AppModel {
         #[cfg(target_os = "linux")]
         if self.wayland {
             commands.push(
-                iced::platform_specific::shell::commands::layer_surface::destroy_layer_surface(main_window_id),
+                Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::RemoveWindow(main_window_id)))
             );
         } else {
             commands.push(

@@ -22,7 +22,6 @@ impl DefaultStyle for GauntletSettingsTheme {
         Appearance {
             background_color: BACKGROUND_DARKEST.to_iced(),
             text_color: TEXT_LIGHTEST.to_iced(),
-            icon_color: TEXT_LIGHTEST.to_iced(),
         }
     }
 }

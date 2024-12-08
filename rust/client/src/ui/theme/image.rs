@@ -6,7 +6,7 @@ pub enum ImageStyle {
     MainListItemIcon,
 }
 
-impl<'a, Message: 'a> ThemableWidget<'a, Message> for Image<'a, iced::advanced::image::Handle> {
+impl<'a, Message: 'a> ThemableWidget<'a, Message> for Image<iced::advanced::image::Handle> {
     type Kind = ImageStyle;
 
     fn themed(self, kind: ImageStyle) -> Element<'a, Message> {

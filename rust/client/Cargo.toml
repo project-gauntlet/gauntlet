@@ -6,6 +6,7 @@ edition = "2021"
 tokio = "1.28.1"
 anyhow = { version = "1", features = ["backtrace"] }
 thiserror = "1"
+iced.workspace = true
 iced_aw.workspace = true
 iced_fonts.workspace = true
 tracing = "0.1"
@@ -27,11 +28,7 @@ global-hotkey = "0.4.2"
 tray-icon = { version = "0.15.1", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-iced.workspace = true
-iced.features = ["wayland"]
-
-[target.'cfg(not(target_os = "linux"))'.dependencies]
-iced.workspace = true
+iced_layershell.workspace = true
 
 [build-dependencies]
 component_model = { path = "../component_model" }

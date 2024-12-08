@@ -16,14 +16,16 @@ members = [
     "rust/scenario_runner",
 ]
 [workspace.dependencies]
-#iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image", "winit"] }
-iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13", features = ["tokio", "lazy", "advanced", "image", "winit"] }
+#iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image"] }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13", features = ["tokio", "lazy", "advanced", "image"] }
 #iced_aw = { version = "0.11.99", features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
 iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet-0.13", default-features = false, features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
-#iced_table = "0.13.0"
+#iced_table = "0.13.99"
 iced_table =  { git = "https://github.com/project-gauntlet/iced_table.git", branch = "gauntlet-0.13" }
-#iced_fonts = { version = "0.1.1", features = ["bootstrap"] }
+#iced_fonts = { version = "0.1.99", features = ["bootstrap"] }
 iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13", features = ["bootstrap"] }
+#iced_layershell = "0.13.99"
+iced_layershell =  { git = "https://github.com/project-gauntlet/exwlshelleventloop.git", branch = "gauntlet-0.13" }
 
 [dependencies]
 cli = { path = "rust/cli" }

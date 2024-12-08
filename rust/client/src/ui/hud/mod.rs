@@ -1,6 +1,6 @@
-use crate::ui::AppMsg;
+use crate::ui::{layer_shell, AppMsg};
 use iced::window::{Level, Position, Settings};
-use iced::{window, Limits, Size, Task};
+use iced::{window, Size, Task};
 use std::convert;
 use std::time::Duration;
 
@@ -50,9 +50,10 @@ fn open_non_wayland() -> Task<AppMsg> {
 #[cfg(target_os = "linux")]
 fn open_wayland() -> Task<AppMsg> {
     let id = window::Id::unique();
+    let settings = layer_shell_settings();
 
-    iced::platform_specific::shell::commands::layer_surface::get_layer_surface(layer_shell_settings(id))
-        .then(|id| in_2_seconds(AppMsg::CloseHudWindow { id }))
+    Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell { id, settings }))
+        .then(move |_| in_2_seconds(AppMsg::CloseHudWindow { id }))
 }
 
 pub fn close_hud_window(
@@ -62,7 +63,7 @@ pub fn close_hud_window(
 ) -> Task<AppMsg> {
     #[cfg(target_os = "linux")]
     if wayland {
-        iced::platform_specific::shell::commands::layer_surface::destroy_layer_surface(id)
+        Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::RemoveWindow(id)))
     } else {
         window::close(id)
     }
@@ -72,19 +73,16 @@ pub fn close_hud_window(
 }
 
 #[cfg(target_os = "linux")]
-fn layer_shell_settings(id: window::Id) -> iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings {
-    iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings {
-        id,
-        layer: iced::platform_specific::shell::commands::layer_surface::Layer::Overlay,
-        keyboard_interactivity: iced::platform_specific::shell::commands::layer_surface::KeyboardInteractivity::None,
-        pointer_interactivity: false,
-        anchor: iced::platform_specific::shell::commands::layer_surface::Anchor::empty(),
-        output: Default::default(),
-        namespace: "Gauntlet HUD".to_string(),
+fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
+    iced_layershell::reexport::NewLayerShellSettings {
+        layer: iced_layershell::reexport::Layer::Overlay,
+        keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::None,
+        use_last_output: false,
+        events_transparent: true,
+        anchor: iced_layershell::reexport::Anchor::empty(),
         margin: Default::default(),
-        exclusive_zone: 0,
-        size: Some((Some(HUD_WINDOW_WIDTH as u32), Some(HUD_WINDOW_HEIGHT as u32))),
-        size_limits: Limits::new(Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT), Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT)),
+        exclusive_zone: Some(0),
+        size: Some((HUD_WINDOW_WIDTH as u32, HUD_WINDOW_HEIGHT as u32)),
     }
 }
 

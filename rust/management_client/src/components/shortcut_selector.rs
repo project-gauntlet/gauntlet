@@ -158,9 +158,7 @@ where
             renderer,
             theme,
             &renderer::Style {
-                icon_color: renderer_style.icon_color,
                 text_color: renderer_style.text_color,
-                scale_factor: renderer_style.scale_factor
             },
             layout.children().next().unwrap(),
             cursor,
@@ -180,8 +178,8 @@ where
         self.content.as_widget().children()
     }
 
-    fn diff(&mut self, tree: &mut Tree) {
-        self.content.as_widget_mut().diff(tree);
+    fn diff(&self, tree: &mut Tree) {
+        self.content.as_widget().diff(tree);
     }
 
     fn on_event(

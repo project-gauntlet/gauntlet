@@ -1003,7 +1003,18 @@ impl DefaultStyle for GauntletComplexTheme {
         application::Appearance {
             background_color: Color::TRANSPARENT,
             text_color: theme.text.to_iced(),
-            icon_color: theme.text.to_iced(),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl iced_layershell::DefaultStyle for GauntletComplexTheme {
+    fn default_style(&self) -> iced_layershell::Appearance {
+        let theme = get_theme();
+
+        iced_layershell::Appearance {
+            background_color: Color::TRANSPARENT,
+            text_color: theme.text.to_iced(),
         }
     }
 }
