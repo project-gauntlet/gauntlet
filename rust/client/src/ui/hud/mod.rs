@@ -1,8 +1,8 @@
-use crate::ui::{layer_shell, AppMsg};
 use iced::window::{Level, Position, Settings};
 use iced::{window, Size, Task};
 use std::convert;
 use std::time::Duration;
+use crate::ui::AppMsg;
 
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
@@ -31,13 +31,11 @@ fn open_non_wayland() -> Task<AppMsg> {
         transparent: true,
         visible: true,
         level: Level::AlwaysOnTop,
-        // TODO macos
-        // #[cfg(target_os = "macos")]
-        // platform_specific: iced::window::settings::PlatformSpecific {
-        //     activation_policy: window::settings::ActivationPolicy::Accessory,
-        //     activate_ignoring_other_apps: false,
-        //     ..Default::default()
-        // },
+        #[cfg(target_os = "macos")]
+        platform_specific: window::settings::PlatformSpecific {
+            window_kind: window::settings::WindowKind::Popup,
+            ..Default::default()
+        },
         exit_on_close_request: false,
         ..Default::default()
     };
@@ -52,7 +50,7 @@ fn open_wayland() -> Task<AppMsg> {
     let id = window::Id::unique();
     let settings = layer_shell_settings();
 
-    Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell { id, settings }))
+    Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings }))
         .then(move |_| in_2_seconds(AppMsg::CloseHudWindow { id }))
 }
 
@@ -63,7 +61,7 @@ pub fn close_hud_window(
 ) -> Task<AppMsg> {
     #[cfg(target_os = "linux")]
     if wayland {
-        Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::RemoveWindow(id)))
+        Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id)))
     } else {
         window::close(id)
     }

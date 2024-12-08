@@ -11,7 +11,6 @@ use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
 use iced::widget::text::Shaping;
 use iced::widget::text_input::focus;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
-use iced::window::settings::PlatformSpecific;
 use iced::window::{Level, Position, Screenshot};
 use iced::{event, executor, font, futures, keyboard, stream, window, Alignment, Event, Font, Length, Padding, Pixels, Renderer, Settings, Size, Subscription, Task};
 use std::collections::HashMap;
@@ -220,13 +219,11 @@ fn window_settings() -> window::Settings {
         resizable: false,
         decorations: false,
         transparent: true,
-        // todo macoss
-        // #[cfg(target_os = "macos")]
-        // platform_specific: PlatformSpecific {
-        //     activation_policy: window::settings::ActivationPolicy::Accessory,
-        //     activate_ignoring_other_apps: false,
-        //     ..Default::default()
-        // },
+        #[cfg(target_os = "macos")]
+        platform_specific: window::settings::PlatformSpecific {
+            window_kind: window::settings::WindowKind::Popup,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -309,6 +306,14 @@ fn run_non_wayland(
 ) -> anyhow::Result<()> {
 
     iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(title, update, view)
+        .settings(Settings {
+            #[cfg(target_os = "macos")]
+            platform_specific: iced::settings::PlatformSpecific {
+                activation_policy: iced::settings::ActivationPolicy::Accessory,
+                activate_ignoring_other_apps: true,
+            },
+            ..Default::default()
+        })
         .subscription(subscription)
         .theme({
             let theme = theme.clone();
@@ -1280,6 +1285,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             client_context.focus_search_bar(widget_id)
         }
+        #[cfg(target_os = "linux")]
         AppMsg::LayerShell(_) => {
             // handled by library
             Task::none()
@@ -1845,7 +1851,6 @@ impl AppModel {
     fn on_unfocused(&mut self) -> Task<AppMsg> {
         // for some reason (on both macOS and linux x11) duplicate Unfocused fires right before Focus event
         if self.focused {
-            self.focused = false;
             self.hide_window()
         } else {
             Task::none()
@@ -1856,6 +1861,8 @@ impl AppModel {
         let Some(main_window_id) = self.main_window_id else {
             return Task::none()
         };
+
+        self.focused = false;
 
         let mut commands = vec![];
 
