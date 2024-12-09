@@ -34,3 +34,7 @@ scenario_runner = ["cli/scenario_runner"]
 
 [profile.release]
 opt-level = 1 # something at opt-level 2 breaks deno
+
+[patch.crates-io]
+# NOTE https://github.com/ipetkov/crane/issues/336
+libffi-sys = { git = "https://github.com/tov/libffi-rs", rev = "d0704d634b6f3ffef5b6fc7e07fe965a1cff5c7b" }
