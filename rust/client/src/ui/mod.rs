@@ -2138,8 +2138,6 @@ async fn request_loop(
         let (request_data, responder) = frontend_receiver.recv().await;
 
         let app_msgs = {
-            let mut client_context = client_context.write().expect("lock is poisoned");
-
             match request_data {
                 UiRequestData::ReplaceView {
                     plugin_id,
@@ -2155,15 +2153,19 @@ async fn request_loop(
                 } => {
                     let has_children = container.content.is_some();
 
-                    let message = client_context.replace_view(
-                        render_location,
-                        container,
-                        images,
-                        &plugin_id,
-                        &plugin_name,
-                        &entrypoint_id,
-                        &entrypoint_name
-                    );
+                    let message = {
+                        let mut client_context = client_context.write().expect("lock is poisoned");
+
+                        client_context.replace_view(
+                            render_location,
+                            container,
+                            images,
+                            &plugin_id,
+                            &plugin_name,
+                            &entrypoint_id,
+                            &entrypoint_name
+                        )
+                    };
 
                     responder.respond(UiResponseData::Nothing);
 
@@ -2177,7 +2179,11 @@ async fn request_loop(
                     ]
                 }
                 UiRequestData::ClearInlineView { plugin_id } => {
-                    client_context.clear_inline_view(&plugin_id);
+                    {
+                        let mut client_context = client_context.write().expect("lock is poisoned");
+
+                        client_context.clear_inline_view(&plugin_id);
+                    }
 
                     responder.respond(UiResponseData::Nothing);
 
