@@ -156,7 +156,7 @@ impl Focus<SearchResult> for GlobalState {
                             Some(widget_id) => {
                                 if let Some(search_result) = focused_search_result.get(&focus_list) {
                                     let search_result = search_result.clone();
-                                    Task::done(AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
+                                    Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
                                 } else {
                                     Task::none()
                                 }
@@ -167,7 +167,7 @@ impl Focus<SearchResult> for GlobalState {
                         match focused_action_item.index {
                             None => Task::none(),
                             Some(widget_id) => {
-                                Task::perform(async {}, move |_| AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
+                                Task::done(AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
                             }
                         }
                     }
@@ -182,7 +182,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(0) {
                             let widget_id = *widget_id;
-                            Task::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
+                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id })
                         } else {
                             Task::none()
                         }
@@ -190,7 +190,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::ActionPanel { focused_action_item, .. } => {
                         if let Some(widget_id) = focused_action_item.get(&action_ids) {
                             let widget_id = *widget_id;
-                            Task::perform(async {}, move |_| AppMsg::OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id })
+                            Task::done(AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id })
                         } else {
                             Task::none()
                         }
@@ -228,7 +228,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(1) {
                             let widget_id = *widget_id;
-                            Task::perform(async {}, move |_| AppMsg::OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id })
+                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id })
                         } else {
                             Task::none()
                         }
@@ -289,12 +289,12 @@ impl Focus<SearchResult> for GlobalState {
                         }
                     }
                     PluginViewState::ActionPanel { .. } => {
-                        Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
+                        Task::done(AppMsg::ToggleActionPanel { keyboard: true })
                     }
                 }
             }
             GlobalState::ErrorView { .. } => {
-                Task::perform(async {}, |_| AppMsg::HideWindow)
+                Task::done(AppMsg::HideWindow)
             }
         }
     }

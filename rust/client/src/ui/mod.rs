@@ -106,6 +106,12 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         action_index: Option<usize>
     },
+    RunSearchItemAction(SearchResult, Option<usize>),
+    RunPluginAction {
+        render_location: UiRenderLocation,
+        plugin_id: PluginId,
+        widget_id: UiWidgetId
+    },
     PromptChanged(String),
     PromptSubmit,
     UpdateSearchResults,
@@ -146,7 +152,6 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         render_location: UiRenderLocation
     },
-    RunSearchItemAction(SearchResult, Option<usize>),
     Screenshot {
         save_path: String
     },
@@ -168,15 +173,14 @@ pub enum AppMsg {
     },
     OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus,
     OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result: SearchResult },
-    OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result: SearchResult, widget_id: UiWidgetId },
-    OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnAnyActionPluginViewAnyPanel { widget_id: UiWidgetId },
     OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result: SearchResult },
     OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus,
-    OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnAnyActionMainViewAnyPanelMouse { widget_id: UiWidgetId },
+    OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result: SearchResult, widget_id: UiWidgetId },
+    OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id: UiWidgetId },
+    OnAnyActionPluginViewAnyPanel { widget_id: UiWidgetId },
+    OnAnyActionMainViewSearchResultPanelMouse { widget_id: UiWidgetId },
     OnPrimaryActionMainViewActionPanelMouse { widget_id: UiWidgetId },
     ResetMainViewState,
     OnAnyActionMainViewNoPanelKeyboardAtIndex { index: usize },
@@ -559,6 +563,48 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.run_generated_command(plugin_id, entrypoint_id, action_index),
             ])
         }
+        AppMsg::RunPluginAction { render_location, plugin_id, widget_id } => {
+            let widget_event = ComponentWidgetEvent::RunAction {
+                widget_id,
+            };
+
+            Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+        }
+        AppMsg::RunSearchItemAction(search_result, action_index) => {
+            match search_result.entrypoint_type {
+                SearchResultEntrypointType::Command => {
+                    match action_index {
+                        None => {
+                            Task::done(AppMsg::RunCommand {
+                                entrypoint_id: search_result.entrypoint_id.clone(),
+                                plugin_id: search_result.plugin_id.clone()
+                            })
+                        }
+                        Some(_) => Task::none()
+                    }
+                },
+                SearchResultEntrypointType::View => {
+                    match action_index {
+                        None => {
+                            Task::done(AppMsg::OpenView {
+                                plugin_id: search_result.plugin_id.clone(),
+                                plugin_name: search_result.plugin_name.clone(),
+                                entrypoint_id: search_result.entrypoint_id.clone(),
+                                entrypoint_name: search_result.entrypoint_name.clone(),
+                            })
+                        }
+                        Some(_) => Task::none()
+                    }
+                },
+                SearchResultEntrypointType::GeneratedCommand => {
+                    Task::done(AppMsg::RunGeneratedCommandEvent {
+                        entrypoint_id: search_result.entrypoint_id.clone(),
+                        plugin_id: search_result.plugin_id.clone(),
+                        action_index,
+                    })
+                },
+            }
+        }
         AppMsg::PromptChanged(mut new_prompt) => {
             if cfg!(feature = "scenario_runner") {
                 Task::none()
@@ -903,41 +949,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
-        AppMsg::RunSearchItemAction(search_result, action_index) => {
-            match search_result.entrypoint_type {
-                SearchResultEntrypointType::Command => {
-                    match action_index {
-                        None => {
-                            Task::done(AppMsg::RunCommand {
-                                entrypoint_id: search_result.entrypoint_id.clone(),
-                                plugin_id: search_result.plugin_id.clone()
-                            })
-                        }
-                        Some(_) => Task::none()
-                    }
-                },
-                SearchResultEntrypointType::View => {
-                    match action_index {
-                        None => {
-                            Task::done(AppMsg::OpenView {
-                                plugin_id: search_result.plugin_id.clone(),
-                                plugin_name: search_result.plugin_name.clone(),
-                                entrypoint_id: search_result.entrypoint_id.clone(),
-                                entrypoint_name: search_result.entrypoint_name.clone(),
-                            })
-                        }
-                        Some(_) => Task::none()
-                    }
-                },
-                SearchResultEntrypointType::GeneratedCommand => {
-                    Task::done(AppMsg::RunGeneratedCommandEvent {
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone(),
-                        action_index,
-                    })
-                },
-            }
-        }
         AppMsg::Screenshot { save_path } => {
             println!("Creating screenshot at: {}", save_path);
 
@@ -1031,7 +1042,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
             Task::done(AppMsg::RunSearchItemAction(search_result, None))
         }
-        AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id } => {
+        AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus => {
+            Task::done(AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index: 1 })
+        }
+        AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
+            Task::done(AppMsg::RunSearchItemAction(search_result, Some(0)))
+        }
+        AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id } => {
             let run_action_command = if widget_id == 0 {
                 Task::done(AppMsg::RunSearchItemAction(search_result, None))
             } else {
@@ -1043,42 +1060,38 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::done(AppMsg::ResetMainViewState)
             ])
         }
-        AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
+        AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
             let client_context = state.client_context.read().expect("lock is poisoned");
 
             match client_context.get_first_inline_view_container() {
                 Some(container) => {
                     let plugin_id = container.get_plugin_id();
 
-                    let widget_event = ComponentWidgetEvent::RunAction {
-                        widget_id,
-                    };
-                    let render_location = UiRenderLocation::InlineView;
-
                     Task::batch([
                         Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
-                        Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                        Task::done(AppMsg::RunPluginAction {
+                            render_location: UiRenderLocation::InlineView,
+                            plugin_id,
+                            widget_id,
+                        })
                     ])
                 }
                 None => Task::none()
             }
         }
-        AppMsg::OnPrimaryActionPluginViewNoPanelKeyboardWithFocus { widget_id } => {
-            Task::perform(async {}, move |_| AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
+        AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id } => {
+            Task::done(AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
         }
-        AppMsg::OnPrimaryActionPluginViewAnyPanelKeyboardWithFocus { widget_id } => {
+        AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id } => {
             let client_context = state.client_context.read().expect("lock is poisoned");
-
-            let plugin_id = client_context.get_view_plugin_id();
-
-            let widget_event = ComponentWidgetEvent::RunAction {
-                widget_id,
-            };
-            let render_location = UiRenderLocation::View;
 
             Task::batch([
                 Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
-                Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                Task::done(AppMsg::RunPluginAction {
+                    render_location: UiRenderLocation::View,
+                    plugin_id: client_context.get_view_plugin_id(),
+                    widget_id,
+                })
             ])
         }
         AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id: _ } => {
@@ -1096,15 +1109,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 GlobalState::ErrorView { .. } => Task::none()
             }
         }
-        AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus => {
-            Task::done(AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index: 1 })
-        }
-        AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
-            Task::done(AppMsg::RunSearchItemAction(search_result, Some(0)))
-        }
-        AppMsg::OnSecondaryActionPluginViewNoPanelKeyboardWithFocus { widget_id } => {
-            Task::done(AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
-        }
         AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
             let client_context = state.client_context.read().expect("lock is poisoned");
 
@@ -1116,12 +1120,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     Some(widget_id) => {
                         let widget_id = *widget_id;
 
-                        let widget_event = ComponentWidgetEvent::RunAction {
+                        Task::done(AppMsg::RunPluginAction {
+                            render_location: UiRenderLocation::InlineView,
+                            plugin_id,
                             widget_id,
-                        };
-                        let render_location = UiRenderLocation::InlineView;
-
-                        Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                        })
                     }
                     None => Task::none()
                 }
@@ -1129,7 +1132,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::none()
             }
         }
-        AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id } => {
+        AppMsg::OnAnyActionMainViewSearchResultPanelMouse { widget_id } => {
             match &mut state.global_state {
                 GlobalState::MainView { focused_search_result, sub_state, .. } => {
                     match sub_state {
@@ -1137,13 +1140,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         MainViewState::SearchResultActionPanel { .. } => {
                             if let Some(search_result) = focused_search_result.get(&state.search_results) {
                                 let search_result = search_result.clone();
-                                Task::done(AppMsg::OnPrimaryActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
+                                Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
                             } else {
                                 Task::none()
                             }
                         }
                         MainViewState::InlineViewActionPanel { .. } => {
-                            Task::done(AppMsg::OnPrimaryActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
+                            Task::none()
                         }
                     }
                 }
@@ -1154,15 +1157,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::OnAnyActionPluginViewAnyPanel { widget_id } => {
             let client_context = state.client_context.read().expect("lock is poisoned");
 
-            let plugin_id = client_context.get_view_plugin_id();
-
-            let widget_event = ComponentWidgetEvent::RunAction {
+            Task::done(AppMsg::RunPluginAction {
+                render_location: UiRenderLocation::View,
+                plugin_id: client_context.get_view_plugin_id(),
                 widget_id,
-            };
-
-            let render_location = UiRenderLocation::View;
-
-            Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+            })
         }
         AppMsg::OpenPluginView(plugin_id, entrypoint_id) => {
             state.open_plugin_view(plugin_id, entrypoint_id)
@@ -1724,7 +1723,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
                         |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
-                        |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
+                        |widget_id| AppMsg::Noop,
                         || AppMsg::Noop,
                     )
                 }
@@ -1741,7 +1740,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
                         |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
-                        |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
+                        |widget_id| AppMsg::OnAnyActionMainViewSearchResultPanelMouse { widget_id },
                         || AppMsg::Noop,
                     )
                 }
@@ -1758,7 +1757,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
                         |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
-                        |widget_id| AppMsg::OnAnyActionMainViewAnyPanelMouse { widget_id },
+                        |widget_id| AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id },
                         || AppMsg::Noop,
                     )
                 }
