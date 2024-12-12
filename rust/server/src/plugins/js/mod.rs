@@ -32,9 +32,11 @@ use tokio_util::sync::CancellationToken;
 use common::dirs::Dirs;
 use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
+use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
+use common_plugin_runtime::model::{AdditionalSearchItem, PreferenceUserData};
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
-use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData, PreferenceUserData};
+use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
@@ -50,7 +52,7 @@ use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entry
 use crate::plugins::js::search::reload_search_index;
 use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view, update_loading_bar};
 use crate::plugins::run_status::RunStatusGuard;
-use crate::search::{SearchIndex, SearchIndexItem};
+use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction};
 
 mod ui;
 mod plugins;
@@ -348,8 +350,8 @@ async fn start_js_runtime(
         gauntlet::init_ops(
             EventReceiver::new(event_stream),
             PluginData::new(
-                plugin_id,
-                plugin_uuid,
+                plugin_id.clone(),
+                plugin_uuid.clone(),
                 plugin_name,
                 entrypoint_names,
                 plugin_cache_dir,
@@ -359,9 +361,13 @@ async fn start_js_runtime(
             ),
             frontend_api,
             ComponentModel::new(component_model),
-            repository,
-            search_index,
-            icon_cache,
+            BackendForPluginRuntimeApiImpl::new(
+                icon_cache,
+                repository,
+                search_index,
+                plugin_uuid,
+                plugin_id
+            ),
             numbat_context,
             clipboard,
         ),
@@ -593,9 +599,7 @@ deno_core::extension!(
         plugin_data: PluginData,
         frontend_api: FrontendApi,
         component_model: ComponentModel,
-        db_repository: DataDbRepository,
-        search_index: SearchIndex,
-        icon_cache: IconCache,
+        backend_api: BackendForPluginRuntimeApiImpl,
         numbat_context: Option<NumbatContext>,
         clipboard: Clipboard,
     },
@@ -604,9 +608,7 @@ deno_core::extension!(
         state.put(options.plugin_data);
         state.put(options.frontend_api);
         state.put(options.component_model);
-        state.put(options.db_repository);
-        state.put(options.search_index);
-        state.put(options.icon_cache);
+        state.put(options.backend_api);
         state.put(options.numbat_context);
         state.put(options.clipboard);
     },
@@ -965,4 +967,301 @@ impl EventReceiver {
             event_stream: Rc::new(RefCell::new(event_stream)),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct BackendForPluginRuntimeApiImpl {
+    icon_cache: IconCache,
+    repository: DataDbRepository,
+    search_index: SearchIndex,
+    plugin_uuid: String,
+    plugin_id: PluginId,
+}
+
+impl BackendForPluginRuntimeApiImpl {
+    fn new(
+        icon_cache: IconCache,
+        repository: DataDbRepository,
+        search_index: SearchIndex,
+        plugin_uuid: String,
+        plugin_id: PluginId,
+    ) -> Self {
+        Self {
+            icon_cache,
+            repository,
+            search_index,
+            plugin_uuid,
+            plugin_id,
+        }
+    }
+}
+
+impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
+    async fn reload_search_index(&self, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+        self.icon_cache.clear_plugin_icon_cache_dir(&self.plugin_uuid)
+            .context("error when clearing up icon cache before recreating it")?;
+
+        let DbReadPlugin { name, .. } = self.repository.get_plugin_by_id(&self.plugin_id.to_string())
+            .await
+            .context("error when getting plugin by id")?;
+
+        let entrypoints = self.repository.get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
+            .await
+            .context("error when getting entrypoints by plugin id")?;
+
+        let frecency_map = self.repository.get_frecency_for_plugin(&self.plugin_id.to_string())
+            .await
+            .context("error when getting frecency for plugin")?;
+
+        let mut shortcuts = HashMap::new();
+
+        for DbReadPluginEntrypoint { id, .. } in &entrypoints {
+            let entrypoint_shortcuts = self.repository.action_shortcuts(&self.plugin_id.to_string(), id).await?;
+            shortcuts.insert(id.clone(), entrypoint_shortcuts);
+        }
+
+        let mut plugins_search_items = generated_commands.into_iter()
+            .map(|item| {
+                let entrypoint_icon_path = match item.entrypoint_icon {
+                    None => None,
+                    Some(data) => Some(self.icon_cache.save_entrypoint_icon_to_cache(&self.plugin_uuid, &item.entrypoint_uuid, &data)?),
+                };
+
+                let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
+
+                let shortcuts = shortcuts
+                    .get(&item.generator_entrypoint_id);
+
+                let entrypoint_actions = item.entrypoint_actions.iter()
+                    .map(|action| {
+                        let shortcut = match (shortcuts, &action.id) {
+                            (Some(shortcuts), Some(id)) => {
+                                shortcuts.get(id).cloned()
+                            }
+                            _ => None
+                        };
+
+                        SearchIndexItemAction {
+                            label: action.label.clone(),
+                            shortcut,
+                        }
+                    })
+                    .collect();
+
+                Ok(SearchIndexItem {
+                    entrypoint_type: SearchResultEntrypointType::GeneratedCommand,
+                    entrypoint_id: EntrypointId::from_string(item.entrypoint_id),
+                    entrypoint_name: item.entrypoint_name,
+                    entrypoint_icon_path,
+                    entrypoint_frecency,
+                    entrypoint_actions,
+                })
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        let mut icon_asset_data = HashMap::new();
+
+        for entrypoint in &entrypoints {
+            if let Some(path_to_asset) = &entrypoint.icon_path {
+                let result = self.repository.get_asset_data(&self.plugin_id.to_string(), path_to_asset)
+                    .await;
+
+                if let Ok(data) = result {
+                    icon_asset_data.insert((entrypoint.id.clone(), path_to_asset.clone()), data);
+                }
+            }
+        }
+
+        let mut builtin_search_items = entrypoints.into_iter()
+            .filter(|entrypoint| entrypoint.enabled)
+            .map(|entrypoint| {
+                let entrypoint_type = db_entrypoint_from_str(&entrypoint.entrypoint_type);
+                let entrypoint_id = entrypoint.id.to_string();
+
+                let entrypoint_frecency = frecency_map.get(&entrypoint_id).cloned().unwrap_or(0.0);
+
+                let entrypoint_icon_path = match entrypoint.icon_path {
+                    None => None,
+                    Some(path_to_asset) => {
+                        match icon_asset_data.get(&(entrypoint.id, path_to_asset)) {
+                            None => None,
+                            Some(data) => Some(self.icon_cache.save_entrypoint_icon_to_cache(&self.plugin_uuid, &entrypoint.uuid, data)?)
+                        }
+                    },
+                };
+
+                let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
+                match &entrypoint_type {
+                    DbPluginEntrypointType::Command => {
+                        Ok(Some(SearchIndexItem {
+                            entrypoint_type: SearchResultEntrypointType::Command,
+                            entrypoint_name: entrypoint.name,
+                            entrypoint_id,
+                            entrypoint_icon_path,
+                            entrypoint_frecency,
+                            entrypoint_actions: vec![],
+                        }))
+                    },
+                    DbPluginEntrypointType::View => {
+                        Ok(Some(SearchIndexItem {
+                            entrypoint_type: SearchResultEntrypointType::View,
+                            entrypoint_name: entrypoint.name,
+                            entrypoint_id,
+                            entrypoint_icon_path,
+                            entrypoint_frecency,
+                            entrypoint_actions: vec![],
+                        }))
+                    },
+                    DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {
+                        Ok(None)
+                    }
+                }
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
+            .flat_map(|item| item)
+            .collect::<Vec<_>>();
+
+        plugins_search_items.append(&mut builtin_search_items);
+
+        self.search_index.save_for_plugin(self.plugin_id.clone(), name, plugins_search_items, refresh_search_list)
+            .context("error when updating search index")?;
+
+        Ok(())
+    }
+
+    async fn get_asset_data(&self, path: &str) -> anyhow::Result<Vec<u8>> {
+        let data = self.repository.get_asset_data(&self.plugin_id.to_string(), &path)
+            .await?;
+
+        Ok(data)
+    }
+
+    async fn get_command_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
+        let result = self.repository.get_entrypoints_by_plugin_id(&self.plugin_id.to_string()).await?
+            .into_iter()
+            .filter(|entrypoint| entrypoint.enabled)
+            .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::CommandGenerator))
+            .map(|entrypoint| entrypoint.id)
+            .collect::<Vec<_>>();
+
+        Ok(result)
+    }
+
+    async fn get_action_id_for_shortcut(&self, entrypoint_id: &str, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> anyhow::Result<Option<String>> {
+        let result = self.repository.get_action_id_for_shortcut(
+            &self.plugin_id.to_string(),
+            &entrypoint_id,
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta
+        ).await?;
+
+        Ok(result)
+    }
+
+    async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+        let DbReadPlugin { preferences, preferences_user_data, .. } = self.repository
+            .get_plugin_by_id(&self.plugin_id.to_string())
+            .await?;
+
+        Ok(preferences_to_js(preferences, preferences_user_data))
+    }
+
+    async fn get_entrypoint_preferences(&self, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+        let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = self.repository
+            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())
+            .await?;
+
+        Ok(preferences_to_js(preferences, preferences_user_data))
+    }
+
+    async fn plugin_preferences_required(&self) -> anyhow::Result<bool> {
+        let DbReadPlugin { preferences, preferences_user_data, .. } = self.repository
+            .get_plugin_by_id(&self.plugin_id.to_string()).await?;
+
+        Ok(any_preferences_missing_value(preferences, preferences_user_data))
+    }
+
+    async fn entrypoint_preferences_required(&self, entrypoint_id: EntrypointId) -> anyhow::Result<bool> {
+        let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = self.repository
+            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string()).await?;
+
+        Ok(any_preferences_missing_value(preferences, preferences_user_data))
+    }
+}
+
+
+fn preferences_to_js(
+    preferences: HashMap<String, DbPluginPreference>,
+    mut preferences_user_data: HashMap<String, DbPluginPreferenceUserData>
+) -> HashMap<String, PreferenceUserData> {
+    preferences.into_iter()
+        .map(|(name, preference)| {
+            let user_data = match preferences_user_data.remove(&name) {
+                None => match preference {
+                    DbPluginPreference::Number { default, .. } => PreferenceUserData::Number(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::String { default, .. } => PreferenceUserData::String(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Enum { default, .. } => PreferenceUserData::String(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Bool { default, .. } => PreferenceUserData::Bool(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfStrings { default, .. } => PreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfNumbers { default, .. } => PreferenceUserData::ListOfNumbers(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfEnums { default, .. } => PreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
+                }
+                Some(user_data) => match user_data {
+                    DbPluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::String { value } => PreferenceUserData::String(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
+                }
+            };
+
+            (name, user_data)
+        })
+        .collect()
+}
+
+fn any_preferences_missing_value(preferences: HashMap<String, DbPluginPreference>, preferences_user_data: HashMap<String, DbPluginPreferenceUserData>) -> bool {
+    for (name, preference) in preferences {
+        match preferences_user_data.get(&name) {
+            None => {
+                let no_default = match preference {
+                    DbPluginPreference::Number { default, .. } => default.is_none(),
+                    DbPluginPreference::String { default, .. } => default.is_none(),
+                    DbPluginPreference::Enum { default, .. } => default.is_none(),
+                    DbPluginPreference::Bool { default, .. } => default.is_none(),
+                    DbPluginPreference::ListOfStrings { default, .. } => default.is_none(),
+                    DbPluginPreference::ListOfNumbers { default, .. } => default.is_none(),
+                    DbPluginPreference::ListOfEnums { default, .. } => default.is_none(),
+                };
+
+                if no_default {
+                    return true
+                }
+            }
+            Some(preference) => {
+                let no_value = match preference {
+                    DbPluginPreferenceUserData::Number { value } => value.is_none(),
+                    DbPluginPreferenceUserData::String { value } => value.is_none(),
+                    DbPluginPreferenceUserData::Enum { value } => value.is_none(),
+                    DbPluginPreferenceUserData::Bool { value } => value.is_none(),
+                    DbPluginPreferenceUserData::ListOfStrings { value } => value.is_none(),
+                    DbPluginPreferenceUserData::ListOfNumbers { value } => value.is_none(),
+                    DbPluginPreferenceUserData::ListOfEnums { value } => value.is_none(),
+                };
+
+                if no_value {
+                    return true
+                }
+            }
+        }
+    }
+
+    false
 }

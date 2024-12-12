@@ -22,6 +22,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlx = { version = "0.8.2", features = [ "runtime-tokio", "json", "sqlite" ] }
 common = { path = "../common" }
+common_plugin_runtime = { path = "../common_plugin_runtime" }
 utils = { path = "../utils" }
 component_model = { path = "../component_model" }
 indexmap = { version = "2.1.0", features = ["serde"] }
