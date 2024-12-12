@@ -10,11 +10,12 @@ use indexmap::IndexMap;
 use serde::{de, Deserialize, Deserializer};
 use serde::de::Error;
 use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, EntrypointId, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Image, ImageSource, ImageSourceAsset, ImageSourceUrl, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectItemWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiPropertyValue, UiWidgetId, WidgetVisitor};
+use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
 use component_model::{Component, Property, PropertyType, SharedType};
 use component_model::Component::Root;
 use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
 use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::js::{ComponentModel, make_request, PluginData};
+use crate::plugins::js::{ComponentModel, make_request, PluginData, BackendForPluginRuntimeApiImpl};
 
 #[op2]
 pub fn show_plugin_error_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, #[serde] render_location: JsUiRenderLocation) -> anyhow::Result<()> {
@@ -145,23 +146,17 @@ pub async fn fetch_action_id_for_shortcut(
     modifier_alt: bool,
     modifier_meta: bool
 ) -> anyhow::Result<Option<String>> {
-    let (plugin_id, repository) = {
+    let api = {
         let state = state.borrow();
 
-        let plugin_id = state
-            .borrow::<PluginData>()
-            .plugin_id()
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
             .clone();
 
-        let repository = state
-            .borrow::<DataDbRepository>()
-            .clone();
-
-        (plugin_id, repository)
+        api
     };
 
-    let result = repository.get_action_id_for_shortcut(
-        &plugin_id.to_string(),
+    let result = api.get_action_id_for_shortcut(
         &entrypoint_id,
         PhysicalKey::from_value(key),
         modifier_shift,
@@ -251,17 +246,12 @@ fn get_image_date(state: Rc<RefCell<OpState>>, source: &ImageSource) -> anyhow::
             let bytes = {
                 let state = state.borrow();
 
-                let plugin_id = state
-                    .borrow::<PluginData>()
-                    .plugin_id()
-                    .clone();
-
-                let repository = state
-                    .borrow::<DataDbRepository>()
+                let api = state
+                    .borrow::<BackendForPluginRuntimeApiImpl>()
                     .clone();
 
                 block_on(async {
-                    repository.get_asset_data(&plugin_id.to_string(), &asset).await
+                    api.get_asset_data(&asset).await
                 })?
             };
 

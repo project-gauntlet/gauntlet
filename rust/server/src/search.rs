@@ -108,7 +108,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub fn save_for_plugin(&mut self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>, refresh_search_list: bool) -> tantivy::Result<()> {
+    pub fn save_for_plugin(&self, plugin_id: PluginId, plugin_name: String, search_items: Vec<SearchIndexItem>, refresh_search_list: bool) -> tantivy::Result<()> {
         tracing::debug!("Reloading search index for plugin {:?}", plugin_id);
 
         // writer panics if another writer exists

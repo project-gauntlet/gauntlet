@@ -149,16 +149,6 @@ pub enum IntermediateUiEvent {
     RefreshSearchIndex,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum PreferenceUserData {
-    Number(f64),
-    String(String),
-    Bool(bool),
-    ListOfStrings(Vec<String>),
-    ListOfNumbers(Vec<f64>),
-}
-
 pub enum ActionShortcutKey {
     Num0,
     Num1,
