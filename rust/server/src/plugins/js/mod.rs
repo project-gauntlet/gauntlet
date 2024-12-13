@@ -334,12 +334,6 @@ async fn start_js_runtime(
 
     let init_url: ModuleSpecifier = "gauntlet:init".parse().expect("should be valid");
 
-    let numbat_context = if plugin_id_str == "bundled://gauntlet" {
-        Some(NumbatContext::new())
-    } else {
-        None
-    };
-
     let fs: Arc<dyn FileSystem> = Arc::new(RealFs);
 
     let permissions_container = permissions_to_deno(
@@ -384,13 +378,12 @@ async fn start_js_runtime(
                 entrypoint_names,
                 runtime_permissions,
             ),
-            numbat_context,
         ),
         gauntlet_esm,
     ];
 
     if plugin_id_str == "bundled://gauntlet" {
-        extensions.push(gauntlet_internal_all::init_ops_and_esm());
+        extensions.push(gauntlet_internal_all::init_ops_and_esm(NumbatContext::new()));
 
         #[cfg(target_os = "macos")]
         extensions.push(gauntlet_internal_macos::init_ops_and_esm());
@@ -614,14 +607,12 @@ deno_core::extension!(
         plugin_data: PluginData,
         component_model: ComponentModel,
         backend_api: BackendForPluginRuntimeApiImpl,
-        numbat_context: Option<NumbatContext>,
     },
     state = |state, options| {
         state.put(options.event_receiver);
         state.put(options.plugin_data);
         state.put(options.component_model);
         state.put(options.backend_api);
-        state.put(options.numbat_context);
     },
 );
 
@@ -676,7 +667,13 @@ deno_core::extension!(
     esm = [
         "ext:gauntlet/internal-all/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-all-bootstrap.js",
         "ext:gauntlet/internal-all.js" =  "../../js/core/dist/internal-all.js",
-    ]
+    ],
+    options = {
+        numbat_context: NumbatContext,
+    },
+    state = |state, options| {
+        state.put(options.numbat_context);
+    },
 );
 
 #[cfg(target_os = "linux")]

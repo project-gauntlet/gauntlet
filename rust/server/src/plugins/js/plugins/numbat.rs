@@ -41,14 +41,10 @@ pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> anyho
         let state = state.borrow();
 
         let context = state
-            .borrow::<Option<NumbatContext>>()
+            .borrow::<NumbatContext>()
             .clone();
 
         context
-    };
-
-    let Some(context) = context else {
-        return Err(anyhow!("plugin id is not equal to 'bundled://gauntlet'"))
     };
 
     let mut context = context.0.borrow_mut();
