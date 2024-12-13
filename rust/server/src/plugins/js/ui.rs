@@ -139,7 +139,7 @@ pub fn op_react_replace_view<'a>(
 pub fn op_component_model(state: Rc<RefCell<OpState>>) -> HashMap<String, Component> {
     state.borrow()
         .borrow::<ComponentModel>()
-        .components
+        .components()
         .clone()
 }
 

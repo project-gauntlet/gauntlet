@@ -149,6 +149,8 @@ function createWidget(hostContext: HostContext, type: ComponentType, properties:
     return instance
 }
 
+const componentModel = op_component_model();
+
 export const createHostConfig = (): HostConfig<
     ComponentType,
     PropsWithChildren,
@@ -228,7 +230,6 @@ export const createHostConfig = (): HostConfig<
         return false;
     },
     getRootHostContext: (_rootContainer: RootUiWidget): HostContext | null => {
-        const componentModel = op_component_model();
 
         return new HostContext(1, componentModel);
     },
