@@ -9,58 +9,73 @@ use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
 use indexmap::IndexMap;
 use serde::{de, Deserialize, Deserializer};
 use serde::de::Error;
-use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, EntrypointId, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Image, ImageSource, ImageSourceAsset, ImageSourceUrl, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectItemWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiPropertyValue, UiWidgetId, WidgetVisitor};
+use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, EntrypointId, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Image, ImageSource, ImageSourceAsset, ImageSourceUrl, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectItemWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiPropertyValue, UiRenderLocation, UiWidgetId, WidgetVisitor};
 use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
 use component_model::{Component, Property, PropertyType, SharedType};
 use component_model::Component::Root;
-use crate::model::{JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
+use crate::model::JsUiRenderLocation;
 use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::js::{ComponentModel, make_request, PluginData, BackendForPluginRuntimeApiImpl};
+use crate::plugins::js::{ComponentModel, PluginData, BackendForPluginRuntimeApiImpl};
 
 #[op2]
 pub fn show_plugin_error_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, #[serde] render_location: JsUiRenderLocation) -> anyhow::Result<()> {
-    let data = JsUiRequestData::ShowPluginErrorView {
-        entrypoint_id: EntrypointId::from_string(entrypoint_id),
-        render_location,
+    let api = {
+        let state = state.borrow();
+
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .clone();
+
+        api
     };
 
-    match make_request(&state, data).context("ClearInlineView frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs", "Calling show_plugin_error_view returned");
-            Ok(())
-        }
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+    let render_location = match render_location {
+        JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+        JsUiRenderLocation::View => UiRenderLocation::View,
+    };
+
+    block_on(async {
+        api.ui_show_plugin_error_view(
+            EntrypointId::from_string(entrypoint_id),
+            render_location,
+        ).await
+    })
 }
 
 #[op2(fast)]
 pub fn show_preferences_required_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, plugin_preferences_required: bool, entrypoint_preferences_required: bool) -> anyhow::Result<()> {
-    let data = JsUiRequestData::ShowPreferenceRequiredView {
-        entrypoint_id: EntrypointId::from_string(entrypoint_id),
-        plugin_preferences_required,
-        entrypoint_preferences_required
+    let api = {
+        let state = state.borrow();
+
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .clone();
+
+        api
     };
 
-    match make_request(&state, data).context("ShowPreferenceRequiredView frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs", "Calling show_preferences_required_view returned");
-            Ok(())
-        }
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+    block_on(async {
+        api.ui_show_preferences_required_view(
+            EntrypointId::from_string(entrypoint_id),
+            plugin_preferences_required,
+            entrypoint_preferences_required
+        ).await
+    })
 }
 
 #[op2(fast)]
 pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
-    let data = JsUiRequestData::ClearInlineView;
+    let api = {
+        let state = state.borrow();
 
-    match make_request(&state, data).context("ClearInlineView frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs", "Calling clear_inline_view returned");
-            Ok(())
-        }
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .clone();
+
+        api
+    };
+
+    block_on(async { api.ui_clear_inline_view().await })
 }
 
 #[op2]
@@ -83,21 +98,6 @@ pub fn op_react_replace_view<'a>(
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
-    let entrypoint_id = EntrypointId::from_string(entrypoint_id);
-
-    let entrypoint_name = {
-        let comp_state = state.borrow();
-
-        let plugin_data = comp_state.borrow::<PluginData>();
-
-        let entrypoint_name = plugin_data.entrypoint_names
-            .get(&entrypoint_id)
-            .expect("entrypoint name for id should always exist")
-            .to_string();
-
-        entrypoint_name
-    };
-
     let mut deserializer = serde_v8::Deserializer::new(scope, container.v8_value, None);
 
     #[cfg(feature = "scenario_runner")]
@@ -106,24 +106,32 @@ pub fn op_react_replace_view<'a>(
 
     let images = ImageGatherer::run_gatherer(state.clone(), &container)?;
 
-    let data = JsUiRequestData::ReplaceView {
-        entrypoint_id,
-        entrypoint_name,
-        render_location,
-        top_level_view,
-        container,
-        #[cfg(feature = "scenario_runner")]
-        container_value,
-        images,
+    let api = {
+        let state = state.borrow();
+
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .clone();
+
+        api
     };
 
-    match make_request(&state, data).context("ReplaceView frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view returned");
-            Ok(())
-        }
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+    let render_location = match render_location {
+        JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+        JsUiRenderLocation::View => UiRenderLocation::View,
+    };
+
+    block_on(async {
+        api.ui_render(
+            EntrypointId::from_string(entrypoint_id),
+            render_location,
+            top_level_view,
+            container,
+            #[cfg(feature = "scenario_runner")]
+            container_value,
+            images
+        ).await
+    })
 }
 
 #[op2]
@@ -156,9 +164,9 @@ pub async fn fetch_action_id_for_shortcut(
         api
     };
 
-    let result = api.get_action_id_for_shortcut(
-        &entrypoint_id,
-        PhysicalKey::from_value(key),
+    let result = api.ui_get_action_id_for_shortcut(
+        EntrypointId::from_string(entrypoint_id),
+        key,
         modifier_shift,
         modifier_control,
         modifier_alt,
@@ -170,45 +178,32 @@ pub async fn fetch_action_id_for_shortcut(
 
 #[op2(async)]
 pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) -> anyhow::Result<()> {
-    let data = JsUiRequestData::ShowHud {
-        display
+    let api = {
+        let state = state.borrow();
+
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .clone();
+
+        api
     };
 
-    match make_request(&state, data).context("ShowHud frontend response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!("Calling show_hud returned");
-            Ok(())
-        }
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+    block_on(async { api.ui_show_hud(display).await })
 }
 
 #[op2(async)]
 pub async fn update_loading_bar(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, show: bool) -> anyhow::Result<()> {
-    let plugin_id = {
+    let api = {
         let state = state.borrow();
 
-        let plugin_id = state
-            .borrow::<PluginData>()
-            .plugin_id()
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiImpl>()
             .clone();
 
-        plugin_id
+        api
     };
 
-    let data = JsUiRequestData::UpdateLoadingBar {
-        plugin_id: PluginId::from_string(plugin_id),
-        entrypoint_id: EntrypointId::from_string(entrypoint_id),
-        show,
-    };
-
-    match make_request(&state, data).context("UpdateLoadingBar response")? {
-        JsUiResponseData::Nothing => {
-            tracing::trace!("Calling update_loading_bar returned");
-            Ok(())
-        }
-        value @ _ => panic!("unsupported response type {:?}", value),
-    }
+    block_on(async { api.ui_update_loading_bar(EntrypointId::from_string(entrypoint_id), show).await })
 }
 
 struct ImageGatherer {
