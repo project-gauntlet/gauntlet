@@ -27,20 +27,22 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
+use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
 
 use common::dirs::Dirs;
 use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
-use common_plugin_runtime::model::{AdditionalSearchItem, PreferenceUserData};
+use common_plugin_runtime::model::{AdditionalSearchItem, ClipboardData, PreferenceUserData};
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
 use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
+use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
-use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text, Clipboard};
+use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
 use crate::plugins::js::command_generators::{get_command_generator_entrypoint_ids};
 use crate::plugins::js::environment::{environment_gauntlet_version, environment_is_development, environment_plugin_cache_dir, environment_plugin_data_dir};
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
@@ -357,7 +359,6 @@ async fn start_js_runtime(
                 plugin_cache_dir,
                 plugin_data_dir,
                 inline_view_entrypoint_id,
-                runtime_permissions,
             ),
             frontend_api,
             ComponentModel::new(component_model),
@@ -365,11 +366,12 @@ async fn start_js_runtime(
                 icon_cache,
                 repository,
                 search_index,
+                clipboard,
                 plugin_uuid,
-                plugin_id
+                plugin_id,
+                runtime_permissions,
             ),
             numbat_context,
-            clipboard,
         ),
         gauntlet_esm,
     ];
@@ -601,7 +603,6 @@ deno_core::extension!(
         component_model: ComponentModel,
         backend_api: BackendForPluginRuntimeApiImpl,
         numbat_context: Option<NumbatContext>,
-        clipboard: Clipboard,
     },
     state = |state, options| {
         state.put(options.event_receiver);
@@ -610,7 +611,6 @@ deno_core::extension!(
         state.put(options.component_model);
         state.put(options.backend_api);
         state.put(options.numbat_context);
-        state.put(options.clipboard);
     },
 );
 
@@ -882,7 +882,6 @@ pub struct PluginData {
     plugin_cache_dir: String,
     plugin_data_dir: String,
     inline_view_entrypoint_id: Option<String>,
-    permissions: PluginRuntimePermissions
 }
 
 impl PluginData {
@@ -894,7 +893,6 @@ impl PluginData {
         plugin_cache_dir: String,
         plugin_data_dir: String,
         inline_view_entrypoint_id: Option<String>,
-        permissions: PluginRuntimePermissions
     ) -> Self {
         Self {
             plugin_id,
@@ -904,7 +902,6 @@ impl PluginData {
             plugin_cache_dir,
             plugin_data_dir,
             inline_view_entrypoint_id,
-            permissions
         }
     }
 
@@ -930,10 +927,6 @@ impl PluginData {
 
     fn inline_view_entrypoint_id(&self) -> Option<String> {
         self.inline_view_entrypoint_id.clone()
-    }
-
-    fn permissions(&self) -> &PluginRuntimePermissions {
-        &self.permissions
     }
 }
 
@@ -974,8 +967,10 @@ pub struct BackendForPluginRuntimeApiImpl {
     icon_cache: IconCache,
     repository: DataDbRepository,
     search_index: SearchIndex,
+    clipboard: Clipboard,
     plugin_uuid: String,
     plugin_id: PluginId,
+    permissions: PluginRuntimePermissions
 }
 
 impl BackendForPluginRuntimeApiImpl {
@@ -983,15 +978,19 @@ impl BackendForPluginRuntimeApiImpl {
         icon_cache: IconCache,
         repository: DataDbRepository,
         search_index: SearchIndex,
+        clipboard: Clipboard,
         plugin_uuid: String,
         plugin_id: PluginId,
+        permissions: PluginRuntimePermissions
     ) -> Self {
         Self {
             icon_cache,
             repository,
             search_index,
+            clipboard,
             plugin_uuid,
             plugin_id,
+            permissions
         }
     }
 }
@@ -1191,6 +1190,81 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string()).await?;
 
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
+    }
+
+    async fn clipboard_read(&self) -> anyhow::Result<ClipboardData> {
+        let allow = self
+            .permissions
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Read);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+        }
+
+        tracing::debug!("Reading from clipboard, plugin id: {:?}", self.plugin_id);
+
+        self.clipboard.read()
+    }
+
+    async fn clipboard_read_text(&self) -> anyhow::Result<Option<String>> {
+        let allow = self
+            .permissions
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Read);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+        }
+
+        tracing::debug!("Reading text from clipboard, plugin id: {:?}", self.plugin_id);
+
+        self.clipboard.read_text()
+    }
+
+    async fn clipboard_write(&self, data: ClipboardData) -> anyhow::Result<()> {
+        let allow = self
+            .permissions
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Write);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+        }
+
+        tracing::debug!("Writing to clipboard, plugin id: {:?}", self.plugin_id);
+
+        self.clipboard.write(data)
+    }
+
+    async fn clipboard_write_text(&self, data: String) -> anyhow::Result<()> {
+        let allow = self
+            .permissions
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Write);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+        }
+
+        tracing::debug!("Writing text to clipboard, plugin id: {:?}", self.plugin_id);
+
+        self.clipboard.write_text(data)
+    }
+
+    async fn clipboard_clear(&self) -> anyhow::Result<()> {
+        let allow = self
+            .permissions
+            .clipboard
+            .contains(&PluginPermissionsClipboard::Clear);
+
+        if !allow {
+            return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard"));
+        }
+
+        tracing::debug!("Clearing clipboard, plugin id: {:?}", self.plugin_id);
+
+        self.clipboard.clear()
     }
 }
 

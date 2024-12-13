@@ -14,11 +14,11 @@ use common::{settings_env_data_to_string, SettingsEnvData};
 use utils::channel::RequestSender;
 use common::dirs::Dirs;
 use crate::model::{ActionShortcutKey, JsKeyboardEventOrigin};
+use crate::plugins::clipboard::Clipboard;
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginActionShortcutKind, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginMainSearchBarPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::{start_plugin_runtime, AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginRuntimeData};
-use crate::plugins::js::clipboard::Clipboard;
 use crate::plugins::js::permissions::{PluginPermissions, PluginPermissionsClipboard, PluginPermissionsExec, PluginPermissionsFileSystem, PluginPermissionsMainSearchBar};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
@@ -33,6 +33,7 @@ mod run_status;
 mod download_status;
 mod icon_cache;
 pub(super) mod frecency;
+mod clipboard;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [
     ("gauntlet", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist")),

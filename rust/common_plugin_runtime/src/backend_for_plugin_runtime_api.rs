@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use crate::model::{AdditionalSearchItem, ClipboardData, PreferenceUserData};
 use common::model::{EntrypointId, PhysicalKey};
-use crate::model::{AdditionalSearchItem, PreferenceUserData};
+use std::collections::HashMap;
 
 pub trait BackendForPluginRuntimeApi {
     async fn reload_search_index(&self, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> ;
@@ -19,4 +19,9 @@ pub trait BackendForPluginRuntimeApi {
     async fn get_entrypoint_preferences(&self, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PreferenceUserData>>;
     async fn plugin_preferences_required(&self) -> anyhow::Result<bool>;
     async fn entrypoint_preferences_required(&self, entrypoint_id: EntrypointId) -> anyhow::Result<bool>;
+    async fn clipboard_read(&self) -> anyhow::Result<ClipboardData>;
+    async fn clipboard_read_text(&self) -> anyhow::Result<Option<String>>;
+    async fn clipboard_write(&self, data: ClipboardData) -> anyhow::Result<()>;
+    async fn clipboard_write_text(&self, data: String) -> anyhow::Result<()>;
+    async fn clipboard_clear(&self) -> anyhow::Result<()>;
 }

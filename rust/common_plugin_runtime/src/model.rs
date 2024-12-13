@@ -25,3 +25,9 @@ pub enum PreferenceUserData {
     ListOfStrings(Vec<String>),
     ListOfNumbers(Vec<f64>),
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClipboardData {
+    pub text_data: Option<String>,
+    pub png_data: Option<Vec<u8>>
+}
