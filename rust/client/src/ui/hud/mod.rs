@@ -42,7 +42,8 @@ fn open_non_wayland() -> Task<AppMsg> {
 
     window::open(settings)
         .1
-        .then(|id| in_2_seconds(AppMsg::CloseHudWindow { id }))
+        .then(|id| sleep_for_2_seconds(id))
+        .then(|id| window::close(id))
 }
 
 #[cfg(target_os = "linux")]
@@ -51,23 +52,8 @@ fn open_wayland() -> Task<AppMsg> {
     let settings = layer_shell_settings();
 
     Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings }))
-        .then(move |_| in_2_seconds(AppMsg::CloseHudWindow { id }))
-}
-
-pub fn close_hud_window(
-    #[cfg(target_os = "linux")]
-    wayland: bool,
-    id: window::Id
-) -> Task<AppMsg> {
-    #[cfg(target_os = "linux")]
-    if wayland {
-        Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id)))
-    } else {
-        window::close(id)
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    window::close(id)
+        .then(move |_| sleep_for_2_seconds(id))
+        .then(|id| Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id))))
 }
 
 #[cfg(target_os = "linux")]
@@ -84,10 +70,10 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
     }
 }
 
-fn in_2_seconds(msg: AppMsg) -> Task<AppMsg> {
+fn sleep_for_2_seconds(id: window::Id) -> Task<window::Id> {
     Task::perform(async move {
         tokio::time::sleep(Duration::from_secs(2)).await;
 
-        msg
+        id
     }, convert::identity)
 }

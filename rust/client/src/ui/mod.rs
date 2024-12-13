@@ -53,7 +53,7 @@ mod grid_navigation;
 
 use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
-use crate::ui::hud::{close_hud_window, show_hud_window};
+use crate::ui::hud::show_hud_window;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::{ErrorViewData, Focus, GlobalState, LoadingBarState, MainViewState, PluginViewData, PluginViewState};
 use crate::ui::widget_container::PluginWidgetContainer;
@@ -167,9 +167,6 @@ pub enum AppMsg {
     },
     ShowHud {
         display: String
-    },
-    CloseHudWindow {
-        id: window::Id
     },
     OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus,
     OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result: SearchResult },
@@ -1202,15 +1199,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             show_hud_window(
                 #[cfg(target_os = "linux")]
                 state.wayland,
-            )
-        }
-        AppMsg::CloseHudWindow { id } => {
-            state.hud_display = None;
-
-            close_hud_window(
-                #[cfg(target_os = "linux")]
-                state.wayland,
-                id
             )
         }
         AppMsg::ResetMainViewState => {
