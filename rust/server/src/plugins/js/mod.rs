@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use bytes::Bytes;
 use deno_core::futures::executor::block_on;
 use deno_core::futures::{FutureExt, Stream, StreamExt};
 use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
@@ -26,18 +27,19 @@ use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_value::Value;
 use tokio::net::TcpStream;
 use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
 
 use common::dirs::Dirs;
-use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
 use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
 use common_plugin_runtime::model::{AdditionalSearchItem, ClipboardData, PreferenceUserData};
 use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
-use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation, JsUiRequestData, JsUiResponseData};
+use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
@@ -354,21 +356,21 @@ async fn start_js_runtime(
             PluginData::new(
                 plugin_id.clone(),
                 plugin_uuid.clone(),
-                plugin_name,
-                entrypoint_names,
                 plugin_cache_dir,
                 plugin_data_dir,
                 inline_view_entrypoint_id,
             ),
-            frontend_api,
             ComponentModel::new(component_model),
             BackendForPluginRuntimeApiImpl::new(
                 icon_cache,
                 repository,
                 search_index,
                 clipboard,
+                frontend_api,
                 plugin_uuid,
                 plugin_id,
+                plugin_name,
+                entrypoint_names,
                 runtime_permissions,
             ),
             numbat_context,
@@ -599,7 +601,6 @@ deno_core::extension!(
     options = {
         event_receiver: EventReceiver,
         plugin_data: PluginData,
-        frontend_api: FrontendApi,
         component_model: ComponentModel,
         backend_api: BackendForPluginRuntimeApiImpl,
         numbat_context: Option<NumbatContext>,
@@ -607,7 +608,6 @@ deno_core::extension!(
     state = |state, options| {
         state.put(options.event_receiver);
         state.put(options.plugin_data);
-        state.put(options.frontend_api);
         state.put(options.component_model);
         state.put(options.backend_api);
         state.put(options.numbat_context);
@@ -727,101 +727,6 @@ pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow:
     Ok(from_intermediate_to_js_event(event))
 }
 
-fn make_request(state: &Rc<RefCell<OpState>>, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
-    let (plugin_id, plugin_name, mut frontend_api) = {
-        let state = state.borrow();
-
-        let plugin_id = state
-            .borrow::<PluginData>()
-            .plugin_id()
-            .clone();
-
-        let plugin_name = state
-            .borrow::<PluginData>()
-            .plugin_name()
-            .to_string();
-
-        let frontend_api = state
-            .borrow::<FrontendApi>()
-            .clone();
-
-        (plugin_id, plugin_name, frontend_api)
-    };
-
-    block_on(async {
-        make_request_async(plugin_id, plugin_name, &mut frontend_api, data).await
-    })
-}
-
-async fn make_request_async(plugin_id: PluginId, plugin_name: String, frontend_api: &mut FrontendApi, data: JsUiRequestData) -> anyhow::Result<JsUiResponseData> {
-    match data {
-        JsUiRequestData::ReplaceView {
-            entrypoint_id,
-            entrypoint_name,
-            render_location,
-            top_level_view,
-            container,
-            #[cfg(feature = "scenario_runner")]
-            container_value,
-            images
-        } => {
-            let render_location = match render_location { // TODO into?
-                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-                JsUiRenderLocation::View => UiRenderLocation::View,
-            };
-
-            frontend_api.replace_view(
-                plugin_id,
-                plugin_name,
-                entrypoint_id,
-                entrypoint_name,
-                render_location,
-                top_level_view,
-                container,
-                #[cfg(feature = "scenario_runner")]
-                container_value,
-                images
-            ).await?;
-
-            Ok(JsUiResponseData::Nothing)
-        }
-        JsUiRequestData::ClearInlineView => {
-
-            frontend_api.clear_inline_view(plugin_id).await?;
-
-            Ok(JsUiResponseData::Nothing)
-        }
-        JsUiRequestData::ShowPreferenceRequiredView { plugin_preferences_required, entrypoint_preferences_required, entrypoint_id } => {
-
-            frontend_api.show_preference_required_view(plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required).await?;
-
-            Ok(JsUiResponseData::Nothing)
-        }
-        JsUiRequestData::ShowPluginErrorView { entrypoint_id, render_location } => {
-            let render_location = match render_location { // TODO into?
-                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-                JsUiRenderLocation::View => UiRenderLocation::View,
-            };
-
-            frontend_api.show_plugin_error_view(plugin_id, entrypoint_id, render_location).await?;
-
-            Ok(JsUiResponseData::Nothing)
-        }
-        JsUiRequestData::ShowHud { display } => {
-
-            frontend_api.show_hud(display).await?;
-
-            Ok(JsUiResponseData::Nothing)
-        }
-        JsUiRequestData::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
-
-            frontend_api.update_loading_bar(plugin_id, entrypoint_id, show).await?;
-
-            Ok(JsUiResponseData::Nothing)
-        }
-    }
-}
-
 fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
     match event {
         IntermediateUiEvent::OpenView { entrypoint_id } => JsUiEvent::OpenView {
@@ -877,8 +782,6 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
 pub struct PluginData {
     plugin_id: PluginId,
     plugin_uuid: String,
-    plugin_name: String,
-    entrypoint_names: HashMap<EntrypointId, String>,
     plugin_cache_dir: String,
     plugin_data_dir: String,
     inline_view_entrypoint_id: Option<String>,
@@ -888,8 +791,6 @@ impl PluginData {
     fn new(
         plugin_id: PluginId,
         plugin_uuid: String,
-        plugin_name: String,
-        entrypoint_names: HashMap<EntrypointId, String>,
         plugin_cache_dir: String,
         plugin_data_dir: String,
         inline_view_entrypoint_id: Option<String>,
@@ -897,8 +798,6 @@ impl PluginData {
         Self {
             plugin_id,
             plugin_uuid,
-            plugin_name,
-            entrypoint_names,
             plugin_cache_dir,
             plugin_data_dir,
             inline_view_entrypoint_id,
@@ -911,10 +810,6 @@ impl PluginData {
 
     fn plugin_uuid(&self) -> &str {
         &self.plugin_uuid
-    }
-
-    fn plugin_name(&self) -> &str {
-        &self.plugin_name
     }
 
     fn plugin_cache_dir(&self) -> &str {
@@ -968,8 +863,11 @@ pub struct BackendForPluginRuntimeApiImpl {
     repository: DataDbRepository,
     search_index: SearchIndex,
     clipboard: Clipboard,
+    frontend_api: FrontendApi,
     plugin_uuid: String,
     plugin_id: PluginId,
+    plugin_name: String,
+    entrypoint_names: HashMap<EntrypointId, String>,
     permissions: PluginRuntimePermissions
 }
 
@@ -979,8 +877,11 @@ impl BackendForPluginRuntimeApiImpl {
         repository: DataDbRepository,
         search_index: SearchIndex,
         clipboard: Clipboard,
+        frontend_api: FrontendApi,
         plugin_uuid: String,
         plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_names: HashMap<EntrypointId, String>,
         permissions: PluginRuntimePermissions
     ) -> Self {
         Self {
@@ -988,8 +889,11 @@ impl BackendForPluginRuntimeApiImpl {
             repository,
             search_index,
             clipboard,
+            frontend_api,
             plugin_uuid,
             plugin_id,
+            plugin_name,
+            entrypoint_names,
             permissions
         }
     }
@@ -1148,20 +1052,6 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(result)
     }
 
-    async fn get_action_id_for_shortcut(&self, entrypoint_id: &str, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> anyhow::Result<Option<String>> {
-        let result = self.repository.get_action_id_for_shortcut(
-            &self.plugin_id.to_string(),
-            &entrypoint_id,
-            key,
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta
-        ).await?;
-
-        Ok(result)
-    }
-
     async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
         let DbReadPlugin { preferences, preferences_user_data, .. } = self.repository
             .get_plugin_by_id(&self.plugin_id.to_string())
@@ -1265,6 +1155,109 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         tracing::debug!("Clearing clipboard, plugin id: {:?}", self.plugin_id);
 
         self.clipboard.clear()
+    }
+
+    async fn ui_update_loading_bar(&self, entrypoint_id: EntrypointId, show: bool) -> anyhow::Result<()> {
+        self.frontend_api.update_loading_bar(self.plugin_id.clone(), entrypoint_id, show).await?;
+
+        Ok(())
+    }
+
+    async fn ui_show_hud(&self, display: String) -> anyhow::Result<()> {
+        self.frontend_api.show_hud(display).await?;
+
+        Ok(())
+    }
+
+    async fn ui_get_action_id_for_shortcut(
+        &self,
+        entrypoint_id: EntrypointId,
+        key: String,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool
+    ) -> anyhow::Result<Option<String>> {
+        let result = self.repository.get_action_id_for_shortcut(
+            &self.plugin_id.to_string(),
+            &entrypoint_id.to_string(),
+            PhysicalKey::from_value(key),
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta
+        ).await?;
+
+        Ok(result)
+    }
+
+    async fn ui_render(
+        &self,
+        entrypoint_id: EntrypointId,
+        render_location: UiRenderLocation,
+        top_level_view: bool,
+        container: RootWidget,
+        #[cfg(feature = "scenario_runner")]
+        container_value: serde_value::Value,
+        images: HashMap<UiWidgetId, Bytes>
+    ) -> anyhow::Result<()> {
+
+        let entrypoint_name = self.entrypoint_names
+            .get(&entrypoint_id)
+            .expect("entrypoint name for id should always exist")
+            .to_string();
+
+        self.frontend_api.replace_view(
+            self.plugin_id.clone(),
+            self.plugin_name.clone(),
+            entrypoint_id,
+            entrypoint_name,
+            render_location,
+            top_level_view,
+            container,
+            #[cfg(feature = "scenario_runner")]
+            container_value,
+            images
+        ).await?;
+
+        Ok(())
+    }
+
+    async fn ui_show_plugin_error_view(
+        &self,
+        entrypoint_id: EntrypointId,
+        render_location: UiRenderLocation
+    ) -> anyhow::Result<()> {
+        self.frontend_api.show_plugin_error_view(
+            self.plugin_id.clone(),
+            entrypoint_id,
+            render_location
+        ).await?;
+
+        Ok(())
+    }
+
+    async fn ui_show_preferences_required_view(
+        &self,
+        entrypoint_id: EntrypointId,
+        plugin_preferences_required: bool,
+        entrypoint_preferences_required: bool
+    ) -> anyhow::Result<()> {
+
+        self.frontend_api.show_preference_required_view(
+            self.plugin_id.clone(),
+            entrypoint_id,
+            plugin_preferences_required,
+            entrypoint_preferences_required
+        ).await?;
+
+        Ok(())
+    }
+
+    async fn ui_clear_inline_view(&self) -> anyhow::Result<()> {
+        self.frontend_api.clear_inline_view(self.plugin_id.clone()).await?;
+
+        Ok(())
     }
 }
 

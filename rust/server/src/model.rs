@@ -1,43 +1,5 @@
-use std::collections::HashMap;
-use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, UiPropertyValue, UiWidgetId};
+use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, UiPropertyValue, UiWidgetId};
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug)]
-pub enum JsUiResponseData {
-    Nothing
-}
-
-#[derive(Debug)]
-pub enum JsUiRequestData {
-    ReplaceView {
-        entrypoint_id: EntrypointId,
-        entrypoint_name: String,
-        render_location: JsUiRenderLocation,
-        top_level_view: bool,
-        container: RootWidget,
-        #[cfg(feature = "scenario_runner")]
-        container_value: serde_value::Value,
-        images: HashMap<UiWidgetId, bytes::Bytes>,
-    },
-    ClearInlineView,
-    ShowPluginErrorView {
-        entrypoint_id: EntrypointId,
-        render_location: JsUiRenderLocation,
-    },
-    ShowPreferenceRequiredView {
-        entrypoint_id: EntrypointId,
-        plugin_preferences_required: bool,
-        entrypoint_preferences_required: bool
-    },
-    ShowHud {
-        display: String
-    },
-    UpdateLoadingBar {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        show: bool
-    },
-}
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum JsUiRenderLocation {
