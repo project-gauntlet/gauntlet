@@ -121,7 +121,7 @@ pub enum AppMsg {
         has_children: bool,
         render_location: UiRenderLocation,
     },
-    IcedEvent(Event),
+    IcedEvent(window::Id, Event),
     WidgetEvent {
         plugin_id: PluginId,
         render_location: UiRenderLocation,
@@ -688,7 +688,15 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
             }
         }
-        AppMsg::IcedEvent(Event::Keyboard(event)) => {
+        AppMsg::IcedEvent(window_id, Event::Keyboard(event)) => {
+            let Some(main_window_id) = state.main_window_id else {
+                return Task::none()
+            };
+
+            if window_id != main_window_id {
+                return Task::none()
+            }
+
             match event {
                 keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                     tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
@@ -868,21 +876,33 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 _ => Task::none()
             }
         }
-        AppMsg::IcedEvent(Event::Window(window::Event::Focused)) => {
-            if state.wayland {
-                Task::none()
-            } else {
-                state.on_focused()
+        AppMsg::IcedEvent(window_id, Event::Window(window::Event::Focused)) => {
+            let Some(main_window_id) = state.main_window_id else {
+                return Task::none()
+            };
+
+            if window_id != main_window_id {
+                return Task::none()
             }
+
+            state.on_focused()
         }
-        AppMsg::IcedEvent(Event::Window(window::Event::Unfocused)) => {
+        AppMsg::IcedEvent(window_id, Event::Window(window::Event::Unfocused)) => {
+            let Some(main_window_id) = state.main_window_id else {
+                return Task::none()
+            };
+
+            if window_id != main_window_id {
+                return Task::none()
+            }
+
             if state.wayland {
                 state.hide_window()
             } else {
                 state.on_unfocused()
             }
         }
-        AppMsg::IcedEvent(_) => Task::none(),
+        AppMsg::IcedEvent(_, _) => Task::none(),
         AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::Noop, .. } => Task::none(),
         AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => state.global_state.back(),
         AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
@@ -1804,9 +1824,9 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
     struct GlobalShortcutListener;
 
     let events_subscription = event::listen_with(|event, status, window_id| match status {
-        event::Status::Ignored => Some(AppMsg::IcedEvent(event)),
+        event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
         event::Status::Captured => match &event {
-            Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Named(Named::Escape), .. }) => Some(AppMsg::IcedEvent(event)),
+            Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Named(Named::Escape), .. }) => Some(AppMsg::IcedEvent(window_id, event)),
             _ => None
         }
     });
