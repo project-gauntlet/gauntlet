@@ -1,9 +1,12 @@
-use deno_core::op2;
+use std::cell::RefCell;
+use deno_core::{op2, OpState};
 use std::path::PathBuf;
+use std::rc::Rc;
 use image::ImageFormat;
 use image::imageops::FilterType;
 use serde::Serialize;
 use tokio::task::spawn_blocking;
+use crate::plugins::js::PluginData;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -72,15 +75,35 @@ pub fn current_os() -> &'static str {
 #[cfg(target_os = "linux")]
 #[op2(async)]
 #[serde]
-pub async fn linux_app_from_path(#[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
-    Ok(spawn_blocking(|| linux::linux_app_from_path(PathBuf::from(path))).await?)
+pub async fn linux_app_from_path(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+    let home_dir = {
+        let state = state.borrow();
+
+        let home_dir = state
+            .borrow::<PluginData>()
+            .home_dir();
+
+        home_dir
+    };
+
+    Ok(spawn_blocking(|| linux::linux_app_from_path(home_dir, PathBuf::from(path))).await?)
 }
 
 #[cfg(target_os = "linux")]
 #[op2]
 #[serde]
-pub fn linux_application_dirs() -> Vec<String> {
-    linux::linux_application_dirs()
+pub fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
+    let home_dir = {
+        let state = state.borrow();
+
+        let home_dir = state
+            .borrow::<PluginData>()
+            .home_dir();
+
+        home_dir
+    };
+
+    linux::linux_application_dirs(home_dir)
         .into_iter()
         .map(|path| path.to_str().expect("non-utf8 paths are not supported").to_string())
         .collect()

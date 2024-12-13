@@ -44,16 +44,22 @@ pub enum PluginPermissionsMainSearchBar {
     Read,
 }
 
-pub fn permissions_to_deno(fs: FileSystemRc, permissions: &PluginPermissions, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<PermissionsContainer> {
+pub fn permissions_to_deno(
+    fs: FileSystemRc,
+    permissions: &PluginPermissions,
+    home_dir: &Path,
+    plugin_data_dir: &Path,
+    plugin_cache_dir: &Path,
+) -> anyhow::Result<PermissionsContainer> {
     Ok(PermissionsContainer::new(
         Arc::new(RuntimePermissionDescriptorParser::new(fs)),
         Permissions {
-            read: path_permission(&permissions.filesystem.read, ReadDescriptor, dirs, plugin_uuid)?,
-            write: path_permission(&permissions.filesystem.write, WriteDescriptor, dirs, plugin_uuid)?,
+            read: path_permission(&permissions.filesystem.read, ReadDescriptor, home_dir, plugin_data_dir, plugin_cache_dir)?,
+            write: path_permission(&permissions.filesystem.write, WriteDescriptor, home_dir, plugin_data_dir, plugin_cache_dir)?,
             net: net_permission(&permissions.network),
             env: env_permission(&permissions.environment),
             sys: sys_permission(&permissions.system)?,
-            run: run_permission(&permissions.exec, dirs, plugin_uuid)?,
+            run: run_permission(&permissions.exec, home_dir, plugin_data_dir, plugin_cache_dir)?,
             ffi: Permissions::new_unary(None, None, false),
             import: UnaryPermission::default(),
             all: Permissions::new_all(false),
@@ -64,13 +70,14 @@ pub fn permissions_to_deno(fs: FileSystemRc, permissions: &PluginPermissions, di
 fn path_permission<P: Eq + Hash, T: QueryDescriptor<AllowDesc = P, DenyDesc = P> + Hash>(
     paths: &[String],
     to_permission: fn(PathBuf) -> P,
-    dirs: &Dirs,
-    plugin_uuid: &str
+    home_dir: &Path,
+    plugin_data_dir: &Path,
+    plugin_cache_dir: &Path,
 ) -> anyhow::Result<UnaryPermission<T>> {
     let allow_list = paths
         .into_iter()
         .map(|path| {
-            augment_path(path, dirs, plugin_uuid)
+            augment_path(path, home_dir, plugin_data_dir, plugin_cache_dir)
                 .map(|path| path.map(|path| to_permission(path)))
         })
         .collect::<anyhow::Result<Vec<_>>>()?
@@ -134,11 +141,16 @@ fn sys_permission(system: &[String]) -> anyhow::Result<UnaryPermission<SysDescri
     Ok(Permissions::new_unary(allow_list, None, false))
 }
 
-fn run_permission(permissions: &PluginPermissionsExec, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<UnaryPermission<RunQueryDescriptor>> {
+fn run_permission(
+    permissions: &PluginPermissionsExec,
+    home_dir: &Path,
+    plugin_data_dir: &Path,
+    plugin_cache_dir: &Path,
+) -> anyhow::Result<UnaryPermission<RunQueryDescriptor>> {
     let granted_executable = permissions.executable
         .iter()
         .map(|path| {
-            augment_path(path, dirs, plugin_uuid)
+            augment_path(path, home_dir, plugin_data_dir, plugin_cache_dir)
                 .map(|path| path.map(|path| AllowRunDescriptor(path)))
         })
         .collect::<anyhow::Result<Vec<_>>>()?
@@ -164,7 +176,7 @@ fn run_permission(permissions: &PluginPermissionsExec, dirs: &Dirs, plugin_uuid:
     Ok(Permissions::new_unary(allow_list, None, false))
 }
 
-fn augment_path(path: &String, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result<Option<PathBuf>> {
+fn augment_path(path: &String, home_dir: &Path, plugin_data_dir: &Path, plugin_cache_dir: &Path) -> anyhow::Result<Option<PathBuf>> {
     if let Some(matches) = VARIABLE_PATTERN.captures(path) {
         let namespace = &matches["namespace"];
         let name = &matches["name"];
@@ -172,27 +184,27 @@ fn augment_path(path: &String, dirs: &Dirs, plugin_uuid: &str) -> anyhow::Result
         let replacement = match (namespace, name) {
             ("macos", "user-home") => {
                 if cfg!(target_os = "macos") {
-                    Some(dirs.home_dir())
+                    Some(home_dir)
                 } else {
                     None
                 }
             },
             ("linux", "user-home") => {
                 if cfg!(target_os = "linux") {
-                    Some(dirs.home_dir())
+                    Some(home_dir)
                 } else {
                     None
                 }
             },
             ("windows", "user-home") => {
                 if cfg!(windows) {
-                    Some(dirs.home_dir())
+                    Some(home_dir)
                 } else {
                     None
                 }
             },
-            ("common", "plugin-data") => Some(dirs.plugin_data(plugin_uuid)?),
-            ("common", "plugin-cache") => Some(dirs.plugin_cache(plugin_uuid)?),
+            ("common", "plugin-data") => Some(plugin_data_dir),
+            ("common", "plugin-cache") => Some(plugin_cache_dir),
             (_, _) => {
                 Err(anyhow!("Trying to load plugin with unknown variable in path in manifest permissions: {}", path))?
             }
