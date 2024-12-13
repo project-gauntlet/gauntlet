@@ -37,7 +37,6 @@ use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, Ro
 use common::rpc::frontend_api::FrontendApi;
 use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
 use common_plugin_runtime::model::{AdditionalSearchItem, ClipboardData, PreferenceUserData};
-use component_model::{create_component_model, Children, Component, Property, PropertyType, SharedType};
 
 use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation};
 use crate::plugins::clipboard::Clipboard;
@@ -46,6 +45,7 @@ use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::assets::{asset_data, asset_data_blocking};
 use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
 use crate::plugins::js::command_generators::{get_command_generator_entrypoint_ids};
+use crate::plugins::js::component_model::ComponentModel;
 use crate::plugins::js::environment::{environment_gauntlet_version, environment_is_development, environment_plugin_cache_dir, environment_plugin_data_dir};
 use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
 use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
@@ -68,6 +68,7 @@ mod command_generators;
 pub mod clipboard;
 pub mod permissions;
 mod environment;
+mod component_model;
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -145,8 +146,6 @@ pub enum AllPluginCommandData {
 }
 
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
-    let component_model = create_component_model();
-
     let mut command_receiver = data.command_receiver;
     let command_stream = async_stream::stream! {
         loop {
@@ -258,7 +257,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                                      data.inline_view_entrypoint_id,
                                      event_stream,
                                      data.frontend_api,
-                                     component_model,
                                      data.db_repository,
                                      data.search_index,
                                      data.icon_cache,
@@ -300,7 +298,6 @@ async fn start_js_runtime(
     inline_view_entrypoint_id: Option<String>,
     event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
     frontend_api: FrontendApi,
-    component_model: Vec<Component>,
     repository: DataDbRepository,
     search_index: SearchIndex,
     icon_cache: IconCache,
@@ -374,7 +371,7 @@ async fn start_js_runtime(
                 inline_view_entrypoint_id,
                 home_dir
             ),
-            ComponentModel::new(component_model),
+            ComponentModel::new(),
             BackendForPluginRuntimeApiImpl::new(
                 icon_cache,
                 repository,
@@ -846,25 +843,7 @@ impl PluginData {
     }
 }
 
-pub struct ComponentModel {
-    components: HashMap<String, Component>,
-}
 
-impl ComponentModel {
-    fn new(components: Vec<Component>) -> Self {
-        Self {
-            components: components.into_iter()
-                .filter_map(|component| {
-                    match &component {
-                        Component::Standard { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
-                        Component::Root { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
-                        Component::TextPart { internal_name, .. } => Some((format!("gauntlet:{}", internal_name), component)),
-                    }
-                })
-                .collect()
-        }
-    }
-}
 
 pub struct EventReceiver {
     event_stream: Rc<RefCell<Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>>>,
