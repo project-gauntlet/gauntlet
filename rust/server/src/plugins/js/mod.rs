@@ -324,9 +324,16 @@ async fn start_js_runtime(
         (StdioPipe::inherit(), StdioPipe::inherit())
     };
 
+    let home_dir = dirs.home_dir();
     let local_storage_dir = dirs.plugin_local_storage(&plugin_uuid);
     let plugin_cache_dir = dirs.plugin_cache(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
     let plugin_data_dir = dirs.plugin_data(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
+
+    std::fs::create_dir_all(&plugin_cache_dir)
+        .context("Unable to create plugin cache directory")?;
+
+    std::fs::create_dir_all(&plugin_data_dir)
+        .context("Unable to create plugin data directory")?;
 
     let init_url: ModuleSpecifier = "gauntlet:init".parse().expect("should be valid");
 
@@ -338,7 +345,13 @@ async fn start_js_runtime(
 
     let fs: Arc<dyn FileSystem> = Arc::new(RealFs);
 
-    let permissions_container = permissions_to_deno(fs.clone(), &permissions, &dirs, &plugin_uuid)?;
+    let permissions_container = permissions_to_deno(
+        fs.clone(),
+        &permissions,
+        &home_dir,
+        &PathBuf::from(&plugin_data_dir),
+        &PathBuf::from(&plugin_cache_dir),
+    )?;
 
     let runtime_permissions = PluginRuntimePermissions {
         clipboard: permissions.clipboard,
@@ -359,6 +372,7 @@ async fn start_js_runtime(
                 plugin_cache_dir,
                 plugin_data_dir,
                 inline_view_entrypoint_id,
+                home_dir
             ),
             ComponentModel::new(component_model),
             BackendForPluginRuntimeApiImpl::new(
@@ -785,6 +799,7 @@ pub struct PluginData {
     plugin_cache_dir: String,
     plugin_data_dir: String,
     inline_view_entrypoint_id: Option<String>,
+    home_dir: PathBuf,
 }
 
 impl PluginData {
@@ -794,6 +809,7 @@ impl PluginData {
         plugin_cache_dir: String,
         plugin_data_dir: String,
         inline_view_entrypoint_id: Option<String>,
+        home_dir: PathBuf,
     ) -> Self {
         Self {
             plugin_id,
@@ -801,6 +817,7 @@ impl PluginData {
             plugin_cache_dir,
             plugin_data_dir,
             inline_view_entrypoint_id,
+            home_dir
         }
     }
 
@@ -822,6 +839,10 @@ impl PluginData {
 
     fn inline_view_entrypoint_id(&self) -> Option<String> {
         self.inline_view_entrypoint_id.clone()
+    }
+
+    fn home_dir(&self) -> PathBuf {
+        self.home_dir.clone()
     }
 }
 

@@ -26,14 +26,12 @@ impl Dirs {
 
     pub fn data_db_file(&self) -> anyhow::Result<PathBuf> {
         let path = self.data_dir()?.join("data.db");
+
         Ok(path)
     }
 
     pub fn plugin_data(&self, plugin_uuid: &str) -> anyhow::Result<PathBuf> {
         let plugin_data_dir = self.data_dir()?.join("plugins").join(&plugin_uuid);
-
-        std::fs::create_dir_all(&plugin_data_dir)
-            .context("Unable to create plugin data directory")?;
 
         Ok(plugin_data_dir)
     }
@@ -44,9 +42,6 @@ impl Dirs {
         } else {
             Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_data/data")).to_owned()
         };
-
-        std::fs::create_dir_all(&data_dir)
-            .context("Unable to create data directory")?;
 
         Ok(data_dir)
     }
@@ -87,9 +82,6 @@ impl Dirs {
 
     pub fn plugin_cache(&self, plugin_uuid: &str) -> anyhow::Result<PathBuf> {
         let plugin_cache_dir = self.cache_dir().join("plugins").join(&plugin_uuid);
-
-        std::fs::create_dir_all(&plugin_cache_dir)
-            .context("Unable to create plugin cache directory")?;
 
         Ok(plugin_cache_dir)
     }

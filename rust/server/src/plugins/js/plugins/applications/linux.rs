@@ -4,22 +4,19 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::plugins::js::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
-use common::dirs::Dirs;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use image::imageops::FilterType;
 use image::ImageFormat;
 use walkdir::WalkDir;
 
-pub fn linux_application_dirs() -> Vec<PathBuf> {
+pub fn linux_application_dirs(home_dir: PathBuf) -> Vec<PathBuf> {
     let data_home = match env::var_os("XDG_DATA_HOME") {
         Some(val) => {
             PathBuf::from(val)
         },
         None => {
-            let dirs = Dirs::new();
-
-            dirs.home_dir()
+            home_dir
                 .join(".local")
                 .join("share")
         }
@@ -53,8 +50,8 @@ pub fn linux_application_dirs() -> Vec<PathBuf> {
         .collect()
 }
 
-pub fn linux_app_from_path(path: PathBuf) -> Option<DesktopPathAction> {
-    let app_directories = linux_application_dirs();
+pub fn linux_app_from_path(home_dir: PathBuf, path: PathBuf) -> Option<DesktopPathAction> {
+    let app_directories = linux_application_dirs(home_dir);
 
     let relative_to_app_dir = app_directories
         .into_iter()

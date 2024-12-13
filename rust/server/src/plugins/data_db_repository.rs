@@ -321,8 +321,13 @@ pub struct DbPluginEntrypointFrecencyStats {
 
 impl DataDbRepository {
     pub async fn new(dirs: Dirs) -> anyhow::Result<Self> {
+        let data_db_file = dirs.data_db_file()?;
+
+        std::fs::create_dir_all(&data_db_file.parent().unwrap())
+            .context("Unable to create data directory")?;
+
         let conn = SqliteConnectOptions::new()
-            .filename(dirs.data_db_file()?)
+            .filename(data_db_file)
             .create_if_missing(true);
 
         let pool = SqlitePool::connect_with(conn)
