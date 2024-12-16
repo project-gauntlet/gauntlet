@@ -14,7 +14,7 @@ use crate::ui::AppMsg;
 pub struct PluginWidgetContainer {
     root_widget: Arc<Mutex<Option<RootWidget>>>,
     state: Arc<Mutex<HashMap<UiWidgetId, ComponentWidgetState>>>,
-    images: HashMap<UiWidgetId, bytes::Bytes>,
+    images: HashMap<UiWidgetId, Vec<u8>>,
     plugin_id: Option<PluginId>,
     plugin_name: Option<String>,
     entrypoint_id: Option<EntrypointId>,
@@ -45,7 +45,7 @@ impl PluginWidgetContainer {
     pub fn replace_view(
         &mut self,
         container: RootWidget,
-        images: HashMap<UiWidgetId, bytes::Bytes>,
+        images: HashMap<UiWidgetId, Vec<u8>>,
         plugin_id: &PluginId,
         plugin_name: &str,
         entrypoint_id: &EntrypointId,

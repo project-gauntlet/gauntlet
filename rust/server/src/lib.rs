@@ -5,7 +5,8 @@ use client::{open_window, start_client};
 use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use common::rpc::backend_api::BackendApi;
 use common::rpc::backend_server::start_backend_server;
-use common::{settings_env_data_to_string, SettingsEnvData};
+use common::{settings_env_data_from_string, settings_env_data_to_string, SettingsEnvData};
+use plugin_runtime::run_plugin_runtime;
 use utils::channel::{channel, RequestReceiver, RequestSender};
 use crate::plugins::ApplicationManager;
 use crate::rpc::BackendServerImpl;
@@ -17,8 +18,15 @@ pub(in crate) mod plugins;
 pub(in crate) mod model;
 
 const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
+const PLUGIN_RUNTIME_ENV: &'static str = "GAUNTLET_INTERNAL_PLUGIN_RUNTIME";
 
 pub fn start(minimized: bool) {
+    if let Ok(socket_name) = std::env::var(PLUGIN_RUNTIME_ENV) {
+        run_plugin_runtime(socket_name);
+
+        return;
+    }
+
     tracing::info!("Gauntlet Build Information:");
     for (name, value) in vergen_pretty_env!() {
         if let Some(value) = value {

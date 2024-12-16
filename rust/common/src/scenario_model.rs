@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::model::UiWidgetId;
+use crate::model::{RootWidget, UiWidgetId};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum ScenarioUiRenderLocation {
@@ -15,9 +15,9 @@ pub enum ScenarioFrontendEvent {
         entrypoint_id: String,
         render_location: ScenarioUiRenderLocation,
         top_level_view: bool,
-        container: serde_value::Value,
+        container: RootWidget,
         #[serde(with="base64")]
-        images: HashMap<UiWidgetId, bytes::Bytes>,
+        images: HashMap<UiWidgetId, Vec<u8>>,
     },
     ShowPreferenceRequiredView {
         entrypoint_id: String,
@@ -39,7 +39,7 @@ mod base64 {
     use base64::engine::general_purpose::STANDARD;
     use crate::model::UiWidgetId;
 
-    pub fn serialize<S: Serializer>(v: &HashMap<UiWidgetId, bytes::Bytes>, s: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(v: &HashMap<UiWidgetId, Vec<u8>>, s: S) -> Result<S::Ok, S::Error> {
         let map = v.iter()
             .map(|(key, value)| (key.to_string(), STANDARD.encode(value)))
             .collect();
@@ -47,13 +47,13 @@ mod base64 {
         HashMap::<String, String>::serialize(&map, s)
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<HashMap<UiWidgetId, bytes::Bytes>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<HashMap<UiWidgetId, Vec<u8>>, D::Error> {
         HashMap::<String, String>::deserialize(d)?
             .into_iter()
             .map(|(key, value)| {
                 STANDARD.decode(value.as_bytes())
                     .map_err(|e| serde::de::Error::custom(e))
-                    .map(|vec| (UiWidgetId::from_str(&key).expect("should not fail"), bytes::Bytes::from(vec)))
+                    .map(|vec| (UiWidgetId::from_str(&key).expect("should not fail"), vec))
             })
             .collect()
 

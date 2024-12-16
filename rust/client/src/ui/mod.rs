@@ -420,7 +420,6 @@ fn new(
                 let mut context = ClientContext::new();
 
                 let render_location = ui_render_location_from_scenario(render_location);
-                let container = RootWidget::deserialize(container).expect("should always be valid");
                 let has_children = container.content.is_some();
 
                 // ignore commands because screenshots are non-interactive
@@ -942,6 +941,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 &mut state.global_state,
                 match err {
                     BackendForFrontendApiError::TimeoutError => ErrorViewData::BackendTimeout,
+                    BackendForFrontendApiError::Internal { display } => ErrorViewData::UnknownError { display }
                 }
             )
         }
@@ -2154,8 +2154,6 @@ async fn request_loop(
                     render_location,
                     top_level_view,
                     container,
-                    #[cfg(feature = "scenario_runner")]
-                    container_value: _,
                     images
                 } => {
                     let has_children = container.content.is_some();

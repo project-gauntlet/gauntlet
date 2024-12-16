@@ -3,7 +3,7 @@ use arboard::ImageData;
 use image::RgbaImage;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
-use common_plugin_runtime::model::ClipboardData;
+use plugin_runtime::JsClipboardData;
 
 #[derive(Clone)]
 pub struct Clipboard {
@@ -20,7 +20,7 @@ impl Clipboard {
         })
     }
 
-    pub fn read(&self) -> anyhow::Result<ClipboardData> {
+    pub fn read(&self) -> anyhow::Result<JsClipboardData> {
         let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
         let png_data = match clipboard.get_image() {
@@ -57,7 +57,7 @@ impl Clipboard {
             }
         };
 
-        Ok(ClipboardData {
+        Ok(JsClipboardData {
             text_data,
             png_data,
         })
@@ -81,7 +81,7 @@ impl Clipboard {
         Ok(data)
     }
 
-    pub fn write(&self, data: ClipboardData) -> anyhow::Result<()> {
+    pub fn write(&self, data: JsClipboardData) -> anyhow::Result<()> {
         let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
         if let Some(png_data) = data.png_data {

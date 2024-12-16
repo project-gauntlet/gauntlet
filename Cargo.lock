@@ -338,9 +338,9 @@ checksum = "6b4930d2cb77ce62f89ee5d5289b4ac049559b1c45539271f5ed4fdc7db34545"
 
 [[package]]
 name = "arrayvec"
-version = "0.7.4"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 dependencies = [
  "serde",
 ]
@@ -871,6 +871,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "bincode"
+version = "2.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f11ea1a0346b94ef188834a65c068a03aec181c94896d481d7a0a40d85b0ce95"
+dependencies = [
+ "bincode_derive",
+ "serde",
+]
+
+[[package]]
+name = "bincode_derive"
+version = "2.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e30759b3b99a1b802a7a3aa21c85c3ded5c28e1c83170d82d70f08bbf7f3e4c"
+dependencies = [
+ "virtue",
 ]
 
 [[package]]
@@ -1626,6 +1645,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.0",
+ "bincode 2.0.0-rc.3",
  "bytes",
  "component_model",
  "convert_case",
@@ -1635,7 +1655,6 @@ dependencies = [
  "itertools 0.10.5",
  "prost 0.12.4",
  "serde",
- "serde-value",
  "serde_json",
  "thiserror",
  "tokio",
@@ -1652,17 +1671,6 @@ dependencies = [
  "iced",
  "iced_aw",
  "iced_fonts",
-]
-
-[[package]]
-name = "common_plugin_runtime"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "common",
- "serde",
- "serde-value",
 ]
 
 [[package]]
@@ -2199,7 +2207,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd2a54cda74cdc187d5fc2d23370a45cf09f912caf566dd1cd24a50157d809c7"
 dependencies = [
  "anyhow",
- "bincode",
+ "bincode 1.3.3",
  "bit-set 0.5.3",
  "bit-vec 0.6.3",
  "bytes",
@@ -3214,6 +3222,12 @@ checksum = "442039f5147480ba31067cb00ada1adae6892028e40e45fc5de7b7df6dcc1b5f"
 dependencies = [
  "const-random",
 ]
+
+[[package]]
+name = "doctest-file"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aac81fa3e28d21450aa4d2ac065992ba96a1d7303efbce51a95f4fd175b67562"
 
 [[package]]
 name = "document-features"
@@ -5625,6 +5639,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "interprocess"
+version = "2.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "894148491d817cb36b6f778017b8ac46b17408d522dd90f539d677ea938362eb"
+dependencies = [
+ "doctest-file",
+ "futures-core",
+ "libc",
+ "recvmsg",
+ "tokio",
+ "widestring",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "ipconfig"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5893,9 +5922,9 @@ dependencies = [
 
 [[package]]
 name = "kurbo"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e5aa9f0f96a938266bdb12928a67169e8d22c6a786fda8ed984b85e6ba93c3c"
+checksum = "89234b2cc610a7dd927ebde6b41dd1a5d4214cffaef4cf1fb2195d592f92518f"
 dependencies = [
  "arrayvec",
  "smallvec",
@@ -7889,6 +7918,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin_runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode 2.0.0-rc.3",
+ "bytes",
+ "cacao",
+ "common",
+ "component_model",
+ "deno_core",
+ "deno_runtime",
+ "freedesktop-icons",
+ "freedesktop_entry_parser",
+ "futures",
+ "icns",
+ "image 0.25.1",
+ "indexmap 2.2.6",
+ "interprocess",
+ "libc",
+ "numbat",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "once_cell",
+ "plist",
+ "regex",
+ "resvg",
+ "serde",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "typed-path",
+ "utils",
+ "walkdir",
+]
+
+[[package]]
 name = "png"
 version = "0.16.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8450,6 +8516,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "recvmsg"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3edd4d5d42c92f0a659926464d4cce56b562761267ecf0f469d85b7de384175"
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8509,9 +8581,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38200e5ee88914975b69f657f0801b6f6dccafd44fd9326302a4aaeecfacb1d8"
+checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -9286,34 +9358,21 @@ dependencies = [
  "arboard",
  "async-stream",
  "bytes",
- "cacao",
  "client",
  "common",
- "common_plugin_runtime",
- "component_model",
- "deno_core",
- "deno_runtime",
- "freedesktop-icons",
- "freedesktop_entry_parser",
+ "futures",
  "git2",
- "icns",
  "image 0.25.1",
  "include_dir",
  "indexmap 2.2.6",
+ "interprocess",
  "itertools 0.10.5",
- "libc",
- "numbat",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
  "once_cell",
  "open",
- "plist",
+ "plugin_runtime",
  "regex",
- "resvg",
  "scenario_runner",
  "serde",
- "serde-value",
  "sqlx",
  "tantivy",
  "tempfile",
@@ -9326,6 +9385,7 @@ dependencies = [
  "tracing-subscriber",
  "typed-path",
  "ureq",
+ "url",
  "utils",
  "uuid",
  "vergen-gitcl",
@@ -10056,11 +10116,11 @@ checksum = "f83ba502a3265efb76efb89b0a2f7782ad6f2675015d4ce37e4b547dda42b499"
 
 [[package]]
 name = "svgtypes"
-version = "0.15.0"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d97ca9a891c9c70da8139ac9d8e8ea36a210fa21bb50eccd75d4a9561c83e87f"
+checksum = "794de53cc48eaabeed0ab6a3404a65f40b3e38c067e4435883a65d2aa4ca000e"
 dependencies = [
- "kurbo 0.11.0",
+ "kurbo 0.11.1",
  "siphasher 1.0.1",
 ]
 
@@ -11526,7 +11586,7 @@ dependencies = [
  "data-url",
  "flate2",
  "imagesize",
- "kurbo 0.11.0",
+ "kurbo 0.11.1",
  "log",
  "pico-args",
  "roxmltree",
@@ -11572,6 +11632,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 name = "utils"
 version = "0.0.0"
 dependencies = [
+ "log",
  "thiserror",
  "tokio",
 ]
@@ -11716,6 +11777,12 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "virtue"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dcc60c0624df774c82a0ef104151231d37da4962957d691c011c852b2473314"
 
 [[package]]
 name = "vsimd"

@@ -38,14 +38,14 @@ use std::fmt::{Debug, Display};
 pub struct ComponentWidgets<'b> {
     root_widget: &'b mut Option<RootWidget>,
     state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
-    images: &'b HashMap<UiWidgetId, bytes::Bytes>
+    images: &'b HashMap<UiWidgetId, Vec<u8>>
 }
 
 impl<'b> ComponentWidgets<'b> {
     pub fn new(
         root_widget: &'b mut Option<RootWidget>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
-        images: &'b HashMap<UiWidgetId, bytes::Bytes>
+        images: &'b HashMap<UiWidgetId, Vec<u8>>
     ) -> ComponentWidgets<'b> {
         Self {
             root_widget,

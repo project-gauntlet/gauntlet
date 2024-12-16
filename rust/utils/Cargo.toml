@@ -5,3 +5,4 @@ edition = "2021"
 [dependencies]
 tokio = "1.28.1"
 thiserror = "1.0.48"
+log = "0.4.22"

@@ -79,7 +79,7 @@ impl ClientContext {
         &mut self,
         render_location: UiRenderLocation,
         container: RootWidget,
-        images: HashMap<UiWidgetId, bytes::Bytes>,
+        images: HashMap<UiWidgetId, Vec<u8>>,
         plugin_id: &PluginId,
         plugin_name: &str,
         entrypoint_id: &EntrypointId,
