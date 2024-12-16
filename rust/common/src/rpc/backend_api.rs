@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-
+use anyhow::anyhow;
 use thiserror::Error;
 use tonic::{Code, Request};
 use tonic::transport::Channel;
@@ -15,12 +15,17 @@ use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_use
 pub enum BackendForFrontendApiError {
     #[error("Frontend wasn't able to process request in a timely manner")]
     TimeoutError,
+    #[error("Internal Error: {display:?}")]
+    Internal {
+        display: String
+    },
 }
 
 impl From<RequestError> for BackendForFrontendApiError {
     fn from(error: RequestError) -> BackendForFrontendApiError {
         match error {
             RequestError::TimeoutError => BackendForFrontendApiError::TimeoutError,
+            RequestError::OtherSideWasDropped => BackendForFrontendApiError::Internal { display: "other side was dropped".to_string() }
         }
     }
 }

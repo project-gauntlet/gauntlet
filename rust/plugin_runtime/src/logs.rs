@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use deno_core::{op2, OpState};
-use crate::plugins::js::PluginData;
+use crate::plugin_data::PluginData;
 
 #[op2(fast)]
 pub fn op_log_trace(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {

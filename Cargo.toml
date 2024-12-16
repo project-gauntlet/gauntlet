@@ -10,11 +10,11 @@ members = [
     "rust/server",
     "rust/common",
     "rust/common_ui",
-    "rust/common_plugin_runtime",
     "rust/utils",
     "rust/cli",
     "rust/component_model",
     "rust/scenario_runner",
+    "rust/plugin_runtime",
 ]
 [workspace.dependencies]
 #iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image"] }

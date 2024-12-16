@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use anyhow::{anyhow, Context};
-use deno_core::url;
 use include_dir::Dir;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -17,17 +16,16 @@ use regex::{Match, Regex};
 use tracing_subscriber::fmt::format;
 use typed_path::{TypedPathBuf, Utf8TypedPath, Utf8UnixComponent, Utf8WindowsComponent, Utf8WindowsPrefix, Utf8WindowsPrefixComponent};
 use common::model::{DownloadStatus, PluginId};
+use plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
 use crate::model::ActionShortcutKey;
 use crate::plugins::data_db_repository::{DataDbRepository, db_entrypoint_to_str, db_plugin_type_to_str, DbCode, DbPluginAction, DbPluginActionShortcutKind, DbPluginEntrypointType, DbPluginPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbPluginType, DbPreferenceEnumValue, DbWritePlugin, DbWritePluginAssetData, DbWritePluginEntrypoint, DbPluginClipboardPermissions, DbPluginMainSearchBarPermissions, DbPluginPermissionsFileSystem, DbPluginPermissionsExec};
 use crate::plugins::download_status::DownloadStatusHolder;
-use crate::plugins::js::permissions::{PluginPermissionsExec, PluginPermissionsFileSystem};
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
     download_status_holder: DownloadStatusHolder
 }
 
-pub static VARIABLE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
 
 impl PluginLoader {
     pub fn new(db_repository: DataDbRepository) -> Self {
@@ -425,7 +423,7 @@ impl PluginLoader {
 
             // TODO custom parser for fun? for better error reporting, that will include cross-platform path parser
 
-            let matches = VARIABLE_PATTERN.captures_iter(path).collect::<Vec<_>>();
+            let matches = PERMISSIONS_VARIABLE_PATTERN.captures_iter(path).collect::<Vec<_>>();
             let augmented_path = match matches.as_slice() {
                 [] => path.to_owned(),
                 [variable] => {
@@ -463,9 +461,9 @@ impl PluginLoader {
                     };
 
                     if windows_like_path {
-                        VARIABLE_PATTERN.replace(path, "C:\\dummy-root").to_string()
+                        PERMISSIONS_VARIABLE_PATTERN.replace(path, "C:\\dummy-root").to_string()
                     } else {
-                        VARIABLE_PATTERN.replace(path, "/dummy-root").to_string()
+                        PERMISSIONS_VARIABLE_PATTERN.replace(path, "/dummy-root").to_string()
                     }
                 }
                 [_, ..] => {

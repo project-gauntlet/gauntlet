@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use bincode::{Decode, Encode};
 use gix_url::Scheme;
 use gix_url::Url;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
 pub struct PluginId(Arc<str>);
 
 impl PluginId {
@@ -58,7 +59,7 @@ impl ToString for PluginId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
 pub struct EntrypointId(Arc<str>);
 
 impl EntrypointId {
@@ -147,9 +148,7 @@ pub enum UiRequestData {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-        #[cfg(feature = "scenario_runner")]
-        container_value: serde_value::Value,
-        images: HashMap<UiWidgetId, bytes::Bytes>,
+        images: HashMap<UiWidgetId, Vec<u8>>,
     },
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
@@ -265,250 +264,247 @@ include!(concat!(env!("OUT_DIR"), "/components.rs"));
 
 
 // TODO generate this
+#[allow(async_fn_in_trait)]
 pub trait WidgetVisitor {
-    fn action_widget(&mut self, _widget: &ActionWidget) {
+    async fn action_widget(&mut self, _widget: &ActionWidget) {
     }
-    fn action_panel_section_widget(&mut self, widget: &ActionPanelSectionWidget) {
+    async fn action_panel_section_widget(&mut self, widget: &ActionPanelSectionWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                ActionPanelSectionWidgetOrderedMembers::Action(widget) => self.action_widget(widget)
+                ActionPanelSectionWidgetOrderedMembers::Action(widget) => self.action_widget(widget).await
             }
         }
     }
-    fn action_panel_widget(&mut self, widget: &ActionPanelWidget) {
+    async fn action_panel_widget(&mut self, widget: &ActionPanelWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                ActionPanelWidgetOrderedMembers::Action(widget) => self.action_widget(widget),
-                ActionPanelWidgetOrderedMembers::ActionPanelSection(widget) => self.action_panel_section_widget(widget)
-            }
-        }
-    }
-
-    fn metadata_link_widget(&mut self, _widget: &MetadataLinkWidget) {}
-    fn metadata_tag_item_widget(&mut self, _widget: &MetadataTagItemWidget) {}
-    fn metadata_tag_list_widget(&mut self, widget: &MetadataTagListWidget) {
-        for members in &widget.content.ordered_members {
-            match members {
-                MetadataTagListWidgetOrderedMembers::MetadataTagItem(widget) => self.metadata_tag_item_widget(widget)
-            }
-        }
-    }
-    fn metadata_separator_widget(&mut self, _widget: &MetadataSeparatorWidget) {}
-    fn metadata_value_widget(&mut self, _widget: &MetadataValueWidget) {}
-    fn metadata_icon_widget(&mut self, _widget: &MetadataIconWidget) {}
-    fn metadata_widget(&mut self, widget: &MetadataWidget) {
-        for members in &widget.content.ordered_members {
-            match members {
-                MetadataWidgetOrderedMembers::MetadataTagList(widget) => self.metadata_tag_list_widget(widget),
-                MetadataWidgetOrderedMembers::MetadataLink(widget) => self.metadata_link_widget(widget),
-                MetadataWidgetOrderedMembers::MetadataValue(widget) => self.metadata_value_widget(widget),
-                MetadataWidgetOrderedMembers::MetadataIcon(widget) => self.metadata_icon_widget(widget),
-                MetadataWidgetOrderedMembers::MetadataSeparator(widget) => self.metadata_separator_widget(widget),
+                ActionPanelWidgetOrderedMembers::Action(widget) => self.action_widget(widget).await,
+                ActionPanelWidgetOrderedMembers::ActionPanelSection(widget) => self.action_panel_section_widget(widget).await
             }
         }
     }
 
-    fn image(&mut self, _widget_id: UiWidgetId, _widget: &Image) {
-
-    }
-
-    fn image_widget(&mut self, widget: &ImageWidget) {
-        self.image(widget.__id__, &widget.source)
-    }
-    fn h1_widget(&mut self, _widget: &H1Widget) {}
-    fn h2_widget(&mut self, _widget: &H2Widget) {}
-    fn h3_widget(&mut self, _widget: &H3Widget) {}
-    fn h4_widget(&mut self, _widget: &H4Widget) {}
-    fn h5_widget(&mut self, _widget: &H5Widget) {}
-    fn h6_widget(&mut self, _widget: &H6Widget) {}
-    fn horizontal_break_widget(&mut self, _widget: &HorizontalBreakWidget) {}
-    fn code_block_widget(&mut self, _widget: &CodeBlockWidget) {}
-    fn paragraph_widget(&mut self, _widget: &ParagraphWidget) {
-    }
-    fn content_widget(&mut self, widget: &ContentWidget) {
+    async fn metadata_link_widget(&mut self, _widget: &MetadataLinkWidget) {}
+    async fn metadata_tag_item_widget(&mut self, _widget: &MetadataTagItemWidget) {}
+    async fn metadata_tag_list_widget(&mut self, widget: &MetadataTagListWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                ContentWidgetOrderedMembers::Paragraph(widget) => self.paragraph_widget(widget),
-                ContentWidgetOrderedMembers::Image(widget) => self.image_widget(widget),
-                ContentWidgetOrderedMembers::H1(widget) => self.h1_widget(widget),
-                ContentWidgetOrderedMembers::H2(widget) => self.h2_widget(widget),
-                ContentWidgetOrderedMembers::H3(widget) => self.h3_widget(widget),
-                ContentWidgetOrderedMembers::H4(widget) => self.h4_widget(widget),
-                ContentWidgetOrderedMembers::H5(widget) => self.h5_widget(widget),
-                ContentWidgetOrderedMembers::H6(widget) => self.h6_widget(widget),
-                ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.horizontal_break_widget(widget),
-                ContentWidgetOrderedMembers::CodeBlock(widget) => self.code_block_widget(widget),
+                MetadataTagListWidgetOrderedMembers::MetadataTagItem(widget) => self.metadata_tag_item_widget(widget).await
+            }
+        }
+    }
+    async fn metadata_separator_widget(&mut self, _widget: &MetadataSeparatorWidget) {}
+    async fn metadata_value_widget(&mut self, _widget: &MetadataValueWidget) {}
+    async fn metadata_icon_widget(&mut self, _widget: &MetadataIconWidget) {}
+    async fn metadata_widget(&mut self, widget: &MetadataWidget) {
+        for members in &widget.content.ordered_members {
+            match members {
+                MetadataWidgetOrderedMembers::MetadataTagList(widget) => self.metadata_tag_list_widget(widget).await,
+                MetadataWidgetOrderedMembers::MetadataLink(widget) => self.metadata_link_widget(widget).await,
+                MetadataWidgetOrderedMembers::MetadataValue(widget) => self.metadata_value_widget(widget).await,
+                MetadataWidgetOrderedMembers::MetadataIcon(widget) => self.metadata_icon_widget(widget).await,
+                MetadataWidgetOrderedMembers::MetadataSeparator(widget) => self.metadata_separator_widget(widget).await,
             }
         }
     }
 
-    fn detail_widget(&mut self, widget: &DetailWidget) {
+    async fn image(&mut self, _widget_id: UiWidgetId, _widget: &Image) {
+
+    }
+
+    async fn image_widget(&mut self, widget: &ImageWidget) {
+        self.image(widget.__id__, &widget.source).await
+    }
+    async fn h1_widget(&mut self, _widget: &H1Widget) {}
+    async fn h2_widget(&mut self, _widget: &H2Widget) {}
+    async fn h3_widget(&mut self, _widget: &H3Widget) {}
+    async fn h4_widget(&mut self, _widget: &H4Widget) {}
+    async fn h5_widget(&mut self, _widget: &H5Widget) {}
+    async fn h6_widget(&mut self, _widget: &H6Widget) {}
+    async fn horizontal_break_widget(&mut self, _widget: &HorizontalBreakWidget) {}
+    async fn code_block_widget(&mut self, _widget: &CodeBlockWidget) {}
+    async fn paragraph_widget(&mut self, _widget: &ParagraphWidget) {}
+    async fn content_widget(&mut self, widget: &ContentWidget) {
+        for members in &widget.content.ordered_members {
+            match members {
+                ContentWidgetOrderedMembers::Paragraph(widget) => self.paragraph_widget(widget).await,
+                ContentWidgetOrderedMembers::Image(widget) => self.image_widget(widget).await,
+                ContentWidgetOrderedMembers::H1(widget) => self.h1_widget(widget).await,
+                ContentWidgetOrderedMembers::H2(widget) => self.h2_widget(widget).await,
+                ContentWidgetOrderedMembers::H3(widget) => self.h3_widget(widget).await,
+                ContentWidgetOrderedMembers::H4(widget) => self.h4_widget(widget).await,
+                ContentWidgetOrderedMembers::H5(widget) => self.h5_widget(widget).await,
+                ContentWidgetOrderedMembers::H6(widget) => self.h6_widget(widget).await,
+                ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.horizontal_break_widget(widget).await,
+                ContentWidgetOrderedMembers::CodeBlock(widget) => self.code_block_widget(widget).await,
+            }
+        }
+    }
+
+    async fn detail_widget(&mut self, widget: &DetailWidget) {
         if let Some(widget) = &widget.content.actions {
-            self.action_panel_widget(widget)
+            self.action_panel_widget(widget).await
         }
         if let Some(widget) = &widget.content.metadata {
-            self.metadata_widget(widget)
+            self.metadata_widget(widget).await
         }
         if let Some(widget) = &widget.content.content {
-            self.content_widget(widget)
+            self.content_widget(widget).await
         }
     }
 
-    fn text_field_widget(&mut self, _widget: &TextFieldWidget) {}
-    fn password_field_widget(&mut self, _widget: &PasswordFieldWidget) {}
-    fn checkbox_widget(&mut self, _widget: &CheckboxWidget) {}
-    fn date_picker_widget(&mut self, _widget: &DatePickerWidget) {}
-    fn select_item_widget(&mut self, _widget: &SelectItemWidget) {
-    }
-    fn select_widget(&mut self, widget: &SelectWidget) {
+    async fn text_field_widget(&mut self, _widget: &TextFieldWidget) {}
+    async fn password_field_widget(&mut self, _widget: &PasswordFieldWidget) {}
+    async fn checkbox_widget(&mut self, _widget: &CheckboxWidget) {}
+    async fn date_picker_widget(&mut self, _widget: &DatePickerWidget) {}
+    async fn select_item_widget(&mut self, _widget: &SelectItemWidget) {}
+    async fn select_widget(&mut self, widget: &SelectWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                SelectWidgetOrderedMembers::SelectItem(widget) => self.select_item_widget(widget)
+                SelectWidgetOrderedMembers::SelectItem(widget) => self.select_item_widget(widget).await
             }
         }
     }
-    fn separator_widget(&mut self, _widget: &SeparatorWidget) {
-    }
-    fn form_widget(&mut self, widget: &FormWidget) {
+    async fn separator_widget(&mut self, _widget: &SeparatorWidget) {}
+    async fn form_widget(&mut self, widget: &FormWidget) {
         if let Some(widget) = &widget.content.actions {
-            self.action_panel_widget(widget)
+            self.action_panel_widget(widget).await
         }
         for members in &widget.content.ordered_members {
             match members {
-                FormWidgetOrderedMembers::TextField(widget) => self.text_field_widget(widget),
-                FormWidgetOrderedMembers::PasswordField(widget) => self.password_field_widget(widget),
-                FormWidgetOrderedMembers::Checkbox(widget) => self.checkbox_widget(widget),
-                FormWidgetOrderedMembers::DatePicker(widget) => self.date_picker_widget(widget),
-                FormWidgetOrderedMembers::Select(widget) => self.select_widget(widget),
-                FormWidgetOrderedMembers::Separator(widget) => self.separator_widget(widget),
+                FormWidgetOrderedMembers::TextField(widget) => self.text_field_widget(widget).await,
+                FormWidgetOrderedMembers::PasswordField(widget) => self.password_field_widget(widget).await,
+                FormWidgetOrderedMembers::Checkbox(widget) => self.checkbox_widget(widget).await,
+                FormWidgetOrderedMembers::DatePicker(widget) => self.date_picker_widget(widget).await,
+                FormWidgetOrderedMembers::Select(widget) => self.select_widget(widget).await,
+                FormWidgetOrderedMembers::Separator(widget) => self.separator_widget(widget).await,
             }
         }
     }
 
-    fn inline_separator_widget(&mut self, _widget: &InlineSeparatorWidget) {
-    }
+    async fn inline_separator_widget(&mut self, _widget: &InlineSeparatorWidget) {}
 
-    fn inline_widget(&mut self, widget: &InlineWidget) {
+    async fn inline_widget(&mut self, widget: &InlineWidget) {
         if let Some(widget) = &widget.content.actions {
-            self.action_panel_widget(widget)
+            self.action_panel_widget(widget).await
         }
         for members in &widget.content.ordered_members {
             match members {
-                InlineWidgetOrderedMembers::Content(widget) => self.content_widget(widget),
-                InlineWidgetOrderedMembers::InlineSeparator(widget) => self.inline_separator_widget(widget)
+                InlineWidgetOrderedMembers::Content(widget) => self.content_widget(widget).await,
+                InlineWidgetOrderedMembers::InlineSeparator(widget) => self.inline_separator_widget(widget).await
             }
         }
     }
 
-    fn empty_view_widget(&mut self, widget: &EmptyViewWidget) {
+    async fn empty_view_widget(&mut self, widget: &EmptyViewWidget) {
         if let Some(image) = &widget.image {
-            self.image(widget.__id__, image)
+            self.image(widget.__id__, image).await
         }
     }
 
-    fn icon_accessory_widget(&mut self, widget: &IconAccessoryWidget) {
-        self.image(widget.__id__, &widget.icon)
+    async fn icon_accessory_widget(&mut self, widget: &IconAccessoryWidget) {
+        self.image(widget.__id__, &widget.icon).await
     }
-    fn text_accessory_widget(&mut self, widget: &TextAccessoryWidget) {
+    async fn text_accessory_widget(&mut self, widget: &TextAccessoryWidget) {
         if let Some(image) = &widget.icon {
-            self.image(widget.__id__, image)
+            self.image(widget.__id__, image).await
         }
     }
 
-    fn search_bar_widget(&mut self, _widget: &SearchBarWidget) {}
+    async fn search_bar_widget(&mut self, _widget: &SearchBarWidget) {}
 
-    fn list_item_widget(&mut self, widget: &ListItemWidget) {
+    async fn list_item_widget(&mut self, widget: &ListItemWidget) {
         if let Some(image) = &widget.icon {
-            self.image(widget.__id__, image)
+            self.image(widget.__id__, image).await
         }
 
         for accessories in &widget.content.accessories {
             match accessories {
-                ListItemAccessories::_0(widget) => self.text_accessory_widget(widget),
-                ListItemAccessories::_1(widget) => self.icon_accessory_widget(widget)
+                ListItemAccessories::_0(widget) => self.text_accessory_widget(widget).await,
+                ListItemAccessories::_1(widget) => self.icon_accessory_widget(widget).await
             }
         }
     }
-    fn list_section_widget(&mut self, widget: &ListSectionWidget) {
+    async fn list_section_widget(&mut self, widget: &ListSectionWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                ListSectionWidgetOrderedMembers::ListItem(widget) => self.list_item_widget(widget)
+                ListSectionWidgetOrderedMembers::ListItem(widget) => self.list_item_widget(widget).await
             }
         }
     }
 
-    fn list_widget(&mut self, widget: &ListWidget) {
+    async fn list_widget(&mut self, widget: &ListWidget) {
         if let Some(widget) = &widget.content.actions {
-            self.action_panel_widget(widget)
+            self.action_panel_widget(widget).await
         }
         if let Some(widget) = &widget.content.search_bar {
-            self.search_bar_widget(widget)
+            self.search_bar_widget(widget).await
         }
         if let Some(widget) = &widget.content.empty_view {
-            self.empty_view_widget(widget)
+            self.empty_view_widget(widget).await
         }
         if let Some(widget) = &widget.content.detail {
-            self.detail_widget(widget)
+            self.detail_widget(widget).await
         }
         for members in &widget.content.ordered_members {
             match members {
-                ListWidgetOrderedMembers::ListItem(widget) => self.list_item_widget(widget),
-                ListWidgetOrderedMembers::ListSection(widget) => self.list_section_widget(widget),
+                ListWidgetOrderedMembers::ListItem(widget) => self.list_item_widget(widget).await,
+                ListWidgetOrderedMembers::ListSection(widget) => self.list_section_widget(widget).await,
             }
         }
     }
-    fn grid_item_widget(&mut self, widget: &GridItemWidget) {
+    async fn grid_item_widget(&mut self, widget: &GridItemWidget) {
         if let Some(widget) = &widget.content.accessory {
-            self.icon_accessory_widget(widget)
+            self.icon_accessory_widget(widget).await
         }
         for members in &widget.content.content.content.ordered_members {
             match members {
-                ContentWidgetOrderedMembers::Paragraph(widget) => self.paragraph_widget(widget),
-                ContentWidgetOrderedMembers::Image(widget) => self.image_widget(widget),
-                ContentWidgetOrderedMembers::H1(widget) => self.h1_widget(widget),
-                ContentWidgetOrderedMembers::H2(widget) => self.h2_widget(widget),
-                ContentWidgetOrderedMembers::H3(widget) => self.h3_widget(widget),
-                ContentWidgetOrderedMembers::H4(widget) => self.h4_widget(widget),
-                ContentWidgetOrderedMembers::H5(widget) => self.h5_widget(widget),
-                ContentWidgetOrderedMembers::H6(widget) => self.h6_widget(widget),
-                ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.horizontal_break_widget(widget),
-                ContentWidgetOrderedMembers::CodeBlock(widget) => self.code_block_widget(widget),
+                ContentWidgetOrderedMembers::Paragraph(widget) => self.paragraph_widget(widget).await,
+                ContentWidgetOrderedMembers::Image(widget) => self.image_widget(widget).await,
+                ContentWidgetOrderedMembers::H1(widget) => self.h1_widget(widget).await,
+                ContentWidgetOrderedMembers::H2(widget) => self.h2_widget(widget).await,
+                ContentWidgetOrderedMembers::H3(widget) => self.h3_widget(widget).await,
+                ContentWidgetOrderedMembers::H4(widget) => self.h4_widget(widget).await,
+                ContentWidgetOrderedMembers::H5(widget) => self.h5_widget(widget).await,
+                ContentWidgetOrderedMembers::H6(widget) => self.h6_widget(widget).await,
+                ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.horizontal_break_widget(widget).await,
+                ContentWidgetOrderedMembers::CodeBlock(widget) => self.code_block_widget(widget).await,
             }
         }
     }
-    fn grid_section_widget(&mut self, widget: &GridSectionWidget) {
+    async fn grid_section_widget(&mut self, widget: &GridSectionWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                GridSectionWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget)
+                GridSectionWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget).await
             }
         }
     }
-    fn grid_widget(&mut self, widget: &GridWidget) {
+    async fn grid_widget(&mut self, widget: &GridWidget) {
         if let Some(widget) = &widget.content.actions {
-            self.action_panel_widget(widget)
+            self.action_panel_widget(widget).await
         }
         if let Some(widget) = &widget.content.search_bar {
-            self.search_bar_widget(widget)
+            self.search_bar_widget(widget).await
         }
         if let Some(widget) = &widget.content.empty_view {
-            self.empty_view_widget(widget)
+            self.empty_view_widget(widget).await
         }
         for members in &widget.content.ordered_members {
             match members {
-                GridWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget),
-                GridWidgetOrderedMembers::GridSection(widget) => self.grid_section_widget(widget)
+                GridWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget).await,
+                GridWidgetOrderedMembers::GridSection(widget) => self.grid_section_widget(widget).await
             }
         }
     }
 
-    fn root_widget(&mut self, root_widget: &RootWidget) {
+    async fn root_widget(&mut self, root_widget: &RootWidget) {
         if let Some(members) = &root_widget.content {
             match members {
-                RootWidgetMembers::Detail(widget) => self.detail_widget(widget),
-                RootWidgetMembers::Form(widget) => self.form_widget(widget),
-                RootWidgetMembers::Inline(widget) => self.inline_widget(widget),
-                RootWidgetMembers::List(widget) => self.list_widget(widget),
-                RootWidgetMembers::Grid(widget) => self.grid_widget(widget),
+                RootWidgetMembers::Detail(widget) => self.detail_widget(widget).await,
+                RootWidgetMembers::Form(widget) => self.form_widget(widget).await,
+                RootWidgetMembers::Inline(widget) => self.inline_widget(widget).await,
+                RootWidgetMembers::List(widget) => self.list_widget(widget).await,
+                RootWidgetMembers::Grid(widget) => self.grid_widget(widget).await,
             }
         }
     }

@@ -1,5 +1,5 @@
-use crate::plugins::js::PluginData;
 use deno_core::{op2, OpState};
+use crate::plugin_data::PluginData;
 
 #[op2(fast)]
 pub fn environment_gauntlet_version() -> u16 {

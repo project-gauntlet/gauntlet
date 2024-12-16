@@ -12,7 +12,7 @@ use objc2_foundation::{CGFloat, CGPoint, CGRect, NSDictionary, NSInteger, NSPoin
 use plist::Dictionary;
 use regex::Regex;
 use serde::Deserialize;
-use crate::plugins::js::plugins::applications::{DesktopApplication, DesktopPathAction, DesktopSettings13AndPostData, DesktopSettingsPre13Data};
+use crate::plugins::applications::{DesktopApplication, DesktopPathAction, DesktopSettings13AndPostData, DesktopSettingsPre13Data};
 
 
 pub fn macos_major_version() -> u8 {

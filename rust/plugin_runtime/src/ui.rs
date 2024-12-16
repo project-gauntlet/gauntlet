@@ -4,18 +4,18 @@ use std::io::Read;
 use std::rc::Rc;
 use anyhow::{anyhow, Context};
 use deno_core::{op2, OpState, serde_v8, v8};
-use deno_core::futures::executor::block_on;
-use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
+use futures::executor::block_on;
 use indexmap::IndexMap;
-use serde::{de, Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use serde::de::Error;
+use tokio::runtime::Handle;
 use common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, EntrypointId, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Image, ImageSource, ImageSourceAsset, ImageSourceUrl, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectItemWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiPropertyValue, UiRenderLocation, UiWidgetId, WidgetVisitor};
-use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
 use component_model::{Component, Property, PropertyType, SharedType};
 use component_model::Component::Root;
+use crate::api::{BackendForPluginRuntimeApi, BackendForPluginRuntimeApiProxy};
+use crate::component_model::ComponentModel;
 use crate::model::JsUiRenderLocation;
-use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::js::{ComponentModel, PluginData, BackendForPluginRuntimeApiImpl};
+use crate::plugin_data::PluginData;
 
 #[op2]
 pub fn show_plugin_error_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, #[serde] render_location: JsUiRenderLocation) -> anyhow::Result<()> {
@@ -23,7 +23,7 @@ pub fn show_plugin_error_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -34,12 +34,14 @@ pub fn show_plugin_error_view(state: Rc<RefCell<OpState>>, #[string] entrypoint_
         JsUiRenderLocation::View => UiRenderLocation::View,
     };
 
-    block_on(async {
+    tokio::spawn(async move {
         api.ui_show_plugin_error_view(
             EntrypointId::from_string(entrypoint_id),
             render_location,
         ).await
-    })
+    });
+
+    Ok(())
 }
 
 #[op2(fast)]
@@ -48,19 +50,21 @@ pub fn show_preferences_required_view(state: Rc<RefCell<OpState>>, #[string] ent
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
     };
 
-    block_on(async {
+    tokio::spawn(async move {
         api.ui_show_preferences_required_view(
             EntrypointId::from_string(entrypoint_id),
             plugin_preferences_required,
             entrypoint_preferences_required
         ).await
-    })
+    });
+
+    Ok(())
 }
 
 #[op2(fast)]
@@ -69,13 +73,15 @@ pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
     };
 
-    block_on(async { api.ui_clear_inline_view().await })
+    tokio::spawn(async move { api.ui_clear_inline_view().await });
+
+    Ok(())
 }
 
 #[op2]
@@ -100,20 +106,22 @@ pub fn op_react_replace_view<'a>(
 
     let mut deserializer = serde_v8::Deserializer::new(scope, container.v8_value, None);
 
-    #[cfg(feature = "scenario_runner")]
-    let container_value = serde_value::Value::deserialize(&mut deserializer)?;
     let container = RootWidget::deserialize(&mut deserializer)?;
 
-    let images = ImageGatherer::run_gatherer(state.clone(), &container)?;
+    let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
-    let api = {
+    let (api, outer_handle) = {
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
-        api
+        let outer_handle = state
+            .borrow::<Handle>()
+            .clone();
+
+        (api, outer_handle)
     };
 
     let render_location = match render_location {
@@ -121,17 +129,18 @@ pub fn op_react_replace_view<'a>(
         JsUiRenderLocation::View => UiRenderLocation::View,
     };
 
-    block_on(async {
-        api.ui_render(
-            EntrypointId::from_string(entrypoint_id),
-            render_location,
-            top_level_view,
-            container,
-            #[cfg(feature = "scenario_runner")]
-            container_value,
-            images
-        ).await
-    })
+    block_on(async move {
+        outer_handle.spawn(async move {
+            api.ui_render(
+                entrypoint_id,
+                render_location,
+                top_level_view,
+                container,
+            ).await
+        }).await
+    })??;
+
+    Ok(())
 }
 
 #[op2]
@@ -158,7 +167,7 @@ pub async fn fetch_action_id_for_shortcut(
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -182,13 +191,13 @@ pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) ->
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
     };
 
-    block_on(async { api.ui_show_hud(display).await })
+    api.ui_show_hud(display).await
 }
 
 #[op2(async)]
@@ -197,75 +206,13 @@ pub async fn update_loading_bar(state: Rc<RefCell<OpState>>, #[string] entrypoin
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
     };
 
-    block_on(async { api.ui_update_loading_bar(EntrypointId::from_string(entrypoint_id), show).await })
-}
-
-struct ImageGatherer {
-    state: Rc<RefCell<OpState>>,
-    image_sources: HashMap<UiWidgetId, anyhow::Result<bytes::Bytes>>
-}
-
-impl WidgetVisitor for ImageGatherer {
-    fn image(&mut self, widget_id: UiWidgetId, widget: &Image) {
-        if let Image::ImageSource(image_source) = &widget {
-            self.image_sources.insert(widget_id, get_image_date(self.state.clone(), image_source));
-        }
-    }
-}
-
-impl ImageGatherer {
-    fn run_gatherer(state: Rc<RefCell<OpState>>, root_widget: &RootWidget) -> anyhow::Result<HashMap<UiWidgetId, bytes::Bytes>> {
-        let mut gatherer = Self {
-            state,
-            image_sources: HashMap::new()
-        };
-
-        gatherer.root_widget(root_widget);
-
-        gatherer.image_sources
-            .into_iter()
-            .map(|(widget_id, image)| image.map(|image| (widget_id, image)))
-            .collect::<anyhow::Result<_>>()
-    }
-}
-
-fn get_image_date(state: Rc<RefCell<OpState>>, source: &ImageSource) -> anyhow::Result<bytes::Bytes> {
-    match source {
-        ImageSource::ImageSourceAsset(ImageSourceAsset { asset }) => {
-            let bytes = {
-                let state = state.borrow();
-
-                let api = state
-                    .borrow::<BackendForPluginRuntimeApiImpl>()
-                    .clone();
-
-                block_on(async {
-                    api.get_asset_data(&asset).await
-                })?
-            };
-
-            Ok(bytes::Bytes::from(bytes))
-        }
-        ImageSource::ImageSourceUrl(ImageSourceUrl { url }) => {
-            // FIXME implement error handling so it doesn't error whole view
-            // TODO implement caching
-
-            let bytes: bytes::Bytes = ureq::get(&url)
-                .call()?
-                .into_reader()
-                .bytes()
-                .collect::<std::io::Result<Vec<u8>>>()?
-                .into();
-
-            Ok(bytes)
-        }
-    }
+    api.ui_update_loading_bar(EntrypointId::from_string(entrypoint_id), show).await
 }
 
 #[allow(unused)]

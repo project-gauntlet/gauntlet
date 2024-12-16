@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::hash::Hash;
+use std::io;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -12,70 +13,40 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
-use deno_core::futures::executor::block_on;
-use deno_core::futures::{FutureExt, Stream, StreamExt};
-use deno_core::v8::{GetPropertyNamesArgs, KeyConversionMode, PropertyFilter};
-use deno_core::{futures, op2, serde_v8, v8, FastString, ModuleLoadResponse, ModuleLoader, ModuleSource, ModuleSourceCode, ModuleSourceFuture, ModuleType, OpState, RequestedModuleType, ResolutionKind, StaticModuleLoader};
-use deno_core::url::Url;
-use deno_runtime::deno_core::ModuleSpecifier;
-use deno_runtime::deno_io::{Stdio, StdioPipe};
-use deno_runtime::worker::{MainWorker, WorkerServiceOptions};
-use deno_runtime::worker::WorkerOptions;
-use deno_runtime::BootstrapOptions;
-use deno_runtime::deno_fs::{FileSystem, FileSystemRc, RealFs};
+use futures::AsyncBufReadExt;
 use indexmap::IndexMap;
+use interprocess::local_socket::{GenericNamespaced, ListenerOptions, ToFsName, ToNsName};
+use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
+use interprocess::local_socket::traits::tokio::{Listener, Stream};
+use interprocess::TryClone;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_value::Value;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
-
 use common::dirs::Dirs;
 use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use common::rpc::frontend_api::FrontendApi;
-use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
-use common_plugin_runtime::model::{AdditionalSearchItem, ClipboardData, PreferenceUserData};
-
-use crate::model::{IntermediateUiEvent, JsKeyboardEventOrigin, JsUiEvent, JsUiPropertyValue, JsUiRenderLocation};
+use common::settings_env_data_to_string;
+use plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsAdditionalSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide};
+use crate::model::{IntermediateUiEvent};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::assets::{asset_data, asset_data_blocking};
-use crate::plugins::js::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
-use crate::plugins::js::command_generators::{get_command_generator_entrypoint_ids};
-use crate::plugins::js::component_model::ComponentModel;
-use crate::plugins::js::environment::{environment_gauntlet_version, environment_is_development, environment_plugin_cache_dir, environment_plugin_data_dir};
-use crate::plugins::js::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_warn};
-use crate::plugins::js::permissions::{permissions_to_deno, PluginPermissions, PluginPermissionsClipboard};
-use crate::plugins::js::plugins::applications::current_os;
-use crate::plugins::js::plugins::numbat::{run_numbat, NumbatContext};
-use crate::plugins::js::plugins::settings::open_settings;
-use crate::plugins::js::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
-use crate::plugins::js::search::reload_search_index;
-use crate::plugins::js::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_inline_view_endpoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view, update_loading_bar};
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction};
-
-mod ui;
-mod plugins;
-mod logs;
-mod assets;
-mod preferences;
-mod search;
-mod command_generators;
-pub mod clipboard;
-pub mod permissions;
-mod environment;
-mod component_model;
+use crate::{PLUGIN_RUNTIME_ENV, SETTINGS_ENV};
+use crate::plugins::image_gatherer::ImageGatherer;
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
     pub uuid: String,
     pub name: String,
     pub entrypoint_names: HashMap<EntrypointId, String>,
-    pub code: PluginCode,
+    pub code: JsPluginCode,
     pub inline_view_entrypoint_id: Option<String>,
     pub permissions: PluginPermissions,
     pub command_receiver: tokio::sync::broadcast::Receiver<PluginCommand>,
@@ -87,13 +58,26 @@ pub struct PluginRuntimeData {
     pub clipboard: Clipboard,
 }
 
-pub struct PluginCode {
-    pub js: HashMap<String, String>,
+pub struct PluginPermissions {
+    pub environment: Vec<String>,
+    pub network: Vec<String>,
+    pub filesystem: JsPluginPermissionsFileSystem,
+    pub exec: JsPluginPermissionsExec,
+    pub system: Vec<String>,
+    pub clipboard: Vec<PluginPermissionsClipboard>,
+    pub main_search_bar: Vec<JsPluginPermissionsMainSearchBar>,
 }
 
 #[derive(Clone, Debug)]
 pub struct PluginRuntimePermissions {
     pub clipboard: Vec<PluginPermissionsClipboard>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub enum PluginPermissionsClipboard {
+    Read,
+    Write,
+    Clear
 }
 
 #[derive(Clone, Debug)]
@@ -146,605 +130,454 @@ pub enum AllPluginCommandData {
 }
 
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
-    let mut command_receiver = data.command_receiver;
-    let command_stream = async_stream::stream! {
-        loop {
-            yield command_receiver.recv().await.unwrap();
-        }
+
+    let runtime_permissions = PluginRuntimePermissions {
+        clipboard: data.permissions.clipboard,
     };
 
-    let plugin_id = data.id.clone();
-    let event_stream = command_stream
-        .filter_map(move |command: PluginCommand| {
-            let plugin_id = plugin_id.clone();
+    let api = BackendForPluginRuntimeApiImpl::new(
+        data.icon_cache.clone(),
+        data.db_repository,
+        data.search_index,
+        data.clipboard,
+        data.frontend_api,
+        data.uuid.clone(),
+        data.id.clone(),
+        data.name,
+        data.entrypoint_names,
+        runtime_permissions,
+    );
 
-            let event = match command {
-                PluginCommand::One { id, data } => {
-                    if id != plugin_id {
-                        None
-                    } else {
-                        match data {
-                            OnePluginCommandData::RenderView { entrypoint_id } => {
-                                Some(IntermediateUiEvent::OpenView {
-                                    entrypoint_id,
-                                })
-                            }
-                            OnePluginCommandData::CloseView => {
-                                Some(IntermediateUiEvent::CloseView)
-                            }
-                            OnePluginCommandData::RunCommand { entrypoint_id } => {
-                                Some(IntermediateUiEvent::RunCommand {
-                                    entrypoint_id,
-                                })
-                            }
-                            OnePluginCommandData::RunGeneratedCommand { entrypoint_id, action_index } => {
-                                Some(IntermediateUiEvent::RunGeneratedCommand {
-                                    entrypoint_id,
-                                    action_index
-                                })
-                            }
-                            OnePluginCommandData::HandleViewEvent { widget_id, event_name, event_arguments } => {
-                                Some(IntermediateUiEvent::HandleViewEvent {
-                                    widget_id,
-                                    event_name,
-                                    event_arguments,
-                                })
-                            }
-                            OnePluginCommandData::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
-                                Some(IntermediateUiEvent::HandleKeyboardEvent {
-                                    entrypoint_id,
-                                    origin,
-                                    key,
-                                    modifier_shift,
-                                    modifier_control,
-                                    modifier_alt,
-                                    modifier_meta
-                                })
-                            }
-                            OnePluginCommandData::ReloadSearchIndex => {
-                                Some(IntermediateUiEvent::ReloadSearchIndex)
-                            }
-                            OnePluginCommandData::RefreshSearchIndex => {
-                                Some(IntermediateUiEvent::RefreshSearchIndex)
-                            }
-                        }
-                    }
-                }
-                PluginCommand::All { data } => {
-                    match data {
-                        AllPluginCommandData::OpenInlineView { text } => {
-                            Some(IntermediateUiEvent::OpenInlineView { text })
-                        }
-                    }
-                }
-            };
-
-            async move {
-                event
-            }
-        });
-
-    let event_stream = Box::pin(event_stream);
-
-    let cache = data.icon_cache.clone();
+    let mut command_receiver = data.command_receiver;
+    let cache = data.icon_cache;
     let plugin_uuid = data.uuid.clone();
     let plugin_id = data.id.clone();
 
-    let thread_fn = move || {
-        let plugin_id = data.id.clone();
-
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("unable to start tokio runtime for plugin")
-            .block_on({
-                let plugin_id = data.id.clone();
-
-                async move {
-                    tokio::select! {
-                        _ = run_status_guard.stopped() => {
-                            tracing::info!(target = "plugin", "Plugin runtime has been stopped {:?}", plugin_id)
-                        }
-                        result @ _ = {
-                            tokio::task::unconstrained(async move {
-                                 start_js_runtime(
-                                     data.id.clone(),
-                                     data.uuid,
-                                     data.name,
-                                     data.entrypoint_names,
-                                     data.code,
-                                     data.permissions,
-                                     data.inline_view_entrypoint_id,
-                                     event_stream,
-                                     data.frontend_api,
-                                     data.db_repository,
-                                     data.search_index,
-                                     data.icon_cache,
-                                     data.dirs,
-                                     data.clipboard
-                                 ).await
-                            })
-                        } => {
-                            if let Err(err) = result {
-                                tracing::error!(target = "plugin", "Plugin runtime has failed {:?} - {:?}", plugin_id, err)
-                            } else {
-                                tracing::error!(target = "plugin", "Plugin runtime has stopped unexpectedly {:?}", plugin_id)
-                            }
-                        }
-                    }
-                }
-            });
-
-        if let Err(err) = cache.clear_plugin_icon_cache_dir(&plugin_uuid) {
-            tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", plugin_id, err)
-        }
-    };
-
-    std::thread::Builder::new()
-        .name("plugin-js-thread".into())
-        .spawn(thread_fn)
-        .expect("failed to spawn plugin js thread");
-
-    Ok(())
-}
-
-async fn start_js_runtime(
-    plugin_id: PluginId,
-    plugin_uuid: String,
-    plugin_name: String,
-    entrypoint_names: HashMap<EntrypointId, String>,
-    code: PluginCode,
-    permissions: PluginPermissions,
-    inline_view_entrypoint_id: Option<String>,
-    event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>,
-    frontend_api: FrontendApi,
-    repository: DataDbRepository,
-    search_index: SearchIndex,
-    icon_cache: IconCache,
-    dirs: Dirs,
-    clipboard: Clipboard,
-) -> anyhow::Result<()> {
     let plugin_id_str = plugin_id.to_string();
     let dev_plugin = plugin_id_str.starts_with("file://");
 
-    let (stdout, stderr) = if dev_plugin {
-        let (out_log_file, err_log_file) = dirs.plugin_log_files(&plugin_uuid);
+    let (stdout_file, stderr_file) = if dev_plugin {
+        let (stdout_file, stderr_file) = data.dirs.plugin_log_files(&plugin_uuid);
 
-        std::fs::create_dir_all(out_log_file.parent().unwrap())?;
-        std::fs::create_dir_all(err_log_file.parent().unwrap())?;
+        let stdout_file = stdout_file
+            .to_str()
+            .context("non-uft8 paths are not supported")?
+            .to_string();
 
-        let out_log_file = File::create(out_log_file)?;
-        let err_log_file = File::create(err_log_file)?;
+        let stderr_file = stderr_file.to_str()
+            .context("non-uft8 paths are not supported")?
+            .to_string();
 
-        (StdioPipe::file(out_log_file), StdioPipe::file(err_log_file))
+        (Some(stdout_file), Some(stderr_file))
     } else {
-        (StdioPipe::inherit(), StdioPipe::inherit())
+        (None, None)
     };
 
-    let home_dir = dirs.home_dir();
-    let local_storage_dir = dirs.plugin_local_storage(&plugin_uuid);
-    let plugin_cache_dir = dirs.plugin_cache(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
-    let plugin_data_dir = dirs.plugin_data(&plugin_uuid)?.to_str().expect("non-uft8 paths are not supported").to_string();
+    let home_dir = data.dirs.home_dir();
+    let local_storage_dir = data.dirs.plugin_local_storage(&plugin_uuid);
+    let uds_socket_file = data.dirs.plugin_uds_socket(&plugin_uuid);
+    let plugin_cache_dir = data.dirs.plugin_cache(&plugin_uuid)?;
+    let plugin_data_dir = data.dirs.plugin_data(&plugin_uuid)?;
 
-    std::fs::create_dir_all(&plugin_cache_dir)
-        .context("Unable to create plugin cache directory")?;
+    #[cfg(target_os = "windows")]
+    let name_str = format!("project-gauntlet-{}", plugin_uuid);
 
-    std::fs::create_dir_all(&plugin_data_dir)
-        .context("Unable to create plugin data directory")?;
+    #[cfg(unix)]
+    let name_str = uds_socket_file.clone();
 
-    let init_url: ModuleSpecifier = "gauntlet:init".parse().expect("should be valid");
+    // namespaced, removed when both client and server disconnect
+    #[cfg(target_os = "windows")]
+    let name = name_str.to_ns_name::<GenericNamespaced>()?;
 
-    let fs: Arc<dyn FileSystem> = Arc::new(RealFs);
+    // not namespaced, needs to be cleaned up manually,
+    // by using close-behind semantics and additionally removing it before creating a new runtime
+    #[cfg(unix)]
+    let name = {
+        let uds_socket_file = uds_socket_file.clone();
 
-    let permissions_container = permissions_to_deno(
-        fs.clone(),
-        &permissions,
-        &home_dir,
-        &PathBuf::from(&plugin_data_dir),
-        &PathBuf::from(&plugin_cache_dir),
-    )?;
+        // manually remove in case of unexpected situation where removing after connection did not work properly
+        let _ = std::fs::remove_file(&uds_socket_file);
 
-    let runtime_permissions = PluginRuntimePermissions {
-        clipboard: permissions.clipboard,
+        std::fs::create_dir_all(&uds_socket_file.parent().unwrap())?;
+
+        uds_socket_file.to_fs_name::<interprocess::os::unix::local_socket::FilesystemUdSocket>()?
     };
 
-    let gauntlet_esm = if cfg!(feature = "release") && !dev_plugin {
-        prod::gauntlet_esm::init_ops_and_esm()
-    } else {
-        dev::gauntlet_esm::init_ops_and_esm()
+    let opts = ListenerOptions::new().name(name);
+
+    let listener = opts.create_tokio()?;
+
+    let home_dir = home_dir
+        .to_str()
+        .context("non-uft8 paths are not supported")?
+        .to_string();
+
+    let local_storage_dir = local_storage_dir
+        .to_str()
+        .context("non-uft8 paths are not supported")?
+        .to_string();
+
+    let uds_socket_file = uds_socket_file
+        .to_str()
+        .context("non-uft8 paths are not supported")?
+        .to_string();
+
+    let plugin_cache_dir = plugin_cache_dir
+        .to_str()
+        .context("non-uft8 paths are not supported")?
+        .to_string();
+
+    let plugin_data_dir = plugin_data_dir
+        .to_str()
+        .context("non-uft8 paths are not supported")?
+        .to_string();
+
+    let permissions = JsPluginPermissions {
+        environment: data.permissions.environment,
+        network: data.permissions.network,
+        filesystem: data.permissions.filesystem,
+        exec: data.permissions.exec,
+        system: data.permissions.system,
+        main_search_bar: data.permissions.main_search_bar,
     };
 
-    let mut extensions = vec![
-        gauntlet::init_ops(
-            EventReceiver::new(event_stream),
-            PluginData::new(
-                plugin_id.clone(),
-                plugin_uuid.clone(),
-                plugin_cache_dir,
-                plugin_data_dir,
-                inline_view_entrypoint_id,
-                home_dir
-            ),
-            ComponentModel::new(),
-            BackendForPluginRuntimeApiImpl::new(
-                icon_cache,
-                repository,
-                search_index,
-                clipboard,
-                frontend_api,
-                plugin_uuid,
-                plugin_id,
-                plugin_name,
-                entrypoint_names,
-                runtime_permissions,
-            ),
-        ),
-        gauntlet_esm,
-    ];
+    let init = JsInit {
+        plugin_id: plugin_id.clone(),
+        plugin_uuid: plugin_uuid.clone(),
+        code: data.code,
+        permissions,
+        inline_view_entrypoint_id: data.inline_view_entrypoint_id,
+        dev_plugin,
+        home_dir,
+        local_storage_dir,
+        plugin_cache_dir,
+        plugin_data_dir,
+        stdout_file,
+        stderr_file,
+    };
 
-    if plugin_id_str == "bundled://gauntlet" {
-        extensions.push(gauntlet_internal_all::init_ops_and_esm(NumbatContext::new()));
+    let current_exe = std::env::current_exe()
+        .context("unable to get current_exe")?;
 
-        #[cfg(target_os = "macos")]
-        extensions.push(gauntlet_internal_macos::init_ops_and_esm());
+    std::process::Command::new(current_exe)
+        .env(PLUGIN_RUNTIME_ENV, name_str)
+        .spawn()
+        .context("start plugin runtime process")?;
 
-        #[cfg(target_os = "linux")]
-        extensions.push(gauntlet_internal_linux::init_ops_and_esm());
+    // use only for debugging, only works if only one plugin is enabled
+    // std::thread::spawn(move || {
+    //     plugin_runtime::run_plugin_runtime(name_str.to_str().unwrap().to_string())
+    // });
+
+    let conn = listener.accept().await?;
+
+    #[cfg(unix)]
+    let _ = std::fs::remove_file(&uds_socket_file);
+
+    let (mut recver, mut sender) = conn.split();
+
+    send_message(JsMessageSide::Backend, &mut sender, init).await?;
+
+    let sender = Mutex::new(sender);
+
+    tokio::select! {
+        _ = run_status_guard.stopped() => {
+            let mut sender = sender.lock().await;
+
+            tracing::info!("Requesting plugin runtime to stop...");
+
+            send_message(JsMessageSide::Backend, &mut sender, JsMessage::Stop).await?;
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        result @ _ = {
+             tokio::task::unconstrained(async {
+                loop {
+
+                    if let Err(err) = event_loop(&mut command_receiver, &sender, plugin_id.clone()).await {
+                        tracing::error!("Event loop faced an error {:?}", err);
+                        break;
+                    }
+                }
+             })
+        } => {
+            tracing::error!("Event loop has unexpectedly stopped {:?}", plugin_id)
+        }
+        result @ _ = {
+             tokio::task::unconstrained(async {
+                loop {
+                    if let Err(err) = request_loop(&mut recver, &sender, &api).await {
+                        tracing::error!("Request loop faced an error {:?}", err);
+                        break;
+                    }
+                }
+             })
+        } => {
+            tracing::error!("Request loop has unexpectedly stopped {:?}", plugin_id)
+        }
     }
 
-    let mut worker = MainWorker::bootstrap_from_options(
-        init_url.clone(),
-        WorkerServiceOptions {
-            blob_store: Arc::new(Default::default()),
-            broadcast_channel: Default::default(),
-            feature_checker: Arc::new(Default::default()),
-            fs,
-            module_loader: Rc::new(CustomModuleLoader::new(code, dev_plugin)),
-            node_services: None,
-            npm_process_state_provider: None,
-            permissions: permissions_container,
-            root_cert_store_provider: None,
-            fetch_dns_resolver: Default::default(),
-            shared_array_buffer_store: None,
-            compiled_wasm_module_store: None,
-            v8_code_cache: None,
-        },
-        WorkerOptions {
-            bootstrap: BootstrapOptions {
-                is_stderr_tty: false,
-                is_stdout_tty: false,
-                ..Default::default()
-            },
-            extensions,
-            maybe_inspector_server: None,
-            should_wait_for_inspector_session: false,
-            should_break_on_first_statement: false,
-            origin_storage_dir: Some(local_storage_dir),
-            stdio: Stdio {
-                stdin: StdioPipe::inherit(),
-                stdout,
-                stderr,
-            },
-            ..Default::default()
-        },
-    );
+    drop((recver, sender));
 
-    worker.execute_main_module(&init_url).await?;
-    worker.run_event_loop(false).await?;
+    drop(run_status_guard);
+
+    if let Err(err) = cache.clear_plugin_icon_cache_dir(&plugin_uuid) {
+        tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", plugin_id, err)
+    }
 
     Ok(())
 }
 
-pub struct CustomModuleLoader {
-    code: PluginCode,
-    static_loader: StaticModuleLoader,
-    dev_plugin: bool,
-}
+async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<PluginCommand>, send: &Mutex<SendHalf>, plugin_id: PluginId) -> anyhow::Result<()>  {
+    let command = command_receiver.recv().await?;
 
-impl CustomModuleLoader {
-    fn new(code: PluginCode, dev_plugin: bool) -> Self {
-        let module_map: HashMap<_, _> = MODULES.iter()
-            .map(|(key, value)| (key.parse().expect("provided key is not valid url"), FastString::from_static(value)))
-            .collect();
-        Self {
-            code,
-            static_loader: StaticModuleLoader::new(module_map),
-            dev_plugin
-        }
-    }
-}
-
-const MODULES: [(&str, &str); 10] = [
-    ("gauntlet:init", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
-    ("gauntlet:bridge/components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-components.js"))),
-    ("gauntlet:bridge/hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-hooks.js"))),
-    ("gauntlet:bridge/helpers", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-helpers.js"))),
-    ("gauntlet:bridge/core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-core.js"))),
-    ("gauntlet:bridge/react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-react.js"))),
-    ("gauntlet:bridge/react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-react-jsx-runtime.js"))),
-    ("gauntlet:bridge/internal-all", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-all.js"))),
-    ("gauntlet:bridge/internal-linux", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-linux.js"))),
-    ("gauntlet:bridge/internal-macos", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-macos.js"))),
-];
-
-impl ModuleLoader for CustomModuleLoader {
-    fn resolve(
-        &self,
-        specifier: &str,
-        referrer: &str,
-        _kind: ResolutionKind,
-    ) -> Result<ModuleSpecifier, anyhow::Error> {
-        static PLUGIN_ENTRYPOINT_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:entrypoint\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
-        static PLUGIN_MODULE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^gauntlet:module\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex"));
-        static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\./(?<js_module>[a-zA-Z0-9_-]+)\.js$").expect("invalid regex"));
-
-        if PLUGIN_ENTRYPOINT_PATTERN.is_match(specifier) {
-            return Ok(specifier.parse()?);
-        }
-
-        if PLUGIN_ENTRYPOINT_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
-            if let Some(captures) = PATH_PATTERN.captures(specifier) {
-                return Ok(format!("gauntlet:module?{}", &captures["js_module"]).parse()?);
-            }
-        }
-
-        let specifier = match (specifier, referrer) {
-            ("gauntlet:init", _) => "gauntlet:init",
-            ("gauntlet:core", _) => "gauntlet:bridge/core",
-            ("gauntlet:bridge/internal-all", _) => "gauntlet:bridge/internal-all",
-            ("gauntlet:bridge/internal-linux", _) => "gauntlet:bridge/internal-linux",
-            ("gauntlet:bridge/internal-macos", _) => "gauntlet:bridge/internal-macos",
-            ("react", _) => "gauntlet:bridge/react",
-            ("react/jsx-runtime", _) => "gauntlet:bridge/react-jsx-runtime",
-            ("@project-gauntlet/api/components", _) => "gauntlet:bridge/components",
-            ("@project-gauntlet/api/hooks", _) => "gauntlet:bridge/hooks",
-            ("@project-gauntlet/api/helpers", _) => "gauntlet:bridge/helpers",
-            _ => {
-                return Err(anyhow!("Illegal import with specifier '{}' and referrer '{}'", specifier, referrer))
-            }
-        };
-
-        Ok(Url::parse(specifier)?)
-    }
-
-    fn load(
-        &self,
-        module_specifier: &ModuleSpecifier,
-        maybe_referrer: Option<&ModuleSpecifier>,
-        is_dyn_import: bool,
-        requested_module_type: RequestedModuleType,
-    ) -> ModuleLoadResponse {
-
-        let mut specifier = module_specifier.clone();
-        specifier.set_query(None);
-
-        match specifier.as_str() {
-            "gauntlet:init" => {
-                self.static_loader.load(module_specifier, maybe_referrer, is_dyn_import, requested_module_type)
-            }
-            "gauntlet:entrypoint" | "gauntlet:module" => {
-                match module_specifier.query() {
-                    None => {
-                        ModuleLoadResponse::Sync(Err(anyhow!("Module specifier doesn't have query part")))
-                    },
-                    Some(entrypoint_id) => {
-                        let result = self.code.js
-                            .get(entrypoint_id)
-                            .ok_or(anyhow!("Cannot find JS code path: {:?}", entrypoint_id))
-                            .map(|js| ModuleSourceCode::String(js.clone().into()))
-                            .map(|js| ModuleSource::new(ModuleType::JavaScript, js, module_specifier, None));
-
-                        ModuleLoadResponse::Sync(result)
+    let event = match command {
+        PluginCommand::One { id, data } => {
+            if id != plugin_id {
+                None
+            } else {
+                match data {
+                    OnePluginCommandData::RenderView { entrypoint_id } => {
+                        Some(IntermediateUiEvent::OpenView {
+                            entrypoint_id,
+                        })
+                    }
+                    OnePluginCommandData::CloseView => {
+                        Some(IntermediateUiEvent::CloseView)
+                    }
+                    OnePluginCommandData::RunCommand { entrypoint_id } => {
+                        Some(IntermediateUiEvent::RunCommand {
+                            entrypoint_id,
+                        })
+                    }
+                    OnePluginCommandData::RunGeneratedCommand { entrypoint_id, action_index } => {
+                        Some(IntermediateUiEvent::RunGeneratedCommand {
+                            entrypoint_id,
+                            action_index
+                        })
+                    }
+                    OnePluginCommandData::HandleViewEvent { widget_id, event_name, event_arguments } => {
+                        Some(IntermediateUiEvent::HandleViewEvent {
+                            widget_id,
+                            event_name,
+                            event_arguments,
+                        })
+                    }
+                    OnePluginCommandData::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+                        Some(IntermediateUiEvent::HandleKeyboardEvent {
+                            entrypoint_id,
+                            origin,
+                            key,
+                            modifier_shift,
+                            modifier_control,
+                            modifier_alt,
+                            modifier_meta
+                        })
+                    }
+                    OnePluginCommandData::ReloadSearchIndex => {
+                        Some(IntermediateUiEvent::ReloadSearchIndex)
+                    }
+                    OnePluginCommandData::RefreshSearchIndex => {
+                        Some(IntermediateUiEvent::RefreshSearchIndex)
                     }
                 }
             }
-            _ => {
-                if specifier.as_str().starts_with("gauntlet:bridge/"){
-                    self.static_loader.load(module_specifier, maybe_referrer, is_dyn_import, requested_module_type)
-                } else {
-                    ModuleLoadResponse::Sync(Err(anyhow!("Module not found: specifier '{}' and referrer '{:?}'", specifier, maybe_referrer.map(|url| url.as_str()))))
+        }
+        PluginCommand::All { data } => {
+            match data {
+                AllPluginCommandData::OpenInlineView { text } => {
+                    Some(IntermediateUiEvent::OpenInlineView { text })
+                }
+            }
+        }
+    };
+
+
+    if let Some(event) = event {
+        let mut send = send.lock().await;
+
+        send_message(JsMessageSide::Backend, &mut send, JsMessage::Event(from_intermediate_to_js_event(event))).await?;
+    }
+
+    Ok(())
+}
+
+
+async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<()>  {
+    match recv_message::<JsRequest>(JsMessageSide::Backend, recv).await {
+        Err(e) => {
+            Err(anyhow!("Unable to handle message: {:?}", e))
+        }
+        Ok(message) => {
+            tracing::trace!("Handling request message: {:?}", message);
+
+            match handle_message(message, api).await {
+                Ok(response) => {
+                    let mut send = send.lock().await;
+
+                    send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Ok(response))).await?;
+
+                    Ok(())
+                }
+                Err(err) => {
+                    let mut send = send.lock().await;
+
+                    let err = format!("{:?}", err);
+
+                    send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Err(err))).await?;
+
+                    Ok(())
                 }
             }
         }
     }
 }
 
-deno_core::extension!(
-    gauntlet,
-    ops = [
-        // core
-        op_plugin_get_pending_event,
+async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<JsResponse> {
+    match message {
+        JsRequest::Render { entrypoint_id, render_location, top_level_view, container } => {
+            let render_location = match render_location {
+                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+                JsUiRenderLocation::View => UiRenderLocation::View
+            };
 
-        // logs
-        op_log_trace,
-        op_log_debug,
-        op_log_info,
-        op_log_warn,
-        op_log_error,
+            api.ui_render(entrypoint_id, render_location, top_level_view, container).await?;
 
-        // command generators
-        get_command_generator_entrypoint_ids,
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ClearInlineView => {
+            api.ui_clear_inline_view().await?;
 
-        // assets
-        asset_data,
-        asset_data_blocking,
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ShowPluginErrorView { entrypoint_id, render_location } => {
+            let render_location = match render_location {
+                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+                JsUiRenderLocation::View => UiRenderLocation::View
+            };
 
-        // ui
-        op_react_replace_view,
-        op_inline_view_endpoint_id,
-        show_plugin_error_view,
-        clear_inline_view,
-        show_preferences_required_view,
-        op_component_model,
-        fetch_action_id_for_shortcut,
-        show_hud,
-        update_loading_bar,
+            api.ui_show_plugin_error_view(entrypoint_id, render_location).await?;
 
-        // preferences
-        get_plugin_preferences,
-        get_entrypoint_preferences,
-        plugin_preferences_required,
-        entrypoint_preferences_required,
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
+            api.ui_show_preferences_required_view(entrypoint_id, plugin_preferences_required, entrypoint_preferences_required).await?;
 
-        // search
-        reload_search_index,
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ShowHud { display } => {
+            api.ui_show_hud(display).await?;
 
-        // clipboard
-        clipboard_read_text,
-        clipboard_read,
-        clipboard_write,
-        clipboard_write_text,
-        clipboard_clear,
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::UpdateLoadingBar { entrypoint_id, show } => {
+            api.ui_update_loading_bar(entrypoint_id, show).await?;
 
-        // plugin environment
-        environment_gauntlet_version,
-        environment_is_development,
-        environment_plugin_data_dir,
-        environment_plugin_cache_dir,
-    ],
-    options = {
-        event_receiver: EventReceiver,
-        plugin_data: PluginData,
-        component_model: ComponentModel,
-        backend_api: BackendForPluginRuntimeApiImpl,
-    },
-    state = |state, options| {
-        state.put(options.event_receiver);
-        state.put(options.plugin_data);
-        state.put(options.component_model);
-        state.put(options.backend_api);
-    },
-);
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ReloadSearchIndex { generated_commands, refresh_search_list } => {
+            api.reload_search_index(generated_commands, refresh_search_list).await?;
 
-mod prod {
-    deno_core::extension!(
-        gauntlet_esm,
-        esm_entry_point = "ext:gauntlet/bootstrap.js",
-        esm = [
-            "ext:gauntlet/bootstrap.js" =  "../../js/bridge_build/dist/bridge-bootstrap.js",
-            "ext:gauntlet/core.js" =  "../../js/core/dist/core.js",
-            "ext:gauntlet/api/components.js" =  "../../js/api/dist/gen/components.js",
-            "ext:gauntlet/api/hooks.js" =  "../../js/api/dist/hooks.js",
-            "ext:gauntlet/api/helpers.js" =  "../../js/api/dist/helpers.js",
-            "ext:gauntlet/renderer.js" =  "../../js/react_renderer/dist/prod/renderer.js",
-            "ext:gauntlet/react.js" =  "../../js/react/dist/prod/react.production.min.js",
-            "ext:gauntlet/react-jsx-runtime.js" =  "../../js/react/dist/prod/react-jsx-runtime.production.min.js",
-        ],
-    );
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::GetAssetData { path } => {
+            let data = api.get_asset_data(&path).await?;
+
+            Ok(JsResponse::AssetData {
+                data
+            })
+        }
+        JsRequest::GetCommandGeneratorEntrypointIds => {
+            let data = api.get_command_generator_entrypoint_ids().await?;
+
+            Ok(JsResponse::CommandGeneratorEntrypointIds {
+                data
+            })
+        }
+        JsRequest::GetPluginPreferences => {
+            let data = api.get_plugin_preferences().await?;
+
+            Ok(JsResponse::PluginPreferences {
+                data
+            })
+        }
+        JsRequest::GetEntrypointPreferences { entrypoint_id } => {
+            let data = api.get_entrypoint_preferences(entrypoint_id).await?;
+
+            Ok(JsResponse::EntrypointPreferences {
+                data
+            })
+        }
+        JsRequest::PluginPreferencesRequired => {
+            let data = api.plugin_preferences_required().await?;
+
+            Ok(JsResponse::PluginPreferencesRequired {
+                data
+            })
+        }
+        JsRequest::EntrypointPreferencesRequired { entrypoint_id } => {
+            let data = api.entrypoint_preferences_required(entrypoint_id).await?;
+
+            Ok(JsResponse::EntrypointPreferencesRequired {
+                data
+            })
+        }
+        JsRequest::ClipboardRead => {
+            let data = api.clipboard_read().await?;
+
+            Ok(JsResponse::ClipboardRead {
+                data
+            })
+        }
+        JsRequest::ClipboardReadText => {
+            let data = api.clipboard_read_text().await?;
+
+            Ok(JsResponse::ClipboardReadText {
+                data
+            })
+        }
+        JsRequest::ClipboardWrite { data } => {
+            api.clipboard_write(data).await?;
+
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ClipboardWriteText { data } => {
+            api.clipboard_write_text(data).await?;
+
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::ClipboardClear => {
+            api.clipboard_clear().await?;
+
+            Ok(JsResponse::Nothing)
+        }
+        JsRequest::GetActionIdForShortcut { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+            let data = api.ui_get_action_id_for_shortcut(
+                entrypoint_id,
+                key,
+                modifier_shift,
+                modifier_control,
+                modifier_alt,
+                modifier_meta
+            ).await?;
+
+            Ok(JsResponse::ActionIdForShortcut {
+                data
+            })
+        }
+    }
 }
 
-#[allow(long_running_const_eval)] // dev renderer is 22K line file which triggers rust lint
-mod dev {
-    deno_core::extension!(
-        gauntlet_esm,
-        esm_entry_point = "ext:gauntlet/bootstrap.js",
-        esm = [
-            "ext:gauntlet/bootstrap.js" =  "../../js/bridge_build/dist/bridge-bootstrap.js",
-            "ext:gauntlet/core.js" =  "../../js/core/dist/core.js",
-            "ext:gauntlet/api/components.js" =  "../../js/api/dist/gen/components.js",
-            "ext:gauntlet/api/hooks.js" =  "../../js/api/dist/hooks.js",
-            "ext:gauntlet/api/helpers.js" =  "../../js/api/dist/helpers.js",
-            "ext:gauntlet/renderer.js" =  "../../js/react_renderer/dist/dev/renderer.js",
-            "ext:gauntlet/react.js" =  "../../js/react/dist/dev/react.development.js",
-            "ext:gauntlet/react-jsx-runtime.js" =  "../../js/react/dist/dev/react-jsx-runtime.development.js",
-        ],
-    );
-}
-
-deno_core::extension!(
-    gauntlet_internal_all,
-    ops = [
-        // plugins numbat
-        run_numbat,
-
-        // plugins applications
-        current_os,
-
-        // plugins settings
-        open_settings,
-    ],
-    esm_entry_point = "ext:gauntlet/internal-all/bootstrap.js",
-    esm = [
-        "ext:gauntlet/internal-all/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-all-bootstrap.js",
-        "ext:gauntlet/internal-all.js" =  "../../js/core/dist/internal-all.js",
-    ],
-    options = {
-        numbat_context: NumbatContext,
-    },
-    state = |state, options| {
-        state.put(options.numbat_context);
-    },
-);
-
-#[cfg(target_os = "linux")]
-deno_core::extension!(
-    gauntlet_internal_linux,
-    ops = [
-        // plugins applications linux
-        crate::plugins::js::plugins::applications::linux_app_from_path,
-        crate::plugins::js::plugins::applications::linux_application_dirs,
-        crate::plugins::js::plugins::applications::linux_open_application,
-    ],
-    esm_entry_point = "ext:gauntlet/internal-linux/bootstrap.js",
-    esm = [
-        "ext:gauntlet/internal-linux/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-linux-bootstrap.js",
-        "ext:gauntlet/internal-linux.js" =  "../../js/core/dist/internal-linux.js",
-    ]
-);
-
-#[cfg(target_os = "macos")]
-deno_core::extension!(
-    gauntlet_internal_macos,
-    ops = [
-        // plugins applications macos
-        crate::plugins::js::plugins::applications::macos_major_version,
-        crate::plugins::js::plugins::applications::macos_settings_pre_13,
-        crate::plugins::js::plugins::applications::macos_settings_13_and_post,
-        crate::plugins::js::plugins::applications::macos_open_setting_13_and_post,
-        crate::plugins::js::plugins::applications::macos_open_setting_pre_13,
-        crate::plugins::js::plugins::applications::macos_system_applications,
-        crate::plugins::js::plugins::applications::macos_application_dirs,
-        crate::plugins::js::plugins::applications::macos_app_from_arbitrary_path,
-        crate::plugins::js::plugins::applications::macos_app_from_path,
-        crate::plugins::js::plugins::applications::macos_open_application,
-    ],
-    esm_entry_point = "ext:gauntlet/internal-macos/bootstrap.js",
-    esm = [
-        "ext:gauntlet/internal-macos/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-macos-bootstrap.js",
-        "ext:gauntlet/internal-macos.js" =  "../../js/core/dist/internal-macos.js",
-    ]
-);
-
-#[op2(async)]
-#[serde]
-pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsUiEvent> {
-    let event_stream = {
-        state.borrow()
-            .borrow::<EventReceiver>()
-            .event_stream
-            .clone()
-    };
-
-    let mut event_stream = event_stream.borrow_mut();
-    let event = event_stream.next()
-        .await
-        .ok_or_else(|| anyhow!("event stream was suddenly closed"))?;
-
-    tracing::trace!(target = "renderer_rs", "Received plugin event {:?}", event);
-
-    Ok(from_intermediate_to_js_event(event))
-}
-
-fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
+fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
     match event {
-        IntermediateUiEvent::OpenView { entrypoint_id } => JsUiEvent::OpenView {
+        IntermediateUiEvent::OpenView { entrypoint_id } => JsEvent::OpenView {
             entrypoint_id: entrypoint_id.to_string(),
         },
-        IntermediateUiEvent::CloseView => JsUiEvent::CloseView,
-        IntermediateUiEvent::RunCommand { entrypoint_id } => JsUiEvent::RunCommand {
+        IntermediateUiEvent::CloseView => JsEvent::CloseView,
+        IntermediateUiEvent::RunCommand { entrypoint_id } => JsEvent::RunCommand {
             entrypoint_id
         },
-        IntermediateUiEvent::RunGeneratedCommand { entrypoint_id, action_index } => JsUiEvent::RunGeneratedCommand {
+        IntermediateUiEvent::RunGeneratedCommand { entrypoint_id, action_index } => JsEvent::RunGeneratedCommand {
             entrypoint_id,
             action_index,
         },
@@ -761,14 +594,14 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                 })
                 .collect();
 
-            JsUiEvent::ViewEvent {
+            JsEvent::ViewEvent {
                 widget_id,
                 event_name,
                 event_arguments,
             }
         }
         IntermediateUiEvent::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
-            JsUiEvent::KeyboardEvent {
+            JsEvent::KeyboardEvent {
                 entrypoint_id: entrypoint_id.to_string(),
                 origin: match origin {
                     KeyboardEventOrigin::MainView => JsKeyboardEventOrigin::MainView,
@@ -781,76 +614,9 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsUiEvent {
                 modifier_meta
             }
         }
-        IntermediateUiEvent::OpenInlineView { text } => JsUiEvent::OpenInlineView { text },
-        IntermediateUiEvent::ReloadSearchIndex => JsUiEvent::ReloadSearchIndex,
-        IntermediateUiEvent::RefreshSearchIndex => JsUiEvent::RefreshSearchIndex,
-    }
-}
-
-pub struct PluginData {
-    plugin_id: PluginId,
-    plugin_uuid: String,
-    plugin_cache_dir: String,
-    plugin_data_dir: String,
-    inline_view_entrypoint_id: Option<String>,
-    home_dir: PathBuf,
-}
-
-impl PluginData {
-    fn new(
-        plugin_id: PluginId,
-        plugin_uuid: String,
-        plugin_cache_dir: String,
-        plugin_data_dir: String,
-        inline_view_entrypoint_id: Option<String>,
-        home_dir: PathBuf,
-    ) -> Self {
-        Self {
-            plugin_id,
-            plugin_uuid,
-            plugin_cache_dir,
-            plugin_data_dir,
-            inline_view_entrypoint_id,
-            home_dir
-        }
-    }
-
-    fn plugin_id(&self) -> PluginId {
-        self.plugin_id.clone()
-    }
-
-    fn plugin_uuid(&self) -> &str {
-        &self.plugin_uuid
-    }
-
-    fn plugin_cache_dir(&self) -> &str {
-        &self.plugin_cache_dir
-    }
-
-    fn plugin_data_dir(&self) -> &str {
-        &self.plugin_data_dir
-    }
-
-    fn inline_view_entrypoint_id(&self) -> Option<String> {
-        self.inline_view_entrypoint_id.clone()
-    }
-
-    fn home_dir(&self) -> PathBuf {
-        self.home_dir.clone()
-    }
-}
-
-
-
-pub struct EventReceiver {
-    event_stream: Rc<RefCell<Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>>>,
-}
-
-impl EventReceiver {
-    fn new(event_stream: Pin<Box<dyn Stream<Item=IntermediateUiEvent>>>) -> EventReceiver {
-        Self {
-            event_stream: Rc::new(RefCell::new(event_stream)),
-        }
+        IntermediateUiEvent::OpenInlineView { text } => JsEvent::OpenInlineView { text },
+        IntermediateUiEvent::ReloadSearchIndex => JsEvent::ReloadSearchIndex,
+        IntermediateUiEvent::RefreshSearchIndex => JsEvent::RefreshSearchIndex,
     }
 }
 
@@ -897,7 +663,7 @@ impl BackendForPluginRuntimeApiImpl {
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
-    async fn reload_search_index(&self, generated_commands: Vec<AdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+    async fn reload_search_index(&self, generated_commands: Vec<JsAdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
         self.icon_cache.clear_plugin_icon_cache_dir(&self.plugin_uuid)
             .context("error when clearing up icon cache before recreating it")?;
 
@@ -1049,7 +815,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(result)
     }
 
-    async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+    async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
         let DbReadPlugin { preferences, preferences_user_data, .. } = self.repository
             .get_plugin_by_id(&self.plugin_id.to_string())
             .await?;
@@ -1057,7 +823,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(preferences_to_js(preferences, preferences_user_data))
     }
 
-    async fn get_entrypoint_preferences(&self, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+    async fn get_entrypoint_preferences(&self, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
         let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = self.repository
             .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())
             .await?;
@@ -1079,7 +845,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
 
-    async fn clipboard_read(&self) -> anyhow::Result<ClipboardData> {
+    async fn clipboard_read(&self) -> anyhow::Result<JsClipboardData> {
         let allow = self
             .permissions
             .clipboard
@@ -1109,7 +875,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         self.clipboard.read_text()
     }
 
-    async fn clipboard_write(&self, data: ClipboardData) -> anyhow::Result<()> {
+    async fn clipboard_write(&self, data: JsClipboardData) -> anyhow::Result<()> {
         let allow = self
             .permissions
             .clipboard
@@ -1194,15 +960,14 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-        #[cfg(feature = "scenario_runner")]
-        container_value: serde_value::Value,
-        images: HashMap<UiWidgetId, Bytes>
     ) -> anyhow::Result<()> {
 
         let entrypoint_name = self.entrypoint_names
             .get(&entrypoint_id)
             .expect("entrypoint name for id should always exist")
             .to_string();
+
+        let images = ImageGatherer::run_gatherer(&self, &container).await?;
 
         self.frontend_api.replace_view(
             self.plugin_id.clone(),
@@ -1212,8 +977,6 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             render_location,
             top_level_view,
             container,
-            #[cfg(feature = "scenario_runner")]
-            container_value,
             images
         ).await?;
 
@@ -1262,27 +1025,27 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 fn preferences_to_js(
     preferences: HashMap<String, DbPluginPreference>,
     mut preferences_user_data: HashMap<String, DbPluginPreferenceUserData>
-) -> HashMap<String, PreferenceUserData> {
+) -> HashMap<String, JsPreferenceUserData> {
     preferences.into_iter()
         .map(|(name, preference)| {
             let user_data = match preferences_user_data.remove(&name) {
                 None => match preference {
-                    DbPluginPreference::Number { default, .. } => PreferenceUserData::Number(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::String { default, .. } => PreferenceUserData::String(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::Enum { default, .. } => PreferenceUserData::String(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::Bool { default, .. } => PreferenceUserData::Bool(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::ListOfStrings { default, .. } => PreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::ListOfNumbers { default, .. } => PreferenceUserData::ListOfNumbers(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::ListOfEnums { default, .. } => PreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Number { default, .. } => JsPreferenceUserData::Number(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::String { default, .. } => JsPreferenceUserData::String(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Enum { default, .. } => JsPreferenceUserData::String(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::Bool { default, .. } => JsPreferenceUserData::Bool(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfStrings { default, .. } => JsPreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfNumbers { default, .. } => JsPreferenceUserData::ListOfNumbers(default.expect("at this point preference should always have value")),
+                    DbPluginPreference::ListOfEnums { default, .. } => JsPreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
                 }
                 Some(user_data) => match user_data {
-                    DbPluginPreferenceUserData::Number { value } => PreferenceUserData::Number(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::String { value } => PreferenceUserData::String(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::Enum { value } => PreferenceUserData::String(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::Bool { value } => PreferenceUserData::Bool(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::ListOfStrings { value } => PreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::ListOfNumbers { value } => PreferenceUserData::ListOfNumbers(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::ListOfEnums { value } => PreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Number { value } => JsPreferenceUserData::Number(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::String { value } => JsPreferenceUserData::String(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Enum { value } => JsPreferenceUserData::String(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::Bool { value } => JsPreferenceUserData::Bool(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfStrings { value } => JsPreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfNumbers { value } => JsPreferenceUserData::ListOfNumbers(value.expect("at this point preference should always have value")),
+                    DbPluginPreferenceUserData::ListOfEnums { value } => JsPreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
                 }
             };
 

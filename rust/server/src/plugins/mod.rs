@@ -4,7 +4,6 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use anyhow::anyhow;
-use deno_core::futures::channel::mpsc::Sender;
 use include_dir::{include_dir, Dir};
 use tokio::runtime::Handle;
 
@@ -13,13 +12,13 @@ use common::rpc::frontend_api::FrontendApi;
 use common::{settings_env_data_to_string, SettingsEnvData};
 use utils::channel::RequestSender;
 use common::dirs::Dirs;
-use crate::model::{ActionShortcutKey, JsKeyboardEventOrigin};
+use plugin_runtime::{JsPluginCode, JsPluginPermissions, JsPluginPermissionsExec, JsPluginPermissionsFileSystem, JsPluginPermissionsMainSearchBar};
+use crate::model::{ActionShortcutKey};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginActionShortcutKind, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginMainSearchBarPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::{start_plugin_runtime, AllPluginCommandData, OnePluginCommandData, PluginCode, PluginCommand, PluginRuntimeData};
-use crate::plugins::js::permissions::{PluginPermissions, PluginPermissionsClipboard, PluginPermissionsExec, PluginPermissionsFileSystem, PluginPermissionsMainSearchBar};
+use crate::plugins::js::{start_plugin_runtime, AllPluginCommandData, OnePluginCommandData, PluginCommand, PluginPermissions, PluginPermissionsClipboard, PluginRuntimeData};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::search::SearchIndex;
@@ -34,6 +33,8 @@ mod download_status;
 mod icon_cache;
 pub(super) mod frecency;
 mod clipboard;
+mod runtime;
+mod image_gatherer;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [
     ("gauntlet", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist")),
@@ -470,7 +471,7 @@ impl ApplicationManager {
             .args(["settings"])
             .env(SETTINGS_ENV, settings_env_data_to_string(data))
             .spawn()
-            .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by frontend compilation
+            .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by more recent compilation
     }
 
     async fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
@@ -530,7 +531,7 @@ impl ApplicationManager {
             .main_search_bar
             .into_iter()
             .map(|permission| match permission {
-                DbPluginMainSearchBarPermissions::Read => PluginPermissionsMainSearchBar::Read,
+                DbPluginMainSearchBarPermissions::Read => JsPluginPermissionsMainSearchBar::Read,
             })
             .collect();
 
@@ -539,16 +540,16 @@ impl ApplicationManager {
             uuid: plugin.uuid,
             name: plugin.name,
             entrypoint_names,
-            code: PluginCode { js: plugin.code.js },
+            code: JsPluginCode { js: plugin.code.js },
             inline_view_entrypoint_id,
             permissions: PluginPermissions {
                 environment: plugin.permissions.environment,
                 network: plugin.permissions.network,
-                filesystem: PluginPermissionsFileSystem {
+                filesystem: JsPluginPermissionsFileSystem {
                     read: plugin.permissions.filesystem.read,
                     write: plugin.permissions.filesystem.write,
                 },
-                exec: PluginPermissionsExec {
+                exec: JsPluginPermissionsExec {
                     command: plugin.permissions.exec.command,
                     executable: plugin.permissions.exec.executable,
                 },

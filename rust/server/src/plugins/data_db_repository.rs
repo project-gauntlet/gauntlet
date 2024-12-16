@@ -2,10 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
-use deno_core::error::AnyError;
-use deno_core::futures;
-use deno_core::futures::{StreamExt, TryStreamExt};
-use deno_core::futures::future::join_all;
+use futures::{StreamExt, TryStreamExt};
+use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, Executor, Pool, Row, Sqlite, SqlitePool};
 use sqlx::migrate::Migrator;
@@ -404,7 +402,7 @@ impl DataDbRepository {
             .then(|plugin| async move {
                 let entrypoints = self.get_entrypoints_by_plugin_id(&plugin.id).await?;
 
-                Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), AnyError>((plugin, entrypoints))
+                Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), anyhow::Error>((plugin, entrypoints))
             })
             .try_collect::<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>>()
             .await?;

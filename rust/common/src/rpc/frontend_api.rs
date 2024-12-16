@@ -17,6 +17,7 @@ impl From<RequestError> for FrontendApiError {
     fn from(error: RequestError) -> FrontendApiError {
         match error {
             RequestError::TimeoutError => FrontendApiError::TimeoutError,
+            RequestError::OtherSideWasDropped => FrontendApiError::OtherError(anyhow!("other side was dropped"))
         }
     }
 }
@@ -48,9 +49,7 @@ impl FrontendApi {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-        #[cfg(feature = "scenario_runner")]
-        container_value: serde_value::Value,
-        images: HashMap<UiWidgetId, bytes::Bytes>,
+        images: HashMap<UiWidgetId, Vec<u8>>,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
             plugin_id,
@@ -60,8 +59,6 @@ impl FrontendApi {
             render_location,
             top_level_view,
             container,
-            #[cfg(feature = "scenario_runner")]
-            container_value,
             images,
         };
 

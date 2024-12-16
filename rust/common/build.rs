@@ -56,7 +56,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 if !ordered_members.is_empty() {
-                    output.push_str("#[derive(Debug)]\n");
+                    output.push_str("#[derive(Debug, Encode, Decode)]\n");
                     output.push_str(&format!("pub enum {}WidgetOrderedMembers {{\n", name));
 
                     let unique_component_refs = ordered_members
@@ -74,7 +74,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                 if has_content {
                     {
-                        output.push_str("#[derive(Debug)]\n");
+                        output.push_str("#[derive(Debug, Encode, Decode)]\n");
                         output.push_str(&format!("pub struct {}WidgetContent {{\n", name));
 
                         for prop in props {
@@ -119,12 +119,6 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     {
-                        output.push_str(&format!("impl<'de> Deserialize<'de> for {}WidgetContent {{\n", name));
-                        output.push_str(&format!("    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>\n"));
-                        output.push_str(&format!("    where\n"));
-                        output.push_str(&format!("        D: Deserializer<'de>,\n"));
-                        output.push_str(&format!("    {{\n"));
-
                         let unique_ordered_component_refs = ordered_members
                             .iter()
                             .map(|(_member_name, component_ref)| component_ref)
@@ -190,154 +184,273 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                         component_refs.extend(prop_other_component_refs.values());
 
                         {
-                            output.push_str("        #[derive(Debug, Deserialize)]\n");
-                            output.push_str("        #[serde(tag = \"__type__\")]\n");
-                            output.push_str(&format!("        enum {}WidgetMembers {{\n", name));
+                            output.push_str(&format!("impl<'de> Deserialize<'de> for {}WidgetContent {{\n", name));
+                            output.push_str(&format!("    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>\n"));
+                            output.push_str(&format!("    where\n"));
+                            output.push_str(&format!("        D: Deserializer<'de>,\n"));
+                            output.push_str(&format!("    {{\n"));
 
-                            for (_, prop_union_component_refs) in &prop_union_component_refs {
-                                for prop_union_component_ref in prop_union_component_refs {
-                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", prop_union_component_ref.component_internal_name));
-                                    output.push_str(&format!("            {}({}Widget),\n", prop_union_component_ref.component_name, prop_union_component_ref.component_name));
+                            {
+                                output.push_str("        #[derive(Debug, Deserialize)]\n");
+                                output.push_str("        #[serde(tag = \"__type__\")]\n");
+                                output.push_str(&format!("        enum {}WidgetMembersOwned {{\n", name));
+
+                                for (_, prop_union_component_refs) in &prop_union_component_refs {
+                                    for prop_union_component_ref in prop_union_component_refs {
+                                        output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", prop_union_component_ref.component_internal_name));
+                                        output.push_str(&format!("            {}({}Widget),\n", prop_union_component_ref.component_name, prop_union_component_ref.component_name));
+                                    }
                                 }
-                            }
 
-                            for component_ref in &component_refs {
-                                output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", component_ref.component_internal_name));
-                                output.push_str(&format!("            {}({}Widget),\n", component_ref.component_name, component_ref.component_name));
-                            }
-
-                            if has_text {
-                                output.push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
-                                output.push_str(&format!("            Text {{\n"));
-                                output.push_str(&format!("                value: String\n"));
-                                output.push_str(&format!("            }},\n"));
-                            }
-
-                            output.push_str("        }\n");
-                        }
-
-
-                        output.push_str(&format!("        let mut members = Vec::<{}WidgetMembers>::deserialize(deserializer)?;\n", name));
-                        output.push_str("\n");
-
-                        for (prop_name, _) in &prop_other_component_refs {
-                            output.push_str(&format!("        let mut {}: Option<_> = None;\n", prop_name));
-                        }
-
-                        for (prop_name, _) in &prop_union_component_refs {
-                            output.push_str(&format!("        let mut {}: Vec<_> = vec![];\n", prop_name));
-                        }
-
-                        for per_type_component_ref in &per_type_component_refs {
-                            output.push_str(&format!("        let mut {}: Option<_> = None;\n", per_type_component_ref.component_internal_name));
-                        }
-
-                        if !ordered_members.is_empty() {
-                            output.push_str("        let mut ordered_members = vec![];\n");
-                        }
-
-                        if has_text {
-                            output.push_str("        let mut text = vec![];\n");
-                        }
-
-                        output.push_str("\n");
-
-                        if has_content {
-                            output.push_str("        while let Some(member) = members.pop() {\n");
-                            output.push_str("            match member {\n");
-
-                            for (prop_name, prop_union_component_refs) in &prop_union_component_refs {
-                                for (index, prop_union_component_ref) in prop_union_component_refs.iter().enumerate() {
-                                    output.push_str(&format!("                {}WidgetMembers::{}(widget) => {{\n", name, prop_union_component_ref.component_name));
-                                    output.push_str(&format!("                    {}.push({}{}::_{}(widget));\n", prop_name, name, prop_name.to_case(Case::Pascal), index));
-                                    output.push_str(&format!("                }}\n"));
+                                for component_ref in &component_refs {
+                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", component_ref.component_internal_name));
+                                    output.push_str(&format!("            {}({}Widget),\n", component_ref.component_name, component_ref.component_name));
                                 }
+
+                                if has_text {
+                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
+                                    output.push_str(&format!("            Text {{\n"));
+                                    output.push_str(&format!("                value: String\n"));
+                                    output.push_str(&format!("            }},\n"));
+                                }
+
+                                output.push_str("        }\n");
                             }
 
-                            for (prop_name, prop_other_component_refs) in &prop_other_component_refs {
-                                output.push_str(&format!("                {}WidgetMembers::{}(widget) => {{\n", name, prop_other_component_refs.component_name));
-                                output.push_str(&format!("                    if let Some(_) = {} {{\n", prop_name));
-                                output.push_str(&format!("                        return Err(Error::custom(\"Only one {} is allowed\"))\n", prop_other_component_refs.component_name));
-                                output.push_str(&format!("                    }}\n"));
-                                output.push_str(&format!("                    {} = Some(widget);\n", prop_name));
-                                output.push_str(&format!("                }}\n"));
+                            output.push_str(&format!("        let mut members = Vec::<{}WidgetMembersOwned>::deserialize(deserializer)?;\n", name));
+                            output.push_str("\n");
+
+                            for (prop_name, _) in &prop_other_component_refs {
+                                output.push_str(&format!("        let mut {}: Option<_> = None;\n", prop_name));
+                            }
+
+                            for (prop_name, _) in &prop_union_component_refs {
+                                output.push_str(&format!("        let mut {}: Vec<_> = vec![];\n", prop_name));
                             }
 
                             for per_type_component_ref in &per_type_component_refs {
-                                output.push_str(&format!("                {}WidgetMembers::{}(widget) => {{\n", name, per_type_component_ref.component_name));
-                                output.push_str(&format!("                    if let Some(_) = {} {{\n", per_type_component_ref.component_internal_name));
-                                output.push_str(&format!("                        return Err(Error::custom(\"Only one {} is allowed\"))\n", per_type_component_ref.component_name));
-                                output.push_str(&format!("                    }}\n"));
-                                output.push_str(&format!("                    {} = Some(widget);\n", per_type_component_ref.component_internal_name));
-                                output.push_str(&format!("                }}\n"));
+                                output.push_str(&format!("        let mut {}: Option<_> = None;\n", per_type_component_ref.component_internal_name));
                             }
 
-                            for ordered_component_ref in unique_ordered_component_refs {
-                                output.push_str(&format!("                {}WidgetMembers::{}(widget) => {{\n", name, ordered_component_ref.component_name));
-                                output.push_str(&format!("                    ordered_members.insert(0, {}WidgetOrderedMembers::{}(widget));\n", name, ordered_component_ref.component_name));
-                                output.push_str(&format!("                }}\n"));
+                            if !ordered_members.is_empty() {
+                                output.push_str("        let mut ordered_members = vec![];\n");
                             }
 
                             if has_text {
-                                output.push_str(&format!("                {}WidgetMembers::Text {{ value }} => {{\n", name));
-                                output.push_str(&format!("                    text.insert(0, value);\n"));
-                                output.push_str(&format!("                }}\n"));
+                                output.push_str("        let mut text = vec![];\n");
                             }
 
-                            output.push_str("            }\n");
-                            output.push_str("        }\n");
-                        }
+                            output.push_str("\n");
 
-                        output.push_str("\n");
-                        output.push_str(&format!("        Ok({}WidgetContent {{\n", name));
+                            if has_content {
+                                output.push_str("        while let Some(member) = members.pop() {\n");
+                                output.push_str("            match member {\n");
 
-                        for (prop_name, _) in &prop_union_component_refs {
-                            output.push_str(&format!("            {},\n", prop_name));
-                        }
-
-                        for per_type_component_ref in per_type_component_refs {
-                            match per_type_component_ref.arity {
-                                Arity::ZeroOrOne => {
-                                    output.push_str(&format!("            {},\n", per_type_component_ref.component_internal_name));
+                                for (prop_name, prop_union_component_refs) in &prop_union_component_refs {
+                                    for (index, prop_union_component_ref) in prop_union_component_refs.iter().enumerate() {
+                                        output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, prop_union_component_ref.component_name));
+                                        output.push_str(&format!("                    {}.push({}{}::_{}(widget));\n", prop_name, name, prop_name.to_case(Case::Pascal), index));
+                                        output.push_str(&format!("                }}\n"));
+                                    }
                                 }
-                                Arity::One => {
-                                    output.push_str(&format!("            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n", per_type_component_ref.component_internal_name, per_type_component_ref.component_internal_name, per_type_component_ref.component_name));
+
+                                for (prop_name, prop_other_component_refs) in &prop_other_component_refs {
+                                    output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, prop_other_component_refs.component_name));
+                                    output.push_str(&format!("                    if let Some(_) = {} {{\n", prop_name));
+                                    output.push_str(&format!("                        return Err(Error::custom(\"Only one {} is allowed\"))\n", prop_other_component_refs.component_name));
+                                    output.push_str(&format!("                    }}\n"));
+                                    output.push_str(&format!("                    {} = Some(widget);\n", prop_name));
+                                    output.push_str(&format!("                }}\n"));
                                 }
-                                Arity::ZeroOrMore => {
-                                    todo!()
+
+                                for per_type_component_ref in &per_type_component_refs {
+                                    output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, per_type_component_ref.component_name));
+                                    output.push_str(&format!("                    if let Some(_) = {} {{\n", per_type_component_ref.component_internal_name));
+                                    output.push_str(&format!("                        return Err(Error::custom(\"Only one {} is allowed\"))\n", per_type_component_ref.component_name));
+                                    output.push_str(&format!("                    }}\n"));
+                                    output.push_str(&format!("                    {} = Some(widget);\n", per_type_component_ref.component_internal_name));
+                                    output.push_str(&format!("                }}\n"));
+                                }
+
+                                for ordered_component_ref in &unique_ordered_component_refs {
+                                    output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, ordered_component_ref.component_name));
+                                    output.push_str(&format!("                    ordered_members.insert(0, {}WidgetOrderedMembers::{}(widget));\n", name, ordered_component_ref.component_name));
+                                    output.push_str(&format!("                }}\n"));
+                                }
+
+                                if has_text {
+                                    output.push_str(&format!("                {}WidgetMembersOwned::Text {{ value }} => {{\n", name));
+                                    output.push_str(&format!("                    text.insert(0, value);\n"));
+                                    output.push_str(&format!("                }}\n"));
+                                }
+
+                                output.push_str("            }\n");
+                                output.push_str("        }\n");
+                            }
+
+                            output.push_str("\n");
+                            output.push_str(&format!("        Ok({}WidgetContent {{\n", name));
+
+                            for (prop_name, _) in &prop_union_component_refs {
+                                output.push_str(&format!("            {},\n", prop_name));
+                            }
+
+                            for per_type_component_ref in &per_type_component_refs {
+                                match per_type_component_ref.arity {
+                                    Arity::ZeroOrOne => {
+                                        output.push_str(&format!("            {},\n", per_type_component_ref.component_internal_name));
+                                    }
+                                    Arity::One => {
+                                        output.push_str(&format!("            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n", per_type_component_ref.component_internal_name, per_type_component_ref.component_internal_name, per_type_component_ref.component_name));
+                                    }
+                                    Arity::ZeroOrMore => {
+                                        todo!()
+                                    }
                                 }
                             }
-                        }
 
-                        for (prop_name, prop_other_component_ref) in &prop_other_component_refs {
-                            match prop_other_component_ref.arity {
-                                Arity::ZeroOrOne => {
-                                    output.push_str(&format!("            {},\n", prop_name));
-                                }
-                                Arity::One => {
-                                    output.push_str(&format!("            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n", prop_name, prop_other_component_ref.component_internal_name, prop_other_component_ref.component_name));
-                                }
-                                Arity::ZeroOrMore => {
-                                    todo!()
+                            for (prop_name, prop_other_component_ref) in &prop_other_component_refs {
+                                match prop_other_component_ref.arity {
+                                    Arity::ZeroOrOne => {
+                                        output.push_str(&format!("            {},\n", prop_name));
+                                    }
+                                    Arity::One => {
+                                        output.push_str(&format!("            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n", prop_name, prop_other_component_ref.component_internal_name, prop_other_component_ref.component_name));
+                                    }
+                                    Arity::ZeroOrMore => {
+                                        todo!()
+                                    }
                                 }
                             }
+
+                            if !ordered_members.is_empty() {
+                                output.push_str("            ordered_members\n");
+                            }
+
+                            if has_text {
+                                output.push_str("            text\n");
+                            }
+
+                            output.push_str(&format!("        }})\n"));
+                            output.push_str(&format!("    }}\n"));
+                            output.push_str(&format!("}}\n"));
                         }
 
-                        if !ordered_members.is_empty() {
-                            output.push_str("            ordered_members\n");
-                        }
+                        {
 
-                        if has_text {
-                            output.push_str("            text\n");
-                        }
+                            output.push_str(&format!("impl Serialize for {}WidgetContent {{\n", name));
+                            output.push_str(&format!("    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>\n"));
+                            output.push_str(&format!("    where\n"));
+                            output.push_str(&format!("        S: Serializer\n"));
+                            output.push_str(&format!("    {{\n"));
 
-                        output.push_str(&format!("        }})\n"));
-                        output.push_str(&format!("    }}\n"));
-                        output.push_str(&format!("}}\n"));
+                            {
+                                output.push_str("        #[derive(Debug, Serialize)]\n");
+                                output.push_str("        #[serde(tag = \"__type__\")]\n");
+                                output.push_str(&format!("        enum {}WidgetMembersRef<'a> {{\n", name));
+
+                                for (_, prop_union_component_refs) in &prop_union_component_refs {
+                                    for prop_union_component_ref in prop_union_component_refs {
+                                        output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", prop_union_component_ref.component_internal_name));
+                                        output.push_str(&format!("            {}(&'a {}Widget),\n", prop_union_component_ref.component_name, prop_union_component_ref.component_name));
+                                    }
+                                }
+
+                                for component_ref in &component_refs {
+                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", component_ref.component_internal_name));
+                                    output.push_str(&format!("            {}(&'a {}Widget),\n", component_ref.component_name, component_ref.component_name));
+                                }
+
+                                if has_text {
+                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
+                                    output.push_str(&format!("            Text {{\n"));
+                                    output.push_str(&format!("                value: &'a String\n"));
+                                    output.push_str(&format!("            }},\n"));
+                                }
+
+                                output.push_str("        }\n");
+                            }
+
+                            output.push_str(&format!("        let mut members = Vec::<{}WidgetMembersRef>::new();\n", name));
+                            output.push_str("\n");
+
+
+                            for (prop_name, prop_union_component_refs) in &prop_union_component_refs {
+                                output.push_str(&format!("        for item in &self.{} {{\n", prop_name));
+                                output.push_str(&format!("            match item {{\n"));
+
+                                for (index, prop_union_component_ref) in prop_union_component_refs.iter().enumerate() {
+                                    output.push_str(&format!("                {}{}::_{}(widget) => {{\n", name, prop_name.to_case(Case::Pascal), index));
+                                    output.push_str(&format!("                    members.push({}WidgetMembersRef::{}(widget));\n", name, prop_union_component_ref.component_name));
+                                    output.push_str(&format!("                }}\n"));
+                                }
+
+                                output.push_str(&format!("            }}\n"));
+                                output.push_str(&format!("        }}\n"));
+                            }
+
+                            for (prop_name, prop_other_component_refs) in &prop_other_component_refs {
+                                match prop_other_component_refs.arity {
+                                    Arity::ZeroOrOne => {
+                                        output.push_str(&format!("        if let Some({}) = &self.{} {{\n", prop_name, prop_name));
+                                        output.push_str(&format!("            members.push({}WidgetMembersRef::{}({}))\n", name, prop_other_component_refs.component_name, prop_name));
+                                        output.push_str(&format!("        }}\n"));
+                                    }
+                                    Arity::One => {
+                                        output.push_str(&format!("        members.push({}WidgetMembersRef::{}(&self.{}))\n", name, prop_other_component_refs.component_name, prop_name));
+                                    }
+                                    Arity::ZeroOrMore => {
+                                        todo!()
+                                    }
+                                }
+                            }
+
+                            for per_type_component_ref in &per_type_component_refs {
+                                match per_type_component_ref.arity {
+                                    Arity::ZeroOrOne => {
+                                        output.push_str(&format!("        if let Some(item) = &self.{} {{\n", per_type_component_ref.component_internal_name));
+                                        output.push_str(&format!("            members.push({}WidgetMembersRef::{}(item))\n", name, per_type_component_ref.component_name));
+                                        output.push_str(&format!("        }}\n"));
+                                    }
+                                    Arity::One => {
+                                        output.push_str(&format!("        members.push({}WidgetMembersRef::{}(&self.{}));\n", name, per_type_component_ref.component_name, per_type_component_ref.component_internal_name));
+                                    }
+                                    Arity::ZeroOrMore => {
+                                        todo!()
+                                    }
+                                }
+                            }
+
+                            if !unique_ordered_component_refs.is_empty() {
+                                output.push_str(&format!("        for member in &self.ordered_members {{\n"));
+                                output.push_str(&format!("            match member {{\n"));
+
+                                for ordered_component_ref in &unique_ordered_component_refs {
+                                    output.push_str(&format!("                {}WidgetOrderedMembers::{}(widget) => {{\n", name, ordered_component_ref.component_name));
+                                    output.push_str(&format!("                    members.push({}WidgetMembersRef::{}(widget))\n", name, ordered_component_ref.component_name));
+                                    output.push_str(&format!("                }}\n"));
+                                }
+
+                                output.push_str(&format!("            }}\n"));
+                                output.push_str(&format!("        }}\n"));
+                            }
+
+                            if has_text {
+                                output.push_str(&format!("        for value in &self.text {{\n"));
+                                output.push_str(&format!("            members.push({}WidgetMembersRef::Text {{ value }});\n", name));
+                                output.push_str(&format!("        }}\n"));
+                            }
+
+                            output.push_str("\n");
+                            output.push_str(&format!("        Vec::<{}WidgetMembersRef>::serialize(&members, serializer)\n", name));
+
+                            output.push_str(&format!("    }}\n"));
+                            output.push_str(&format!("}}\n"));
+                        }
                     }
                 }
 
-                output.push_str("#[derive(Debug, Deserialize)]\n");
+                output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                 output.push_str(&format!("pub struct {}Widget {{\n", name));
                 output.push_str("    #[serde(rename = \"__id__\")]\n");
                 output.push_str("    pub __id__: UiWidgetId,\n");
@@ -356,7 +469,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 output.push_str("}\n");
 
                 let generate_union = |output: &mut String, items: &Vec<PropertyType>, prop_name: &String| {
-                    output.push_str("#[derive(Debug, Deserialize)]\n");
+                    output.push_str("#[derive(Debug, Encode, Decode)]\n");
                     output.push_str(&format!("pub enum {}{} {{\n", name, prop_name.to_case(Case::Pascal)));
 
                     for (index, property_type) in items.iter().enumerate() {
@@ -388,7 +501,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 for (type_name, shared_type) in shared_types {
                     match shared_type {
                         SharedType::Enum { items } => {
-                            output.push_str("#[derive(Debug, Deserialize)]\n");
+                            output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                             output.push_str(&format!("pub enum {} {{\n", type_name));
 
                             for item in items {
@@ -400,7 +513,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             output.push_str("\n");
                         }
                         SharedType::Object { items } => {
-                            output.push_str("#[derive(Debug, Deserialize)]\n");
+                            output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                             output.push_str(&format!("pub struct {} {{\n", type_name));
 
                             for (property_name, property_type) in items {
@@ -411,7 +524,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             output.push_str("\n");
                         }
                         SharedType::Union { items } => {
-                            output.push_str("#[derive(Debug, Deserialize)]\n");
+                            output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                             output.push_str("#[serde(untagged)]\n");
                             output.push_str(&format!("pub enum {} {{\n", type_name));
 
@@ -432,7 +545,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
 
-                output.push_str("#[derive(Debug, Deserialize)]\n");
+                output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                 output.push_str("#[serde(tag = \"__type__\")]\n");
                 output.push_str("pub enum RootWidgetMembers {\n");
 
@@ -443,7 +556,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                 output.push_str("}\n");
 
-                output.push_str("#[derive(Debug, Deserialize)]\n");
+                output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                 output.push_str("pub struct RootWidget {\n");
                 output.push_str("    #[serde(default, deserialize_with = \"array_to_option\")]\n");
                 output.push_str("    pub content: Option<RootWidgetMembers>\n");

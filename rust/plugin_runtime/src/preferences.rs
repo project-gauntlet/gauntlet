@@ -1,22 +1,20 @@
-use crate::plugins::js::BackendForPluginRuntimeApiImpl;
 use common::model::EntrypointId;
-use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
-use common_plugin_runtime::model::PreferenceUserData;
 use deno_core::futures::executor::block_on;
 use deno_core::{op2, OpState};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
+use crate::api::{BackendForPluginRuntimeApi, BackendForPluginRuntimeApiProxy};
+use crate::model::JsPreferenceUserData;
 
 #[op2]
 #[serde]
-pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
     let api = {
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -29,12 +27,12 @@ pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<Has
 
 #[op2]
 #[serde]
-pub fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: &str) -> anyhow::Result<HashMap<String, PreferenceUserData>> {
+pub fn get_entrypoint_preferences(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: &str) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
     let api = {
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -52,7 +50,7 @@ pub async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow:
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -67,7 +65,7 @@ pub async fn entrypoint_preferences_required(state: Rc<RefCell<OpState>>, #[stri
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api

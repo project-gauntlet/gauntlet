@@ -6,7 +6,7 @@ use image::ImageFormat;
 use image::imageops::FilterType;
 use serde::Serialize;
 use tokio::task::spawn_blocking;
-use crate::plugins::js::PluginData;
+use crate::plugin_data::PluginData;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -253,7 +253,7 @@ where
     }
 }
 
-pub(in crate::plugins::js::plugins::applications) fn resize_icon(data: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+pub(in crate::plugins::applications) fn resize_icon(data: Vec<u8>) -> anyhow::Result<Vec<u8>> {
     let data = image::load_from_memory_with_format(&data, ImageFormat::Png)?;
     let data = image::imageops::resize(&data, 48, 48, FilterType::Lanczos3);
 

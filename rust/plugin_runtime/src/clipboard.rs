@@ -1,10 +1,9 @@
-use crate::plugins::js::BackendForPluginRuntimeApiImpl;
-use common_plugin_runtime::backend_for_plugin_runtime_api::BackendForPluginRuntimeApi;
-use common_plugin_runtime::model::ClipboardData;
 use deno_core::{op2, OpState};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::api::{BackendForPluginRuntimeApi, BackendForPluginRuntimeApiProxy};
+use crate::model::JsClipboardData;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct JSClipboardData {
@@ -19,7 +18,7 @@ pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<JSCli
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -41,7 +40,7 @@ pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -56,13 +55,13 @@ pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: JSClipb
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
     };
 
-    let clipboard_data = ClipboardData {
+    let clipboard_data = JsClipboardData {
         text_data: data.text_data,
         png_data: data.png_data,
     };
@@ -76,7 +75,7 @@ pub async fn clipboard_write_text(state: Rc<RefCell<OpState>>, #[string] data: S
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api
@@ -91,7 +90,7 @@ pub async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> 
         let state = state.borrow();
 
         let api = state
-            .borrow::<BackendForPluginRuntimeApiImpl>()
+            .borrow::<BackendForPluginRuntimeApiProxy>()
             .clone();
 
         api

@@ -1,11 +1,14 @@
 use std::time::Duration;
-
+use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::error::Elapsed;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum RequestError {
+    #[error("request timeout")]
     TimeoutError,
+    #[error("other side was dropped")]
+    OtherSideWasDropped,
 }
 
 impl From<Elapsed> for RequestError {
@@ -51,16 +54,16 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
         }
     }
 
-    pub fn send(&self, request: Req) -> ResponseReceiver<Res> {
+    pub fn send(&self, request: Req) -> Result<ResponseReceiver<Res>, RequestError> {
         let (response_sender, response_receiver) = oneshot::channel::<Res>();
         let responder = Responder::new(response_sender);
         let payload = (request, responder);
-        self.request_sender.send(payload).expect("the other side is closed");
-        ResponseReceiver::new(response_receiver)
+        self.request_sender.send(payload).map_err(|err| RequestError::OtherSideWasDropped)?;
+        Ok(ResponseReceiver::new(response_receiver))
     }
 
     pub async fn send_receive(&self, request: Req) -> Result<Res, RequestError> {
-        let mut receiver = self.send(request);
+        let mut receiver = self.send(request)?;
 
         let duration = Duration::from_secs(30);
 

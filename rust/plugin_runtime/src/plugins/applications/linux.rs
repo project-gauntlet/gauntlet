@@ -3,7 +3,7 @@ use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::plugins::js::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
+use crate::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use image::imageops::FilterType;

@@ -123,4 +123,17 @@ impl Dirs {
 
         state_dir
     }
+
+    pub fn plugin_uds_socket(&self, plugin_uuid: &str) -> PathBuf {
+        let state_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
+            self.inner.runtime_dir()
+                .unwrap_or_else(|| Path::new("/tmp"))
+                .to_path_buf()
+        } else {
+            Path::new("/tmp").to_owned()
+        };
+
+        state_dir.join(format!("project-gauntlet-{}.sock", plugin_uuid))
+    }
+
 }

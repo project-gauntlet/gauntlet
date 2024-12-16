@@ -7,46 +7,17 @@ use anyhow::anyhow;
 use deno_runtime::deno_fs::{FileSystemRc, RealFs};
 use deno_runtime::deno_permissions::{AllowRunDescriptor, EnvDescriptor, EnvQueryDescriptor, NetDescriptor, Permissions, PermissionsContainer, QueryDescriptor, ReadDescriptor, RunQueryDescriptor, SysDescriptor, SysDescriptorParseError, UnaryPermission, WriteDescriptor};
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
-use tonic::codegen::Body;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use typed_path::Utf8TypedPath;
 use common::dirs::Dirs;
-use crate::plugins::loader::VARIABLE_PATTERN;
+use crate::{JsPluginPermissions, JsPluginPermissionsExec};
 
-pub struct PluginPermissions {
-    pub environment: Vec<String>,
-    pub network: Vec<String>,
-    pub filesystem: PluginPermissionsFileSystem,
-    pub exec: PluginPermissionsExec,
-    pub system: Vec<String>,
-    pub clipboard: Vec<PluginPermissionsClipboard>,
-    pub main_search_bar: Vec<PluginPermissionsMainSearchBar>,
-}
-
-pub struct PluginPermissionsFileSystem {
-    pub read: Vec<String>,
-    pub write: Vec<String>,
-}
-
-pub struct PluginPermissionsExec {
-    pub command: Vec<String>,
-    pub executable: Vec<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PluginPermissionsClipboard {
-    Read,
-    Write,
-    Clear
-}
-
-#[derive(Clone, Debug)]
-pub enum PluginPermissionsMainSearchBar {
-    Read,
-}
+pub static PERMISSIONS_VARIABLE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
 
 pub fn permissions_to_deno(
     fs: FileSystemRc,
-    permissions: &PluginPermissions,
+    permissions: &JsPluginPermissions,
     home_dir: &Path,
     plugin_data_dir: &Path,
     plugin_cache_dir: &Path,
@@ -142,7 +113,7 @@ fn sys_permission(system: &[String]) -> anyhow::Result<UnaryPermission<SysDescri
 }
 
 fn run_permission(
-    permissions: &PluginPermissionsExec,
+    permissions: &JsPluginPermissionsExec,
     home_dir: &Path,
     plugin_data_dir: &Path,
     plugin_cache_dir: &Path,
@@ -177,7 +148,7 @@ fn run_permission(
 }
 
 fn augment_path(path: &String, home_dir: &Path, plugin_data_dir: &Path, plugin_cache_dir: &Path) -> anyhow::Result<Option<PathBuf>> {
-    if let Some(matches) = VARIABLE_PATTERN.captures(path) {
+    if let Some(matches) = PERMISSIONS_VARIABLE_PATTERN.captures(path) {
         let namespace = &matches["namespace"];
         let name = &matches["name"];
 
@@ -216,7 +187,7 @@ fn augment_path(path: &String, home_dir: &Path, plugin_data_dir: &Path, plugin_c
                 let replacement = replacement.to_str()
                     .expect("non-utf8 file paths are not supported");
 
-                Ok(Some(PathBuf::from(VARIABLE_PATTERN.replace(path, replacement).to_string())))
+                Ok(Some(PathBuf::from(PERMISSIONS_VARIABLE_PATTERN.replace(path, replacement).to_string())))
             }
         }
     } else {
