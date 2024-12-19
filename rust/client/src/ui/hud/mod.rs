@@ -33,7 +33,7 @@ fn open_non_wayland() -> Task<AppMsg> {
         level: Level::AlwaysOnTop,
         #[cfg(target_os = "macos")]
         platform_specific: window::settings::PlatformSpecific {
-            window_kind: window::settings::WindowKind::Popup,
+            window_kind: window::settings::WindowKind::Panel,
             ..Default::default()
         },
         exit_on_close_request: false,
