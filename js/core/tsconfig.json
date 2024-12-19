@@ -3,10 +3,10 @@
     "strict": true,
     "module": "ES2022",
     "esModuleInterop": true,
-    "target": "ES2022",
+    "target": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["@project-gauntlet/typings", "@project-gauntlet/deno"]
+    "types": ["@project-gauntlet/typings", "@types/deno", "@types/node"]
   },
   "lib": ["ES2020"]
 }

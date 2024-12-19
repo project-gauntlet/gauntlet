@@ -5,8 +5,7 @@
     "esModuleInterop": true,
     "target": "ES2022",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "types": ["@project-gauntlet/deno"]
+    "jsx": "react-jsx"
   },
   "lib": ["ES2020"]
 }

@@ -16,7 +16,6 @@
     "js/typings",
     "js/build",
     "js/api_build",
-    "js/deno",
     "js/api",
     "js/react",
     "js/core",
