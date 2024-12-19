@@ -1,5 +1,5 @@
 use iced::window::{Level, Position, Settings};
-use iced::{window, Size, Task};
+use iced::{window, Point, Size, Task};
 use std::convert;
 use std::time::Duration;
 use crate::ui::AppMsg;
@@ -25,7 +25,9 @@ pub fn show_hud_window(
 fn open_non_wayland() -> Task<AppMsg> {
     let settings = Settings {
         size: Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT),
-        position: Position::Centered,
+        position: Position::SpecificWith(|window, screen| {
+            Point::new((screen.width - window.width) / 2.0, (screen.height - window.height) / 1.25)
+        }),
         resizable: false,
         decorations: false,
         transparent: true,
