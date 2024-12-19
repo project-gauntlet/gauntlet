@@ -75,7 +75,7 @@ pub struct AppModel {
     prompt: String,
 
     // state
-    client_context: Arc<StdRwLock<ClientContext>>,
+    client_context: ClientContext,
     global_state: GlobalState,
     search_results: Vec<SearchResult>,
     loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
@@ -116,7 +116,17 @@ pub enum AppMsg {
     PromptSubmit,
     UpdateSearchResults,
     SetSearchResults(Vec<SearchResult>),
-    ReplaceView {
+    RenderPluginUI {
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+        render_location: UiRenderLocation,
+        top_level_view: bool,
+        container: Arc<RootWidget>,
+        images: HashMap<UiWidgetId, Vec<u8>>,
+    },
+    HandleRenderPluginUI {
         top_level_view: bool,
         has_children: bool,
         render_location: UiRenderLocation,
@@ -196,7 +206,10 @@ pub enum AppMsg {
         widget_id: UiWidgetId
     },
     #[cfg(target_os = "linux")]
-    LayerShell(layer_shell::LayerShellAppMsg)
+    LayerShell(layer_shell::LayerShellAppMsg),
+    ClearInlineView {
+        plugin_id: PluginId,
+    },
 }
 
 #[cfg(target_os = "linux")]
@@ -387,7 +400,7 @@ fn new(
         None
     };
 
-    let (client_context, global_state) = if cfg!(feature = "scenario_runner") {
+    let global_state = if cfg!(feature = "scenario_runner") {
         let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
             .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
 
@@ -417,28 +430,23 @@ fn new(
                 let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
                 let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
-                let mut context = ClientContext::new();
-
                 let render_location = ui_render_location_from_scenario(render_location);
-                let has_children = container.content.is_some();
 
-                // ignore commands because screenshots are non-interactive
-                let _ = context.replace_view(
+                let msg = AppMsg::RenderPluginUI {
+                    plugin_id: plugin_id.clone(),
+                    plugin_name: "Screenshot Plugin".to_string(),
+                    entrypoint_id: entrypoint_id.clone(),
+                    entrypoint_name: "Screenshot Entrypoint".to_string(),
                     render_location,
-                    container,
-                    images,
-                    &plugin_id,
-                    "Screenshot Plugin",
-                    &entrypoint_id,
-                    "Screenshot Entrypoint",
-                );
+                    top_level_view,
+                    container: Arc::new(container),
+                    images
+                };
 
-                let context = Arc::new(StdRwLock::new(context));
+                tasks.push(Task::done(msg));
 
-                tasks.push(Task::perform(async { }, move |_| AppMsg::ReplaceView { top_level_view, has_children, render_location }));
-
-                let state= match render_location {
-                    UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique(), context.clone()),
+                match render_location {
+                    UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
                     UiRenderLocation::View => GlobalState::new_plugin(
                         PluginViewData {
                             top_level_view,
@@ -448,11 +456,8 @@ fn new(
                             entrypoint_name: gen_name,
                             action_shortcuts: Default::default(),
                         },
-                        context.clone()
                     )
-                };
-
-                (context, state)
+                }
             }
             ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
                 let error_view = ErrorViewData::PreferenceRequired {
@@ -462,7 +467,7 @@ fn new(
                     entrypoint_preferences_required,
                 };
 
-                (Arc::new(StdRwLock::new(ClientContext::new())), GlobalState::new_error(error_view))
+                GlobalState::new_error(error_view)
             }
             ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, render_location: _ } => {
                 let error_view = ErrorViewData::PluginError {
@@ -470,12 +475,11 @@ fn new(
                     entrypoint_id: EntrypointId::from_string(entrypoint_id),
                 };
 
-                (Arc::new(StdRwLock::new(ClientContext::new())), GlobalState::new_error(error_view))
+                GlobalState::new_error(error_view)
             }
         }
     } else {
-        let context = Arc::new(StdRwLock::new(ClientContext::new()));
-        (context.clone(), GlobalState::new(text_input::Id::unique(), context.clone()))
+        GlobalState::new(text_input::Id::unique())
     };
 
     (
@@ -496,7 +500,7 @@ fn new(
 
             // state
             global_state,
-            client_context,
+            client_context: ClientContext::new(),
             search_results: vec![],
             loading_bar_state: HashMap::new(),
             hud_display: None,
@@ -631,14 +635,47 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::PromptSubmit => {
-            state.global_state.primary(&state.search_results)
+            state.global_state.primary(&state.client_context, &state.search_results)
         },
         AppMsg::SetSearchResults(new_search_results) => {
             state.search_results = new_search_results;
 
             Task::none()
         }
-        AppMsg::ReplaceView { top_level_view, render_location, has_children } => {
+        AppMsg::RenderPluginUI {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+            render_location,
+            top_level_view,
+            container,
+            images
+        } => {
+            let has_children = container.content.is_some();
+
+            Task::batch([
+                Task::done(state.client_context.render_ui(
+                    render_location,
+                    container,
+                    images,
+                    &plugin_id,
+                    &plugin_name,
+                    &entrypoint_id,
+                    &entrypoint_name,
+                )),
+                Task::done(AppMsg::HandleRenderPluginUI {
+                    top_level_view,
+                    has_children,
+                    render_location,
+                })
+            ])
+        }
+        AppMsg::HandleRenderPluginUI {
+            top_level_view,
+            has_children,
+            render_location
+        } => {
             match &mut state.global_state {
                 GlobalState::MainView { pending_plugin_view_data, focused_search_result, pending_plugin_view_loading_bar, .. } => {
 
@@ -662,7 +699,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                     top_level_view,
                                     ..pending_plugin_view_data
                                 },
-                                state.client_context.clone()
                             )
                         }
                     };
@@ -697,22 +733,22 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                     tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
                     match key {
-                        Key::Named(Named::ArrowUp) => state.global_state.up(&state.search_results),
-                        Key::Named(Named::ArrowDown) => state.global_state.down(&state.search_results),
-                        Key::Named(Named::ArrowLeft) => state.global_state.left(&state.search_results),
-                        Key::Named(Named::ArrowRight) => state.global_state.right(&state.search_results),
-                        Key::Named(Named::Escape) => state.global_state.back(),
-                        Key::Named(Named::Tab) if !modifiers.shift() => state.global_state.next(),
-                        Key::Named(Named::Tab) if modifiers.shift() => state.global_state.previous(),
+                        Key::Named(Named::ArrowUp) => state.global_state.up(&state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowDown) => state.global_state.down(&state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowLeft) => state.global_state.left(&state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowRight) => state.global_state.right(&state.client_context, &state.search_results),
+                        Key::Named(Named::Escape) => state.global_state.back(&state.client_context),
+                        Key::Named(Named::Tab) if !modifiers.shift() => state.global_state.next(&state.client_context),
+                        Key::Named(Named::Tab) if modifiers.shift() => state.global_state.previous(&state.client_context),
                         Key::Named(Named::Enter) => {
                             if modifiers.logo() || modifiers.alt() || modifiers.control() {
                                 Task::none() // to avoid not wanted "enter" presses
                             } else {
                                 if modifiers.shift() {
                                     // for main view, also fired in cases where main text field is not focused
-                                    state.global_state.secondary(&state.search_results)
+                                    state.global_state.secondary(&state.client_context, &state.search_results)
                                 } else {
-                                    state.global_state.primary(&state.search_results)
+                                    state.global_state.primary(&state.client_context, &state.search_results)
                                 }
                             }
                         },
@@ -729,9 +765,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                 GlobalState::PluginView { sub_state, .. } => {
                                     match sub_state {
                                         PluginViewState::None => {
-                                            let mut client_context = state.client_context.write().expect("lock is poisoned");
-
-                                            client_context.backspace_text()
+                                            state.client_context.backspace_text()
                                         }
                                         PluginViewState::ActionPanel { .. } => Task::none()
                                     }
@@ -852,9 +886,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                                         match text {
                                                             None => Task::none(),
                                                             Some(text) => {
-                                                                let mut client_context = state.client_context.write().expect("lock is poisoned");
-
-                                                                client_context.append_text(text.as_str())
+                                                                state.client_context.append_text(text.as_str())
                                                             }
                                                         }
                                                     }
@@ -900,7 +932,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::IcedEvent(_, _) => Task::none(),
         AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::Noop, .. } => Task::none(),
-        AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => state.global_state.back(),
+        AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => state.global_state.back(&state.client_context),
         AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
             state.handle_plugin_event(widget_event, plugin_id, render_location)
         }
@@ -1020,8 +1052,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                     MainViewState::search_result_action_panel(sub_state, keyboard);
                                 }
                             } else {
-                                let client_context = state.client_context.read().expect("lock is poisoned");
-                                if let Some(_) = client_context.get_first_inline_view_container() {
+                                if let Some(_) = state.client_context.get_first_inline_view_container() {
                                     MainViewState::inline_result_action_panel(sub_state, keyboard);
                                 }
                             }
@@ -1036,9 +1067,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 GlobalState::ErrorView { .. } => { },
                 GlobalState::PluginView { sub_state, .. } => {
-                    let client_context = state.client_context.read().expect("lock is poisoned");
-
-                    client_context.toggle_action_panel();
+                    state.client_context.toggle_action_panel();
 
                     match sub_state {
                         PluginViewState::None => {
@@ -1078,9 +1107,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             ])
         }
         AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
-            let client_context = state.client_context.read().expect("lock is poisoned");
-
-            match client_context.get_first_inline_view_container() {
+            match state.client_context.get_first_inline_view_container() {
                 Some(container) => {
                     let plugin_id = container.get_plugin_id();
 
@@ -1100,13 +1127,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::done(AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
         }
         AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id } => {
-            let client_context = state.client_context.read().expect("lock is poisoned");
-
             Task::batch([
                 Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                 Task::done(AppMsg::RunPluginAction {
                     render_location: UiRenderLocation::View,
-                    plugin_id: client_context.get_view_plugin_id(),
+                    plugin_id: state.client_context.get_view_plugin_id(),
                     widget_id,
                 })
             ])
@@ -1127,9 +1152,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
-            let client_context = state.client_context.read().expect("lock is poisoned");
-
-            if let Some(container) = client_context.get_first_inline_view_container() {
+            if let Some(container) = state.client_context.get_first_inline_view_container() {
                 let plugin_id = container.get_plugin_id();
                 let action_ids = container.get_action_ids();
 
@@ -1172,11 +1195,9 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::OnAnyActionPluginViewAnyPanel { widget_id } => {
-            let client_context = state.client_context.read().expect("lock is poisoned");
-
             Task::done(AppMsg::RunPluginAction {
                 render_location: UiRenderLocation::View,
-                plugin_id: client_context.get_view_plugin_id(),
+                plugin_id: state.client_context.get_view_plugin_id(),
                 widget_id,
             })
         }
@@ -1187,9 +1208,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             state.close_plugin_view(plugin_id)
         }
         AppMsg::InlineViewShortcuts { shortcuts } => {
-            let mut client_context = state.client_context.write().expect("lock is poisoned");
-
-            client_context.set_inline_view_shortcuts(shortcuts);
+            state.client_context.set_inline_view_shortcuts(shortcuts);
 
             Task::none()
         }
@@ -1288,13 +1307,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::FocusPluginViewSearchBar { widget_id } => {
-            let mut client_context = state.client_context.write().expect("lock is poisoned");
-
-            client_context.focus_search_bar(widget_id)
+            state.client_context.focus_search_bar(widget_id)
         }
         #[cfg(target_os = "linux")]
         AppMsg::LayerShell(_) => {
             // handled by library
+            Task::none()
+        }
+        AppMsg::ClearInlineView { plugin_id } => {
+            state.client_context.clear_inline_view(&plugin_id);
+
             Task::none()
         }
     }
@@ -1603,9 +1625,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     .into()
             };
 
-            let client_context = state.client_context.read().expect("lock is poisoned");
-
-            let inline_view = match client_context.get_all_inline_view_containers().first() {
+            let inline_view = match state.client_context.get_all_inline_view_containers().first() {
                 Some((plugin_id, container)) => {
                     let plugin_id = plugin_id.clone();
                     container.render_inline_root_widget()
@@ -1688,9 +1708,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     (Some((label, primary_action_widget_id, default_shortcut)), Some(action_panel))
                 }
             } else {
-                let client_context = state.client_context.read().expect("lock is poisoned");
-
-                match client_context.get_first_inline_view_action_panel() {
+                match state.client_context.get_first_inline_view_action_panel() {
                     None => (None, None),
                     Some(action_panel) => {
                         match action_panel.find_first() {
@@ -1781,8 +1799,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
         GlobalState::PluginView { plugin_view_data, sub_state, ..  } => {
             let PluginViewData { plugin_id, action_shortcuts, .. } = plugin_view_data;
 
-            let client_context = state.client_context.read().expect("lock is poisoned");
-            let view_container = client_context.get_view_container();
+            let view_container = state.client_context.get_view_container();
 
             let container_element = view_container
                 .render_root_widget(sub_state, action_shortcuts)
@@ -1805,7 +1822,6 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 }
 
 fn subscription(state: &AppModel) -> Subscription<AppMsg> {
-    let client_context = state.client_context.clone();
     let frontend_receiver = state.frontend_receiver.clone();
 
     struct RequestLoop;
@@ -1839,7 +1855,7 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
             stream::channel(
                 100,
                 |sender| async move {
-                    request_loop(client_context, frontend_receiver, sender).await;
+                    request_loop(frontend_receiver, sender).await;
 
                     panic!("request_rx was unexpectedly closed")
                 },
@@ -1922,11 +1938,9 @@ impl AppModel {
     fn reset_window_state(&mut self) -> Task<AppMsg> {
         self.prompt = "".to_string();
 
-        let mut client_context = self.client_context.write().expect("lock is poisoned");
+        self.client_context.clear_all_inline_views();
 
-        client_context.clear_all_inline_views();
-
-        GlobalState::initial(&mut self.global_state, self.client_context.clone())
+        GlobalState::initial(&mut self.global_state)
     }
 
     fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
@@ -1975,14 +1989,10 @@ impl AppModel {
 
     fn handle_plugin_event(&self, widget_event: ComponentWidgetEvent, plugin_id: PluginId, render_location: UiRenderLocation) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
-        let client_context = self.client_context.clone();
+
+        let event = self.client_context.handle_event(render_location, &plugin_id, widget_event.clone());
 
         Task::perform(async move {
-            let event = {
-                let client_context = client_context.read().expect("lock is poisoned");
-                client_context.handle_event(render_location, &plugin_id, widget_event.clone())
-            };
-
             if let Some(event) = event {
                 match event {
                     UiViewEvent::View { widget_id, event_name, event_arguments } => {
@@ -2028,8 +2038,7 @@ impl AppModel {
         let mut backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
-            let client_context = self.client_context.read().expect("lock is poisoned");
-            (client_context.get_view_plugin_id(), client_context.get_view_entrypoint_id())
+            (self.client_context.get_view_plugin_id(), self.client_context.get_view_entrypoint_id())
         };
 
         Task::perform(
@@ -2047,8 +2056,7 @@ impl AppModel {
         let mut backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
-            let client_context = self.client_context.read().expect("lock is poisoned");
-            match client_context.get_first_inline_view_container() {
+            match self.client_context.get_first_inline_view_container() {
                 None => {
                     return Task::none()
                 },
@@ -2136,7 +2144,6 @@ fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, conver
 }
 
 async fn request_loop(
-    client_context: Arc<StdRwLock<ClientContext>>,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     mut sender: Sender<AppMsg>,
 ) {
@@ -2144,7 +2151,7 @@ async fn request_loop(
     loop {
         let (request_data, responder) = frontend_receiver.recv().await;
 
-        let app_msgs = {
+        let app_msg = {
             match request_data {
                 UiRequestData::ReplaceView {
                     plugin_id,
@@ -2156,48 +2163,30 @@ async fn request_loop(
                     container,
                     images
                 } => {
-                    let has_children = container.content.is_some();
-
-                    let message = {
-                        let mut client_context = client_context.write().expect("lock is poisoned");
-
-                        client_context.replace_view(
-                            render_location,
-                            container,
-                            images,
-                            &plugin_id,
-                            &plugin_name,
-                            &entrypoint_id,
-                            &entrypoint_name
-                        )
-                    };
-
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![
-                        AppMsg::ReplaceView {
-                            top_level_view,
-                            has_children,
-                            render_location,
-                        },
-                        message
-                    ]
+                    AppMsg::RenderPluginUI {
+                        plugin_id,
+                        plugin_name,
+                        entrypoint_id,
+                        entrypoint_name,
+                        render_location,
+                        top_level_view,
+                        container: Arc::new(container),
+                        images
+                    }
                 }
                 UiRequestData::ClearInlineView { plugin_id } => {
-                    {
-                        let mut client_context = client_context.write().expect("lock is poisoned");
-
-                        client_context.clear_inline_view(&plugin_id);
-                    }
-
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::Noop] // refresh ui
+                    AppMsg::ClearInlineView {
+                        plugin_id
+                    }
                 }
                 UiRequestData::ShowWindow => {
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::ShowWindow]
+                    AppMsg::ShowWindow
                 }
                 UiRequestData::ShowPreferenceRequiredView {
                     plugin_id,
@@ -2207,54 +2196,52 @@ async fn request_loop(
                 } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::ShowPreferenceRequiredView {
+                    AppMsg::ShowPreferenceRequiredView {
                         plugin_id,
                         entrypoint_id,
                         plugin_preferences_required,
                         entrypoint_preferences_required
-                    }]
+                    }
                 }
                 UiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::ShowPluginErrorView {
+                    AppMsg::ShowPluginErrorView {
                         plugin_id,
                         entrypoint_id,
                         render_location,
-                    }]
+                    }
                 }
                 UiRequestData::RequestSearchResultUpdate => {
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::UpdateSearchResults]
+                    AppMsg::UpdateSearchResults
                 }
                 UiRequestData::ShowHud { display } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::ShowHud {
+                    AppMsg::ShowHud {
                         display
-                    }]
+                    }
                 }
                 UiRequestData::SetGlobalShortcut { shortcut } => {
-                    vec![AppMsg::SetGlobalShortcut {
+                    AppMsg::SetGlobalShortcut {
                         shortcut,
                         responder: Arc::new(Mutex::new(Some(responder)))
-                    }]
+                    }
                 }
                 UiRequestData::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    vec![AppMsg::UpdateLoadingBar {
+                    AppMsg::UpdateLoadingBar {
                         plugin_id,
                         entrypoint_id,
                         show
-                    }]
+                    }
                 }
             }
         };
 
-        for app_msg in app_msgs {
-            let _ = sender.send(app_msg).await;
-        }
+        let _ = sender.send(app_msg).await;
     }
 }

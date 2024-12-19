@@ -11,7 +11,6 @@ use iced::widget::text_input;
 use iced::widget::text_input::focus;
 use iced::Task;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock as StdRwLock};
 
 pub enum GlobalState {
     MainView {
@@ -22,7 +21,6 @@ pub enum GlobalState {
         focused_search_result: ScrollHandle<SearchResult>,
 
         // state
-        client_context: Arc<StdRwLock<ClientContext>>,
         sub_state: MainViewState,
         pending_plugin_view_data: Option<PluginViewData>,
         pending_plugin_view_loading_bar: LoadingBarState,
@@ -31,9 +29,6 @@ pub enum GlobalState {
         error_view: ErrorViewData,
     },
     PluginView {
-        // logic
-        client_context: Arc<StdRwLock<ClientContext>>,
-
         // state
         plugin_view_data: PluginViewData,
         sub_state: PluginViewState,
@@ -76,13 +71,12 @@ pub enum LoadingBarState {
 
 
 impl GlobalState {
-    pub fn new(search_field_id: text_input::Id, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
+    pub fn new(search_field_id: text_input::Id) -> GlobalState {
         GlobalState::MainView {
             search_field_id,
             focused_search_result: ScrollHandle::new(true, ESTIMATED_MAIN_LIST_ITEM_HEIGHT, 7),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
-            client_context,
             pending_plugin_view_loading_bar: LoadingBarState::Off,
         }
     }
@@ -93,22 +87,21 @@ impl GlobalState {
         }
     }
 
-    pub fn new_plugin(plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> GlobalState {
+    pub fn new_plugin(plugin_view_data: PluginViewData) -> GlobalState {
         GlobalState::PluginView {
-            client_context,
             plugin_view_data,
             sub_state: PluginViewState::new(),
         }
     }
 
-    pub fn initial(prev_global_state: &mut GlobalState, client_context: Arc<StdRwLock<ClientContext>>) -> Task<AppMsg> {
+    pub fn initial(prev_global_state: &mut GlobalState) -> Task<AppMsg> {
         let search_field_id = text_input::Id::unique();
 
-        *prev_global_state = GlobalState::new(search_field_id.clone(), client_context);
+        *prev_global_state = GlobalState::new(search_field_id.clone());
 
         Task::batch([
             focus(search_field_id),
-            Task::perform(async {}, |_| AppMsg::UpdateSearchResults),
+            Task::done(AppMsg::UpdateSearchResults),
         ])
     }
 
@@ -118,27 +111,27 @@ impl GlobalState {
         Task::none()
     }
 
-    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData, client_context: Arc<StdRwLock<ClientContext>>) -> Task<AppMsg> {
-        *prev_global_state = GlobalState::new_plugin(plugin_view_data, client_context);
+    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData) -> Task<AppMsg> {
+        *prev_global_state = GlobalState::new_plugin(plugin_view_data);
 
         Task::none()
     }
 }
 
 pub trait Focus<T> {
-    fn primary(&mut self, focus_list: &[T]) -> Task<AppMsg>;
-    fn secondary(&mut self, focus_list: &[T]) -> Task<AppMsg>;
-    fn back(&mut self) -> Task<AppMsg>;
-    fn next(&mut self) -> Task<AppMsg>;
-    fn previous(&mut self) -> Task<AppMsg>;
-    fn up(&mut self, focus_list: &[T]) -> Task<AppMsg>;
-    fn down(&mut self, focus_list: &[T]) -> Task<AppMsg>;
-    fn left(&mut self, focus_list: &[T]) -> Task<AppMsg>;
-    fn right(&mut self, focus_list: &[T]) -> Task<AppMsg>;
+    fn primary(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn secondary(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn back(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
+    fn next(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
+    fn previous(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
+    fn up(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn down(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn left(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn right(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
 }
 
 impl Focus<SearchResult> for GlobalState {
-    fn primary(&mut self, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn primary(&mut self, client_context: &ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -173,9 +166,7 @@ impl Focus<SearchResult> for GlobalState {
                     }
                 }
             }
-            GlobalState::PluginView { sub_state, client_context, .. } => {
-                let client_context = client_context.read().expect("lock is poisoned");
-
+            GlobalState::PluginView { sub_state, .. } => {
                 let action_ids = client_context.get_action_ids();
 
                 match sub_state {
@@ -201,7 +192,7 @@ impl Focus<SearchResult> for GlobalState {
         }
     }
 
-    fn secondary(&mut self, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn secondary(&mut self, client_context: &ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -219,9 +210,7 @@ impl Focus<SearchResult> for GlobalState {
                     }
                 }
             }
-            GlobalState::PluginView { sub_state, client_context, .. } => {
-                let client_context = client_context.read().expect("lock is poisoned");
-
+            GlobalState::PluginView { sub_state, .. } => {
                 let action_ids = client_context.get_action_ids();
 
                 match sub_state {
@@ -243,7 +232,7 @@ impl Focus<SearchResult> for GlobalState {
         }
     }
 
-    fn back(&mut self) -> Task<AppMsg> {
+    fn back(&mut self, _client_context: &ClientContext) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { sub_state, .. } => {
                 match sub_state {
@@ -268,7 +257,6 @@ impl Focus<SearchResult> for GlobalState {
                     ..
                 },
                 sub_state,
-                client_context,
                 ..
             } => {
                 match sub_state {
@@ -276,11 +264,9 @@ impl Focus<SearchResult> for GlobalState {
                         if *top_level_view {
                             let plugin_id = plugin_id.clone();
 
-                            let client_context = client_context.clone();
-
                             Task::batch([
                                 Task::done(AppMsg::ClosePluginView(plugin_id)),
-                                GlobalState::initial(self, client_context)
+                                GlobalState::initial(self)
                             ])
                         } else {
                             let plugin_id = plugin_id.clone();
@@ -298,21 +284,21 @@ impl Focus<SearchResult> for GlobalState {
             }
         }
     }
-    fn next(&mut self) -> Task<AppMsg> {
+    fn next(&mut self, _client_context: &ClientContext) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Task::none(),
             GlobalState::PluginView { .. } => Task::none(),
             GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn previous(&mut self) -> Task<AppMsg> {
+    fn previous(&mut self, _client_context: &ClientContext) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { .. } => Task::none(),
             GlobalState::PluginView { .. } => Task::none(),
             GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn up(&mut self, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn up(&mut self, client_context: &ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -331,11 +317,9 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Task::none(),
-            GlobalState::PluginView { sub_state, client_context, .. } => {
+            GlobalState::PluginView { sub_state, .. } => {
                 match sub_state {
                     PluginViewState::None => {
-                        let client_context = client_context.read().expect("lock is poisoned");
-
                         client_context.focus_up()
                     },
                     PluginViewState::ActionPanel { focused_action_item } => {
@@ -346,9 +330,9 @@ impl Focus<SearchResult> for GlobalState {
             },
         }
     }
-    fn down(&mut self, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn down(&mut self, client_context: &ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
-            GlobalState::MainView { focused_search_result, sub_state, client_context, .. } => {
+            GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
                         if focus_list.len() != 0 {
@@ -371,8 +355,6 @@ impl Focus<SearchResult> for GlobalState {
                         }
                     }
                     MainViewState::InlineViewActionPanel { focused_action_item } => {
-                        let client_context = client_context.read().expect("lock is poisoned");
-
                         match client_context.get_first_inline_view_action_panel() {
                             Some(action_panel) => {
                                 if action_panel.action_count() != 0 {
@@ -388,16 +370,12 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Task::none(),
-            GlobalState::PluginView { sub_state, client_context, .. } => {
+            GlobalState::PluginView { sub_state, .. } => {
                 match sub_state {
                     PluginViewState::None => {
-                        let client_context = client_context.read().expect("lock is poisoned");
-
                         client_context.focus_down()
                     },
                     PluginViewState::ActionPanel { focused_action_item } => {
-                        let client_context = client_context.read().expect("lock is poisoned");
-
                         let action_ids = client_context.get_action_ids();
 
                         if action_ids.len() != 0 {
@@ -411,13 +389,11 @@ impl Focus<SearchResult> for GlobalState {
             }
         }
     }
-    fn left(&mut self, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn left(&mut self, client_context: &ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
-            GlobalState::PluginView { client_context, sub_state, .. } => {
+            GlobalState::PluginView { sub_state, .. } => {
                 match sub_state {
                     PluginViewState::None => {
-                        let client_context = client_context.read().expect("lock is poisoned");
-
                         client_context.focus_left()
                     }
                     PluginViewState::ActionPanel { .. } => Task::none()
@@ -427,13 +403,11 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn right(&mut self, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn right(&mut self, client_context: &ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
-            GlobalState::PluginView { client_context, sub_state, .. } => {
+            GlobalState::PluginView { sub_state, .. } => {
                 match sub_state {
                     PluginViewState::None => {
-                        let client_context = client_context.read().expect("lock is poisoned");
-
                         client_context.focus_right()
                     }
                     PluginViewState::ActionPanel { .. } => Task::none()

@@ -7,12 +7,13 @@ use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidg
 use std::collections::HashMap;
 use std::mem;
 use std::ops::DerefMut;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use iced::Task;
 use crate::ui::AppMsg;
 
 pub struct PluginWidgetContainer {
-    root_widget: Arc<Mutex<Option<RootWidget>>>,
+    root_widget: Arc<Mutex<Option<Arc<RootWidget>>>>,
     state: Arc<Mutex<HashMap<UiWidgetId, ComponentWidgetState>>>,
     images: HashMap<UiWidgetId, Vec<u8>>,
     plugin_id: Option<PluginId>,
@@ -44,7 +45,7 @@ impl PluginWidgetContainer {
 
     pub fn replace_view(
         &mut self,
-        container: RootWidget,
+        container: Arc<RootWidget>,
         images: HashMap<UiWidgetId, Vec<u8>>,
         plugin_id: &PluginId,
         plugin_name: &str,

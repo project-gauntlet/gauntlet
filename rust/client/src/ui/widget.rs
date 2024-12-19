@@ -32,18 +32,18 @@ use itertools::Itertools;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
-
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ComponentWidgets<'b> {
-    root_widget: &'b mut Option<RootWidget>,
+    root_widget: &'b mut Option<Arc<RootWidget>>,
     state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
     images: &'b HashMap<UiWidgetId, Vec<u8>>
 }
 
 impl<'b> ComponentWidgets<'b> {
     pub fn new(
-        root_widget: &'b mut Option<RootWidget>,
+        root_widget: &'b mut Option<Arc<RootWidget>>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
         images: &'b HashMap<UiWidgetId, Vec<u8>>
     ) -> ComponentWidgets<'b> {

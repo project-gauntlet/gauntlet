@@ -5,6 +5,7 @@ use crate::ui::AppMsg;
 use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
 use iced::Task;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub struct ClientContext {
     inline_views: Vec<(PluginId, PluginWidgetContainer)>, // Vec to have stable ordering
@@ -75,10 +76,10 @@ impl ClientContext {
         self.view.get_entrypoint_id()
     }
 
-    pub fn replace_view(
+    pub fn render_ui(
         &mut self,
         render_location: UiRenderLocation,
-        container: RootWidget,
+        container: Arc<RootWidget>,
         images: HashMap<UiWidgetId, Vec<u8>>,
         plugin_id: &PluginId,
         plugin_name: &str,
