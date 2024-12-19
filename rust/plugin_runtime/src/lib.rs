@@ -211,9 +211,14 @@ async fn message_loop(
             JsMessage::Event(event) => {
                 tracing::trace!("Received plugin event from backend {:?}", event);
 
-                event_sender
-                    .send(event)
-                    .await?;
+                let event_sender = event_sender.clone();
+
+                tokio::spawn(async move {
+                    event_sender
+                        .send(event)
+                        .await
+                        .expect("event receiver was dropped");
+                });
 
                 Ok(())
             }
@@ -227,7 +232,7 @@ async fn message_loop(
                                 tracing::error!("Dropped oneshot receiving side");
                             }
                             Ok(_) => {
-                                tracing::trace!("Sending oneshot response...");
+                                tracing::trace!("Oneshot response sent");
                             }
                         }
                     }

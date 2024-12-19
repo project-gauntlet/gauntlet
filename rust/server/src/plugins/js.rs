@@ -415,6 +415,8 @@ async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &Backend
                 Ok(response) => {
                     let mut send = send.lock().await;
 
+                    tracing::trace!("Sending request response: {:?}", response);
+
                     send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Ok(response))).await?;
 
                     Ok(())
