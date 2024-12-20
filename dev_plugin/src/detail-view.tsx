@@ -4,9 +4,10 @@ import { Action, ActionPanel, Detail, Icons } from "@project-gauntlet/api/compon
 import { useNavigation } from "@project-gauntlet/api/hooks";
 import { Clipboard, entrypointPreferences, pluginPreferences } from "@project-gauntlet/api/helpers";
 
-async function readFile(url: string): Promise<Blob> {
+async function readFile(url: string): Promise<ArrayBuffer> {
     const res = await fetch(url);
-    return await res.blob();
+    const blob = await res.blob();
+    return await blob.arrayBuffer();
 }
 
 interface DetailViewEntrypointConfig {

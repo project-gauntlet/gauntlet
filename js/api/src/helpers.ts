@@ -51,17 +51,17 @@ export type GeneratorProps = {
 };
 
 export const Clipboard: Clipboard = {
-    read: async function (): Promise<{ "text/plain"?: string | undefined; "image/png"?: Blob | undefined; }> {
+    read: async function (): Promise<{ "text/plain"?: string | undefined; "image/png"?: ArrayBuffer | undefined; }> {
         const data = await clipboard_read();
 
-        const result: { "text/plain"?: string; "image/png"?: Blob; } = {};
+        const result: { "text/plain"?: string; "image/png"?: ArrayBuffer; } = {};
 
         if (data.text_data) {
             result["text/plain"] = data.text_data;
         }
 
         if (data.png_data) {
-            result["image/png"] = data.png_data;  // TODO arraybuffer? fix when migrating to deno's op2
+            result["image/png"] = new Uint8Array(data.png_data).buffer;
         }
 
         return result
@@ -69,13 +69,21 @@ export const Clipboard: Clipboard = {
     readText: async function (): Promise<string | undefined> {
         return await clipboard_read_text()
     },
-    write: async function (data: { "text/plain"?: string | undefined; "image/png"?: Blob | undefined; }): Promise<void> {
+    write: async function (data: { "text/plain"?: string | undefined; "image/png"?: ArrayBuffer | undefined; }): Promise<void> {
         const text_data = data["text/plain"];
         const png_data = data["image/png"];
-        return await clipboard_write({
-            text_data: text_data,
-            png_data: png_data != undefined ? Array.from(new Uint8Array(png_data as any)) : undefined, // TODO arraybuffer? fix when migrating to deno's op2
-        })
+
+        const write_data: { text_data?: string, png_data?: number[] } = {};
+
+        if (text_data) {
+            write_data.text_data = text_data;
+        }
+
+        if (png_data) {
+            write_data.png_data = Array.from(new Uint8Array(png_data));
+        }
+
+        return await clipboard_write(write_data)
     },
     writeText: async function (data: string): Promise<void> {
         return await clipboard_write_text(data)
@@ -86,9 +94,9 @@ export const Clipboard: Clipboard = {
 }
 
 export interface Clipboard {
-    read(): Promise<{ ["text/plain"]?: string, ["image/png"]?: Blob }>;
+    read(): Promise<{ ["text/plain"]?: string, ["image/png"]?: ArrayBuffer }>;
     readText(): Promise<string | undefined>;
-    write(data: { ["text/plain"]?: string, ["image/png"]?: Blob }): Promise<void>;
+    write(data: { ["text/plain"]?: string, ["image/png"]?: ArrayBuffer }): Promise<void>;
     writeText(data: string): Promise<void>;
     clear(): Promise<void>;
 }

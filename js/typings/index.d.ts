@@ -206,7 +206,7 @@ declare module "ext:core/ops" {
 
     function fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string | undefined>;
 
-    function clipboard_read(): Promise<{ text_data?: string, png_data?: Blob }>;
+    function clipboard_read(): Promise<{ text_data?: string, png_data?: number[] }>;
     function clipboard_read_text(): Promise<string | undefined>;
     function clipboard_write(data: { text_data?: string, png_data?: number[] }): Promise<void>;
     function clipboard_write_text(data: string): Promise<void>;

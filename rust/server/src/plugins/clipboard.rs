@@ -135,11 +135,7 @@ impl Clipboard {
 }
 
 fn unknown_err_clipboard(err: arboard::Error) -> Error {
-    anyhow!("UNKNOWN_ERROR: {:?}", err)
-}
-
-fn unknown_err_image(err: image::ImageError) -> Error {
-    anyhow!("UNKNOWN_ERROR: {:?}", err)
+    anyhow!("UNKNOWN_ERROR: {}", err)
 }
 
 fn unable_to_convert_image_err() -> Error {

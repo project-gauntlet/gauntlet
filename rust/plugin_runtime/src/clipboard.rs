@@ -50,7 +50,7 @@ pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<
 }
 
 #[op2(async)]
-pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: JSClipboardData) -> anyhow::Result<()> { // TODO deserialization broken, fix when migrating to deno's op2
+pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: JSClipboardData) -> anyhow::Result<()> {
     let api = {
         let state = state.borrow();
 
