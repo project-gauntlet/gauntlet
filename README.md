@@ -185,9 +185,15 @@ To start `systemd` service run:
 systemctl --user enable --now gauntlet.service
 ```
 
+#### Nix
+
+The nix flake in this repository is community maintained. If you face a problem, please create an issue and hopefully somebody will work on it.
+
+To install, you either know what to do, or you can read more [here](nix/README.md).
+
 #### Other Linux Distributions
 
-At the moment application is only available for Arch Linux. If you want to create a package for other distributions see [Application packaging for Linux](#application-packaging-for-Linux)
+At the moment application is only available for Arch Linux and Nix. If you want to create a package for other distributions see [Application packaging for Linux](#application-packaging-for-Linux)
 
 ### Global Shortcut
 Main window can be opened using global shortcut or CLI command:
@@ -367,7 +373,7 @@ This section contains a list of things
 that could be useful for someone who wants to package application for Linux distribution.
 If something is missing, please [create an issue](https://github.com/project-gauntlet/gauntlet/issues).
 
-Application is already packaged for Arch Linux so you can use it as example, see [Arch Linux](#arch-linux)
+Application is already packaged for [Arch Linux](#arch-linux) and [Nix](#nix) so you can use them as examples.
 
 Relevant CLI commands:
 
