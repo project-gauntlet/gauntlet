@@ -54,7 +54,7 @@ async function runScenarios(expectedPlugin: string | undefined) {
             stdio: "inherit",
             cwd: projectRoot,
             env: Object.assign(process.env, {
-                RUST_LOG: "server=info",
+                RUST_LOG: "gauntlet-server=INFO",
                 GAUNTLET_SCENARIO_RUNNER_TYPE: "scenario_runner",
                 GAUNTLET_SCENARIOS_DIR: scenarios,
                 GAUNTLET_SCENARIO_PLUGIN_NAME: pluginName,
@@ -120,7 +120,7 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                     stdio: "inherit",
                     cwd: projectRoot,
                     env: Object.assign(process.env, {
-                        RUST_LOG: "client=info",
+                        RUST_LOG: "gauntlet-client=INFO",
                         GAUNTLET_SCENARIO_RUNNER_TYPE: "screenshot_gen",
                         GAUNTLET_SCREENSHOT_GEN_IN: scenarioFile,
                         GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out-screenshot", plugin, entrypoint, scenarioName + ".png"),

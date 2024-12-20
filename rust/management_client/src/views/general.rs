@@ -1,8 +1,8 @@
 use crate::components::shortcut_selector::ShortcutSelector;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
-use common::model::PhysicalShortcut;
-use common::rpc::backend_api::{BackendApi, BackendApiError};
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 use iced::alignment::Horizontal;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;

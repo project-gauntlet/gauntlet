@@ -1,4 +1,4 @@
-use common::model::{UiPropertyValue, UiWidgetId};
+use gauntlet_common::model::{UiPropertyValue, UiWidgetId};
 use crate::ui::AppMsg;
 
 #[derive(Debug, Clone)]

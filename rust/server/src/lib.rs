@@ -1,13 +1,13 @@
 use std::rc::Rc;
 use std::sync::Arc;
 use vergen_pretty::vergen_pretty_env;
-use client::{open_window, start_client};
-use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
-use common::rpc::backend_api::BackendApi;
-use common::rpc::backend_server::start_backend_server;
-use common::{settings_env_data_from_string, settings_env_data_to_string, SettingsEnvData};
-use plugin_runtime::run_plugin_runtime;
-use utils::channel::{channel, RequestReceiver, RequestSender};
+use gauntlet_client::{open_window, start_client};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
+use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_server::start_backend_server;
+use gauntlet_common::{settings_env_data_from_string, settings_env_data_to_string, SettingsEnvData};
+use gauntlet_plugin_runtime::run_plugin_runtime;
+use gauntlet_utils::channel::{channel, RequestReceiver, RequestSender};
 use crate::plugins::ApplicationManager;
 use crate::rpc::BackendServerImpl;
 use crate::search::SearchIndex;
@@ -123,7 +123,7 @@ fn start_frontend_mock(
         .build()
         .expect("unable to start frontend mock tokio runtime")
         .block_on(async {
-            scenario_runner::run_scenario_runner_frontend_mock(request_receiver, backend_sender).await
+            gauntlet_scenario_runner::run_scenario_runner_frontend_mock(request_receiver, backend_sender).await
         })
         .unwrap();
 }

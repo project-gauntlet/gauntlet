@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use common::model::PluginId;
+use gauntlet_common::model::PluginId;
 
 pub struct PluginData {
     plugin_id: PluginId,

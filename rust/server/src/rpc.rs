@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use common::{settings_env_data_to_string, SettingsEnvData};
-use common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut, LocalSaveData};
-use common::rpc::backend_server::BackendServer;
+use gauntlet_common::{settings_env_data_to_string, SettingsEnvData};
+use gauntlet_common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut, LocalSaveData};
+use gauntlet_common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
 use crate::search::SearchIndex;

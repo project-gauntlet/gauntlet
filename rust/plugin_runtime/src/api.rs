@@ -1,9 +1,9 @@
 use crate::model::{JsAdditionalSearchItem, JsClipboardData, JsPreferenceUserData};
 use crate::{JsRequest, JsResponse, JsUiRenderLocation};
-use common::model::{EntrypointId, RootWidget, UiRenderLocation};
+use gauntlet_common::model::{EntrypointId, RootWidget, UiRenderLocation};
 use std::collections::HashMap;
 use anyhow::anyhow;
-use utils::channel::RequestSender;
+use gauntlet_utils::channel::RequestSender;
 
 #[allow(async_fn_in_trait)]
 pub trait BackendForPluginRuntimeApi {

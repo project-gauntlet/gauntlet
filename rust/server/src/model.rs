@@ -1,4 +1,4 @@
-use common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, UiPropertyValue, UiWidgetId};
+use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, UiPropertyValue, UiWidgetId};
 
 
 #[derive(Debug)]

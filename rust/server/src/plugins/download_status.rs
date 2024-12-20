@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use common::model::{DownloadStatus, PluginId};
+use gauntlet_common::model::{DownloadStatus, PluginId};
 
 pub struct DownloadStatusHolder {
     running_downloads: Arc<Mutex<HashMap<PluginId, DownloadStatus>>>

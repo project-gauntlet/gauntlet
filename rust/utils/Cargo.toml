@@ -1,8 +1,7 @@
 [package]
-name = "utils"
-edition = "2021"
+name = "gauntlet-utils"
+edition.workspace = true
 
 [dependencies]
-tokio = "1.28.1"
-thiserror = "1.0.48"
-log = "0.4.22"
+tokio.workspace = true
+thiserror.workspace = true

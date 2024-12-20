@@ -203,7 +203,7 @@ impl container::Catalog for GauntletComplexTheme {
                 Style {
                     background: Some(panel_theme.background_color.to_iced().into()),
                     border: Border {
-                        radius: common_ui::radius(0.0, 0.0, root_theme.border_radius, root_theme.border_radius),
+                        radius: gauntlet_common_ui::radius(0.0, 0.0, root_theme.border_radius, root_theme.border_radius),
                         width: root_theme.border_width,
                         color: root_theme.border_color.to_iced(),
                     },
@@ -261,7 +261,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::ActionShortcutModifiersInit => {
                 let horizontal_spacing = theme.action_shortcut_modifier.spacing;
-                self.padding(common_ui::padding(0.0, horizontal_spacing, 0.0, 0.0))
+                self.padding(gauntlet_common_ui::padding(0.0, horizontal_spacing, 0.0, 0.0))
             }
             ContainerStyle::ActionPanel => {
                 self.class(ContainerStyleInner::ActionPanel)
@@ -406,14 +406,14 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
                 self.padding(theme.root_bottom_panel_primary_action_text.padding.to_iced())
             }
             ContainerStyle::RootBottomPanelPrimaryActionButton => {
-                self.padding(common_ui::padding(0.0, theme.root_bottom_panel.spacing, 0.0, 0.0))
+                self.padding(gauntlet_common_ui::padding(0.0, theme.root_bottom_panel.spacing, 0.0, 0.0))
             }
             ContainerStyle::TextAccessory => {
                 self.padding(theme.text_accessory.padding.to_iced())
             }
             ContainerStyle::TextAccessoryIcon => {
                 let horizontal_spacing = theme.text_accessory.spacing;
-                self.padding(common_ui::padding(0.0, horizontal_spacing, 0.0, 0.0))
+                self.padding(gauntlet_common_ui::padding(0.0, horizontal_spacing, 0.0, 0.0))
             }
             ContainerStyle::IconAccessory => {
                 self.padding(theme.icon_accessory.padding.to_iced())

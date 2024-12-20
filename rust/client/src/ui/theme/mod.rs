@@ -4,7 +4,7 @@ use iced::{application, Color, Padding};
 use iced::application::DefaultStyle;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use common::dirs::Dirs;
+use gauntlet_common::dirs::Dirs;
 
 pub mod button;
 pub mod text_input;

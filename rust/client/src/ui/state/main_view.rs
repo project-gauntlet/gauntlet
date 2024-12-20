@@ -1,5 +1,5 @@
 use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
-use common::model::{SearchResultEntrypointAction, UiWidgetId};
+use gauntlet_common::model::{SearchResultEntrypointAction, UiWidgetId};
 
 pub enum MainViewState {
     None,

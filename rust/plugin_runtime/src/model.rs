@@ -1,5 +1,5 @@
 use crate::JsEvent;
-use common::model::{EntrypointId, PluginId, RootWidget};
+use gauntlet_common::model::{EntrypointId, PluginId, RootWidget};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;

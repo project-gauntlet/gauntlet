@@ -16,7 +16,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
-use common::model::PluginId;
+use gauntlet_common::model::PluginId;
 use crate::api::BackendForPluginRuntimeApiProxy;
 use crate::assets::{asset_data, asset_data_blocking};
 use crate::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};

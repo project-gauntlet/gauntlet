@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use common::dirs::Dirs;
+use gauntlet_common::dirs::Dirs;
 
 #[derive(Clone)]
 pub struct IconCache {

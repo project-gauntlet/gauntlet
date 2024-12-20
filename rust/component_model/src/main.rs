@@ -1,6 +1,6 @@
 use std::{env, fs};
 use anyhow::anyhow;
-use component_model::create_component_model;
+use gauntlet_component_model::create_component_model;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();

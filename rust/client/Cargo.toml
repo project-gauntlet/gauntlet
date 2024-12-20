@@ -1,38 +1,39 @@
 [package]
-name = "client"
-edition = "2021"
+name = "gauntlet-client"
+edition.workspace = true
 
 [dependencies]
-tokio = "1.28.1"
-anyhow = { version = "1", features = ["backtrace"] }
-thiserror = "1"
+# workspaces
+gauntlet-common.workspace = true
+gauntlet-common-ui.workspace = true
+gauntlet-utils.workspace = true
+gauntlet-component-model.workspace = true
+
+# shared
+tokio.workspace = true
+anyhow.workspace = true
 iced.workspace = true
 iced_aw.workspace = true
 iced_fonts.workspace = true
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-common = { path = "../common" }
-common-ui = { path = "../common_ui" }
-utils = { path = "../utils" }
-tonic = "0.11.0"
-itertools = "0.12.1"
-component_model = { path = "../component_model" }
-image = "0.25"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-once_cell = "1.19"
-bytes = "1.6.0"
-global-hotkey = "0.4.2"
+tracing.workspace = true
+itertools.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+image.workspace = true
+once_cell.workspace = true
+
+# other
+global-hotkey = "0.6.3"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-tray-icon = { version = "0.15.1", default-features = false }
+tray-icon = { version = "0.19.2", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 iced_layershell.workspace = true
 
 [build-dependencies]
-component_model = { path = "../component_model" }
-anyhow = { version = "1", features = ["backtrace"] }
+gauntlet-component-model.workspace = true
+anyhow.workspace = true
 convert_case = "0.6.0"
 
 [features]

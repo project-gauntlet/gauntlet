@@ -3,7 +3,7 @@ use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
 use crate::views::plugins::PluginPreferenceUserDataState;
-use common::model::{EntrypointId, PluginId, PluginPreference};
+use gauntlet_common::model::{EntrypointId, PluginId, PluginPreference};
 use iced::widget::{button, checkbox, column, container, pick_list, row, text, text_input};
 use iced::{padding, widget, Length, Padding};
 use iced_aw::number_input;

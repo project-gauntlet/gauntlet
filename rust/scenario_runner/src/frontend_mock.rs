@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::Path;
 
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, PluginId, UiRequestData, UiResponseData};
-use common::rpc::backend_api::{BackendApi, BackendForFrontendApi};
-use common::rpc::backend_server::wait_for_backend_server;
-use common::scenario_convert::{ui_render_location_to_scenario};
-use common::scenario_model::ScenarioFrontendEvent;
-use utils::channel::{RequestReceiver, RequestSender};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, PluginId, UiRequestData, UiResponseData};
+use gauntlet_common::rpc::backend_api::{BackendApi, BackendForFrontendApi};
+use gauntlet_common::rpc::backend_server::wait_for_backend_server;
+use gauntlet_common::scenario_convert::{ui_render_location_to_scenario};
+use gauntlet_common::scenario_model::ScenarioFrontendEvent;
+use gauntlet_utils::channel::{RequestReceiver, RequestSender};
 
 use crate::model::ScenarioBackendEvent;
 
@@ -164,15 +164,14 @@ async fn request_loop(mut request_receiver: RequestReceiver<UiRequestData, UiRes
                 entrypoint_name: _,
                 render_location,
                 top_level_view,
-                container: _,
-                container_value,
+                container,
                 images
             } => {
                 let event = ScenarioFrontendEvent::ReplaceView {
                     entrypoint_id: entrypoint_id.to_string(),
                     render_location: ui_render_location_to_scenario(render_location),
                     top_level_view,
-                    container: container_value,
+                    container,
                     images,
                 };
 

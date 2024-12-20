@@ -6,8 +6,8 @@ use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType};
-use common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType};
+use gauntlet_common::rpc::frontend_api::FrontendApi;
 
 #[derive(Clone)]
 pub struct SearchIndex {

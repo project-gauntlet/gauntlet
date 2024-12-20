@@ -4,7 +4,7 @@ use iced::keyboard::Modifiers;
 use iced::widget::{text, value};
 use iced_aw::iced_fonts::{bootstrap, Bootstrap, BOOTSTRAP_FONT};
 
-use common::model::{PhysicalKey, PhysicalShortcut};
+use gauntlet_common::model::{PhysicalKey, PhysicalShortcut};
 
 pub fn padding(top: impl Into<Pixels>, right: impl Into<Pixels>, bottom: impl Into<Pixels>, left: impl Into<Pixels>) -> Padding {
     Padding {

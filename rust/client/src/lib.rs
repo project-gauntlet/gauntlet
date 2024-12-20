@@ -1,7 +1,7 @@
-use common::dirs::Dirs;
-use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
-use common::rpc::backend_api::BackendApi;
-use utils::channel::{RequestReceiver, RequestSender};
+use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
+use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_utils::channel::{RequestReceiver, RequestSender};
 use crate::ui::GauntletComplexTheme;
 
 pub(in crate) mod ui;

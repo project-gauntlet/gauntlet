@@ -39,7 +39,7 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::{oneshot, Mutex, MutexGuard};
 use tokio_util::sync::CancellationToken;
-use utils::channel::{Payload, RequestReceiver};
+use gauntlet_utils::channel::{Payload, RequestReceiver};
 
 pub use api::BackendForPluginRuntimeApi;
 pub use events::JsEvent;
@@ -73,7 +73,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
 
     let (mut recver, mut sender) = conn.split();
 
-    let (request_sender, mut request_receiver) = utils::channel::channel::<JsRequest, Result<JsResponse, String>>();
+    let (request_sender, mut request_receiver) = gauntlet_utils::channel::channel::<JsRequest, Result<JsResponse, String>>();
     let (event_sender, event_receiver) = channel::<JsEvent>(10);
     let response_oneshot = Mutex::new(None);
 

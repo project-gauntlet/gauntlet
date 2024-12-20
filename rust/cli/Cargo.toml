@@ -1,19 +1,24 @@
 [package]
-name = "cli"
-edition = "2021"
+name = "gauntlet-cli"
+edition.workspace = true
 
 [dependencies]
-clap = { version = "4.3.22", features = ["derive"] }
-tracing = "0.1"
-tracing-subscriber = "0.3"
-management_client = { path = "../management_client" }
-client = { path = "../client" }
-server = { path = "../server" }
-anyhow = { version = "1", features = ["backtrace"] }
+# workspaces
+gauntlet-management-client.workspace = true
+gauntlet-client.workspace = true
+gauntlet-server.workspace = true
+
+# shared
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+
+# other
+clap = { version = "4.5", features = ["derive"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 auto-launch = "0.5.0"
 
 [features]
-release = ["server/release"]
-scenario_runner = ["server/scenario_runner", "client/scenario_runner"]
+release = ["gauntlet-server/release"]
+scenario_runner = ["gauntlet-server/scenario_runner", "gauntlet-client/scenario_runner"]

@@ -8,9 +8,9 @@ use iced_aw::Spinner;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT, BOOTSTRAP_FONT_BYTES};
 use itertools::Itertools;
 
-use common::model::{DownloadStatus, PluginId};
-use common::rpc::backend_api::{BackendApi, BackendApiError};
-use common_ui::padding;
+use gauntlet_common::model::{DownloadStatus, PluginId};
+use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
+use gauntlet_common_ui::padding;
 use crate::theme::{Element, GauntletSettingsTheme};
 use crate::theme::button::ButtonStyle;
 use crate::theme::container::ContainerStyle;
@@ -731,7 +731,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
             .into();
 
         container(content)
-            .padding(common_ui::padding(8.0, 60.0, 0.0, 0.0))
+            .padding(gauntlet_common_ui::padding(8.0, 60.0, 0.0, 0.0))
             .align_right(Length::Fill)
             .align_top(Length::Fill)
             .into()

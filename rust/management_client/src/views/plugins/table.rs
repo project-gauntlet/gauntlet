@@ -8,7 +8,7 @@ use iced::widget::scrollable::Id;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use iced_table::table;
 
-use common::model::{EntrypointId, PluginId, SettingsEntrypointType, SettingsPlugin};
+use gauntlet_common::model::{EntrypointId, PluginId, SettingsEntrypointType, SettingsPlugin};
 
 use crate::theme::{Element, GauntletSettingsTheme};
 use crate::theme::button::ButtonStyle;

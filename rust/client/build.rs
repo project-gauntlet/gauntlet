@@ -5,7 +5,7 @@ use std::path::Path;
 
 use convert_case::{Case, Casing};
 
-use component_model::{create_component_model, Component, ComponentName, Property, PropertyType};
+use gauntlet_component_model::{create_component_model, Component, ComponentName, Property, PropertyType};
 
 fn main() -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR")?;
@@ -40,23 +40,23 @@ fn main() -> anyhow::Result<()> {
                         match arg.property_type {
                             PropertyType::String => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| common::model::UiPropertyValue::String({})).unwrap_or_else(|| common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::String({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            common::model::UiPropertyValue::String({}),\n", arg.name));
+                                    output.push_str(&format!("            gauntlet_common::model::UiPropertyValue::String({}),\n", arg.name));
                                 }
                             }
                             PropertyType::Number => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| common::model::UiPropertyValue::Number({})).unwrap_or_else(|| common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Number({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            common::model::UiPropertyValue::Number({}),\n", arg.name));
+                                    output.push_str(&format!("            gauntlet_common::model::UiPropertyValue::Number({}),\n", arg.name));
                                 }
                             }
                             PropertyType::Boolean => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| common::model::UiPropertyValue::Bool({})).unwrap_or_else(|| common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Bool({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            common::model::UiPropertyValue::Bool({}),\n", arg.name));
+                                    output.push_str(&format!("            gauntlet_common::model::UiPropertyValue::Bool({}),\n", arg.name));
                                 }
                             }
                             _ => {
@@ -104,7 +104,6 @@ fn generate_required_type(property_type: &PropertyType, union_name: Option<Strin
         PropertyType::Function { .. } => panic!("client doesn't know about functions in properties"),
         PropertyType::Component { reference } => format!("{}Widget", reference.component_name.to_string()),
         PropertyType::SharedTypeRef { name } => name.to_owned(),
-        // PropertyType::ImageSource => "bytes::Bytes".to_owned(),
         PropertyType::Union { .. } => {
             match union_name {
                 None => panic!("should not be used"),

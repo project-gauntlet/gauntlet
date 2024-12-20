@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
-use component_model::{create_component_model, Arity, Children, Component, ComponentName, ComponentRef, Property, PropertyKind, PropertyType, SharedType};
+use gauntlet_component_model::{create_component_model, Arity, Children, Component, ComponentName, ComponentRef, Property, PropertyKind, PropertyType, SharedType};
 use itertools::Itertools;
 
 use convert_case::{Case, Casing};
@@ -12,7 +12,7 @@ use indexmap::IndexMap;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .protoc_arg("--experimental_allow_proto3_optional")
-        .compile(
+        .compile_protos(
             &["./../../schema/backend.proto"],
             &["./../../schema/"],
         )?;

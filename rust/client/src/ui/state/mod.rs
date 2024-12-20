@@ -6,7 +6,7 @@ use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
 use crate::ui::AppMsg;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult};
+use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult};
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
 use iced::Task;

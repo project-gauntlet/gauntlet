@@ -1,9 +1,12 @@
 [package]
-name = "common-ui"
-edition = "2021"
+name = "gauntlet-common-ui"
+edition.workspace = true
 
 [dependencies]
-common = { path = "../common" }
+# workspaces
+gauntlet-common.workspace = true
+
+# shared
 iced.workspace = true
 iced_aw.workspace = true
 iced_fonts.workspace = true

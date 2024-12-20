@@ -3,7 +3,7 @@ use crate::model::UiViewEvent;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
 use crate::ui::widget::{create_state, ActionPanel, ComponentWidgetEvent, ComponentWidgetState, ComponentWidgets};
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidgetId};
+use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidgetId};
 use std::collections::HashMap;
 use std::mem;
 use std::ops::DerefMut;

@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
-
-use client::{generate_simple_theme_sample, generate_complex_theme_sample, open_window};
-use management_client::start_management_client;
-use server::start;
+use gauntlet_client::{generate_complex_theme_sample, generate_simple_theme_sample, open_window};
+use gauntlet_management_client::start_management_client;
+use gauntlet_server::start;
 
 #[derive(Debug, clap::Parser)]
 struct Cli {

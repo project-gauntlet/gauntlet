@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use anyhow::anyhow;
 use thiserror::Error;
 use tonic::{Code, Request};
 use tonic::transport::Channel;
 
-use utils::channel::{RequestError, RequestSender};
+use gauntlet_utils::channel::{RequestError, RequestSender};
 
 use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
 use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
@@ -227,8 +226,8 @@ impl From<tonic::Status> for BackendApiError {
     }
 }
 
-impl From<prost::DecodeError> for BackendApiError {
-    fn from(error: prost::DecodeError) -> BackendApiError {
+impl From<prost::UnknownEnumValue> for BackendApiError {
+    fn from(error: prost::UnknownEnumValue) -> BackendApiError {
         BackendApiError::Internal {
             display: format!("{}", error)
         }

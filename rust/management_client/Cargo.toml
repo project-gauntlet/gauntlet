@@ -1,19 +1,18 @@
 [package]
-name = "management_client"
-edition = "2021"
+name = "gauntlet-management-client"
+edition.workspace = true
 
 [dependencies]
-tokio = "1.28.1"
-clap = { version = "4.3.22", features = ["derive"] }
-anyhow = { version = "1", features = ["backtrace"] }
-thiserror = "1.0.48"
+# workspaces
+gauntlet-common.workspace = true
+gauntlet-common-ui.workspace = true
+
+# shared
+anyhow.workspace = true
 iced.workspace = true
 iced_aw.workspace = true
 iced_table.workspace = true
 iced_fonts.workspace = true
-tracing = "0.1"
-tracing-subscriber = "0.3"
-common = { path = "../common" }
-common-ui = { path = "../common_ui" }
-itertools = "0.12.1"
-tonic = "0.11.0"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+itertools.workspace = true

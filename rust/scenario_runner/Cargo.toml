@@ -1,13 +1,15 @@
 [package]
-name = "scenario_runner"
-edition = "2021"
+name = "gauntlet-scenario-runner"
+edition.workspace = true
 
 [dependencies]
-tokio = { version = "1.28.1", features = ["rt", "rt-multi-thread", "macros"] }
-tonic = "0.11.0"
-common = { path = "../common" }
-utils = { path = "../utils" }
-anyhow = { version = "1", features = ["backtrace"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# workspaces
+gauntlet-common.workspace = true
+gauntlet-utils.workspace = true
+
+# shared
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 

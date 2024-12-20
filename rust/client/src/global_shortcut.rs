@@ -2,7 +2,7 @@ use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use tokio::runtime::Handle;
-use common::model::{PhysicalKey, PhysicalShortcut};
+use gauntlet_common::model::{PhysicalKey, PhysicalShortcut};
 use crate::ui::AppMsg;
 
 pub fn register_listener(msg_sender: Sender<AppMsg>) {

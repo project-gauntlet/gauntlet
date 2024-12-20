@@ -6,7 +6,7 @@ use iced::widget::component;
 use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
-use common::model::SearchResult;
+use gauntlet_common::model::SearchResult;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget};
 use crate::ui::theme::button::ButtonStyle;

@@ -1,4 +1,4 @@
-use common::model::EntrypointId;
+use gauntlet_common::model::EntrypointId;
 use deno_core::futures::executor::block_on;
 use deno_core::{op2, OpState};
 use std::cell::RefCell;

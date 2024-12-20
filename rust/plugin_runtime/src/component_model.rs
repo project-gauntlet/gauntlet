@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use component_model::{create_component_model, Component};
+use gauntlet_component_model::{create_component_model, Component};
 
 pub struct ComponentModel {
     components: HashMap<String, Component>,

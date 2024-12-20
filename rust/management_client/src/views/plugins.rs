@@ -6,9 +6,9 @@ use iced::{padding, Alignment, Length, Padding, Task};
 use iced::widget::{button, column, container, row, scrollable, text, text_input, value, vertical_rule};
 use iced::widget::text::Shaping;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
-use common::{settings_env_data_from_string, SettingsEnvData};
-use common::model::{EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin};
-use common::rpc::backend_api::{BackendApi, BackendApiError};
+use gauntlet_common::{settings_env_data_from_string, SettingsEnvData};
+use gauntlet_common::model::{EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin};
+use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 
 use crate::theme::button::ButtonStyle;
 use crate::theme::Element;

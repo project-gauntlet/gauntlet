@@ -3,7 +3,7 @@ use arboard::ImageData;
 use image::RgbaImage;
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
-use plugin_runtime::JsClipboardData;
+use gauntlet_plugin_runtime::JsClipboardData;
 
 #[derive(Clone)]
 pub struct Clipboard {

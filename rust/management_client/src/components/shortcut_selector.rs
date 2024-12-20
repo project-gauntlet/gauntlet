@@ -7,8 +7,8 @@ use iced::mouse::Button;
 use iced::widget::{container, row, text};
 use iced::widget::container::{draw_background, layout};
 
-use common::model::PhysicalShortcut;
-use common_ui::{physical_key_model, shortcut_to_text};
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common_ui::{physical_key_model, shortcut_to_text};
 
 pub struct ShortcutSelector<'a, Message, Theme>
 where

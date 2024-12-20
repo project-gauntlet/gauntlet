@@ -1,6 +1,6 @@
 [package]
 name = "gauntlet"
-edition = "2021"
+edition.workspace = true
 repository = "https://github.com/project-gauntlet/gauntlet"
 
 [workspace]
@@ -16,7 +16,11 @@ members = [
     "rust/scenario_runner",
     "rust/plugin_runtime",
 ]
+[workspace.package]
+edition = "2021"
+
 [workspace.dependencies]
+# iced
 #iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image"] }
 iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13", features = ["tokio", "lazy", "advanced", "image"] }
 #iced_aw = { version = "0.11.99", features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
@@ -28,9 +32,44 @@ iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", bran
 #iced_layershell = "0.13.99"
 iced_layershell =  { git = "https://github.com/project-gauntlet/exwlshelleventloop.git", branch = "gauntlet-0.13" }
 
+# workspaces
+gauntlet-common = { path = "./rust/common" }
+gauntlet-common-ui = { path = "./rust/common_ui" }
+gauntlet-management-client = { path = "./rust/management_client" }
+gauntlet-client = { path = "./rust/client" }
+gauntlet-server = { path = "./rust/server" }
+gauntlet-utils = { path = "./rust/utils" }
+gauntlet-plugin-runtime = { path = "./rust/plugin_runtime" }
+gauntlet-component-model = { path = "./rust/component_model" }
+gauntlet-scenario-runner = { path = "./rust/scenario_runner" }
+
+# shared
+anyhow = { version = "1", features = ["backtrace"] }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { version = "1.42" }
+tokio-util = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+bincode = { version = "2.0.0-rc.3" }
+thiserror = { version = "2" }
+indexmap = { version = "2.1", features = ["serde"] }
+itertools = { version = "0.13" }
+regex = { version = "1.9.3" }
+futures = { version = "0.3.31" }
+image = { version = "0.25" }
+once_cell = { version = "1.19" }
+tonic = { version = "0.12.3" }
+tonic-build = { version = "0.12.3" }
+prost = { version = "0.13.4" }
+bytes = { version = "1.6.0" }
+walkdir = { version = "2.4.0" }
+typed-path = { version = "0.10.0" }
+interprocess = { version = "2.2.2", features = ["tokio"] }
+
 [dependencies]
-cli = { path = "rust/cli" }
+gauntlet-cli = { path = "rust/cli" }
 
 [features]
-release = ["cli/release"]
-scenario_runner = ["cli/scenario_runner"]
+release = ["gauntlet-cli/release"]
+scenario_runner = ["gauntlet-cli/scenario_runner"]

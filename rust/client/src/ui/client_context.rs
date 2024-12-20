@@ -2,7 +2,7 @@ use crate::model::UiViewEvent;
 use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
 use crate::ui::widget_container::PluginWidgetContainer;
 use crate::ui::AppMsg;
-use common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
+use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
 use iced::Task;
 use std::collections::HashMap;
 use std::sync::Arc;

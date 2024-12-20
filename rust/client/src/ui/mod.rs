@@ -24,12 +24,12 @@ use serde::Deserialize;
 use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 
 use client_context::ClientContext;
-use common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
-use common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
-use common::scenario_convert::{ui_render_location_from_scenario};
-use common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
-use common_ui::physical_key_model;
-use utils::channel::{RequestReceiver, RequestSender, Responder};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use gauntlet_common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
+use gauntlet_common::scenario_convert::{ui_render_location_from_scenario};
+use gauntlet_common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
+use gauntlet_common_ui::physical_key_model;
+use gauntlet_utils::channel::{RequestReceiver, RequestSender, Responder};
 
 use crate::model::UiViewEvent;
 use crate::ui::search_list::search_list;

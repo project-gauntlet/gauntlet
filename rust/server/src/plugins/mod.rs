@@ -7,12 +7,12 @@ use anyhow::anyhow;
 use include_dir::{include_dir, Dir};
 use tokio::runtime::Handle;
 
-use common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
-use common::rpc::frontend_api::FrontendApi;
-use common::{settings_env_data_to_string, SettingsEnvData};
-use utils::channel::RequestSender;
-use common::dirs::Dirs;
-use plugin_runtime::{JsPluginCode, JsPluginPermissions, JsPluginPermissionsExec, JsPluginPermissionsFileSystem, JsPluginPermissionsMainSearchBar};
+use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
+use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::{settings_env_data_to_string, SettingsEnvData};
+use gauntlet_utils::channel::RequestSender;
+use gauntlet_common::dirs::Dirs;
+use gauntlet_plugin_runtime::{JsPluginCode, JsPluginPermissions, JsPluginPermissionsExec, JsPluginPermissionsFileSystem, JsPluginPermissionsMainSearchBar};
 use crate::model::{ActionShortcutKey};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::config_reader::ConfigReader;

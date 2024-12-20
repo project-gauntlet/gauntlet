@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use anyhow::anyhow;
 use thiserror::Error;
-use utils::channel::{RequestError, RequestSender};
+use gauntlet_utils::channel::{RequestError, RequestSender};
 
 use crate::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 

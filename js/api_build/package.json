@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run generate-json && npm run build-generator && npm run run-generator",
-    "generate-json": "cd ../.. && cargo run --package component_model -- ./js/api_build/component_model.json",
+    "generate-json": "cd ../.. && cargo run --package gauntlet-component-model -- ./js/api_build/component_model.json",
     "build-generator": "tsc",
     "run-generator": "node dist/index.js"
   },

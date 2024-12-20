@@ -1,5 +1,5 @@
 use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
-use common::model::UiWidgetId;
+use gauntlet_common::model::UiWidgetId;
 
 #[derive(Debug, Clone)]
 pub enum PluginViewState {

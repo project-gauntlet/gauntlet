@@ -1,5 +1,5 @@
-use common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
-use utils::channel::{RequestReceiver, RequestSender};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
+use gauntlet_utils::channel::{RequestReceiver, RequestSender};
 
 pub mod frontend_mock;
 mod model;

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use common::model::{Image, ImageSource, ImageSourceAsset, ImageSourceUrl, RootWidget, UiWidgetId, WidgetVisitor};
-use plugin_runtime::BackendForPluginRuntimeApi;
+use gauntlet_common::model::{Image, ImageSource, ImageSourceAsset, ImageSourceUrl, RootWidget, UiWidgetId, WidgetVisitor};
+use gauntlet_plugin_runtime::BackendForPluginRuntimeApi;
 use crate::plugins::js::BackendForPluginRuntimeApiImpl;
 use futures::StreamExt;
 use std::io::Read;

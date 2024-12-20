@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
 
-use common::model::PluginId;
+use gauntlet_common::model::PluginId;
 
 pub struct RunStatusHolder {
     running_plugins: Arc<Mutex<HashMap<PluginId, CancellationToken>>>

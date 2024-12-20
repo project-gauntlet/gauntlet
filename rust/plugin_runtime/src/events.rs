@@ -7,7 +7,7 @@ use deno_core::{op2, OpState};
 use deno_core::futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Receiver;
-use common::model::UiWidgetId;
+use gauntlet_common::model::UiWidgetId;
 
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
 #[serde(tag = "type")]

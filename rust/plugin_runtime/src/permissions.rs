@@ -10,7 +10,7 @@ use deno_runtime::permissions::RuntimePermissionDescriptorParser;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use typed_path::Utf8TypedPath;
-use common::dirs::Dirs;
+use gauntlet_common::dirs::Dirs;
 use crate::{JsPluginPermissions, JsPluginPermissionsExec};
 
 pub static PERMISSIONS_VARIABLE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
