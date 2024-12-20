@@ -570,7 +570,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 widget_id,
             };
 
-            Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+            Task::batch([
+                state.hide_window(),
+                Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+            ])
         }
         AppMsg::RunSearchItemAction(search_result, action_index) => {
             match search_result.entrypoint_type {
