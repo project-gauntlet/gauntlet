@@ -36,7 +36,6 @@ async function runScenarios(expectedPlugin: string | undefined) {
     const scenariosRun = path.join(scenarios, "run");
 
     console.log("Building server")
-    buildServer(projectRoot)
 
     console.log("Building scenario plugins")
     buildScenarioPlugins(projectRoot)
@@ -50,7 +49,7 @@ async function runScenarios(expectedPlugin: string | undefined) {
 
         console.log("Starting runner")
 
-        const backendProcess = spawnSync('target/debug/gauntlet', {
+        const backendProcess = spawnSync('cargo',  ['run', '--features', 'scenario_runner'], {
             stdio: "inherit",
             cwd: projectRoot,
             env: Object.assign(process.env, {
@@ -81,8 +80,6 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
     const projectRoot = path.resolve(process.cwd(), '..', '..');
     const scenarios = path.join(projectRoot, "scenarios");
     const scenariosOut = path.join(scenarios, "out");
-
-    buildServer(projectRoot)
 
     for (const plugin of readdirSync(scenariosOut)) {
         if (expectedPlugin) {
@@ -116,10 +113,11 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                     .map(x => (x.charAt(0).toUpperCase() + x.slice(1)))
                     .join(" ");
 
-                const frontendReturn = spawnSync('target/debug/gauntlet', {
+                const frontendReturn = spawnSync('cargo',  ['run', '--features', 'scenario_runner'], {
                     stdio: "inherit",
                     cwd: projectRoot,
                     env: Object.assign(process.env, {
+                        RUST_BACKTRACE: "1",
                         RUST_LOG: "gauntlet-client=INFO",
                         GAUNTLET_SCENARIO_RUNNER_TYPE: "screenshot_gen",
                         GAUNTLET_SCREENSHOT_GEN_IN: scenarioFile,
@@ -135,20 +133,6 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                 console.log("Runner exited")
             }
         }
-    }
-}
-
-function buildServer(projectRoot: string) {
-    const serverBuildResult = spawnSync('cargo', ['build', '--features', 'scenario_runner'], {
-        stdio: "inherit",
-        cwd: projectRoot,
-        env: Object.assign(process.env, {
-            RUST_BACKTRACE: "1"
-        })
-    });
-
-    if (serverBuildResult.status !== 0) {
-        throw new Error(`Unable to compile server, status: ${JSON.stringify(serverBuildResult)}`);
     }
 }
 

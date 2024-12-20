@@ -404,6 +404,8 @@ fn new(
         let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
             .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
 
+       println!("Reading scenario file at: {}", gen_in);
+
         let gen_in = fs::read_to_string(gen_in)
             .expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
 

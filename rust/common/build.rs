@@ -558,7 +558,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                 output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
                 output.push_str("pub struct RootWidget {\n");
-                output.push_str("    #[serde(default, deserialize_with = \"array_to_option\")]\n");
+                output.push_str("    #[serde(default, deserialize_with = \"array_to_option\", serialize_with = \"option_to_array\")]\n");
                 output.push_str("    pub content: Option<RootWidgetMembers>\n");
                 output.push_str("}\n");
             }

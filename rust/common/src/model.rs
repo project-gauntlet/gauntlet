@@ -245,6 +245,21 @@ pub enum KeyboardEventOrigin {
     PluginView,
 }
 
+fn option_to_array<S, V>(value: &Option<V>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    V: Serialize,
+    S: Serializer,
+{
+    let value = match value {
+        None => vec![],
+        Some(value) => vec![value]
+    };
+
+    let res = Vec::<&V>::serialize(&value, serializer)?;
+
+    Ok(res)
+}
+
 fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error> where D: Deserializer<'de>, V: Deserialize<'de> {
     let res = Option::<Vec<V>>::deserialize(deserializer)?;
 

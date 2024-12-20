@@ -257,15 +257,17 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     let current_exe = std::env::current_exe()
         .context("unable to get current_exe")?;
 
+    #[cfg(not(feature = "scenario_runner"))]
     std::process::Command::new(current_exe)
         .env(PLUGIN_RUNTIME_ENV, name_str)
         .spawn()
         .context("start plugin runtime process")?;
 
-    // use only for debugging, only works if only one plugin is enabled
-    // std::thread::spawn(move || {
-    //     plugin_runtime::run_plugin_runtime(name_str.to_str().unwrap().to_string())
-    // });
+    // use only for debugging and scenario_runner, only works if only one plugin is enabled
+    #[cfg(feature = "scenario_runner")]
+    std::thread::spawn(move || {
+        gauntlet_plugin_runtime::run_plugin_runtime(name_str.to_str().unwrap().to_string())
+    });
 
     let conn = listener.accept().await?;
 
