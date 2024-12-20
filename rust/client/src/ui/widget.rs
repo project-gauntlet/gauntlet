@@ -1381,14 +1381,13 @@ impl<'b> ComponentWidgets<'b> {
             .iter()
             .map(|members| {
                 match members {
-                    InlineWidgetOrderedMembers::Content(widget) => self.render_content_widget(widget, true),
-                    InlineWidgetOrderedMembers::InlineSeparator(widget) => {
-                        let element = self.render_inline_separator_widget(widget);
+                    InlineWidgetOrderedMembers::Content(widget) => {
+                        let element = self.render_content_widget(widget, true);
 
                         container(element)
-                            .width(Length::Fill)
                             .into()
-                    }
+                    },
+                    InlineWidgetOrderedMembers::InlineSeparator(widget) => self.render_inline_separator_widget(widget)
                 }
             })
             .collect();
