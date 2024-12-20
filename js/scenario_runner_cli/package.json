@@ -7,14 +7,14 @@
   },
   "type": "module",
   "dependencies": {
-    "commander": "^11.1.0"
+    "commander": "^12.1.0"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-typescript": "^11.1.5",
-    "@types/node": "^18.19.67",
-    "tslib": "^2.6.2",
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/node": "^22.10.2",
+    "tslib": "^2.8.1",
     "typescript": "^5.7.2"
   }
 }

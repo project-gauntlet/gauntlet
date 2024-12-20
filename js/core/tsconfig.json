@@ -6,7 +6,7 @@
     "target": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["@project-gauntlet/typings", "@types/deno", "@types/node"]
+    "types": ["@project-gauntlet/typings", "@types/deno"]
   },
   "lib": ["ES2020"]
 }

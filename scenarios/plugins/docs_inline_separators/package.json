@@ -9,9 +9,9 @@
     "@project-gauntlet/api": "file:../../js/api"
   },
   "devDependencies": {
-    "@types/react": "^18.2.14",
-    "@types/deno": "^2.0.0",
-    "@project-gauntlet/tools": "git://github.com/project-gauntlet/tools.git#480520d3b63a1179dacbee7ba3948c4be4742b68",
-    "typescript": "^5.7.2"
+    "@types/react": "*",
+    "@types/deno": "*",
+    "@project-gauntlet/tools": "*",
+    "typescript": "*"
   }
 }

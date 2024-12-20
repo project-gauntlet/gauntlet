@@ -7,11 +7,11 @@
   },
   "dependencies": {
     "@project-gauntlet/api": "file:../js/api",
-    "@types/lodash": "^4.14.196",
+    "@types/lodash": "^4.17.13",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "@types/react": "^18.2.14",
+    "@types/react": "^18.3.18",
     "@types/deno": "^2.0.0",
     "@project-gauntlet/tools": "git://github.com/project-gauntlet/tools.git#480520d3b63a1179dacbee7ba3948c4be4742b68",
     "typescript": "^5.7.2"

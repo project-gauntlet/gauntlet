@@ -8,13 +8,13 @@
     "@project-gauntlet/api": "*",
     "@project-gauntlet/typings": "*",
     "@rollup/plugin-alias": "^5.1.1",
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-typescript": "^11.1.5",
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/deno": "^2.0.0",
-    "@types/react": "^18.2.35",
-    "rollup": "^4.27.4",
-    "tslib": "^2.6.2",
+    "@types/react": "^18.3.18",
+    "rollup": "^4.28.1",
+    "tslib": "^2.8.1",
     "typescript": "^5.7.2"
   }
 }

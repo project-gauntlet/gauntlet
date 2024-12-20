@@ -57,7 +57,9 @@ const config = (nodeEnv: string, reactBundle: string, outDir: string): RollupOpt
         },
         external: [/^ext:.+/],
         plugins: [
-            commonjs(),
+            commonjs({
+                strictRequires: "auto"
+            }),
             replace({
                 delimiters: ['', ''],
                 values: {
