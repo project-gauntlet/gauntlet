@@ -53,9 +53,11 @@ fn open_wayland() -> Task<AppMsg> {
     let id = window::Id::unique();
     let settings = layer_shell_settings();
 
-    Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings }))
-        .then(move |_| sleep_for_2_seconds(id))
-        .then(|id| Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id))))
+    Task::batch([
+        Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings })),
+        sleep_for_2_seconds(id)
+            .then(|id| Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id))))
+    ])
 }
 
 #[cfg(target_os = "linux")]
