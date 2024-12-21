@@ -29,7 +29,7 @@ use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::settings_env_data_to_string;
-use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsAdditionalSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide};
+use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsAdditionalSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide, JsPluginRuntimeMessage};
 use crate::model::{IntermediateUiEvent};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
@@ -288,12 +288,12 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
             send_message(JsMessageSide::Backend, &mut sender, JsMessage::Stop).await?;
 
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            // select should be stopped by accepting stopped plugin runtime message in request loop
+            std::future::pending::<()>().await;
         }
-        result @ _ = {
+        result = {
              tokio::task::unconstrained(async {
                 loop {
-
                     if let Err(err) = event_loop(&mut command_receiver, &sender, plugin_id.clone()).await {
                         tracing::error!("Event loop faced an error {:?}", err);
                         break;
@@ -301,19 +301,27 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 }
              })
         } => {
-            tracing::error!("Event loop has unexpectedly stopped {:?}", plugin_id)
+            tracing::error!("Event loop has been stopped {:?}", plugin_id)
         }
-        result @ _ = {
+        result = {
              tokio::task::unconstrained(async {
                 loop {
-                    if let Err(err) = request_loop(&mut recver, &sender, &api).await {
-                        tracing::error!("Request loop faced an error {:?}", err);
-                        break;
+                    match request_loop(&mut recver, &sender, &api).await {
+                        Ok(stop) => {
+                            if stop {
+                                tracing::info!("Stopping request loop as requested by plugin runtime");
+                                break;
+                            }
+                        }
+                        Err(err) => {
+                            tracing::error!("Request loop faced an error {:?}", err);
+                            break;
+                        }
                     }
                 }
              })
         } => {
-            tracing::error!("Request loop has unexpectedly stopped {:?}", plugin_id)
+            tracing::error!("Request loop has been stopped {:?}", plugin_id)
         }
     }
 
@@ -403,32 +411,37 @@ async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<Plug
 }
 
 
-async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<()>  {
-    match recv_message::<JsRequest>(JsMessageSide::Backend, recv).await {
+async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<bool>  {
+    match recv_message::<JsPluginRuntimeMessage>(JsMessageSide::Backend, recv).await {
         Err(e) => {
             Err(anyhow!("Unable to handle message: {:?}", e))
         }
         Ok(message) => {
-            tracing::trace!("Handling request message: {:?}", message);
+            tracing::trace!("Handling js runtime message: {:?}", message);
 
-            match handle_message(message, api).await {
-                Ok(response) => {
-                    let mut send = send.lock().await;
+            match message {
+                JsPluginRuntimeMessage::Stopped => Ok(true),
+                JsPluginRuntimeMessage::Request(message) => {
+                    match handle_message(message, api).await {
+                        Ok(response) => {
+                            let mut send = send.lock().await;
 
-                    tracing::trace!("Sending request response: {:?}", response);
+                            tracing::trace!("Sending request response: {:?}", response);
 
-                    send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Ok(response))).await?;
+                            send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Ok(response))).await?;
 
-                    Ok(())
-                }
-                Err(err) => {
-                    let mut send = send.lock().await;
+                            Ok(false)
+                        }
+                        Err(err) => {
+                            let mut send = send.lock().await;
 
-                    let err = format!("{:?}", err);
+                            let err = format!("{:?}", err);
 
-                    send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Err(err))).await?;
+                            send_message(JsMessageSide::Backend, &mut send, JsMessage::Response(Err(err))).await?;
 
-                    Ok(())
+                            Ok(false)
+                        }
+                    }
                 }
             }
         }

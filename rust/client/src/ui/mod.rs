@@ -1372,6 +1372,7 @@ fn view_hud(state: &AppModel) -> Element<'_, AppMsg> {
             hud
         }
         None => {
+            // this should never be shown, but in case it does, do not make it fully transparent
             container(horizontal_space())
                 .themed(ContainerStyle::Hud)
         }

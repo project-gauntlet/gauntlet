@@ -3,7 +3,7 @@ use crate::{JsRequest, JsResponse, JsUiRenderLocation};
 use gauntlet_common::model::{EntrypointId, RootWidget, UiRenderLocation};
 use std::collections::HashMap;
 use anyhow::anyhow;
-use gauntlet_utils::channel::RequestSender;
+use gauntlet_utils::channel::{RequestError, RequestSender};
 
 #[allow(async_fn_in_trait)]
 pub trait BackendForPluginRuntimeApi {
@@ -62,6 +62,18 @@ impl BackendForPluginRuntimeApiProxy {
             request_sender
         }
     }
+
+    async fn request(&self, request: JsRequest) -> anyhow::Result<JsResponse> {
+        match self.request_sender.send_receive(request).await {
+            Ok(ok) => Ok(ok.map_err(|e| anyhow!(e))?),
+            Err(err) => {
+                match err {
+                    RequestError::TimeoutError => Err(anyhow!("Backend was unable to process message in a timely manner")),
+                    RequestError::OtherSideWasDropped => Err(anyhow!("Plugin runtime is being stopped"))
+                }
+            }
+        }
+    }
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
@@ -71,7 +83,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             refresh_search_list,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -82,7 +94,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             path: path.to_string(),
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::AssetData { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -91,7 +103,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn get_command_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
         let request = JsRequest::GetCommandGeneratorEntrypointIds;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::CommandGeneratorEntrypointIds { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -100,7 +112,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
         let request = JsRequest::GetPluginPreferences;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::PluginPreferences { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -111,7 +123,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             entrypoint_id,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::EntrypointPreferences { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -120,7 +132,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn plugin_preferences_required(&self) -> anyhow::Result<bool> {
         let request = JsRequest::PluginPreferencesRequired;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::PluginPreferencesRequired { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -131,7 +143,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             entrypoint_id,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::EntrypointPreferencesRequired { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -140,7 +152,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn clipboard_read(&self) -> anyhow::Result<JsClipboardData> {
         let request = JsRequest::ClipboardRead;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::ClipboardRead { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -149,7 +161,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn clipboard_read_text(&self) -> anyhow::Result<Option<String>> {
         let request = JsRequest::ClipboardReadText;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::ClipboardReadText { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -160,7 +172,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             data
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -171,7 +183,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             data,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -180,7 +192,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn clipboard_clear(&self) -> anyhow::Result<()> {
         let request = JsRequest::ClipboardClear;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -192,7 +204,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             show,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -203,7 +215,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             display,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -219,7 +231,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             modifier_meta,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::ActionIdForShortcut { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -242,7 +254,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             container,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -257,7 +269,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             },
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -270,7 +282,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
             entrypoint_preferences_required,
         };
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
@@ -279,7 +291,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn ui_clear_inline_view(&self) -> anyhow::Result<()> {
         let request = JsRequest::ClearInlineView;
 
-        match self.request_sender.send_receive(request).await?.map_err(|e| anyhow!(e))? {
+        match self.request(request).await? {
             JsResponse::Nothing => Ok(()),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }

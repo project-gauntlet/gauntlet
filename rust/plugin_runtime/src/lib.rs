@@ -87,7 +87,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
 
     tokio::select! {
         _ = stop_token.cancelled() => {
-            tracing::info!("Plugin runtime outer loop has been stopped {:?}", plugin_id)
+            tracing::debug!("Plugin runtime outer loop will be stopped {:?}", plugin_id)
         }
         result @ _ = {
              tokio::task::unconstrained(async {
@@ -120,6 +120,10 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
         }
     }
 
+    send_message(JsMessageSide::PluginRuntime, &mut sender, JsPluginRuntimeMessage::Stopped).await?;
+
+    tracing::info!("Plugin runtime outer loop has been stopped {:?}", plugin_id);
+
     drop((recver, sender));
 
     Ok(())
@@ -142,7 +146,7 @@ async fn run(outer_handle: Handle, stop_token: CancellationToken, init: JsInit, 
 
     tokio::select! {
         _ = stop_token.cancelled() => {
-            tracing::info!("Plugin runtime inner loop has been stopped {:?}", plugin_id)
+            tracing::debug!("Plugin runtime inner loop will be stopped {:?}", plugin_id)
         }
         result @ _ = {
             tokio::task::unconstrained(async {
@@ -151,11 +155,11 @@ async fn run(outer_handle: Handle, stop_token: CancellationToken, init: JsInit, 
         } => {
             if let Err(err) = result {
                 tracing::error!("Plugin runtime inner loop has failed {:?} - {:?}", plugin_id, err)
-            } else {
-                tracing::error!("Plugin runtime inner loop has stopped unexpectedly {:?}", plugin_id)
             }
         }
     }
+
+    tracing::info!("Plugin runtime inner loop has been stopped {:?}", plugin_id);
 
     Ok(())
 }
@@ -183,7 +187,7 @@ async fn request_loop(
         rx
     };
 
-    send_message(JsMessageSide::PluginRuntime, send, request).await?;
+    send_message(JsMessageSide::PluginRuntime, send, JsPluginRuntimeMessage::Request(request)).await?;
 
     tracing::trace!("Waiting for oneshot response...");
 

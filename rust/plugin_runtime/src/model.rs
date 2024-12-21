@@ -67,6 +67,12 @@ pub enum JsPluginPermissionsMainSearchBar {
 }
 
 #[derive(Debug, Encode, Decode)]
+pub enum JsPluginRuntimeMessage {
+    Stopped,
+    Request(JsRequest),
+}
+
+#[derive(Debug, Encode, Decode)]
 pub enum JsResponse {
     Nothing,
     AssetData {
