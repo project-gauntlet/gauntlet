@@ -350,7 +350,7 @@ fn run_wayland(
             start_mode: iced_layershell::settings::StartMode::Background,
             events_transparent: true,
             keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::None,
-            size: Some((0, 0)),
+            size: None,
             ..Default::default()
         })
         .subscription(subscription)
@@ -1372,8 +1372,8 @@ fn view_hud(state: &AppModel) -> Element<'_, AppMsg> {
             hud
         }
         None => {
-            horizontal_space()
-                .into()
+            container(horizontal_space())
+                .themed(ContainerStyle::Hud)
         }
     }
 }
@@ -1886,7 +1886,7 @@ impl AppModel {
     }
 
     fn hide_window(&mut self) -> Task<AppMsg> {
-        let Some(main_window_id) = self.main_window_id else {
+        let Some(main_window_id) = self.main_window_id.take() else {
             return Task::none()
         };
 
@@ -1922,6 +1922,10 @@ impl AppModel {
     }
 
     fn show_window(&mut self) -> Task<AppMsg> {
+        if let Some(_) = self.main_window_id {
+            return Task::none()
+        };
+
         #[cfg(target_os = "linux")]
         let (main_window_id, open_task) =  if self.wayland {
             open_main_window_wayland()
