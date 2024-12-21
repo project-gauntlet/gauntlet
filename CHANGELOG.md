@@ -9,6 +9,33 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### General
+- Each plugin Deno runtime now runs in separate OS process
+- Nix package, dev shell and home-manager modules are now available (contributed by @schradert)
+- Replaced wayland layer-shell implementation, fixing several long-standing issues
+  - Fixed icons not being rendered properly
+  - Fixed <kbd>Ctrl</kbd> + <kbd>A</kbd> shortcut not working in text inputs
+  - Fixed <kbd>Backspace</kbd> only removing single character at a time
+- Improved window handling on macOS
+  - Main window is now non-activating, so it doesn't take away focus from front-most application 
+  - Main window no longer shows up in macOS Dock panel
+  - Fixed application not receiving keyboard input if front-most application is using Secure Event Input (e.g. Terminal)
+- Main window is now closed automatically when plugin action is executed
+- A lot of internal dependency updates
+
+### Plugin API
+- Internal JS functions are no longer accessible from plugins
+- **BREAKING CHANGE**: Deno updated from `v1.37.0` to `v2.1.1`
+- **BREAKING CHANGE**: Clipboard api now uses `ArrayBuffer` instead of `Blob`
+- `@project-gauntlet/deno` is deprecated in favor of `@types/deno`
+
+### UI/UX Improvements
+- Hud window was moved lower (below main window) on non-wayland platforms
+
+### Fixes
+- Fixed possible freeze when spamming keys or buttons in plugin view
+- Fixed separator in `<Inline/>` view not being horizontally centered
+
 ## [11] - 2024-11-16
 
 ### General

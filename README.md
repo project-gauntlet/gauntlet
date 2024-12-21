@@ -68,6 +68,7 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
 
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux
    - Both X11 and Wayland (via LayerShell protocol) are supported
+   - Application plugin depends on `gtk-launch`
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
     - Bundled "Applications" plugin is not yet implemented. See [#9](https://github.com/project-gauntlet/gauntlet/issues/9)
@@ -421,7 +422,6 @@ You will need:
 
 To build dev run:
 ```bash
-git submodule update --init
 npm ci
 npm run build
 npm run build-dev-plugin
@@ -431,7 +431,6 @@ In dev (without "release" feature) application will use only directories inside 
 
 To build release run:
 ```bash
-git submodule update --init
 npm ci
 npm run build
 cargo build --release --features release
