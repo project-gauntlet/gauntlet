@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [12] - 2024-12-22
+
 ### General
 - Each plugin Deno runtime now runs in separate OS process
 - Nix package, dev shell and home-manager modules are now available (contributed by @schradert)
