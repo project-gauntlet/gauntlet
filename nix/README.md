@@ -6,6 +6,8 @@ The Nix package derivation is currently defined for all [default systems](https:
 
 Here's how to reference the package derivation (and explicitly pin it) in your `flake.nix`:
 
+**NOTE**: Currently there is an issue with release process causing commit with version tag to have mismatched hash. Please use next commit which updates the hash in following format: `github:project-gauntlet/gauntlet/<commit_hash>`
+
 ``` nix
 {
   inputs.gauntlet.url = github:project-gauntlet/gauntlet/<gauntlet_version_repository_tag>;
