@@ -1911,6 +1911,18 @@ impl AppModel {
             window::close(main_window_id)
         );
 
+        #[cfg(target_os = "macos")]
+        unsafe {
+            // when closing NSPanel current active application doesn't automatically become key window
+            // is there a proper way? without doing this manually
+            let app = objc2_app_kit::NSWorkspace::sharedWorkspace()
+                .menuBarOwningApplication();
+
+            if let Some(app) = app {
+                app.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
+            }
+        }
+
         match &self.global_state {
             GlobalState::PluginView { plugin_view_data: PluginViewData { plugin_id, .. }, .. } => {
                 commands.push(self.close_plugin_view(plugin_id.clone()));

@@ -3957,6 +3957,7 @@ dependencies = [
  "iced_layershell",
  "image 0.25.5",
  "itertools 0.13.0",
+ "objc2-app-kit",
  "once_cell",
  "serde",
  "serde_json",
