@@ -238,10 +238,6 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
         spawnWithErrors('npm', ['version', `0.${newVersion}.0`], { cwd: packageDir })
     }
 
-    console.log("Bump version for deno subproject...")
-    const denoProjectPath = path.join(projectRoot, "js", "deno");
-    bumpNpmPackage(denoProjectPath)
-
     console.log("Bump version for api subproject...")
     const apiProjectPath = path.join(projectRoot, "js", "api");
     bumpNpmPackage(apiProjectPath)
@@ -461,10 +457,6 @@ async function packageForWindows(projectRoot: string, arch: string): Promise<{ f
 
 
 function publishNpmPackage(projectRoot: string) {
-    console.log("Publishing npm deno package...")
-    const denoProjectPath = path.join(projectRoot, "js", "deno");
-    spawnWithErrors('npm', ['publish'], { cwd: denoProjectPath })
-
     console.log("Publishing npm api package...")
     const apiProjectPath = path.join(projectRoot, "js", "api");
     spawnWithErrors('npm', ['publish'], { cwd: apiProjectPath })
