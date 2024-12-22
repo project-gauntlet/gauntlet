@@ -5167,7 +5167,7 @@ dependencies = [
 [[package]]
 name = "iced_layershell"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#7df6d555dd018b0df400dfc814f664da8f01958e"
+source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#de88e8d3be5e7ebef6d8456ea62eed26e503bf92"
 dependencies = [
  "futures",
  "iced",
@@ -5186,7 +5186,7 @@ dependencies = [
 [[package]]
 name = "iced_layershell_macros"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#7df6d555dd018b0df400dfc814f664da8f01958e"
+source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#de88e8d3be5e7ebef6d8456ea62eed26e503bf92"
 dependencies = [
  "darling",
  "manyhow",
@@ -5916,7 +5916,7 @@ dependencies = [
 [[package]]
 name = "layershellev"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#7df6d555dd018b0df400dfc814f664da8f01958e"
+source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#de88e8d3be5e7ebef6d8456ea62eed26e503bf92"
 dependencies = [
  "bitflags 2.6.0",
  "calloop 0.14.2",
@@ -11646,7 +11646,7 @@ dependencies = [
 [[package]]
 name = "waycrate_xkbkeycode"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#7df6d555dd018b0df400dfc814f664da8f01958e"
+source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13#de88e8d3be5e7ebef6d8456ea62eed26e503bf92"
 dependencies = [
  "bitflags 2.6.0",
  "calloop 0.14.2",
