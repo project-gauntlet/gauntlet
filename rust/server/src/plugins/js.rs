@@ -258,7 +258,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         .context("unable to get current_exe")?;
 
     #[cfg(not(feature = "scenario_runner"))]
-    std::process::Command::new(current_exe)
+    let mut runtime_process = std::process::Command::new(current_exe)
         .env(PLUGIN_RUNTIME_ENV, name_str)
         .spawn()
         .context("start plugin runtime process")?;
@@ -278,59 +278,82 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     send_message(JsMessageSide::Backend, &mut sender, init).await?;
 
-    let sender = Mutex::new(sender);
+    let sender = Arc::new(Mutex::new(sender));
 
-    tokio::select! {
-        _ = run_status_guard.stopped() => {
-            let mut sender = sender.lock().await;
+    tokio::task::spawn({
+        let sender = sender.clone();
+        async move {
+            run_status_guard.stopped().await;
 
             tracing::info!("Requesting plugin runtime to stop...");
 
-            send_message(JsMessageSide::Backend, &mut sender, JsMessage::Stop).await?;
-
-            // select should be stopped by accepting stopped plugin runtime message in request loop
-            std::future::pending::<()>().await;
+            let mut sender = sender.lock().await;
+            if let Err(err) = send_message(JsMessageSide::Backend, &mut sender, JsMessage::Stop).await {
+                tracing::error!("Error when sending stop request to plugin runtime {:?}", err);
+            }
         }
+    });
+
+    tokio::select! {
         result = {
-             tokio::task::unconstrained(async {
+            let sender = sender.clone();
+            let plugin_id = plugin_id.clone();
+            tokio::task::unconstrained(async move {
                 loop {
                     if let Err(err) = event_loop(&mut command_receiver, &sender, plugin_id.clone()).await {
                         tracing::error!("Event loop faced an error {:?}", err);
                         break;
                     }
                 }
-             })
+            })
         } => {
             tracing::error!("Event loop has been stopped {:?}", plugin_id)
         }
         result = {
              tokio::task::unconstrained(async {
-                loop {
-                    match request_loop(&mut recver, &sender, &api).await {
-                        Ok(stop) => {
-                            if stop {
-                                tracing::info!("Stopping request loop as requested by plugin runtime");
-                                break;
-                            }
-                        }
-                        Err(err) => {
-                            tracing::error!("Request loop faced an error {:?}", err);
-                            break;
-                        }
-                    }
-                }
+                 let sender = sender.clone();
+                 loop {
+                     match request_loop(&mut recver, &sender, &api).await {
+                         Ok(stop) => {
+                             if stop {
+                                 tracing::debug!("Stopping request loop as requested by plugin runtime");
+                                 break;
+                             }
+                         }
+                         Err(err) => {
+                             tracing::error!("Request loop faced an error {:?}", err);
+                             break;
+                         }
+                     }
+                 }
              })
         } => {
-            tracing::error!("Request loop has been stopped {:?}", plugin_id)
+            tracing::debug!("Request loop has been stopped {:?}", plugin_id)
         }
     }
 
     drop((recver, sender));
 
-    drop(run_status_guard);
-
     if let Err(err) = cache.clear_plugin_icon_cache_dir(&plugin_uuid) {
         tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", plugin_id, err)
+    }
+
+    #[cfg(not(feature = "scenario_runner"))]
+    {
+        let code = runtime_process.wait()
+            .context("Error while waiting for JS runtime process to finish")?
+            .code();
+
+        match code {
+            Some(code) => {
+                if code == 0 {
+                    tracing::info!("Plugin Runtime was stopped successfully")
+                } else {
+                    tracing::error!("Runtime process finished with status code: {code}")
+                }
+            },
+            None => tracing::error!("Process terminated by signal")
+        }
     }
 
     Ok(())

@@ -122,7 +122,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
 
     send_message(JsMessageSide::PluginRuntime, &mut sender, JsPluginRuntimeMessage::Stopped).await?;
 
-    tracing::info!("Plugin runtime outer loop has been stopped {:?}", plugin_id);
+    tracing::debug!("Plugin runtime outer loop has been stopped {:?}", plugin_id);
 
     drop((recver, sender));
 
@@ -159,7 +159,7 @@ async fn run(outer_handle: Handle, stop_token: CancellationToken, init: JsInit, 
         }
     }
 
-    tracing::info!("Plugin runtime inner loop has been stopped {:?}", plugin_id);
+    tracing::debug!("Plugin runtime inner loop has been stopped {:?}", plugin_id);
 
     Ok(())
 }
