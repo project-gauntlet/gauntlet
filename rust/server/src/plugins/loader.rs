@@ -364,7 +364,7 @@ impl PluginLoader {
         Self::validate_network_permissions(&permissions.network)?;
         Self::validate_path_permissions(&permissions.filesystem.read, supports_linux, supports_macos, supports_windows)?;
         Self::validate_path_permissions(&permissions.filesystem.write, supports_linux, supports_macos, supports_windows)?;
-        Self::validate_string_permissions(&permissions.exec.command)?;
+        Self::validate_command_permissions(&permissions.exec.command)?;
         Self::validate_path_permissions(&permissions.exec.executable, supports_linux, supports_macos, supports_windows)?;
 
         // even though system accepts a list of predefined values
@@ -540,6 +540,18 @@ impl PluginLoader {
         for value in values {
             if value.is_empty() {
                 Err(anyhow!("Empty string value is not allowed in permissions"))?
+            }
+        }
+
+        Ok(())
+    }
+
+    fn validate_command_permissions(values: &[String]) -> anyhow::Result<()> {
+        Self::validate_string_permissions(values)?;
+
+        for value in values {
+            if value.contains("/") || value.contains("\\") {
+                Err(anyhow!("Command permissions value cannot be a path"))?
             }
         }
 

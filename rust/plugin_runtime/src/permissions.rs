@@ -131,7 +131,7 @@ fn run_permission(
 
     let granted_command = permissions.command
         .iter()
-        .map(|cmd| AllowRunDescriptor(PathBuf::from(cmd)))
+        .flat_map(|cmd| anyhow::Ok(AllowRunDescriptor(which::which_global(cmd)?)))
         .collect::<Vec<_>>();
 
     let mut granted = HashSet::new();

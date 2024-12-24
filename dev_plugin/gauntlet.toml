@@ -192,7 +192,7 @@ os = 'macos'
 os = 'windows'
 
 [permissions]
-environment = ["RUST_LOG"]
+environment = ["RUST_LOG", "LD_LIBRARY_PATH"]
 system = ["systemMemoryInfo"]
 network = ["upload.wikimedia.org", "api.github.com"]
 clipboard = ["read", "write", "clear"]
@@ -210,5 +210,5 @@ read = [
 write = ["/home/exidex/.test"]
 
 [permissions.exec]
-command = ["ls"]
+command = ["echo"]
 executable = ["/usr/bin/ls"]
