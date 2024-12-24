@@ -323,7 +323,7 @@ pub trait WidgetVisitor {
         }
     }
 
-    async fn image(&mut self, _widget_id: UiWidgetId, _widget: &Image) {
+    async fn image(&mut self, _widget_id: UiWidgetId, _widget: &ImageLike) {
 
     }
 

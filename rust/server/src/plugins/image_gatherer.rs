@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use gauntlet_common::model::{Image, ImageSource, ImageSourceAsset, ImageSourceUrl, RootWidget, UiWidgetId, WidgetVisitor};
+use gauntlet_common::model::{ImageLike, ImageSource, ImageSourceAsset, ImageSourceUrl, RootWidget, UiWidgetId, WidgetVisitor};
 use gauntlet_plugin_runtime::BackendForPluginRuntimeApi;
 use crate::plugins::js::BackendForPluginRuntimeApiImpl;
 use futures::StreamExt;
@@ -11,8 +11,8 @@ pub struct ImageGatherer<'a> {
 }
 
 impl<'a> WidgetVisitor for ImageGatherer<'a> {
-    async fn image(&mut self, widget_id: UiWidgetId, widget: &Image) {
-        if let Image::ImageSource(image_source) = &widget {
+    async fn image(&mut self, widget_id: UiWidgetId, widget: &ImageLike) {
+        if let ImageLike::ImageSource(image_source) = &widget {
             self.image_sources.insert(widget_id, get_image_date(&self.api, image_source).await);
         }
     }

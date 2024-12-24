@@ -15,7 +15,7 @@ use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
 use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::AppMsg;
-use gauntlet_common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, Image, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiWidgetId};
+use gauntlet_common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, ImageLike, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiWidgetId};
 use gauntlet_common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
@@ -2061,9 +2061,9 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 
-    fn render_image<'a>(&self, widget_id: UiWidgetId, image_data: &Image, icon_style: Option<TextStyle>) -> Element<'a, ComponentWidgetEvent> {
+    fn render_image<'a>(&self, widget_id: UiWidgetId, image_data: &ImageLike, icon_style: Option<TextStyle>) -> Element<'a, ComponentWidgetEvent> {
         match image_data {
-            Image::ImageSource(_) => {
+            ImageLike::ImageSource(_) => {
                 match self.images.get(&widget_id) {
                     Some(bytes) => {
                         image(Handle::from_bytes(bytes.clone()))
@@ -2075,7 +2075,7 @@ impl<'b> ComponentWidgets<'b> {
                     }
                 }
             }
-            Image::Icons(icon) => {
+            ImageLike::Icons(icon) => {
                 match icon_style {
                     None => {
                         value(icon_to_bootstrap(icon))
