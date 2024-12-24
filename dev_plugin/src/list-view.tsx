@@ -20,6 +20,7 @@ export default function ListView(): ReactElement {
                 value={searchText}
                 onChange={setSearchText}
             />
+            <List.Item title={"Title"} subtitle={"Subtitle"} onClick={onClick}/>
             {
                 numbers.map(value => {
                     const title = "Title " + value;

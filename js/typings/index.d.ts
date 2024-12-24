@@ -37,8 +37,6 @@ type MacOSDesktopSettings13AndPostData = {
     icon: ArrayBuffer | undefined,
 }
 
-type PromiseRejectCallback = (type: number, promise: Promise<unknown>, reason: any) => void;
-
 type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | CloseView | OpenInlineView | ReloadSearchIndex | RefreshSearchIndex
 type RenderLocation = "InlineView" | "View"
 
@@ -112,12 +110,26 @@ type UiWidget = {
 type Props = { [key: string]: any };
 type PropsWithChildren = { children?: UiWidget[] } & Props;
 
+type GeneratedCommandAccessory = GeneratedCommandTextAccessory | GeneratedCommandIconAccessory;
+
+interface GeneratedCommandTextAccessory {
+    text: string
+    icon?: string
+    tooltip?: string
+}
+
+interface GeneratedCommandIconAccessory {
+    icon: string
+    tooltip?: string
+}
+
 type AdditionalSearchItem = {
     entrypoint_name: string,
     entrypoint_id: string,
     entrypoint_uuid: string,
     entrypoint_icon: ArrayBuffer | undefined,
     entrypoint_actions: AdditionalSearchItemAction[],
+    entrypoint_accessories: GeneratedCommandAccessory[],
 }
 
 type AdditionalSearchItemAction = {

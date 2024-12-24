@@ -113,6 +113,20 @@ pub struct SearchResult {
     pub entrypoint_icon: Option<String>,
     pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_actions: Vec<SearchResultEntrypointAction>,
+    pub entrypoint_accessories: Vec<SearchResultAccessory>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchResultAccessory {
+    TextAccessory {
+        text: String,
+        icon: Option<Icons>,
+        tooltip: Option<String>
+    },
+    IconAccessory {
+        icon: Icons,
+        tooltip: Option<String>
+    },
 }
 
 #[derive(Debug, Clone)]

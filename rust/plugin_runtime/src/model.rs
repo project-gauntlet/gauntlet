@@ -1,5 +1,5 @@
 use crate::JsEvent;
-use gauntlet_common::model::{EntrypointId, PluginId, RootWidget};
+use gauntlet_common::model::{EntrypointId, Icons, PluginId, RootWidget};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -172,6 +172,7 @@ pub struct JsAdditionalSearchItem {
     pub entrypoint_uuid: String,
     pub entrypoint_icon: Option<Vec<u8>>,
     pub entrypoint_actions: Vec<JsAdditionalSearchItemAction>,
+    pub entrypoint_accessories: Vec<JsAdditionalSearchItemAccessory>,
 }
 
 impl fmt::Debug for JsAdditionalSearchItem {
@@ -201,6 +202,20 @@ pub enum JsPreferenceUserData {
     Bool(bool),
     ListOfStrings(Vec<String>),
     ListOfNumbers(Vec<f64>),
+}
+
+#[derive(Debug, Deserialize, Serialize, Encode, Decode)]
+#[serde(untagged)]
+pub enum JsAdditionalSearchItemAccessory {
+    TextAccessory {
+        text: String,
+        icon: Option<Icons>,
+        tooltip: Option<String>
+    },
+    IconAccessory {
+        icon: Icons,
+        tooltip: Option<String>
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Encode, Decode)]

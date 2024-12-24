@@ -6,7 +6,7 @@ use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType};
+use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultAccessory, SearchResultEntrypointAction, SearchResultEntrypointType};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 
 #[derive(Clone)]
@@ -29,6 +29,7 @@ struct EntrypointData {
     icon_path: Option<String>,
     frecency: f64,
     actions: Vec<EntrypointActionData>,
+    accessories: Vec<SearchResultAccessory>,
 }
 
 struct EntrypointActionData {
@@ -44,6 +45,7 @@ pub struct SearchIndexItem {
     pub entrypoint_icon_path: Option<String>,
     pub entrypoint_frecency: f64,
     pub entrypoint_actions: Vec<SearchIndexItemAction>,
+    pub entrypoint_accessories: Vec<SearchResultAccessory>,
 }
 
 #[derive(Clone, Debug)]
@@ -133,20 +135,21 @@ impl SearchIndex {
         index_writer.commit()?;
         self.index_reader.reload()?;
 
-        let data = search_items.iter()
+        let data = search_items.into_iter()
             .map(|item| {
-                let actions = item.entrypoint_actions.iter()
+                let actions = item.entrypoint_actions.into_iter()
                     .map(|action| EntrypointActionData {
-                        label: action.label.clone(),
-                        shortcut: action.shortcut.clone(),
+                        label: action.label,
+                        shortcut: action.shortcut,
                     })
                     .collect();
 
                 let data = EntrypointData {
-                    entrypoint_type: item.entrypoint_type.clone(),
-                    icon_path: item.entrypoint_icon_path.clone(),
+                    entrypoint_type: item.entrypoint_type,
+                    icon_path: item.entrypoint_icon_path,
                     frecency: item.entrypoint_frecency,
                     actions,
+                    accessories: item.entrypoint_accessories,
                 };
 
                 (item.entrypoint_id.clone(), data)
@@ -256,6 +259,10 @@ impl SearchIndex {
                     })
                     .collect();
 
+                let entrypoint_accessories = entrypoint_data.accessories.iter()
+                    .cloned()
+                    .collect();
+
                 let result_item = SearchResult {
                     entrypoint_type: entrypoint_data.entrypoint_type.clone(),
                     entrypoint_name,
@@ -264,6 +271,7 @@ impl SearchIndex {
                     plugin_name,
                     plugin_id,
                     entrypoint_actions,
+                    entrypoint_accessories,
                 };
 
                 (result_item, entrypoint_data.frecency)

@@ -501,7 +501,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 for (type_name, shared_type) in shared_types {
                     match shared_type {
                         SharedType::Enum { items } => {
-                            output.push_str("#[derive(Debug, Serialize, Deserialize, Encode, Decode)]\n");
+                            output.push_str("#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]\n");
                             output.push_str(&format!("pub enum {} {{\n", type_name));
 
                             for item in items {

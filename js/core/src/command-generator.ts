@@ -22,11 +22,12 @@ interface GeneratedCommandAction {
 type GeneratorProps = {
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
+    updateAccessories: (id: string, accessories: GeneratedCommandAccessory[] | undefined) => void,
 };
 
 type Generator = (props: GeneratorProps) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
 
-type ProcessedGeneratedCommand = { generatorEntrypointId: string, uuid: string, command: GeneratedCommand };
+type ProcessedGeneratedCommand = { generatorEntrypointId: string, uuid: string, command: GeneratedCommand, accessories?: GeneratedCommandAccessory[] };
 
 type ProcessedGeneratedCommands = { [lookupEntrypointId: string]: ProcessedGeneratedCommand };
 type GeneratorCleanups = { [generatorEntrypointId: string]: () => (void | Promise<void>) };
@@ -63,7 +64,8 @@ export async function runCommandGenerators(): Promise<void> {
                 storedGeneratedCommands[lookupId] = {
                     generatorEntrypointId: generatorEntrypointId,
                     uuid: crypto.randomUUID(),
-                    command: data
+                    command: data,
+                    accessories: [],
                 }
 
                 reloadSearchIndex(true)
@@ -77,11 +79,24 @@ export async function runCommandGenerators(): Promise<void> {
                 reloadSearchIndex(true)
             }
 
+            const updateAccessories = (id: string, accessories: GeneratedCommandAccessory[] | undefined): void => {
+                op_log_info("command_generator", `Updating accessories for entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+                const lookupId = generatorEntrypointId + ":" + id;
+
+                const generatedCommand = storedGeneratedCommands[lookupId];
+                if (generatedCommand) {
+                    generatedCommand.accessories = accessories
+                    reloadSearchIndex(true)
+                } else {
+                    console.error(`Unable to update accessories for entry '${id}' because it doesn't exist`)
+                }
+            }
+
             // noinspection ES6MissingAwait
             (async () => {
                 try {
                     update_loading_bar(generatorEntrypointId, true)
-                    let cleanup = await generator({ add, remove })
+                    let cleanup = await generator({ add, remove, updateAccessories })
                     update_loading_bar(generatorEntrypointId, false)
                     if (typeof cleanup === "function") {
                         generatorCleanups[generatorEntrypointId] = cleanup
@@ -108,6 +123,7 @@ export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
                 id: action.ref,
                 label: action.label
             })),
+        entrypoint_accessories: value.accessories || []
     }))
 }
 

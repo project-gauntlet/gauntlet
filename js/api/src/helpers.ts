@@ -45,9 +45,23 @@ export interface GeneratedCommandAction {
     fn: () => void
 }
 
+export type GeneratedCommandAccessory = GeneratedCommandTextAccessory | GeneratedCommandIconAccessory;
+
+export interface GeneratedCommandTextAccessory {
+    text: string
+    icon?: string
+    tooltip?: string
+}
+
+export interface GeneratedCommandIconAccessory {
+    icon: string
+    tooltip?: string
+}
+
 export type GeneratorProps = {
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
+    updateAccessories: (id: string, accessories: GeneratedCommandAccessory[] | undefined) => void,
 };
 
 export const Clipboard: Clipboard = {

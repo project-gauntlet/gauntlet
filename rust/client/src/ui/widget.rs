@@ -1000,7 +1000,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_image_widget<'a>(&self, widget: &ImageWidget, centered: bool) -> Element<'a, ComponentWidgetEvent> {
         // TODO image size, height and width
-        let content: Element<_> = self.render_image(widget.__id__, &widget.source, None);
+        let content: Element<_> = render_image(self.images, widget.__id__, &widget.source, None);
 
         let mut content = container(content)
             .width(Length::Fill);
@@ -1412,7 +1412,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_empty_view_widget<'a>(&self, widget: &EmptyViewWidget) -> Element<'a, ComponentWidgetEvent> {
         let image: Option<Element<_>> = widget.image
             .as_ref()
-            .map(|image| self.render_image(widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
+            .map(|image| render_image(self.images, widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
 
         let title: Element<_> = text(widget.title.to_string())
             .shaping(Shaping::Advanced)
@@ -1457,69 +1457,6 @@ impl<'b> ComponentWidgets<'b> {
             .ignore_with_modifiers(true)
             .on_input(move |value| ComponentWidgetEvent::OnChangeSearchBar { widget_id, value })
             .themed(TextInputStyle::PluginSearchBar)
-    }
-
-    fn render_icon_accessory<'a>(&self, widget: &IconAccessoryWidget) -> Element<'a, ComponentWidgetEvent> {
-        let icon = self.render_image(widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
-
-        let content = container(icon)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .themed(ContainerStyle::IconAccessory);
-
-        match widget.tooltip.as_ref() {
-            None => content,
-            Some(tooltip_text) => {
-                let tooltip_text: Element<_> = text(tooltip_text.to_string())
-                    .shaping(Shaping::Advanced)
-                    .into();
-
-                tooltip(content, tooltip_text, Position::Top)
-                    .themed(TooltipStyle::Tooltip)
-            }
-        }
-    }
-
-    fn render_text_accessory<'a>(&self, widget: &TextAccessoryWidget) -> Element<'a, ComponentWidgetEvent> {
-        let icon: Option<Element<_>> = widget.icon
-            .as_ref()
-            .map(|icon| self.render_image(widget.__id__, icon, Some(TextStyle::TextAccessory)));
-
-        let text_content: Element<_> = text(widget.text.to_string())
-            .shaping(Shaping::Advanced)
-            .themed(TextStyle::TextAccessory);
-
-        let mut content: Vec<Element<_>> = vec![];
-
-        if let Some(icon) = icon {
-            let icon: Element<_> = container(icon)
-                .themed(ContainerStyle::TextAccessoryIcon);
-
-            content.push(icon)
-        }
-
-        content.push(text_content);
-
-        let content: Element<_> = row(content)
-            .align_y(Alignment::Center)
-            .into();
-
-        let content = container(content)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .themed(ContainerStyle::TextAccessory);
-
-        match widget.tooltip.as_ref() {
-            None => content,
-            Some(tooltip_text) => {
-                let tooltip_text: Element<_> = text(tooltip_text.to_string())
-                    .shaping(Shaping::Advanced)
-                    .into();
-
-                tooltip(content, tooltip_text, Position::Top)
-                    .themed(TooltipStyle::Tooltip)
-            }
-        }
     }
 
     fn render_list_widget<'a>(
@@ -1669,7 +1606,7 @@ impl<'b> ComponentWidgets<'b> {
     ) -> Element<'a, ComponentWidgetEvent> {
         let icon: Option<Element<_>> = widget.icon
             .as_ref()
-            .map(|icon| self.render_image(widget.__id__, icon, None));
+            .map(|icon| render_image(self.images, widget.__id__, icon, None));
 
         let title: Element<_> = text(widget.title.to_string())
             .shaping(Shaping::Advanced)
@@ -1701,8 +1638,8 @@ impl<'b> ComponentWidgets<'b> {
                 .iter()
                 .map(|accessory| {
                     match accessory {
-                        ListItemAccessories::_0(widget) => self.render_text_accessory(widget),
-                        ListItemAccessories::_1(widget) => self.render_icon_accessory(widget)
+                        ListItemAccessories::_0(widget) => render_text_accessory(self.images, widget),
+                        ListItemAccessories::_1(widget) => render_icon_accessory(self.images, widget)
                     }
                 })
                 .collect();
@@ -1894,7 +1831,7 @@ impl<'b> ComponentWidgets<'b> {
 
         let mut sub_content_right = vec![];
         if let Some(widget) = &widget.content.accessory {
-            sub_content_right.push(self.render_icon_accessory(widget));
+            sub_content_right.push(render_icon_accessory(self.images, widget));
         }
 
         let sub_content_left: Element<_> = column(sub_content_left)
@@ -2057,37 +1994,6 @@ impl<'b> ComponentWidgets<'b> {
                     |widget_id| ComponentWidgetEvent::ActionClick { widget_id },
                     || ComponentWidgetEvent::Noop,
                 )
-            }
-        }
-    }
-
-    fn render_image<'a>(&self, widget_id: UiWidgetId, image_data: &ImageLike, icon_style: Option<TextStyle>) -> Element<'a, ComponentWidgetEvent> {
-        match image_data {
-            ImageLike::ImageSource(_) => {
-                match self.images.get(&widget_id) {
-                    Some(bytes) => {
-                        image(Handle::from_bytes(bytes.clone()))
-                            .into()
-                    }
-                    None => {
-                        horizontal_space()
-                            .into()
-                    }
-                }
-            }
-            ImageLike::Icons(icon) => {
-                match icon_style {
-                    None => {
-                        value(icon_to_bootstrap(icon))
-                            .font(BOOTSTRAP_FONT)
-                            .into()
-                    }
-                    Some(icon_style) => {
-                        value(icon_to_bootstrap(icon))
-                            .font(BOOTSTRAP_FONT)
-                            .themed(icon_style)
-                    }
-                }
             }
         }
     }
@@ -2619,6 +2525,101 @@ fn render_shortcut<'a, T: 'a>(shortcut: &PhysicalShortcut) -> Element<'a, T> {
     row(result)
         .themed(RowStyle::ActionShortcut)
 }
+
+fn render_image<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec<u8>>, widget_id: UiWidgetId, image_data: &ImageLike, icon_style: Option<TextStyle>) -> Element<'a, T> {
+    match image_data {
+        ImageLike::ImageSource(_) => {
+            match images.get(&widget_id) {
+                Some(bytes) => {
+                    image(Handle::from_bytes(bytes.clone()))
+                        .into()
+                }
+                None => {
+                    horizontal_space()
+                        .into()
+                }
+            }
+        }
+        ImageLike::Icons(icon) => {
+            match icon_style {
+                None => {
+                    value(icon_to_bootstrap(icon))
+                        .font(BOOTSTRAP_FONT)
+                        .into()
+                }
+                Some(icon_style) => {
+                    value(icon_to_bootstrap(icon))
+                        .font(BOOTSTRAP_FONT)
+                        .themed(icon_style)
+                }
+            }
+        }
+    }
+}
+
+pub fn render_icon_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec<u8>>, widget: &IconAccessoryWidget) -> Element<'a, T> {
+    let icon = render_image(images, widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
+
+    let content = container(icon)
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Center)
+        .themed(ContainerStyle::IconAccessory);
+
+    match widget.tooltip.as_ref() {
+        None => content,
+        Some(tooltip_text) => {
+            let tooltip_text: Element<_> = text(tooltip_text.to_string())
+                .shaping(Shaping::Advanced)
+                .into();
+
+            tooltip(content, tooltip_text, Position::Top)
+                .themed(TooltipStyle::Tooltip)
+        }
+    }
+}
+
+pub fn render_text_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec<u8>>, widget: &TextAccessoryWidget) -> Element<'a, T> {
+    let icon: Option<Element<_>> = widget.icon
+        .as_ref()
+        .map(|icon| render_image(images, widget.__id__, icon, Some(TextStyle::TextAccessory)));
+
+    let text_content: Element<_> = text(widget.text.to_string())
+        .shaping(Shaping::Advanced)
+        .themed(TextStyle::TextAccessory);
+
+    let mut content: Vec<Element<_>> = vec![];
+
+    if let Some(icon) = icon {
+        let icon: Element<_> = container(icon)
+            .themed(ContainerStyle::TextAccessoryIcon);
+
+        content.push(icon)
+    }
+
+    content.push(text_content);
+
+    let content: Element<_> = row(content)
+        .align_y(Alignment::Center)
+        .into();
+
+    let content = container(content)
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Center)
+        .themed(ContainerStyle::TextAccessory);
+
+    match widget.tooltip.as_ref() {
+        None => content,
+        Some(tooltip_text) => {
+            let tooltip_text: Element<_> = text(tooltip_text.to_string())
+                .shaping(Shaping::Advanced)
+                .into();
+
+            tooltip(content, tooltip_text, Position::Top)
+                .themed(TooltipStyle::Tooltip)
+        }
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub enum ComponentWidgetEvent {

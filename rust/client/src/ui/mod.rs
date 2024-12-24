@@ -1599,11 +1599,8 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                 .width(Length::Fill)
                 .themed(TextInputStyle::MainSearch);
 
-            let search_list = search_list(
-                &state.search_results,
-                &focused_search_result,
-                |search_result| AppMsg::RunSearchItemAction(search_result, None),
-            );
+            let search_list = search_list(&state.search_results, &focused_search_result)
+                .map(|search_result| AppMsg::RunSearchItemAction(search_result, None));
 
             let search_list = container(search_list)
                 .width(Length::Fill)

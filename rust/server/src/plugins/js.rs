@@ -26,10 +26,10 @@ use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
 use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
+use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultAccessory, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::settings_env_data_to_string;
-use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsAdditionalSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide, JsPluginRuntimeMessage};
+use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsAdditionalSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide, JsPluginRuntimeMessage, JsAdditionalSearchItemAccessory};
 use crate::model::{IntermediateUiEvent};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
@@ -725,7 +725,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             shortcuts.insert(id.clone(), entrypoint_shortcuts);
         }
 
-        let mut plugins_search_items = generated_commands.into_iter()
+        let mut generated_search_items = generated_commands.into_iter()
             .map(|item| {
                 let entrypoint_icon_path = match item.entrypoint_icon {
                     None => None,
@@ -753,6 +753,19 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     })
                     .collect();
 
+                let entrypoint_accessories = item.entrypoint_accessories.into_iter()
+                    .map(|accessory| {
+                        match accessory {
+                            JsAdditionalSearchItemAccessory::TextAccessory { text, icon, tooltip } => {
+                                SearchResultAccessory::TextAccessory { text, icon, tooltip }
+                            }
+                            JsAdditionalSearchItemAccessory::IconAccessory { icon, tooltip } => {
+                                SearchResultAccessory::IconAccessory { icon, tooltip }
+                            }
+                        }
+                    })
+                    .collect();
+
                 Ok(SearchIndexItem {
                     entrypoint_type: SearchResultEntrypointType::GeneratedCommand,
                     entrypoint_id: EntrypointId::from_string(item.entrypoint_id),
@@ -760,6 +773,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     entrypoint_icon_path,
                     entrypoint_frecency,
                     entrypoint_actions,
+                    entrypoint_accessories,
                 })
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -806,6 +820,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_icon_path,
                             entrypoint_frecency,
                             entrypoint_actions: vec![],
+                            entrypoint_accessories: vec![],
                         }))
                     },
                     DbPluginEntrypointType::View => {
@@ -816,6 +831,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_icon_path,
                             entrypoint_frecency,
                             entrypoint_actions: vec![],
+                            entrypoint_accessories: vec![],
                         }))
                     },
                     DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {
@@ -828,9 +844,9 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             .flat_map(|item| item)
             .collect::<Vec<_>>();
 
-        plugins_search_items.append(&mut builtin_search_items);
+        generated_search_items.append(&mut builtin_search_items);
 
-        self.search_index.save_for_plugin(self.plugin_id.clone(), name, plugins_search_items, refresh_search_list)
+        self.search_index.save_for_plugin(self.plugin_id.clone(), name, generated_search_items, refresh_search_list)
             .context("error when updating search index")?;
 
         Ok(())
