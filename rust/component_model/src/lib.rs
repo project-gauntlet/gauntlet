@@ -558,7 +558,7 @@ fn root(children: &[&Component]) -> Component {
                     },
                 ]
             }),
-            ("Image".to_owned(), SharedType::Union {
+            ("ImageLike".to_owned(), SharedType::Union {
                 items: vec![
                     PropertyType::SharedTypeRef {
                         name: "ImageSource".to_owned()
@@ -738,7 +738,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/image/description.md"),
         "Image",
         [
-            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::SharedTypeRef { name: "Image".to_owned() })
+            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() })
         ],
         children_none(),
     );
@@ -1035,7 +1035,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/empty_view/props/title.md"),false, PropertyType::String),
             property("description", mark_doc!("/empty_view/props/description.md"),true, PropertyType::String),
-            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
+            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
         ],
         children_none(),
     );
@@ -1046,7 +1046,7 @@ pub fn create_component_model() -> Vec<Component> {
         "TextAccessory",
         [
             property("text", mark_doc!("/accessory_text/props/text.md"),false, PropertyType::String),
-            property("icon", mark_doc!("/accessory_text/props/icon.md"),true, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
+            property("icon", mark_doc!("/accessory_text/props/icon.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
             property("tooltip", mark_doc!("/accessory_text/props/tooltip.md"),true, PropertyType::String),
         ],
         children_none(),
@@ -1057,7 +1057,7 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/accessory_icon/description.md"),
         "IconAccessory",
         [
-            property("icon", mark_doc!("/accessory_icon/props/icon.md"),false, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
+            property("icon", mark_doc!("/accessory_icon/props/icon.md"),false, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
             property("tooltip", mark_doc!("/accessory_icon/props/tooltip.md"),true, PropertyType::String),
         ],
         children_none(),
@@ -1084,7 +1084,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
-            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::SharedTypeRef { name: "Image".to_owned() }),
+            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
             property("accessories", mark_doc!("/list_item/props/accessories.md"),true, PropertyType::Array { item: Box::new(PropertyType::Union { items: vec![component_ref(&accessory_text_component, Arity::ZeroOrMore), component_ref(&accessory_icon_component, Arity::ZeroOrMore)]}) }),
             event("onClick", mark_doc!("/list_item/props/onClick.md"), true, [])
         ],

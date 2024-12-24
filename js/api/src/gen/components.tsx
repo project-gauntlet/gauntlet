@@ -42,7 +42,7 @@ declare global {
                 children?: ElementComponent<typeof MetadataTagList | typeof MetadataLink | typeof MetadataValue | typeof MetadataIcon | typeof MetadataSeparator>;
             };
             ["gauntlet:image"]: {
-                source: Image;
+                source: ImageLike;
             };
             ["gauntlet:h1"]: {
                 children?: StringComponent;
@@ -121,15 +121,15 @@ declare global {
             ["gauntlet:empty_view"]: {
                 title: string;
                 description?: string;
-                image?: Image;
+                image?: ImageLike;
             };
             ["gauntlet:accessory_icon"]: {
-                icon: Image;
+                icon: ImageLike;
                 tooltip?: string;
             };
             ["gauntlet:accessory_text"]: {
                 text: string;
-                icon?: Image;
+                icon?: ImageLike;
                 tooltip?: string;
             };
             ["gauntlet:search_bar"]: {
@@ -141,7 +141,7 @@ declare global {
                 children?: ElementComponent<typeof TextAccessory | typeof IconAccessory>;
                 title: string;
                 subtitle?: string;
-                icon?: Image;
+                icon?: ImageLike;
                 onClick?: () => void;
             };
             ["gauntlet:list_section"]: {
@@ -360,7 +360,7 @@ export type ImageSourceAsset = {
     asset: string;
 };
 export type ImageSource = ImageSourceUrl | ImageSourceAsset;
-export type Image = ImageSource | Icons;
+export type ImageLike = ImageSource | Icons;
 export interface ActionProps {
     id?: string;
     label: string;
@@ -451,7 +451,7 @@ Metadata.Value = MetadataValue;
 Metadata.Icon = MetadataIcon;
 Metadata.Separator = MetadataSeparator;
 export interface ImageProps {
-    source: Image;
+    source: ImageLike;
 }
 export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
     return <gauntlet:image source={props.source}></gauntlet:image>;
@@ -648,13 +648,13 @@ Inline.Center = Content;
 export interface EmptyViewProps {
     title: string;
     description?: string;
-    image?: Image;
+    image?: ImageLike;
 }
 export const EmptyView: FC<EmptyViewProps> = (props: EmptyViewProps): ReactNode => {
     return <gauntlet:empty_view title={props.title} description={props.description} image={props.image}></gauntlet:empty_view>;
 };
 export interface IconAccessoryProps {
-    icon: Image;
+    icon: ImageLike;
     tooltip?: string;
 }
 export const IconAccessory: FC<IconAccessoryProps> = (props: IconAccessoryProps): ReactNode => {
@@ -662,7 +662,7 @@ export const IconAccessory: FC<IconAccessoryProps> = (props: IconAccessoryProps)
 };
 export interface TextAccessoryProps {
     text: string;
-    icon?: Image;
+    icon?: ImageLike;
     tooltip?: string;
 }
 export const TextAccessory: FC<TextAccessoryProps> = (props: TextAccessoryProps): ReactNode => {
@@ -679,7 +679,7 @@ export const SearchBar: FC<SearchBarProps> = (props: SearchBarProps): ReactNode 
 export interface ListItemProps {
     title: string;
     subtitle?: string;
-    icon?: Image;
+    icon?: ImageLike;
     accessories?: (ElementComponent<typeof TextAccessory> | ElementComponent<typeof IconAccessory>)[];
     onClick?: () => void;
 }
