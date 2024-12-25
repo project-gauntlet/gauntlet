@@ -37,6 +37,7 @@ export interface GeneratedCommand {
     icon?: ArrayBuffer
     fn: () => void
     actions?: GeneratedCommandAction[]
+    accessories?: GeneratedCommandAccessory[]
 }
 
 export interface GeneratedCommandAction {
@@ -61,7 +62,8 @@ export interface GeneratedCommandIconAccessory {
 export type GeneratorProps = {
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
-    updateAccessories: (id: string, accessories: GeneratedCommandAccessory[] | undefined) => void,
+    get: (id: string) => GeneratedCommand | undefined
+    getAll: () => GeneratedCommand[]
 };
 
 export const Clipboard: Clipboard = {

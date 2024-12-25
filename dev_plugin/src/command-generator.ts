@@ -1,7 +1,6 @@
 import { GeneratorProps, showHud } from "@project-gauntlet/api/helpers";
-import { Icons } from "@project-gauntlet/api/components";
 
-export default function CommandGenerator({ add, remove: _, updateAccessories }: GeneratorProps): void {
+export default function CommandGenerator({ add, remove: _ }: GeneratorProps): void {
     add('generated-test-1', {
         name: 'Generated Item 1',
         fn: () => {
@@ -54,11 +53,10 @@ export default function CommandGenerator({ add, remove: _, updateAccessories }: 
         fn: () => {
             console.log('generated-test-4')
         },
+        accessories: [
+            {
+                text: "1 window open"
+            }
+        ],
     })
-
-    updateAccessories('generated-test-4', [
-        {
-            text: "1 window open"
-        },
-    ])
 }

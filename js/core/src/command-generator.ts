@@ -2,6 +2,7 @@ import {
     fetch_action_id_for_shortcut,
     get_command_generator_entrypoint_ids,
     op_log_info,
+    op_log_debug,
     update_loading_bar
 } from "ext:core/ops";
 import { reloadSearchIndex } from "./search-index";
@@ -11,6 +12,7 @@ interface GeneratedCommand { // TODO is it possible to import api here
     icon?: ArrayBuffer
     fn: () => void
     actions?: GeneratedCommandAction[]
+    accessories?: GeneratedCommandAccessory[]
 }
 
 interface GeneratedCommandAction {
@@ -22,12 +24,13 @@ interface GeneratedCommandAction {
 type GeneratorProps = {
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
-    updateAccessories: (id: string, accessories: GeneratedCommandAccessory[] | undefined) => void,
+    get: (id: string) => GeneratedCommand | undefined
+    getAll: () => GeneratedCommand[]
 };
 
 type Generator = (props: GeneratorProps) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
 
-type ProcessedGeneratedCommand = { generatorEntrypointId: string, uuid: string, command: GeneratedCommand, accessories?: GeneratedCommandAccessory[] };
+type ProcessedGeneratedCommand = { generatorEntrypointId: string, uuid: string, command: GeneratedCommand };
 
 type ProcessedGeneratedCommands = { [lookupEntrypointId: string]: ProcessedGeneratedCommand };
 type GeneratorCleanups = { [generatorEntrypointId: string]: () => (void | Promise<void>) };
@@ -65,7 +68,6 @@ export async function runCommandGenerators(): Promise<void> {
                     generatorEntrypointId: generatorEntrypointId,
                     uuid: crypto.randomUUID(),
                     command: data,
-                    accessories: [],
                 }
 
                 reloadSearchIndex(true)
@@ -79,24 +81,30 @@ export async function runCommandGenerators(): Promise<void> {
                 reloadSearchIndex(true)
             }
 
-            const updateAccessories = (id: string, accessories: GeneratedCommandAccessory[] | undefined): void => {
-                op_log_info("command_generator", `Updating accessories for entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+            const get = (id: string) => {
+                op_log_debug("command_generator", `Getting entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
                 const lookupId = generatorEntrypointId + ":" + id;
 
                 const generatedCommand = storedGeneratedCommands[lookupId];
                 if (generatedCommand) {
-                    generatedCommand.accessories = accessories
-                    reloadSearchIndex(true)
+                    return generatedCommand.command
                 } else {
-                    console.error(`Unable to update accessories for entry '${id}' because it doesn't exist`)
+                    return undefined
                 }
+            }
+
+            const getAll = (): GeneratedCommand[] => {
+                op_log_debug("command_generator", `Getting all entries by command generator entrypoint '${generatorEntrypointId}'`)
+
+                return Object.entries(storedGeneratedCommands)
+                    .map(([_, value]) => value.command)
             }
 
             // noinspection ES6MissingAwait
             (async () => {
                 try {
                     update_loading_bar(generatorEntrypointId, true)
-                    let cleanup = await generator({ add, remove, updateAccessories })
+                    let cleanup = await generator({ add, remove, get, getAll })
                     update_loading_bar(generatorEntrypointId, false)
                     if (typeof cleanup === "function") {
                         generatorCleanups[generatorEntrypointId] = cleanup
@@ -123,7 +131,7 @@ export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
                 id: action.ref,
                 label: action.label
             })),
-        entrypoint_accessories: value.accessories || []
+        entrypoint_accessories: value.command.accessories || []
     }))
 }
 
