@@ -25,7 +25,7 @@ pub enum JsEvent {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String,
         #[serde(rename = "actionIndex")]
-        action_index: Option<usize>
+        action_index: usize
     },
     ViewEvent {
         #[serde(rename = "widgetId")]

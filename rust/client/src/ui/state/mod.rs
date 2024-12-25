@@ -138,7 +138,7 @@ impl Focus<SearchResult> for GlobalState {
                     MainViewState::None => {
                         if let Some(search_result) = focused_search_result.get(focus_list) {
                             let search_result = search_result.clone();
-                            Task::done(AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithFocus { search_result })
+                            Task::done(AppMsg::OnPrimaryActionMainViewNoPanel { search_result })
                         } else {
                             Task::done(AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus)
                         }

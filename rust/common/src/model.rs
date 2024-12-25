@@ -223,7 +223,7 @@ pub enum BackendRequestData {
     RequestRunGeneratedCommand {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        action_index: Option<usize>
+        action_index: usize
     },
     SendViewEvent {
         plugin_id: PluginId,

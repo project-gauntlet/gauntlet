@@ -9,9 +9,8 @@ import { reloadSearchIndex } from "./search-index";
 
 interface GeneratedCommand { // TODO is it possible to import api here
     name: string
+    actions: GeneratedCommandAction[]
     icon?: ArrayBuffer
-    fn: () => void
-    actions?: GeneratedCommandAction[]
     accessories?: GeneratedCommandAccessory[]
 }
 
@@ -61,6 +60,10 @@ export async function runCommandGenerators(): Promise<void> {
 
             const add = (id: string, data: GeneratedCommand) => {
                 op_log_info("command_generator", `Adding entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+
+                if (data.actions.length < 1) {
+                    throw new Error(`Error when adding entry '${id}': at least one action should be provided`)
+                }
 
                 const lookupId = generatorEntrypointId + ":" + id;
 
@@ -126,7 +129,7 @@ export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
         entrypoint_uuid: value.uuid,
         entrypoint_name: value.command.name,
         entrypoint_icon: value.command.icon,
-        entrypoint_actions: (value.command.actions || [])
+        entrypoint_actions: value.command.actions
             .map(action => ({
                 id: action.ref,
                 label: action.label
@@ -149,19 +152,15 @@ export async function runGeneratedCommandAction(entrypointId: string, key: strin
     }
 }
 
-export function runGeneratedCommand(entrypointId: string, action_index: number | undefined) {
+export function runGeneratedCommand(entrypointId: string, action_index: number) {
     const generatedCommand = storedGeneratedCommands[entrypointId];
 
     if (generatedCommand) {
-        if (typeof action_index == "number") {
-            const actions = generatedCommand.command.actions;
-            if (actions) {
-                actions[action_index].fn()
-            } else {
-                throw new Error("Generated command with entrypoint id '" + entrypointId + "' doesn't have actions, action index: " + action_index)
-            }
+        const actions = generatedCommand.command.actions;
+        if (actions) {
+            actions[action_index].fn()
         } else {
-            generatedCommand.command.fn()
+            throw new Error("Generated command with entrypoint id '" + entrypointId + "' doesn't have actions, action index: " + action_index)
         }
     } else {
         throw new Error("Generated command with entrypoint id '" + entrypointId + "' not found")

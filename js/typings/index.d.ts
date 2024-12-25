@@ -78,7 +78,7 @@ type RunCommand = {
 type RunGeneratedCommand = {
     type: "RunGeneratedCommand"
     entrypointId: string
-    actionIndex: number | undefined
+    actionIndex: number
 }
 
 type OpenInlineView = {

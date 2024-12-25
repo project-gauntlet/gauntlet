@@ -34,9 +34,8 @@ export function showHud(display: string): void {
 
 export interface GeneratedCommand {
     name: string
+    actions: GeneratedCommandAction[]
     icon?: ArrayBuffer
-    fn: () => void
-    actions?: GeneratedCommandAction[]
     accessories?: GeneratedCommandAccessory[]
 }
 

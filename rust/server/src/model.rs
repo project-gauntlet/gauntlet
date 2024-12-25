@@ -12,7 +12,7 @@ pub enum IntermediateUiEvent {
     },
     RunGeneratedCommand {
         entrypoint_id: String,
-        action_index: Option<usize>
+        action_index: usize
     },
     HandleViewEvent {
         widget_id: UiWidgetId,

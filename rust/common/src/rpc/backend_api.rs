@@ -92,7 +92,7 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: Option<usize>) -> Result<(), BackendForFrontendApiError> {
+    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::RequestRunGeneratedCommand {
             plugin_id,
             entrypoint_id,

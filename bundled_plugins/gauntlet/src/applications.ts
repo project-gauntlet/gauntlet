@@ -28,9 +28,14 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                 path => linux_app_from_path(path),
                 (id, data) => ({
                     name: data.name,
-                    fn: () => {
-                        linux_open_application(id)
-                    },
+                    actions: [
+                        {
+                            label: "Open application",
+                            fn: () => {
+                                linux_open_application(id)
+                            },
+                        }
+                    ],
                     icon: data.icon, // TODO lazy icons
                 }),
                 add,
@@ -44,9 +49,14 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                 for (const setting of macos_settings_13_and_post()) {
                     add(`settings:${setting.preferences_id}`, {
                         name: setting.name,
-                        fn: () => {
-                            macos_open_setting_13_and_post(setting.preferences_id)
-                        },
+                        actions: [
+                            {
+                                label: "Open settings",
+                                fn: () => {
+                                    macos_open_setting_13_and_post(setting.preferences_id)
+                                },
+                            }
+                        ],
                         icon: setting.icon,
                     })
                 }
@@ -54,9 +64,14 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                 for (const setting of macos_settings_pre_13()) {
                     add(`settings:${setting.path}`, {
                         name: setting.name,
-                        fn: () => {
-                            macos_open_setting_pre_13(setting.path)
-                        },
+                        actions: [
+                            {
+                                label: "Open settings",
+                                fn: () => {
+                                    macos_open_setting_pre_13(setting.path)
+                                },
+                            }
+                        ],
                         icon: setting.icon,
                     })
                 }
@@ -70,9 +85,14 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                             let data = app.data;
                             add(data.path, {
                                 name: data.name,
-                                fn: () => {
-                                    macos_open_application(data.path)
-                                },
+                                actions: [
+                                    {
+                                        label: "Open application",
+                                        fn: () => {
+                                            macos_open_application(data.path)
+                                        },
+                                    }
+                                ],
                                 icon: data.icon,
                             })
                             break;
@@ -88,9 +108,14 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                 path => macos_app_from_arbitrary_path(path),
                 (_id, data) => ({
                     name: data.name,
-                    fn: () => {
-                        macos_open_application(data.path)
-                    },
+                    actions: [
+                        {
+                            label: "Open application",
+                            fn: () => {
+                                macos_open_application(data.path)
+                            },
+                        }
+                    ],
                     icon: data.icon,
                 }),
                 add,
