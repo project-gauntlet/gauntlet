@@ -5,7 +5,7 @@ use crate::api::{BackendForPluginRuntimeApi, BackendForPluginRuntimeApiProxy};
 
 #[op2(async)]
 #[serde]
-pub async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> anyhow::Result<Vec<String>> {
+pub async fn get_entrypoint_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> anyhow::Result<Vec<String>> {
     let api = {
         let state = state.borrow();
 
@@ -16,5 +16,5 @@ pub async fn get_command_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -
         api
     };
 
-    api.get_command_generator_entrypoint_ids().await
+    api.get_entrypoint_generator_entrypoint_ids().await
 }

@@ -20,7 +20,7 @@ use gauntlet_common::model::PluginId;
 use crate::api::BackendForPluginRuntimeApiProxy;
 use crate::assets::{asset_data, asset_data_blocking};
 use crate::clipboard::{clipboard_clear, clipboard_read, clipboard_read_text, clipboard_write, clipboard_write_text};
-use crate::command_generators::get_command_generator_entrypoint_ids;
+use crate::entrypoint_generators::get_entrypoint_generator_entrypoint_ids;
 use crate::component_model::ComponentModel;
 use crate::environment::{environment_gauntlet_version, environment_is_development, environment_plugin_cache_dir, environment_plugin_data_dir};
 use crate::events::{op_plugin_get_pending_event, EventReceiver, JsEvent};
@@ -165,8 +165,8 @@ deno_core::extension!(
         op_log_warn,
         op_log_error,
 
-        // command generators
-        get_command_generator_entrypoint_ids,
+        // entrypoint generators
+        get_entrypoint_generator_entrypoint_ids,
 
         // assets
         asset_data,

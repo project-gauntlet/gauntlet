@@ -163,10 +163,10 @@ type = 'view'
 description = ''
 
 [[entrypoint]]
-id = 'command-generator'
-name = 'Command generator'
-path = 'src/command-generator.tsx'
-type = 'command-generator'
+id = 'entrypoint-generator'
+name = 'Entrypoint generator'
+path = 'src/entrypoint-generator.tsx'
+type = 'entrypoint-generator'
 description = ''
 
 [[entrypoint.actions]]

@@ -232,7 +232,7 @@ impl PluginLoader {
                     PluginManifestEntrypointTypes::Command => DbPluginEntrypointType::Command,
                     PluginManifestEntrypointTypes::View => DbPluginEntrypointType::View,
                     PluginManifestEntrypointTypes::InlineView => DbPluginEntrypointType::InlineView,
-                    PluginManifestEntrypointTypes::CommandGenerator => DbPluginEntrypointType::CommandGenerator,
+                    PluginManifestEntrypointTypes::EntrypointGenerator => DbPluginEntrypointType::EntrypointGenerator,
                 }).to_owned(),
                 preferences: entrypoint.preferences
                     .into_iter()
@@ -691,8 +691,8 @@ pub enum PluginManifestEntrypointTypes {
     View,
     #[serde(rename = "inline-view")]
     InlineView,
-    #[serde(rename = "command-generator")]
-    CommandGenerator,
+    #[serde(rename = "entrypoint-generator")]
+    EntrypointGenerator,
 }
 
 #[derive(Debug, Deserialize)]

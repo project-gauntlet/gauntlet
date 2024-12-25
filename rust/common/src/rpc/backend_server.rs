@@ -132,7 +132,7 @@ impl RpcBackend for RpcBackendServerImpl {
                             SettingsEntrypointType::Command => RpcEntrypointTypeSettings::SCommand,
                             SettingsEntrypointType::View => RpcEntrypointTypeSettings::SView,
                             SettingsEntrypointType::InlineView => RpcEntrypointTypeSettings::SInlineView,
-                            SettingsEntrypointType::CommandGenerator => RpcEntrypointTypeSettings::SCommandGenerator,
+                            SettingsEntrypointType::EntrypointGenerator => RpcEntrypointTypeSettings::SEntrypointGenerator,
                         }.into(),
                         preferences: entrypoint.preferences.into_iter()
                             .map(|(key, value)| (key, plugin_preference_to_rpc(value)))

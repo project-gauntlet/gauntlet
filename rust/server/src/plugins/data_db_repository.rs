@@ -102,7 +102,7 @@ pub enum DbPluginEntrypointType {
     Command,
     View,
     InlineView,
-    CommandGenerator,
+    EntrypointGenerator,
 }
 
 #[derive(Debug, Clone)]
@@ -1077,7 +1077,7 @@ pub fn db_entrypoint_to_str(value: DbPluginEntrypointType) -> &'static str {
         DbPluginEntrypointType::Command => "command",
         DbPluginEntrypointType::View => "view",
         DbPluginEntrypointType::InlineView => "inline-view",
-        DbPluginEntrypointType::CommandGenerator => "command-generator"
+        DbPluginEntrypointType::EntrypointGenerator => "command-generator" // command-generator in db for backwards compatibility
     }
 }
 
@@ -1086,7 +1086,7 @@ pub fn db_entrypoint_from_str(value: &str) -> DbPluginEntrypointType {
         "command" => DbPluginEntrypointType::Command,
         "view" => DbPluginEntrypointType::View,
         "inline-view" => DbPluginEntrypointType::InlineView,
-        "command-generator" => DbPluginEntrypointType::CommandGenerator,
+        "command-generator" => DbPluginEntrypointType::EntrypointGenerator,
         _ => panic!("illegal entrypoint_type: {}", value)
     }
 }

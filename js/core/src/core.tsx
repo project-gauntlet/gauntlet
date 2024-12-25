@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { runCommandGenerators, runGeneratedCommand, runGeneratedCommandAction } from "./command-generator";
+import { runEntrypointGenerators, runGeneratedCommand, runGeneratedCommandAction } from "./entrypoint-generator";
 import { reloadSearchIndex } from "./search-index";
 import { closeView, handleEvent, handlePluginViewKeyboardEvent, renderInlineView, renderView } from "./render";
 import {
@@ -47,7 +47,7 @@ async function checkRequiredPreferencesAndAsk(entrypointId: string): Promise<boo
 }
 
 export async function runPluginLoop() {
-    await runCommandGenerators();
+    await runEntrypointGenerators();
 
     // runtime is stopped using tokio cancellation
     // noinspection InfiniteLoopJS
@@ -131,7 +131,7 @@ export async function runPluginLoop() {
                 break;
             }
             case "ReloadSearchIndex": {
-                runCommandGenerators()
+                runEntrypointGenerators()
                 break;
             }
             case "RefreshSearchIndex": {

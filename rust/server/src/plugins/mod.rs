@@ -193,7 +193,7 @@ impl ApplicationManager {
                                 DbPluginEntrypointType::Command => SettingsEntrypointType::Command,
                                 DbPluginEntrypointType::View => SettingsEntrypointType::View,
                                 DbPluginEntrypointType::InlineView => SettingsEntrypointType::InlineView,
-                                DbPluginEntrypointType::CommandGenerator => SettingsEntrypointType::CommandGenerator,
+                                DbPluginEntrypointType::EntrypointGenerator => SettingsEntrypointType::EntrypointGenerator,
                             }.into(),
                             preferences: entrypoint.preferences.into_iter()
                                 .map(|(key, value)| {

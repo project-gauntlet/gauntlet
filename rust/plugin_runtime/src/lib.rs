@@ -1,7 +1,7 @@
 mod api;
 mod assets;
 mod clipboard;
-mod command_generators;
+mod entrypoint_generators;
 mod component_model;
 mod deno;
 mod environment;

@@ -331,7 +331,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             SettingsEntrypointType::Command => "Command",
                             SettingsEntrypointType::View => "View",
                             SettingsEntrypointType::InlineView => "Inline View",
-                            SettingsEntrypointType::CommandGenerator => "Command Generator"
+                            SettingsEntrypointType::EntrypointGenerator => "Entrypoint Generator"
                         };
 
                         container(text(entrypoint_type.to_string()))

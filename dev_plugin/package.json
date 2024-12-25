@@ -13,7 +13,7 @@
   "devDependencies": {
     "@types/react": "^18.3.18",
     "@types/deno": "^2.0.0",
-    "@project-gauntlet/tools": "git://github.com/project-gauntlet/tools.git#480520d3b63a1179dacbee7ba3948c4be4742b68",
+    "@project-gauntlet/tools": "git://github.com/project-gauntlet/tools.git#6b77be418d6eb48c4139979ff1b8d0350c5b5268",
     "typescript": "^5.7.2"
   }
 }

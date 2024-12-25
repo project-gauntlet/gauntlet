@@ -202,7 +202,7 @@ declare module "ext:core/ops" {
     function clear_inline_view(): void;
     function op_plugin_get_pending_event(): Promise<PluginEvent>;
 
-    function get_command_generator_entrypoint_ids(): Promise<string[]>
+    function get_entrypoint_generator_entrypoint_ids(): Promise<string[]>
 
     function get_plugin_preferences(): Record<string, any>;
     function get_entrypoint_preferences(entrypointId: string): Record<string, any>;

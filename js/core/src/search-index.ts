@@ -1,4 +1,4 @@
-import { generatedCommandSearchIndex } from "./command-generator";
+import { generatedCommandSearchIndex } from "./entrypoint-generator";
 import { reload_search_index } from "ext:core/ops";
 
 export async function reloadSearchIndex(refreshSearchList: boolean) {

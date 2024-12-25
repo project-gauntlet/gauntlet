@@ -79,7 +79,7 @@ pub enum JsResponse {
     AssetData {
         data: Vec<u8>
     },
-    CommandGeneratorEntrypointIds {
+    EntrypointGeneratorEntrypointIds {
         data: Vec<String>
     },
     PluginPreferences {
@@ -138,7 +138,7 @@ pub enum JsRequest {
     GetAssetData {
         path: String,
     },
-    GetCommandGeneratorEntrypointIds,
+    GetEntrypointGeneratorEntrypointIds,
     GetPluginPreferences,
     GetEntrypointPreferences {
         entrypoint_id: EntrypointId,

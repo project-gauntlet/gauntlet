@@ -11,7 +11,7 @@ function ListView(): ReactElement {
 }
 
 
-export default function CommandGenerator({ add, remove: _ }: GeneratorProps): void {
+export default function EntrypointGenerator({ add, remove: _ }: GeneratorProps): void {
     add('generated-test-1', {
         name: 'Generated Item 1',
         actions: [

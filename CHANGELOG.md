@@ -54,7 +54,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 ### Plugin API
 - Added `<SearchBar/>` component in `<List/>` and `<Grid/>` which is text input field above content of the respective view
 - `"command-generator"` entrypoints have been reworked
-  - Now it is possible to update list of generated entrypoints (add or remove) after the main command generator function has finished running
+  - Now it is possible to update list of generated entrypoints (add or remove) after the main entrypoint generator function has finished running
   - **BREAKING CHANGE**: Command Generator entrypoint function now accepts an object with `add: (id: string, data: GeneratedCommand) => void` and `remove: (id: string) => void` functions
   - **BREAKING CHANGE**: Command Generator entrypoint function now should return nothing or a cleanup function e.g. close file watcher. Currently, it is called when disabling/enabling any of entrypoints in plugin, but it is not called when whole plugin is stopped
   - While generator function itself is running (given that the function is async) the loading bar and "Indexing..." text in bottom panel will be shown in main window 

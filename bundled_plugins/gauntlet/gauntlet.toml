@@ -6,7 +6,7 @@ description = 'Default Gauntlet functionality as a bundled plugin'
 id = 'applications'
 name = 'Applications'
 path = 'src/applications.ts'
-type = 'command-generator'
+type = 'entrypoint-generator'
 description = 'Run installed applications from your system'
 
 [[entrypoint]]

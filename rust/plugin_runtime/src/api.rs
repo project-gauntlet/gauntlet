@@ -9,7 +9,7 @@ use gauntlet_utils::channel::{RequestError, RequestSender};
 pub trait BackendForPluginRuntimeApi {
     async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> ;
     async fn get_asset_data(&self, path: &str) -> anyhow::Result<Vec<u8>>;
-    async fn get_command_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>>;
+    async fn get_entrypoint_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>>;
     async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>>;
     async fn get_entrypoint_preferences(&self, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, JsPreferenceUserData>>;
     async fn plugin_preferences_required(&self) -> anyhow::Result<bool>;
@@ -101,11 +101,11 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
         }
     }
 
-    async fn get_command_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
-        let request = JsRequest::GetCommandGeneratorEntrypointIds;
+    async fn get_entrypoint_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
+        let request = JsRequest::GetEntrypointGeneratorEntrypointIds;
 
         match self.request(request).await? {
-            JsResponse::CommandGeneratorEntrypointIds { data } => Ok(data),
+            JsResponse::EntrypointGeneratorEntrypointIds { data } => Ok(data),
             value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
         }
     }

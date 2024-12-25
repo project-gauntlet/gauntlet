@@ -285,7 +285,7 @@ impl BackendApi {
                             RpcEntrypointTypeSettings::SCommand => SettingsEntrypointType::Command,
                             RpcEntrypointTypeSettings::SView => SettingsEntrypointType::View,
                             RpcEntrypointTypeSettings::SInlineView => SettingsEntrypointType::InlineView,
-                            RpcEntrypointTypeSettings::SCommandGenerator => SettingsEntrypointType::CommandGenerator
+                            RpcEntrypointTypeSettings::SEntrypointGenerator => SettingsEntrypointType::EntrypointGenerator
                         };
 
                         let entrypoint = SettingsEntrypoint {

@@ -1,6 +1,6 @@
 import {
     fetch_action_id_for_shortcut,
-    get_command_generator_entrypoint_ids,
+    get_entrypoint_generator_entrypoint_ids,
     op_log_info,
     op_log_debug,
     update_loading_bar
@@ -69,7 +69,7 @@ type GeneratorCleanups = { [generatorEntrypointId: string]: () => (void | Promis
 let storedGeneratedCommands: ProcessedGeneratedCommands = {}
 let generatorCleanups: GeneratorCleanups = {}
 
-export async function runCommandGenerators(): Promise<void> {
+export async function runEntrypointGenerators(): Promise<void> {
     for (let [generatorEntrypointId, cleanup] of Object.entries(generatorCleanups)) {
         try {
             await cleanup()
@@ -83,15 +83,15 @@ export async function runCommandGenerators(): Promise<void> {
 
     await reloadSearchIndex(true)
 
-    const entrypointIds = await get_command_generator_entrypoint_ids();
+    const entrypointIds = await get_entrypoint_generator_entrypoint_ids();
     for (const generatorEntrypointId of entrypointIds) {
         try {
             const generator: Generator = (await import(`gauntlet:entrypoint?${generatorEntrypointId}`)).default;
 
-            op_log_info("command_generator", `Running command generator entrypoint ${generatorEntrypointId}`)
+            op_log_info("entrypoint_generator", `Running entrypoint generator entrypoint ${generatorEntrypointId}`)
 
             const add = (id: string, data: GeneratedCommand) => {
-                op_log_info("command_generator", `Adding entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+                op_log_info("entrypoint_generator", `Adding entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
 
                 if (data.actions.length < 1) {
                     throw new Error(`Error when adding entry '${id}': at least one action should be provided`)
@@ -141,7 +141,7 @@ export async function runCommandGenerators(): Promise<void> {
                 reloadSearchIndex(true)
             }
             const remove = (id: string) => {
-                op_log_info("command_generator", `Removing entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+                op_log_info("entrypoint_generator", `Removing entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
                 const lookupId = generatorEntrypointId + ":" + id;
 
                 delete storedGeneratedCommands[lookupId]
@@ -150,7 +150,7 @@ export async function runCommandGenerators(): Promise<void> {
             }
 
             const get = (id: string) => {
-                op_log_debug("command_generator", `Getting entry '${id}' by command generator entrypoint '${generatorEntrypointId}'`)
+                op_log_debug("entrypoint_generator", `Getting entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
                 const lookupId = generatorEntrypointId + ":" + id;
 
                 const generatedCommand = storedGeneratedCommands[lookupId];
@@ -162,7 +162,7 @@ export async function runCommandGenerators(): Promise<void> {
             }
 
             const getAll = (): GeneratedCommand[] => {
-                op_log_debug("command_generator", `Getting all entries by command generator entrypoint '${generatorEntrypointId}'`)
+                op_log_debug("entrypoint_generator", `Getting all entries by entrypoint generator entrypoint '${generatorEntrypointId}'`)
 
                 return Object.entries(storedGeneratedCommands)
                     .map(([_, value]) => value.command)
@@ -178,11 +178,11 @@ export async function runCommandGenerators(): Promise<void> {
                         generatorCleanups[generatorEntrypointId] = cleanup
                     }
                 } catch (e) {
-                    console.error(`Error occurred when calling command generator for entrypoint: ${generatorEntrypointId}`, e)
+                    console.error(`Error occurred when calling entrypoint generator for entrypoint: ${generatorEntrypointId}`, e)
                 }
             })()
         } catch (e) {
-            console.error(`Error occurred when importing command generator for entrypoint: ${generatorEntrypointId}`, e)
+            console.error(`Error occurred when importing entrypoint generator for entrypoint: ${generatorEntrypointId}`, e)
         }
     }
 }

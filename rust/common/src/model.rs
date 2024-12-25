@@ -586,7 +586,7 @@ pub enum SettingsEntrypointType {
     Command,
     View,
     InlineView,
-    CommandGenerator,
+    EntrypointGenerator,
 }
 
 #[derive(Debug, Clone)]

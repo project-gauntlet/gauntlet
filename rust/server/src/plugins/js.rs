@@ -526,10 +526,10 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
                 data
             })
         }
-        JsRequest::GetCommandGeneratorEntrypointIds => {
-            let data = api.get_command_generator_entrypoint_ids().await?;
+        JsRequest::GetEntrypointGeneratorEntrypointIds => {
+            let data = api.get_entrypoint_generator_entrypoint_ids().await?;
 
-            Ok(JsResponse::CommandGeneratorEntrypointIds {
+            Ok(JsResponse::EntrypointGeneratorEntrypointIds {
                 data
             })
         }
@@ -835,7 +835,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_accessories: vec![],
                         }))
                     },
-                    DbPluginEntrypointType::CommandGenerator | DbPluginEntrypointType::InlineView => {
+                    DbPluginEntrypointType::EntrypointGenerator | DbPluginEntrypointType::InlineView => {
                         Ok(None)
                     }
                 }
@@ -860,11 +860,11 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(data)
     }
 
-    async fn get_command_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
+    async fn get_entrypoint_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
         let result = self.repository.get_entrypoints_by_plugin_id(&self.plugin_id.to_string()).await?
             .into_iter()
             .filter(|entrypoint| entrypoint.enabled)
-            .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::CommandGenerator))
+            .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::EntrypointGenerator))
             .map(|entrypoint| entrypoint.id)
             .collect::<Vec<_>>();
 

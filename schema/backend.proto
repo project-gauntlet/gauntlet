@@ -145,7 +145,7 @@ enum RpcEntrypointTypeSettings {
   S_COMMAND = 0;
   S_VIEW = 1;
   S_INLINE_VIEW = 2;
-  S_COMMAND_GENERATOR = 3;
+  S_ENTRYPOINT_GENERATOR = 3;
 }
 
 message RpcPlugin {
