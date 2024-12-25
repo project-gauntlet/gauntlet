@@ -123,17 +123,18 @@ interface GeneratedCommandIconAccessory {
     tooltip?: string
 }
 
-type AdditionalSearchItem = {
+type GeneratedSearchItem = {
     entrypoint_name: string,
     entrypoint_id: string,
     entrypoint_uuid: string,
     entrypoint_icon: ArrayBuffer | undefined,
-    entrypoint_actions: AdditionalSearchItemAction[],
+    entrypoint_actions: GeneratedSearchItemAction[],
     entrypoint_accessories: GeneratedCommandAccessory[],
 }
 
-type AdditionalSearchItemAction = {
+type GeneratedSearchItemAction = {
     id?: string,
+    action_type: "Command" | "View"
     label: string,
 }
 
@@ -196,7 +197,8 @@ declare module "ext:core/ops" {
     function asset_data(path: string): Promise<number[]>;
     function asset_data_blocking(path: string): number[];
 
-    function op_inline_view_endpoint_id(): string | null;
+    function op_inline_view_entrypoint_id(): string | null;
+    function op_entrypoint_names(): Record<string, string | undefined>;
     function clear_inline_view(): void;
     function op_plugin_get_pending_event(): Promise<PluginEvent>;
 
@@ -208,12 +210,12 @@ declare module "ext:core/ops" {
     function entrypoint_preferences_required(entrypointId: string): Promise<boolean>;
     function show_preferences_required_view(entrypointId: string, pluginPreferencesRequired: boolean, entrypointPreferencesRequired: boolean): void;
 
-    function reload_search_index(searchItems: AdditionalSearchItem[], refreshSearchList: boolean): Promise<void>;
+    function reload_search_index(searchItems: GeneratedSearchItem[], refreshSearchList: boolean): Promise<void>;
 
     function show_hud(display: string): void;
     function update_loading_bar(entrypoint_id: string, show: boolean): void;
 
-    function op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, container: any): void;
+    function op_react_replace_view(render_location: RenderLocation, top_level_view: boolean, entrypoint_id: string, entrypoint_name: string, container: any): void;
     function show_plugin_error_view(entrypoint_id: string, render_location: RenderLocation): void;
 
     function fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string | undefined>;

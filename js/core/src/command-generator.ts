@@ -6,6 +6,8 @@ import {
     update_loading_bar
 } from "ext:core/ops";
 import { reloadSearchIndex } from "./search-index";
+import type { FC } from "react";
+import { renderView } from "./render";
 
 interface GeneratedCommand { // TODO is it possible to import api here
     name: string
@@ -14,10 +16,18 @@ interface GeneratedCommand { // TODO is it possible to import api here
     accessories?: GeneratedCommandAccessory[]
 }
 
-interface GeneratedCommandAction {
+type GeneratedCommandAction = GeneratedCommandActionRun | GeneratedCommandActionView
+
+interface GeneratedCommandActionRun {
     ref?: string
     label: string
-    fn: () => void
+    run: () => void
+}
+
+interface GeneratedCommandActionView {
+    ref?: string
+    label: string
+    view: FC
 }
 
 type GeneratorProps = {
@@ -29,7 +39,29 @@ type GeneratorProps = {
 
 type Generator = (props: GeneratorProps) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
 
-type ProcessedGeneratedCommand = { generatorEntrypointId: string, uuid: string, command: GeneratedCommand };
+type ProcessedGeneratedCommand = {
+    generatorEntrypointId: string,
+    uuid: string,
+    command: GeneratedCommand
+    derivedActions: GeneratedCommandDerivedAction[]
+};
+
+type GeneratedCommandDerivedAction = GeneratedCommandDerivedActionRun | GeneratedCommandDerivedActionView
+
+interface GeneratedCommandDerivedActionRun {
+    type: "Command"
+    ref?: string
+    label: string
+    run: () => void
+}
+
+interface GeneratedCommandDerivedActionView {
+    type: "View"
+    ref?: string
+    label: string
+    view: FC
+}
+
 
 type ProcessedGeneratedCommands = { [lookupEntrypointId: string]: ProcessedGeneratedCommand };
 type GeneratorCleanups = { [generatorEntrypointId: string]: () => (void | Promise<void>) };
@@ -65,12 +97,45 @@ export async function runCommandGenerators(): Promise<void> {
                     throw new Error(`Error when adding entry '${id}': at least one action should be provided`)
                 }
 
+                const derivedActions: GeneratedCommandDerivedAction[] = []
+                for (const action of data.actions) {
+                    const label = action.label;
+
+                    const run = "run" in action;
+                    const view = "view" in action;
+
+                    if (run && view) {
+                        throw new Error(`only one of 'run' or 'view' properties can be specified in action: '${label}'`)
+                    }
+
+                    if (!run && !view) {
+                        throw new Error(`one of 'run' or 'view' properties has to be specified in action: '${label}'`)
+                    }
+
+                    if (run) {
+                        derivedActions.push({
+                            type: "Command",
+                            ref: action.ref,
+                            label: action.label,
+                            run: action.run,
+                        })
+                    } else if (view) {
+                        derivedActions.push({
+                            type: "View",
+                            ref: action.ref,
+                            label: action.label,
+                            view: action.view,
+                        })
+                    }
+                }
+
                 const lookupId = generatorEntrypointId + ":" + id;
 
                 storedGeneratedCommands[lookupId] = {
                     generatorEntrypointId: generatorEntrypointId,
                     uuid: crypto.randomUUID(),
                     command: data,
+                    derivedActions,
                 }
 
                 reloadSearchIndex(true)
@@ -122,16 +187,17 @@ export async function runCommandGenerators(): Promise<void> {
     }
 }
 
-export function generatedCommandSearchIndex(): AdditionalSearchItem[] {
+export function generatedCommandSearchIndex(): GeneratedSearchItem[] {
     return Object.entries(storedGeneratedCommands).map(([entrypointLookupId, value]) => ({
         generator_entrypoint_id: value.generatorEntrypointId,
         entrypoint_id: entrypointLookupId,
         entrypoint_uuid: value.uuid,
         entrypoint_name: value.command.name,
         entrypoint_icon: value.command.icon,
-        entrypoint_actions: value.command.actions
+        entrypoint_actions: value.derivedActions
             .map(action => ({
                 id: action.ref,
+                action_type: action.type,
                 label: action.label
             })),
         entrypoint_accessories: value.command.accessories || []
@@ -144,9 +210,9 @@ export async function runGeneratedCommandAction(entrypointId: string, key: strin
     if (command) {
         const id = await fetch_action_id_for_shortcut(command.generatorEntrypointId, key, modifierShift, modifierControl, modifierAlt, modifierMeta);
         if (id) {
-            const action = command.command.actions?.find(value => value.ref == id);
+            const action = command.derivedActions.find(value => value.ref == id);
             if (action) {
-                action.fn()
+                runAction(entrypointId, action)
             }
         }
     }
@@ -156,13 +222,31 @@ export function runGeneratedCommand(entrypointId: string, action_index: number) 
     const generatedCommand = storedGeneratedCommands[entrypointId];
 
     if (generatedCommand) {
-        const actions = generatedCommand.command.actions;
-        if (actions) {
-            actions[action_index].fn()
+        const action = generatedCommand.derivedActions[action_index];
+        if (action) {
+            runAction(entrypointId, action)
         } else {
-            throw new Error("Generated command with entrypoint id '" + entrypointId + "' doesn't have actions, action index: " + action_index)
+            throw new Error("Generated command with entrypoint id '" + entrypointId + "' doesn't have action with index: " + action_index)
         }
     } else {
         throw new Error("Generated command with entrypoint id '" + entrypointId + "' not found")
+    }
+}
+
+function runAction(entrypointId: string, action: GeneratedCommandDerivedAction) {
+    switch (action.type) {
+        case "Command": {
+            action.run()
+
+            break;
+        }
+        case "View": {
+            const entrypointName = storedGeneratedCommands[entrypointId]
+                .command
+                .name
+
+            renderView(entrypointId, entrypointName, action.view)
+            break;
+        }
     }
 }

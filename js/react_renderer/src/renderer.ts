@@ -47,10 +47,12 @@ class GauntletContextValue {
     private _renderLocation: RenderLocation | undefined
     private _rerender: ((node: ReactNode) => void) | undefined
     private _entrypointId: string | undefined;
+    private _entrypointName: string | undefined;
     private _clear: (() => void) | undefined;
 
-    reset(entrypointId: string, renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void, clear: () => void) {
+    reset(entrypointId: string, entrypointName: string, renderLocation: RenderLocation, view: ReactNode, rerender: (node: ReactNode) => void, clear: () => void) {
         this._entrypointId = entrypointId
+        this._entrypointName = entrypointName
         this._renderLocation = renderLocation
         this._rerender = rerender
         this._clear = clear
@@ -72,6 +74,10 @@ class GauntletContextValue {
 
     entrypointId = () => {
         return this._entrypointId!!
+    }
+
+    entrypointName = () => {
+        return this._entrypointName!!
     }
 
     rerender = (component: ReactNode) => {
@@ -341,7 +347,13 @@ export const createHostConfig = (): HostConfig<
 
         // op_log_info("renderer_js_persistence", `Converted container: ${Deno.inspect(containerComponent, { depth: Number.MAX_VALUE })}`)
 
-        op_react_replace_view(gauntletContextValue.renderLocation(), gauntletContextValue.isBottommostView(), gauntletContextValue.entrypointId(), containerComponent)
+        op_react_replace_view(
+            gauntletContextValue.renderLocation(),
+            gauntletContextValue.isBottommostView(),
+            gauntletContextValue.entrypointId(),
+            gauntletContextValue.entrypointName(),
+            containerComponent
+        )
     },
 
     cloneHiddenInstance(
@@ -425,7 +437,7 @@ export function clearRenderer() {
     gauntletContextValue.clear()
 }
 
-export function render(entrypointId: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
+export function render(entrypointId: string, entrypointName: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
     const hostConfig = createHostConfig();
 
     // const reconciler = ReactReconciler(createTracedHostConfig(hostConfig));
@@ -440,6 +452,7 @@ export function render(entrypointId: string, renderLocation: RenderLocation, vie
 
     gauntletContextValue.reset(
         entrypointId,
+        entrypointName,
         renderLocation,
         view,
         (node: ReactNode) => {

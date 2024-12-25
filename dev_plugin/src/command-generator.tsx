@@ -1,4 +1,15 @@
 import { GeneratorProps, showHud } from "@project-gauntlet/api/helpers";
+import { ReactElement } from "react";
+import { List } from "@project-gauntlet/api/components";
+
+function ListView(): ReactElement {
+    return (
+        <List>
+            <List.Item title={"Test Item"}/>
+        </List>
+    )
+}
+
 
 export default function CommandGenerator({ add, remove: _ }: GeneratorProps): void {
     add('generated-test-1', {
@@ -6,7 +17,7 @@ export default function CommandGenerator({ add, remove: _ }: GeneratorProps): vo
         actions: [
             {
                 label: "Run Generated Item 1",
-                fn: () => {
+                run: () => {
                     new Promise(() => {
                         throw new Error("gen")
                     })
@@ -22,7 +33,7 @@ export default function CommandGenerator({ add, remove: _ }: GeneratorProps): vo
         actions: [
             {
                 label: "Run Generated Item 2",
-                fn: () => {
+                run: () => {
                     console.log('generated-test-2')
 
                     sessionStorage.setItem("test", "test")
@@ -30,18 +41,18 @@ export default function CommandGenerator({ add, remove: _ }: GeneratorProps): vo
 
                     localStorage.setItem("test", "test")
                     console.dir(localStorage.getItem("test"))
-                }
+                },
             },
             {
                 label: "Test 1",
-                fn: () => {
+                run: () => {
                     console.log('generated-action-1')
                 }
             },
             {
                 ref: "testGeneratedAction1",
                 label: "Test 2",
-                fn: () => {
+                run: () => {
                     console.log('generated-action-2')
                 }
             }
@@ -53,7 +64,7 @@ export default function CommandGenerator({ add, remove: _ }: GeneratorProps): vo
         actions: [
             {
                 label: "Run Generated Item 3",
-                fn: () => {
+                run: () => {
                     showHud("HUD test display")
                     console.log('generated-test-3')
                 },
@@ -66,9 +77,7 @@ export default function CommandGenerator({ add, remove: _ }: GeneratorProps): vo
         actions: [
             {
                 label: "Run Generated Item 4",
-                fn: () => {
-                    console.log('generated-test-4')
-                },
+                view: () => <ListView/>
             }
         ],
         accessories: [

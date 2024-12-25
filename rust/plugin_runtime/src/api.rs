@@ -1,4 +1,4 @@
-use crate::model::{JsAdditionalSearchItem, JsClipboardData, JsPreferenceUserData};
+use crate::model::{JsGeneratedSearchItem, JsClipboardData, JsPreferenceUserData};
 use crate::{JsRequest, JsResponse, JsUiRenderLocation};
 use gauntlet_common::model::{EntrypointId, RootWidget, UiRenderLocation};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use gauntlet_utils::channel::{RequestError, RequestSender};
 
 #[allow(async_fn_in_trait)]
 pub trait BackendForPluginRuntimeApi {
-    async fn reload_search_index(&self, generated_commands: Vec<JsAdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> ;
+    async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> ;
     async fn get_asset_data(&self, path: &str) -> anyhow::Result<Vec<u8>>;
     async fn get_command_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>>;
     async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>>;
@@ -33,6 +33,7 @@ pub trait BackendForPluginRuntimeApi {
     async fn ui_render(
         &self,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
@@ -77,7 +78,7 @@ impl BackendForPluginRuntimeApiProxy {
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
-    async fn reload_search_index(&self, generated_commands: Vec<JsAdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+    async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
         let request = JsRequest::ReloadSearchIndex {
             generated_commands,
             refresh_search_list,
@@ -240,12 +241,14 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
     async fn ui_render(
         &self,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
     ) -> anyhow::Result<()> {
         let request = JsRequest::Render {
             entrypoint_id,
+            entrypoint_name,
             render_location: match render_location {
                 UiRenderLocation::InlineView => JsUiRenderLocation::InlineView,
                 UiRenderLocation::View => JsUiRenderLocation::View

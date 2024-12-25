@@ -6,7 +6,7 @@ use tantivy::collector::TopDocs;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Query, RegexQuery, TermQuery};
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultAccessory, SearchResultEntrypointAction, SearchResultEntrypointType};
+use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, SearchResult, SearchResultAccessory, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 
 #[derive(Clone)]
@@ -34,7 +34,13 @@ struct EntrypointData {
 
 struct EntrypointActionData {
     label: String,
+    action_type: EntrypointActionType,
     shortcut: Option<PhysicalShortcut>,
+}
+
+enum EntrypointActionType {
+    Command,
+    View,
 }
 
 #[derive(Clone, Debug)]
@@ -51,8 +57,16 @@ pub struct SearchIndexItem {
 #[derive(Clone, Debug)]
 pub struct SearchIndexItemAction {
     pub label: String,
+    pub action_type: SearchIndexItemActionActionType,
     pub shortcut: Option<PhysicalShortcut>,
 }
+
+#[derive(Debug, Clone)]
+pub enum SearchIndexItemActionActionType {
+    Command,
+    View,
+}
+
 
 impl SearchIndex {
     pub fn create_index(frontend_api: FrontendApi) -> tantivy::Result<Self> {
@@ -140,6 +154,10 @@ impl SearchIndex {
                 let actions = item.entrypoint_actions.into_iter()
                     .map(|action| EntrypointActionData {
                         label: action.label,
+                        action_type: match action.action_type {
+                            SearchIndexItemActionActionType::Command => EntrypointActionType::Command,
+                            SearchIndexItemActionActionType::View => EntrypointActionType::View,
+                        },
                         shortcut: action.shortcut,
                     })
                     .collect();
@@ -254,6 +272,10 @@ impl SearchIndex {
 
                 let entrypoint_actions = entrypoint_data.actions.iter()
                     .map(|data| SearchResultEntrypointAction {
+                        action_type: match data.action_type {
+                            EntrypointActionType::Command => SearchResultEntrypointActionType::Command,
+                            EntrypointActionType::View => SearchResultEntrypointActionType::View
+                        },
                         label: data.label.clone(),
                         shortcut: data.shortcut.clone(),
                     })

@@ -31,7 +31,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                     actions: [
                         {
                             label: "Open application",
-                            fn: () => {
+                            run: () => {
                                 linux_open_application(id)
                             },
                         }
@@ -52,7 +52,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                         actions: [
                             {
                                 label: "Open settings",
-                                fn: () => {
+                                run: () => {
                                     macos_open_setting_13_and_post(setting.preferences_id)
                                 },
                             }
@@ -67,7 +67,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                         actions: [
                             {
                                 label: "Open settings",
-                                fn: () => {
+                                run: () => {
                                     macos_open_setting_pre_13(setting.path)
                                 },
                             }
@@ -88,7 +88,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                                 actions: [
                                     {
                                         label: "Open application",
-                                        fn: () => {
+                                        run: () => {
                                             macos_open_application(data.path)
                                         },
                                     }
@@ -111,7 +111,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                     actions: [
                         {
                             label: "Open application",
-                            fn: () => {
+                            run: () => {
                                 macos_open_application(data.path)
                             },
                         }

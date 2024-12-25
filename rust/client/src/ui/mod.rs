@@ -24,7 +24,7 @@ use serde::Deserialize;
 use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 
 use client_context::ClientContext;
-use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use gauntlet_common::scenario_convert::{ui_render_location_from_scenario};
 use gauntlet_common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -97,11 +97,18 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         entrypoint_name: String,
     },
+    OpenGeneratedView {
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+        action_index: usize
+    },
     RunCommand {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
-    RunGeneratedCommandEvent {
+    RunGeneratedCommand {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         action_index: usize
@@ -542,7 +549,32 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
                     Task::batch([
                         state.open_plugin_view(plugin_id, entrypoint_id),
-                        Task::perform(async move { AppMsg::PendingPluginViewLoadingBar }, std::convert::identity)
+                        Task::done(AppMsg::PendingPluginViewLoadingBar)
+                    ])
+                }
+                GlobalState::ErrorView { .. } => {
+                    Task::none()
+                }
+                GlobalState::PluginView { .. } => {
+                    Task::none()
+                }
+            }
+        }
+        AppMsg::OpenGeneratedView { plugin_id, plugin_name, entrypoint_id, entrypoint_name, action_index } => {
+            match &mut state.global_state {
+                GlobalState::MainView { pending_plugin_view_data, .. } => {
+                    *pending_plugin_view_data = Some(PluginViewData {
+                        top_level_view: true,
+                        plugin_id: plugin_id.clone(),
+                        plugin_name,
+                        entrypoint_id: entrypoint_id.clone(),
+                        entrypoint_name,
+                        action_shortcuts: HashMap::new(),
+                    });
+
+                    Task::batch([
+                        state.run_generated_command(plugin_id, entrypoint_id, action_index),
+                        Task::done(AppMsg::PendingPluginViewLoadingBar)
                     ])
                 }
                 GlobalState::ErrorView { .. } => {
@@ -559,7 +591,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.run_command(plugin_id, entrypoint_id),
             ])
         }
-        AppMsg::RunGeneratedCommandEvent { plugin_id, entrypoint_id, action_index } => {
+        AppMsg::RunGeneratedCommand { plugin_id, entrypoint_id, action_index } => {
             Task::batch([
                 state.hide_window(),
                 state.run_generated_command(plugin_id, entrypoint_id, action_index),
@@ -599,12 +631,26 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         Task::none()
                     }
                 },
-                SearchResultEntrypointType::GeneratedCommand => {
-                    Task::done(AppMsg::RunGeneratedCommandEvent {
-                        entrypoint_id: search_result.entrypoint_id.clone(),
-                        plugin_id: search_result.plugin_id.clone(),
-                        action_index,
-                    })
+                SearchResultEntrypointType::Generated => {
+                    let action = &search_result.entrypoint_actions[action_index];
+                    match &action.action_type {
+                        SearchResultEntrypointActionType::Command => {
+                            Task::done(AppMsg::RunGeneratedCommand {
+                                entrypoint_id: search_result.entrypoint_id.clone(),
+                                plugin_id: search_result.plugin_id.clone(),
+                                action_index,
+                            })
+                        }
+                        SearchResultEntrypointActionType::View => {
+                            Task::done(AppMsg::OpenGeneratedView {
+                                plugin_id: search_result.plugin_id.clone(),
+                                plugin_name: search_result.plugin_name.clone(),
+                                entrypoint_id: search_result.entrypoint_id.clone(),
+                                entrypoint_name: action.label.clone(),
+                                action_index,
+                            })
+                        }
+                    }
                 },
             }
         }
@@ -1662,7 +1708,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     modifier_meta: false,
                 };
 
-                let generate = |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
+                let create_static = |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
                     let mut actions: Vec<_> = search_item.entrypoint_actions
                         .iter()
                         .enumerate()
@@ -1705,42 +1751,44 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     }
                 };
 
+                let create_generated = |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
+                    let label = search_item.entrypoint_actions
+                        .first()
+                        .map(|action| action.label.clone())
+                        .unwrap_or_else(|| label.to_string()); // should never happen, because there is always at least one action
+
+                    let mut actions: Vec<_> = search_item.entrypoint_actions
+                        .iter()
+                        .enumerate()
+                        .map(|(index, action)| {
+                            let physical_shortcut = match index {
+                                0 => Some(primary_shortcut.clone()),
+                                1 => Some(secondary_shortcut.clone()),
+                                _ => action.shortcut.clone()
+                            };
+
+                            ActionPanelItem::Action {
+                                label: action.label.clone(),
+                                widget_id: index,
+                                physical_shortcut,
+                            }
+                        })
+                        .collect();
+
+                    let primary_action_widget_id = 0;
+
+                    let action_panel = ActionPanel {
+                        title: Some(search_item.entrypoint_name.clone()),
+                        items: actions,
+                    };
+
+                    (Some((label, primary_action_widget_id, primary_shortcut)), Some(action_panel))
+                };
+
                 match search_item.entrypoint_type {
-                    SearchResultEntrypointType::Command => generate("Run Command", primary_shortcut, secondary_shortcut),
-                    SearchResultEntrypointType::View => generate("Open View", primary_shortcut, secondary_shortcut),
-                    SearchResultEntrypointType::GeneratedCommand => {
-                        let label = search_item.entrypoint_actions
-                            .first()
-                            .map(|action| action.label.clone())
-                            .unwrap_or_else(|| "Run Command".to_string());
-
-                        let mut actions: Vec<_> = search_item.entrypoint_actions
-                            .iter()
-                            .enumerate()
-                            .map(|(index, action)| {
-                                let physical_shortcut = match index {
-                                    0 => Some(primary_shortcut.clone()),
-                                    1 => Some(secondary_shortcut.clone()),
-                                    _ => action.shortcut.clone()
-                                };
-
-                                ActionPanelItem::Action {
-                                    label: action.label.clone(),
-                                    widget_id: index,
-                                    physical_shortcut,
-                                }
-                            })
-                            .collect();
-
-                        let primary_action_widget_id = 0;
-
-                        let action_panel = ActionPanel {
-                            title: Some(search_item.entrypoint_name.clone()),
-                            items: actions,
-                        };
-
-                        (Some((label, primary_action_widget_id, primary_shortcut)), Some(action_panel))
-                    },
+                    SearchResultEntrypointType::Command => create_static("Run Command", primary_shortcut, secondary_shortcut),
+                    SearchResultEntrypointType::View => create_static("Open View", primary_shortcut, secondary_shortcut),
+                    SearchResultEntrypointType::Generated => create_generated("Run Command", primary_shortcut, secondary_shortcut),
                 }
             } else {
                 match state.client_context.get_first_inline_view_action_panel() {

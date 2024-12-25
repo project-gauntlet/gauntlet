@@ -2,10 +2,10 @@ use deno_core::{op2, OpState};
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::api::{BackendForPluginRuntimeApi, BackendForPluginRuntimeApiProxy};
-use crate::model::JsAdditionalSearchItem;
+use crate::model::JsGeneratedSearchItem;
 
 #[op2(async)]
-pub async fn reload_search_index(state: Rc<RefCell<OpState>>, #[serde] generated_commands: Vec<JsAdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+pub async fn reload_search_index(state: Rc<RefCell<OpState>>, #[serde] generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
     let api = {
         let state = state.borrow();
 

@@ -11,6 +11,7 @@ import {
     environment_plugin_cache_dir,
     environment_plugin_data_dir
 } from "ext:core/ops";
+import type { FC } from "react";
 
 export function assetDataSync(path: string): ArrayBuffer {
     return getAssetDataSync(path)
@@ -39,10 +40,18 @@ export interface GeneratedCommand {
     accessories?: GeneratedCommandAccessory[]
 }
 
-export interface GeneratedCommandAction {
+export type GeneratedCommandAction = GeneratedCommandActionRun | GeneratedCommandActionView
+
+export interface GeneratedCommandActionRun {
     ref?: string
     label: string
-    fn: () => void
+    run: () => void
+}
+
+export interface GeneratedCommandActionView {
+    ref?: string
+    label: string
+    view: FC
 }
 
 export type GeneratedCommandAccessory = GeneratedCommandTextAccessory | GeneratedCommandIconAccessory;

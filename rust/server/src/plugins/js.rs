@@ -29,13 +29,13 @@ use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultAccessory, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::settings_env_data_to_string;
-use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsAdditionalSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide, JsPluginRuntimeMessage, JsAdditionalSearchItemAccessory};
+use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsGeneratedSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide, JsPluginRuntimeMessage, JsGeneratedSearchItemAccessory, JsGeneratedSearchItemActionType};
 use crate::model::{IntermediateUiEvent};
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::run_status::RunStatusGuard;
-use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction};
+use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction, SearchIndexItemActionActionType};
 use crate::{PLUGIN_RUNTIME_ENV, SETTINGS_ENV};
 use crate::plugins::image_gatherer::ImageGatherer;
 
@@ -142,7 +142,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         data.uuid.clone(),
         data.id.clone(),
         data.name,
-        data.entrypoint_names,
         runtime_permissions,
     );
 
@@ -246,6 +245,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         code: data.code,
         permissions,
         inline_view_entrypoint_id: data.inline_view_entrypoint_id,
+        entrypoint_names: data.entrypoint_names,
         dev_plugin,
         home_dir,
         local_storage_dir,
@@ -474,13 +474,13 @@ async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &Backend
 
 async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<JsResponse> {
     match message {
-        JsRequest::Render { entrypoint_id, render_location, top_level_view, container } => {
+        JsRequest::Render { entrypoint_id, entrypoint_name, render_location, top_level_view, container } => {
             let render_location = match render_location {
                 JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
                 JsUiRenderLocation::View => UiRenderLocation::View
             };
 
-            api.ui_render(entrypoint_id, render_location, top_level_view, container).await?;
+            api.ui_render(entrypoint_id, entrypoint_name, render_location, top_level_view, container).await?;
 
             Ok(JsResponse::Nothing)
         }
@@ -669,7 +669,6 @@ pub struct BackendForPluginRuntimeApiImpl {
     plugin_uuid: String,
     plugin_id: PluginId,
     plugin_name: String,
-    entrypoint_names: HashMap<EntrypointId, String>,
     permissions: PluginRuntimePermissions
 }
 
@@ -683,7 +682,6 @@ impl BackendForPluginRuntimeApiImpl {
         plugin_uuid: String,
         plugin_id: PluginId,
         plugin_name: String,
-        entrypoint_names: HashMap<EntrypointId, String>,
         permissions: PluginRuntimePermissions
     ) -> Self {
         Self {
@@ -695,14 +693,13 @@ impl BackendForPluginRuntimeApiImpl {
             plugin_uuid,
             plugin_id,
             plugin_name,
-            entrypoint_names,
             permissions
         }
     }
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
-    async fn reload_search_index(&self, generated_commands: Vec<JsAdditionalSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+    async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
         self.icon_cache.clear_plugin_icon_cache_dir(&self.plugin_uuid)
             .context("error when clearing up icon cache before recreating it")?;
 
@@ -748,6 +745,10 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
                         SearchIndexItemAction {
                             label: action.label.clone(),
+                            action_type: match action.action_type {
+                                JsGeneratedSearchItemActionType::View => SearchIndexItemActionActionType::View,
+                                JsGeneratedSearchItemActionType::Command => SearchIndexItemActionActionType::Command,
+                            },
                             shortcut,
                         }
                     })
@@ -756,10 +757,10 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                 let entrypoint_accessories = item.entrypoint_accessories.into_iter()
                     .map(|accessory| {
                         match accessory {
-                            JsAdditionalSearchItemAccessory::TextAccessory { text, icon, tooltip } => {
+                            JsGeneratedSearchItemAccessory::TextAccessory { text, icon, tooltip } => {
                                 SearchResultAccessory::TextAccessory { text, icon, tooltip }
                             }
-                            JsAdditionalSearchItemAccessory::IconAccessory { icon, tooltip } => {
+                            JsGeneratedSearchItemAccessory::IconAccessory { icon, tooltip } => {
                                 SearchResultAccessory::IconAccessory { icon, tooltip }
                             }
                         }
@@ -767,7 +768,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     .collect();
 
                 Ok(SearchIndexItem {
-                    entrypoint_type: SearchResultEntrypointType::GeneratedCommand,
+                    entrypoint_type: SearchResultEntrypointType::Generated,
                     entrypoint_id: EntrypointId::from_string(item.entrypoint_id),
                     entrypoint_name: item.entrypoint_name,
                     entrypoint_icon_path,
@@ -1012,15 +1013,11 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     async fn ui_render(
         &self,
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
     ) -> anyhow::Result<()> {
-
-        let entrypoint_name = self.entrypoint_names
-            .get(&entrypoint_id)
-            .expect("entrypoint name for id should always exist")
-            .to_string();
 
         let images = ImageGatherer::run_gatherer(&self, &container).await?;
 

@@ -30,6 +30,7 @@ pub struct JsInit {
     pub code: JsPluginCode,
     pub permissions: JsPluginPermissions,
     pub inline_view_entrypoint_id: Option<String>,
+    pub entrypoint_names: HashMap<EntrypointId, String>,
     pub dev_plugin: bool,
     pub home_dir: String,
     pub local_storage_dir: String,
@@ -108,6 +109,7 @@ pub enum JsResponse {
 pub enum JsRequest {
     Render {
         entrypoint_id: EntrypointId,
+        entrypoint_name: String,
         render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
@@ -130,7 +132,7 @@ pub enum JsRequest {
         show: bool
     },
     ReloadSearchIndex {
-        generated_commands: Vec<JsAdditionalSearchItem>,
+        generated_commands: Vec<JsGeneratedSearchItem>,
         refresh_search_list: bool
     },
     GetAssetData {
@@ -165,33 +167,42 @@ pub enum JsRequest {
 }
 
 #[derive(Deserialize, Serialize, Encode, Decode)]
-pub struct JsAdditionalSearchItem {
+pub struct JsGeneratedSearchItem {
     pub entrypoint_name: String,
     pub generator_entrypoint_id: String,
     pub entrypoint_id: String,
     pub entrypoint_uuid: String,
     pub entrypoint_icon: Option<Vec<u8>>,
-    pub entrypoint_actions: Vec<JsAdditionalSearchItemAction>,
-    pub entrypoint_accessories: Vec<JsAdditionalSearchItemAccessory>,
+    pub entrypoint_actions: Vec<JsGeneratedSearchItemAction>,
+    pub entrypoint_accessories: Vec<JsGeneratedSearchItemAccessory>,
 }
 
-impl fmt::Debug for JsAdditionalSearchItem {
+impl fmt::Debug for JsGeneratedSearchItem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // exclude entrypoint_icon
-        fmt.debug_struct("JsAdditionalSearchItem")
+        fmt.debug_struct("JsGeneratedSearchItem")
             .field("entrypoint_name", &self.entrypoint_name)
             .field("generator_entrypoint_id", &self.generator_entrypoint_id)
             .field("entrypoint_id", &self.entrypoint_id)
             .field("entrypoint_uuid", &self.entrypoint_uuid)
             .field("entrypoint_actions", &self.entrypoint_actions)
+            .field("entrypoint_accessories", &self.entrypoint_accessories)
             .finish()
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
-pub struct JsAdditionalSearchItemAction {
+pub struct JsGeneratedSearchItemAction {
     pub id: Option<String>,
+    pub action_type: JsGeneratedSearchItemActionType,
     pub label: String,
+}
+
+
+#[derive(Debug, Deserialize, Serialize, Encode, Decode)]
+pub enum JsGeneratedSearchItemActionType {
+    View,
+    Command,
 }
 
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
@@ -206,7 +217,7 @@ pub enum JsPreferenceUserData {
 
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
 #[serde(untagged)]
-pub enum JsAdditionalSearchItemAccessory {
+pub enum JsGeneratedSearchItemAccessory {
     TextAccessory {
         text: String,
         icon: Option<Icons>,

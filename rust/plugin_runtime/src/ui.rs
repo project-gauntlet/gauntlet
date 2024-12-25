@@ -86,10 +86,19 @@ pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
 
 #[op2]
 #[string]
-pub fn op_inline_view_endpoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
+pub fn op_inline_view_entrypoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {
     state.borrow()
         .borrow::<PluginData>()
         .inline_view_entrypoint_id()
+        .clone()
+}
+
+#[op2]
+#[serde]
+pub fn op_entrypoint_names(state: Rc<RefCell<OpState>>) -> HashMap<String, String> {
+    state.borrow()
+        .borrow::<PluginData>()
+        .entrypoint_names()
         .clone()
 }
 
@@ -100,6 +109,7 @@ pub fn op_react_replace_view<'a>(
     #[serde] render_location: JsUiRenderLocation,
     top_level_view: bool,
     #[string] entrypoint_id: &str,
+    #[string] entrypoint_name: &str,
     #[serde] container: serde_v8::Value<'a>,
 ) -> anyhow::Result<()> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
@@ -109,6 +119,7 @@ pub fn op_react_replace_view<'a>(
     let container = RootWidget::deserialize(&mut deserializer)?;
 
     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+    let entrypoint_name = entrypoint_name.to_string();
 
     let (api, outer_handle) = {
         let state = state.borrow();
@@ -133,6 +144,7 @@ pub fn op_react_replace_view<'a>(
         outer_handle.spawn(async move {
             api.ui_render(
                 entrypoint_id,
+                entrypoint_name,
                 render_location,
                 top_level_view,
                 container,

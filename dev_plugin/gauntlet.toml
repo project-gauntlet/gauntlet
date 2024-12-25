@@ -165,7 +165,7 @@ description = ''
 [[entrypoint]]
 id = 'command-generator'
 name = 'Command generator'
-path = 'src/command-generator.ts'
+path = 'src/command-generator.tsx'
 type = 'command-generator'
 description = ''
 

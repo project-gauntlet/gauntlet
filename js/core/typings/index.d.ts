@@ -1,7 +1,7 @@
 declare module "ext:gauntlet/renderer.js" {
     import { ReactNode } from "react";
 
-    export const render: (entrypointId: string, renderLocation: RenderLocation, component: ReactNode) => UiWidget;
+    export const render: (entrypointId: string, entrypointName: string, renderLocation: RenderLocation, component: ReactNode) => UiWidget;
     export const clearRenderer: () => void;
 }
 

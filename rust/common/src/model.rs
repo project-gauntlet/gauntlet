@@ -131,15 +131,22 @@ pub enum SearchResultAccessory {
 
 #[derive(Debug, Clone)]
 pub struct SearchResultEntrypointAction {
+    pub action_type: SearchResultEntrypointActionType,
     pub label: String,
     pub shortcut: Option<PhysicalShortcut>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchResultEntrypointActionType {
+    Command,
+    View,
 }
 
 #[derive(Debug, Clone)]
 pub enum SearchResultEntrypointType {
     Command,
     View,
-    GeneratedCommand,
+    Generated,
 }
 
 #[derive(Debug)]
