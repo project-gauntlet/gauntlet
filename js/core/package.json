@@ -4,9 +4,6 @@
   "scripts": {
     "build": "tsc --noEmit && rollup --config rollup.config.ts --configPlugin typescript"
   },
-  "dependencies": {
-    "@std/async": "npm:@jsr/std__async@^1.0.9"
-  },
   "devDependencies": {
     "@project-gauntlet/api": "*",
     "@project-gauntlet/typings": "*",
