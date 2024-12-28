@@ -8,6 +8,7 @@ import {
 import { reloadSearchIndex } from "./search-index";
 import type { FC } from "react";
 import { renderView } from "./render";
+import { throttle } from "@std/async/unstable-throttle";
 
 interface GeneratedCommand { // TODO is it possible to import api here
     name: string
@@ -83,6 +84,8 @@ export async function runEntrypointGenerators(): Promise<void> {
 
     await reloadSearchIndex(true)
 
+    const throttledReloadSearchIndex = throttle(() => reloadSearchIndex(true), 100)
+
     const entrypointIds = await get_entrypoint_generator_entrypoint_ids();
     for (const generatorEntrypointId of entrypointIds) {
         try {
@@ -138,7 +141,7 @@ export async function runEntrypointGenerators(): Promise<void> {
                     derivedActions,
                 }
 
-                reloadSearchIndex(true)
+                throttledReloadSearchIndex()
             }
             const remove = (id: string) => {
                 op_log_info("entrypoint_generator", `Removing entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
@@ -146,7 +149,7 @@ export async function runEntrypointGenerators(): Promise<void> {
 
                 delete storedGeneratedCommands[lookupId]
 
-                reloadSearchIndex(true)
+                throttledReloadSearchIndex()
             }
 
             const get = (id: string) => {
