@@ -2,14 +2,19 @@ use std::cell::RefCell;
 use deno_core::{op2, OpState};
 use std::path::PathBuf;
 use std::rc::Rc;
+use anyhow::anyhow;
 use image::ImageFormat;
 use image::imageops::FilterType;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use tokio::runtime::Handle;
+use tokio::sync::mpsc::Receiver;
 use tokio::task::spawn_blocking;
 use crate::plugin_data::PluginData;
 
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "linux")]
+mod x11;
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -70,6 +75,136 @@ pub struct DesktopSettings13AndPostData {
 #[string]
 pub fn current_os() -> &'static str {
     std::env::consts::OS
+}
+
+#[op2(fast)]
+pub fn wayland() -> bool {
+    let wayland = std::env::var("WAYLAND_DISPLAY")
+        .or_else(|_| std::env::var("WAYLAND_SOCKET"))
+        .is_ok();
+
+    wayland
+}
+
+pub struct ApplicationContext {
+    pub receiver: Rc<RefCell<Receiver<JsX11ApplicationEvent>>>,
+}
+
+impl ApplicationContext {
+    pub fn new() -> Self {
+        let (sender, receiver) = tokio::sync::mpsc::channel(100);
+
+        let handle = Handle::current();
+
+        #[cfg(target_os = "linux")]
+        std::thread::spawn(|| {
+            if let Err(e) = x11::listen_on_x11_events(handle, sender) {
+                tracing::error!("Error while listening on x11 events: {}", e);
+            }
+        });
+
+        Self {
+            receiver: Rc::new(RefCell::new(receiver))
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum JsX11ApplicationEvent {
+    Init {
+        id: String,
+        parent_id: String,
+        override_redirect: bool,
+        mapped: bool
+    },
+    CreateNotify {
+        id: String,
+        parent_id: String,
+        override_redirect: bool
+    },
+    DestroyNotify {
+        id: String,
+    },
+    MapNotify {
+        id: String,
+    },
+    UnmapNotify {
+        id: String,
+    },
+    ReparentNotify {
+        id: String,
+    },
+    TitlePropertyNotify {
+        id: String,
+        title: String
+    },
+    ClassPropertyNotify {
+        id: String,
+        class: String,
+        instance: String
+    },
+    HintsPropertyNotify {
+        id: String,
+        window_group: Option<String>,
+    },
+    ProtocolsPropertyNotify {
+        id: String,
+        protocols: Vec<JSX11WindowProtocol>,
+    },
+    TransientForPropertyNotify {
+        id: String,
+        transient_for: Option<String>,
+    },
+    WindowTypePropertyNotify {
+        id: String,
+        window_types: Vec<JSX11WindowType>
+    },
+    DesktopFileNamePropertyNotify {
+        id: String,
+        desktop_file_name: String
+    },
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+enum JSX11WindowProtocol {
+    TakeFocus,
+    DeleteWindow,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+enum JSX11WindowType {
+    DropdownMenu,
+    Dialog,
+    Menu,
+    Notification,
+    Normal,
+    PopupMenu,
+    Splash,
+    Toolbar,
+    Tooltip,
+    Utility,
+}
+
+
+#[op2(async)]
+#[serde]
+pub async fn application_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsX11ApplicationEvent> {
+    let receiver = {
+        state.borrow()
+            .borrow::<ApplicationContext>()
+            .receiver
+            .clone()
+    };
+
+    let mut receiver = receiver.borrow_mut();
+    let event = receiver.recv()
+        .await
+        .ok_or_else(|| anyhow!("plugin event stream was suddenly closed"))?;
+
+    tracing::trace!("Received application event {:?}", event);
+
+    Ok(event)
 }
 
 #[cfg(target_os = "linux")]

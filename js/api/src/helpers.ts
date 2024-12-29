@@ -71,7 +71,7 @@ export type GeneratorProps = {
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
     get: (id: string) => GeneratedCommand | undefined
-    getAll: () => GeneratedCommand[]
+    getAll: () => { [id: string]: GeneratedCommand },
 };
 
 export const Clipboard: Clipboard = {

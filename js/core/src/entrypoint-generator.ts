@@ -34,13 +34,14 @@ type GeneratorProps = {
     add: (id: string, data: GeneratedCommand) => void,
     remove: (id: string) => void,
     get: (id: string) => GeneratedCommand | undefined
-    getAll: () => GeneratedCommand[]
+    getAll: () => { [id: string]: GeneratedCommand }
 };
 
 type Generator = (props: GeneratorProps) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
 
 type ProcessedGeneratedCommand = {
     generatorEntrypointId: string,
+    id: string,
     uuid: string,
     command: GeneratedCommand
     derivedActions: GeneratedCommandDerivedAction[]
@@ -133,6 +134,7 @@ export async function runEntrypointGenerators(): Promise<void> {
 
                 storedGeneratedCommands[lookupId] = {
                     generatorEntrypointId: generatorEntrypointId,
+                    id: id,
                     uuid: crypto.randomUUID(),
                     command: data,
                     derivedActions,
@@ -161,11 +163,13 @@ export async function runEntrypointGenerators(): Promise<void> {
                 }
             }
 
-            const getAll = (): GeneratedCommand[] => {
+            const getAll = (): { [id: string]: GeneratedCommand } => {
                 op_log_debug("entrypoint_generator", `Getting all entries by entrypoint generator entrypoint '${generatorEntrypointId}'`)
 
-                return Object.entries(storedGeneratedCommands)
-                    .map(([_, value]) => value.command)
+                return Object.fromEntries(
+                    Object.entries(storedGeneratedCommands)
+                        .map(([_lookupId, value]) => [value.id, value.command])
+                )
             }
 
             // noinspection ES6MissingAwait

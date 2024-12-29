@@ -6,7 +6,8 @@
     "target": "ES2022",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["@project-gauntlet/typings", "@types/deno"]
+    "types": ["@project-gauntlet/typings", "@types/deno"],
+    "noUncheckedIndexedAccess": true
   },
   "lib": ["ES2020"]
 }

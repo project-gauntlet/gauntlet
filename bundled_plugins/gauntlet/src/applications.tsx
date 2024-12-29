@@ -1,12 +1,8 @@
 import { GeneratedCommand, GeneratorProps } from "@project-gauntlet/api/helpers";
 import { walk, WalkOptions } from "@std/fs/walk";
 import { debounce } from "@std/async/debounce";
-import { current_os } from "gauntlet:bridge/internal-all";
-import {
-    linux_app_from_path,
-    linux_application_dirs,
-    linux_open_application,
-} from "gauntlet:bridge/internal-linux";
+import { current_os, wayland } from "gauntlet:bridge/internal-all";
+import { linux_app_from_path, linux_application_dirs, linux_open_application, } from "gauntlet:bridge/internal-linux";
 import {
     macos_app_from_arbitrary_path,
     macos_app_from_path,
@@ -19,28 +15,71 @@ import {
     macos_settings_pre_13,
     macos_system_applications
 } from "gauntlet:bridge/internal-macos";
+import { applicationAccessories, applicationActions, OpenWindowData } from "./window/shared";
+import { applicationEventLoopX11 } from "./window/x11";
 
-export default async function Applications({ add, remove }: GeneratorProps): Promise<void | (() => void)> {
+export default async function Applications({ add, remove, get, getAll }: GeneratorProps): Promise<void | (() => void)> {
+    const openWindows: Record<string, OpenWindowData> = {};
+
     switch (current_os()) {
         case "linux": {
-            return await genericGenerator(
+            const cleanup = await genericGenerator<LinuxDesktopApplicationData>(
                 linux_application_dirs(),
                 path => linux_app_from_path(path),
-                (id, data) => ({
-                    name: data.name,
-                    actions: [
-                        {
-                            label: "Open application",
-                            run: () => {
-                                linux_open_application(id)
-                            },
+                (id, data) => {
+                    if (wayland()) {
+                        // TODO
+                        return {
+                            name: data.name,
+                            actions: [
+                                {
+                                    label: "Open application",
+                                    run: () => {
+                                        linux_open_application(id)
+                                    },
+                                }
+                            ],
+                            accessories: applicationAccessories(id, openWindows),
+                            icon: data.icon,
                         }
-                    ],
-                    icon: data.icon, // TODO lazy icons
-                }),
+                    } else {
+                        return {
+                            name: data.name,
+                            actions: applicationActions(
+                                id,
+                                () => {
+                                    linux_open_application(id)
+                                },
+                                (windowId: string) => {
+                                    // TODO
+                                    console.log(`focusing window: ${windowId}`)
+                                },
+                                openWindows
+                            ),
+                            accessories: applicationAccessories(id, openWindows),
+                            icon: data.icon, // TODO lazy icons
+                        }
+                    }
+                },
                 add,
-                remove
+                remove,
             );
+
+            if (wayland()) {
+                // TODO
+            } else {
+                applicationEventLoopX11(
+                    openWindows,
+                    (windowId: string) => {
+                        console.log(`focusing window: ${windowId}`)
+                    },
+                    add,
+                    get,
+                    getAll
+                );
+            }
+
+            return cleanup;
         }
         case "macos": {
             const majorVersion = macos_major_version();
@@ -103,7 +142,7 @@ export default async function Applications({ add, remove }: GeneratorProps): Pro
                 }
             }
 
-            return await genericGenerator(
+            return await genericGenerator<MacOSDesktopApplicationData>(
                 macos_application_dirs(),
                 path => macos_app_from_arbitrary_path(path),
                 (_id, data) => ({
@@ -193,9 +232,11 @@ async function genericGenerator<DATA>(
         for await (const event of watcher) {
             handle(event)
         }
-    })()
+    })();
 
     return () => {
         watcher.close()
     }
 }
+
+

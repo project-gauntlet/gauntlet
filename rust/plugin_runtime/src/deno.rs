@@ -29,7 +29,7 @@ use crate::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_
 use crate::model::JsInit;
 use crate::permissions::{permissions_to_deno};
 use crate::plugin_data::PluginData;
-use crate::plugins::applications::current_os;
+use crate::plugins::applications::{application_pending_event, current_os, wayland, ApplicationContext};
 use crate::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::settings::open_settings;
 use crate::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
@@ -265,6 +265,8 @@ deno_core::extension!(
 
         // plugins applications
         current_os,
+        wayland,
+        application_pending_event,
 
         // plugins settings
         open_settings,
@@ -276,9 +278,11 @@ deno_core::extension!(
     ],
     options = {
         numbat_context: NumbatContext,
+        application_context: ApplicationContext,
     },
     state = |state, options| {
         state.put(options.numbat_context);
+        state.put(options.application_context);
     },
 );
 
@@ -399,7 +403,10 @@ pub async fn start_js_runtime(
     ];
 
     if init.plugin_id.to_string() == "bundled://gauntlet" {
-        extensions.push(gauntlet_internal_all::init_ops_and_esm(NumbatContext::new()));
+        extensions.push(gauntlet_internal_all::init_ops_and_esm(
+            NumbatContext::new(),
+            ApplicationContext::new()
+        ));
 
         #[cfg(target_os = "macos")]
         extensions.push(gauntlet_internal_macos::init_ops_and_esm());

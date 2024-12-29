@@ -142,6 +142,8 @@ declare module "gauntlet:bridge/internal-all" {
     function open_settings(): void
     function run_numbat(input: string): { left: string, right: string }
     function current_os(): string
+    function wayland(): boolean
+    function application_pending_event(): Promise<object>
 }
 
 declare module "gauntlet:bridge/internal-linux" {
@@ -170,6 +172,8 @@ declare module "ext:core/ops" {
     function run_numbat(input: string): { left: string, right: string }
 
     function current_os(): string
+    function wayland(): boolean
+    function application_pending_event(): Promise<object>
 
     function linux_open_application(desktop_id: string): void
     function linux_application_dirs(): string[]

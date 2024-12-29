@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
-use std::{env, fs};
 
 use crate::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
 use freedesktop_entry_parser::parse_entry;
@@ -11,7 +10,7 @@ use image::ImageFormat;
 use walkdir::WalkDir;
 
 pub fn linux_application_dirs(home_dir: PathBuf) -> Vec<PathBuf> {
-    let data_home = match env::var_os("XDG_DATA_HOME") {
+    let data_home = match std::env::var_os("XDG_DATA_HOME") {
         Some(val) => {
             PathBuf::from(val)
         },
@@ -22,9 +21,9 @@ pub fn linux_application_dirs(home_dir: PathBuf) -> Vec<PathBuf> {
         }
     };
 
-    let mut extra_data_dirs = match env::var_os("XDG_DATA_DIRS") {
+    let mut extra_data_dirs = match std::env::var_os("XDG_DATA_DIRS") {
         Some(val) => {
-            env::split_paths(&val).map(PathBuf::from).collect()
+            std::env::split_paths(&val).map(PathBuf::from).collect()
         },
         None => {
             vec![
@@ -73,14 +72,19 @@ pub fn linux_app_from_path(home_dir: PathBuf, path: PathBuf) -> Option<DesktopPa
         return None;
     };
 
-    let desktop_file_id = relative_to_app_dir.replace("/", "-");
+    let desktop_file_name = relative_to_app_dir
+        .strip_suffix(".desktop")
+        .unwrap_or(&relative_to_app_dir)
+        .to_string();
+
+    let desktop_app_id = desktop_file_name.replace("/", "-");
 
     if !path.exists() {
         tracing::debug!("Removing application at: {:?}", path);
-        Some(DesktopPathAction::Remove { id: desktop_file_id })
+        Some(DesktopPathAction::Remove { id: desktop_app_id })
     } else {
         // follows symlinks needed for flatpak
-        let Ok(metadata) = fs::metadata(&path) else {
+        let Ok(metadata) = std::fs::metadata(&path) else {
             return None;
         };
 
@@ -92,7 +96,7 @@ pub fn linux_app_from_path(home_dir: PathBuf, path: PathBuf) -> Option<DesktopPa
             tracing::debug!("Adding application at: {:?}", path);
 
             Some(DesktopPathAction::Add {
-                id: desktop_file_id,
+                id: desktop_app_id,
                 data: entry
             })
         } else {

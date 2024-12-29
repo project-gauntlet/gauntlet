@@ -35,6 +35,8 @@ which = "7.0.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = "0.2"
+x11rb = { version = "0.13", features = ["extra-traits"] }
+encoding = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 freedesktop_entry_parser = "1.3"
