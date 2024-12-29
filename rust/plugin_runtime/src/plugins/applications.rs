@@ -254,6 +254,15 @@ pub fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Resu
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
+#[op2(fast)]
+pub fn linux_x11_focus_window(#[string] x11_window_id: String) -> anyhow::Result<()> {
+
+    x11::focus_window(x11_window_id)?;
+
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_major_version() -> u8 {

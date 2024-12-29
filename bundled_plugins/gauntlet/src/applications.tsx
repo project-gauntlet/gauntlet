@@ -16,7 +16,7 @@ import {
     macos_system_applications
 } from "gauntlet:bridge/internal-macos";
 import { applicationAccessories, applicationActions, OpenWindowData } from "./window/shared";
-import { applicationEventLoopX11 } from "./window/x11";
+import { applicationEventLoopX11, focusX11Window } from "./window/x11";
 
 export default async function Applications({ add, remove, get, getAll }: GeneratorProps): Promise<void | (() => void)> {
     const openWindows: Record<string, OpenWindowData> = {};
@@ -53,10 +53,7 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                                 () => {
                                     linux_open_application(id)
                                 },
-                                (windowId: string) => {
-                                    // TODO
-                                    console.log(`focusing window: ${windowId}`)
-                                },
+                                focusX11Window,
                                 openWindows
                             ),
                             accessories: applicationAccessories(id, openWindows),
@@ -76,9 +73,7 @@ export default async function Applications({ add, remove, get, getAll }: Generat
             } else {
                 applicationEventLoopX11(
                     openWindows,
-                    (windowId: string) => {
-                        console.log(`focusing window: ${windowId}`)
-                    },
+                    focusX11Window,
                     add,
                     get,
                     getAll

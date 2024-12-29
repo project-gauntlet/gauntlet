@@ -1,7 +1,7 @@
 import { GeneratedCommand } from "@project-gauntlet/api/helpers";
 import { application_pending_event } from "gauntlet:bridge/internal-all";
 import { addOpenWindow, deleteOpenWindow, OpenWindowData } from "./shared";
-import { linux_open_application } from "gauntlet:bridge/internal-linux";
+import { linux_open_application, linux_x11_focus_window } from "gauntlet:bridge/internal-linux";
 
 export type X11WindowProtocol = "DeleteWindow" | "TakeFocus"
 export type X11WindowType = "DropdownMenu" | "Dialog" | "Menu" | "Notification" | "Normal" | "PopupMenu" | "Splash" | "Toolbar" | "Tooltip" | "Utility"
@@ -127,6 +127,10 @@ type X11ApplicationEventDesktopFileNamePropertyNotify = {
     id: X11WindowId,
     desktop_file_name: string
 };
+
+export function focusX11Window(windowId: string) {
+    linux_x11_focus_window(windowId)
+}
 
 function openApplication(appId: string) {
     return () => {

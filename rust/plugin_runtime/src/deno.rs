@@ -294,6 +294,7 @@ deno_core::extension!(
         crate::plugins::applications::linux_app_from_path,
         crate::plugins::applications::linux_application_dirs,
         crate::plugins::applications::linux_open_application,
+        crate::plugins::applications::linux_x11_focus_window,
     ],
     esm_entry_point = "ext:gauntlet/internal-linux/bootstrap.js",
     esm = [

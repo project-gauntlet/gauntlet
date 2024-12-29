@@ -1,17 +1,70 @@
 use std::collections::HashMap;
 use crate::plugins::applications::{JSX11WindowProtocol, JSX11WindowType, JsX11ApplicationEvent};
 use std::convert::Infallible;
+use std::str::FromStr;
+use anyhow::anyhow;
 use encoding::{DecoderTrap, Encoding};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Sender;
 use x11rb::connection::Connection;
 use x11rb::errors::ConnectionError;
 use x11rb::properties::{WmClass, WmHints};
-use x11rb::protocol::xproto::{Atom, AtomEnum, MapState, Window};
+use x11rb::protocol::xproto::{Atom, AtomEnum, ClientMessageEvent, ConfigureWindowAux, InputFocus, MapState, StackMode, Window};
 use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::protocol::xproto::{ChangeWindowAttributesAux, EventMask};
 use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
+
+
+pub fn focus_window(window_id: String) -> anyhow::Result<()> {
+    // https://github.com/freedesktop-unofficial-mirror/xcb__util-wm/blob/24eb17df2e1245885e72c9d4bbb0a0f69f0700f2/ewmh/xcb_ewmh.h.m4#L1268
+    // this basically reimplementation of xcb_ewmh_request_change_active_window
+
+    let window_to_activate = Window::from_str(&window_id)?;
+
+    let (conn, screen_num) = RustConnection::connect(None)?;
+    let screen = &conn.setup().roots[screen_num];
+    let atoms = atoms::Atoms::new(&conn)?.reply()?;
+
+    // TODO change desktop?
+    // https://github.com/davatorium/rofi/blob/f9491690fdfbffc5fe13438b26323c05c67acd7b/source/modes/window.c#L820
+
+    let active_window_property = conn.get_property(false, screen.root, atoms._NET_ACTIVE_WINDOW, AtomEnum::WINDOW, 0, 2048)?
+        .reply()?;
+
+    let current_active_window = active_window_property
+        .value32()
+        .and_then(|mut iter| iter.next())
+        .unwrap_or(0); // no focused window
+
+    // these values are same as rofi
+    let source_indication: u32 = 2; // XCB_EWMH_CLIENT_SOURCE_TYPE_OTHER
+    let timestamp: u32 = x11rb::CURRENT_TIME;
+
+    let event = ClientMessageEvent::new(
+        32,
+        window_to_activate,
+        atoms._NET_ACTIVE_WINDOW,
+        [
+            source_indication,
+            timestamp,
+            current_active_window,
+            0,
+            0
+        ],
+    );
+
+    conn.send_event(
+        false,
+        screen.root,
+        EventMask::SUBSTRUCTURE_NOTIFY | EventMask::SUBSTRUCTURE_REDIRECT,
+        event
+    )?;
+
+    conn.flush()?;
+
+    Ok(())
+}
 
 fn send_event(tokio_handle: &Handle, sender: &Sender<JsX11ApplicationEvent>, app_event: JsX11ApplicationEvent) {
     let sender = sender.clone();
@@ -380,6 +433,7 @@ mod atoms {
             _NET_WM_WINDOW_TYPE_TOOLTIP,
             _NET_WM_WINDOW_TYPE_UTILITY,
             _NET_WM_STATE_MODAL,
+            _NET_ACTIVE_WINDOW,
 
             // non-standard
             _KDE_NET_WM_DESKTOP_FILE,

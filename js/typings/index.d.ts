@@ -149,6 +149,7 @@ declare module "gauntlet:bridge/internal-all" {
 
 declare module "gauntlet:bridge/internal-linux" {
     function linux_open_application(desktop_id: string): void
+    function linux_x11_focus_window(window_id: string): void
     function linux_application_dirs(): string[]
     function linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
 
@@ -177,6 +178,7 @@ declare module "ext:core/ops" {
     function application_pending_event(): Promise<object>
 
     function linux_open_application(desktop_id: string): void
+    function linux_x11_focus_window(window_id: string): void
     function linux_application_dirs(): string[]
     function linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
 
