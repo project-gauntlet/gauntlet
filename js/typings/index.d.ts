@@ -17,6 +17,7 @@ type DesktopPathActionRemove = {
 type LinuxDesktopApplicationData = {
     name: string
     icon: ArrayBuffer | undefined,
+    startup_wm_class: string | undefined,
 }
 
 type MacOSDesktopApplicationData = {

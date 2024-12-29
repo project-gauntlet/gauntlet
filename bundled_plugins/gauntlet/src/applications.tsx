@@ -41,6 +41,9 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                             ],
                             accessories: applicationAccessories(id, openWindows),
                             icon: data.icon,
+                            "__linux__": {
+                                startupWmClass: data.startup_wm_class
+                            }
                         }
                     } else {
                         return {
@@ -58,6 +61,9 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                             ),
                             accessories: applicationAccessories(id, openWindows),
                             icon: data.icon, // TODO lazy icons
+                            "__linux__": {
+                                startupWmClass: data.startup_wm_class
+                            }
                         }
                     }
                 },

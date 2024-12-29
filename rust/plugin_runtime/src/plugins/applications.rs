@@ -38,6 +38,7 @@ pub enum DesktopPathAction {
 pub struct DesktopApplication {
     name: String,
     icon: Option<Vec<u8>>,
+    startup_wm_class: Option<String>,
 }
 
 #[cfg(target_os = "macos")]

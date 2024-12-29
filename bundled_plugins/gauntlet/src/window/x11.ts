@@ -332,22 +332,66 @@ function validateAndAddOpenWindow(
         parentWindow = windows[parentWindow.parentId]
     }
 
+    function process(appId: string) {
+        const generatedEntrypoint = generated[appId];
+
+        if (generatedEntrypoint) {
+            addOpenWindow(
+                appId,
+                generatedEntrypoint,
+                window,
+                openWindows,
+                openApplication(appId),
+                focusWindow,
+                add,
+            )
+        }
+    }
+
+    const generated = getAll();
 
     let appId = window.desktopFileName;
     if (appId) {
-        addOpenWindow(
-            appId,
-            window,
-            openWindows,
-            openApplication(appId),
-            focusWindow,
-            add,
-            getAll
-        )
+        process(appId)
+        return;
+    }
+
+    const startupWmClassToAppId = Object.fromEntries(
+        Object.entries(generated)
+            .map(([appId, generated]): [string | undefined, string] => [((generated as any)["__linux__"]).startupWmClass, appId])
+            .filter((val): val is [string, string]  => {
+                const [wmClass, _appId] = val
+                return wmClass != undefined
+            })
+    );
+
+    const appIdFromWmClassInstance = startupWmClassToAppId[window.instance];
+    if (appIdFromWmClassInstance) {
+        process(appIdFromWmClassInstance)
+        return;
+    }
+
+    const appIdFromWmClass = startupWmClassToAppId[window.class];
+    if (appIdFromWmClass) {
+        process(appIdFromWmClass)
+        return;
+    }
+
+    const wmClassInstanceAsAppId = window.instance;
+    if (wmClassInstanceAsAppId) {
+        process(wmClassInstanceAsAppId)
+        return;
+    }
+
+    const wmClassAsAppId = window.class;
+    if (wmClassAsAppId) {
+        process(wmClassAsAppId)
+        return;
     }
 
     // https://nicolasfella.de/posts/importance-of-desktop-file-mapping/
-    // TODO do the heuristics
+    // TODO do the rest of heuristics
+    //   OR just tell users to use wayland?
     // https://github.com/KDE/plasma-workspace/blob/e2cf987971088640a149d871bcdfe63fa2aae855/libtaskmanager/xwindowtasksmodel.cpp#L519
     // https://github.com/GNOME/gnome-shell/blob/8fbaa5e55a8d65454c4d2a6f53ceb8bcaa687af5/src/shell-window-tracker.c#L390
 }

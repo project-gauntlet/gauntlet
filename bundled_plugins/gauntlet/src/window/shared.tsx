@@ -85,17 +85,13 @@ export function applicationAccessories(id: string, openWindows: Record<string, O
 
 export function addOpenWindow(
     appId: string,
+    generatedEntrypoint: GeneratedCommand,
     window: X11WindowData,
     openWindows: Record<string, OpenWindowData>,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
     add: (id: string, data: GeneratedCommand) => void,
-    getAll: () => { [id: string]: GeneratedCommand },
 ) {
-    const generated = getAll();
-
-    const generatedEntrypoint = generated[appId];
-
     if (generatedEntrypoint) {
         openWindows[window.id] = {
             id: window.id,

@@ -116,6 +116,7 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
     let icon = entry.attr("Icon").map(|s| s.to_string());
     let no_display = entry.attr("NoDisplay").map(|val| val == "true").unwrap_or(false);
     let hidden = entry.attr("Hidden").map(|val| val == "true").unwrap_or(false);
+    let startup_wm_class = entry.attr("StartupWMClass").map(|s| s.to_string());;
     // TODO NotShowIn, OnlyShowIn https://wiki.archlinux.org/title/desktop_entries
 
     if no_display || hidden {
@@ -177,5 +178,6 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
     Some(DesktopApplication {
         name: name.to_string(),
         icon,
+        startup_wm_class,
     })
 }
