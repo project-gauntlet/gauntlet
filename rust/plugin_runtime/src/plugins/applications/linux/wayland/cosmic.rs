@@ -11,24 +11,28 @@ use wayland_client::globals::GlobalList;
 use wayland_client::{event_created_child, Connection, Dispatch, Proxy, QueueHandle};
 use wayland_client::backend::ObjectId;
 use wayland_client::protocol::wl_seat::WlSeat;
-use wayland_protocols_wlr::foreign_toplevel::v1::client::{zwlr_foreign_toplevel_handle_v1, zwlr_foreign_toplevel_manager_v1};
+use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1;
+use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_info_v1;
+use cosmic_protocols::toplevel_management::v1::client::zcosmic_toplevel_manager_v1;
 
-pub struct WlrWaylandState {
+pub struct CosmicWaylandState {
     uuid_to_obj_id: HashMap<String, ObjectId>,
     obj_id_to_uuid: HashMap<ObjectId, String>,
-    toplevels: HashMap<ObjectId, zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1>,
+    toplevels: HashMap<ObjectId, zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1>,
+    management: zcosmic_toplevel_manager_v1::ZcosmicToplevelManagerV1,
 }
 
-impl WlrWaylandState {
+impl CosmicWaylandState {
     pub fn new(globals: &GlobalList, queue_handle: &QueueHandle<WaylandState>) -> anyhow::Result<Self> {
-        let _management = globals
-            .bind::<zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1, _, _>(
+        let management = globals
+            .bind::<zcosmic_toplevel_manager_v1::ZcosmicToplevelManagerV1, _, _>(
                 &queue_handle,
                 3..=3,
                 (),
             )?;
 
         Ok(Self {
+            management,
             uuid_to_obj_id: HashMap::new(),
             obj_id_to_uuid: HashMap::new(),
             toplevels: HashMap::new(),
@@ -45,7 +49,7 @@ impl WlrWaylandState {
             .ok_or(anyhow!("Unable to find object id for window uuid: {}", window_uuid))?;
 
         match seat_state.seats().next() {
-            Some(seat) => toplevel.activate(&seat),
+            Some(seat) => self.management.activate(&toplevel, &seat),
             None => Err(anyhow!("no wayland seats found"))?
         };
 
@@ -53,19 +57,31 @@ impl WlrWaylandState {
     }
 }
 
-impl Dispatch<zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1, ()> for WaylandState {
+impl Dispatch<zcosmic_toplevel_manager_v1::ZcosmicToplevelManagerV1, ()> for WaylandState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &zcosmic_toplevel_manager_v1::ZcosmicToplevelManagerV1,
+        _event: <zcosmic_toplevel_manager_v1::ZcosmicToplevelManagerV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>
+    ) {
+    }
+}
+
+impl Dispatch<zcosmic_toplevel_info_v1::ZcosmicToplevelInfoV1, ()> for WaylandState {
     fn event(
         state: &mut Self,
-        _proxy: &zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
-        event: <zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1 as Proxy>::Event,
+        _proxy: &zcosmic_toplevel_info_v1::ZcosmicToplevelInfoV1,
+        event: <zcosmic_toplevel_info_v1::ZcosmicToplevelInfoV1 as Proxy>::Event,
         _data: &(),
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
     ) {
         match event {
-            zwlr_foreign_toplevel_manager_v1::Event::Toplevel { toplevel } => {
+            zcosmic_toplevel_info_v1::Event::Toplevel { toplevel } => {
                 match &mut state.inner {
-                    WaylandStateInner::Wlr(inner) => {
+                    WaylandStateInner::Cosmic(inner) => {
                         let window_id = uuid::Uuid::new_v4().to_string();
 
                         inner.uuid_to_obj_id.insert(window_id.clone(), toplevel.id());
@@ -83,24 +99,24 @@ impl Dispatch<zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1, ()
         }
     }
 
-    event_created_child!(WaylandState, zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1, [
-        zwlr_foreign_toplevel_manager_v1::EVT_TOPLEVEL_OPCODE => (zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1, ()),
+    event_created_child!(WaylandState, zcosmic_toplevel_info_v1::ZcosmicToplevelInfoV1, [
+        zcosmic_toplevel_info_v1::EVT_TOPLEVEL_OPCODE => (zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1, ()),
     ]);
 }
 
-impl Dispatch<zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1, ()> for WaylandState {
+impl Dispatch<zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1, ()> for WaylandState {
     fn event(
         state: &mut Self,
-        proxy: &zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
-        event: <zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1 as Proxy>::Event,
+        proxy: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
+        event: <zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1 as Proxy>::Event,
         _data: &(),
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
     ) {
         match event {
-            zwlr_foreign_toplevel_handle_v1::Event::Title { title } => {
+            zcosmic_toplevel_handle_v1::Event::Title { title } => {
                 match &state.inner {
-                    WaylandStateInner::Wlr(inner) => {
+                    WaylandStateInner::Cosmic(inner) => {
                         match inner.obj_id_to_uuid.get(&proxy.id()) {
                             Some(window_id) => {
                                 send_event(&state.tokio_handle, &state.sender, JsWaylandApplicationEvent::WindowTitleChanged {
@@ -109,16 +125,16 @@ impl Dispatch<zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1, ()> 
                                 });
                             }
                             None => {
-                                tracing::warn!("Received event for wlr wayland toplevel that doesn't exist in state");
+                                tracing::warn!("Received event for cosmic wayland toplevel that doesn't exist in state");
                             }
                         }
                     }
                     _ => {}
                 }
             }
-            zwlr_foreign_toplevel_handle_v1::Event::AppId { app_id } => {
+            zcosmic_toplevel_handle_v1::Event::AppId { app_id } => {
                 match &state.inner {
-                    WaylandStateInner::Wlr(inner) => {
+                    WaylandStateInner::Cosmic(inner) => {
                         match inner.obj_id_to_uuid.get(&proxy.id()) {
                             Some(window_id) => {
                                 send_event(&state.tokio_handle, &state.sender, JsWaylandApplicationEvent::WindowAppIdChanged {
@@ -127,16 +143,16 @@ impl Dispatch<zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1, ()> 
                                 });
                             }
                             None => {
-                                tracing::warn!("Received event for wlr wayland toplevel that doesn't exist in state");
+                                tracing::warn!("Received event for cosmic wayland toplevel that doesn't exist in state");
                             }
                         }
                     }
                     _ => {}
                 }
             }
-            zwlr_foreign_toplevel_handle_v1::Event::Closed => {
+            zcosmic_toplevel_handle_v1::Event::Closed => {
                 match &mut state.inner {
-                    WaylandStateInner::Wlr(inner) => {
+                    WaylandStateInner::Cosmic(inner) => {
 
                         inner.toplevels.remove(&proxy.id());
                         match inner.obj_id_to_uuid.remove(&proxy.id()) {
@@ -148,7 +164,7 @@ impl Dispatch<zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1, ()> 
                                 });
                             }
                             None => {
-                                tracing::warn!("Received event for wlr wayland toplevel that doesn't exist in state");
+                                tracing::warn!("Received event for cosmic wayland toplevel that doesn't exist in state");
                             }
                         }
                     }

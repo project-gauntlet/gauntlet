@@ -101,16 +101,18 @@ pub enum DesktopEnvironment {
 
 impl DesktopEnvironment {
     fn new() -> anyhow::Result<Self> {
+        #[cfg(target_os = "linux")]
         let result = Ok(Self::Linux(linux::LinuxDesktopEnvironment::new()?));
 
         #[cfg(not(target_os = "linux"))]
-        let result = None;
+        let result = Ok(Self::None);
 
         result
     }
 
     fn is_wayland(&self) -> bool {
         match self {
+            #[cfg(target_os = "linux")]
             DesktopEnvironment::Linux(linux) => linux.is_wayland(),
             DesktopEnvironment::None => false
         }

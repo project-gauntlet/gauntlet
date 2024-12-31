@@ -16,7 +16,8 @@ use wayland_client::protocol::wl_registry;
 use wayland_client::protocol::wl_seat::WlSeat;
 use crate::plugins::applications::{linux, ApplicationContext, DesktopEnvironment};
 
-pub mod wlr;
+mod wlr;
+mod cosmic;
 
 pub struct WaylandDesktopEnvironment {
     activate_sender: calloop::channel::Sender<String>,
@@ -101,7 +102,7 @@ impl WaylandState {
 
 pub enum WaylandStateInner {
     Wlr(wlr::WlrWaylandState),
-    Cosmic,
+    Cosmic(cosmic::CosmicWaylandState),
     None
 }
 
@@ -183,7 +184,11 @@ fn activation_handler(event: Event<String>, _metadata: &mut (), state: &mut Wayl
                 tracing::error!("Unable to focus wayland window: {:?}", err);
             };
         }
-        WaylandStateInner::Cosmic => {}
+        WaylandStateInner::Cosmic(cosmic) => {
+            if let Err(err) = cosmic.focus_window(window_uuid, &state.seat_state) {
+                tracing::error!("Unable to focus wayland window: {:?}", err);
+            };
+        }
         WaylandStateInner::None => {
             tracing::error!("Calling focus window when there is no supported wayland protocols available");
         }

@@ -1644,6 +1644,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-protocols"
+version = "0.1.0"
+source = "git+https://github.com/pop-os/cosmic-protocols.git#d218c76b58c7a3b20dd5e7943f93fc306a1b81b8"
+dependencies = [
+ "bitflags 2.6.0",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols 0.32.5",
+ "wayland-protocols-wlr 0.3.5",
+ "wayland-scanner",
+ "wayland-server",
+]
+
+[[package]]
 name = "cosmic-text"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4104,6 +4118,7 @@ dependencies = [
  "bincode 2.0.0-rc.3",
  "bytes",
  "cacao",
+ "cosmic-protocols",
  "deno_core",
  "deno_runtime",
  "encoding",
@@ -5705,6 +5720,12 @@ dependencies = [
  "widestring",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "io-lifetimes"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06432fb54d3be7964ecd3649233cddf80db2832f47fec34c01f65b3d9d774983"
 
 [[package]]
 name = "ipconfig"
@@ -11817,6 +11838,7 @@ dependencies = [
  "wayland-backend",
  "wayland-client",
  "wayland-scanner",
+ "wayland-server",
 ]
 
 [[package]]
@@ -11869,6 +11891,7 @@ dependencies = [
  "wayland-client",
  "wayland-protocols 0.32.5",
  "wayland-scanner",
+ "wayland-server",
 ]
 
 [[package]]
@@ -11880,6 +11903,20 @@ dependencies = [
  "proc-macro2",
  "quick-xml 0.36.2",
  "quote",
+]
+
+[[package]]
+name = "wayland-server"
+version = "0.31.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c89532cc712a2adb119eb4d09694b402576052254d0bb284f82ac1c47fb786ad"
+dependencies = [
+ "bitflags 2.6.0",
+ "downcast-rs",
+ "io-lifetimes",
+ "rustix",
+ "wayland-backend",
+ "wayland-scanner",
 ]
 
 [[package]]
