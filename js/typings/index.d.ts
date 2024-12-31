@@ -17,6 +17,7 @@ type DesktopPathActionRemove = {
 type LinuxDesktopApplicationData = {
     name: string
     icon: ArrayBuffer | undefined,
+    desktop_file_path: string,
     startup_wm_class: string | undefined,
 }
 
@@ -144,12 +145,14 @@ declare module "gauntlet:bridge/internal-all" {
     function run_numbat(input: string): { left: string, right: string }
     function current_os(): string
     function wayland(): boolean
-    function application_pending_event(): Promise<object>
+    function application_x11_pending_event(): Promise<X11ApplicationEvent>
+    function application_wayland_pending_event(): Promise<WaylandApplicationEvent>
 }
 
 declare module "gauntlet:bridge/internal-linux" {
     function linux_open_application(desktop_id: string): void
     function linux_x11_focus_window(window_id: string): void
+    function linux_wayland_focus_window(window_id: string): void
     function linux_application_dirs(): string[]
     function linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
 
@@ -175,10 +178,12 @@ declare module "ext:core/ops" {
 
     function current_os(): string
     function wayland(): boolean
-    function application_pending_event(): Promise<object>
+    function application_x11_pending_event(): Promise<X11ApplicationEvent>
+    function application_wayland_pending_event(): Promise<WaylandApplicationEvent>
 
     function linux_open_application(desktop_id: string): void
     function linux_x11_focus_window(window_id: string): void
+    function linux_wayland_focus_window(window_id: string): void
     function linux_application_dirs(): string[]
     function linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
 
@@ -342,3 +347,124 @@ type TypeImageArray = {
     type: "array"
     item: PropertyType
 }
+
+type WaylandApplicationEvent = WaylandApplicationEventWindowOpened
+    | WaylandApplicationEventWindowClosed
+    | WaylandApplicationEventWindowTitleChanged
+    | WaylandApplicationEventWindowAppIdChanged
+
+type WaylandApplicationEventWindowOpened = {
+    type: "WindowOpened",
+    window_id: string,
+};
+type WaylandApplicationEventWindowClosed = {
+    type: "WindowClosed",
+    window_id: string,
+};
+type WaylandApplicationEventWindowTitleChanged = {
+    type: "WindowTitleChanged",
+    window_id: string,
+    title: string,
+};
+type WaylandApplicationEventWindowAppIdChanged = {
+    type: "WindowAppIdChanged",
+    window_id: string,
+    app_id: string,
+};
+
+type X11WindowProtocol = "DeleteWindow" | "TakeFocus"
+type X11WindowType = "DropdownMenu" | "Dialog" | "Menu" | "Notification" | "Normal" | "PopupMenu" | "Splash" | "Toolbar" | "Tooltip" | "Utility"
+type X11WindowId = string
+
+type X11ApplicationEvent = X11ApplicationEventInit
+    | X11ApplicationEventCreateNotify
+    | X11ApplicationEventDestroyNotify
+    | X11ApplicationEventMapNotify
+    | X11ApplicationEventUnmapNotify
+    | X11ApplicationEventReparentNotify
+    | X11ApplicationEventTitlePropertyNotify
+    | X11ApplicationEventClassPropertyNotify
+    | X11ApplicationEventHintsPropertyNotify
+    | X11ApplicationEventProtocolsPropertyNotify
+    | X11ApplicationEventTransientForPropertyNotify
+    | X11ApplicationEventWindowTypePropertyNotify
+    | X11ApplicationEventDesktopFileNamePropertyNotify;
+
+
+type X11ApplicationEventInit = {
+    type: "Init",
+    id: X11WindowId,
+    parent_id: X11WindowId,
+    override_redirect: boolean,
+    mapped: boolean,
+};
+
+type X11ApplicationEventCreateNotify = {
+    type: "CreateNotify",
+    id: X11WindowId,
+    parent_id: X11WindowId,
+    override_redirect: boolean,
+};
+
+type X11ApplicationEventDestroyNotify = {
+    type: "DestroyNotify",
+    id: X11WindowId,
+}
+
+type X11ApplicationEventMapNotify = {
+    type: "MapNotify",
+    id: X11WindowId,
+};
+
+type X11ApplicationEventUnmapNotify = {
+    type: "UnmapNotify",
+    id: X11WindowId,
+};
+
+type X11ApplicationEventReparentNotify = {
+    type: "ReparentNotify",
+    id: X11WindowId,
+};
+
+type X11ApplicationEventTitlePropertyNotify = {
+    type: "TitlePropertyNotify",
+    id: X11WindowId,
+    title: string
+};
+
+type X11ApplicationEventClassPropertyNotify = {
+    type: "ClassPropertyNotify",
+    id: X11WindowId,
+    class: string,
+    instance: string
+};
+
+type X11ApplicationEventHintsPropertyNotify = {
+    type: "HintsPropertyNotify",
+    id: X11WindowId,
+    window_group: X11WindowId | undefined,
+};
+
+type X11ApplicationEventProtocolsPropertyNotify = {
+    type: "ProtocolsPropertyNotify",
+    id: X11WindowId,
+    protocols: X11WindowProtocol[],
+};
+
+type X11ApplicationEventTransientForPropertyNotify = {
+    type: "TransientForPropertyNotify",
+    id: X11WindowId,
+    transient_for: X11WindowId | undefined,
+};
+
+type X11ApplicationEventWindowTypePropertyNotify = {
+    type: "WindowTypePropertyNotify",
+    id: X11WindowId,
+    window_types: X11WindowType[]
+};
+
+type X11ApplicationEventDesktopFileNamePropertyNotify = {
+    type: "DesktopFileNamePropertyNotify",
+    id: X11WindowId,
+    desktop_file_name: string
+};

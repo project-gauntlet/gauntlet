@@ -29,7 +29,7 @@ use crate::logs::{op_log_debug, op_log_error, op_log_info, op_log_trace, op_log_
 use crate::model::JsInit;
 use crate::permissions::{permissions_to_deno};
 use crate::plugin_data::PluginData;
-use crate::plugins::applications::{application_pending_event, current_os, wayland, ApplicationContext};
+use crate::plugins::applications::{current_os, wayland, ApplicationContext};
 use crate::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::settings::open_settings;
 use crate::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
@@ -266,7 +266,6 @@ deno_core::extension!(
         // plugins applications
         current_os,
         wayland,
-        application_pending_event,
 
         // plugins settings
         open_settings,
@@ -284,23 +283,6 @@ deno_core::extension!(
         state.put(options.numbat_context);
         state.put(options.application_context);
     },
-);
-
-#[cfg(target_os = "linux")]
-deno_core::extension!(
-    gauntlet_internal_linux,
-    ops = [
-        // plugins applications linux
-        crate::plugins::applications::linux_app_from_path,
-        crate::plugins::applications::linux_application_dirs,
-        crate::plugins::applications::linux_open_application,
-        crate::plugins::applications::linux_x11_focus_window,
-    ],
-    esm_entry_point = "ext:gauntlet/internal-linux/bootstrap.js",
-    esm = [
-        "ext:gauntlet/internal-linux/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-linux-bootstrap.js",
-        "ext:gauntlet/internal-linux.js" =  "../../js/core/dist/internal-linux.js",
-    ]
 );
 
 #[cfg(target_os = "macos")]
@@ -406,14 +388,14 @@ pub async fn start_js_runtime(
     if init.plugin_id.to_string() == "bundled://gauntlet" {
         extensions.push(gauntlet_internal_all::init_ops_and_esm(
             NumbatContext::new(),
-            ApplicationContext::new()
+            ApplicationContext::new()?
         ));
 
         #[cfg(target_os = "macos")]
         extensions.push(gauntlet_internal_macos::init_ops_and_esm());
 
         #[cfg(target_os = "linux")]
-        extensions.push(gauntlet_internal_linux::init_ops_and_esm());
+        extensions.push(crate::plugins::applications::gauntlet_internal_linux::init_ops_and_esm());
     }
 
     let mut worker = MainWorker::bootstrap_from_options(

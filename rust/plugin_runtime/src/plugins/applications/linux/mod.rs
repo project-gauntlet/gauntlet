@@ -1,15 +1,109 @@
-use std::collections::{HashMap, HashSet};
-use std::fs::Metadata;
-use std::path::{Path, PathBuf};
-
-use crate::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
+use crate::plugin_data::PluginData;
+use crate::plugins::applications::{linux, resize_icon, spawn_detached, DesktopApplication, DesktopPathAction};
+use deno_core::{op2, OpState};
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use image::imageops::FilterType;
 use image::ImageFormat;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::fs::Metadata;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use tokio::sync::mpsc::Sender;
+use tokio::task::spawn_blocking;
 use walkdir::WalkDir;
 
-pub fn linux_application_dirs(home_dir: PathBuf) -> Vec<PathBuf> {
+mod x11;
+mod wayland;
+
+deno_core::extension!(
+    gauntlet_internal_linux,
+    ops = [
+        // plugins applications
+        linux_app_from_path,
+        linux_application_dirs,
+        linux_open_application,
+        x11::linux_x11_focus_window,
+        x11::application_x11_pending_event,
+        wayland::linux_wayland_focus_window,
+        wayland::application_wayland_pending_event,
+    ],
+    esm_entry_point = "ext:gauntlet/internal-linux/bootstrap.js",
+    esm = [
+        "ext:gauntlet/internal-linux/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-linux-bootstrap.js",
+        "ext:gauntlet/internal-linux.js" =  "../../js/core/dist/internal-linux.js",
+    ]
+);
+
+pub enum LinuxDesktopEnvironment {
+    X11(x11::X11DesktopEnvironment),
+    Wayland(wayland::WaylandDesktopEnvironment),
+}
+
+impl LinuxDesktopEnvironment {
+    pub fn new() -> anyhow::Result<Self> {
+        let wayland = std::env::var("WAYLAND_DISPLAY")
+            .or_else(|_| std::env::var("WAYLAND_SOCKET"))
+            .is_ok();
+
+        if wayland {
+            Ok(LinuxDesktopEnvironment::Wayland(wayland::WaylandDesktopEnvironment::new()?))
+        } else {
+            Ok(LinuxDesktopEnvironment::X11(x11::X11DesktopEnvironment::new()))
+        }
+    }
+
+    pub fn is_wayland(&self) -> bool {
+        matches!(self, LinuxDesktopEnvironment::Wayland(_))
+    }
+}
+
+#[op2(async)]
+#[serde]
+async fn linux_app_from_path(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+    let home_dir = {
+        let state = state.borrow();
+
+        let home_dir = state
+            .borrow::<PluginData>()
+            .home_dir();
+
+        home_dir
+    };
+
+    Ok(spawn_blocking(|| linux_app_from_path_async(home_dir, PathBuf::from(path))).await?)
+}
+
+#[op2]
+#[serde]
+fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
+    let home_dir = {
+        let state = state.borrow();
+
+        let home_dir = state
+            .borrow::<PluginData>()
+            .home_dir();
+
+        home_dir
+    };
+
+    linux_application_dirs_inner(home_dir)
+        .into_iter()
+        .map(|path| path.to_str().expect("non-utf8 paths are not supported").to_string())
+        .collect()
+}
+
+#[op2(fast)]
+fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Result<()> {
+
+    spawn_detached("gtk-launch", &[desktop_file_id])?;
+
+    Ok(())
+}
+
+
+fn linux_application_dirs_inner(home_dir: PathBuf) -> Vec<PathBuf> {
     let data_home = match std::env::var_os("XDG_DATA_HOME") {
         Some(val) => {
             PathBuf::from(val)
@@ -49,8 +143,8 @@ pub fn linux_application_dirs(home_dir: PathBuf) -> Vec<PathBuf> {
         .collect()
 }
 
-pub fn linux_app_from_path(home_dir: PathBuf, path: PathBuf) -> Option<DesktopPathAction> {
-    let app_directories = linux_application_dirs(home_dir);
+fn linux_app_from_path_async(home_dir: PathBuf, path: PathBuf) -> Option<DesktopPathAction> {
+    let app_directories = linux_application_dirs_inner(home_dir);
 
     let relative_to_app_dir = app_directories
         .into_iter()
@@ -109,6 +203,10 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
     let entry = parse_entry(desktop_file_path)
         .inspect_err(|err| tracing::warn!("error parsing .desktop file at path {:?}: {:?}", desktop_file_path, err))
         .ok()?;
+
+    let desktop_file_path_str = desktop_file_path.to_str()
+        .expect("non-utf8 paths are not supported")
+        .to_string();
 
     let entry = entry.section("Desktop Entry");
 
@@ -177,6 +275,7 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
 
     Some(DesktopApplication {
         name: name.to_string(),
+        desktop_file_path: desktop_file_path_str,
         icon,
         startup_wm_class,
     })

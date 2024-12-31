@@ -1,22 +1,160 @@
-use std::collections::HashMap;
-use crate::plugins::applications::{JSX11WindowProtocol, JSX11WindowType, JsX11ApplicationEvent};
-use std::convert::Infallible;
-use std::str::FromStr;
+use crate::plugins::applications::linux::x11;
 use anyhow::anyhow;
+use deno_core::{op2, OpState};
 use encoding::{DecoderTrap, Encoding};
+use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::rc::Rc;
+use std::str::FromStr;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Receiver, Sender};
 use x11rb::connection::Connection;
 use x11rb::errors::ConnectionError;
 use x11rb::properties::{WmClass, WmHints};
-use x11rb::protocol::xproto::{Atom, AtomEnum, ClientMessageEvent, ConfigureWindowAux, InputFocus, MapState, StackMode, Window};
 use x11rb::protocol::xproto::ConnectionExt;
+use x11rb::protocol::xproto::{Atom, AtomEnum, ClientMessageEvent, ConfigureWindowAux, InputFocus, MapState, StackMode, Window};
 use x11rb::protocol::xproto::{ChangeWindowAttributesAux, EventMask};
 use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
+use crate::plugins::applications::{linux, ApplicationContext, DesktopEnvironment};
+
+pub struct X11DesktopEnvironment {
+    receiver: Rc<RefCell<Receiver<JsX11ApplicationEvent>>>,
+}
+
+impl X11DesktopEnvironment {
+    pub fn new() -> Self {
+        let (sender, receiver) = tokio::sync::mpsc::channel(100);
+
+        let handle = Handle::current();
+
+        std::thread::spawn(move || {
+            if let Err(e) = listen_on_x11_events(handle, sender.clone()) {
+                tracing::error!("Error while listening on x11 events: {}", e);
+            }
+        });
+
+        Self {
+            receiver: Rc::new(RefCell::new(receiver)),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+enum JsX11ApplicationEvent {
+    Init {
+        id: String,
+        parent_id: String,
+        override_redirect: bool,
+        mapped: bool
+    },
+    CreateNotify {
+        id: String,
+        parent_id: String,
+        override_redirect: bool
+    },
+    DestroyNotify {
+        id: String,
+    },
+    MapNotify {
+        id: String,
+    },
+    UnmapNotify {
+        id: String,
+    },
+    ReparentNotify {
+        id: String,
+    },
+    TitlePropertyNotify {
+        id: String,
+        title: String
+    },
+    ClassPropertyNotify {
+        id: String,
+        class: String,
+        instance: String
+    },
+    HintsPropertyNotify {
+        id: String,
+        window_group: Option<String>,
+    },
+    ProtocolsPropertyNotify {
+        id: String,
+        protocols: Vec<JSX11WindowProtocol>,
+    },
+    TransientForPropertyNotify {
+        id: String,
+        transient_for: Option<String>,
+    },
+    WindowTypePropertyNotify {
+        id: String,
+        window_types: Vec<JSX11WindowType>
+    },
+    DesktopFileNamePropertyNotify {
+        id: String,
+        desktop_file_name: String
+    },
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+enum JSX11WindowProtocol {
+    TakeFocus,
+    DeleteWindow,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+enum JSX11WindowType {
+    DropdownMenu,
+    Dialog,
+    Menu,
+    Notification,
+    Normal,
+    PopupMenu,
+    Splash,
+    Toolbar,
+    Tooltip,
+    Utility,
+}
 
 
-pub fn focus_window(window_id: String) -> anyhow::Result<()> {
+#[op2(async)]
+#[serde]
+pub async fn application_x11_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsX11ApplicationEvent> {
+    let receiver = {
+        let state = state.borrow();
+
+        let context = state
+            .borrow::<ApplicationContext>();
+
+        match &context.desktop {
+            DesktopEnvironment::Linux(linux::LinuxDesktopEnvironment::X11(X11DesktopEnvironment { receiver })) => receiver.clone(),
+            _ => Err(anyhow!("Calling application_x11_pending_event on non-x11 platform"))?
+        }
+    };
+
+    let mut receiver = receiver.borrow_mut();
+    let event = receiver.recv()
+        .await
+        .ok_or_else(|| anyhow!("plugin event stream was suddenly closed"))?;
+
+    tracing::trace!("Received application event {:?}", event);
+
+    Ok(event)
+}
+
+
+#[op2(fast)]
+pub fn linux_x11_focus_window(#[string] x11_window_id: String) -> anyhow::Result<()> {
+
+    focus_window(x11_window_id)?;
+
+    Ok(())
+}
+
+fn focus_window(window_id: String) -> anyhow::Result<()> {
     // https://github.com/freedesktop-unofficial-mirror/xcb__util-wm/blob/24eb17df2e1245885e72c9d4bbb0a0f69f0700f2/ewmh/xcb_ewmh.h.m4#L1268
     // this basically reimplementation of xcb_ewmh_request_change_active_window
 
@@ -35,7 +173,7 @@ pub fn focus_window(window_id: String) -> anyhow::Result<()> {
     let current_active_window = active_window_property
         .value32()
         .and_then(|mut iter| iter.next())
-        .unwrap_or(0); // no focused window
+        .unwrap_or(x11rb::NONE); // no focused window
 
     // these values are same as rofi
     let source_indication: u32 = 2; // XCB_EWMH_CLIENT_SOURCE_TYPE_OTHER
@@ -70,7 +208,7 @@ fn send_event(tokio_handle: &Handle, sender: &Sender<JsX11ApplicationEvent>, app
     let sender = sender.clone();
     tokio_handle.spawn(async move {
         if let Err(e) = sender.send(app_event).await {
-            tracing::error!("Error while sending x11 connection: {:?}", e);
+            tracing::error!("Error while sending x11 application event: {:?}", e);
         }
     });
 }

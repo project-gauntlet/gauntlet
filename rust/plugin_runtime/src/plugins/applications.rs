@@ -13,8 +13,9 @@ use crate::plugin_data::PluginData;
 
 #[cfg(target_os = "linux")]
 mod linux;
+
 #[cfg(target_os = "linux")]
-mod x11;
+pub use linux::gauntlet_internal_linux;
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -37,6 +38,7 @@ pub enum DesktopPathAction {
 #[derive(Debug, Serialize)]
 pub struct DesktopApplication {
     name: String,
+    desktop_file_path: String,
     icon: Option<Vec<u8>>,
     startup_wm_class: Option<String>,
 }
@@ -79,188 +81,45 @@ pub fn current_os() -> &'static str {
 }
 
 #[op2(fast)]
-pub fn wayland() -> bool {
-    let wayland = std::env::var("WAYLAND_DISPLAY")
-        .or_else(|_| std::env::var("WAYLAND_SOCKET"))
-        .is_ok();
+pub fn wayland(state: Rc<RefCell<OpState>>) -> bool {
+    let wayland = {
+        state
+            .borrow()
+            .borrow::<ApplicationContext>()
+            .desktop
+            .is_wayland()
+    };
 
     wayland
 }
 
-pub struct ApplicationContext {
-    pub receiver: Rc<RefCell<Receiver<JsX11ApplicationEvent>>>,
+pub enum DesktopEnvironment {
+    Linux(linux::LinuxDesktopEnvironment),
 }
 
-impl ApplicationContext {
-    pub fn new() -> Self {
-        let (sender, receiver) = tokio::sync::mpsc::channel(100);
-
-        let handle = Handle::current();
-
+impl DesktopEnvironment {
+    fn new() -> anyhow::Result<Self> {
         #[cfg(target_os = "linux")]
-        std::thread::spawn(|| {
-            if let Err(e) = x11::listen_on_x11_events(handle, sender) {
-                tracing::error!("Error while listening on x11 events: {}", e);
-            }
-        });
+        Ok(Self::Linux(linux::LinuxDesktopEnvironment::new()?))
+    }
 
-        Self {
-            receiver: Rc::new(RefCell::new(receiver))
+    fn is_wayland(&self) -> bool {
+        match self {
+            DesktopEnvironment::Linux(linux) => linux.is_wayland()
         }
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type")]
-pub enum JsX11ApplicationEvent {
-    Init {
-        id: String,
-        parent_id: String,
-        override_redirect: bool,
-        mapped: bool
-    },
-    CreateNotify {
-        id: String,
-        parent_id: String,
-        override_redirect: bool
-    },
-    DestroyNotify {
-        id: String,
-    },
-    MapNotify {
-        id: String,
-    },
-    UnmapNotify {
-        id: String,
-    },
-    ReparentNotify {
-        id: String,
-    },
-    TitlePropertyNotify {
-        id: String,
-        title: String
-    },
-    ClassPropertyNotify {
-        id: String,
-        class: String,
-        instance: String
-    },
-    HintsPropertyNotify {
-        id: String,
-        window_group: Option<String>,
-    },
-    ProtocolsPropertyNotify {
-        id: String,
-        protocols: Vec<JSX11WindowProtocol>,
-    },
-    TransientForPropertyNotify {
-        id: String,
-        transient_for: Option<String>,
-    },
-    WindowTypePropertyNotify {
-        id: String,
-        window_types: Vec<JSX11WindowType>
-    },
-    DesktopFileNamePropertyNotify {
-        id: String,
-        desktop_file_name: String
-    },
+pub struct ApplicationContext {
+    desktop: DesktopEnvironment,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-enum JSX11WindowProtocol {
-    TakeFocus,
-    DeleteWindow,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-enum JSX11WindowType {
-    DropdownMenu,
-    Dialog,
-    Menu,
-    Notification,
-    Normal,
-    PopupMenu,
-    Splash,
-    Toolbar,
-    Tooltip,
-    Utility,
-}
-
-
-#[op2(async)]
-#[serde]
-pub async fn application_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsX11ApplicationEvent> {
-    let receiver = {
-        state.borrow()
-            .borrow::<ApplicationContext>()
-            .receiver
-            .clone()
-    };
-
-    let mut receiver = receiver.borrow_mut();
-    let event = receiver.recv()
-        .await
-        .ok_or_else(|| anyhow!("plugin event stream was suddenly closed"))?;
-
-    tracing::trace!("Received application event {:?}", event);
-
-    Ok(event)
-}
-
-#[cfg(target_os = "linux")]
-#[op2(async)]
-#[serde]
-pub async fn linux_app_from_path(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
-    let home_dir = {
-        let state = state.borrow();
-
-        let home_dir = state
-            .borrow::<PluginData>()
-            .home_dir();
-
-        home_dir
-    };
-
-    Ok(spawn_blocking(|| linux::linux_app_from_path(home_dir, PathBuf::from(path))).await?)
-}
-
-#[cfg(target_os = "linux")]
-#[op2]
-#[serde]
-pub fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
-    let home_dir = {
-        let state = state.borrow();
-
-        let home_dir = state
-            .borrow::<PluginData>()
-            .home_dir();
-
-        home_dir
-    };
-
-    linux::linux_application_dirs(home_dir)
-        .into_iter()
-        .map(|path| path.to_str().expect("non-utf8 paths are not supported").to_string())
-        .collect()
-}
-
-#[cfg(target_os = "linux")]
-#[op2(fast)]
-pub fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Result<()> {
-
-    spawn_detached("gtk-launch", &[desktop_file_id])?;
-
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-#[op2(fast)]
-pub fn linux_x11_focus_window(#[string] x11_window_id: String) -> anyhow::Result<()> {
-
-    x11::focus_window(x11_window_id)?;
-
-    Ok(())
+impl ApplicationContext {
+    pub fn new() -> anyhow::Result<Self> {
+        Ok(Self {
+            desktop: DesktopEnvironment::new()?,
+        })
+    }
 }
 
 #[cfg(target_os = "macos")]

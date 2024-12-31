@@ -17,6 +17,7 @@ import {
 } from "gauntlet:bridge/internal-macos";
 import { applicationAccessories, applicationActions, OpenWindowData } from "./window/shared";
 import { applicationEventLoopX11, focusX11Window } from "./window/x11";
+import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
 
 export default async function Applications({ add, remove, get, getAll }: GeneratorProps): Promise<void | (() => void)> {
     const openWindows: Record<string, OpenWindowData> = {};
@@ -28,21 +29,21 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                 path => linux_app_from_path(path),
                 (id, data) => {
                     if (wayland()) {
-                        // TODO
                         return {
                             name: data.name,
-                            actions: [
-                                {
-                                    label: "Open application",
-                                    run: () => {
-                                        linux_open_application(id)
-                                    },
-                                }
-                            ],
+                            actions: applicationActions(
+                                id,
+                                () => {
+                                    linux_open_application(id)
+                                },
+                                focusWaylandWindow,
+                                openWindows
+                            ),
                             accessories: applicationAccessories(id, openWindows),
-                            icon: data.icon,
+                            icon: data.icon, // TODO lazy icons
                             "__linux__": {
-                                startupWmClass: data.startup_wm_class
+                                startupWmClass: data.startup_wm_class,
+                                desktopFilePath: data.desktop_file_path
                             }
                         }
                     } else {
@@ -54,12 +55,13 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                                     linux_open_application(id)
                                 },
                                 focusX11Window,
-                                openWindows
+                                openWindows,
                             ),
                             accessories: applicationAccessories(id, openWindows),
                             icon: data.icon, // TODO lazy icons
                             "__linux__": {
-                                startupWmClass: data.startup_wm_class
+                                startupWmClass: data.startup_wm_class,
+                                desktopFilePath: data.desktop_file_path
                             }
                         }
                     }
@@ -69,15 +71,29 @@ export default async function Applications({ add, remove, get, getAll }: Generat
             );
 
             if (wayland()) {
-                // TODO
+                try {
+                    applicationEventLoopWayland(
+                        openWindows,
+                        focusWaylandWindow,
+                        add,
+                        get,
+                        getAll
+                    );
+                } catch (e) {
+                    console.log("error when setting up wayland application event loop", e)
+                }
             } else {
-                applicationEventLoopX11(
-                    openWindows,
-                    focusX11Window,
-                    add,
-                    get,
-                    getAll
-                );
+                try {
+                    applicationEventLoopX11(
+                        openWindows,
+                        focusX11Window,
+                        add,
+                        get,
+                        getAll
+                    );
+                } catch (e) {
+                    console.log("error when setting up x11 application event loop", e)
+                }
             }
 
             return cleanup;

@@ -1,6 +1,7 @@
 import { GeneratedCommand, GeneratedCommandAccessory, GeneratedCommandAction } from "@project-gauntlet/api/helpers";
 import { List } from "@project-gauntlet/api/components";
 import { X11WindowData } from "./x11";
+import { linux_open_application } from "gauntlet:bridge/internal-linux";
 
 export type OpenWindowData = {
     id: string,
@@ -86,17 +87,18 @@ export function applicationAccessories(id: string, openWindows: Record<string, O
 export function addOpenWindow(
     appId: string,
     generatedEntrypoint: GeneratedCommand,
-    window: X11WindowData,
+    windowId: string,
+    windowTitle: string,
     openWindows: Record<string, OpenWindowData>,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
     add: (id: string, data: GeneratedCommand) => void,
 ) {
     if (generatedEntrypoint) {
-        openWindows[window.id] = {
-            id: window.id,
+        openWindows[windowId] = {
+            id: windowId,
             appId: appId,
-            title: window.title
+            title: windowTitle
         }
 
         add(appId, {
@@ -128,5 +130,11 @@ export function deleteOpenWindow(
                 accessories: applicationAccessories(openWindow.appId, openWindows)
             })
         }
+    }
+}
+
+export function openLinuxApplication(appId: string) {
+    return () => {
+        linux_open_application(appId)
     }
 }

@@ -3,4 +3,5 @@ export {
     linux_application_dirs,
     linux_open_application,
     linux_x11_focus_window,
+    linux_wayland_focus_window,
 } from "ext:core/ops";
