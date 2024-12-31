@@ -345,7 +345,7 @@ impl Focus<SearchResult> for GlobalState {
                     MainViewState::SearchResultActionPanel { focused_action_item } => {
                         if let Some(search_item) = focused_search_result.get(focus_list) {
                             if search_item.entrypoint_actions.len() != 0 {
-                                focused_action_item.focus_next(search_item.entrypoint_actions.len() + 1)
+                                focused_action_item.focus_next(search_item.entrypoint_actions.len())
                                     .unwrap_or_else(|| Task::none())
                             } else {
                                 Task::none()
