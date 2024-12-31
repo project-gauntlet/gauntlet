@@ -94,18 +94,25 @@ pub fn wayland(state: Rc<RefCell<OpState>>) -> bool {
 }
 
 pub enum DesktopEnvironment {
+    #[cfg(target_os = "linux")]
     Linux(linux::LinuxDesktopEnvironment),
+    None,
 }
 
 impl DesktopEnvironment {
     fn new() -> anyhow::Result<Self> {
-        #[cfg(target_os = "linux")]
-        Ok(Self::Linux(linux::LinuxDesktopEnvironment::new()?))
+        let result = Ok(Self::Linux(linux::LinuxDesktopEnvironment::new()?));
+
+        #[cfg(not(target_os = "linux"))]
+        let result = None;
+
+        result
     }
 
     fn is_wayland(&self) -> bool {
         match self {
-            DesktopEnvironment::Linux(linux) => linux.is_wayland()
+            DesktopEnvironment::Linux(linux) => linux.is_wayland(),
+            DesktopEnvironment::None => false
         }
     }
 }
