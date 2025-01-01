@@ -20,6 +20,13 @@ pub use linux::gauntlet_internal_linux;
 #[cfg(target_os = "macos")]
 mod macos;
 
+#[cfg(target_os = "windows")]
+mod windows;
+
+#[cfg(target_os = "windows")]
+pub use windows::gauntlet_internal_windows;
+
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum DesktopPathAction {
@@ -51,10 +58,12 @@ pub struct DesktopApplication {
     icon: Option<Vec<u8>>,
 }
 
-#[cfg(all(not(target_os = "linux"), not(target_os = "macos")))]
+#[cfg(target_os = "windows")]
 #[derive(Debug, Serialize)]
 pub struct DesktopApplication {
-
+    name: String,
+    path: String,
+    icon: Option<Vec<u8>>,
 }
 
 #[cfg(target_os = "macos")]

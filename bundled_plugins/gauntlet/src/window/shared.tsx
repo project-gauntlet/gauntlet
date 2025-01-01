@@ -1,6 +1,5 @@
 import { GeneratedCommand, GeneratedCommandAccessory, GeneratedCommandAction } from "@project-gauntlet/api/helpers";
 import { List } from "@project-gauntlet/api/components";
-import { X11WindowData } from "./x11";
 import { linux_open_application } from "gauntlet:bridge/internal-linux";
 
 export type OpenWindowData = {

@@ -11,6 +11,7 @@ export default defineConfig({
         'src/internal-all.ts',
         'src/internal-linux.ts',
         'src/internal-macos.ts',
+        'src/internal-windows.ts',
     ],
     output: [
         {

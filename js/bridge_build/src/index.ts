@@ -174,6 +174,7 @@ const reactJsxRuntimeExports = collectExports(`../react/dist/dev/react-jsx-runti
 const internalAllExports = collectExports(`../core/dist/internal-all.js`);
 const internalLinuxExports = collectExports(`../core/dist/internal-linux.js`);
 const internalMacosExports = collectExports(`../core/dist/internal-macos.js`);
+const internalWindowsExports = collectExports(`../core/dist/internal-windows.js`);
 
 generate(
     `${outDir}/bridge-bootstrap.js`,
@@ -197,6 +198,10 @@ generate(`${outDir}/bridge-internal-macos-bootstrap.js`, generateInternal({
     "GauntletInternalMacos": { importUrl: "ext:gauntlet/internal-macos.js", exports: internalMacosExports }
 }))
 
+generate(`${outDir}/bridge-internal-windows-bootstrap.js`, generateInternal({
+    "GauntletInternalWindows": { importUrl: "ext:gauntlet/internal-windows.js", exports: internalWindowsExports }
+}))
+
 
 generate(`${outDir}/bridge-components.js`, generateExternal("GauntletComponents", componentExports))
 generate(`${outDir}/bridge-helpers.js`, generateExternal("GauntletHelpers", helpersExports))
@@ -208,5 +213,6 @@ generate(`${outDir}/bridge-react-jsx-runtime.js`, generateExternal("GauntletReac
 generate(`${outDir}/bridge-internal-all.js`, generateExternal("GauntletInternalAll", internalAllExports))
 generate(`${outDir}/bridge-internal-linux.js`, generateExternal("GauntletInternalLinux", internalLinuxExports))
 generate(`${outDir}/bridge-internal-macos.js`, generateExternal("GauntletInternalMacos", internalMacosExports))
+generate(`${outDir}/bridge-internal-windows.js`, generateExternal("GauntletInternalWindows", internalWindowsExports))
 
 

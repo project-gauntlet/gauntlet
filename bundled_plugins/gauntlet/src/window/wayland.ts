@@ -1,7 +1,6 @@
 import { addOpenWindow, deleteOpenWindow, openLinuxApplication, OpenWindowData } from "./shared";
 import { GeneratedCommand } from "@project-gauntlet/api/helpers";
-import { application_wayland_pending_event } from "gauntlet:bridge/internal-all";
-import { linux_wayland_focus_window } from "gauntlet:bridge/internal-linux";
+import { linux_wayland_focus_window, application_wayland_pending_event } from "gauntlet:bridge/internal-linux";
 
 
 export function focusWaylandWindow(windowId: string) {

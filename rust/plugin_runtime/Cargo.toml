@@ -33,6 +33,7 @@ resvg = { version = "0.44.0", default-features = false}
 numbat = "1.14.0"
 which = "7.0.1"
 uuid = "1.11.0"
+open = "5"
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = "0.2"
@@ -54,6 +55,10 @@ icns = "0.3.1"
 objc2-app-kit = { version = "0.2.2", features = ["NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphics", "NSGraphicsContext"] }
 objc2-foundation = { version = "0.2.2", features = ["NSString"] }
 objc2 = "0.5.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58.0", features = ["Win32_Storage_FileSystem", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_UI_Controls"] }
+windows-icons = "0.1.0"
 
 [features]
 scenario_runner = []

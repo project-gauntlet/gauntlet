@@ -57,7 +57,7 @@ impl CustomModuleLoader {
     }
 }
 
-const MODULES: [(&str, &str); 10] = [
+const MODULES: [(&str, &str); 11] = [
     ("gauntlet:init", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
     ("gauntlet:bridge/components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-components.js"))),
     ("gauntlet:bridge/hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-hooks.js"))),
@@ -68,6 +68,7 @@ const MODULES: [(&str, &str); 10] = [
     ("gauntlet:bridge/internal-all", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-all.js"))),
     ("gauntlet:bridge/internal-linux", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-linux.js"))),
     ("gauntlet:bridge/internal-macos", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-macos.js"))),
+    ("gauntlet:bridge/internal-windows", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-windows.js"))),
 ];
 
 impl ModuleLoader for CustomModuleLoader {
@@ -97,6 +98,7 @@ impl ModuleLoader for CustomModuleLoader {
             ("gauntlet:bridge/internal-all", _) => "gauntlet:bridge/internal-all",
             ("gauntlet:bridge/internal-linux", _) => "gauntlet:bridge/internal-linux",
             ("gauntlet:bridge/internal-macos", _) => "gauntlet:bridge/internal-macos",
+            ("gauntlet:bridge/internal-windows", _) => "gauntlet:bridge/internal-windows",
             ("react", _) => "gauntlet:bridge/react",
             ("react/jsx-runtime", _) => "gauntlet:bridge/react-jsx-runtime",
             ("@project-gauntlet/api/components", _) => "gauntlet:bridge/components",
@@ -396,6 +398,9 @@ pub async fn start_js_runtime(
 
         #[cfg(target_os = "linux")]
         extensions.push(crate::plugins::applications::gauntlet_internal_linux::init_ops_and_esm());
+
+        #[cfg(target_os = "windows")]
+        extensions.push(crate::plugins::applications::gauntlet_internal_windows::init_ops_and_esm());
     }
 
     let mut worker = MainWorker::bootstrap_from_options(

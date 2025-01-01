@@ -27,6 +27,12 @@ type MacOSDesktopApplicationData = {
     icon: ArrayBuffer | undefined,
 }
 
+type WindowsDesktopApplicationData = {
+    name: string
+    path: string,
+    icon: ArrayBuffer | undefined,
+}
+
 type MacOSDesktopSettingsPre13Data = {
     name: string
     path: string,
@@ -145,8 +151,6 @@ declare module "gauntlet:bridge/internal-all" {
     function run_numbat(input: string): { left: string, right: string }
     function current_os(): string
     function wayland(): boolean
-    function application_x11_pending_event(): Promise<X11ApplicationEvent>
-    function application_wayland_pending_event(): Promise<WaylandApplicationEvent>
 }
 
 declare module "gauntlet:bridge/internal-linux" {
@@ -155,7 +159,8 @@ declare module "gauntlet:bridge/internal-linux" {
     function linux_wayland_focus_window(window_id: string): void
     function linux_application_dirs(): string[]
     function linux_app_from_path(path: string): Promise<undefined | DesktopPathAction<LinuxDesktopApplicationData>>
-
+    function application_x11_pending_event(): Promise<X11ApplicationEvent>
+    function application_wayland_pending_event(): Promise<WaylandApplicationEvent>
 }
 
 declare module "gauntlet:bridge/internal-macos" {
@@ -170,6 +175,12 @@ declare module "gauntlet:bridge/internal-macos" {
     function macos_app_from_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_app_from_arbitrary_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_open_application(app_path: String): void
+}
+
+declare module "gauntlet:bridge/internal-windows" {
+    function windows_application_dirs(): string[]
+    function windows_open_application(path: string): void
+    function windows_app_from_path(path: string): Promise<undefined | DesktopPathAction<WindowsDesktopApplicationData>>
 }
 
 declare module "ext:core/ops" {
@@ -198,6 +209,10 @@ declare module "ext:core/ops" {
     function macos_app_from_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_app_from_arbitrary_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_open_application(app_path: String): void
+
+    function windows_application_dirs(): string[]
+    function windows_open_application(path: string): void
+    function windows_app_from_path(path: string): Promise<undefined | DesktopPathAction<WindowsDesktopApplicationData>>
 
     function op_log_trace(target: string, message: string): void;
     function op_log_debug(target: string, message: string): void;

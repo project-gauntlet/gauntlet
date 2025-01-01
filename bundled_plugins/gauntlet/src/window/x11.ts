@@ -1,7 +1,6 @@
 import { GeneratedCommand } from "@project-gauntlet/api/helpers";
-import { application_x11_pending_event } from "gauntlet:bridge/internal-all";
 import { addOpenWindow, deleteOpenWindow, openLinuxApplication, OpenWindowData } from "./shared";
-import { linux_x11_focus_window } from "gauntlet:bridge/internal-linux";
+import { application_x11_pending_event, linux_x11_focus_window } from "gauntlet:bridge/internal-linux";
 
 export type X11WindowData = {
     // x11 window id

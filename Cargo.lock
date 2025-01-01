@@ -4138,6 +4138,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "once_cell",
+ "open",
  "plist",
  "regex",
  "resvg",
@@ -4152,6 +4153,8 @@ dependencies = [
  "wayland-client",
  "wayland-protocols-wlr 0.3.5",
  "which 7.0.1",
+ "windows",
+ "windows-icons",
  "x11rb",
 ]
 
@@ -12292,6 +12295,18 @@ dependencies = [
  "windows-result",
  "windows-strings",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-icons"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffd18e61837c404baa46146d3ea12241073ee7b4457d5ad73751d0e8f49dad9a"
+dependencies = [
+ "base64 0.22.1",
+ "image 0.25.5",
+ "winapi",
+ "windows",
 ]
 
 [[package]]

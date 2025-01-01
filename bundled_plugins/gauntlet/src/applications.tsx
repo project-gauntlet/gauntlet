@@ -18,6 +18,7 @@ import {
 import { applicationAccessories, applicationActions, OpenWindowData } from "./window/shared";
 import { applicationEventLoopX11, focusX11Window } from "./window/x11";
 import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
+import { windows_app_from_path, windows_application_dirs, windows_open_application } from "gauntlet:bridge/internal-windows";
 
 export default async function Applications({ add, remove, get, getAll }: GeneratorProps): Promise<void | (() => void)> {
     const openWindows: Record<string, OpenWindowData> = {};
@@ -177,6 +178,27 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                 add,
                 remove,
                 { exts: ["app"], maxDepth: 2 }
+            );
+        }
+        case "windows": {
+            return await genericGenerator<WindowsDesktopApplicationData>(
+                windows_application_dirs(),
+                path => windows_app_from_path(path),
+                (_id, data) => ({
+                    name: data.name,
+                    actions: [
+                        {
+                            label: "Open application",
+                            run: () => {
+                                windows_open_application(data.path)
+                            },
+                        }
+                    ],
+                    icon: data.icon,
+                }),
+                add,
+                remove,
+                { exts: ["lnk", "exe"], maxDepth: 2 }
             );
         }
     }

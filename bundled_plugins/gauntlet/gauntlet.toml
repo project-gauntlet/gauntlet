@@ -31,7 +31,8 @@ clipboard = ["write"]
 read = [
     # technically only uses locations defined by XDG Desktop Entry Specification, but
     # the spec allows for customization via XDG_DATA_DIRS and XDG_DATA_HOME env vars so it can be any path
-    "/"
+    "/",
+    "C:\\"
 ]
 
 [[supported_system]]
