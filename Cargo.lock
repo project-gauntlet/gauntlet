@@ -4154,7 +4154,6 @@ dependencies = [
  "wayland-protocols-wlr 0.3.5",
  "which 7.0.1",
  "windows",
- "windows-icons",
  "x11rb",
 ]
 
@@ -5172,7 +5171,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -5200,7 +5199,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "bitflags 2.6.0",
  "bytes",
@@ -5227,7 +5226,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "futures",
  "iced_core",
@@ -5241,7 +5240,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -5293,7 +5292,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -5305,7 +5304,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "bytes",
  "iced_core",
@@ -5326,7 +5325,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -5341,7 +5340,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -5360,7 +5359,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -5375,7 +5374,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#cfb83792200398e88f47a2cfacb3477f2bd41a4a"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#2a90afd516762fe133108f5d8d09393c0221f6db"
 dependencies = [
  "iced_futures",
  "iced_graphics",
@@ -12295,18 +12294,6 @@ dependencies = [
  "windows-result",
  "windows-strings",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-icons"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffd18e61837c404baa46146d3ea12241073ee7b4457d5ad73751d0e8f49dad9a"
-dependencies = [
- "base64 0.22.1",
- "image 0.25.5",
- "winapi",
- "windows",
 ]
 
 [[package]]

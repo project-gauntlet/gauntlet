@@ -233,6 +233,7 @@ impl TryInto<iced_layershell::actions::LayershellCustomActionsWithId> for AppMsg
 const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
+#[cfg(not(target_os = "macos"))]
 fn window_settings() -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
@@ -240,9 +241,27 @@ fn window_settings() -> window::Settings {
         resizable: false,
         decorations: false,
         transparent: true,
-        #[cfg(target_os = "macos")]
+        closeable: false,
+        minimizable: false,
+        ..Default::default()
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn window_settings() -> window::Settings {
+    window::Settings {
+        size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+        position: Position::Centered,
+        resizable: false,
+        decorations: true,
+        transparent: false,
+        closeable: false,
+        minimizable: false,
         platform_specific: window::settings::PlatformSpecific {
             window_kind: window::settings::WindowKind::Popup,
+            fullsize_content_view: true,
+            title_hidden: true,
+            titlebar_transparent: true,
             ..Default::default()
         },
         ..Default::default()

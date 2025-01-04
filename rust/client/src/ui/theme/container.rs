@@ -1,4 +1,4 @@
-use iced::{Border, Color, Length, Renderer};
+use iced::{Border, Color, Length, Renderer, Shadow, Vector};
 use iced::widget::{Container, container};
 use iced::widget::container::Style;
 use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget};
@@ -88,7 +88,7 @@ impl container::Catalog for GauntletComplexTheme {
         match class {
             ContainerStyleInner::Transparent => Default::default(),
             ContainerStyleInner::ActionPanel => {
-                let root_theme = &self.root;
+                let root_theme = &self.popup;
                 let panel_theme = &self.action_panel;
                 let background_color = &panel_theme.background_color;
 
@@ -100,7 +100,11 @@ impl container::Catalog for GauntletComplexTheme {
                         width: root_theme.border_width,
                         color: root_theme.border_color.to_iced(),
                     },
-                    shadow: Default::default(),
+                    shadow: Shadow {
+                        color: Color::from_rgba8(0, 0, 0, 0.50),
+                        offset: Vector::new(0.0, 5.0),
+                        blur_radius: 25.0,
+                    },
                 }
             }
             ContainerStyleInner::ActionShortcutModifier => {
@@ -167,7 +171,7 @@ impl container::Catalog for GauntletComplexTheme {
                 }
             }
             ContainerStyleInner::Tooltip => {
-                let theme = &self.root;
+                let theme = &self.popup;
                 let tooltip_theme = &self.tooltip;
                 let background_color = &tooltip_theme.background_color;
 

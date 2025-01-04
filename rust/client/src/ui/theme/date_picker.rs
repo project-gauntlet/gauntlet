@@ -32,7 +32,7 @@ impl Catalog for GauntletComplexTheme {
 
 
 fn active(theme: &GauntletComplexTheme) -> Style {
-    let root_theme = &theme.root;
+    let root_theme = &theme.popup;
     let theme = &theme.form_input_date_picker;
 
     Style {

@@ -24,26 +24,50 @@ mod loading_bar;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletComplexTheme>;
 
-const CURRENT_SIMPLE_THEME_VERSION: u64 = 4;
-const CURRENT_COMPLEX_THEME_VERSION: u64 = 4;
+const CURRENT_SIMPLE_THEME_VERSION: u64 = 5;
+const CURRENT_COMPLEX_THEME_VERSION: u64 = 5;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GauntletSimpleThemeMode {
+    #[serde(rename = "light")]
+    Light,
+    #[serde(rename = "dark")]
+    Dark
+}
+
+pub type GauntletSimpleThemeColorPalette = [ThemeColor; 4];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GauntletSimpleThemeWindow {
+    border: GauntletSimpleThemeWindowBorder,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GauntletSimpleThemeWindowBorder {
+    radius: f32,
+    width: f32,
+    color: ThemeColor,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GauntletSimpleThemeContent {
+    border: GauntletSimpleThemeContentBorder,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GauntletSimpleThemeContentBorder {
+    radius: f32,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GauntletSimpleTheme {
     version: u64,
-    background_darkest_color: ThemeColor,
-    background_darker_color: ThemeColor,
-    background_lighter_color: ThemeColor,
-    background_lightest_color: ThemeColor,
-    text_lightest_color: ThemeColor,
-    text_lighter_color: ThemeColor,
-    text_darker_color: ThemeColor,
-    text_darkest_color: ThemeColor,
-    primary_darker_color: ThemeColor,
-    primary_lighter_color: ThemeColor,
-    root_border_radius: f32,
-    root_border_width: f32,
-    root_border_color: ThemeColor,
-    content_border_radius: f32,
+    mode: GauntletSimpleThemeMode,
+    // value of tint/tones/shades/whatever you have, from lower to higher
+    background: GauntletSimpleThemeColorPalette,
+    text: GauntletSimpleThemeColorPalette,
+    window: GauntletSimpleThemeWindow,
+    content: GauntletSimpleThemeContent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +75,7 @@ pub struct GauntletComplexTheme {
     version: u64,
     text: ThemeColor,
     root: ThemeRoot,
+    popup: ThemeRoot,
     action: ThemeButton,
     action_panel: ThemePaddingBackgroundColor,
     action_panel_title: ThemePaddingOnly,
@@ -191,7 +216,6 @@ fn parse_json_theme<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_
     }
 }
 
-// TODO add border on focus, lighter background on hover
 // TODO padding on button is padding, not margin, a lot of margins missing?
 
 impl GauntletComplexTheme {
@@ -211,57 +235,142 @@ impl GauntletComplexTheme {
         theme
     }
 
+    // TODO legacy
     pub fn default_simple_theme() -> GauntletSimpleTheme {
         GauntletSimpleTheme {
             version: CURRENT_SIMPLE_THEME_VERSION,
-            background_lightest_color: BACKGROUND_LIGHTEST,
-            background_lighter_color: BACKGROUND_LIGHTER,
-            background_darker_color: BACKGROUND_DARKER,
-            background_darkest_color: BACKGROUND_DARKEST,
-            text_lightest_color: TEXT_LIGHTEST,
-            text_lighter_color: TEXT_LIGHTER,
-            text_darker_color: TEXT_DARKER,
-            text_darkest_color: TEXT_DARKEST,
-            primary_darker_color: PRIMARY,
-            primary_lighter_color: PRIMARY_HOVERED,
-            root_border_radius: 10.0,
-            root_border_width: 1.0,
-            root_border_color: BACKGROUND_LIGHTER,
-            content_border_radius: BUTTON_BORDER_RADIUS,
+            mode: GauntletSimpleThemeMode::Dark,
+            background: [
+                ThemeColor::new(0x626974, 0.3),
+                ThemeColor::new(0x48505B, 0.5),
+                ThemeColor::new(0x333a42, 1.0),
+                ThemeColor::new(0x2C323A, 1.0)
+            ],
+            text: [
+                ThemeColor::new(0xDDDFE1, 1.0),
+                ThemeColor::new(0x9AA0A6, 1.0),
+                ThemeColor::new(0x6B7785, 1.0),
+                ThemeColor::new(0x1D242C, 1.0),
+            ],
+            window: GauntletSimpleThemeWindow {
+                border: GauntletSimpleThemeWindowBorder {
+                    radius: 10.0,
+                    width: 1.0,
+                    color: ThemeColor::new(0x48505B, 0.5)
+                },
+            },
+            content: GauntletSimpleThemeContent {
+                border: GauntletSimpleThemeContentBorder {
+                    radius: 4.0,
+                },
+            },
         }
     }
+
+    // TODO auto detect macos dark mode
+    // pub fn default_simple_theme() -> GauntletSimpleTheme {
+    //     GauntletSimpleTheme {
+    //         version: CURRENT_SIMPLE_THEME_VERSION,
+    //         mode: GauntletSimpleThemeMode::Dark,
+    //         background: [
+    //             ThemeColor::from_rgba8(100, 100, 100, 0.5),
+    //             ThemeColor::from_rgba8(55, 55, 55, 1.0),
+    //             ThemeColor::from_rgba8(45, 45, 45, 1.0),
+    //             ThemeColor::from_rgba8(36, 36, 36, 1.0),
+    //         ],
+    //         text: [
+    //             ThemeColor::from_rgba8(229,229,229, 1.0),
+    //             ThemeColor::from_rgba8(200, 200, 200, 1.0),
+    //             ThemeColor::from_rgba8(150, 150, 150, 1.0),
+    //             ThemeColor::from_rgba8(50, 50, 50, 1.0),
+    //         ],
+    //         window: GauntletSimpleThemeWindow {
+    //             border: GauntletSimpleThemeWindowBorder {
+    //                 radius:  8.0,
+    //                 width: 1.0,
+    //                 color: ThemeColor::from_rgba8(100, 100, 100, 1.0),
+    //             },
+    //         },
+    //         content: GauntletSimpleThemeContent {
+    //             border: GauntletSimpleThemeContentBorder {
+    //                 radius: 4.0,
+    //             },
+    //         },
+    //     }
+    // }
+
+    // TODO auto detect macos light mode
+    // pub fn default_simple_theme() -> GauntletSimpleTheme {
+    //     GauntletSimpleTheme {
+    //         version: CURRENT_SIMPLE_THEME_VERSION,
+    //         mode: GauntletSimpleThemeMode::Light,
+    //         background: [
+    //             ThemeColor::from_rgba8(0, 0, 0, 0.2),
+    //             ThemeColor::from_rgba8(200, 200, 200, 1.0),
+    //             ThemeColor::from_rgba8(210, 210, 210, 1.0),
+    //             ThemeColor::from_rgba8(234, 234, 234, 1.0),
+    //         ],
+    //         text: [
+    //             ThemeColor::from_rgba8(0, 0, 0, 1.0),
+    //             ThemeColor::from_rgba8(0, 0, 0, 0.847),
+    //             ThemeColor::from_rgba8(0, 0, 0, 0.498),
+    //             ThemeColor::from_rgba8(0, 0, 0, 0.259),
+    //         ],
+    //         window: GauntletSimpleThemeWindow {
+    //             border: GauntletSimpleThemeWindowBorder {
+    //                 radius: 8.0,
+    //                 width: 1.0,
+    //                 color: ThemeColor::from_rgba8(185, 185, 185, 1.0),
+    //             },
+    //         },
+    //         content: GauntletSimpleThemeContent {
+    //             border: GauntletSimpleThemeContentBorder {
+    //                 radius: 4.0,
+    //             },
+    //         },
+    //     }
+    // }
 
     pub fn default_theme(simple_theme: GauntletSimpleTheme) -> GauntletComplexTheme {
         let GauntletSimpleTheme {
             version: _,
-            background_darkest_color,
-            background_darker_color,
-            background_lighter_color,
-            background_lightest_color,
-            text_lightest_color,
-            text_lighter_color,
-            text_darker_color,
-            text_darkest_color,
-            primary_darker_color,
-            primary_lighter_color,
-            root_border_width,
-            root_border_radius,
-            root_border_color,
-            content_border_radius,
+            mode,
+            background,
+            text,
+            window,
+            content
         } = simple_theme;
+
+        let [background_100, background_200, background_300, background_400] = background;
+        let [text_100, text_200, text_300, _text_400] = text;
 
         GauntletComplexTheme {
             version: CURRENT_COMPLEX_THEME_VERSION,
-            text: text_lightest_color,
+            text: text_100,
             root: ThemeRoot {
-                background_color: background_darkest_color,
-                border_radius: root_border_radius,
-                border_width: root_border_width,
-                border_color: root_border_color,
+                background_color: background_400,
+                #[cfg(not(target_os = "macos"))]
+                border_radius: window.border.radius,
+                #[cfg(not(target_os = "macos"))]
+                border_width: window.border.width,
+                #[cfg(not(target_os = "macos"))]
+                border_color: window.border.color,
+                #[cfg(target_os = "macos")]
+                border_radius: 0.0,
+                #[cfg(target_os = "macos")]
+                border_width: 0.0,
+                #[cfg(target_os = "macos")]
+                border_color: TRANSPARENT,
+            },
+            popup: ThemeRoot {
+                background_color: background_400,
+                border_radius: window.border.radius,
+                border_width: window.border.width,
+                border_color: window.border.color,
             },
             action_panel: ThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
-                background_color: background_darker_color,
+                background_color: background_400,
             },
             action_panel_title: ThemePaddingOnly {
                 padding: padding(2.0, 8.0, 4.0, 8.0),
@@ -269,11 +378,11 @@ impl GauntletComplexTheme {
             action: ThemeButton {
                 padding: padding_all(8.0),
                 background_color: TRANSPARENT,
-                background_color_focused: background_lightest_color,
-                background_color_hovered: background_lighter_color,
-                text_color: text_lightest_color,
-                text_color_hovered: text_lightest_color,
-                border_radius: content_border_radius,
+                background_color_focused: background_100,
+                background_color_hovered: background_300,
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -283,8 +392,8 @@ impl GauntletComplexTheme {
             action_shortcut_modifier: ThemeActionShortcutModifier {
                 padding: padding_axis(0.0, 8.0),
                 spacing: 8.0,
-                background_color: background_lightest_color,
-                border_radius: content_border_radius,
+                background_color: background_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -296,18 +405,27 @@ impl GauntletComplexTheme {
             },
             metadata_tag_item_button: ThemeButton {
                 padding: padding_axis(2.0, 8.0),
-                background_color: primary_darker_color,
-                background_color_focused: primary_lighter_color,
-                background_color_hovered: primary_lighter_color,
-                text_color: text_darkest_color,
-                text_color_hovered: text_darkest_color,
-                border_radius: content_border_radius,
+                background_color: match mode {
+                    GauntletSimpleThemeMode::Light => background_300,
+                    GauntletSimpleThemeMode::Dark => background_200
+                },
+                background_color_focused: match mode {
+                    GauntletSimpleThemeMode::Light => background_200,
+                    GauntletSimpleThemeMode::Dark => background_100
+                },
+                background_color_hovered: match mode {
+                    GauntletSimpleThemeMode::Light => background_200,
+                    GauntletSimpleThemeMode::Dark => background_100
+                },
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             metadata_item_label: ThemePaddingTextColorSize {
                 padding: padding_all(0.0),
-                text_color: text_darker_color,
+                text_color: text_300,
                 text_size: 14.0,
             },
             metadata_item_value: ThemePaddingOnly {
@@ -318,7 +436,7 @@ impl GauntletComplexTheme {
             },
             list_item_subtitle: ThemePaddingTextColor {
                 padding: padding_all(4.0),
-                text_color: text_lighter_color,
+                text_color: text_200,
             },
             list_item_title: ThemePaddingOnly {
                 padding: padding_all(4.0),
@@ -331,22 +449,22 @@ impl GauntletComplexTheme {
             },
             content_image: ThemeImage {
                 padding: padding_all(0.0),
-                border_radius: content_border_radius,
+                border_radius: content.border.radius,
             },
             inline: ThemePaddingOnly {
                 padding: padding_axis(0.0, 8.0),
             },
             inline_name: ThemePaddingTextColor {
                 padding: padding_all(8.0),
-                text_color: text_lighter_color,
+                text_color: text_200,
             },
             inline_separator: ThemeTextColor {
-                text_color: text_lighter_color,
+                text_color: text_200,
             },
             inline_inner: ThemeInline {
                 padding: padding_all(8.0),
-                background_color: background_lighter_color,
-                border_radius: content_border_radius,
+                background_color: background_200,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -359,29 +477,29 @@ impl GauntletComplexTheme {
             },
             grid_item: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: background_lighter_color,
-                background_color_focused: background_darker_color,
-                background_color_hovered: background_lightest_color,
-                text_color: text_lightest_color,
-                text_color_hovered: text_lightest_color,
-                border_radius: content_border_radius,
+                background_color: background_200,
+                background_color_focused: background_300,
+                background_color_hovered: background_100,
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             grid_item_title: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 0.0),
-                text_color: text_lightest_color,
+                text_color: text_100,
             },
             grid_item_subtitle: ThemeTextColor {
-                text_color: text_lighter_color,
+                text_color: text_200,
             },
             content_horizontal_break: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
             content_code_block_text: ThemeCode {
                 padding: padding_axis(4.0, 8.0),
-                background_color: background_lighter_color,
-                border_radius: content_border_radius,
+                background_color: background_200,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -394,47 +512,56 @@ impl GauntletComplexTheme {
             },
             root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: background_lighter_color,
-                background_color_focused: background_lightest_color,
-                background_color_hovered: background_lightest_color,
-                text_color: text_lightest_color,
-                text_color_hovered: text_lightest_color,
-                border_radius: content_border_radius,
+                background_color: match mode {
+                    GauntletSimpleThemeMode::Light => background_300,
+                    GauntletSimpleThemeMode::Dark => background_200
+                },
+                background_color_focused: match mode {
+                    GauntletSimpleThemeMode::Light => background_200,
+                    GauntletSimpleThemeMode::Dark => background_100
+                },
+                background_color_hovered: match mode {
+                    GauntletSimpleThemeMode::Light => background_200,
+                    GauntletSimpleThemeMode::Dark => background_100
+                },
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             root_bottom_panel: ThemeBottomPanel {
                 padding: padding_axis(6.0, 8.0),
-                background_color: background_darker_color,
+                background_color: background_300,
                 spacing: 8.0
             },
             root_bottom_panel_action_toggle_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: TRANSPARENT,
-                background_color_focused: background_lighter_color,
-                background_color_hovered: background_lighter_color,
-                text_color: text_lightest_color,
-                text_color_hovered: text_lightest_color,
-                border_radius: content_border_radius,
+                background_color_focused: background_200,
+                background_color_hovered: background_200,
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             root_bottom_panel_action_toggle_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
-                text_color: text_lighter_color
+                text_color: text_200
             },
             root_bottom_panel_primary_action_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
-                text_color: text_lightest_color
+                text_color: text_100
             },
             list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_focused: background_lighter_color,
-                background_color_hovered: background_darker_color,
-                text_color: text_lightest_color,
-                text_color_hovered: text_lightest_color,
-                border_radius: content_border_radius,
+                background_color_focused: background_200,
+                background_color_hovered: background_300,
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -477,28 +604,34 @@ impl GauntletComplexTheme {
             },
             list_section_title: ThemePaddingTextColorSpacing {
                 padding: padding(12.0, 8.0, 4.0, 8.0),
-                text_color: text_lighter_color,
+                text_color: text_200,
                 spacing: 8.0,
             },
             list_section_subtitle: ThemeTextColor {
-                text_color: text_darker_color
+                text_color: text_300
             },
             grid_section_title: ThemePaddingTextColorSpacing {
                 padding: padding(12.0, 0.0, 4.0, 0.0),
-                text_color: text_lighter_color,
+                text_color: text_200,
                 spacing: 8.0,
             },
             grid_section_subtitle: ThemeTextColor {
-                text_color: text_darker_color
+                text_color: text_300
             },
             main_list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: TRANSPARENT,
-                background_color_focused: background_lighter_color,
-                background_color_hovered: background_darker_color,
-                text_color: text_lightest_color,
-                text_color_hovered: text_lightest_color,
-                border_radius: content_border_radius,
+                background_color_focused: match mode {
+                    GauntletSimpleThemeMode::Light => background_300,
+                    GauntletSimpleThemeMode::Dark => background_200
+                },
+                background_color_hovered: match mode {
+                    GauntletSimpleThemeMode::Light => background_200,
+                    GauntletSimpleThemeMode::Dark => background_300
+                },
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
@@ -507,7 +640,7 @@ impl GauntletComplexTheme {
             },
             main_list_item_sub_text: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 12.0),
-                text_color: text_darker_color,
+                text_color: text_300,
             },
             main_list_item_icon: ThemePaddingOnly {
                 padding: padding(0.0, 7.0, 0.0, 5.0),
@@ -531,97 +664,97 @@ impl GauntletComplexTheme {
                 padding: padding_all(12.0),
             },
             metadata_link: ThemeLink {
-                text_color: text_lightest_color,
-                text_color_hovered: text_lighter_color,
+                text_color: text_100,
+                text_color_hovered: text_200,
             },
             empty_view_subtitle: ThemeTextColor {
-                text_color: text_darker_color,
+                text_color: text_300,
             },
             form_input_date_picker: ThemeDatePicker {
-                background_color: background_darkest_color,
-                text_color: text_lightest_color,
-                text_color_selected: text_darker_color,
-                text_color_hovered: text_darker_color,
-                text_attenuated_color: text_darker_color,
-                day_background_color: background_lighter_color,
-                day_background_color_selected: background_lighter_color,
-                day_background_color_hovered: background_lighter_color,
+                background_color: background_400,
+                text_color: text_100,
+                text_color_selected: text_300,
+                text_color_hovered: text_300,
+                text_attenuated_color: text_300,
+                day_background_color: background_200,
+                day_background_color_selected: background_200,
+                day_background_color_hovered: background_200,
             },
             form_input_date_picker_buttons: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: primary_darker_color,
-                background_color_focused: primary_lighter_color,
-                background_color_hovered: primary_lighter_color,
-                text_color: text_darkest_color,
-                text_color_hovered: text_darkest_color,
-                border_radius: content_border_radius,
+                background_color: background_200,
+                background_color_focused: background_100,
+                background_color_hovered: background_100,
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             form_input_checkbox: ThemeCheckbox {
-                background_color_checked: primary_darker_color,
-                background_color_unchecked: background_darkest_color,
-                background_color_checked_hovered: primary_lighter_color,
-                background_color_unchecked_hovered: background_lighter_color,
-                border_radius: content_border_radius,
-                border_width: root_border_width,
-                border_color: primary_darker_color,
-                icon_color: background_darkest_color,
+                background_color_checked: text_200,
+                background_color_unchecked: TRANSPARENT,
+                background_color_checked_hovered: text_100,
+                background_color_unchecked_hovered: background_200,
+                border_radius: content.border.radius,
+                border_width: window.border.width,
+                border_color: background_200,
+                icon_color: background_400,
             },
             form_input_select: ThemeSelect {
-                background_color: primary_darker_color,
-                background_color_hovered: primary_lighter_color,
-                text_color: text_darkest_color,
-                text_color_hovered: text_darkest_color,
-                border_radius: content_border_radius,
-                border_width: root_border_width,
-                border_color: background_lighter_color,
+                background_color: background_200,
+                background_color_hovered: background_100,
+                text_color: text_200,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
+                border_width: window.border.width,
+                border_color: background_200,
             },
             form_input_select_menu: ThemeSelectMenu {
-                background_color: background_darkest_color,
-                background_color_selected: background_lighter_color,
-                text_color: text_lightest_color,
-                text_color_selected: text_lightest_color,
-                border_radius: content_border_radius,
-                border_width: root_border_width,
-                border_color: background_lighter_color,
+                background_color: background_400,
+                background_color_selected: background_200,
+                text_color: text_100,
+                text_color_selected: text_100,
+                border_radius: content.border.radius,
+                border_width: window.border.width,
+                border_color: background_200,
             },
             form_input_text_field: ThemeTextField {
                 background_color: TRANSPARENT,
-                background_color_hovered: background_lighter_color,
-                text_color: text_lightest_color,
-                text_color_placeholder: text_darker_color,
-                selection_color: background_lighter_color,
-                border_radius: content_border_radius,
-                border_width: root_border_width,
-                border_color: background_lighter_color,
-                border_color_hovered: background_lighter_color,
+                background_color_hovered: background_200,
+                text_color: text_100,
+                text_color_placeholder: text_300,
+                selection_color: background_200,
+                border_radius: content.border.radius,
+                border_width: window.border.width,
+                border_color: background_200,
+                border_color_hovered: background_200,
             },
             separator: ThemeSeparator {
-                color: background_lighter_color
+                color: background_200
             },
             scrollbar: ThemeScrollbar {
-                color: primary_darker_color,
-                border_radius: content_border_radius,
+                color: background_200,
+                border_radius: content.border.radius,
                 border_width: 0.0,
                 border_color: TRANSPARENT,
             },
             tooltip: ThemeTooltip {
                 padding: 8.0,
-                background_color: background_darker_color,
+                background_color: background_300,
             },
             loading_bar: ThemeLoadingBar {
-                loading_bar_color: primary_darker_color,
-                background_color: background_lighter_color,
+                loading_bar_color: text_200,
+                background_color: background_200,
             },
             text_accessory: ThemePaddingTextColorSpacing {
                 padding: padding(4.0, 4.0, 4.0, 16.0),
-                text_color: text_lighter_color,
+                text_color: text_200,
                 spacing: 8.0,
             },
             icon_accessory: ThemeIconAccessory {
                 padding: padding(4.0, 4.0, 4.0, 16.0),
-                icon_color: text_lighter_color,
+                icon_color: text_200,
             },
             hud: ThemeRoot {
                 background_color: ThemeColor::new(0x1E1E1E, 0.7),
@@ -650,18 +783,6 @@ const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
 
 // keep colors more or less in sync with settings ui
 const TRANSPARENT: ThemeColor = ThemeColor::new(0x000000, 0.0);
-const BACKGROUND_LIGHTEST: ThemeColor = ThemeColor::new(0x626974, 0.3);
-const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x48505B, 0.5);
-const BACKGROUND_DARKER: ThemeColor = ThemeColor::new(0x333a42, 1.0);
-const BACKGROUND_DARKEST: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
-const TEXT_LIGHTEST: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
-const TEXT_LIGHTER: ThemeColor = ThemeColor::new(0x9AA0A6, 1.0);
-const TEXT_DARKER: ThemeColor = ThemeColor::new(0x6B7785, 1.0);
-const TEXT_DARKEST: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
-const PRIMARY: ThemeColor = ThemeColor::new(0xC79F60, 1.0);
-const PRIMARY_HOVERED: ThemeColor = ThemeColor::new(0xD7B37A, 1.0);
-
-const BUTTON_BORDER_RADIUS: f32 = 4.0;
 
 const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ThemePadding {
     ThemePadding::Each {
@@ -981,6 +1102,13 @@ impl ThemeColor {
         let r = ((hex & 0xff0000) >> 16) as u8;
         let g = ((hex & 0xff00) >> 8) as u8;
         let b = (hex & 0xff) as u8;
+
+        Self { r, g, b, a }
+    }
+
+    fn from_rgba8(r: u8, g: u8, b: u8, a: f32) -> Self {
+        let color = Color::from_rgba8(r, g, b, a);
+        let [r, g, b, _] = color.into_rgba8();
 
         Self { r, g, b, a }
     }
