@@ -11,7 +11,7 @@ use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
 use iced::widget::text::Shaping;
 use iced::widget::text_input::focus;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
-use iced::window::{Level, Position, Screenshot};
+use iced::window::{Level, Mode, Position, Screenshot};
 use iced::{event, executor, font, futures, keyboard, stream, window, Alignment, Event, Font, Length, Padding, Pixels, Renderer, Settings, Size, Subscription, Task};
 use std::collections::HashMap;
 use std::fs;
@@ -65,7 +65,7 @@ pub struct AppModel {
     global_hotkey_manager: Arc<StdRwLock<GlobalHotKeyManager>>,
     current_hotkey: Arc<StdMutex<Option<HotKey>>>,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
-    main_window_id: Option<window::Id>,
+    main_window_id: window::Id,
     focused: bool,
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -234,12 +234,13 @@ const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
 #[cfg(not(target_os = "macos"))]
-fn window_settings() -> window::Settings {
+fn window_settings(visible: bool) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position: Position::Centered,
         resizable: false,
         decorations: false,
+        visible,
         transparent: true,
         closeable: false,
         minimizable: false,
@@ -248,12 +249,13 @@ fn window_settings() -> window::Settings {
 }
 
 #[cfg(target_os = "macos")]
-fn window_settings() -> window::Settings {
+fn window_settings(visible: bool) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position: Position::Centered,
         resizable: false,
         decorations: true,
+        visible,
         transparent: false,
         closeable: false,
         minimizable: false,
@@ -283,29 +285,18 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
     }
 }
 
-fn open_main_window_non_wayland() -> (window::Id, Task<AppMsg>) {
-    let (main_window_id, open_task) = window::open(window_settings());
+fn open_main_window_non_wayland(minimized: bool) -> (window::Id, Task<AppMsg>) {
+    let (main_window_id, open_task) = window::open(window_settings(!minimized));
 
-    let mut tasks = vec![];
-
-    tasks.push(
+    (main_window_id, Task::batch([
         open_task.map(|_| AppMsg::Noop),
-    );
-
-    tasks.push(
         window::gain_focus(main_window_id),
-    );
-
-    tasks.push(
         window::change_level(main_window_id, Level::AlwaysOnTop),
-    );
-
-    (main_window_id, Task::batch(tasks))
+    ]))
 }
 
 #[cfg(target_os = "linux")]
-fn open_main_window_wayland() -> (window::Id, Task<AppMsg>) {
-    let id = window::Id::unique();
+fn open_main_window_wayland(id: window::Id) -> (window::Id, Task<AppMsg>) {
     let settings = layer_shell_settings();
 
     (id, Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell { id, settings })))
@@ -408,23 +399,23 @@ fn new(
         font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
     ];
 
-    let main_window_id = if !minimized {
-        #[cfg(target_os = "linux")]
-        let (main_window_id, open_task) =  if wayland {
-            open_main_window_wayland()
+    #[cfg(target_os = "linux")]
+    let (main_window_id, open_task) =  if wayland {
+        let id = window::Id::unique();
+
+        if minimized {
+            (id, Task::none())
         } else {
-            open_main_window_non_wayland()
-        };
-
-        #[cfg(not(target_os = "linux"))]
-        let (main_window_id, open_task) = open_main_window_non_wayland();
-
-        tasks.push(open_task);
-
-        Some(main_window_id)
+            open_main_window_wayland(id)
+        }
     } else {
-        None
+        open_main_window_non_wayland(minimized)
     };
+
+    #[cfg(not(target_os = "linux"))]
+    let (main_window_id, open_task) = open_main_window_non_wayland(minimized);
+
+    tasks.push(open_task);
 
     let global_state = if cfg!(feature = "scenario_runner") {
         let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
@@ -538,17 +529,10 @@ fn new(
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
-    match state.main_window_id {
-        Some(main_window_id) => {
-            if window == main_window_id {
-                "Gauntlet".to_owned()
-            } else {
-                "Gauntlet HUD".to_owned()
-            }
-        }
-        None => {
-            "Gauntlet HUD".to_owned()
-        }
+    if window == state.main_window_id {
+        "Gauntlet".to_owned()
+    } else {
+        "Gauntlet HUD".to_owned()
     }
 }
 
@@ -789,11 +773,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Keyboard(event)) => {
-            let Some(main_window_id) = state.main_window_id else {
-                return Task::none()
-            };
-
-            if window_id != main_window_id {
+            if window_id != state.main_window_id {
                 return Task::none()
             }
 
@@ -973,22 +953,14 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Focused)) => {
-            let Some(main_window_id) = state.main_window_id else {
-                return Task::none()
-            };
-
-            if window_id != main_window_id {
+            if window_id != state.main_window_id {
                 return Task::none()
             }
 
             state.on_focused()
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Unfocused)) => {
-            let Some(main_window_id) = state.main_window_id else {
-                return Task::none()
-            };
-
-            if window_id != main_window_id {
+            if window_id != state.main_window_id {
                 return Task::none()
             }
 
@@ -1072,10 +1044,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             fs::create_dir_all(Path::new(&save_path).parent().expect("no parent?"))
                 .expect("unable to create scenario out directories");
 
-            let window_id = state.main_window_id
-                .expect("window id should be present when making screenshot");
-
-            window::screenshot(window_id)
+            window::screenshot(state.main_window_id)
                 .map(move |screenshot| AppMsg::ScreenshotDone {
                     save_path: save_path.clone(),
                     screenshot,
@@ -1387,17 +1356,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 }
 
 fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
-    match state.main_window_id {
-        None => {
-            view_hud(state)
-        }
-        Some(main_window_id) => {
-            if window != main_window_id {
-                view_hud(state)
-            } else {
-                view_main(state)
-            }
-        }
+    if window != state.main_window_id {
+        view_hud(state)
+    } else {
+        view_main(state)
     }
 }
 
@@ -1983,10 +1945,6 @@ impl AppModel {
     }
 
     fn hide_window(&mut self) -> Task<AppMsg> {
-        let Some(main_window_id) = self.main_window_id.take() else {
-            return Task::none()
-        };
-
         self.focused = false;
 
         let mut commands = vec![];
@@ -1994,17 +1952,17 @@ impl AppModel {
         #[cfg(target_os = "linux")]
         if self.wayland {
             commands.push(
-                Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::RemoveWindow(main_window_id)))
+                Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::RemoveWindow(self.main_window_id)))
             );
         } else {
             commands.push(
-                window::close(main_window_id)
+                window::change_mode(self.main_window_id, Mode::Hidden)
             );
         };
 
         #[cfg(not(target_os = "linux"))]
         commands.push(
-            window::close(main_window_id)
+            window::change_mode(self.main_window_id, Mode::Hidden)
         );
 
         #[cfg(target_os = "macos")]
@@ -2031,21 +1989,22 @@ impl AppModel {
     }
 
     fn show_window(&mut self) -> Task<AppMsg> {
-        if let Some(_) = self.main_window_id {
-            return Task::none()
-        };
-
         #[cfg(target_os = "linux")]
-        let (main_window_id, open_task) =  if self.wayland {
-            open_main_window_wayland()
+        let open_task =  if self.wayland {
+            let (_, open_task) = open_main_window_wayland(self.main_window_id);
+            open_task
         } else {
-            open_main_window_non_wayland()
+            Task::batch([
+                window::gain_focus(self.main_window_id),
+                window::change_mode(self.main_window_id, Mode::Windowed)
+            ])
         };
 
         #[cfg(not(target_os = "linux"))]
-        let (main_window_id, open_task) = open_main_window_non_wayland();
-
-        self.main_window_id = Some(main_window_id);
+        let open_task = Task::batch([
+            window::gain_focus(self.main_window_id),
+            window::change_mode(self.main_window_id, Mode::Windowed)
+        ]);
 
         Task::batch([
             open_task,
