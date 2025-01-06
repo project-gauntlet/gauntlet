@@ -22,7 +22,7 @@ edition = "2021"
 [workspace.dependencies]
 # iced
 #iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image"] }
-iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13", default-features = false, features = ["webgl", "tokio", "lazy", "advanced", "image"] }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13", default-features = false, features = ["wgpu", "tokio", "advanced", "image"] }
 #iced_aw = { version = "0.11.99", features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
 iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet-0.13", default-features = false, features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
 #iced_table = "0.13.99"
