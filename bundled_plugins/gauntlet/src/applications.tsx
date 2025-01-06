@@ -15,13 +15,12 @@ import {
     macos_settings_pre_13,
     macos_system_applications
 } from "gauntlet:bridge/internal-macos";
-import { applicationAccessories, applicationActions, OpenWindowData } from "./window/shared";
+import { applicationAccessories, applicationActions } from "./window/shared";
 import { applicationEventLoopX11, focusX11Window } from "./window/x11";
 import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
 import { windows_app_from_path, windows_application_dirs, windows_open_application } from "gauntlet:bridge/internal-windows";
 
 export default async function Applications({ add, remove, get, getAll }: GeneratorProps): Promise<void | (() => void)> {
-    const openWindows: Record<string, OpenWindowData> = {};
 
     switch (current_os()) {
         case "linux": {
@@ -38,9 +37,8 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                                     linux_open_application(id)
                                 },
                                 focusWaylandWindow,
-                                openWindows
                             ),
-                            accessories: applicationAccessories(id, openWindows),
+                            accessories: applicationAccessories(id),
                             icon: data.icon, // TODO lazy icons
                             "__linux__": {
                                 startupWmClass: data.startup_wm_class,
@@ -56,9 +54,8 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                                     linux_open_application(id)
                                 },
                                 focusX11Window,
-                                openWindows,
                             ),
-                            accessories: applicationAccessories(id, openWindows),
+                            accessories: applicationAccessories(id),
                             icon: data.icon, // TODO lazy icons
                             "__linux__": {
                                 startupWmClass: data.startup_wm_class,
@@ -74,7 +71,6 @@ export default async function Applications({ add, remove, get, getAll }: Generat
             if (wayland()) {
                 try {
                     applicationEventLoopWayland(
-                        openWindows,
                         focusWaylandWindow,
                         add,
                         get,
@@ -86,7 +82,6 @@ export default async function Applications({ add, remove, get, getAll }: Generat
             } else {
                 try {
                     applicationEventLoopX11(
-                        openWindows,
                         focusX11Window,
                         add,
                         get,

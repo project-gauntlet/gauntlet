@@ -1,4 +1,4 @@
-import { addOpenWindow, deleteOpenWindow, openLinuxApplication, OpenWindowData } from "./shared";
+import { addOpenWindow, deleteOpenWindow, openLinuxApplication } from "./shared";
 import { GeneratedCommand } from "@project-gauntlet/api/helpers";
 import { linux_wayland_focus_window, application_wayland_pending_event } from "gauntlet:bridge/internal-linux";
 
@@ -8,7 +8,6 @@ export function focusWaylandWindow(windowId: string) {
 }
 
 export function applicationEventLoopWayland(
-    openWindows: Record<string, OpenWindowData>,
     focusWindow: (windowId: string) => void,
     add: (id: string, data: GeneratedCommand) => void,
     get: (id: string) => GeneratedCommand | undefined,
@@ -33,7 +32,7 @@ export function applicationEventLoopWayland(
                 case "WindowClosed": {
                     delete knownWindows[applicationEvent.window_id]
 
-                    deleteOpenWindow(openWindows, applicationEvent.window_id, openLinuxApplication, focusWindow, get, add)
+                    deleteOpenWindow(applicationEvent.window_id, openLinuxApplication, focusWindow, get, add)
 
                     break;
                 }
@@ -52,7 +51,6 @@ export function applicationEventLoopWayland(
                                 windowId,
                                 windowAppId,
                                 windowTitle,
-                                openWindows,
                                 focusWindow,
                                 add,
                                 get,
@@ -78,7 +76,6 @@ export function applicationEventLoopWayland(
                                 windowId,
                                 windowAppId,
                                 windowTitle,
-                                openWindows,
                                 focusWindow,
                                 add,
                                 get,
@@ -97,7 +94,6 @@ function addOpenWindowWayland(
     windowId: string,
     windowAppId: string,
     windowTitle: string,
-    openWindows: Record<string, OpenWindowData>,
     focusWindow: (windowId: string) => void,
     add: (id: string, data: GeneratedCommand) => void,
     get: (id: string) => GeneratedCommand | undefined,
@@ -130,7 +126,6 @@ function addOpenWindowWayland(
             generatedEntrypoint,
             windowId,
             windowTitle,
-            openWindows,
             openLinuxApplication(appId),
             focusWindow,
             add,

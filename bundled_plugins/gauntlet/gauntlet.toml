@@ -10,6 +10,13 @@ type = 'entrypoint-generator'
 description = 'Run installed applications from your system'
 
 [[entrypoint]]
+id = 'windows'
+name = 'All Open Windows'
+path = 'src/windows.tsx'
+type = 'view'
+description = 'Show all open windows'
+
+[[entrypoint]]
 id = 'settings'
 name = 'Gauntlet Settings'
 path = 'src/settings.tsx'

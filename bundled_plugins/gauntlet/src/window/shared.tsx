@@ -8,11 +8,12 @@ export type OpenWindowData = {
     appId: string
 }
 
+export const openWindows: Record<string, OpenWindowData> = {};
+
 export function applicationActions(
     id: string,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
-    openWindows: Record<string, OpenWindowData>
 ): GeneratedCommandAction[] {
     const appWindows = Object.entries(openWindows)
         .filter(([_, windowData]) => windowData.appId == id)
@@ -68,7 +69,7 @@ export function applicationActions(
     }
 }
 
-export function applicationAccessories(id: string, openWindows: Record<string, OpenWindowData>): GeneratedCommandAccessory[] {
+export function applicationAccessories(id: string): GeneratedCommandAccessory[] {
     const appWindows = Object.entries(openWindows)
         .filter(([_, windowData]) => windowData.appId == id)
 
@@ -88,7 +89,6 @@ export function addOpenWindow(
     generatedEntrypoint: GeneratedCommand,
     windowId: string,
     windowTitle: string,
-    openWindows: Record<string, OpenWindowData>,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
     add: (id: string, data: GeneratedCommand) => void,
@@ -102,14 +102,13 @@ export function addOpenWindow(
 
         add(appId, {
             ...generatedEntrypoint,
-            actions: applicationActions(appId, openApplication, focusWindow, openWindows),
-            accessories: applicationAccessories(appId, openWindows)
+            actions: applicationActions(appId, openApplication, focusWindow),
+            accessories: applicationAccessories(appId)
         })
     }
 }
 
 export function deleteOpenWindow(
-    openWindows: Record<string, OpenWindowData>,
     windowId: string,
     openApplication: (appId: string) => (() => void),
     focusWindow: (windowId: string) => void,
@@ -125,8 +124,8 @@ export function deleteOpenWindow(
         if (generatedEntrypoint) {
             add(openWindow.appId, {
                 ...generatedEntrypoint,
-                actions: applicationActions(openWindow.appId, openApplication(openWindow.appId), focusWindow, openWindows),
-                accessories: applicationAccessories(openWindow.appId, openWindows)
+                actions: applicationActions(openWindow.appId, openApplication(openWindow.appId), focusWindow),
+                accessories: applicationAccessories(openWindow.appId)
             })
         }
     }
