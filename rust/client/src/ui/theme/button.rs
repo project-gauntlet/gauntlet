@@ -1,8 +1,8 @@
 use button::Style;
-use iced::{Border, Padding, Renderer};
+use iced::{Border, Color, Padding, Renderer};
 use iced::widget::{button, Button};
 use iced::widget::button::Status;
-use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, padding_all, ThemableWidget, TRANSPARENT};
+use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, padding_all, ThemableWidget};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonStyle {
@@ -125,14 +125,14 @@ impl ButtonStyle {
             }
             ButtonStyle::MetadataLink => {
                 let theme = &theme.metadata_link;
-                (None, None, None, &theme.text_color, &theme.text_color_hovered, &0.0, &1.0, &TRANSPARENT)
+                (None, None, None, &theme.text_color, &theme.text_color_hovered, &0.0, &1.0, &Color::TRANSPARENT)
             }
             ButtonStyle::MetadataTagItem => {
                 let theme = &theme.metadata_tag_item_button;
                 (Some(&theme.background_color), Some(&theme.background_color_hovered), Some(&theme.background_color), &theme.text_color, &theme.text_color_hovered, &theme.border_radius, &theme.border_width, &theme.border_color)
             }
             ButtonStyle::ShouldNotBeUsed => {
-                (Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), &NOT_INTENDED_TO_BE_USED, &NOT_INTENDED_TO_BE_USED, &0.0, &1.0, &TRANSPARENT)
+                (Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), Some(&NOT_INTENDED_TO_BE_USED), &NOT_INTENDED_TO_BE_USED, &NOT_INTENDED_TO_BE_USED, &0.0, &1.0, &Color::TRANSPARENT)
             }
             ButtonStyle::DatePicker => {
                 let theme = &theme.form_input_date_picker_buttons;
@@ -141,10 +141,10 @@ impl ButtonStyle {
         };
 
         let active = Style {
-            background: background_color.map(|color| color.to_iced().into()),
-            text_color: text_color.to_iced(),
+            background: background_color.map(|color| color.clone().into()),
+            text_color: text_color.clone(),
             border: Border {
-                color: border_color.to_iced(),
+                color: border_color.clone(),
                 width: (*border_width).into(),
                 radius: (*border_radius).into(),
             },
@@ -155,21 +155,21 @@ impl ButtonStyle {
             Status::Active => active,
             Status::Pressed => {
                 Style {
-                    background: background_color_pressed.map(|color| color.to_iced().into()),
-                    text_color: text_color_hover.to_iced(),
+                    background: background_color_pressed.map(|color| color.clone().into()),
+                    text_color: text_color_hover.clone(),
                     ..active
                 }
             }
             Status::Hovered => {
                 Style {
-                    background: background_color_hover.map(|color| color.to_iced().into()),
-                    text_color: text_color_hover.to_iced(),
+                    background: background_color_hover.map(|color| color.clone().into()),
+                    text_color: text_color_hover.clone(),
                     ..active
                 }
             }
             Status::Disabled => {
                 Style {
-                    background: Some(NOT_INTENDED_TO_BE_USED.to_iced().into()),
+                    background: Some(NOT_INTENDED_TO_BE_USED.into()),
                     ..active
                 }
             }

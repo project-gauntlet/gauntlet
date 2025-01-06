@@ -22,6 +22,9 @@ service RpcBackend {
   rpc SetGlobalShortcut (RpcSetGlobalShortcutRequest) returns (RpcSetGlobalShortcutResponse);
   rpc GetGlobalShortcut (RpcGetGlobalShortcutRequest) returns (RpcGetGlobalShortcutResponse);
 
+  rpc SetTheme (RpcSetThemeRequest) returns (RpcSetThemeResponse);
+  rpc GetTheme (RpcGetThemeRequest) returns (RpcGetThemeResponse);
+
   rpc DownloadPlugin (RpcDownloadPluginRequest) returns (RpcDownloadPluginResponse);
 
   rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
@@ -89,6 +92,20 @@ message RpcGetGlobalShortcutRequest {
 message RpcGetGlobalShortcutResponse {
   optional RpcShortcut shortcut = 1;
   optional string error = 2;
+}
+
+message RpcSetThemeRequest {
+  string theme = 1;
+}
+
+message RpcSetThemeResponse {
+}
+
+message RpcGetThemeRequest {
+}
+
+message RpcGetThemeResponse {
+  string theme = 1;
 }
 
 message RpcSetPreferenceValueRequest {

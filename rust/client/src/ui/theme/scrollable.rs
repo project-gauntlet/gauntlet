@@ -21,7 +21,7 @@ impl scrollable::Catalog for GauntletComplexTheme {
             scroller: scrollable::Scroller {
                 color: Color::TRANSPARENT,
                 border: Border {
-                    color: theme.border_color.to_iced(),
+                    color: theme.border_color,
                     width: theme.border_width.into(),
                     radius: theme.border_radius.into(),
                 },
@@ -41,7 +41,7 @@ impl scrollable::Catalog for GauntletComplexTheme {
             } => {
                 let hovered_scrollbar = scrollable::Rail {
                     scroller: scrollable::Scroller {
-                        color: theme.color.to_iced(),
+                        color: theme.color,
                         ..scrollbar.scroller
                     },
                     ..scrollbar
@@ -68,7 +68,7 @@ impl scrollable::Catalog for GauntletComplexTheme {
             } => {
                 let dragged_scrollbar = scrollable::Rail {
                     scroller: scrollable::Scroller {
-                        color: theme.color.to_iced(),
+                        color: theme.color,
                         ..scrollbar.scroller
                     },
                     ..scrollbar

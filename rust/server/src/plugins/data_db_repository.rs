@@ -11,7 +11,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
 use typed_path::TypedPathBuf;
 use uuid::Uuid;
-use gauntlet_common::model::{PhysicalKey, PhysicalShortcut, PluginId};
+use gauntlet_common::model::{UiTheme, PhysicalKey, PhysicalShortcut, PluginId};
 use gauntlet_common::dirs::Dirs;
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
@@ -214,9 +214,11 @@ pub struct DbPluginActionUserData {
 }
 
 #[derive(sqlx::FromRow)]
-pub struct DbSettingsData {
+struct DbSettingsDataContainer {
     #[sqlx(json)]
-    pub global_shortcut: DbSettingsGlobalShortcutData,
+    pub global_shortcut: DbSettingsGlobalShortcutData, // separate field because legacy
+    // #[sqlx(json)] // https://github.com/launchbadge/sqlx/issues/2849
+    pub settings: Option<Json<DbSettings>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -232,6 +234,22 @@ pub struct DbSettingsGlobalShortcutData {
     pub error: Option<String>
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct DbSettings {
+    // none means auto-detect
+    pub theme: Option<DbTheme>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum DbTheme {
+    #[serde(rename = "macos_light")]
+    MacOSLight,
+    #[serde(rename = "macos_dark")]
+    MacOSDark,
+    #[serde(rename = "legacy")]
+    Legacy
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum DbPluginActionShortcutKind {
     #[serde(rename = "main")]
@@ -245,7 +263,7 @@ pub enum DbPluginActionShortcutKind {
 pub enum DbPluginPreference {
     #[serde(rename = "number")]
     Number {
-        name: Option<String>, // option for db backwards compatibility, in settings id will be shown
+        name: Option<String>, // optional for db backwards compatibility, in settings id will be shown
         default: Option<f64>,
         description: String,
     },
@@ -316,6 +334,8 @@ pub struct DbPluginEntrypointFrecencyStats {
     pub frecency: f64,
     pub num_accesses: i32,
 }
+
+const SETTINGS_DATA_ID: &str = "settings_data"; // only one row in the table
 
 impl DataDbRepository {
     pub async fn new(dirs: Dirs) -> anyhow::Result<Self> {
@@ -847,8 +867,6 @@ impl DataDbRepository {
                         DO UPDATE SET global_shortcut = ?2
         "#;
 
-        let id = "settings_data"; // only one row in the table
-
         let shortcut_data = match shortcut {
             None => {
                 DbSettingsGlobalShortcutData {
@@ -875,7 +893,7 @@ impl DataDbRepository {
         };
 
         sqlx::query(sql)
-            .bind(id)
+            .bind(SETTINGS_DATA_ID)
             .bind(Json(shortcut_data))
             .execute(&self.pool)
             .await?;
@@ -885,7 +903,7 @@ impl DataDbRepository {
 
     pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
         // language=SQLite
-        let data = sqlx::query_as::<_, DbSettingsData>("SELECT * FROM settings_data")
+        let data = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT * FROM settings_data")
             .fetch_optional(&self.pool)
             .await;
 
@@ -913,6 +931,38 @@ impl DataDbRepository {
             Ok(None) => Ok(None),
             Err(err) => Err(anyhow!("Unable to get global shortcut from db: {:?}", err))
         }
+    }
+
+    pub async fn get_settings(&self) -> anyhow::Result<DbSettings> {
+        // language=SQLite
+        let settings = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT * FROM settings_data")
+            .fetch_optional(&self.pool)
+            .await?;
+
+        let theme = settings
+            .map(|data| data.settings)
+            .flatten()
+            .unwrap_or_default();
+
+        Ok(theme.0)
+    }
+
+    pub async fn set_settings(&self, value: DbSettings) -> anyhow::Result<()> {
+        // language=SQLite
+        let sql = r#"
+            INSERT INTO settings_data (id, global_shortcut, settings)
+                VALUES(?1, ?2, ?3)
+                    ON CONFLICT (id)
+                        DO UPDATE SET settings = ?2
+        "#;
+
+        sqlx::query(sql)
+            .bind(SETTINGS_DATA_ID)
+            .bind(Json(value))
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
     }
 
     pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, preference_id: String, value: DbPluginPreferenceUserData) -> anyhow::Result<()> {

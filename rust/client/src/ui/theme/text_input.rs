@@ -33,31 +33,31 @@ fn active(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
     match style {
         TextInputStyle::ShouldNotBeUsed => {
             Style {
-                background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                background: NOT_INTENDED_TO_BE_USED.into(),
                 border: Border {
-                    color: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                    color: NOT_INTENDED_TO_BE_USED.into(),
                     ..Border::default()
                 },
-                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-                placeholder: NOT_INTENDED_TO_BE_USED.to_iced(),
-                value: NOT_INTENDED_TO_BE_USED.to_iced(),
-                selection: NOT_INTENDED_TO_BE_USED.to_iced(),
+                icon: NOT_INTENDED_TO_BE_USED,
+                placeholder: NOT_INTENDED_TO_BE_USED,
+                value: NOT_INTENDED_TO_BE_USED,
+                selection: NOT_INTENDED_TO_BE_USED,
             }
         },
         TextInputStyle::FormInput => {
             let theme = &theme.form_input_text_field;
 
             Style {
-                background: theme.background_color.to_iced().into(),
+                background: theme.background_color.into(),
                 border: Border {
                     radius: theme.border_radius.into(),
                     width: theme.border_width,
-                    color: theme.border_color.to_iced().into(),
+                    color: theme.border_color.into(),
                 },
-                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-                placeholder: theme.text_color_placeholder.to_iced(),
-                value: theme.text_color.to_iced(),
-                selection: theme.selection_color.to_iced(),
+                icon: NOT_INTENDED_TO_BE_USED,
+                placeholder: theme.text_color_placeholder,
+                value: theme.text_color,
+                selection: theme.selection_color,
             }
         },
         TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
@@ -67,10 +67,10 @@ fn active(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                     color: Color::TRANSPARENT,
                     ..Border::default()
                 },
-                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-                placeholder: theme.form_input_text_field.text_color_placeholder.to_iced(), // TODO fix
-                value: theme.form_input_text_field.text_color.to_iced(), // TODO fix
-                selection: theme.form_input_text_field.selection_color.to_iced(), // TODO fix
+                icon: NOT_INTENDED_TO_BE_USED,
+                placeholder: theme.form_input_text_field.text_color_placeholder, // TODO fix
+                value: theme.form_input_text_field.text_color, // TODO fix
+                selection: theme.form_input_text_field.selection_color, // TODO fix
             }
         },
     }
@@ -80,31 +80,31 @@ fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
     match style {
         TextInputStyle::ShouldNotBeUsed => {
             Style {
-                background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                background: NOT_INTENDED_TO_BE_USED.into(),
                 border: Border {
-                    color: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+                    color: NOT_INTENDED_TO_BE_USED.into(),
                     ..Border::default()
                 },
-                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-                placeholder: NOT_INTENDED_TO_BE_USED.to_iced(),
-                value: NOT_INTENDED_TO_BE_USED.to_iced(),
-                selection: NOT_INTENDED_TO_BE_USED.to_iced(),
+                icon: NOT_INTENDED_TO_BE_USED,
+                placeholder: NOT_INTENDED_TO_BE_USED,
+                value: NOT_INTENDED_TO_BE_USED,
+                selection: NOT_INTENDED_TO_BE_USED,
             }
         },
         TextInputStyle::FormInput => {
             let theme = &theme.form_input_text_field;
 
             Style {
-                background: theme.background_color_hovered.to_iced().into(),
+                background: theme.background_color_hovered.into(),
                 border: Border {
                     radius: theme.border_radius.into(),
                     width: theme.border_width,
-                    color: theme.border_color_hovered.to_iced().into(),
+                    color: theme.border_color_hovered.into(),
                 },
-                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-                placeholder: theme.text_color_placeholder.to_iced(),
-                value: theme.text_color.to_iced(),
-                selection: theme.selection_color.to_iced(),
+                icon: NOT_INTENDED_TO_BE_USED,
+                placeholder: theme.text_color_placeholder,
+                value: theme.text_color,
+                selection: theme.selection_color,
             }
         },
         TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
@@ -114,10 +114,10 @@ fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                     color: Color::TRANSPARENT,
                     ..Border::default()
                 },
-                icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-                placeholder: theme.form_input_text_field.text_color_placeholder.to_iced(), // TODO fix
-                value: theme.form_input_text_field.text_color.to_iced(), // TODO fix
-                selection: theme.form_input_text_field.selection_color.to_iced(), // TODO fix
+                icon: NOT_INTENDED_TO_BE_USED,
+                placeholder: theme.form_input_text_field.text_color_placeholder, // TODO fix
+                value: theme.form_input_text_field.text_color, // TODO fix
+                selection: theme.form_input_text_field.selection_color, // TODO fix
             }
         },
     }
@@ -125,16 +125,16 @@ fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
 
 fn disabled() -> Style {
     Style {
-        background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
+        background: NOT_INTENDED_TO_BE_USED.into(),
         border: Border {
             radius: 2.0.into(),
             width: 1.0,
             color: Color::TRANSPARENT,
         },
-        icon: NOT_INTENDED_TO_BE_USED.to_iced(),
-        placeholder: NOT_INTENDED_TO_BE_USED.to_iced(),
-        value: NOT_INTENDED_TO_BE_USED.to_iced(),
-        selection: NOT_INTENDED_TO_BE_USED.to_iced(),
+        icon: NOT_INTENDED_TO_BE_USED,
+        placeholder: NOT_INTENDED_TO_BE_USED,
+        value: NOT_INTENDED_TO_BE_USED,
+        selection: NOT_INTENDED_TO_BE_USED,
     }
 }
 

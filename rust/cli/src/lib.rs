@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
-use gauntlet_client::{generate_complex_theme_sample, generate_simple_theme_sample, open_window};
+use gauntlet_client::open_window;
 use gauntlet_management_client::start_management_client;
 use gauntlet_server::start;
 
@@ -17,8 +17,6 @@ struct Cli {
 enum Commands {
     Open,
     Settings,
-    GenerateSampleComplexTheme,
-    GenerateSampleSimpleTheme,
 }
 
 pub fn init() {
@@ -47,8 +45,6 @@ pub fn init() {
             match command {
                 Commands::Open => open_window(),
                 Commands::Settings => start_management_client(),
-                Commands::GenerateSampleComplexTheme => generate_complex_theme_sample().expect("Unable to generate complex theme sample"),
-                Commands::GenerateSampleSimpleTheme => generate_simple_theme_sample().expect("Unable to generate simple theme sample")
             };
         }
     }

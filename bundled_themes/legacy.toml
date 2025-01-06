@@ -1,0 +1,23 @@
+mode = "dark"
+
+background = [
+    { color = "#626974", alpha = 0.3 },
+    { color = "#48505B", alpha = 0.5 },
+    "#333A42",
+    "#2C323A"
+]
+
+text = [
+    "#DDDFE1",
+    "#9AA0A6",
+    "#6B7785",
+    "#1D242C"
+]
+
+[window.border]
+radius = 10
+width = 1
+color = { color = "#48505B", alpha = 0.5 }
+
+[content.border]
+radius = 4.0

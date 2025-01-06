@@ -36,13 +36,13 @@ fn active(theme: &GauntletComplexTheme) -> Style {
     let theme = &theme.form_input_date_picker;
 
     Style {
-        background: theme.background_color.to_iced().into(),
+        background: theme.background_color.into(),
         border_radius: root_theme.border_radius,
         border_width: root_theme.border_width,
-        border_color: root_theme.border_color.to_iced(),
-        text_color: theme.text_color.to_iced(),
-        text_attenuated_color: theme.text_attenuated_color.to_iced(),
-        day_background: theme.day_background_color.to_iced().into(),
+        border_color: root_theme.border_color,
+        text_color: theme.text_color,
+        text_attenuated_color: theme.text_attenuated_color,
+        day_background: theme.day_background_color.into(),
     }
 }
 
@@ -50,8 +50,8 @@ fn selected(theme: &GauntletComplexTheme) -> Style {
     let form_theme = &theme.form_input_date_picker;
 
     Style {
-        day_background: form_theme.day_background_color_selected.to_iced().into(),
-        text_color: form_theme.text_color_selected.to_iced(),
+        day_background: form_theme.day_background_color_selected.into(),
+        text_color: form_theme.text_color_selected,
         ..active(theme)
     }
 }
@@ -60,8 +60,8 @@ fn hovered(theme: &GauntletComplexTheme) -> Style {
     let form_theme = &theme.form_input_date_picker;
 
     Style {
-        day_background: form_theme.day_background_color_hovered.to_iced().into(),
-        text_color: form_theme.text_color_hovered.to_iced(),
+        day_background: form_theme.day_background_color_hovered.into(),
+        text_color: form_theme.text_color_hovered,
         ..active(theme)
     }
 }

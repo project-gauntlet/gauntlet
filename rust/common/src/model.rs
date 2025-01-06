@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -149,6 +150,64 @@ pub enum SearchResultEntrypointType {
     Generated,
 }
 
+#[derive(Debug, Clone)]
+pub enum UiThemeMode {
+    Light,
+    Dark
+}
+
+#[derive(Debug, Clone)]
+pub struct UiThemeColor {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
+pub type UiThemeColorPalette = [UiThemeColor; 4];
+
+#[derive(Debug, Clone)]
+pub struct UiThemeWindow {
+    pub border: UiThemeWindowBorder,
+}
+
+#[derive(Debug, Clone)]
+pub struct UiThemeWindowBorder {
+    pub radius: f32,
+    pub width: f32,
+    pub color: UiThemeColor,
+}
+
+#[derive(Debug, Clone)]
+pub struct UiThemeContent {
+    pub border: UiThemeContentBorder,
+}
+
+#[derive(Debug, Clone)]
+pub struct UiThemeContentBorder {
+    pub radius: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct UiTheme {
+    pub mode: UiThemeMode,
+    pub background: UiThemeColorPalette,
+    pub text: UiThemeColorPalette,
+    pub window: UiThemeWindow,
+    pub content: UiThemeContent,
+}
+
+#[derive(Debug)]
+pub struct UiSetupData {
+    pub theme: UiTheme,
+    pub global_shortcut: Option<PhysicalShortcut>,
+}
+
+#[derive(Debug)]
+pub struct UiSetupResponse {
+    pub global_shortcut_error: Option<String>,
+}
+
 #[derive(Debug)]
 pub enum UiResponseData {
     Nothing,
@@ -194,11 +253,17 @@ pub enum UiRequestData {
     SetGlobalShortcut {
         shortcut: Option<PhysicalShortcut>
     },
+    SetTheme {
+        theme: UiTheme
+    },
 }
 
 #[derive(Debug)]
 pub enum BackendResponseData {
     Nothing,
+    SetupData {
+        data: UiSetupData
+    },
     Search {
         results: Vec<SearchResult>
     },
@@ -212,6 +277,7 @@ pub enum BackendResponseData {
 
 #[derive(Debug)]
 pub enum BackendRequestData {
+    Setup,
     Search {
         text: String,
         render_inline_view: bool
@@ -258,6 +324,9 @@ pub enum BackendRequestData {
         entrypoint_id: Option<EntrypointId>
     },
     InlineViewShortcuts,
+    SetupResponse {
+        global_shortcut_error: Option<String>
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -587,6 +656,32 @@ pub enum SettingsEntrypointType {
     View,
     InlineView,
     EntrypointGenerator,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SettingsTheme {
+    AutoDetect,
+    ThemeFile,
+    Config,
+    // Custom, TODO specify file path or drag and drop via settings ui
+    MacOSLight,
+    MacOSDark,
+    Legacy
+}
+
+impl Display for SettingsTheme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            SettingsTheme::AutoDetect => "Auto-detect",
+            SettingsTheme::ThemeFile => "Theme file present",
+            SettingsTheme::Config => "Config setting present",
+            SettingsTheme::MacOSLight => "macOS Light",
+            SettingsTheme::MacOSDark => "macOS Dark",
+            SettingsTheme::Legacy => "Legacy",
+        };
+
+        write!(f, "{}", label)
+    }
 }
 
 #[derive(Debug, Clone)]

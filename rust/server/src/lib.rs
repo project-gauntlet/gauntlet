@@ -174,6 +174,18 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
 
 async fn handle_request(application_manager: Arc<ApplicationManager>, request_data: BackendRequestData) -> anyhow::Result<BackendResponseData> {
     let response_data = match request_data {
+        BackendRequestData::Setup => {
+            let data = application_manager.setup_data().await?;
+
+            BackendResponseData::SetupData {
+                data,
+            }
+        }
+        BackendRequestData::SetupResponse { global_shortcut_error } => {
+            application_manager.setup_response(global_shortcut_error).await?;
+
+            BackendResponseData::Nothing
+        }
         BackendRequestData::Search { text, render_inline_view } => {
             let results = application_manager.search(&text, render_inline_view)?;
 

@@ -62,52 +62,52 @@ impl text::Catalog for GauntletComplexTheme {
         match class {
             TextStyle::Default => Default::default(),
             TextStyle::EmptyViewSubtitle => Style {
-                color: Some(self.empty_view_subtitle.text_color.to_iced()),
+                color: Some(self.empty_view_subtitle.text_color),
             },
             TextStyle::ListItemSubtitle => Style {
-                color: Some(self.list_item_subtitle.text_color.to_iced()),
+                color: Some(self.list_item_subtitle.text_color),
             },
             TextStyle::ListSectionTitle => Style {
-                color: Some(self.list_section_title.text_color.to_iced()),
+                color: Some(self.list_section_title.text_color),
             },
             TextStyle::ListSectionSubtitle => Style {
-                color: Some(self.list_section_subtitle.text_color.to_iced()),
+                color: Some(self.list_section_subtitle.text_color),
             },
             TextStyle::GridSectionTitle => Style {
-                color: Some(self.grid_section_title.text_color.to_iced()),
+                color: Some(self.grid_section_title.text_color),
             },
             TextStyle::GridSectionSubtitle => Style{
-                color: Some(self.grid_section_subtitle.text_color.to_iced()),
+                color: Some(self.grid_section_subtitle.text_color),
             },
             TextStyle::MainListItemSubtext => Style {
-                color: Some(self.main_list_item_sub_text.text_color.to_iced()),
+                color: Some(self.main_list_item_sub_text.text_color),
             },
             TextStyle::MetadataItemLabel => Style {
-                color: Some(self.metadata_item_label.text_color.to_iced()),
+                color: Some(self.metadata_item_label.text_color),
             },
             TextStyle::TextAccessory => Style {
-                color: Some(self.text_accessory.text_color.to_iced()),
+                color: Some(self.text_accessory.text_color),
             },
             TextStyle::IconAccessory => Style {
-                color: Some(self.icon_accessory.icon_color.to_iced()),
+                color: Some(self.icon_accessory.icon_color),
             },
             TextStyle::GridItemTitle => Style {
-                color: Some(self.grid_item_title.text_color.to_iced()),
+                color: Some(self.grid_item_title.text_color),
             },
             TextStyle::GridItemSubTitle => Style {
-                color: Some(self.grid_item_subtitle.text_color.to_iced()),
+                color: Some(self.grid_item_subtitle.text_color),
             },
             TextStyle::InlineName => Style {
-                color: Some(self.inline_name.text_color.to_iced()),
+                color: Some(self.inline_name.text_color),
             },
             TextStyle::InlineSeparator => Style {
-                color: Some(self.inline_separator.text_color.to_iced()),
+                color: Some(self.inline_separator.text_color),
             },
             TextStyle::RootBottomPanelPrimaryActionText => Style {
-                color: Some(self.root_bottom_panel_primary_action_text.text_color.to_iced()),
+                color: Some(self.root_bottom_panel_primary_action_text.text_color),
             },
             TextStyle::RootBottomPanelActionToggleText => Style {
-                color: Some(self.root_bottom_panel_action_toggle_text.text_color.to_iced()),
+                color: Some(self.root_bottom_panel_action_toggle_text.text_color),
             }
         }
     }

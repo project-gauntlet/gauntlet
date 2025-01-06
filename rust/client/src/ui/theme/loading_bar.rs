@@ -18,8 +18,8 @@ impl loading_bar::Catalog for GauntletComplexTheme {
 
     fn style(&self, _class: &Self::Class<'_>) -> Style {
         Style {
-            background_color: self.loading_bar.background_color.to_iced(),
-            loading_bar_color: self.loading_bar.loading_bar_color.to_iced(),
+            background_color: self.loading_bar.background_color,
+            loading_bar_color: self.loading_bar.loading_bar_color,
         }
     }
 }

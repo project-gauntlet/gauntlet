@@ -26,9 +26,9 @@ bytes.workspace = true
 walkdir.workspace = true
 typed-path.workspace = true
 interprocess.workspace = true
+toml.workspace = true
 
 # other
-toml = "0.8"
 tantivy = "0.22"
 git2 = { version = "0.19", features = ["vendored-libgit2", "vendored-openssl"] }
 tempfile = "3"
@@ -40,6 +40,7 @@ arboard = { version = "3.4", features = ["wayland-data-control"] }
 url = "2.5"
 ureq = "2.10"
 vergen-pretty = "0.3"
+dark-light = "1.1.1"
 
 [features]
 release = ["gauntlet-common/release"]

@@ -24,7 +24,7 @@ use serde::Deserialize;
 use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 
 use client_context::ClientContext;
-use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, UiTheme, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiSetupData, UiWidgetId};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use gauntlet_common::scenario_convert::{ui_render_location_from_scenario};
 use gauntlet_common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -70,6 +70,7 @@ pub struct AppModel {
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
+    theme: GauntletComplexTheme,
 
     // ephemeral state
     prompt: String,
@@ -217,6 +218,9 @@ pub enum AppMsg {
     ClearInlineView {
         plugin_id: PluginId,
     },
+    SetTheme {
+        theme: UiTheme
+    },
 }
 
 #[cfg(target_os = "linux")]
@@ -308,8 +312,6 @@ pub fn run(
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
     backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 ) {
-    let theme = GauntletComplexTheme::new();
-
     #[cfg(target_os = "linux")]
     let result = {
         let wayland = std::env::var("WAYLAND_DISPLAY")
@@ -317,14 +319,14 @@ pub fn run(
             .is_ok();
 
         if wayland {
-            run_wayland(minimized, frontend_receiver, backend_sender, theme)
+            run_wayland(minimized, frontend_receiver, backend_sender)
         } else {
-            run_non_wayland(minimized, frontend_receiver, backend_sender, theme)
+            run_non_wayland(minimized, frontend_receiver, backend_sender)
         }
     };
 
     #[cfg(not(target_os = "linux"))]
-    let result = run_non_wayland(minimized, frontend_receiver, backend_sender, theme);
+    let result = run_non_wayland(minimized, frontend_receiver, backend_sender);
 
     result.expect("Unable to start application")
 }
@@ -333,9 +335,7 @@ fn run_non_wayland(
     minimized: bool,
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
     backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
-    theme: GauntletComplexTheme,
 ) -> anyhow::Result<()> {
-
     iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(title, update, view)
         .settings(Settings {
             #[cfg(target_os = "macos")]
@@ -346,10 +346,7 @@ fn run_non_wayland(
             ..Default::default()
         })
         .subscription(subscription)
-        .theme({
-            let theme = theme.clone();
-            move |_, _| theme.clone()
-        })
+        .theme(|state, _| state.theme.clone())
         .run_with(move || new(frontend_receiver, backend_sender, false, minimized))?;
 
     Ok(())
@@ -360,7 +357,6 @@ fn run_wayland(
     minimized: bool,
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
     backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
-    theme: GauntletComplexTheme,
 ) -> anyhow::Result<()> {
     iced_layershell::build_pattern::daemon("Gauntlet", update, view, wayland_remove_id_info)
         .layer_settings(iced_layershell::settings::LayerShellSettings {
@@ -371,10 +367,7 @@ fn run_wayland(
             ..Default::default()
         })
         .subscription(subscription)
-        .theme({
-            let theme = theme.clone();
-            move |_| theme.clone()
-        })
+        .theme(|state| state.theme.clone())
         .run_with(move || new(frontend_receiver, backend_sender, true, minimized))?;
 
     Ok(())
@@ -390,10 +383,24 @@ fn new(
     wayland: bool,
     minimized: bool,
 ) -> (AppModel, Task<AppMsg>) {
-    let backend_api = BackendForFrontendApi::new(backend_sender);
+    let mut backend_api = BackendForFrontendApi::new(backend_sender);
+
+    let setup_data = futures::executor::block_on(backend_api.setup_data())
+        .expect("Unable to setup frontend");
+
+    let theme = GauntletComplexTheme::new(setup_data.theme);
+
+    GauntletComplexTheme::set_global(theme.clone());
+
+    let current_hotkey = Arc::new(StdMutex::new(None));
 
     let global_hotkey_manager = GlobalHotKeyManager::new()
         .expect("unable to create global hot key manager");
+
+    let assignment_result = assign_global_shortcut(&global_hotkey_manager, &current_hotkey, setup_data.global_shortcut);
+
+    futures::executor::block_on(backend_api.setup_response(assignment_result.map_err(|err| format!("{:#}", err)).err()))
+        .expect("Unable to setup frontend");
 
     let mut tasks = vec![
         font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
@@ -506,13 +513,14 @@ fn new(
             // logic
             backend_api,
             global_hotkey_manager: Arc::new(StdRwLock::new(global_hotkey_manager)),
-            current_hotkey: Arc::new(StdMutex::new(None)),
+            current_hotkey,
             frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
             main_window_id,
             focused: false,
             wayland,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             tray_icon: sys_tray::create_tray(),
+            theme,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -1272,23 +1280,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     .read()
                     .expect("lock is poisoned");
 
-                let mut hotkey_guard = state.current_hotkey
-                    .lock()
-                    .expect("lock is poisoned");
-
-                if let Some(current_hotkey) = *hotkey_guard {
-                    global_hotkey_manager.unregister(current_hotkey)?;
-                }
-
-                if let Some(shortcut) = shortcut {
-                    let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
-
-                    *hotkey_guard = Some(hotkey);
-
-                    global_hotkey_manager.register(hotkey)?;
-                }
-
-                Ok(())
+                assign_global_shortcut(
+                    &global_hotkey_manager,
+                    &state.current_hotkey,
+                    shortcut
+                )
             };
 
             // responder is not clone and send, and we need to consume it
@@ -1349,6 +1345,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::ClearInlineView { plugin_id } => {
             state.client_context.clear_inline_view(&plugin_id);
+
+            Task::none()
+        }
+        AppMsg::SetTheme { theme } => {
+            state.theme = GauntletComplexTheme::new(theme);
+
+            GauntletComplexTheme::update_global(state.theme.clone());
 
             Task::none()
         }
@@ -1928,6 +1931,30 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
     ])
 }
 
+fn assign_global_shortcut(
+    global_hotkey_manager: &GlobalHotKeyManager,
+    current_hotkey: &Arc<StdMutex<Option<HotKey>>>,
+    shortcut: Option<PhysicalShortcut>,
+) -> anyhow::Result<()> {
+
+    let mut hotkey_guard = current_hotkey
+        .lock()
+        .expect("lock is poisoned");
+
+    if let Some(current_hotkey) = *hotkey_guard {
+        global_hotkey_manager.unregister(current_hotkey)?;
+    }
+
+    if let Some(shortcut) = shortcut {
+        let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
+
+        *hotkey_guard = Some(hotkey);
+
+        global_hotkey_manager.register(hotkey)?;
+    }
+
+    Ok(())
+}
 
 impl AppModel {
     fn on_focused(&mut self) -> Task<AppMsg> {
@@ -2314,6 +2341,13 @@ async fn request_loop(
                         plugin_id,
                         entrypoint_id,
                         show
+                    }
+                }
+                UiRequestData::SetTheme { theme } => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::SetTheme {
+                        theme,
                     }
                 }
             }

@@ -24,6 +24,7 @@ once_cell.workspace = true
 
 # other
 global-hotkey = "0.6.3"
+arc-swap = "1.7.1"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 tray-icon = { version = "0.19.2", default-features = false }

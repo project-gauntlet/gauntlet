@@ -1,10 +1,8 @@
-use std::io::ErrorKind;
-use std::path::PathBuf;
-use iced::{application, Color, Padding};
+use arc_swap::{ArcSwap, Guard};
+use gauntlet_common::model::{UiTheme, UiThemeColor, UiThemeMode};
 use iced::application::DefaultStyle;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use gauntlet_common::dirs::Dirs;
+use iced::{application, Color, Padding};
+use std::sync::Arc;
 
 pub mod button;
 pub mod text_input;
@@ -24,56 +22,9 @@ mod loading_bar;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletComplexTheme>;
 
-const CURRENT_SIMPLE_THEME_VERSION: u64 = 5;
-const CURRENT_COMPLEX_THEME_VERSION: u64 = 5;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum GauntletSimpleThemeMode {
-    #[serde(rename = "light")]
-    Light,
-    #[serde(rename = "dark")]
-    Dark
-}
-
-pub type GauntletSimpleThemeColorPalette = [ThemeColor; 4];
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletSimpleThemeWindow {
-    border: GauntletSimpleThemeWindowBorder,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletSimpleThemeWindowBorder {
-    radius: f32,
-    width: f32,
-    color: ThemeColor,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletSimpleThemeContent {
-    border: GauntletSimpleThemeContentBorder,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletSimpleThemeContentBorder {
-    radius: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GauntletSimpleTheme {
-    version: u64,
-    mode: GauntletSimpleThemeMode,
-    // value of tint/tones/shades/whatever you have, from lower to higher
-    background: GauntletSimpleThemeColorPalette,
-    text: GauntletSimpleThemeColorPalette,
-    window: GauntletSimpleThemeWindow,
-    content: GauntletSimpleThemeContent,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct GauntletComplexTheme {
-    version: u64,
-    text: ThemeColor,
+    text: Color,
     root: ThemeRoot,
     popup: ThemeRoot,
     action: ThemeButton,
@@ -160,180 +111,19 @@ impl Default for GauntletComplexTheme {
     }
 }
 
-fn parse_json_theme<T: Serialize + DeserializeOwned>(theme_file: PathBuf, theme_name: &str) -> Option<T> {
-    match std::fs::read_to_string(theme_file) {
-        Ok(value) => {
-            let result = serde_json::from_str::<serde_json::Value>(&value);
-
-            match result {
-                Ok(value) => {
-                    match value.get("version") {
-                        Some(serde_json::Value::Number(number)) => {
-                            match number.as_u64() {
-                                None => {
-                                    tracing::warn!("Version of read {} file is invalid", theme_name);
-                                    None
-                                }
-                                Some(CURRENT_SIMPLE_THEME_VERSION) => {
-                                    match serde_json::from_value::<T>(value) {
-                                        Ok(value) => Some(value),
-                                        Err(err) => {
-                                            tracing::warn!("Unable to parse {} file: {}", theme_name, err);
-                                            None
-                                        }
-                                    }
-                                }
-                                Some(_) => {
-                                    tracing::warn!("Version of read {} file doesn't match expected, theme: {}, expected: {}", theme_name, number, CURRENT_SIMPLE_THEME_VERSION);
-                                    None
-                                }
-                            }
-                        }
-                        _ => {
-                            tracing::warn!("Version of read {} file is not a number", theme_name);
-                            None
-                        }
-                    }
-                }
-                Err(err) => {
-                    tracing::warn!("Unable to parse {} file: {}", theme_name, err);
-                    None
-                }
-            }
-        }
-        Err(err) => {
-            match err.kind() {
-                ErrorKind::NotFound => {
-                    tracing::debug!("No {} file was found", theme_name);
-                    None
-                }
-                err @ _ => {
-                    tracing::warn!("Unable to read {} file: {}", theme_name, err);
-                    None
-                }
-            }
-        }
-    }
-}
-
 // TODO padding on button is padding, not margin, a lot of margins missing?
 
 impl GauntletComplexTheme {
-    pub fn new() -> Self {
-        let dirs = Dirs::new();
-
-        let theme = parse_json_theme(dirs.complex_theme_file(), "complex theme")
-            .unwrap_or_else(|| {
-                let simple_theme = parse_json_theme(dirs.theme_simple_file(), "simple theme")
-                    .unwrap_or_else(|| GauntletComplexTheme::default_simple_theme());
-
-                GauntletComplexTheme::default_theme(simple_theme)
-            });
-
-        init_theme(theme.clone());
-
-        theme
+    pub fn set_global(theme: GauntletComplexTheme) {
+        init_theme(theme);
     }
 
-    // TODO legacy
-    pub fn default_simple_theme() -> GauntletSimpleTheme {
-        GauntletSimpleTheme {
-            version: CURRENT_SIMPLE_THEME_VERSION,
-            mode: GauntletSimpleThemeMode::Dark,
-            background: [
-                ThemeColor::new(0x626974, 0.3),
-                ThemeColor::new(0x48505B, 0.5),
-                ThemeColor::new(0x333a42, 1.0),
-                ThemeColor::new(0x2C323A, 1.0)
-            ],
-            text: [
-                ThemeColor::new(0xDDDFE1, 1.0),
-                ThemeColor::new(0x9AA0A6, 1.0),
-                ThemeColor::new(0x6B7785, 1.0),
-                ThemeColor::new(0x1D242C, 1.0),
-            ],
-            window: GauntletSimpleThemeWindow {
-                border: GauntletSimpleThemeWindowBorder {
-                    radius: 10.0,
-                    width: 1.0,
-                    color: ThemeColor::new(0x48505B, 0.5)
-                },
-            },
-            content: GauntletSimpleThemeContent {
-                border: GauntletSimpleThemeContentBorder {
-                    radius: 4.0,
-                },
-            },
-        }
+    pub fn update_global(theme: GauntletComplexTheme) {
+        set_theme(theme);
     }
 
-    // TODO auto detect macos dark mode
-    // pub fn default_simple_theme() -> GauntletSimpleTheme {
-    //     GauntletSimpleTheme {
-    //         version: CURRENT_SIMPLE_THEME_VERSION,
-    //         mode: GauntletSimpleThemeMode::Dark,
-    //         background: [
-    //             ThemeColor::from_rgba8(100, 100, 100, 0.5),
-    //             ThemeColor::from_rgba8(55, 55, 55, 1.0),
-    //             ThemeColor::from_rgba8(45, 45, 45, 1.0),
-    //             ThemeColor::from_rgba8(36, 36, 36, 1.0),
-    //         ],
-    //         text: [
-    //             ThemeColor::from_rgba8(229,229,229, 1.0),
-    //             ThemeColor::from_rgba8(200, 200, 200, 1.0),
-    //             ThemeColor::from_rgba8(150, 150, 150, 1.0),
-    //             ThemeColor::from_rgba8(50, 50, 50, 1.0),
-    //         ],
-    //         window: GauntletSimpleThemeWindow {
-    //             border: GauntletSimpleThemeWindowBorder {
-    //                 radius:  8.0,
-    //                 width: 1.0,
-    //                 color: ThemeColor::from_rgba8(100, 100, 100, 1.0),
-    //             },
-    //         },
-    //         content: GauntletSimpleThemeContent {
-    //             border: GauntletSimpleThemeContentBorder {
-    //                 radius: 4.0,
-    //             },
-    //         },
-    //     }
-    // }
-
-    // TODO auto detect macos light mode
-    // pub fn default_simple_theme() -> GauntletSimpleTheme {
-    //     GauntletSimpleTheme {
-    //         version: CURRENT_SIMPLE_THEME_VERSION,
-    //         mode: GauntletSimpleThemeMode::Light,
-    //         background: [
-    //             ThemeColor::from_rgba8(0, 0, 0, 0.2),
-    //             ThemeColor::from_rgba8(200, 200, 200, 1.0),
-    //             ThemeColor::from_rgba8(210, 210, 210, 1.0),
-    //             ThemeColor::from_rgba8(234, 234, 234, 1.0),
-    //         ],
-    //         text: [
-    //             ThemeColor::from_rgba8(0, 0, 0, 1.0),
-    //             ThemeColor::from_rgba8(0, 0, 0, 0.847),
-    //             ThemeColor::from_rgba8(0, 0, 0, 0.498),
-    //             ThemeColor::from_rgba8(0, 0, 0, 0.259),
-    //         ],
-    //         window: GauntletSimpleThemeWindow {
-    //             border: GauntletSimpleThemeWindowBorder {
-    //                 radius: 8.0,
-    //                 width: 1.0,
-    //                 color: ThemeColor::from_rgba8(185, 185, 185, 1.0),
-    //             },
-    //         },
-    //         content: GauntletSimpleThemeContent {
-    //             border: GauntletSimpleThemeContentBorder {
-    //                 radius: 4.0,
-    //             },
-    //         },
-    //     }
-    // }
-
-    pub fn default_theme(simple_theme: GauntletSimpleTheme) -> GauntletComplexTheme {
-        let GauntletSimpleTheme {
-            version: _,
+    pub fn new(simple_theme: UiTheme) -> GauntletComplexTheme {
+        let UiTheme {
             mode,
             background,
             text,
@@ -342,10 +132,26 @@ impl GauntletComplexTheme {
         } = simple_theme;
 
         let [background_100, background_200, background_300, background_400] = background;
-        let [text_100, text_200, text_300, _text_400] = text;
+        let [text_100, text_200, text_300, text_400] = text;
+
+        fn to_iced(ui_color: &UiThemeColor) -> Color {
+            Color::from_rgba(ui_color.r, ui_color.g, ui_color.b, ui_color.a)
+        }
+
+        let [background_100, background_200, background_300, background_400] = [
+            to_iced(&background_100),
+            to_iced(&background_200),
+            to_iced(&background_300),
+            to_iced(&background_400)
+        ];
+        let [text_100, text_200, text_300, _text_400] = [
+            to_iced(&text_100),
+            to_iced(&text_200),
+            to_iced(&text_300),
+            to_iced(&text_400)
+        ];
 
         GauntletComplexTheme {
-            version: CURRENT_COMPLEX_THEME_VERSION,
             text: text_100,
             root: ThemeRoot {
                 background_color: background_400,
@@ -354,19 +160,19 @@ impl GauntletComplexTheme {
                 #[cfg(not(target_os = "macos"))]
                 border_width: window.border.width,
                 #[cfg(not(target_os = "macos"))]
-                border_color: window.border.color,
+                border_color: to_iced(&window.border.color),
                 #[cfg(target_os = "macos")]
                 border_radius: 0.0,
                 #[cfg(target_os = "macos")]
                 border_width: 0.0,
                 #[cfg(target_os = "macos")]
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             popup: ThemeRoot {
                 background_color: background_400,
                 border_radius: window.border.radius,
                 border_width: window.border.width,
-                border_color: window.border.color,
+                border_color: to_iced(&window.border.color),
             },
             action_panel: ThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
@@ -377,14 +183,14 @@ impl GauntletComplexTheme {
             },
             action: ThemeButton {
                 padding: padding_all(8.0),
-                background_color: TRANSPARENT,
+                background_color: Color::TRANSPARENT,
                 background_color_focused: background_100,
                 background_color_hovered: background_300,
                 text_color: text_100,
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             action_shortcut: ThemePaddingOnly {
                 padding: padding_all(0.0)
@@ -395,7 +201,7 @@ impl GauntletComplexTheme {
                 background_color: background_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             form_input: ThemePaddingOnly {
                 padding: padding_all(8.0)
@@ -406,22 +212,22 @@ impl GauntletComplexTheme {
             metadata_tag_item_button: ThemeButton {
                 padding: padding_axis(2.0, 8.0),
                 background_color: match mode {
-                    GauntletSimpleThemeMode::Light => background_300,
-                    GauntletSimpleThemeMode::Dark => background_200
+                    UiThemeMode::Light => background_300,
+                    UiThemeMode::Dark => background_200
                 },
                 background_color_focused: match mode {
-                    GauntletSimpleThemeMode::Light => background_200,
-                    GauntletSimpleThemeMode::Dark => background_100
+                    UiThemeMode::Light => background_200,
+                    UiThemeMode::Dark => background_100
                 },
                 background_color_hovered: match mode {
-                    GauntletSimpleThemeMode::Light => background_200,
-                    GauntletSimpleThemeMode::Dark => background_100
+                    UiThemeMode::Light => background_200,
+                    UiThemeMode::Dark => background_100
                 },
                 text_color: text_100,
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             metadata_item_label: ThemePaddingTextColorSize {
                 padding: padding_all(0.0),
@@ -466,7 +272,7 @@ impl GauntletComplexTheme {
                 background_color: background_200,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             empty_view_image: ThemePaddingSize {
                 padding: padding_all(8.0),
@@ -484,7 +290,7 @@ impl GauntletComplexTheme {
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             grid_item_title: ThemePaddingTextColor {
                 padding: padding_axis(4.0, 0.0),
@@ -501,7 +307,7 @@ impl GauntletComplexTheme {
                 background_color: background_200,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             metadata_separator: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
@@ -513,22 +319,22 @@ impl GauntletComplexTheme {
             root_top_panel_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
                 background_color: match mode {
-                    GauntletSimpleThemeMode::Light => background_300,
-                    GauntletSimpleThemeMode::Dark => background_200
+                    UiThemeMode::Light => background_300,
+                    UiThemeMode::Dark => background_200
                 },
                 background_color_focused: match mode {
-                    GauntletSimpleThemeMode::Light => background_200,
-                    GauntletSimpleThemeMode::Dark => background_100
+                    UiThemeMode::Light => background_200,
+                    UiThemeMode::Dark => background_100
                 },
                 background_color_hovered: match mode {
-                    GauntletSimpleThemeMode::Light => background_200,
-                    GauntletSimpleThemeMode::Dark => background_100
+                    UiThemeMode::Light => background_200,
+                    UiThemeMode::Dark => background_100
                 },
                 text_color: text_100,
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             root_bottom_panel: ThemeBottomPanel {
                 padding: padding_axis(6.0, 8.0),
@@ -537,14 +343,14 @@ impl GauntletComplexTheme {
             },
             root_bottom_panel_action_toggle_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
-                background_color: TRANSPARENT,
+                background_color: Color::TRANSPARENT,
                 background_color_focused: background_200,
                 background_color_hovered: background_200,
                 text_color: text_100,
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             root_bottom_panel_action_toggle_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
@@ -556,14 +362,14 @@ impl GauntletComplexTheme {
             },
             list_item: ThemeButton {
                 padding: padding_all(5.0),
-                background_color: TRANSPARENT,
+                background_color: Color::TRANSPARENT,
                 background_color_focused: background_200,
                 background_color_hovered: background_300,
                 text_color: text_100,
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             list_item_icon: ThemePaddingOnly {
                 padding: padding_axis(0.0, 4.0)
@@ -620,20 +426,20 @@ impl GauntletComplexTheme {
             },
             main_list_item: ThemeButton {
                 padding: padding_all(5.0),
-                background_color: TRANSPARENT,
+                background_color: Color::TRANSPARENT,
                 background_color_focused: match mode {
-                    GauntletSimpleThemeMode::Light => background_300,
-                    GauntletSimpleThemeMode::Dark => background_200
+                    UiThemeMode::Light => background_300,
+                    UiThemeMode::Dark => background_200
                 },
                 background_color_hovered: match mode {
-                    GauntletSimpleThemeMode::Light => background_200,
-                    GauntletSimpleThemeMode::Dark => background_300
+                    UiThemeMode::Light => background_200,
+                    UiThemeMode::Dark => background_300
                 },
                 text_color: text_100,
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             main_list_item_text: ThemePaddingOnly {
                 padding: padding_all(4.0),
@@ -689,11 +495,11 @@ impl GauntletComplexTheme {
                 text_color_hovered: text_100,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             form_input_checkbox: ThemeCheckbox {
                 background_color_checked: text_200,
-                background_color_unchecked: TRANSPARENT,
+                background_color_unchecked: Color::TRANSPARENT,
                 background_color_checked_hovered: text_100,
                 background_color_unchecked_hovered: background_200,
                 border_radius: content.border.radius,
@@ -720,7 +526,7 @@ impl GauntletComplexTheme {
                 border_color: background_200,
             },
             form_input_text_field: ThemeTextField {
-                background_color: TRANSPARENT,
+                background_color: Color::TRANSPARENT,
                 background_color_hovered: background_200,
                 text_color: text_100,
                 text_color_placeholder: text_300,
@@ -737,7 +543,7 @@ impl GauntletComplexTheme {
                 color: background_200,
                 border_radius: content.border.radius,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             tooltip: ThemeTooltip {
                 padding: 8.0,
@@ -757,10 +563,10 @@ impl GauntletComplexTheme {
                 icon_color: text_200,
             },
             hud: ThemeRoot {
-                background_color: ThemeColor::new(0x1E1E1E, 0.7),
+                background_color: Color::from_rgba8(30,30,30, 0.7),
                 border_radius: 30.0,
                 border_width: 0.0,
-                border_color: TRANSPARENT,
+                border_color: Color::TRANSPARENT,
             },
             hud_content: ThemePaddingOnly {
                 padding: padding_axis(8.0, 16.0),
@@ -770,19 +576,23 @@ impl GauntletComplexTheme {
 }
 
 fn init_theme(theme: GauntletComplexTheme) {
-    THEME.set(theme).expect("already set");
+    THEME.set(ArcSwap::new(Arc::new(theme))).expect("already set");
 }
 
-fn get_theme() -> &'static GauntletComplexTheme {
-    &THEME.get().expect("theme global var was not set")
+fn set_theme(theme: GauntletComplexTheme) {
+    THEME.get().expect("theme global var was not set").store(Arc::new(theme))
 }
 
-static THEME: once_cell::sync::OnceCell<GauntletComplexTheme> = once_cell::sync::OnceCell::new();
+fn get_theme() -> Guard<Arc<GauntletComplexTheme>> {
+    THEME
+        .get()
+        .expect("theme global var was not set")
+        .load()
+}
 
-const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
+static THEME: once_cell::sync::OnceCell<ArcSwap<GauntletComplexTheme>> = once_cell::sync::OnceCell::new();
 
-// keep colors more or less in sync with settings ui
-const TRANSPARENT: ThemeColor = ThemeColor::new(0x000000, 0.0);
+const NOT_INTENDED_TO_BE_USED: Color = Color::from_rgba(175.0 / 255.0, 91.0 / 255.0, 255.0 / 255.0, 1.0);
 
 const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ThemePadding {
     ThemePadding::Each {
@@ -806,240 +616,239 @@ const fn padding_axis(vertical: f32, horizontal: f32) -> ThemePadding {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeButton {
     padding: ThemePadding,
-    background_color: ThemeColor,
-    background_color_focused: ThemeColor,
-    background_color_hovered: ThemeColor,
-    text_color: ThemeColor,
-    text_color_hovered: ThemeColor,
+    background_color: Color,
+    background_color_focused: Color,
+    background_color_hovered: Color,
+    text_color: Color,
+    text_color_hovered: Color,
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeCheckbox {
-    background_color_checked: ThemeColor,
-    background_color_unchecked: ThemeColor,
+    background_color_checked: Color,
+    background_color_unchecked: Color,
 
-    background_color_checked_hovered: ThemeColor,
-    background_color_unchecked_hovered: ThemeColor,
+    background_color_checked_hovered: Color,
+    background_color_unchecked_hovered: Color,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 
-    icon_color: ThemeColor
+    icon_color: Color
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeSelect {
-    background_color: ThemeColor,
-    background_color_hovered: ThemeColor,
+    background_color: Color,
+    background_color_hovered: Color,
 
-    text_color: ThemeColor,
-    text_color_hovered: ThemeColor,
+    text_color: Color,
+    text_color_hovered: Color,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeSelectMenu {
-    background_color: ThemeColor,
-    background_color_selected: ThemeColor,
+    background_color: Color,
+    background_color_selected: Color,
 
-    text_color: ThemeColor,
-    text_color_selected: ThemeColor,
+    text_color: Color,
+    text_color_selected: Color,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeTextField {
-    background_color: ThemeColor,
-    background_color_hovered: ThemeColor,
+    background_color: Color,
+    background_color_hovered: Color,
 
-    text_color: ThemeColor,
-    text_color_placeholder: ThemeColor,
+    text_color: Color,
+    text_color_placeholder: Color,
 
-    selection_color: ThemeColor,
+    selection_color: Color,
 
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
-    border_color_hovered: ThemeColor,
+    border_color: Color,
+    border_color_hovered: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeSeparator {
-    color: ThemeColor,
+    color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeScrollbar {
-    color: ThemeColor,
+    color: Color,
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeRoot {
-    background_color: ThemeColor,
+    background_color: Color,
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeActionShortcutModifier {
     padding: ThemePadding,
     spacing: f32,
-    background_color: ThemeColor,
+    background_color: Color,
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeLoadingBar {
-    loading_bar_color: ThemeColor,
-    background_color: ThemeColor,
+    loading_bar_color: Color,
+    background_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeLink {
-    text_color: ThemeColor,
-    text_color_hovered: ThemeColor,
+    text_color: Color,
+    text_color_hovered: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeCode {
     padding: ThemePadding,
-    background_color: ThemeColor,
+    background_color: Color,
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeInline {
     padding: ThemePadding,
-    background_color: ThemeColor,
+    background_color: Color,
     border_radius: f32,
     border_width: f32,
-    border_color: ThemeColor,
+    border_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeDatePicker {
-    background_color: ThemeColor,
+    background_color: Color,
 
-    text_color: ThemeColor,
-    text_color_selected: ThemeColor,
-    text_color_hovered: ThemeColor,
+    text_color: Color,
+    text_color_selected: Color,
+    text_color_hovered: Color,
 
-    text_attenuated_color: ThemeColor,
+    text_attenuated_color: Color,
 
-    day_background_color: ThemeColor,
-    day_background_color_selected: ThemeColor,
-    day_background_color_hovered: ThemeColor
+    day_background_color: Color,
+    day_background_color_selected: Color,
+    day_background_color_hovered: Color
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingTextColor {
     padding: ThemePadding,
-    text_color: ThemeColor,
+    text_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingTextColorSize {
     padding: ThemePadding,
-    text_color: ThemeColor,
+    text_color: Color,
     text_size: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingBackgroundColor {
     padding: ThemePadding,
-    background_color: ThemeColor,
+    background_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeBottomPanel {
     padding: ThemePadding,
-    background_color: ThemeColor,
+    background_color: Color,
     spacing: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeTooltip {
     padding: f32, // TODO for some reason padding on tooltip is a single number in iced-rs
-    background_color: ThemeColor,
+    background_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingOnly {
     padding: ThemePadding,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeImage {
     padding: ThemePadding,
 
     border_radius: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeTextColor {
-    text_color: ThemeColor,
+    text_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingSize {
     padding: ThemePadding,
     size: ExternalThemeSize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ExternalThemeGrid {
     padding: ThemePadding,
     spacing: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemeIconAccessory {
     padding: ThemePadding,
-    icon_color: ThemeColor,
+    icon_color: Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingTextColorSpacing {
     padding: ThemePadding,
-    text_color: ThemeColor,
+    text_color: Color,
     spacing: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ThemePaddingSpacing {
     padding: ThemePadding,
     spacing: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ExternalThemeSize {
     width: f32,
     height: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone)]
 pub enum ThemePadding {
     Each {
         top: f32,
@@ -1087,37 +896,6 @@ impl ThemePadding {
     }
 }
 
-
-#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
-pub struct ThemeColor {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: f32,
-}
-
-impl ThemeColor {
-    #[allow(unused_parens)]
-    const fn new(hex: u32, a: f32) -> Self {
-        let r = ((hex & 0xff0000) >> 16) as u8;
-        let g = ((hex & 0xff00) >> 8) as u8;
-        let b = (hex & 0xff) as u8;
-
-        Self { r, g, b, a }
-    }
-
-    fn from_rgba8(r: u8, g: u8, b: u8, a: f32) -> Self {
-        let color = Color::from_rgba8(r, g, b, a);
-        let [r, g, b, _] = color.into_rgba8();
-
-        Self { r, g, b, a }
-    }
-
-    pub fn to_iced(&self) -> Color {
-        Color::from_rgba8(self.r, self.g, self.b, self.a)
-    }
-}
-
 pub trait ThemableWidget<'a, Message> {
     type Kind;
 
@@ -1130,7 +908,7 @@ impl DefaultStyle for GauntletComplexTheme {
 
         application::Appearance {
             background_color: Color::TRANSPARENT,
-            text_color: theme.text.to_iced(),
+            text_color: theme.text,
         }
     }
 }
@@ -1142,10 +920,8 @@ impl iced_layershell::DefaultStyle for GauntletComplexTheme {
 
         iced_layershell::Appearance {
             background_color: Color::TRANSPARENT,
-            text_color: theme.text.to_iced(),
+            text_color: theme.text,
         }
     }
 }
-
-
 

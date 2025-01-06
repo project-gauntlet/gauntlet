@@ -6,8 +6,8 @@ use tokio::net::TcpStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin, SettingsTheme};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcGetThemeRequest, RpcGetThemeResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcSetThemeRequest, RpcSetThemeResponse, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -74,6 +74,15 @@ pub trait BackendServer {
     async fn get_global_shortcut(
         &self,
     ) -> anyhow::Result<(Option<PhysicalShortcut>, Option<String>)>;
+
+    async fn set_theme(
+        &self,
+        theme: SettingsTheme
+    ) -> anyhow::Result<()>;
+
+    async fn get_theme(
+        &self,
+    ) -> anyhow::Result<SettingsTheme>;
 
     async fn set_preference_value(
         &self,
@@ -254,6 +263,45 @@ impl RpcBackend for RpcBackendServerImpl {
                 modifier_meta: shortcut.modifier_meta,
             }),
             error,
+        }))
+    }
+
+    async fn set_theme(&self, request: Request<RpcSetThemeRequest>) -> Result<Response<RpcSetThemeResponse>, Status> {
+        let theme = request.into_inner().theme;
+
+        let theme = match theme.as_str() {
+            "AutoDetect" => SettingsTheme::AutoDetect,
+            "ThemeFile" => SettingsTheme::ThemeFile,
+            "Config" => SettingsTheme::Config,
+            "MacOSLight" => SettingsTheme::MacOSLight,
+            "MacOSDark" => SettingsTheme::MacOSDark,
+            "Legacy" => SettingsTheme::Legacy,
+            _ => unreachable!()
+        };
+
+        self.server.set_theme(theme)
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        Ok(Response::new(RpcSetThemeResponse::default()))
+    }
+
+    async fn get_theme(&self, _request: Request<RpcGetThemeRequest>) -> Result<Response<RpcGetThemeResponse>, Status> {
+        let theme = self.server.get_theme()
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        let theme = match theme {
+            SettingsTheme::AutoDetect => "AutoDetect",
+            SettingsTheme::ThemeFile => "ThemeFile",
+            SettingsTheme::Config => "Config",
+            SettingsTheme::MacOSLight => "MacOSLight",
+            SettingsTheme::MacOSDark => "MacOSDark",
+            SettingsTheme::Legacy => "Legacy",
+        };
+
+        Ok(Response::new(RpcGetThemeResponse {
+            theme: theme.to_string(),
         }))
     }
 

@@ -29,24 +29,24 @@ impl pick_list::Catalog for GauntletComplexTheme {
         let theme = &theme.form_input_select;
 
         let background_color = match status {
-            Status::Active | Status::Opened => theme.background_color.to_iced(),
-            Status::Hovered => theme.background_color_hovered.to_iced(),
+            Status::Active | Status::Opened => theme.background_color,
+            Status::Hovered => theme.background_color_hovered,
         };
 
         let text_color = match status {
-            Status::Active | Status::Opened => theme.text_color.to_iced(),
-            Status::Hovered => theme.text_color_hovered.to_iced(),
+            Status::Active | Status::Opened => theme.text_color,
+            Status::Hovered => theme.text_color_hovered,
         };
 
         pick_list::Style {
             text_color,
             background: background_color.into(),
-            placeholder_color: NOT_INTENDED_TO_BE_USED.to_iced(),
+            placeholder_color: NOT_INTENDED_TO_BE_USED,
             handle_color: text_color,
             border: Border {
                 radius: theme.border_radius.into(),
                 width: theme.border_width,
-                color: theme.border_color.to_iced().into(),
+                color: theme.border_color.into(),
             },
         }
     }
@@ -63,15 +63,15 @@ impl overlay::menu::Catalog for GauntletComplexTheme {
         let theme = &self.form_input_select_menu; // TODO consider using root style
 
         overlay::menu::Style {
-            text_color: theme.text_color.to_iced(),
-            background: theme.background_color.to_iced().into(),
+            text_color: theme.text_color,
+            background: theme.background_color.into(),
             border: Border {
                 radius: theme.border_radius.into(),
                 width: theme.border_width,
-                color: theme.border_color.to_iced().into(),
+                color: theme.border_color.into(),
             },
-            selected_text_color: theme.text_color_selected.to_iced(),
-            selected_background: theme.background_color_selected.to_iced().into(),
+            selected_text_color: theme.text_color_selected,
+            selected_background: theme.background_color_selected.into(),
         }
     }
 }

@@ -94,11 +94,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
                         radius: root_theme.border_radius.into(),
                         width: root_theme.border_width,
-                        color: root_theme.border_color.to_iced(),
+                        color: root_theme.border_color,
                     },
                     shadow: Shadow {
                         color: Color::from_rgba8(0, 0, 0, 0.50),
@@ -115,11 +115,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
                         radius: theme.border_radius.into(),
                         width: theme.border_width,
-                        color: border_color.to_iced().into(),
+                        color: border_color.clone().into(),
                     },
                     shadow: Default::default(),
                 }
@@ -131,11 +131,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
                         radius: theme.border_radius.into(),
                         width: theme.border_width,
-                        color: border_color.to_iced().into(),
+                        color: border_color.clone().into(),
                     },
                     shadow: Default::default(),
                 }
@@ -146,11 +146,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
-                        radius: theme.border_radius.into(),
+                        radius: theme.border_radius.clone().into(),
                         width: theme.border_width,
-                        color: theme.border_color.to_iced(),
+                        color: theme.border_color,
                     },
                     shadow: Default::default(),
                 }
@@ -161,11 +161,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
-                        radius: theme.border_radius.into(),
+                        radius: theme.border_radius.clone().into(),
                         width: theme.border_width,
-                        color: theme.border_color.to_iced(),
+                        color: theme.border_color,
                     },
                     shadow: Default::default(),
                 }
@@ -177,11 +177,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
-                        radius: theme.border_radius.into(),
+                        radius: theme.border_radius.clone().into(),
                         width: theme.border_width,
-                        color: theme.border_color.to_iced(),
+                        color: theme.border_color,
                     },
                     shadow: Default::default(),
                 }
@@ -205,11 +205,11 @@ impl container::Catalog for GauntletComplexTheme {
                 let panel_theme = &self.root_bottom_panel;
 
                 Style {
-                    background: Some(panel_theme.background_color.to_iced().into()),
+                    background: Some(panel_theme.background_color.into()),
                     border: Border {
                         radius: gauntlet_common_ui::radius(0.0, 0.0, root_theme.border_radius, root_theme.border_radius),
                         width: root_theme.border_width,
-                        color: root_theme.border_color.to_iced(),
+                        color: root_theme.border_color,
                     },
                     ..Style::default()
                 }
@@ -218,11 +218,11 @@ impl container::Catalog for GauntletComplexTheme {
                 let theme = &self.inline_inner;
 
                 Style {
-                    background: Some(theme.background_color.to_iced().into()),
+                    background: Some(theme.background_color.into()),
                     border: Border {
                         radius: theme.border_radius.into(),
                         width: theme.border_width,
-                        color: theme.border_color.to_iced(),
+                        color: theme.border_color,
                     },
                     ..Style::default()
                 }
@@ -233,11 +233,11 @@ impl container::Catalog for GauntletComplexTheme {
 
                 Style {
                     text_color: None,
-                    background: Some(background_color.to_iced().into()),
+                    background: Some(background_color.clone().into()),
                     border: Border {
                         radius: theme.border_radius.into(),
                         width: theme.border_width,
-                        color: theme.border_color.to_iced(),
+                        color: theme.border_color,
                     },
                     shadow: Default::default(),
                 }

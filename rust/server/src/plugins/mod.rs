@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use include_dir::{include_dir, Dir};
 use tokio::runtime::Handle;
 
-use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiRequestData, UiResponseData, UiWidgetId};
+use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiRequestData, UiResponseData, UiSetupData, UiWidgetId};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::{settings_env_data_to_string, SettingsEnvData};
 use gauntlet_utils::channel::RequestSender;
@@ -21,6 +21,7 @@ use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::{start_plugin_runtime, AllPluginCommandData, OnePluginCommandData, PluginCommand, PluginPermissions, PluginPermissionsClipboard, PluginRuntimeData};
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
+use crate::plugins::settings::Settings;
 use crate::search::SearchIndex;
 use crate::SETTINGS_ENV;
 
@@ -35,6 +36,8 @@ pub(super) mod frecency;
 mod clipboard;
 mod runtime;
 mod image_gatherer;
+mod settings;
+mod theme;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [
     ("gauntlet", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist")),
@@ -51,6 +54,7 @@ pub struct ApplicationManager {
     frontend_api: FrontendApi,
     dirs: Dirs,
     clipboard: Clipboard,
+    settings: Settings,
 }
 
 impl ApplicationManager {
@@ -64,10 +68,11 @@ impl ApplicationManager {
         let run_status_holder = RunStatusHolder::new();
         let search_index = SearchIndex::create_index(frontend_api.clone())?;
         let clipboard = Clipboard::new()?;
+        let settings = Settings::new(dirs.clone(), db_repository.clone(), frontend_api.clone())?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
-        let manager = Self {
+        Ok(Self {
             config_reader,
             search_index,
             command_broadcaster,
@@ -77,37 +82,25 @@ impl ApplicationManager {
             icon_cache,
             frontend_api,
             clipboard,
+            settings,
             dirs
-        };
+        })
+    }
 
-        match manager.get_global_shortcut().await? {
-            None => {
-                let shortcut = if cfg!(target_os = "windows") {
-                    PhysicalShortcut {
-                        physical_key: PhysicalKey::Space,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: true,
-                        modifier_meta: false,
-                    }
-                } else {
-                    PhysicalShortcut {
-                        physical_key: PhysicalKey::Space,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: true,
-                    }
-                };
+    pub async fn setup_data(&self) -> anyhow::Result<UiSetupData> {
+        let theme = self.settings.effective_theme().await?;
+        let global_shortcut = self.settings.effective_global_shortcut().await?;
 
-                manager.set_global_shortcut(Some(shortcut)).await?
-            }
-            Some((shortcut, _)) => {
-                manager.set_global_shortcut(shortcut).await?
-            }
-        };
+        Ok(UiSetupData {
+            theme,
+            global_shortcut
+        })
+    }
 
-        Ok(manager)
+    pub async fn setup_response(&self, global_shortcut_error: Option<String>) -> anyhow::Result<()> {
+        self.settings.set_global_shortcut_error(global_shortcut_error).await?;
+
+        Ok(())
     }
 
     pub fn clear_all_icon_cache_dir(&self) -> anyhow::Result<()> {
@@ -276,18 +269,19 @@ impl ApplicationManager {
     }
 
     pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
-        let err = self.frontend_api.set_global_shortcut(shortcut.clone()).await;
-
-        let db_err = err.as_ref().map_err(|err| format!("{:#}", err)).err();
-
-        self.db_repository.set_global_shortcut(shortcut, db_err)
-            .await?;
-
-        err
+        self.settings.set_global_shortcut(shortcut).await
     }
 
     pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
-        self.db_repository.get_global_shortcut().await
+        self.settings.global_shortcut().await
+    }
+
+    pub async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()> {
+        self.settings.set_theme_setting(theme).await
+    }
+
+    pub async fn get_theme(&self) -> anyhow::Result<SettingsTheme> {
+        self.settings.theme_setting().await
     }
 
     pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {

@@ -23,8 +23,8 @@ mod table;
 pub enum ManagementAppPluginMsgIn {
     PluginTableMsg(PluginTableMsgIn),
     PluginPreferenceMsg(PluginPreferencesMsg),
-    RequestPluginReload,
-    PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
+    FetchPlugins,
+    PluginsFetched(HashMap<PluginId, SettingsPlugin>),
     RemovePlugin {
         plugin_id: PluginId
     },
@@ -131,7 +131,7 @@ impl ManagementAppPluginsState {
                                 )
                             }
                             PluginTableMsgOut::SelectItem(selected_item) => {
-                                Task::perform(async move { selected_item }, ManagementAppPluginMsgOut::SelectedItem)
+                                Task::done(ManagementAppPluginMsgOut::SelectedItem(selected_item))
                             }
                             PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
                                 let plugins = {
@@ -142,7 +142,7 @@ impl ManagementAppPluginsState {
                                     plugin_data.plugins.clone()
                                 };
 
-                                self.apply_plugin_reload(plugins);
+                                self.apply_plugin_fetch(plugins);
 
                                 Task::none()
                             }
@@ -170,7 +170,7 @@ impl ManagementAppPluginsState {
                     }
                 }
             }
-            ManagementAppPluginMsgIn::RequestPluginReload => {
+            ManagementAppPluginMsgIn::FetchPlugins => {
                 let mut backend_api = backend_api.clone();
 
                 Task::perform(
@@ -183,8 +183,8 @@ impl ManagementAppPluginsState {
                     |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
                 )
             }
-            ManagementAppPluginMsgIn::PluginsReloaded(plugins) => {
-                self.apply_plugin_reload(plugins);
+            ManagementAppPluginMsgIn::PluginsFetched(plugins) => {
+                self.apply_plugin_fetch(plugins);
 
                 Task::none()
             }
@@ -220,7 +220,7 @@ impl ManagementAppPluginsState {
         }
     }
 
-    fn apply_plugin_reload(&mut self, plugins: HashMap<PluginId, SettingsPlugin>) {
+    fn apply_plugin_fetch(&mut self, plugins: HashMap<PluginId, SettingsPlugin>) {
         self.preference_user_data = plugins.iter()
             .map(|(plugin_id, plugin)| {
                 let mut result = vec![];

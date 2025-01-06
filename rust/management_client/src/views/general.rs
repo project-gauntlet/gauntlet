@@ -1,18 +1,19 @@
 use crate::components::shortcut_selector::ShortcutSelector;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
-use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::{PhysicalShortcut, SettingsTheme};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 use iced::alignment::Horizontal;
 use iced::widget::text::Shaping;
 use iced::widget::tooltip::Position;
-use iced::widget::{column, container, row, text, tooltip, value, Space};
+use iced::widget::{column, container, pick_list, row, text, tooltip, value, Space};
 use iced::{alignment, Alignment, Length, Padding, Task};
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
 use crate::theme::container::ContainerStyle;
 
 pub struct ManagementAppGeneralState {
     backend_api: Option<BackendApi>,
+    theme: SettingsTheme,
     current_shortcut: Option<PhysicalShortcut>,
     current_shortcut_error: Option<String>,
     currently_capturing: bool
@@ -22,9 +23,11 @@ pub struct ManagementAppGeneralState {
 pub enum ManagementAppGeneralMsgIn {
     ShortcutCaptured(Option<PhysicalShortcut>),
     CapturingChanged(bool),
-    RefreshShortcut {
+    ThemeChanged(SettingsTheme),
+    InitSetting {
+        theme: SettingsTheme,
         shortcut: Option<PhysicalShortcut>,
-        error: Option<String>
+        shortcut_error: Option<String>
     },
     Noop
 }
@@ -39,6 +42,7 @@ impl ManagementAppGeneralState {
     pub fn new(backend_api: Option<BackendApi>) -> Self {
         Self {
             backend_api,
+            theme: SettingsTheme::AutoDetect,
             current_shortcut: None,
             current_shortcut_error: None,
             currently_capturing: false,
@@ -69,36 +73,77 @@ impl ManagementAppGeneralState {
             ManagementAppGeneralMsgIn::Noop => {
                 Task::none()
             }
-            ManagementAppGeneralMsgIn::RefreshShortcut { shortcut, error } => {
+            ManagementAppGeneralMsgIn::InitSetting { theme, shortcut, shortcut_error } => {
+                self.theme = theme;
                 self.current_shortcut = shortcut;
-                self.current_shortcut_error = error;
+                self.current_shortcut_error = shortcut_error;
 
-                Task::perform(async move {}, |_| ManagementAppGeneralMsgOut::Noop)
+                Task::done(ManagementAppGeneralMsgOut::Noop)
             }
             ManagementAppGeneralMsgIn::CapturingChanged(capturing) => {
                 self.currently_capturing = capturing;
 
                 Task::none()
             }
+            ManagementAppGeneralMsgIn::ThemeChanged(theme) => {
+                self.theme = theme.clone();
+
+                let mut backend_api = backend_api.clone();
+
+                Task::perform(async move {
+                    backend_api.set_theme(theme)
+                        .await?;
+
+                    Ok(())
+                }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
+
+            }
         }
     }
 
     pub fn view(&self) -> Element<ManagementAppGeneralMsgIn> {
 
-        let shortcut_selector: Element<_> = ShortcutSelector::new(
+        let global_shortcut_selector: Element<_> = ShortcutSelector::new(
             &self.current_shortcut,
             move |value| { ManagementAppGeneralMsgIn::ShortcutCaptured(value) },
             move |value| { ManagementAppGeneralMsgIn::CapturingChanged(value) },
         ).into();
 
-        let field: Element<_> = container(shortcut_selector)
+        let global_shortcut_field: Element<_> = container(global_shortcut_selector)
             .width(Length::Fill)
             .height(Length::Fixed(35.0))
             .into();
 
-        let field = self.view_field("Global Shortcut", field.into());
+        let global_shortcut_field = self.view_field(
+            "Global Shortcut",
+            global_shortcut_field,
+            Some(self.shortcut_capture_after())
+        );
 
-        let content: Element<_> = column(vec![field])
+        let theme_items = [
+            SettingsTheme::AutoDetect,
+            SettingsTheme::MacOSLight,
+            SettingsTheme::MacOSDark,
+            SettingsTheme::Legacy,
+        ];
+
+        let theme_field: Element<_> = pick_list(
+            theme_items,
+            Some(self.theme.clone()),
+            move |item| ManagementAppGeneralMsgIn::ThemeChanged(item),
+        ).into();
+
+        let theme_field: Element<_> = container(theme_field)
+            .width(Length::Fill)
+            .into();
+
+        let theme_field = self.view_field(
+            "Theme",
+            theme_field,
+            None
+        );
+
+        let content: Element<_> = column(vec![global_shortcut_field, theme_field])
             .into();
 
         let content: Element<_> = container(content)
@@ -112,7 +157,7 @@ impl ManagementAppGeneralState {
         content
     }
 
-    fn view_field<'a>(&'a self, label: &'a str, input: Element<'a, ManagementAppGeneralMsgIn>) -> Element<'a, ManagementAppGeneralMsgIn> {
+    fn view_field<'a>(&'a self, label: &'a str, input: Element<'a, ManagementAppGeneralMsgIn>, after: Option<Element<'a, ManagementAppGeneralMsgIn>>) -> Element<'a, ManagementAppGeneralMsgIn> {
         let label: Element<_> = text(label)
             .shaping(Shaping::Advanced)
             .align_x(Horizontal::Right)
@@ -129,7 +174,27 @@ impl ManagementAppGeneralState {
             .padding(4)
             .into();
 
-        let after = if self.currently_capturing {
+        let after = after.unwrap_or_else(|| {
+            Space::with_width(Length::FillPortion(3))
+                .into()
+        });
+
+        let content = vec![
+            label,
+            input_field,
+            after,
+        ];
+
+        let row: Element<_> = row(content)
+            .align_y(Alignment::Center)
+            .padding(12)
+            .into();
+
+        row
+    }
+
+    fn shortcut_capture_after(&self) -> Element<ManagementAppGeneralMsgIn> {
+        if self.currently_capturing {
             let hint1: Element<_> = text("Backspace - Unset Shortcut")
                 .width(Length::Fill)
                 .class(TextStyle::Subtitle)
@@ -176,20 +241,7 @@ impl ManagementAppGeneralState {
                 Space::with_width(Length::FillPortion(3))
                     .into()
             }
-        };
-
-        let content = vec![
-            label,
-            input_field,
-            after,
-        ];
-
-        let row: Element<_> = row(content)
-            .align_y(Alignment::Center)
-            .padding(12)
-            .into();
-
-        row
+        }
     }
 }
 

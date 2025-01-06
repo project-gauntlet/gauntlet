@@ -4029,6 +4029,7 @@ name = "gauntlet-client"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "convert_case",
  "gauntlet-common",
  "gauntlet-common-ui",
@@ -4176,6 +4177,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "bytes",
+ "dark-light",
  "futures",
  "gauntlet-client",
  "gauntlet-common",

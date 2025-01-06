@@ -27,18 +27,18 @@ fn active(theme: &GauntletComplexTheme, is_checked: bool) -> Style {
     let theme = &theme.form_input_checkbox;
 
     let background = if is_checked {
-        theme.background_color_checked.to_iced().into()
+        theme.background_color_checked.into()
     } else {
-        theme.background_color_unchecked.to_iced().into()
+        theme.background_color_unchecked.into()
     };
 
     Style {
         background,
-        icon_color: theme.icon_color.to_iced(),
+        icon_color: theme.icon_color,
         border: Border {
             radius: theme.border_radius.into(),
             width: theme.border_width,
-            color: theme.border_color.to_iced().into(),
+            color: theme.border_color.into(),
         },
         text_color: None,
     }
@@ -48,18 +48,18 @@ fn hovered(theme: &GauntletComplexTheme, is_checked: bool) -> Style {
     let theme = &theme.form_input_checkbox;
 
     let background = if is_checked {
-        theme.background_color_checked_hovered.to_iced().into()
+        theme.background_color_checked_hovered.into()
     } else {
-        theme.background_color_unchecked_hovered.to_iced().into()
+        theme.background_color_unchecked_hovered.into()
     };
 
     Style {
         background,
-        icon_color: theme.icon_color.to_iced(),
+        icon_color: theme.icon_color,
         border: Border {
             radius: theme.border_radius.into(),
             width: theme.border_width,
-            color: theme.border_color.to_iced().into(),
+            color: theme.border_color.into(),
         },
         text_color: None,
     }
@@ -67,12 +67,12 @@ fn hovered(theme: &GauntletComplexTheme, is_checked: bool) -> Style {
 
 fn disabled(_is_checked: bool) -> Style {
     Style {
-        background: NOT_INTENDED_TO_BE_USED.to_iced().into(),
-        icon_color: NOT_INTENDED_TO_BE_USED.to_iced(),
+        background: NOT_INTENDED_TO_BE_USED.into(),
+        icon_color: NOT_INTENDED_TO_BE_USED,
         border: Border {
             radius: 2.0.into(),
             width: 1.0,
-            color: NOT_INTENDED_TO_BE_USED.to_iced(),
+            color: NOT_INTENDED_TO_BE_USED,
         },
         text_color: None,
     }

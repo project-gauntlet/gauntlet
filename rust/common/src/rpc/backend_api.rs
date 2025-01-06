@@ -5,8 +5,8 @@ use tonic::transport::Channel;
 
 use gauntlet_utils::channel::{RequestError, RequestSender};
 
-use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, UiPropertyValue, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
+use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiSetupData, UiWidgetId};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetThemeRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcSetThemeRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -39,6 +39,28 @@ impl BackendForFrontendApi {
         Self {
             backend_sender
         }
+    }
+
+    pub async fn setup_data(&mut self) -> Result<UiSetupData, BackendForFrontendApiError> {
+        let request = BackendRequestData::Setup;
+
+        let BackendResponseData::SetupData { data } = self.backend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
+
+        Ok(data)
+    }
+
+    pub async fn setup_response(&mut self, global_shortcut_error: Option<String>) -> Result<(), BackendForFrontendApiError> {
+        let request = BackendRequestData::SetupResponse {
+            global_shortcut_error
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
+
+        Ok(())
     }
 
     pub async fn search(&mut self, text: String, render_inline_view: bool) -> Result<Vec<SearchResult>, BackendForFrontendApiError> {
@@ -390,6 +412,45 @@ impl BackendApi {
                 }),
             response.error
         ))
+    }
+
+    pub async fn set_theme(&mut self, theme: SettingsTheme) -> Result<(), BackendApiError> {
+        let theme = match theme {
+            SettingsTheme::AutoDetect => "AutoDetect",
+            SettingsTheme::ThemeFile => "ThemeFile",
+            SettingsTheme::Config => "Config",
+            SettingsTheme::MacOSLight => "MacOSLight",
+            SettingsTheme::MacOSDark => "MacOSDark",
+            SettingsTheme::Legacy => "Legacy",
+        };
+
+        let request = RpcSetThemeRequest {
+            theme: theme.to_string()
+        };
+
+        self.client.set_theme(Request::new(request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_theme(&mut self) -> Result<SettingsTheme, BackendApiError> {
+        let response = self.client.get_theme(Request::new(RpcGetThemeRequest::default()))
+            .await?;
+
+        let theme = response.into_inner().theme;
+
+        let theme = match theme.as_str() {
+            "AutoDetect" => SettingsTheme::AutoDetect,
+            "ThemeFile" => SettingsTheme::ThemeFile,
+            "Config" => SettingsTheme::Config,
+            "MacOSLight" => SettingsTheme::MacOSLight,
+            "MacOSDark" => SettingsTheme::MacOSDark,
+            "Legacy" => SettingsTheme::Legacy,
+            _ => unreachable!()
+        };
+
+        Ok(theme)
     }
 
     pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, id: String, user_data: PluginPreferenceUserData) -> Result<(), BackendApiError> {

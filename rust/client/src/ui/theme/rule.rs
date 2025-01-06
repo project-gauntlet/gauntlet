@@ -20,7 +20,7 @@ impl rule::Catalog for GauntletComplexTheme {
         match class {
             RuleStyle::Default => {
                 Style {
-                    color: self.separator.color.to_iced(),
+                    color: self.separator.color,
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Full,
@@ -28,7 +28,7 @@ impl rule::Catalog for GauntletComplexTheme {
             }
             RuleStyle::ActionPanel => {
                 Style {
-                    color: self.separator.color.to_iced(),
+                    color: self.separator.color,
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Percent(96.0),
@@ -36,7 +36,7 @@ impl rule::Catalog for GauntletComplexTheme {
             }
             RuleStyle::PrimaryActionSeparator => {
                 Style {
-                    color: self.separator.color.to_iced(),
+                    color: self.separator.color,
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Percent(70.0),

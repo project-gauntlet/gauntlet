@@ -8,7 +8,7 @@ use iced_aw::Spinner;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT, BOOTSTRAP_FONT_BYTES};
 use itertools::Itertools;
 
-use gauntlet_common::model::{DownloadStatus, PluginId};
+use gauntlet_common::model::{DownloadStatus, PhysicalShortcut, PluginId, SettingsTheme};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 use gauntlet_common_ui::padding;
 use crate::theme::{Element, GauntletSettingsTheme};
@@ -97,28 +97,26 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
         },
         Task::batch([
             font::load(BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
-            Task::perform(
-                async {},
-                |()| ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::RequestPluginReload)
-            ),
+            Task::done(ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::FetchPlugins)),
             Task::perform(
                 async {
                     match backend_api {
-                        Some(mut backend_api) => {
-                            let shortcut = backend_api.get_global_shortcut()
-                                .await;
-
-                            Some(shortcut)
-                        }
+                        Some(backend_api) => Some(init_data(backend_api).await),
                         None => None
                     }
                 },
                 |shortcut| {
                     match shortcut {
                         None => ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop),
-                        Some(shortcut) => {
-                            match shortcut {
-                                Ok((shortcut, error)) => ManagementAppMsg::General(ManagementAppGeneralMsgIn::RefreshShortcut { shortcut, error }),
+                        Some(init) => {
+                            match init {
+                                Ok(init) => {
+                                    ManagementAppMsg::General(ManagementAppGeneralMsgIn::InitSetting {
+                                        theme: init.theme,
+                                        shortcut: init.global_shortcut,
+                                        shortcut_error: init.global_shortcut_error
+                                    })
+                                },
                                 Err(err) => ManagementAppMsg::HandleBackendError(err)
                             }
                         }
@@ -127,6 +125,26 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
             ),
         ]),
     )
+}
+
+struct InitSettingsData {
+    global_shortcut: Option<PhysicalShortcut>,
+    global_shortcut_error: Option<String>,
+    theme: SettingsTheme
+}
+
+async fn init_data(mut backend_api: BackendApi) -> Result<InitSettingsData, BackendApiError> {
+    let (global_shortcut, global_shortcut_error) = backend_api.get_global_shortcut()
+        .await?;
+
+    let theme = backend_api.get_theme()
+        .await?;
+
+    Ok(InitSettingsData {
+        global_shortcut,
+        global_shortcut_error,
+        theme
+    })
 }
 
 fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<ManagementAppMsg> {
@@ -143,7 +161,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                 .map(|msg| {
                     match msg {
                         ManagementAppPluginMsgOut::PluginsReloaded(plugins) => {
-                            ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
+                            ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsFetched(plugins))
                         }
                         ManagementAppPluginMsgOut::Noop => {
                             ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::Noop)
@@ -214,7 +232,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
 
                     Ok(plugins)
                 },
-                |result| handle_backend_error(result, |plugins| ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(plugins)))
+                |result| handle_backend_error(result, |plugins| ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsFetched(plugins)))
             )
         }
         ManagementAppMsg::CheckDownloadStatus => {
