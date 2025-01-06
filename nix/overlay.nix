@@ -69,7 +69,7 @@
       inherit pname src version RUSTY_V8_ARCHIVE;
       cargoExtraArgs = "--features release";
       nativeBuildInputs = [cmake pkg-config protobuf];
-      buildInputs = [openssl];
+      buildInputs = [openssl] ++ optional isLinux libxkbcommon;
       # OPENSSL_CONFIG_DIR didn't work for vendored dependencies
       OPENSSL_NO_VENDOR = true;
     };
@@ -105,7 +105,7 @@
       postFixup =
         if isLinux
         then ''
-          patchelf --add-rpath ${makeLibraryPath [libxkbcommon libGL xorg.libX11 wayland]} $out/bin/gauntlet
+          patchelf --add-rpath ${makeLibraryPath [libGL xorg.libX11 wayland]} $out/bin/gauntlet
           wrapProgram $out/bin/gauntlet --suffix PATH : ${makeBinPath [gtk3]}
           substituteInPlace $out/lib/systemd/user/gauntlet.service --replace /usr/bin/gauntlet $out/bin/gauntlet
         ''
