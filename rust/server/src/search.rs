@@ -25,6 +25,7 @@ pub struct SearchIndex {
 }
 
 struct EntrypointData {
+    entrypoint_generator_name: Option<String>,
     entrypoint_type: SearchResultEntrypointType,
     icon_path: Option<String>,
     frecency: f64,
@@ -47,6 +48,7 @@ enum EntrypointActionType {
 pub struct SearchIndexItem {
     pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_name: String,
+    pub entrypoint_generator_name: Option<String>,
     pub entrypoint_id: EntrypointId,
     pub entrypoint_icon_path: Option<String>,
     pub entrypoint_frecency: f64,
@@ -163,6 +165,7 @@ impl SearchIndex {
                     .collect();
 
                 let data = EntrypointData {
+                    entrypoint_generator_name: item.entrypoint_generator_name,
                     entrypoint_type: item.entrypoint_type,
                     icon_path: item.entrypoint_icon_path,
                     frecency: item.entrypoint_frecency,
@@ -288,6 +291,7 @@ impl SearchIndex {
                 let result_item = SearchResult {
                     entrypoint_type: entrypoint_data.entrypoint_type.clone(),
                     entrypoint_name,
+                    entrypoint_generator_name: entrypoint_data.entrypoint_generator_name.clone(),
                     entrypoint_id,
                     entrypoint_icon: entrypoint_data.icon_path.clone(),
                     plugin_name,

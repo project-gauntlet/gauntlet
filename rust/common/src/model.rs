@@ -111,6 +111,7 @@ pub struct SearchResult {
     pub plugin_name: String,
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
+    pub entrypoint_generator_name: Option<String>,
     pub entrypoint_icon: Option<String>,
     pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_actions: Vec<SearchResultEntrypointAction>,

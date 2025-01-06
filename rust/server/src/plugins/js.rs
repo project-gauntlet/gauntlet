@@ -722,6 +722,11 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             shortcuts.insert(id.clone(), entrypoint_shortcuts);
         }
 
+        let generator_names: HashMap<_, _> = entrypoints.iter()
+            .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::EntrypointGenerator))
+            .map(|entrypoint| (entrypoint.id.clone(), entrypoint.name.clone()))
+            .collect();
+
         let mut generated_search_items = generated_commands.into_iter()
             .map(|item| {
                 let entrypoint_icon_path = match item.entrypoint_icon {
@@ -767,6 +772,10 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     })
                     .collect();
 
+                let entrypoint_generator_name = generator_names
+                    .get(&item.generator_entrypoint_id)
+                    .map(|name| name.to_string());
+
                 Ok(SearchIndexItem {
                     entrypoint_type: SearchResultEntrypointType::Generated,
                     entrypoint_id: EntrypointId::from_string(item.entrypoint_id),
@@ -775,6 +784,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     entrypoint_frecency,
                     entrypoint_actions,
                     entrypoint_accessories,
+                    entrypoint_generator_name,
                 })
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -817,6 +827,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                         Ok(Some(SearchIndexItem {
                             entrypoint_type: SearchResultEntrypointType::Command,
                             entrypoint_name: entrypoint.name,
+                            entrypoint_generator_name: None,
                             entrypoint_id,
                             entrypoint_icon_path,
                             entrypoint_frecency,
@@ -828,6 +839,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                         Ok(Some(SearchIndexItem {
                             entrypoint_type: SearchResultEntrypointType::View,
                             entrypoint_name: entrypoint.name,
+                            entrypoint_generator_name: None,
                             entrypoint_id,
                             entrypoint_icon_path,
                             entrypoint_frecency,

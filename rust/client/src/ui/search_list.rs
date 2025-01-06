@@ -35,11 +35,17 @@ pub fn search_list<'a>(
                 .width(Length::Fill)
                 .into();
 
-            let sub_text: Element<_> = text(&search_result.plugin_name)
+            let sub_text = match &search_result.entrypoint_generator_name {
+                None => &search_result.plugin_name,
+                Some(entrypoint_generator_name) => &format!("{} - {}", entrypoint_generator_name, &search_result.plugin_name)
+            };
+
+            let sub_text: Element<_> = text(sub_text.clone())
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::MainListItemSubtext);
+
             let sub_text: Element<_> = container(sub_text)
-                    .themed(ContainerStyle::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
+                .themed(ContainerStyle::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
 
             let mut button_content = vec![];
 
