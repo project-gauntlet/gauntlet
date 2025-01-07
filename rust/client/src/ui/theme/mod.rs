@@ -283,8 +283,8 @@ impl GauntletComplexTheme {
             empty_view_image: ThemePaddingSize {
                 padding: padding_all(8.0),
                 size: ExternalThemeSize {
-                    width: 100.0,
-                    height: 100.0,
+                    width: 150.0,
+                    height: 150.0,
                 },
             },
             grid_item: ThemeButton {

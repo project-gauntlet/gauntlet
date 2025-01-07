@@ -163,6 +163,13 @@ type = 'view'
 description = ''
 
 [[entrypoint]]
+id = 'empty-list-entrypoint'
+name = 'Empty List Entrypoint'
+path = 'src/empty-list.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
 id = 'entrypoint-generator'
 name = 'Entrypoint generator'
 path = 'src/entrypoint-generator.tsx'

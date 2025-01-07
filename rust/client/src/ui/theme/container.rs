@@ -355,6 +355,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::EmptyViewImage => {
                 self.padding(theme.empty_view_image.padding.to_iced())
+                    .max_width(theme.empty_view_image.size.width)
+                    .max_height(theme.empty_view_image.size.height)
             }
             ContainerStyle::Main => {
                 self.class(ContainerStyleInner::Main)
