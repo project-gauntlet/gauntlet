@@ -79,6 +79,7 @@ pub struct GauntletComplexTheme {
     main_list_item_text: ThemePaddingOnly,
     main_search_bar: ThemePaddingOnly,
     metadata_item_value: ThemePaddingOnly,
+    metadata_item_value_in_list: ThemePaddingOnly,
     metadata_content_inner: ThemePaddingOnly,
     metadata_inner: ThemePaddingOnly,
     metadata_separator: ThemePaddingOnly,
@@ -242,6 +243,9 @@ impl GauntletComplexTheme {
             },
             metadata_item_value: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
+            },
+            metadata_item_value_in_list: ThemePaddingOnly {
+                padding: padding_axis(2.0, 0.0),
             },
             metadata_link_icon: ThemePaddingOnly {
                 padding: padding_axis(0.0, 4.0),

@@ -881,7 +881,7 @@ impl<'b> ComponentWidgets<'b> {
             .themed(ContainerStyle::MetadataTagItem)
     }
 
-    fn render_metadata_tag_list_widget<'a>(&self, widget: &MetadataTagListWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_tag_list_widget<'a>(&self, widget: &MetadataTagListWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
         let content: Vec<Element<_>> = widget.content.ordered_members
             .iter()
             .map(|members| {
@@ -895,11 +895,11 @@ impl<'b> ComponentWidgets<'b> {
             .wrap()
             .into();
 
-        render_metadata_item(&widget.label, value)
+        render_metadata_item(&widget.label, value, is_in_list)
             .into()
     }
 
-    fn render_metadata_link_widget<'a>(&self, widget: &MetadataLinkWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_link_widget<'a>(&self, widget: &MetadataLinkWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
         let content: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
         let icon: Element<_> = value(Bootstrap::BoxArrowUpRight)
@@ -929,24 +929,24 @@ impl<'b> ComponentWidgets<'b> {
                 .themed(TooltipStyle::Tooltip)
         };
 
-        render_metadata_item(&widget.label, content)
+        render_metadata_item(&widget.label, content, is_in_list)
             .into()
     }
 
-    fn render_metadata_value_widget<'a>(&self, widget: &MetadataValueWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_value_widget<'a>(&self, widget: &MetadataValueWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
         let value: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
-        render_metadata_item(&widget.label, value)
+        render_metadata_item(&widget.label, value, is_in_list)
             .into()
     }
 
-    fn render_metadata_icon_widget<'a>(&self, widget: &MetadataIconWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_icon_widget<'a>(&self, widget: &MetadataIconWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
         let value = value(icon_to_bootstrap(&widget.icon))
             .font(BOOTSTRAP_FONT)
             .size(26)
             .into();
 
-        render_metadata_item(&widget.label, value)
+        render_metadata_item(&widget.label, value, is_in_list)
             .into()
     }
 
@@ -959,15 +959,15 @@ impl<'b> ComponentWidgets<'b> {
             .themed(ContainerStyle::MetadataSeparator)
     }
 
-    fn render_metadata_widget<'a>(&self, widget: &MetadataWidget) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_widget<'a>(&self, widget: &MetadataWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
         let content: Vec<Element<_>> = widget.content.ordered_members
             .iter()
             .map(|members| {
                 match members {
-                    MetadataWidgetOrderedMembers::MetadataTagList(content) => self.render_metadata_tag_list_widget(content),
-                    MetadataWidgetOrderedMembers::MetadataLink(content) => self.render_metadata_link_widget(content),
-                    MetadataWidgetOrderedMembers::MetadataValue(content) => self.render_metadata_value_widget(content),
-                    MetadataWidgetOrderedMembers::MetadataIcon(content) => self.render_metadata_icon_widget(content),
+                    MetadataWidgetOrderedMembers::MetadataTagList(content) => self.render_metadata_tag_list_widget(content, is_in_list),
+                    MetadataWidgetOrderedMembers::MetadataLink(content) => self.render_metadata_link_widget(content, is_in_list),
+                    MetadataWidgetOrderedMembers::MetadataValue(content) => self.render_metadata_value_widget(content, is_in_list),
+                    MetadataWidgetOrderedMembers::MetadataIcon(content) => self.render_metadata_icon_widget(content, is_in_list),
                     MetadataWidgetOrderedMembers::MetadataSeparator(content) => self.render_metadata_separator_widget(content),
                 }
             })
@@ -1094,7 +1094,7 @@ impl<'b> ComponentWidgets<'b> {
         let metadata_element = widget.content.metadata
             .as_ref()
             .map(|widget| {
-                let content = self.render_metadata_widget(widget);
+                let content = self.render_metadata_widget(widget, is_in_list);
 
                 container(content)
                     .width(if is_in_list { Length::Fill } else { Length::FillPortion(2) })
@@ -2022,7 +2022,7 @@ impl Display for SelectItem {
 }
 
 
-fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>) -> Element<'a, ComponentWidgetEvent> {
+fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
     let label: Element<_> = text(label.to_string())
         .shaping(Shaping::Advanced)
         .themed(TextStyle::MetadataItemLabel);
@@ -2030,11 +2030,23 @@ fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent
     let label = container(label)
         .themed(ContainerStyle::MetadataItemLabel);
 
-    let value = container(value)
-        .themed(ContainerStyle::MetadataItemValue);
+    if is_in_list {
+        let space = horizontal_space()
+            .into();
 
-    column(vec![label, value])
-        .into()
+        let value = container(value)
+            .themed(ContainerStyle::MetadataItemValueInList);
+
+        row(vec![label, space, value])
+            .width(Length::Fill)
+            .into()
+    } else {
+        let value = container(value)
+            .themed(ContainerStyle::MetadataItemValue);
+
+        column(vec![label, value])
+            .into()
+    }
 }
 
 fn grid_width(columns: &Option<f64>) -> usize {

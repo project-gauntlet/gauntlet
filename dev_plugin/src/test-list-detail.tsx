@@ -21,11 +21,10 @@ export default function Main(): ReactElement {
                     <List.Detail.Metadata.Value label={"Homeworld"}>Ezaraa</List.Detail.Metadata.Value>
                     <List.Detail.Metadata.Value label={"Diet"}>Carnivorous</List.Detail.Metadata.Value>
                     <List.Detail.Metadata.TagList label={"Appearances"}>
-                        <List.Detail.Metadata.TagList.Item>The Screaming Citadel 1</List.Detail.Metadata.TagList.Item>
-                        <List.Detail.Metadata.TagList.Item>Doctor Aphra (2016) 9</List.Detail.Metadata.TagList.Item>
-                        <List.Detail.Metadata.TagList.Item>Doctor Aphra (2016) 10</List.Detail.Metadata.TagList.Item>
-                        <List.Detail.Metadata.TagList.Item>Doctor Aphra (2016) 11</List.Detail.Metadata.TagList.Item>
-                        <List.Detail.Metadata.TagList.Item>Doctor Aphra (2016) 12</List.Detail.Metadata.TagList.Item>
+                        <List.Detail.Metadata.TagList.Item>Test 9</List.Detail.Metadata.TagList.Item>
+                        <List.Detail.Metadata.TagList.Item>Test 10</List.Detail.Metadata.TagList.Item>
+                        <List.Detail.Metadata.TagList.Item>Test 11</List.Detail.Metadata.TagList.Item>
+                        <List.Detail.Metadata.TagList.Item>Test 12</List.Detail.Metadata.TagList.Item>
                     </List.Detail.Metadata.TagList>
                 </List.Detail.Metadata>
                 <List.Detail.Content>

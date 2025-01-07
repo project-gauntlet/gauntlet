@@ -32,6 +32,7 @@ pub enum ContainerStyle {
     MainSearchBar,
     MetadataInner,
     MetadataItemValue,
+    MetadataItemValueInList,
     MetadataItemLabel,
     MetadataSeparator,
     MetadataTagItem,
@@ -288,6 +289,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::MetadataItemValue => {
                 self.padding(theme.metadata_item_value.padding.to_iced())
+            }
+            ContainerStyle::MetadataItemValueInList => {
+                self.padding(theme.metadata_item_value_in_list.padding.to_iced())
             }
             ContainerStyle::RootBottomPanel => {
                 self.class(ContainerStyleInner::RootBottomPanel)
