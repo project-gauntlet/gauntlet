@@ -170,6 +170,13 @@ type = 'view'
 description = ''
 
 [[entrypoint]]
+id = 'empty-grid-entrypoint'
+name = 'Empty Grid Entrypoint'
+path = 'src/empty-grid.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
 id = 'entrypoint-generator'
 name = 'Entrypoint generator'
 path = 'src/entrypoint-generator.tsx'

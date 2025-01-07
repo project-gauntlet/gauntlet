@@ -1686,54 +1686,63 @@ impl<'b> ComponentWidgets<'b> {
     ) -> Element<'a, ComponentWidgetEvent> {
         let RootState { show_action_panel, focused_item } = self.root_state(grid_widget.__id__);
 
-        let mut pending: Vec<&GridItemWidget> = vec![];
-        let mut items: Vec<Element<_>> = vec![];
-        let index_counter = &Cell::new(0);
-        let mut first_section = true;
+        let content = if grid_widget.content.ordered_members.is_empty() {
+            match &grid_widget.content.empty_view {
+                Some(widget) => self.render_empty_view_widget(widget),
+                None => horizontal_space().into()
+            }
+        } else {
+            let mut pending: Vec<&GridItemWidget> = vec![];
+            let mut items: Vec<Element<_>> = vec![];
+            let index_counter = &Cell::new(0);
+            let mut first_section = true;
 
-        for members in &grid_widget.content.ordered_members {
-            match &members {
-                GridWidgetOrderedMembers::GridItem(widget) => {
-                    first_section = false;
-                    pending.push(widget)
-                }
-                GridWidgetOrderedMembers::GridSection(widget) => {
-                    if !pending.is_empty() {
-                        let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
-
-                        items.push(content);
-
-                        pending = vec![];
+            for members in &grid_widget.content.ordered_members {
+                match &members {
+                    GridWidgetOrderedMembers::GridItem(widget) => {
+                        first_section = false;
+                        pending.push(widget)
                     }
+                    GridWidgetOrderedMembers::GridSection(widget) => {
+                        if !pending.is_empty() {
+                            let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
 
-                    items.push(self.render_grid_section_widget(widget, focused_item.index, index_counter, first_section));
+                            items.push(content);
 
-                    first_section = false;
+                            pending = vec![];
+                        }
+
+                        items.push(self.render_grid_section_widget(widget, focused_item.index, index_counter, first_section));
+
+                        first_section = false;
+                    }
                 }
             }
-        }
 
-        if !pending.is_empty() {
-            let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
+            if !pending.is_empty() {
+                let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
 
-            items.push(content);
-        }
+                items.push(content);
+            }
 
-        let content: Element<_> = column(items)
-            .into();
+            let content: Element<_> = column(items)
+                .into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .themed(ContainerStyle::GridInner);
+            let content: Element<_> = container(content)
+                .width(Length::Fill)
+                .themed(ContainerStyle::GridInner);
 
-        let content: Element<_> = scrollable(content)
-            .id(focused_item.scrollable_id.clone())
-            .width(Length::Fill)
-            .into();
+            let content: Element<_> = scrollable(content)
+                .id(focused_item.scrollable_id.clone())
+                .width(Length::Fill)
+                .into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .themed(ContainerStyle::Grid);
+            let content: Element<_> = container(content)
+                .width(Length::Fill)
+                .themed(ContainerStyle::Grid);
+
+            content
+        };
 
         self.render_plugin_root(
             *show_action_panel,
