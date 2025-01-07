@@ -10,7 +10,7 @@ pub enum IntermediateUiEvent {
     RunCommand {
         entrypoint_id: String
     },
-    RunGeneratedCommand {
+    RunGeneratedEntrypoint {
         entrypoint_id: String,
         action_index: usize
     },

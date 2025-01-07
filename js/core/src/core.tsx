@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { runEntrypointGenerators, runGeneratedCommand, runGeneratedCommandAction } from "./entrypoint-generator";
+import { runEntrypointGenerators, runGeneratedEntrypoint, runGeneratedEntrypointAction } from "./entrypoint-generator";
 import { reloadSearchIndex } from "./search-index";
 import { closeView, handleEvent, handlePluginViewKeyboardEvent, renderInlineView, renderView } from "./render";
 import {
@@ -17,7 +17,7 @@ async function handleKeyboardEvent(event: NotReactsKeyboardEvent) {
     op_log_trace("plugin_event_handler", `Handling keyboard event: ${Deno.inspect(event)}`);
     switch (event.origin) {
         case "MainView": {
-            runGeneratedCommandAction(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta)
+            runGeneratedEntrypointAction(event.entrypointId, event.key, event.modifierShift, event.modifierControl, event.modifierAlt, event.modifierMeta)
             break;
         }
         case "PluginView": {
@@ -104,9 +104,9 @@ export async function runPluginLoop() {
                 }
                 break;
             }
-            case "RunGeneratedCommand": {
+            case "RunGeneratedEntrypoint": {
                 try {
-                    runGeneratedCommand(pluginEvent.entrypointId, pluginEvent.actionIndex)
+                    runGeneratedEntrypoint(pluginEvent.entrypointId, pluginEvent.actionIndex)
                 } catch (e) {
                     console.error("Error occurred when running a generated command", pluginEvent.entrypointId, e)
                 }

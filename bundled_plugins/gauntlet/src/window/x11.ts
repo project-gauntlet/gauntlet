@@ -1,4 +1,4 @@
-import { GeneratedCommand } from "@project-gauntlet/api/helpers";
+import { GeneratedEntrypoint } from "@project-gauntlet/api/helpers";
 import { addOpenWindow, deleteOpenWindow, openLinuxApplication } from "./shared";
 import { application_x11_pending_event, linux_x11_focus_window } from "gauntlet:bridge/internal-linux";
 
@@ -37,9 +37,9 @@ export function focusX11Window(windowId: string) {
 
 export function applicationEventLoopX11(
     focusWindow: (windowId: string) => void,
-    add: (id: string, data: GeneratedCommand) => void,
-    get: (id: string) => GeneratedCommand | undefined,
-    getAll: () => { [id: string]: GeneratedCommand },
+    add: (id: string, data: GeneratedEntrypoint) => void,
+    get: (id: string) => GeneratedEntrypoint | undefined,
+    getAll: () => { [id: string]: GeneratedEntrypoint },
 ) {
     const windows: Record<string, X11WindowData> = {};
 
@@ -202,8 +202,8 @@ function validateAndAddOpenWindow(
     windows: Record<string, X11WindowData>,
     openApplication: (appId: string) => (() => void),
     focusWindow: (windowId: string) => void,
-    add: (id: string, data: GeneratedCommand) => void,
-    getAll: () => { [id: string]: GeneratedCommand },
+    add: (id: string, data: GeneratedEntrypoint) => void,
+    getAll: () => { [id: string]: GeneratedEntrypoint },
 ) {
 
     if (window.overrideRedirect) {

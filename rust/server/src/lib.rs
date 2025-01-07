@@ -212,8 +212,8 @@ async fn handle_request(application_manager: Arc<ApplicationManager>, request_da
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::RequestRunGeneratedCommand { plugin_id, entrypoint_id, action_index } => {
-            application_manager.handle_run_generated_command(plugin_id, entrypoint_id, action_index)
+        BackendRequestData::RequestRunGeneratedEntrypoint { plugin_id, entrypoint_id, action_index } => {
+            application_manager.handle_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
                 .await;
 
             BackendResponseData::Nothing

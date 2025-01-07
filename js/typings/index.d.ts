@@ -45,7 +45,7 @@ type MacOSDesktopSettings13AndPostData = {
     icon: ArrayBuffer | undefined,
 }
 
-type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedCommand | OpenView | CloseView | OpenInlineView | ReloadSearchIndex | RefreshSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | OpenInlineView | ReloadSearchIndex | RefreshSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -83,8 +83,8 @@ type RunCommand = {
     entrypointId: string
 }
 
-type RunGeneratedCommand = {
-    type: "RunGeneratedCommand"
+type RunGeneratedEntrypoint = {
+    type: "RunGeneratedEntrypoint"
     entrypointId: string
     actionIndex: number
 }
@@ -118,15 +118,15 @@ type UiWidget = {
 type Props = { [key: string]: any };
 type PropsWithChildren = { children?: UiWidget[] } & Props;
 
-type GeneratedCommandAccessory = GeneratedCommandTextAccessory | GeneratedCommandIconAccessory;
+type GeneratedEntrypointAccessory = GeneratedEntrypointTextAccessory | GeneratedEntrypointIconAccessory;
 
-interface GeneratedCommandTextAccessory {
+interface GeneratedEntrypointTextAccessory {
     text: string
     icon?: string
     tooltip?: string
 }
 
-interface GeneratedCommandIconAccessory {
+interface GeneratedEntrypointIconAccessory {
     icon: string
     tooltip?: string
 }
@@ -137,7 +137,7 @@ type GeneratedSearchItem = {
     entrypoint_uuid: string,
     entrypoint_icon: ArrayBuffer | undefined,
     entrypoint_actions: GeneratedSearchItemAction[],
-    entrypoint_accessories: GeneratedCommandAccessory[],
+    entrypoint_accessories: GeneratedEntrypointAccessory[],
 }
 
 type GeneratedSearchItemAction = {

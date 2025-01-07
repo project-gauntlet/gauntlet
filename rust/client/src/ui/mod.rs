@@ -109,7 +109,7 @@ pub enum AppMsg {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
-    RunGeneratedCommand {
+    RunGeneratedEntrypoint {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         action_index: usize
@@ -584,7 +584,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     });
 
                     Task::batch([
-                        state.run_generated_command(plugin_id, entrypoint_id, action_index),
+                        state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
                         Task::done(AppMsg::PendingPluginViewLoadingBar)
                     ])
                 }
@@ -602,10 +602,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.run_command(plugin_id, entrypoint_id),
             ])
         }
-        AppMsg::RunGeneratedCommand { plugin_id, entrypoint_id, action_index } => {
+        AppMsg::RunGeneratedEntrypoint { plugin_id, entrypoint_id, action_index } => {
             Task::batch([
                 state.hide_window(),
-                state.run_generated_command(plugin_id, entrypoint_id, action_index),
+                state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
             ])
         }
         AppMsg::RunPluginAction { render_location, plugin_id, widget_id } => {
@@ -646,7 +646,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     let action = &search_result.entrypoint_actions[action_index];
                     match &action.action_type {
                         SearchResultEntrypointActionType::Command => {
-                            Task::done(AppMsg::RunGeneratedCommand {
+                            Task::done(AppMsg::RunGeneratedEntrypoint {
                                 entrypoint_id: search_result.entrypoint_id.clone(),
                                 plugin_id: search_result.plugin_id.clone(),
                                 action_index,
@@ -2080,11 +2080,11 @@ impl AppModel {
         }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
-    fn run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Task<AppMsg> {
+    fn run_generated_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         Task::perform(async move {
-            backend_client.request_run_generated_command(plugin_id, entrypoint_id, action_index)
+            backend_client.request_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
                 .await?;
 
             Ok(())

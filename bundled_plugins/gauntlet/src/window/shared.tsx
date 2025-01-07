@@ -1,4 +1,4 @@
-import { GeneratedCommand, GeneratedCommandAccessory, GeneratedCommandAction } from "@project-gauntlet/api/helpers";
+import { GeneratedEntrypoint, GeneratedEntrypointAccessory, GeneratedEntrypointAction } from "@project-gauntlet/api/helpers";
 import { List } from "@project-gauntlet/api/components";
 import { linux_open_application } from "gauntlet:bridge/internal-linux";
 
@@ -14,7 +14,7 @@ export function applicationActions(
     id: string,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
-): GeneratedCommandAction[] {
+): GeneratedEntrypointAction[] {
     const appWindows = Object.entries(openWindows)
         .filter(([_, windowData]) => windowData.appId == id)
 
@@ -69,7 +69,7 @@ export function applicationActions(
     }
 }
 
-export function applicationAccessories(id: string): GeneratedCommandAccessory[] {
+export function applicationAccessories(id: string): GeneratedEntrypointAccessory[] {
     const appWindows = Object.entries(openWindows)
         .filter(([_, windowData]) => windowData.appId == id)
 
@@ -86,12 +86,12 @@ export function applicationAccessories(id: string): GeneratedCommandAccessory[] 
 
 export function addOpenWindow(
     appId: string,
-    generatedEntrypoint: GeneratedCommand,
+    generatedEntrypoint: GeneratedEntrypoint,
     windowId: string,
     windowTitle: string,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
-    add: (id: string, data: GeneratedCommand) => void,
+    add: (id: string, data: GeneratedEntrypoint) => void,
 ) {
     if (generatedEntrypoint) {
         openWindows[windowId] = {
@@ -112,8 +112,8 @@ export function deleteOpenWindow(
     windowId: string,
     openApplication: (appId: string) => (() => void),
     focusWindow: (windowId: string) => void,
-    get: (id: string) => GeneratedCommand | undefined,
-    add: (id: string, data: GeneratedCommand) => void,
+    get: (id: string) => GeneratedEntrypoint | undefined,
+    add: (id: string, data: GeneratedEntrypoint) => void,
 ) {
     const openWindow = openWindows[windowId];
     if (openWindow) {

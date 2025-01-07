@@ -1,5 +1,5 @@
 import { addOpenWindow, deleteOpenWindow, openLinuxApplication } from "./shared";
-import { GeneratedCommand } from "@project-gauntlet/api/helpers";
+import { GeneratedEntrypoint } from "@project-gauntlet/api/helpers";
 import { linux_wayland_focus_window, application_wayland_pending_event } from "gauntlet:bridge/internal-linux";
 
 
@@ -9,9 +9,9 @@ export function focusWaylandWindow(windowId: string) {
 
 export function applicationEventLoopWayland(
     focusWindow: (windowId: string) => void,
-    add: (id: string, data: GeneratedCommand) => void,
-    get: (id: string) => GeneratedCommand | undefined,
-    getAll: () => { [id: string]: GeneratedCommand },
+    add: (id: string, data: GeneratedEntrypoint) => void,
+    get: (id: string) => GeneratedEntrypoint | undefined,
+    getAll: () => { [id: string]: GeneratedEntrypoint },
 ) {
     const knownWindows: Record<string, { title: string | undefined, appId: string | undefined }> = { };
 
@@ -95,9 +95,9 @@ function addOpenWindowWayland(
     windowAppId: string,
     windowTitle: string,
     focusWindow: (windowId: string) => void,
-    add: (id: string, data: GeneratedCommand) => void,
-    get: (id: string) => GeneratedCommand | undefined,
-    getAll: () => { [id: string]: GeneratedCommand },
+    add: (id: string, data: GeneratedEntrypoint) => void,
+    get: (id: string) => GeneratedEntrypoint | undefined,
+    getAll: () => { [id: string]: GeneratedEntrypoint },
 ) {
     let appId = windowAppId;
     let generatedEntrypoint = get(windowAppId);

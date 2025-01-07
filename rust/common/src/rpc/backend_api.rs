@@ -114,8 +114,8 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn request_run_generated_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::RequestRunGeneratedCommand {
+    pub async fn request_run_generated_entrypoint(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Result<(), BackendForFrontendApiError> {
+        let request = BackendRequestData::RequestRunGeneratedEntrypoint {
             plugin_id,
             entrypoint_id,
             action_index,

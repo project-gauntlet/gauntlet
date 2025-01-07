@@ -7,7 +7,7 @@ use gauntlet_utils::channel::{RequestError, RequestSender};
 
 #[allow(async_fn_in_trait)]
 pub trait BackendForPluginRuntimeApi {
-    async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> ;
+    async fn reload_search_index(&self, generated_entrypoints: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> ;
     async fn get_asset_data(&self, path: &str) -> anyhow::Result<Vec<u8>>;
     async fn get_entrypoint_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>>;
     async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>>;
@@ -78,9 +78,9 @@ impl BackendForPluginRuntimeApiProxy {
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
-    async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+    async fn reload_search_index(&self, generated_entrypoints: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
         let request = JsRequest::ReloadSearchIndex {
-            generated_commands,
+            generated_entrypoints,
             refresh_search_list,
         };
 

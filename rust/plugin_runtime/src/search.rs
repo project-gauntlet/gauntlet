@@ -5,7 +5,7 @@ use crate::api::{BackendForPluginRuntimeApi, BackendForPluginRuntimeApiProxy};
 use crate::model::JsGeneratedSearchItem;
 
 #[op2(async)]
-pub async fn reload_search_index(state: Rc<RefCell<OpState>>, #[serde] generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+pub async fn reload_search_index(state: Rc<RefCell<OpState>>, #[serde] generated_entrypoints: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
     let api = {
         let state = state.borrow();
 
@@ -16,7 +16,7 @@ pub async fn reload_search_index(state: Rc<RefCell<OpState>>, #[serde] generated
         api
     };
 
-    api.reload_search_index(generated_commands, refresh_search_list).await?;
+    api.reload_search_index(generated_entrypoints, refresh_search_list).await?;
 
     Ok(())
 }

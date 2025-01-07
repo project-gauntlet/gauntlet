@@ -1,4 +1,4 @@
-import { GeneratedCommand, GeneratorProps } from "@project-gauntlet/api/helpers";
+import { GeneratedEntrypoint, GeneratorProps } from "@project-gauntlet/api/helpers";
 import { walk, WalkOptions } from "@std/fs/walk";
 import { debounce } from "@std/async/debounce";
 import { current_os, wayland } from "gauntlet:bridge/internal-all";
@@ -202,8 +202,8 @@ export default async function Applications({ add, remove, get, getAll }: Generat
 async function genericGenerator<DATA>(
     directoriesToWatch: string[],
     appFromPath: (path: string) => Promise<undefined | DesktopPathAction<DATA>>,
-    commandFromApp: (id: string, data: DATA) => GeneratedCommand,
-    add: (id: string, data: GeneratedCommand) => void,
+    commandFromApp: (id: string, data: DATA) => GeneratedEntrypoint,
+    add: (id: string, data: GeneratedEntrypoint) => void,
     remove: (id: string) => void,
     walkOpts?: WalkOptions
 ): Promise<() => void> {

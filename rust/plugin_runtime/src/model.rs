@@ -132,7 +132,7 @@ pub enum JsRequest {
         show: bool
     },
     ReloadSearchIndex {
-        generated_commands: Vec<JsGeneratedSearchItem>,
+        generated_entrypoints: Vec<JsGeneratedSearchItem>,
         refresh_search_list: bool
     },
     GetAssetData {

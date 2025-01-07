@@ -98,7 +98,7 @@ pub enum OnePluginCommandData {
     RunCommand {
         entrypoint_id: String,
     },
-    RunGeneratedCommand {
+    RunGeneratedEntrypoint {
         entrypoint_id: String,
         action_index: usize
     },
@@ -382,8 +382,8 @@ async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<Plug
                             entrypoint_id,
                         })
                     }
-                    OnePluginCommandData::RunGeneratedCommand { entrypoint_id, action_index } => {
-                        Some(IntermediateUiEvent::RunGeneratedCommand {
+                    OnePluginCommandData::RunGeneratedEntrypoint { entrypoint_id, action_index } => {
+                        Some(IntermediateUiEvent::RunGeneratedEntrypoint {
                             entrypoint_id,
                             action_index
                         })
@@ -514,8 +514,8 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
 
             Ok(JsResponse::Nothing)
         }
-        JsRequest::ReloadSearchIndex { generated_commands, refresh_search_list } => {
-            api.reload_search_index(generated_commands, refresh_search_list).await?;
+        JsRequest::ReloadSearchIndex { generated_entrypoints, refresh_search_list } => {
+            api.reload_search_index(generated_entrypoints, refresh_search_list).await?;
 
             Ok(JsResponse::Nothing)
         }
@@ -616,7 +616,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
         IntermediateUiEvent::RunCommand { entrypoint_id } => JsEvent::RunCommand {
             entrypoint_id
         },
-        IntermediateUiEvent::RunGeneratedCommand { entrypoint_id, action_index } => JsEvent::RunGeneratedCommand {
+        IntermediateUiEvent::RunGeneratedEntrypoint { entrypoint_id, action_index } => JsEvent::RunGeneratedEntrypoint {
             entrypoint_id,
             action_index,
         },
@@ -699,7 +699,7 @@ impl BackendForPluginRuntimeApiImpl {
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
-    async fn reload_search_index(&self, generated_commands: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
+    async fn reload_search_index(&self, generated_entrypoints: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
         self.icon_cache.clear_plugin_icon_cache_dir(&self.plugin_uuid)
             .context("error when clearing up icon cache before recreating it")?;
 
@@ -727,7 +727,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             .map(|entrypoint| (entrypoint.id.clone(), entrypoint.name.clone()))
             .collect();
 
-        let mut generated_search_items = generated_commands.into_iter()
+        let mut generated_search_items = generated_entrypoints.into_iter()
             .map(|item| {
                 let entrypoint_icon_path = match item.entrypoint_icon {
                     None => None,

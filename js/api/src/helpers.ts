@@ -33,45 +33,45 @@ export function showHud(display: string): void {
     return showHudWindow(display)
 }
 
-export interface GeneratedCommand {
+export interface GeneratedEntrypoint {
     name: string
-    actions: GeneratedCommandAction[]
+    actions: GeneratedEntrypointAction[]
     icon?: ArrayBuffer
-    accessories?: GeneratedCommandAccessory[]
+    accessories?: GeneratedEntrypointAccessory[]
 }
 
-export type GeneratedCommandAction = GeneratedCommandActionRun | GeneratedCommandActionView
+export type GeneratedEntrypointAction = GeneratedEntrypointActionRun | GeneratedEntrypointActionView
 
-export interface GeneratedCommandActionRun {
+export interface GeneratedEntrypointActionRun {
     ref?: string
     label: string
     run: () => void
 }
 
-export interface GeneratedCommandActionView {
+export interface GeneratedEntrypointActionView {
     ref?: string
     label: string
     view: FC
 }
 
-export type GeneratedCommandAccessory = GeneratedCommandTextAccessory | GeneratedCommandIconAccessory;
+export type GeneratedEntrypointAccessory = GeneratedEntrypointTextAccessory | GeneratedEntrypointIconAccessory;
 
-export interface GeneratedCommandTextAccessory {
+export interface GeneratedEntrypointTextAccessory {
     text: string
     icon?: string
     tooltip?: string
 }
 
-export interface GeneratedCommandIconAccessory {
+export interface GeneratedEntrypointIconAccessory {
     icon: string
     tooltip?: string
 }
 
 export type GeneratorProps = {
-    add: (id: string, data: GeneratedCommand) => void,
+    add: (id: string, data: GeneratedEntrypoint) => void,
     remove: (id: string) => void,
-    get: (id: string) => GeneratedCommand | undefined
-    getAll: () => { [id: string]: GeneratedCommand },
+    get: (id: string) => GeneratedEntrypoint | undefined
+    getAll: () => { [id: string]: GeneratedEntrypoint },
 };
 
 export const Clipboard: Clipboard = {

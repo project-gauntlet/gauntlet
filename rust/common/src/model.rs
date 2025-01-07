@@ -294,7 +294,7 @@ pub enum BackendRequestData {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId
     },
-    RequestRunGeneratedCommand {
+    RequestRunGeneratedEntrypoint {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         action_index: usize

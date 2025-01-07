@@ -355,10 +355,10 @@ impl ApplicationManager {
         self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub async fn handle_run_generated_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) {
+    pub async fn handle_run_generated_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
-            data: OnePluginCommandData::RunGeneratedCommand {
+            data: OnePluginCommandData::RunGeneratedEntrypoint {
                 entrypoint_id: entrypoint_id.to_string(),
                 action_index,
             }

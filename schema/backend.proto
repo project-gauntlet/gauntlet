@@ -155,7 +155,7 @@ message RpcSearchResult {
 enum RpcEntrypointTypeSearchResult {
   SR_COMMAND = 0;
   SR_VIEW = 1;
-  SR_GENERATED_COMMAND = 2;
+  SR_GENERATED_ENTRYPOINT = 2;
 }
 
 enum RpcEntrypointTypeSettings {
@@ -194,7 +194,7 @@ message RpcEventRunCommand {
   string entrypoint_id = 1;
 }
 
-message RpcEventRunGeneratedCommand {
+message RpcEventRunGeneratedEntrypoint {
   string entrypoint_id = 1;
 }
 

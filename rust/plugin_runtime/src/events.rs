@@ -21,7 +21,7 @@ pub enum JsEvent {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String
     },
-    RunGeneratedCommand {
+    RunGeneratedEntrypoint {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String,
         #[serde(rename = "actionIndex")]

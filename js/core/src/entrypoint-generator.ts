@@ -9,54 +9,54 @@ import { reloadSearchIndex } from "./search-index";
 import type { FC } from "react";
 import { renderView } from "./render";
 
-interface GeneratedCommand { // TODO is it possible to import api here
+interface GeneratedEntrypoint { // TODO is it possible to import api here
     name: string
-    actions: GeneratedCommandAction[]
+    actions: GeneratedEntrypointAction[]
     icon?: ArrayBuffer
-    accessories?: GeneratedCommandAccessory[]
+    accessories?: GeneratedEntrypointAccessory[]
 }
 
-type GeneratedCommandAction = GeneratedCommandActionRun | GeneratedCommandActionView
+type GeneratedEntrypointAction = GeneratedEntrypointActionRun | GeneratedEntrypointActionView
 
-interface GeneratedCommandActionRun {
+interface GeneratedEntrypointActionRun {
     ref?: string
     label: string
     run: () => void
 }
 
-interface GeneratedCommandActionView {
+interface GeneratedEntrypointActionView {
     ref?: string
     label: string
     view: FC
 }
 
 type GeneratorProps = {
-    add: (id: string, data: GeneratedCommand) => void,
+    add: (id: string, data: GeneratedEntrypoint) => void,
     remove: (id: string) => void,
-    get: (id: string) => GeneratedCommand | undefined
-    getAll: () => { [id: string]: GeneratedCommand }
+    get: (id: string) => GeneratedEntrypoint | undefined
+    getAll: () => { [id: string]: GeneratedEntrypoint }
 };
 
 type Generator = (props: GeneratorProps) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
 
-type ProcessedGeneratedCommand = {
+type ProcessedGeneratedEntrypoint = {
     generatorEntrypointId: string,
     id: string,
     uuid: string,
-    command: GeneratedCommand
-    derivedActions: GeneratedCommandDerivedAction[]
+    command: GeneratedEntrypoint
+    derivedActions: GeneratedEntrypointDerivedAction[]
 };
 
-type GeneratedCommandDerivedAction = GeneratedCommandDerivedActionRun | GeneratedCommandDerivedActionView
+type GeneratedEntrypointDerivedAction = GeneratedEntrypointDerivedActionRun | GeneratedEntrypointDerivedActionView
 
-interface GeneratedCommandDerivedActionRun {
+interface GeneratedEntrypointDerivedActionRun {
     type: "Command"
     ref?: string
     label: string
     run: () => void
 }
 
-interface GeneratedCommandDerivedActionView {
+interface GeneratedEntrypointDerivedActionView {
     type: "View"
     ref?: string
     label: string
@@ -64,10 +64,10 @@ interface GeneratedCommandDerivedActionView {
 }
 
 
-type ProcessedGeneratedCommands = { [lookupEntrypointId: string]: ProcessedGeneratedCommand };
+type ProcessedGeneratedEntrypoints = { [lookupEntrypointId: string]: ProcessedGeneratedEntrypoint };
 type GeneratorCleanups = { [generatorEntrypointId: string]: () => (void | Promise<void>) };
 
-let storedGeneratedCommands: ProcessedGeneratedCommands = {}
+let storedGeneratedEntrypoints: ProcessedGeneratedEntrypoints = {}
 let generatorCleanups: GeneratorCleanups = {}
 
 export async function runEntrypointGenerators(): Promise<void> {
@@ -79,7 +79,7 @@ export async function runEntrypointGenerators(): Promise<void> {
         }
     }
 
-    storedGeneratedCommands = {}
+    storedGeneratedEntrypoints = {}
     generatorCleanups = {}
 
     await reloadSearchIndex(true)
@@ -91,14 +91,14 @@ export async function runEntrypointGenerators(): Promise<void> {
 
             op_log_info("entrypoint_generator", `Running entrypoint generator entrypoint ${generatorEntrypointId}`)
 
-            const add = (id: string, data: GeneratedCommand) => {
+            const add = (id: string, data: GeneratedEntrypoint) => {
                 op_log_info("entrypoint_generator", `Adding entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
 
                 if (data.actions.length < 1) {
                     throw new Error(`Error when adding entry '${id}': at least one action should be provided`)
                 }
 
-                const derivedActions: GeneratedCommandDerivedAction[] = []
+                const derivedActions: GeneratedEntrypointDerivedAction[] = []
                 for (const action of data.actions) {
                     const label = action.label;
 
@@ -132,7 +132,7 @@ export async function runEntrypointGenerators(): Promise<void> {
 
                 const lookupId = generatorEntrypointId + ":" + id;
 
-                storedGeneratedCommands[lookupId] = {
+                storedGeneratedEntrypoints[lookupId] = {
                     generatorEntrypointId: generatorEntrypointId,
                     id: id,
                     uuid: crypto.randomUUID(),
@@ -146,7 +146,7 @@ export async function runEntrypointGenerators(): Promise<void> {
                 op_log_info("entrypoint_generator", `Removing entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
                 const lookupId = generatorEntrypointId + ":" + id;
 
-                delete storedGeneratedCommands[lookupId]
+                delete storedGeneratedEntrypoints[lookupId]
 
                 reloadSearchIndex(true)
             }
@@ -155,19 +155,19 @@ export async function runEntrypointGenerators(): Promise<void> {
                 op_log_debug("entrypoint_generator", `Getting entry '${id}' by entrypoint generator entrypoint '${generatorEntrypointId}'`)
                 const lookupId = generatorEntrypointId + ":" + id;
 
-                const generatedCommand = storedGeneratedCommands[lookupId];
-                if (generatedCommand) {
-                    return generatedCommand.command
+                const generatedEntrypoint = storedGeneratedEntrypoints[lookupId];
+                if (generatedEntrypoint) {
+                    return generatedEntrypoint.command
                 } else {
                     return undefined
                 }
             }
 
-            const getAll = (): { [id: string]: GeneratedCommand } => {
+            const getAll = (): { [id: string]: GeneratedEntrypoint } => {
                 op_log_debug("entrypoint_generator", `Getting all entries by entrypoint generator entrypoint '${generatorEntrypointId}'`)
 
                 return Object.fromEntries(
-                    Object.entries(storedGeneratedCommands)
+                    Object.entries(storedGeneratedEntrypoints)
                         .map(([_lookupId, value]) => [value.id, value.command])
                 )
             }
@@ -191,8 +191,8 @@ export async function runEntrypointGenerators(): Promise<void> {
     }
 }
 
-export function generatedCommandSearchIndex(): GeneratedSearchItem[] {
-    return Object.entries(storedGeneratedCommands).map(([entrypointLookupId, value]) => ({
+export function generatedEntrypointSearchIndex(): GeneratedSearchItem[] {
+    return Object.entries(storedGeneratedEntrypoints).map(([entrypointLookupId, value]) => ({
         generator_entrypoint_id: value.generatorEntrypointId,
         entrypoint_id: entrypointLookupId,
         entrypoint_uuid: value.uuid,
@@ -208,8 +208,8 @@ export function generatedCommandSearchIndex(): GeneratedSearchItem[] {
     }))
 }
 
-export async function runGeneratedCommandAction(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean) {
-    const command = storedGeneratedCommands[entrypointId];
+export async function runGeneratedEntrypointAction(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean) {
+    const command = storedGeneratedEntrypoints[entrypointId];
 
     if (command) {
         const id = await fetch_action_id_for_shortcut(command.generatorEntrypointId, key, modifierShift, modifierControl, modifierAlt, modifierMeta);
@@ -222,11 +222,11 @@ export async function runGeneratedCommandAction(entrypointId: string, key: strin
     }
 }
 
-export function runGeneratedCommand(entrypointId: string, action_index: number) {
-    const generatedCommand = storedGeneratedCommands[entrypointId];
+export function runGeneratedEntrypoint(entrypointId: string, action_index: number) {
+    const generatedEntrypoint = storedGeneratedEntrypoints[entrypointId];
 
-    if (generatedCommand) {
-        const action = generatedCommand.derivedActions[action_index];
+    if (generatedEntrypoint) {
+        const action = generatedEntrypoint.derivedActions[action_index];
         if (action) {
             runAction(entrypointId, action)
         } else {
@@ -237,7 +237,7 @@ export function runGeneratedCommand(entrypointId: string, action_index: number) 
     }
 }
 
-function runAction(entrypointId: string, action: GeneratedCommandDerivedAction) {
+function runAction(entrypointId: string, action: GeneratedEntrypointDerivedAction) {
     switch (action.type) {
         case "Command": {
             action.run()
@@ -245,7 +245,7 @@ function runAction(entrypointId: string, action: GeneratedCommandDerivedAction) 
             break;
         }
         case "View": {
-            const entrypointName = storedGeneratedCommands[entrypointId]
+            const entrypointName = storedGeneratedEntrypoints[entrypointId]
                 .command
                 .name
 
