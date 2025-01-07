@@ -2178,6 +2178,7 @@ fn convert_action_panel(action_panel: &Option<ActionPanelWidget>, action_shortcu
 }
 
 fn render_action_panel_items<'a, T: 'a + Clone>(
+    root: bool,
     title: Option<String>,
     items: Vec<ActionPanelItem>,
     action_panel_focus_index: Option<usize>,
@@ -2193,27 +2194,24 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                 weight: Weight::Bold,
                 ..Font::DEFAULT
             })
-            .into();
+            .themed(TextStyle::ActionSectionTitle);
 
         let text = container(text)
-            .themed(ContainerStyle::ActionPanelTitle);
+            .themed(if root { ContainerStyle::ActionPanelTitle } else { ContainerStyle::ActionSectionTitle });
 
         columns.push(text)
-    }
+    } else {
+        if !root {
+            let separator: Element<_> = horizontal_rule(1)
+                .themed(RuleStyle::ActionPanel);
 
-    let mut place_separator = false;
+            columns.push(separator);
+        }
+    }
 
     for item in items {
         match item {
             ActionPanelItem::Action { label, widget_id, physical_shortcut } => {
-                if place_separator {
-                    let separator: Element<_> = horizontal_rule(1)
-                        .themed(RuleStyle::ActionPanel);
-
-                    columns.push(separator);
-
-                    place_separator = false;
-                }
 
                 let physical_shortcut = match index_counter.get() {
                     0 => Some(PhysicalShortcut { // primary
@@ -2274,18 +2272,11 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                 columns.push(content);
             }
             ActionPanelItem::ActionSection { title, items } => {
-                let separator: Element<_> = horizontal_rule(1)
-                    .themed(RuleStyle::ActionPanel);
-
-                columns.push(separator);
-
-                let content = render_action_panel_items(title, items, action_panel_focus_index, on_action_click, index_counter);
+                let content = render_action_panel_items(false, title, items, action_panel_focus_index, on_action_click, index_counter);
 
                 for content in content {
                     columns.push(content);
                 }
-
-                place_separator = true;
             }
         };
     }
@@ -2298,7 +2289,7 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
     on_action_click: F,
     action_panel_scroll_handle: &ScrollHandle<ACTION>,
 ) -> Element<'a, T> {
-    let columns = render_action_panel_items(action_panel.title, action_panel.items, action_panel_scroll_handle.index, &on_action_click, &Cell::new(0));
+    let columns = render_action_panel_items(true, action_panel.title, action_panel.items, action_panel_scroll_handle.index, &on_action_click, &Cell::new(0));
 
     let actions: Element<_> = column(columns)
         .into();

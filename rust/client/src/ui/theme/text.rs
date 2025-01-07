@@ -8,6 +8,7 @@ pub enum TextStyle {
     #[default]
     Default, // TODO is this used?
 
+    ActionSectionTitle,
     EmptyViewSubtitle,
     ListItemSubtitle,
     ListSectionTitle,
@@ -61,6 +62,9 @@ impl text::Catalog for GauntletComplexTheme {
     fn style(&self, class: &Self::Class<'_>) -> Style {
         match class {
             TextStyle::Default => Default::default(),
+            TextStyle::ActionSectionTitle => Style {
+                color: Some(self.action_section_title.text_color),
+            },
             TextStyle::EmptyViewSubtitle => Style {
                 color: Some(self.empty_view_subtitle.text_color),
             },

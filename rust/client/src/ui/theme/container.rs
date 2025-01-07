@@ -6,6 +6,7 @@ use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, ThemableWidget}
 pub enum ContainerStyle {
     ActionPanel,
     ActionPanelTitle,
+    ActionSectionTitle,
     ActionShortcutModifier,
     ActionShortcutModifiersInit, // "init" means every item on list except last one
     ContentCodeBlock,
@@ -258,6 +259,9 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             }
             ContainerStyle::ActionPanelTitle => {
                 self.padding(theme.action_panel_title.padding.to_iced())
+            }
+            ContainerStyle::ActionSectionTitle => {
+                self.padding(theme.action_section_title.padding.to_iced())
             }
             ContainerStyle::ActionShortcutModifier => {
                 self.class(ContainerStyleInner::ActionShortcutModifier)

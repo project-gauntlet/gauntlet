@@ -29,7 +29,8 @@ pub struct GauntletComplexTheme {
     popup: ThemeRoot,
     action: ThemeButton,
     action_panel: ThemePaddingBackgroundColor,
-    action_panel_title: ThemePaddingOnly,
+    action_panel_title: ThemePaddingTextColor,
+    action_section_title: ThemePaddingTextColor,
     action_shortcut: ThemePaddingOnly,
     action_shortcut_modifier: ThemeActionShortcutModifier,
     content_code_block: ThemePaddingOnly,
@@ -178,8 +179,13 @@ impl GauntletComplexTheme {
                 padding: padding_all(8.0),
                 background_color: background_400,
             },
-            action_panel_title: ThemePaddingOnly {
+            action_panel_title: ThemePaddingTextColor {
                 padding: padding(2.0, 8.0, 4.0, 8.0),
+                text_color: text_300,
+            },
+            action_section_title: ThemePaddingTextColor {
+                padding: padding(8.0, 8.0, 4.0, 8.0),
+                text_color: text_300,
             },
             action: ThemeButton {
                 padding: padding_all(8.0),
