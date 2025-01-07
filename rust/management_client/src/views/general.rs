@@ -120,18 +120,43 @@ impl ManagementAppGeneralState {
             Some(self.shortcut_capture_after())
         );
 
-        let theme_items = [
-            SettingsTheme::AutoDetect,
-            SettingsTheme::MacOSLight,
-            SettingsTheme::MacOSDark,
-            SettingsTheme::Legacy,
-        ];
 
-        let theme_field: Element<_> = pick_list(
-            theme_items,
-            Some(self.theme.clone()),
-            move |item| ManagementAppGeneralMsgIn::ThemeChanged(item),
-        ).into();
+        let theme_field = match &self.theme {
+            SettingsTheme::ThemeFile => {
+                let theme_field: Element<_> = text("Unable to change because theme config file is present ")
+                    .shaping(Shaping::Advanced)
+                    .align_x(Horizontal::Center)
+                    .width(Length::Fill)
+                    .into();
+
+                theme_field
+            }
+            SettingsTheme::Config => {
+                let theme_field: Element<_> = text("Unable to change because value is defined in config")
+                    .shaping(Shaping::Advanced)
+                    .align_x(Horizontal::Center)
+                    .width(Length::Fill)
+                    .into();
+
+                theme_field
+            }
+            _ => {
+                let theme_items = [
+                    SettingsTheme::AutoDetect,
+                    SettingsTheme::MacOSLight,
+                    SettingsTheme::MacOSDark,
+                    SettingsTheme::Legacy,
+                ];
+
+                let theme_field: Element<_> = pick_list(
+                    theme_items,
+                    Some(self.theme.clone()),
+                    move |item| ManagementAppGeneralMsgIn::ThemeChanged(item),
+                ).into();
+
+                theme_field
+            }
+        };
 
         let theme_field: Element<_> = container(theme_field)
             .width(Length::Fill)

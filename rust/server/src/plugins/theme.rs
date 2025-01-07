@@ -158,7 +158,7 @@ pub fn read_theme_file(theme_file: PathBuf) -> Option<UiTheme> {
             match parse_theme(&value) {
                 Ok(value) => Some(value),
                 Err(err) => {
-                    tracing::warn!("Unable to parse theme file: {:?} - {:?}", theme_file, err);
+                    tracing::warn!("Unable to parse theme file: {:?} - {:#}", theme_file, err);
                     None
                 }
             }
