@@ -1115,7 +1115,7 @@ impl<'b> ComponentWidgets<'b> {
 
                 let content_element: Element<_> = container(content_element)
                     .width(if is_in_list { Length::Fill } else { Length::FillPortion(3) })
-                    .height(if is_in_list { Length::FillPortion(5) } else { Length::Fill })
+                    .height(if is_in_list { Length::FillPortion(3) } else { Length::Fill })
                     .themed(ContainerStyle::DetailContent);
 
                 content_element
