@@ -226,7 +226,19 @@ pub fn listen_on_x11_events(
 
     conn.change_window_attributes(screen.root, &aux)?.check()?;
 
-    let _ = fetch_existing_windows(screen.root, &conn, &tokio_handle, &sender, atoms);
+    let mut init_window_data = Vec::<Window>::new();
+
+    let _ = fetch_existing_windows(screen.root, &conn, &tokio_handle, &sender, atoms, &mut init_window_data);
+
+    for window_id in init_window_data {
+        update_properties(
+            window_id,
+            &conn,
+            &tokio_handle,
+            &sender,
+            atoms,
+        );
+    }
 
     loop {
         match conn.wait_for_event()? {
@@ -314,10 +326,13 @@ fn fetch_existing_windows(
     tokio_handle: &Handle,
     sender: &Sender<JsX11ApplicationEvent>,
     atoms: atoms::Atoms,
+    init_window_data: &mut Vec<Window>
 ) -> anyhow::Result<()> {
     let query_tree = conn.query_tree(window_id)?.reply()?;
 
     let attributes = conn.get_window_attributes(window_id)?.reply()?;
+
+    init_window_data.push(window_id);
 
     send_event(&tokio_handle, &sender, JsX11ApplicationEvent::Init {
         id: format!("{}", window_id),
@@ -331,16 +346,8 @@ fn fetch_existing_windows(
         },
     });
 
-    update_properties(
-        window_id,
-        &conn,
-        tokio_handle,
-        sender,
-        atoms,
-    );
-
     for window in query_tree.children {
-        let _ = fetch_existing_windows(window, conn, tokio_handle, sender, atoms);
+        let _ = fetch_existing_windows(window, conn, tokio_handle, sender, atoms, init_window_data);
     }
 
     Ok(())
