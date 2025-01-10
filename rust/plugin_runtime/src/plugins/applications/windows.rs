@@ -6,6 +6,7 @@ use deno_core::op2;
 use std::path::PathBuf;
 use anyhow::{anyhow, Context};
 use image::RgbaImage;
+use tokio::task::spawn_blocking;
 use windows::core::{GUID, HSTRING, PWSTR};
 use windows::Win32::Foundation::{HANDLE, HWND};
 use windows::Win32::Graphics::Gdi;
@@ -54,6 +55,10 @@ fn windows_open_application(#[string] file_path: String) -> anyhow::Result<()> {
 #[op2(async)]
 #[serde]
 async fn windows_app_from_path(#[string] file_path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+    Ok(spawn_blocking(|| windows_app_from_path_blocking(file_path)).await?)
+}
+
+fn windows_app_from_path_blocking(file_path: String) -> anyhow::Result<Option<DesktopPathAction>> {
     if PathBuf::from(&file_path).exists() {
         let name = extract_name(&file_path)?;
         let icon = extract_icon(&file_path)
