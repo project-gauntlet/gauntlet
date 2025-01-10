@@ -602,7 +602,9 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("id", mark_doc!("/action/props/id.md"), true, PropertyType::String),
             property("label", mark_doc!("/action/props/label.md"), false, PropertyType::String),
-            event("onAction", mark_doc!("/action/props/onAction.md"), false, [])
+            event("onAction", mark_doc!("/action/props/onAction.md"), false, [
+                property("id", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_none(),
     );
@@ -1082,11 +1084,11 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/list_item/description.md"),
         "ListItem",
         [
+            property("id", mark_doc!("/list_item/props/id.md"), false, PropertyType::String),
             property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
             property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
             property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
             property("accessories", mark_doc!("/list_item/props/accessories.md"),true, PropertyType::Array { item: Box::new(PropertyType::Union { items: vec![component_ref(&accessory_text_component, Arity::ZeroOrMore), component_ref(&accessory_icon_component, Arity::ZeroOrMore)]}) }),
-            event("onClick", mark_doc!("/list_item/props/onClick.md"), true, [])
         ],
         children_none(),
     );
@@ -1114,6 +1116,9 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
             property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
+            event("onItemFocusChange", mark_doc!("/list/props/onItemFocusChange.md"), true, [
+                property("itemId", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_members(
             [
@@ -1133,10 +1138,10 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid_item/description.md"),
         "GridItem",
         [
+            property("id", mark_doc!("/list_item/props/id.md"), false, PropertyType::String),
             property("title", mark_doc!("/grid_item/props/title.md"), true, PropertyType::String),
             property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
             property("accessory", mark_doc!("/grid_item/props/accessory.md"),true, component_ref(&accessory_icon_component, Arity::ZeroOrOne)),
-            event("onClick", mark_doc!("/grid_item/props/onClick.md"), true, [])
         ],
         children_members(
             [],
@@ -1177,6 +1182,9 @@ pub fn create_component_model() -> Vec<Component> {
             property("columns", mark_doc!("/grid/props/columns.md"),true, PropertyType::Number), // TODO default
             // fit
             // inset
+            event("onItemFocusChange", mark_doc!("/grid/props/onItemFocusChange.md"), true, [
+                property("itemId", "".to_string(), true, PropertyType::String)
+            ])
         ],
         children_members(
             [

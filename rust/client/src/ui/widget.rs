@@ -15,7 +15,7 @@ use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
 use crate::ui::theme::{Element, ThemableWidget};
 use crate::ui::AppMsg;
-use gauntlet_common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, ImageLike, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiWidgetId};
+use gauntlet_common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, ImageLike, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiRenderLocation, UiWidgetId};
 use gauntlet_common_ui::shortcut_to_text;
 use iced::alignment::{Horizontal, Vertical};
 use iced::font::Weight;
@@ -38,18 +38,21 @@ use std::sync::Arc;
 pub struct ComponentWidgets<'b> {
     root_widget: &'b mut Option<Arc<RootWidget>>,
     state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
-    images: &'b HashMap<UiWidgetId, Vec<u8>>
+    plugin_id: PluginId,
+    images: &'b HashMap<UiWidgetId, Vec<u8>>,
 }
 
 impl<'b> ComponentWidgets<'b> {
     pub fn new(
         root_widget: &'b mut Option<Arc<RootWidget>>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+        plugin_id: PluginId,
         images: &'b HashMap<UiWidgetId, Vec<u8>>
     ) -> ComponentWidgets<'b> {
         Self {
             root_widget,
             state,
+            plugin_id,
             images
         }
     }
@@ -246,7 +249,7 @@ struct SelectState {
 #[derive(Debug, Clone)]
 struct RootState {
     show_action_panel: bool,
-    focused_item: ScrollHandle<UiWidgetId>,
+    focused_item: ScrollHandle,
 }
 
 impl ComponentWidgetState {
@@ -366,6 +369,32 @@ impl<'b> ComponentWidgets<'b> {
         }
 
         result
+    }
+
+    pub fn get_focused_item_id(&self) -> Option<String> {
+        let Some(root_widget) = &self.root_widget else {
+            return None;
+        };
+
+        let Some(content) = &root_widget.content else {
+            return None;
+        };
+
+        match content {
+            RootWidgetMembers::Detail(_) => None,
+            RootWidgetMembers::Form(_) => None,
+            RootWidgetMembers::Inline(_) => None,
+            RootWidgetMembers::List(widget) => {
+                let RootState { focused_item, .. } = self.root_state(widget.__id__);
+
+                ComponentWidgets::list_focused_item_id(focused_item, widget)
+            },
+            RootWidgetMembers::Grid(widget) => {
+                let RootState { focused_item, .. } = self.root_state(widget.__id__);
+
+                ComponentWidgets::grid_focused_item_id(focused_item, widget)
+            },
+        }
     }
 
     fn grid_section_sizes(grid_widget: &GridWidget) -> Vec<GridSectionData> {
@@ -569,11 +598,18 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Detail(_) => Task::none(),
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::Inline(_) => Task::none(),
-            RootWidgetMembers::List(widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
+            RootWidgetMembers::List(list_widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, list_widget.__id__);
 
-                focused_item.focus_previous()
-                    .unwrap_or_else(|| Task::none())
+                let focus_task = focused_item.focus_previous()
+                    .unwrap_or_else(|| Task::none());
+
+                let item_focus_event = ComponentWidgets::list_item_focus_event(self.plugin_id.clone(), focused_item, list_widget);
+
+                Task::batch([
+                    item_focus_event,
+                    focus_task
+                ])
             }
             RootWidgetMembers::Grid(grid_widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
@@ -584,7 +620,7 @@ impl<'b> ComponentWidgets<'b> {
 
                 let amount_per_section_total = Self::grid_section_sizes(grid_widget);
 
-                match grid_up_offset(*current_index, amount_per_section_total) {
+                let focus_task = match grid_up_offset(*current_index, amount_per_section_total) {
                     None => Task::none(),
                     Some(data) => {
                         match focused_item.focus_previous_in(data.offset) {
@@ -592,7 +628,14 @@ impl<'b> ComponentWidgets<'b> {
                             Some(_) => focused_item.scroll_to(data.row_index)
                         }
                     }
-                }
+                };
+
+                let item_focus_event = ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
+
+                Task::batch([
+                    item_focus_event,
+                    focus_task
+                ])
             }
         }
     }
@@ -632,8 +675,15 @@ impl<'b> ComponentWidgets<'b> {
                     })
                     .count();
 
-                focused_item.focus_next(total)
-                    .unwrap_or_else(|| Task::none())
+                let focus_task = focused_item.focus_next(total)
+                    .unwrap_or_else(|| Task::none());
+
+                let item_focus_event = ComponentWidgets::list_item_focus_event(self.plugin_id.clone(), focused_item, widget);
+
+                Task::batch([
+                    item_focus_event,
+                    focus_task
+                ])
             }
             RootWidgetMembers::Grid(grid_widget) => {
                 let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
@@ -656,13 +706,16 @@ impl<'b> ComponentWidgets<'b> {
 
                     let _ = focused_item.focus_next(total);
 
+                    let item_focus_event = ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
+
                     return Task::batch([
                         unfocus,
-                        focused_item.scroll_to(0)
+                        focused_item.scroll_to(0),
+                        item_focus_event
                     ])
                 };
 
-                match grid_down_offset(*current_index, amount_per_section_total) {
+                let focus_task = match grid_down_offset(*current_index, amount_per_section_total) {
                     None => Task::none(),
                     Some(data) => {
                         match focused_item.focus_next_in(total, data.offset) {
@@ -670,7 +723,14 @@ impl<'b> ComponentWidgets<'b> {
                             Some(_) => focused_item.scroll_to(data.row_index)
                         }
                     }
-                }
+                };
+
+                let item_focus_event = ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
+
+                Task::batch([
+                    item_focus_event,
+                    focus_task
+                ])
             }
         }
     }
@@ -689,14 +749,14 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(_) => Task::none(),
-            RootWidgetMembers::Grid(widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
+            RootWidgetMembers::Grid(grid_widget) => {
+                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
 
                 let _ = focused_item.focus_previous();
 
                 // focused_item.scroll_to(0)
-                // TODO
-                Task::none()
+
+                ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget)
             }
         }
     }
@@ -740,9 +800,96 @@ impl<'b> ComponentWidgets<'b> {
                 let _ = focused_item.focus_next(total);
 
                 // focused_item.scroll_to(0)
-                Task::none()
+
+                ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget)
             }
         }
+    }
+
+    fn list_focused_item_id(focused_item: &ScrollHandle, widget: &ListWidget) -> Option<String> {
+        let mut items = vec![];
+
+        for members in &widget.content.ordered_members {
+            match &members {
+                ListWidgetOrderedMembers::ListItem(item) => {
+                    items.push(&item.id);
+                }
+                ListWidgetOrderedMembers::ListSection(section) => {
+                    for members in &section.content.ordered_members {
+                        match &members {
+                            ListSectionWidgetOrderedMembers::ListItem(item) => {
+                                items.push(&item.id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        match focused_item.get(&items) {
+            None => None,
+            Some(item_id) => Some(item_id.to_string())
+        }
+    }
+
+    fn list_item_focus_event(plugin_id: PluginId, focused_item: &ScrollHandle, widget: &ListWidget) -> Task<AppMsg> {
+        let widget_event = match ComponentWidgets::list_focused_item_id(focused_item, widget) {
+            None => {
+                ComponentWidgetEvent::FocusListItem { list_widget_id: widget.__id__, item_id: None }
+            }
+            Some(item_id) => {
+                ComponentWidgetEvent::FocusListItem { list_widget_id: widget.__id__, item_id: Some(item_id) }
+            }
+        };
+
+        Task::done(AppMsg::WidgetEvent {
+            plugin_id,
+            render_location: UiRenderLocation::View,
+            widget_event,
+        })
+    }
+
+    fn grid_focused_item_id(focused_item: &ScrollHandle, widget: &GridWidget) -> Option<String> {
+        let mut items = vec![];
+
+        for members in &widget.content.ordered_members {
+            match &members {
+                GridWidgetOrderedMembers::GridItem(item) => {
+                    items.push(&item.id);
+                }
+                GridWidgetOrderedMembers::GridSection(section) => {
+                    for members in &section.content.ordered_members {
+                        match &members {
+                            GridSectionWidgetOrderedMembers::GridItem(item) => {
+                                items.push(&item.id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        match focused_item.get(&items) {
+            None => None,
+            Some(item_id) => Some(item_id.to_string())
+        }
+    }
+
+    fn grid_item_focus_event(plugin_id: PluginId, focused_item: &ScrollHandle, widget: &GridWidget) -> Task<AppMsg> {
+        let widget_event = match ComponentWidgets::grid_focused_item_id(focused_item, widget) {
+            None => {
+                ComponentWidgetEvent::FocusGridItem { grid_widget_id: widget.__id__, item_id: None }
+            }
+            Some(item_id) => {
+                ComponentWidgetEvent::FocusGridItem { grid_widget_id: widget.__id__, item_id: Some(item_id) }
+            }
+        };
+
+        Task::done(AppMsg::WidgetEvent {
+            plugin_id,
+            render_location: UiRenderLocation::View,
+            widget_event,
+        })
     }
 
     pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
@@ -818,6 +965,7 @@ impl<'b> ComponentWidgets<'b> {
                                 self.render_plugin_root(
                                     *show_action_panel,
                                     widget.__id__,
+                                    None,
                                     &None,
                                     &widget.content.actions,
                                     content,
@@ -1329,6 +1477,7 @@ impl<'b> ComponentWidgets<'b> {
         self.render_plugin_root(
             *show_action_panel,
             widget_id,
+            None,
             &None,
             &widget.content.actions,
             content,
@@ -1561,9 +1710,12 @@ impl<'b> ComponentWidgets<'b> {
             .height(Length::Fill)
             .into();
 
+        let focused_item_id = ComponentWidgets::list_focused_item_id(focused_item, list_widget);
+
         self.render_plugin_root(
             *show_action_panel,
             widget_id,
+            focused_item_id,
             &list_widget.content.search_bar,
             &list_widget.content.actions,
             content,
@@ -1671,8 +1823,16 @@ impl<'b> ComponentWidgets<'b> {
 
         index_counter.set(index_counter.get() + 1);
 
+        let action_ids = self.get_action_ids();
+        let primary_action = action_ids.first();
+
+        let on_press_msg = match primary_action {
+            None => ComponentWidgetEvent::Noop,
+            Some(widget_id) => ComponentWidgetEvent::RunPrimaryAction { widget_id: *widget_id, id: Some(widget.id.clone()) }
+        };
+
         button(content)
-            .on_press(ComponentWidgetEvent::ListItemClick { widget_id: widget.__id__ })
+            .on_press(on_press_msg)
             .width(Length::Fill)
             .themed(style)
     }
@@ -1744,9 +1904,12 @@ impl<'b> ComponentWidgets<'b> {
             content
         };
 
+        let focused_item_id = ComponentWidgets::grid_focused_item_id(focused_item, grid_widget);
+
         self.render_plugin_root(
             *show_action_panel,
             grid_widget.__id__,
+            focused_item_id,
             &grid_widget.content.search_bar,
             &grid_widget.content.actions,
             content,
@@ -1814,8 +1977,16 @@ impl<'b> ComponentWidgets<'b> {
 
         index_counter.set(index_counter.get() + 1);
 
+        let action_ids = self.get_action_ids();
+        let primary_action = action_ids.first();
+
+        let on_press_msg = match primary_action {
+            None => ComponentWidgetEvent::Noop,
+            Some(widget_id) => ComponentWidgetEvent::RunPrimaryAction { widget_id: *widget_id, id: Some(widget.id.clone()) }
+        };
+
         let content: Element<_> = button(content)
-            .on_press(ComponentWidgetEvent::GridItemClick { widget_id: widget.__id__ })
+            .on_press(on_press_msg)
             .width(Length::Fill)
             .themed(style);
 
@@ -1932,7 +2103,8 @@ impl<'b> ComponentWidgets<'b> {
     fn render_plugin_root<'a>(
         &self,
         show_action_panel: bool,
-        widget_id: UiWidgetId,
+        root_widget_id: UiWidgetId,
+        focused_item_id: Option<String>,
         search_bar: &Option<SearchBarWidget>,
         action_panel: &Option<ActionPanelWidget>,
         content: Element<'a, ComponentWidgetEvent>,
@@ -1979,11 +2151,11 @@ impl<'b> ComponentWidgets<'b> {
                     content,
                     primary_action,
                     action_panel,
-                    None::<&ScrollHandle<UiWidgetId>>,
+                    None::<&ScrollHandle>,
                     entrypoint_name,
-                    || ComponentWidgetEvent::ToggleActionPanel { widget_id },
-                    |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id },
-                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id },
+                    || ComponentWidgetEvent::ToggleActionPanel { widget_id: root_widget_id },
+                    |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id, id: focused_item_id.clone() },
+                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id, id: focused_item_id.clone() },
                     || ComponentWidgetEvent::Noop,
                 )
             }
@@ -1998,9 +2170,9 @@ impl<'b> ComponentWidgets<'b> {
                     action_panel,
                     Some(&focused_action_item),
                     entrypoint_name,
-                    || ComponentWidgetEvent::ToggleActionPanel { widget_id },
-                    |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id },
-                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id },
+                    || ComponentWidgetEvent::ToggleActionPanel { widget_id: root_widget_id },
+                    |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id, id: focused_item_id.clone() },
+                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id, id: focused_item_id.clone() },
                     || ComponentWidgetEvent::Noop,
                 )
             }
@@ -2305,10 +2477,10 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
     columns
 }
 
-fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
+fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T>(
     action_panel: ActionPanel,
     on_action_click: F,
-    action_panel_scroll_handle: &ScrollHandle<ACTION>,
+    action_panel_scroll_handle: &ScrollHandle,
 ) -> Element<'a, T> {
     let columns = render_action_panel_items(true, action_panel.title, action_panel.items, action_panel_scroll_handle.index, &on_action_click, &Cell::new(0));
 
@@ -2324,7 +2496,7 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T, ACTION>(
         .themed(ContainerStyle::ActionPanel)
 }
 
-pub fn render_root<'a, T: 'a + Clone, ACTION>(
+pub fn render_root<'a, T: 'a + Clone>(
     show_action_panel: bool,
     top_panel: Element<'a, T>,
     top_separator: Element<'a, T>,
@@ -2332,7 +2504,7 @@ pub fn render_root<'a, T: 'a + Clone, ACTION>(
     content: Element<'a, T>,
     primary_action: Option<(String, UiWidgetId, PhysicalShortcut)>,
     action_panel: Option<ActionPanel>,
-    action_panel_scroll_handle: Option<&ScrollHandle<ACTION>>,
+    action_panel_scroll_handle: Option<&ScrollHandle>,
     entrypoint_name: &str,
     on_panel_toggle_click: impl Fn() -> T,
     on_panel_primary_click: impl Fn(UiWidgetId) -> T,
@@ -2644,9 +2816,11 @@ pub enum ComponentWidgetEvent {
     },
     ActionClick {
         widget_id: UiWidgetId,
+        id: Option<String>
     },
     RunAction {
-        widget_id: UiWidgetId
+        widget_id: UiWidgetId,
+        id: Option<String>
     },
     ToggleDatePicker {
         widget_id: UiWidgetId,
@@ -2681,15 +2855,18 @@ pub enum ComponentWidgetEvent {
     ToggleActionPanel {
         widget_id: UiWidgetId,
     },
-    ListItemClick {
-        widget_id: UiWidgetId,
+    FocusListItem {
+        list_widget_id: UiWidgetId,
+        item_id: Option<String>,
     },
-    GridItemClick {
-        widget_id: UiWidgetId,
+    FocusGridItem {
+        grid_widget_id: UiWidgetId,
+        item_id: Option<String>,
     },
     PreviousView,
     RunPrimaryAction {
         widget_id: UiWidgetId,
+        id: Option<String>,
     },
     Noop,
 }
@@ -2707,8 +2884,8 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::TagClick { widget_id } => {
                 Some(create_metadata_tag_item_on_click_event(widget_id))
             }
-            ComponentWidgetEvent::RunAction { widget_id } | ComponentWidgetEvent::ActionClick { widget_id } => {
-                Some(create_action_on_action_event(widget_id))
+            ComponentWidgetEvent::RunAction { widget_id, id } | ComponentWidgetEvent::ActionClick { widget_id, id } => {
+                Some(create_action_on_action_event(widget_id, id))
             }
             ComponentWidgetEvent::ToggleDatePicker { widget_id } => {
                 let state = state.expect("state should always exist for ");
@@ -2813,18 +2990,18 @@ impl ComponentWidgetEvent {
                     event: AppMsg::ToggleActionPanel { keyboard: false }
                 })
             }
-            ComponentWidgetEvent::ListItemClick { widget_id } => {
-                Some(create_list_item_on_click_event(widget_id))
+            ComponentWidgetEvent::FocusListItem { list_widget_id, item_id } => {
+                Some(create_list_on_item_focus_change_event(list_widget_id, item_id))
             }
-            ComponentWidgetEvent::GridItemClick { widget_id } => {
-                Some(create_grid_item_on_click_event(widget_id))
+            ComponentWidgetEvent::FocusGridItem { grid_widget_id, item_id } => {
+                Some(create_grid_on_item_focus_change_event(grid_widget_id, item_id))
             }
             ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => {
                 panic!("widget_id on these events is not supposed to be called")
             }
-            ComponentWidgetEvent::RunPrimaryAction { widget_id } => {
+            ComponentWidgetEvent::RunPrimaryAction { widget_id, id } => {
                 Some(UiViewEvent::AppEvent {
-                    event: AppMsg::OnAnyActionPluginViewAnyPanel { widget_id }
+                    event: AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id }
                 })
             }
         }
@@ -2845,9 +3022,9 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::OnChangePasswordField { widget_id, .. } => widget_id,
             ComponentWidgetEvent::OnChangeSearchBar { widget_id, .. } => widget_id,
             ComponentWidgetEvent::ToggleActionPanel { widget_id } => widget_id,
-            ComponentWidgetEvent::ListItemClick { widget_id, .. } => widget_id,
-            ComponentWidgetEvent::GridItemClick { widget_id, .. } => widget_id,
-            ComponentWidgetEvent::RunPrimaryAction { widget_id } => widget_id,
+            ComponentWidgetEvent::FocusListItem { list_widget_id, .. } => list_widget_id,
+            ComponentWidgetEvent::FocusGridItem { grid_widget_id, .. } => grid_widget_id,
+            ComponentWidgetEvent::RunPrimaryAction { widget_id, .. } => widget_id,
             ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => panic!("widget_id on these events is not supposed to be called"),
         }.to_owned()
     }

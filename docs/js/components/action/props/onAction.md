@@ -1,1 +1,1 @@
-Function that is called when the button in UI is clicked or the shortcut is pressed
+Function that is called when action button is clicked or the shortcut is pressed (including primary and secondary shortcuts). ID parameter is an id of currently focused grid or list item 

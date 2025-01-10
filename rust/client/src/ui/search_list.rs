@@ -19,7 +19,7 @@ use iced::{Alignment, Length};
 
 pub fn search_list<'a>(
     search_results: &'a [SearchResult],
-    focused_search_result: &ScrollHandle<SearchResult>,
+    focused_search_result: &ScrollHandle,
 ) -> Element<'a, SearchResult> {
     let items: Vec<Element<_>> = search_results
         .iter()

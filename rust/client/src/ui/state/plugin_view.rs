@@ -1,12 +1,11 @@
 use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
-use gauntlet_common::model::UiWidgetId;
 
 #[derive(Debug, Clone)]
 pub enum PluginViewState {
     None,
     ActionPanel {
         // ephemeral state
-        focused_action_item: ScrollHandle<UiWidgetId>,
+        focused_action_item: ScrollHandle,
     }
 }
 

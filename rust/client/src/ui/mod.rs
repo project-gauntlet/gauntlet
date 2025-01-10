@@ -118,7 +118,8 @@ pub enum AppMsg {
     RunPluginAction {
         render_location: UiRenderLocation,
         plugin_id: PluginId,
-        widget_id: UiWidgetId
+        widget_id: UiWidgetId,
+        id: Option<String>,
     },
     PromptChanged(String),
     PromptSubmit,
@@ -192,9 +193,9 @@ pub enum AppMsg {
     OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus,
     OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result: SearchResult, widget_id: UiWidgetId },
     OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnAnyActionPluginViewAnyPanel { widget_id: UiWidgetId },
+    OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId, id: Option<String> },
+    OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id: UiWidgetId, id: Option<String> },
+    OnAnyActionPluginViewAnyPanel { widget_id: UiWidgetId, id: Option<String> },
     OnAnyActionMainViewSearchResultPanelMouse { widget_id: UiWidgetId },
     OnPrimaryActionMainViewActionPanelMouse { widget_id: UiWidgetId },
     ResetMainViewState,
@@ -608,13 +609,14 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
             ])
         }
-        AppMsg::RunPluginAction { render_location, plugin_id, widget_id } => {
+        AppMsg::RunPluginAction { render_location, plugin_id, widget_id, id } => {
             let widget_event = ComponentWidgetEvent::RunAction {
                 widget_id,
+                id
             };
 
             Task::batch([
-                state.hide_window(),
+                // state.hide_window(), // TODO
                 Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
             ])
         }
@@ -1158,22 +1160,24 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                             render_location: UiRenderLocation::InlineView,
                             plugin_id,
                             widget_id,
+                            id: None
                         })
                     ])
                 }
                 None => Task::none()
             }
         }
-        AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id } => {
-            Task::done(AppMsg::OnAnyActionPluginViewAnyPanel { widget_id })
+        AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id, id } => {
+            Task::done(AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id })
         }
-        AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id } => {
+        AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id, id } => {
             Task::batch([
                 Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                 Task::done(AppMsg::RunPluginAction {
                     render_location: UiRenderLocation::View,
                     plugin_id: state.client_context.get_view_plugin_id(),
                     widget_id,
+                    id
                 })
             ])
         }
@@ -1205,6 +1209,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                             render_location: UiRenderLocation::InlineView,
                             plugin_id,
                             widget_id,
+                            id: None
                         })
                     }
                     None => Task::none()
@@ -1235,11 +1240,12 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 GlobalState::PluginView { .. } => Task::none()
             }
         }
-        AppMsg::OnAnyActionPluginViewAnyPanel { widget_id } => {
+        AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id } => {
             Task::done(AppMsg::RunPluginAction {
                 render_location: UiRenderLocation::View,
                 plugin_id: state.client_context.get_view_plugin_id(),
                 widget_id,
+                id
             })
         }
         AppMsg::OpenPluginView(plugin_id, entrypoint_id) => {
@@ -1812,7 +1818,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         content,
                         primary_action,
                         action_panel,
-                        None::<&ScrollHandle<SearchResultEntrypointAction>>,
+                        None::<&ScrollHandle>,
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
                         |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },

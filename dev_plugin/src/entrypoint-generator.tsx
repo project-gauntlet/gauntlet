@@ -5,7 +5,7 @@ import { List } from "@project-gauntlet/api/components";
 function ListView(): ReactElement {
     return (
         <List>
-            <List.Item title={"Test Item"}/>
+            <List.Item id="test-item" title={"Test Item"}/>
         </List>
     )
 }

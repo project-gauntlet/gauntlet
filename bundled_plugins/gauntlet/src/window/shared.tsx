@@ -1,6 +1,39 @@
-import { GeneratedEntrypoint, GeneratedEntrypointAccessory, GeneratedEntrypointAction } from "@project-gauntlet/api/helpers";
-import { List } from "@project-gauntlet/api/components";
+import {
+    GeneratedEntrypoint,
+    GeneratedEntrypointAccessory,
+    GeneratedEntrypointAction,
+    showHud
+} from "@project-gauntlet/api/helpers";
 import { linux_open_application } from "gauntlet:bridge/internal-linux";
+import React from "react";
+import { Action, ActionPanel, List } from "@project-gauntlet/api/components";
+
+export function ListOfWindows({ windows, focus }: { windows: OpenWindowData[], focus: (windowId: string) => void }) {
+    return (
+        <List
+            actions={
+                <ActionPanel>
+                    <Action
+                        label="Focus window"
+                        onAction={(id: string | undefined) => {
+                            if (id) {
+                                focus(id)
+                                console.log("focus: " + id)
+                            } else {
+                                showHud("No window selected")
+                                console.log("No window selected")
+                            }
+                        }}
+                    />
+                </ActionPanel>
+            }
+        >
+            {
+                windows.map(window => <List.Item key={window.id} id={window.id} title={window.title}/>)
+            }
+        </List>
+    )
+}
 
 export type OpenWindowData = {
     id: string,
@@ -45,22 +78,10 @@ export function applicationActions(
             {
                 label: "Show windows",
                 view: () => {
-                    return (
-                        <List>
-                            {
-                                appWindows
-                                    .map(([_, windowData]) => (
-                                        <List.Item
-                                            key={windowData.id}
-                                            title={windowData.title}
-                                            onClick={() => {
-                                                focusWindow(windowData.id)
-                                            }}
-                                        />
-                                    ))
-                            }
-                        </List>
-                    )
+                    const appWindowsArr = appWindows
+                        .map(([_, window]) => window);
+
+                    return <ListOfWindows windows={appWindowsArr} focus={windowId => focusWindow(windowId)}/>
                 }
             }
         ]

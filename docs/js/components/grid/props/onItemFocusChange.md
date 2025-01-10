@@ -1,0 +1,1 @@
+Function that is called when focused item changes. Argument is an ID of new focused item

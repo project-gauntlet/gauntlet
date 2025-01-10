@@ -133,6 +133,10 @@ impl ClientContext {
         self.view.get_action_ids()
     }
 
+    pub fn get_focused_item_id(&self) -> Option<String> {
+        self.view.get_focused_item_id()
+    }
+
     pub fn focus_up(&self) -> Task<AppMsg> {
         self.view.focus_up()
     }

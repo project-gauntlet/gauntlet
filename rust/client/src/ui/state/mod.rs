@@ -18,7 +18,7 @@ pub enum GlobalState {
         search_field_id: text_input::Id,
 
         // ephemeral state
-        focused_search_result: ScrollHandle<SearchResult>,
+        focused_search_result: ScrollHandle,
 
         // state
         sub_state: MainViewState,
@@ -168,12 +168,13 @@ impl Focus<SearchResult> for GlobalState {
             }
             GlobalState::PluginView { sub_state, .. } => {
                 let action_ids = client_context.get_action_ids();
+                let focused_item_id = client_context.get_focused_item_id();
 
                 match sub_state {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(0) {
                             let widget_id = *widget_id;
-                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id })
+                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id, id: focused_item_id })
                         } else {
                             Task::none()
                         }
@@ -181,7 +182,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::ActionPanel { focused_action_item, .. } => {
                         if let Some(widget_id) = focused_action_item.get(&action_ids) {
                             let widget_id = *widget_id;
-                            Task::done(AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id })
+                            Task::done(AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id, id: focused_item_id })
                         } else {
                             Task::none()
                         }
@@ -212,12 +213,13 @@ impl Focus<SearchResult> for GlobalState {
             }
             GlobalState::PluginView { sub_state, .. } => {
                 let action_ids = client_context.get_action_ids();
+                let focused_item_id = client_context.get_focused_item_id();
 
                 match sub_state {
                     PluginViewState::None => {
                         if let Some(widget_id) = action_ids.get(1) {
                             let widget_id = *widget_id;
-                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id })
+                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id, id: focused_item_id })
                         } else {
                             Task::none()
                         }
@@ -237,7 +239,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::MainView { sub_state, .. } => {
                 match sub_state {
                     MainViewState::None => {
-                        Task::perform(async {}, |_| AppMsg::HideWindow)
+                        Task::done(AppMsg::HideWindow)
                     }
                     MainViewState::SearchResultActionPanel { .. } => {
                         MainViewState::initial(sub_state);

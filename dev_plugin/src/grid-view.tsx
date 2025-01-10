@@ -20,7 +20,7 @@ export default function GridView(): ReactElement {
                 onChange={setSearchText}
             />
             <Grid.Section title="Section Before">
-                <Grid.Item title="Section Title">
+                <Grid.Item id="section-title" title="Section Title">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 1 1
@@ -34,7 +34,7 @@ export default function GridView(): ReactElement {
 
                     if (title.toLowerCase().includes(searchText?.toLowerCase() ?? "")) {
                         return (
-                            <Grid.Item title={"Title " + value}>
+                            <Grid.Item id={"title-" + value} title={"Title " + value}>
                                 <Grid.Item.Content>
                                     <Grid.Item.Content.Paragraph>
                                         Test Paragraph {value}
@@ -48,21 +48,21 @@ export default function GridView(): ReactElement {
                 })
             }
             <Grid.Section title="Section 1">
-                <Grid.Item title="Title Section 1 1">
+                <Grid.Item id="title-section-1-1" title="Title Section 1 1">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 1 1
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section 1 2">
+                <Grid.Item id="title-section-1-2" title="Title Section 1 2">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 1 2
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section 1 3">
+                <Grid.Item id="title-section-1-3" title="Title Section 1 3">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 1 3
@@ -71,7 +71,7 @@ export default function GridView(): ReactElement {
                 </Grid.Item>
             </Grid.Section>
             <Grid.Section title="Section 2">
-                <Grid.Item title="Title Section 2 1">
+                <Grid.Item id="title-section-2-1" title="Title Section 2 1">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 1
@@ -79,6 +79,7 @@ export default function GridView(): ReactElement {
                     </Grid.Item.Content>
                 </Grid.Item>
                 <Grid.Item
+                    id="title-section-2-2"
                     title="Title Section"
                     subtitle="Test subtitle"
                     accessory={<IconAccessory icon={Icons.Wallet} tooltip="Tooltip"/>}
@@ -89,14 +90,14 @@ export default function GridView(): ReactElement {
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item accessory={<IconAccessory icon={Icons.Sun} tooltip="Tooltip"/>}>
+                <Grid.Item id="title-section-2-3" accessory={<IconAccessory icon={Icons.Sun} tooltip="Tooltip"/>}>
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
-                            Test Paragraph Section 2 2
+                            Test Paragraph Section 2 3
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section 3">
+                <Grid.Item id="title-section-2-4" title="Title Section 2 4">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 3
@@ -105,35 +106,35 @@ export default function GridView(): ReactElement {
                 </Grid.Item>
             </Grid.Section>
             <Grid.Section title="Section 3">
-                <Grid.Item title="Title Section 2 1">
+                <Grid.Item id="title-section-3-1" title="Title Section 3 1">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 1
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section" subtitle="Test subtitle">
+                <Grid.Item id="title-section-3-2" title="Title Section" subtitle="Test subtitle">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 2
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item>
+                <Grid.Item id="title-section-3-3">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 2
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section 3">
+                <Grid.Item id="title-section-3-4" title="Title Section 3">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 3
                         </Grid.Item.Content.Paragraph>
                     </Grid.Item.Content>
                 </Grid.Item>
-                <Grid.Item title="Title Section 3">
+                <Grid.Item id="title-section-3-5" title="Title Section 3">
                     <Grid.Item.Content>
                         <Grid.Item.Content.Paragraph>
                             Test Paragraph Section 2 4
@@ -145,7 +146,7 @@ export default function GridView(): ReactElement {
                 {
                     Array.from({ length: 50 }, (_, k) => k + 1)
                         .map(value => (
-                                <Grid.Item>
+                                <Grid.Item id={"title-section-4-" + value}>
                                     <Grid.Item.Content>
                                         <Grid.Item.Content.Paragraph>
                                             Test {value}

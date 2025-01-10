@@ -6,7 +6,7 @@ declare global {
             ["gauntlet:action"]: {
                 id?: string;
                 label: string;
-                onAction: () => void;
+                onAction: (id: string | undefined) => void;
             };
             ["gauntlet:action_panel_section"]: {
                 children?: ElementComponent<typeof Action>;
@@ -139,10 +139,10 @@ declare global {
             };
             ["gauntlet:list_item"]: {
                 children?: ElementComponent<typeof TextAccessory | typeof IconAccessory>;
+                id: string;
                 title: string;
                 subtitle?: string;
                 icon?: ImageLike;
-                onClick?: () => void;
             };
             ["gauntlet:list_section"]: {
                 children?: ElementComponent<typeof ListItem>;
@@ -152,12 +152,13 @@ declare global {
             ["gauntlet:list"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
                 isLoading?: boolean;
+                onItemFocusChange?: (itemId: string | undefined) => void;
             };
             ["gauntlet:grid_item"]: {
                 children?: ElementComponent<typeof IconAccessory | typeof Content>;
+                id: string;
                 title?: string;
                 subtitle?: string;
-                onClick?: () => void;
             };
             ["gauntlet:grid_section"]: {
                 children?: ElementComponent<typeof GridItem>;
@@ -169,6 +170,7 @@ declare global {
                 children?: ElementComponent<typeof ActionPanel | typeof GridItem | typeof GridSection | typeof SearchBar | typeof EmptyView>;
                 isLoading?: boolean;
                 columns?: number;
+                onItemFocusChange?: (itemId: string | undefined) => void;
             };
         }
     }
@@ -364,7 +366,7 @@ export type ImageLike = ImageSource | Icons;
 export interface ActionProps {
     id?: string;
     label: string;
-    onAction: () => void;
+    onAction: (id: string | undefined) => void;
 }
 export const Action: FC<ActionProps> = (props: ActionProps): ReactNode => {
     return <gauntlet:action id={props.id} label={props.label} onAction={props.onAction}></gauntlet:action>;
@@ -677,14 +679,14 @@ export const SearchBar: FC<SearchBarProps> = (props: SearchBarProps): ReactNode 
     return <gauntlet:search_bar value={props.value} placeholder={props.placeholder} onChange={props.onChange}></gauntlet:search_bar>;
 };
 export interface ListItemProps {
+    id: string;
     title: string;
     subtitle?: string;
     icon?: ImageLike;
     accessories?: (ElementComponent<typeof TextAccessory> | ElementComponent<typeof IconAccessory>)[];
-    onClick?: () => void;
 }
 export const ListItem: FC<ListItemProps> = (props: ListItemProps): ReactNode => {
-    return <gauntlet:list_item title={props.title} subtitle={props.subtitle} icon={props.icon} onClick={props.onClick}>{props.accessories as any}</gauntlet:list_item>;
+    return <gauntlet:list_item id={props.id} title={props.title} subtitle={props.subtitle} icon={props.icon}>{props.accessories as any}</gauntlet:list_item>;
 };
 export interface ListSectionProps {
     children?: ElementComponent<typeof ListItem>;
@@ -701,6 +703,7 @@ export interface ListProps {
     children?: ElementComponent<typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
     actions?: ElementComponent<typeof ActionPanel>;
     isLoading?: boolean;
+    onItemFocusChange?: (itemId: string | undefined) => void;
 }
 export const List: FC<ListProps> & {
     Item: typeof ListItem;
@@ -709,7 +712,7 @@ export const List: FC<ListProps> & {
     EmptyView: typeof EmptyView;
     Detail: typeof Detail;
 } = (props: ListProps): ReactNode => {
-    return <gauntlet:list isLoading={props.isLoading}>{props.actions as any}{props.children}</gauntlet:list>;
+    return <gauntlet:list isLoading={props.isLoading} onItemFocusChange={props.onItemFocusChange}>{props.actions as any}{props.children}</gauntlet:list>;
 };
 List.Item = ListItem;
 List.Section = ListSection;
@@ -718,15 +721,15 @@ List.EmptyView = EmptyView;
 List.Detail = Detail;
 export interface GridItemProps {
     children?: ElementComponent<typeof Content>;
+    id: string;
     title?: string;
     subtitle?: string;
     accessory?: ElementComponent<typeof IconAccessory>;
-    onClick?: () => void;
 }
 export const GridItem: FC<GridItemProps> & {
     Content: typeof Content;
 } = (props: GridItemProps): ReactNode => {
-    return <gauntlet:grid_item title={props.title} subtitle={props.subtitle} onClick={props.onClick}>{props.accessory as any}{props.children}</gauntlet:grid_item>;
+    return <gauntlet:grid_item id={props.id} title={props.title} subtitle={props.subtitle}>{props.accessory as any}{props.children}</gauntlet:grid_item>;
 };
 GridItem.Content = Content;
 export interface GridSectionProps {
@@ -746,6 +749,7 @@ export interface GridProps {
     isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
+    onItemFocusChange?: (itemId: string | undefined) => void;
 }
 export const Grid: FC<GridProps> & {
     Item: typeof GridItem;
@@ -753,7 +757,7 @@ export const Grid: FC<GridProps> & {
     SearchBar: typeof SearchBar;
     EmptyView: typeof EmptyView;
 } = (props: GridProps): ReactNode => {
-    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns}>{props.actions as any}{props.children}</gauntlet:grid>;
+    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns} onItemFocusChange={props.onItemFocusChange}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
 Grid.Item = GridItem;
 Grid.Section = GridSection;

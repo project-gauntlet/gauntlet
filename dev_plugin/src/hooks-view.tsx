@@ -1,69 +1,156 @@
-import { Icons, List } from "@project-gauntlet/api/components";
-import React, { ReactElement, useRef } from "react";
+import { Action, ActionPanel, Element, Icons, List } from "@project-gauntlet/api/components";
+import React, { ReactElement, ReactNode, useRef, useState } from "react";
 import { useCachedPromise, useFetch, useNavigation, usePromise } from "@project-gauntlet/api/hooks";
 
 export default function ListView(): ReactElement {
     const { pushView } = useNavigation();
 
+    const [id, setId] = useState<string | undefined>(undefined);
+
     return (
-        <List>
-            <List.Item title="UsePromiseTestBasic" onClick={() => pushView(<UsePromiseTestBasic/>)}/>
-            <List.Item title="UsePromiseTestExecuteFalse" onClick={() => pushView(<UsePromiseTestExecuteFalse/>)}/>
-            <List.Item title="UsePromiseTestRevalidate" onClick={() => pushView(<UsePromiseTestRevalidate/>)}/>
-            <List.Item title="UsePromiseTestAbortableRevalidate" onClick={() => pushView(<UsePromiseTestAbortableRevalidate/>)}/>
-            <List.Item title="UsePromiseTestMutate" onClick={() => pushView(<UsePromiseTestMutate/>)}/>
-            <List.Item title="UsePromiseTestMutateOptimistic" onClick={() => pushView(<UsePromiseTestMutateOptimistic/>)}/>
-            <List.Item title="UsePromiseTestMutateOptimisticRollback" onClick={() => pushView(<UsePromiseTestMutateOptimisticRollback/>)}/>
-            <List.Item title="UsePromiseTestMutateNoRevalidate" onClick={() => pushView(<UsePromiseTestMutateNoRevalidate/>)}/>
-            <List.Item title="UsePromiseTestThrow" onClick={() => pushView(<UsePromiseTestThrow/>)}/>
-            <List.Item title="UseCachedPromiseBasic" onClick={() => pushView(<UseCachedPromiseBasic/>)}/>
-            <List.Item title="UseCachedPromiseInitialState" onClick={() => pushView(<UseCachedPromiseInitialState/>)}/>
-            <List.Item title="UseFetchBasic" onClick={() => pushView(<UseFetchBasic/>)}/>
-            <List.Item title="UseFetchMap" onClick={() => pushView(<UseFetchMap/>)}/>
+        <List
+            actions={
+                <ActionPanel>
+                    <Action label="Run hook" onAction={() => pushPrimaryAction(id, pushView)}/>
+                </ActionPanel>
+            }
+            onItemFocusChange={itemId => setId(itemId)}
+        >
+            <List.Item id="UsePromiseTestBasic" title="UsePromiseTestBasic"/>
+            <List.Item id="UsePromiseTestExecuteFalse" title="UsePromiseTestExecuteFalse"/>
+            <List.Item id="UsePromiseTestRevalidate" title="UsePromiseTestRevalidate"/>
+            <List.Item id="UsePromiseTestAbortableRevalidate" title="UsePromiseTestAbortableRevalidate"/>
+            <List.Item id="UsePromiseTestMutate" title="UsePromiseTestMutate"/>
+            <List.Item id="UsePromiseTestMutateOptimistic" title="UsePromiseTestMutateOptimistic"/>
+            <List.Item id="UsePromiseTestMutateOptimisticRollback" title="UsePromiseTestMutateOptimisticRollback"/>
+            <List.Item id="UsePromiseTestMutateNoRevalidate" title="UsePromiseTestMutateNoRevalidate"/>
+            <List.Item id="UsePromiseTestThrow" title="UsePromiseTestThrow"/>
+            <List.Item id="UseCachedPromiseBasic" title="UseCachedPromiseBasic"/>
+            <List.Item id="UseCachedPromiseInitialState" title="UseCachedPromiseInitialState"/>
+            <List.Item id="UseFetchBasic" title="UseFetchBasic"/>
+            <List.Item id="UseFetchMap" title="UseFetchMap"/>
         </List>
     )
 }
 
-function UsePromiseTestBasic(): ReactElement {
+function pushPrimaryAction(id: string | undefined, pushView: (component: ReactNode) => void) {
+    switch (id) {
+        case "UsePromiseTestBasic": {
+            pushView(<UsePromiseTestBasic/>)
+            break
+        }
+        case "UsePromiseTestExecuteFalse": {
+            pushView(<UsePromiseTestExecuteFalse/>)
+            break
+        }
+        case "UsePromiseTestRevalidate": {
+            pushView(<UsePromiseTestRevalidate/>)
+            break
+        }
+        case "UsePromiseTestAbortableRevalidate": {
+            pushView(<UsePromiseTestAbortableRevalidate/>)
+            break
+        }
+        case "UsePromiseTestMutate": {
+            pushView(<UsePromiseTestMutate/>)
+            break
+        }
+        case "UsePromiseTestMutateOptimistic": {
+            pushView(<UsePromiseTestMutateOptimistic/>)
+            break
+        }
+        case "UsePromiseTestMutateOptimisticRollback": {
+            pushView(<UsePromiseTestMutateOptimisticRollback/>)
+            break
+        }
+        case "UsePromiseTestMutateNoRevalidate": {
+            pushView(<UsePromiseTestMutateNoRevalidate/>)
+            break
+        }
+        case "UsePromiseTestThrow": {
+            pushView(<UsePromiseTestThrow/>)
+            break
+        }
+        case "UseCachedPromiseBasic": {
+            pushView(<UseCachedPromiseBasic/>)
+            break
+        }
+        case "UseCachedPromiseInitialState": {
+            pushView(<UseCachedPromiseInitialState/>)
+            break
+        }
+        case "UseFetchBasic": {
+            pushView(<UseFetchBasic/>)
+            break
+        }
+        case "UseFetchMap": {
+            pushView(<UseFetchMap/>)
+            break
+        }
+    }
+}
+
+function actionPanel(runAction?: () => void): Element<typeof ActionPanel> {
     const { popView } = useNavigation();
+
+    return (
+        <ActionPanel>
+            <Action
+                label="Run hook"
+                onAction={(itemId) => {
+                    switch (itemId) {
+                        case "go-back": {
+                            popView()
+                            break;
+                        }
+                        case "run": {
+                            runAction?.()
+                            break;
+                        }
+                    }
+                }}
+            />
+        </ActionPanel>
+    )
+}
+
+function UsePromiseTestBasic(): ReactElement {
     const { data, error, isLoading } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3]
     );
 
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UseCachedPromiseBasic(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading } = useCachedPromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3]
     );
 
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UseCachedPromiseInitialState(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading } = useCachedPromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
         {
             initialState: () => "initial"
@@ -73,18 +160,17 @@ function UseCachedPromiseInitialState(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestExecuteFalse(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
         {
             execute: false
@@ -94,40 +180,37 @@ function UsePromiseTestExecuteFalse(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestRevalidate(): ReactElement {
-    const { popView } = useNavigation();
-
     const { data, error, isLoading, revalidate } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
     );
 
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel(() => revalidate())} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Run" icon={Icons.Sun} onClick={() => revalidate()}/>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestAbortableRevalidate(): ReactElement {
-    const { popView } = useNavigation();
     const abortable = useRef<AbortController>();
 
     const { data, error, isLoading, revalidate } = usePromise(
-        async (one, two, three) => {
+        async (_one, _two, _three) => {
             await inNSec(5)
         },
         [1, 2, 3],
@@ -139,47 +222,46 @@ function UsePromiseTestAbortableRevalidate(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel(() => revalidate())} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Run" icon={Icons.Sun} onClick={() => revalidate()}/>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestMutate(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading, mutate } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
     );
 
     printState(data, error, isLoading)
 
-    const onClick = async () => {
+    const onAction = async () => {
         await mutate(inNSec(5))
     };
+
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel(onAction)} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Run" icon={Icons.Sun} onClick={onClick}/>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestMutateOptimistic(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading, mutate } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
     );
 
     printState(data, error, isLoading)
 
-    const onClick = async () => {
+    const onAction = async () => {
         await mutate(
             inNSec(5),
             {
@@ -187,27 +269,26 @@ function UsePromiseTestMutateOptimistic(): ReactElement {
             }
         )
     };
-
+    
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel(onAction)} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Run" icon={Icons.Sun} onClick={onClick}/>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestMutateOptimisticRollback(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading, mutate } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
     );
 
     printState(data, error, isLoading)
 
-    const onClick = async () => {
+    const onAction = async () => {
         await mutate(
             new Promise<string>((_resolve, reject) => {
                 setTimeout(
@@ -225,45 +306,45 @@ function UsePromiseTestMutateOptimisticRollback(): ReactElement {
     };
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel(onAction)} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Run" icon={Icons.Sun} onClick={onClick}/>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestMutateNoRevalidate(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading, mutate } = usePromise(
-        async (one, two, three) => await inNSec(5),
+        async (_one, _two, _three) => await inNSec(5),
         [1, 2, 3],
     );
 
     printState(data, error, isLoading)
 
+    const onAction = async () => {
+        await mutate(
+            inNSec(5),
+            {
+                shouldRevalidateAfter: false,
+            }
+        )
+    }
+
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel(onAction)} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Run" icon={Icons.Sun} onClick={() => async () => {
-                    await mutate(
-                        inNSec(5),
-                        {
-                            shouldRevalidateAfter: false,
-                        }
-                    )
-                }}/>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="run" title="Run" icon={Icons.Sun}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UsePromiseTestThrow(): ReactElement {
-    const { popView } = useNavigation();
     const { data, error, isLoading } = usePromise(
-        async (one, two, three) => {
+        async (_one, _two, _three) => {
             throw new Error("test")
         },
         [1, 2, 3],
@@ -272,17 +353,15 @@ function UsePromiseTestThrow(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
 }
 
 function UseFetchBasic(): ReactElement {
-    const { popView } = useNavigation();
-
     interface GithubLatestRelease {
 
     }
@@ -294,9 +373,9 @@ function UseFetchBasic(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )
@@ -307,7 +386,6 @@ function UseFetchMap(): ReactElement {
         url: string
     }
 
-    const { popView } = useNavigation();
     const { data, error, isLoading } = useFetch<GithubLatestRelease, string>(
         "https://api.github.com/repos/project-gauntlet/gauntlet/releases/latest",
         {
@@ -318,9 +396,9 @@ function UseFetchMap(): ReactElement {
     printState(data, error, isLoading)
 
     return (
-        <List isLoading={isLoading}>
+        <List actions={actionPanel()} isLoading={isLoading}>
             <List.Section title={"Data " + data}>
-                <List.Item title="Go Back" icon={Icons.Clipboard} onClick={() => popView()}/>
+                <List.Item id="go-back" title="Go Back" icon={Icons.Clipboard}/>
             </List.Section>
         </List>
     )

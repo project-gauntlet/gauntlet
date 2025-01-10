@@ -1,15 +1,14 @@
 use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
-use gauntlet_common::model::{SearchResultEntrypointAction, UiWidgetId};
 
 pub enum MainViewState {
     None,
     SearchResultActionPanel {
         // ephemeral state
-        focused_action_item: ScrollHandle<SearchResultEntrypointAction>,
+        focused_action_item: ScrollHandle,
     },
     InlineViewActionPanel {
         // ephemeral state
-        focused_action_item: ScrollHandle<UiWidgetId>,
+        focused_action_item: ScrollHandle,
     }
 }
 

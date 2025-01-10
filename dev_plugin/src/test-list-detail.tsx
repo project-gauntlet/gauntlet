@@ -4,16 +4,16 @@ import { List } from "@project-gauntlet/api/components";
 export default function Main(): ReactElement {
     return (
         <List>
-            <List.Item title="Adarian"/>
-            <List.Item title="Aruzan"/>
-            <List.Item title="Blutopian"/>
-            <List.Item title="Caphex"/>
-            <List.Item title="Condluran"/>
-            <List.Item title="Frozian"/>
-            <List.Item title="Evereni"/>
-            <List.Item title="Ezaraa"/>
-            <List.Item title="Houk"/>
-            <List.Item title="Inleshat"/>
+            <List.Item id="Adarian" title="Adarian"/>
+            <List.Item id="Aruzan" title="Aruzan"/>
+            <List.Item id="Blutopian" title="Blutopian"/>
+            <List.Item id="Caphex" title="Caphex"/>
+            <List.Item id="Condluran" title="Condluran"/>
+            <List.Item id="Frozian" title="Frozian"/>
+            <List.Item id="Evereni" title="Evereni"/>
+            <List.Item id="Ezaraa" title="Ezaraa"/>
+            <List.Item id="Houk" title="Houk"/>
+            <List.Item id="Inleshat" title="Inleshat"/>
             <List.Detail>
                 <List.Detail.Metadata>
                     <List.Detail.Metadata.Value label={"Designation"}>Sentient</List.Detail.Metadata.Value>

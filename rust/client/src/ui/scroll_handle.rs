@@ -7,8 +7,7 @@ pub const ESTIMATED_MAIN_LIST_ITEM_HEIGHT: f32 = 38.8;
 pub const ESTIMATED_ACTION_ITEM_HEIGHT: f32 = 38.8; // TODO
 
 #[derive(Clone, Debug)]
-pub struct ScrollHandle<T> {
-    phantom: PhantomData<T>,
+pub struct ScrollHandle {
     pub scrollable_id: Id,
     pub index: Option<usize>,
     offset: usize,
@@ -16,10 +15,9 @@ pub struct ScrollHandle<T> {
     item_height: f32,
 }
 
-impl<T> ScrollHandle<T> {
-    pub fn new(first_focused: bool, item_height: f32, rows_per_view: usize) -> ScrollHandle<T> {
+impl ScrollHandle {
+    pub fn new(first_focused: bool, item_height: f32, rows_per_view: usize) -> ScrollHandle {
         ScrollHandle {
-            phantom: PhantomData,
             scrollable_id: Id::unique(),
             index: if first_focused { Some(0) } else { None },
             offset: 0,
@@ -37,7 +35,7 @@ impl<T> ScrollHandle<T> {
         self.index = None;
     }
 
-    pub fn get<'a>(&self, search_results: &'a [T]) -> Option<&'a T> {
+    pub fn get<'a, T>(&self, search_results: &'a [T]) -> Option<&'a T> {
         match self.index {
             None => None,
             Some(index) => search_results.get(index)

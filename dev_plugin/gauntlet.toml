@@ -196,6 +196,20 @@ path = 'src/test-list-detail.tsx'
 type = 'view'
 description = ''
 
+[[entrypoint]]
+id = 'test-list-focus'
+name = 'Test List Focus'
+path = 'src/test-list-focus.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint]]
+id = 'test-grid-focus'
+name = 'Test Grid Focus'
+path = 'src/test-grid-focus.tsx'
+type = 'view'
+description = ''
+
 [[supported_system]]
 os = 'linux'
 
