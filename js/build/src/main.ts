@@ -152,7 +152,7 @@ async function doPublishFinal() {
 
     buildJs(projectRoot)
 
-    publishNpmPackage(projectRoot)
+    await publishNpmPackage(projectRoot)
 }
 
 function build(projectRoot: string, arch: string) {
@@ -233,14 +233,6 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
 
     console.log("Writing changelog file...")
     await writeFile(changelogFilePath, newChangelog.join(EOL))
-
-    const bumpNpmPackage = (packageDir: string) => {
-        spawnWithErrors('npm', ['version', `0.${newVersion}.0`], { cwd: packageDir })
-    }
-
-    console.log("Bump version for api subproject...")
-    const apiProjectPath = path.join(projectRoot, "js", "api");
-    bumpNpmPackage(apiProjectPath)
 
     console.log("git add all files...")
     await git.raw('add', '-A')
@@ -456,9 +448,15 @@ async function packageForWindows(projectRoot: string, arch: string): Promise<{ f
 }
 
 
-function publishNpmPackage(projectRoot: string) {
-    console.log("Publishing npm api package...")
+async function publishNpmPackage(projectRoot: string) {
+    const version = await readVersion(projectRoot)
+
     const apiProjectPath = path.join(projectRoot, "js", "api");
+
+    console.log("Bump version for api subproject...")
+    spawnWithErrors('npm', ['version', `0.${version}.0`], { cwd: apiProjectPath })
+
+    console.log("Publishing npm api package...")
     spawnWithErrors('npm', ['publish'], { cwd: apiProjectPath })
 }
 
