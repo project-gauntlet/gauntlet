@@ -292,6 +292,8 @@ impl ApplicationManager {
         self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_id, user_data)
             .await?;
 
+        self.request_search_index_reload(plugin_id);
+
         Ok(())
     }
 
