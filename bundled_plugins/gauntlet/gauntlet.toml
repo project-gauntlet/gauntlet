@@ -9,6 +9,13 @@ path = 'src/applications.tsx'
 type = 'entrypoint-generator'
 description = 'Run installed applications from your system'
 
+[[entrypoint.preferences]]
+id = 'windowTracking'
+name = 'Window Tracking'
+type = 'bool'
+default = false
+description = "Enables Window Tracking"
+
 [[entrypoint]]
 id = 'windows'
 name = 'All Open Windows'

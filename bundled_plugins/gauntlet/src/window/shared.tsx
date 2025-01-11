@@ -45,9 +45,21 @@ export const openWindows: Record<string, OpenWindowData> = {};
 
 export function applicationActions(
     id: string,
+    windowTracking: boolean,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
 ): GeneratedEntrypointAction[] {
+    if (!windowTracking) {
+        return [
+            {
+                label: "Open application",
+                run: () => {
+                    openApplication()
+                },
+            }
+        ]
+    }
+
     const appWindows = Object.entries(openWindows)
         .filter(([_, windowData]) => windowData.appId == id)
 
@@ -90,7 +102,11 @@ export function applicationActions(
     }
 }
 
-export function applicationAccessories(id: string): GeneratedEntrypointAccessory[] {
+export function applicationAccessories(id: string, windowTracking: boolean): GeneratedEntrypointAccessory[] {
+    if (!windowTracking) {
+        return []
+    }
+
     const appWindows = Object.entries(openWindows)
         .filter(([_, windowData]) => windowData.appId == id)
 
@@ -123,8 +139,8 @@ export function addOpenWindow(
 
         add(appId, {
             ...generatedEntrypoint,
-            actions: applicationActions(appId, openApplication, focusWindow),
-            accessories: applicationAccessories(appId)
+            actions: applicationActions(appId, true, openApplication, focusWindow),
+            accessories: applicationAccessories(appId, true)
         })
     }
 }
@@ -145,8 +161,8 @@ export function deleteOpenWindow(
         if (generatedEntrypoint) {
             add(openWindow.appId, {
                 ...generatedEntrypoint,
-                actions: applicationActions(openWindow.appId, openApplication(openWindow.appId), focusWindow),
-                accessories: applicationAccessories(openWindow.appId)
+                actions: applicationActions(openWindow.appId, true, openApplication(openWindow.appId), focusWindow),
+                accessories: applicationAccessories(openWindow.appId, true)
             })
         }
     }
