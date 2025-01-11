@@ -3,7 +3,9 @@ import {
     get_entrypoint_generator_entrypoint_ids,
     op_log_info,
     op_log_debug,
-    update_loading_bar
+    update_loading_bar,
+    get_plugin_preferences,
+    get_entrypoint_preferences
 } from "ext:core/ops";
 import { reloadSearchIndex } from "./search-index";
 import type { FC } from "react";
@@ -30,14 +32,16 @@ interface GeneratedEntrypointActionView {
     view: FC
 }
 
-type GeneratorProps = {
+export type GeneratorContext<P = object, E = object> = {
     add: (id: string, data: GeneratedEntrypoint) => void,
     remove: (id: string) => void,
     get: (id: string) => GeneratedEntrypoint | undefined
-    getAll: () => { [id: string]: GeneratedEntrypoint }
+    getAll: () => { [id: string]: GeneratedEntrypoint },
+    pluginPreferences: P,
+    entrypointPreferences: E,
 };
 
-type Generator = (props: GeneratorProps) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
+type Generator = (props: GeneratorContext) => void | (() => (void | Promise<void>)) | Promise<void | (() => (void | Promise<void>))>
 
 type ProcessedGeneratedEntrypoint = {
     generatorEntrypointId: string,
@@ -172,11 +176,14 @@ export async function runEntrypointGenerators(): Promise<void> {
                 )
             }
 
+            const pluginPreferences = get_plugin_preferences();
+            const entrypointPreferences = get_entrypoint_preferences(generatorEntrypointId);
+
             // noinspection ES6MissingAwait
             (async () => {
                 try {
                     update_loading_bar(generatorEntrypointId, true)
-                    let cleanup = await generator({ add, remove, get, getAll })
+                    let cleanup = await generator({ add, remove, get, getAll, pluginPreferences, entrypointPreferences })
                     update_loading_bar(generatorEntrypointId, false)
                     if (typeof cleanup === "function") {
                         generatorCleanups[generatorEntrypointId] = cleanup

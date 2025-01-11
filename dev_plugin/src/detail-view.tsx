@@ -1,8 +1,8 @@
 import { ReactElement, useEffect, useState } from 'react';
 import upperCase from "lodash/upperCase";
 import { Action, ActionPanel, Detail, Icons } from "@project-gauntlet/api/components";
-import { useNavigation } from "@project-gauntlet/api/hooks";
-import { Clipboard, entrypointPreferences, pluginPreferences } from "@project-gauntlet/api/helpers";
+import { useEntrypointPreferences, useNavigation, usePluginPreferences } from "@project-gauntlet/api/hooks";
+import { Clipboard } from "@project-gauntlet/api/helpers";
 
 async function readFile(url: string): Promise<ArrayBuffer> {
     const res = await fetch(url);
@@ -55,8 +55,8 @@ export default function DetailView(): ReactElement {
     const [count, setCount] = useState(0);
 
     const { pushView } = useNavigation();
-    const { testBool } = pluginPreferences<{ testBool: boolean }>();
-    const preferences = entrypointPreferences<DetailViewEntrypointConfig>();
+    const { testBool } = usePluginPreferences<{ testBool: boolean }>();
+    const preferences = useEntrypointPreferences<DetailViewEntrypointConfig>();
 
     const env = Deno.env.get("RUST_LOG");
     console.log("RUST_LOG:", env);

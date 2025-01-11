@@ -1,4 +1,4 @@
-import { GeneratorProps, showHud } from "@project-gauntlet/api/helpers";
+import { GeneratorContext, showHud } from "@project-gauntlet/api/helpers";
 import { ReactElement } from "react";
 import { List } from "@project-gauntlet/api/components";
 
@@ -11,7 +11,7 @@ function ListView(): ReactElement {
 }
 
 
-export default function EntrypointGenerator({ add, remove: _ }: GeneratorProps): void {
+export default function EntrypointGenerator({ add }: GeneratorContext): void {
     add('generated-test-1', {
         name: 'Generated Item 1',
         actions: [
@@ -82,7 +82,7 @@ export default function EntrypointGenerator({ add, remove: _ }: GeneratorProps):
         ],
         accessories: [
             {
-                text: "1 window open"
+                text: "Accessory"
             }
         ],
     })

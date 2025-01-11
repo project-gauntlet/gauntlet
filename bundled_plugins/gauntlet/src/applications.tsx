@@ -1,4 +1,4 @@
-import { GeneratedEntrypoint, GeneratorProps } from "@project-gauntlet/api/helpers";
+import { GeneratedEntrypoint, GeneratorContext } from "@project-gauntlet/api/helpers";
 import { walk, WalkOptions } from "@std/fs/walk";
 import { debounce } from "@std/async/debounce";
 import { current_os, wayland } from "gauntlet:bridge/internal-all";
@@ -20,7 +20,7 @@ import { applicationEventLoopX11, focusX11Window } from "./window/x11";
 import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
 import { windows_app_from_path, windows_application_dirs, windows_open_application } from "gauntlet:bridge/internal-windows";
 
-export default async function Applications({ add, remove, get, getAll }: GeneratorProps): Promise<void | (() => void)> {
+export default async function Applications({ add, remove, get, getAll }: GeneratorContext): Promise<void | (() => void)> {
 
     switch (current_os()) {
         case "linux": {
@@ -68,27 +68,27 @@ export default async function Applications({ add, remove, get, getAll }: Generat
                 remove,
             );
 
-            if (wayland()) {
-                try {
-                    applicationEventLoopWayland(
-                        focusWaylandWindow,
-                        add,
-                        get,
-                        getAll
-                    );
-                } catch (e) {
-                    console.log("error when setting up wayland application event loop", e)
-                }
-            } else {
-                try {
-                    applicationEventLoopX11(
-                        focusX11Window,
-                        add,
-                        get,
-                        getAll
-                    );
-                } catch (e) {
-                    console.log("error when setting up x11 application event loop", e)
+                if (wayland()) {
+                    try {
+                        applicationEventLoopWayland(
+                            focusWaylandWindow,
+                            add,
+                            get,
+                            getAll
+                        );
+                    } catch (e) {
+                        console.log("error when setting up wayland application event loop", e)
+                    }
+                } else {
+                    try {
+                        applicationEventLoopX11(
+                            focusX11Window,
+                            add,
+                            get,
+                            getAll
+                        );
+                    } catch (e) {
+                        console.log("error when setting up x11 application event loop", e)
                 }
             }
 

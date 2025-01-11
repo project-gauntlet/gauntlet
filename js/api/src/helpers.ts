@@ -21,14 +21,6 @@ export function assetData(path: string): Promise<ArrayBuffer> {
     return getAssetData(path)
 }
 
-export function pluginPreferences<T extends Record<string, any>>(): T {
-    return getPluginPreferences()
-}
-
-export function entrypointPreferences<T extends Record<string, any>>(): T {
-    return getEntrypointPreferences()
-}
-
 export function showHud(display: string): void {
     return showHudWindow(display)
 }
@@ -67,11 +59,13 @@ export interface GeneratedEntrypointIconAccessory {
     tooltip?: string
 }
 
-export type GeneratorProps = {
+export type GeneratorContext<P = object, E = object> = {
     add: (id: string, data: GeneratedEntrypoint) => void,
     remove: (id: string) => void,
     get: (id: string) => GeneratedEntrypoint | undefined
     getAll: () => { [id: string]: GeneratedEntrypoint },
+    pluginPreferences: P,
+    entrypointPreferences: E,
 };
 
 export const Clipboard: Clipboard = {
