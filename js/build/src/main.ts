@@ -133,7 +133,7 @@ async function doBuildMacOS() {
     const arch = 'aarch64-apple-darwin';
 
     await doBuild(projectRoot, arch)
-    await packageForMacos(projectRoot, arch, true, false)
+    await packageForMacos(projectRoot, arch, false, false)
 }
 
 async function doPublishWindows() {
