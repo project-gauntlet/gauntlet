@@ -53,7 +53,6 @@ pub enum JsEvent {
         #[serde(rename = "text")]
         text: String,
     },
-    ReloadSearchIndex,
     RefreshSearchIndex,
 }
 

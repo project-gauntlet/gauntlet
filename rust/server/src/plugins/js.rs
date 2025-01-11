@@ -116,7 +116,6 @@ pub enum OnePluginCommandData {
         modifier_alt: bool,
         modifier_meta: bool,
     },
-    ReloadSearchIndex,
     RefreshSearchIndex,
 }
 
@@ -406,9 +405,6 @@ async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<Plug
                             modifier_meta
                         })
                     }
-                    OnePluginCommandData::ReloadSearchIndex => {
-                        Some(IntermediateUiEvent::ReloadSearchIndex)
-                    }
                     OnePluginCommandData::RefreshSearchIndex => {
                         Some(IntermediateUiEvent::RefreshSearchIndex)
                     }
@@ -654,7 +650,6 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
             }
         }
         IntermediateUiEvent::OpenInlineView { text } => JsEvent::OpenInlineView { text },
-        IntermediateUiEvent::ReloadSearchIndex => JsEvent::ReloadSearchIndex,
         IntermediateUiEvent::RefreshSearchIndex => JsEvent::RefreshSearchIndex,
     }
 }

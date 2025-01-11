@@ -45,7 +45,7 @@ type MacOSDesktopSettings13AndPostData = {
     icon: ArrayBuffer | undefined,
 }
 
-type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | OpenInlineView | ReloadSearchIndex | RefreshSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | OpenInlineView | RefreshSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -92,10 +92,6 @@ type RunGeneratedEntrypoint = {
 type OpenInlineView = {
     type: "OpenInlineView"
     text: string
-}
-
-type ReloadSearchIndex = {
-    type: "ReloadSearchIndex"
 }
 
 type RefreshSearchIndex = {

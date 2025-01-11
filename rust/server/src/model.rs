@@ -31,7 +31,6 @@ pub enum IntermediateUiEvent {
     OpenInlineView {
         text: String,
     },
-    ReloadSearchIndex,
     RefreshSearchIndex,
 }
 

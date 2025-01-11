@@ -130,10 +130,6 @@ export async function runPluginLoop() {
                 }
                 break;
             }
-            case "ReloadSearchIndex": {
-                runEntrypointGenerators()
-                break;
-            }
             case "RefreshSearchIndex": {
                 // noinspection ES6MissingAwait
                 reloadSearchIndex(false)

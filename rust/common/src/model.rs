@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -54,9 +54,9 @@ impl PluginId {
     }
 }
 
-impl ToString for PluginId {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl Display for PluginId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -69,9 +69,9 @@ impl EntrypointId {
     }
 }
 
-impl ToString for EntrypointId {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl Display for EntrypointId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

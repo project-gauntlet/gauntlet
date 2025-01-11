@@ -263,7 +263,8 @@ impl ApplicationManager {
         self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
             .await?;
 
-        self.request_search_index_reload(plugin_id);
+
+        self.reload_plugin(plugin_id.clone()).await?;
 
         Ok(())
     }
@@ -292,7 +293,7 @@ impl ApplicationManager {
         self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_id, user_data)
             .await?;
 
-        self.request_search_index_reload(plugin_id);
+        self.reload_plugin(plugin_id.clone()).await?;
 
         Ok(())
     }
@@ -414,13 +415,6 @@ impl ApplicationManager {
                 modifier_alt,
                 modifier_meta,
             }
-        })
-    }
-
-    pub fn request_search_index_reload(&self, plugin_id: PluginId) {
-        self.send_command(PluginCommand::One {
-            id: plugin_id,
-            data: OnePluginCommandData::ReloadSearchIndex
         })
     }
 
