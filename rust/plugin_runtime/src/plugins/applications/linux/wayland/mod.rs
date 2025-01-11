@@ -89,7 +89,11 @@ impl WaylandState {
 
         let inner = wlr::WlrWaylandState::new(globals, queue_handle)
             .map(|state| WaylandStateInner::Wlr(state))
-            .or_else(|_| anyhow::Ok(WaylandStateInner::None))?;
+            .or_else(|test| {
+                cosmic::CosmicWaylandState::new(globals, queue_handle)
+                    .map(|state| WaylandStateInner::Cosmic(state))
+            })
+            .unwrap_or(WaylandStateInner::None);
 
         Ok(WaylandState {
             seat_state,
