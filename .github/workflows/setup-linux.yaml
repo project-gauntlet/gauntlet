@@ -21,9 +21,7 @@ jobs:
       - run: sudo apt-get install -y libxkbcommon-dev
 
       - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - run: git pull
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22

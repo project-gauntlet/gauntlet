@@ -102,12 +102,22 @@ async function doBuildLinux() {
     const arch = 'x86_64-unknown-linux-gnu';
     const projectRoot = getProjectRoot();
 
+    const git = simpleGit(projectRoot);
+
+    console.log("git pull...")
+    await git.pull()
+
     await doBuild(projectRoot, arch)
     packageForLinux(projectRoot, arch)
 }
 
 async function doPublishMacOS() {
     const projectRoot = getProjectRoot();
+
+    const git = simpleGit(projectRoot);
+
+    console.log("git pull...")
+    await git.pull()
 
     const arch = 'aarch64-apple-darwin';
 
@@ -129,6 +139,11 @@ async function doBuildMacOS() {
 async function doPublishWindows() {
     const projectRoot = getProjectRoot();
 
+    const git = simpleGit(projectRoot);
+
+    console.log("git pull...")
+    await git.pull()
+
     const arch = 'x86_64-pc-windows-msvc';
 
     build(projectRoot, arch)
@@ -147,8 +162,14 @@ async function doBuildWindows() {
 }
 
 async function doPublishFinal() {
-    console.log("Publishing Gauntlet npm packages...")
     const projectRoot = getProjectRoot()
+
+    const git = simpleGit(projectRoot);
+
+    console.log("git pull...")
+    await git.pull()
+
+    console.log("Publishing Gauntlet npm packages...")
 
     buildJs(projectRoot)
 
