@@ -76,6 +76,7 @@ release = ["gauntlet-cli/release"]
 scenario_runner = ["gauntlet-cli/scenario_runner"]
 
 [profile.release-size]
+inherits = "release"
 opt-level = "s"
 lto = true
 strip = true
