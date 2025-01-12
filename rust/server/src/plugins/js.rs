@@ -12,7 +12,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use bytes::Bytes;
 use futures::AsyncBufReadExt;
 use interprocess::local_socket::{ListenerOptions, ToFsName, ToNsName};
 use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
@@ -333,10 +332,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     }
 
     drop((recver, sender));
-
-    if let Err(err) = cache.clear_plugin_icon_cache_dir(&plugin_uuid) {
-        tracing::error!(target = "plugin", "plugin {:?} unable to cleanup icon cache {:?}", plugin_id, err)
-    }
 
     #[cfg(not(feature = "scenario_runner"))]
     {
@@ -695,9 +690,6 @@ impl BackendForPluginRuntimeApiImpl {
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     async fn reload_search_index(&self, generated_entrypoints: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
-        self.icon_cache.clear_plugin_icon_cache_dir(&self.plugin_uuid)
-            .context("error when clearing up icon cache before recreating it")?;
-
         let DbReadPlugin { name, .. } = self.repository.get_plugin_by_id(&self.plugin_id.to_string())
             .await
             .context("error when getting plugin by id")?;
@@ -724,9 +716,9 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
         let mut generated_search_items = generated_entrypoints.into_iter()
             .map(|item| {
-                let entrypoint_icon_path = match item.entrypoint_icon {
+                let entrypoint_icon = match item.entrypoint_icon {
                     None => None,
-                    Some(data) => Some(self.icon_cache.save_entrypoint_icon_to_cache(&self.plugin_uuid, &item.entrypoint_uuid, &data)?),
+                    Some(data) => Some(bytes::Bytes::from(data)),
                 };
 
                 let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
@@ -775,7 +767,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     entrypoint_type: SearchResultEntrypointType::Generated,
                     entrypoint_id: EntrypointId::from_string(item.entrypoint_id),
                     entrypoint_name: item.entrypoint_name,
-                    entrypoint_icon_path,
+                    entrypoint_icon,
                     entrypoint_frecency,
                     entrypoint_actions,
                     entrypoint_accessories,
@@ -805,12 +797,12 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
                 let entrypoint_frecency = frecency_map.get(&entrypoint_id).cloned().unwrap_or(0.0);
 
-                let entrypoint_icon_path = match entrypoint.icon_path {
+                let entrypoint_icon = match entrypoint.icon_path {
                     None => None,
                     Some(path_to_asset) => {
                         match icon_asset_data.get(&(entrypoint.id, path_to_asset)) {
                             None => None,
-                            Some(data) => Some(self.icon_cache.save_entrypoint_icon_to_cache(&self.plugin_uuid, &entrypoint.uuid, data)?)
+                            Some(data) => Some(bytes::Bytes::copy_from_slice(data))
                         }
                     },
                 };
@@ -824,7 +816,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_name: entrypoint.name,
                             entrypoint_generator_name: None,
                             entrypoint_id,
-                            entrypoint_icon_path,
+                            entrypoint_icon,
                             entrypoint_frecency,
                             entrypoint_actions: vec![],
                             entrypoint_accessories: vec![],
@@ -836,7 +828,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_name: entrypoint.name,
                             entrypoint_generator_name: None,
                             entrypoint_id,
-                            entrypoint_icon_path,
+                            entrypoint_icon,
                             entrypoint_frecency,
                             entrypoint_actions: vec![],
                             entrypoint_accessories: vec![],

@@ -50,7 +50,7 @@ pub fn search_list<'a>(
             let mut button_content = vec![];
 
             if let Some(path) = &search_result.entrypoint_icon {
-                let image: Element<_> = iced::widget::image(Handle::from_path(path))
+                let image: Element<_> = iced::widget::image(Handle::from_bytes(path.clone()))
                     .themed(ImageStyle::MainListItemIcon);
 
                 let image: Element<_> = container(image)

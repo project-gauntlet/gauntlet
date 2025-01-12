@@ -112,7 +112,7 @@ pub struct SearchResult {
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
     pub entrypoint_generator_name: Option<String>,
-    pub entrypoint_icon: Option<String>,
+    pub entrypoint_icon: Option<bytes::Bytes>,
     pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_actions: Vec<SearchResultEntrypointAction>,
     pub entrypoint_accessories: Vec<SearchResultAccessory>,
