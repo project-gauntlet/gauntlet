@@ -2,7 +2,8 @@ import {
     clear_inline_view,
     fetch_action_id_for_shortcut,
     op_log_debug,
-    op_log_trace
+    op_log_trace,
+    hide_window
 } from "ext:core/ops";
 import { clearRenderer, render } from "ext:gauntlet/renderer.js";
 import type { FC } from "react";
@@ -96,9 +97,18 @@ export function handleEvent(event: ViewEvent) {
                             }
                         });
 
-                    op_log_trace("plugin_event_handler", `Calling handler with arguments ${Deno.inspect(eventArgs)}`)
+                    op_log_trace("plugin_event_handler", `Calling handler with arguments ${Deno.inspect(eventArgs)}`);
 
-                    property(...eventArgs);
+                    (async () => {
+                        const result = await property(...eventArgs);
+
+                        // special case for action results
+                        if (event.eventName == "onAction") {
+                            if (result?.close === true) {
+                                hide_window()
+                            }
+                        }
+                    })();
                 } else {
                     throw new Error(`Event handler has type ${typeof property}, but should be function`)
                 }

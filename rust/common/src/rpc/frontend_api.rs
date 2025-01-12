@@ -89,6 +89,14 @@ impl FrontendApi {
         Ok(())
     }
 
+    pub async fn hide_window(&self) -> Result<(), FrontendApiError> {
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(UiRequestData::HideWindow).await? else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
     pub async fn show_preference_required_view(
         &self,
         plugin_id: PluginId,

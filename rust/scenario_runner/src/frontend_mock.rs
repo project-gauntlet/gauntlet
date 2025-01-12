@@ -151,7 +151,7 @@ async fn request_loop(mut request_receiver: RequestReceiver<UiRequestData, UiRes
         let (request_data, responder) = request_receiver.recv().await;
 
         match request_data {
-            UiRequestData::UpdateLoadingBar { .. } | UiRequestData::ShowHud { .. } | UiRequestData::ShowWindow | UiRequestData::ClearInlineView { .. } => {
+            UiRequestData::UpdateLoadingBar { .. } | UiRequestData::ShowHud { .. } | UiRequestData::ShowWindow | UiRequestData::HideWindow | UiRequestData::ClearInlineView { .. } | UiRequestData::SetTheme { .. } => {
                 unreachable!()
             }
             UiRequestData::SetGlobalShortcut { .. } | UiRequestData::RequestSearchResultUpdate => {

@@ -500,6 +500,11 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
 
             Ok(JsResponse::Nothing)
         }
+        JsRequest::HideWindow => {
+            api.ui_hide_window().await?;
+
+            Ok(JsResponse::Nothing)
+        }
         JsRequest::UpdateLoadingBar { entrypoint_id, show } => {
             api.ui_update_loading_bar(entrypoint_id, show).await?;
 
@@ -983,6 +988,12 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
     async fn ui_show_hud(&self, display: String) -> anyhow::Result<()> {
         self.frontend_api.show_hud(display).await?;
+
+        Ok(())
+    }
+
+    async fn ui_hide_window(&self) -> anyhow::Result<()> {
+        self.frontend_api.hide_window().await?;
 
         Ok(())
     }

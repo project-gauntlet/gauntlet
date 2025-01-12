@@ -34,7 +34,7 @@ use crate::plugins::numbat::{run_numbat, NumbatContext};
 use crate::plugins::settings::open_settings;
 use crate::preferences::{entrypoint_preferences_required, get_entrypoint_preferences, get_plugin_preferences, plugin_preferences_required};
 use crate::search::reload_search_index;
-use crate::ui::{clear_inline_view, fetch_action_id_for_shortcut, op_component_model, op_entrypoint_names, op_inline_view_entrypoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view, update_loading_bar};
+use crate::ui::{clear_inline_view, fetch_action_id_for_shortcut, hide_window, op_component_model, op_entrypoint_names, op_inline_view_entrypoint_id, op_react_replace_view, show_hud, show_plugin_error_view, show_preferences_required_view, update_loading_bar};
 
 
 
@@ -184,6 +184,7 @@ deno_core::extension!(
         op_component_model,
         fetch_action_id_for_shortcut,
         show_hud,
+        hide_window,
         update_loading_bar,
 
         // preferences

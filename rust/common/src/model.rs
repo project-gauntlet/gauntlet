@@ -218,6 +218,7 @@ pub enum UiResponseData {
 #[derive(Debug)]
 pub enum UiRequestData {
     ShowWindow,
+    HideWindow,
     ClearInlineView {
         plugin_id: PluginId
     },

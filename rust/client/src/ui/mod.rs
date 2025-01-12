@@ -615,10 +615,17 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 id
             };
 
-            Task::batch([
-                // state.hide_window(), // TODO
-                Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
-            ])
+            match render_location {
+                UiRenderLocation::InlineView => {
+                    Task::batch([
+                        state.hide_window(),
+                        Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                    ])
+                }
+                UiRenderLocation::View => {
+                    Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                }
+            }
         }
         AppMsg::RunSearchItemAction(search_result, action_index) => {
             match search_result.entrypoint_type {
@@ -2297,6 +2304,11 @@ async fn request_loop(
                     responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ShowWindow
+                }
+                UiRequestData::HideWindow => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::HideWindow
                 }
                 UiRequestData::ShowPreferenceRequiredView {
                     plugin_id,

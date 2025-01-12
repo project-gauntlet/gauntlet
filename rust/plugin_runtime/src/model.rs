@@ -127,6 +127,7 @@ pub enum JsRequest {
     ShowHud {
         display: String
     },
+    HideWindow,
     UpdateLoadingBar {
         entrypoint_id: EntrypointId,
         show: bool

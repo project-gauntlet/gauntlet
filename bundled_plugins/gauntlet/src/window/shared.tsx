@@ -19,9 +19,7 @@ export function ListOfWindows({ windows, focus }: { windows: OpenWindowData[], f
                             if (id) {
                                 focus(id)
                                 console.log("focus: " + id)
-                            } else {
-                                showHud("No window selected")
-                                console.log("No window selected")
+                                return { close: true }
                             }
                         }}
                     />

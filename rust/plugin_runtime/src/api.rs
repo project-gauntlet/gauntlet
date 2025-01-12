@@ -21,6 +21,7 @@ pub trait BackendForPluginRuntimeApi {
     async fn clipboard_clear(&self) -> anyhow::Result<()>;
     async fn ui_update_loading_bar(&self, entrypoint_id: EntrypointId, show: bool) -> anyhow::Result<()>;
     async fn ui_show_hud(&self, display: String) -> anyhow::Result<()>;
+    async fn ui_hide_window(&self) -> anyhow::Result<()>;
     async fn ui_get_action_id_for_shortcut(
         &self,
         entrypoint_id: EntrypointId,
@@ -215,6 +216,15 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
         let request = JsRequest::ShowHud {
             display,
         };
+
+        match self.request(request).await? {
+            JsResponse::Nothing => Ok(()),
+            value @ _ => panic!("Unexpected JsResponse type: {:?}", value)
+        }
+    }
+
+    async fn ui_hide_window(&self) -> anyhow::Result<()> {
+        let request = JsRequest::HideWindow;
 
         match self.request(request).await? {
             JsResponse::Nothing => Ok(()),

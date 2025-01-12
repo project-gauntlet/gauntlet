@@ -213,6 +213,21 @@ pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) ->
 }
 
 #[op2(async)]
+pub async fn hide_window(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+    let api = {
+        let state = state.borrow();
+
+        let api = state
+            .borrow::<BackendForPluginRuntimeApiProxy>()
+            .clone();
+
+        api
+    };
+
+    api.ui_hide_window().await
+}
+
+#[op2(async)]
 pub async fn update_loading_bar(state: Rc<RefCell<OpState>>, #[string] entrypoint_id: String, show: bool) -> anyhow::Result<()> {
     let api = {
         let state = state.borrow();
