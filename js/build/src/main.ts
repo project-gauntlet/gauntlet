@@ -91,7 +91,7 @@ async function doPublishLinux() {
 
     const arch = 'x86_64-unknown-linux-gnu';
 
-    build(projectRoot, arch)
+    buildSize(projectRoot, arch)
 
     const { fileName, filePath } = packageForLinux(projectRoot, arch)
 
@@ -121,7 +121,7 @@ async function doPublishMacOS() {
 
     const arch = 'aarch64-apple-darwin';
 
-    build(projectRoot, arch)
+    buildSize(projectRoot, arch)
 
     const { fileName, filePath } = await packageForMacos(projectRoot, arch, true, true)
 
@@ -146,7 +146,7 @@ async function doPublishWindows() {
 
     const arch = 'x86_64-pc-windows-msvc';
 
-    build(projectRoot, arch)
+    buildSize(projectRoot, arch)
 
     const { fileName, filePath } = await packageForWindows(projectRoot, arch)
 
@@ -179,8 +179,25 @@ async function doPublishFinal() {
 function build(projectRoot: string, arch: string) {
     buildJs(projectRoot)
 
+    buildRust(projectRoot, arch)
+}
+
+function buildSize(projectRoot: string, arch: string) {
+    buildJs(projectRoot)
+
+    buildRustSize(projectRoot, arch)
+}
+
+function buildRust(projectRoot: string, arch: string) {
     console.log("Building rust...")
     spawnWithErrors('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
+        cwd: projectRoot
+    });
+}
+
+function buildRustSize(projectRoot: string, arch: string) {
+    console.log("Building rust...")
+    spawnWithErrors('cargo', ['build', '--profile', 'release-size', '--features', 'release', '--target', arch], {
         cwd: projectRoot
     });
 }

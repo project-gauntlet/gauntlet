@@ -75,7 +75,7 @@ gauntlet-cli = { path = "rust/cli" }
 release = ["gauntlet-cli/release"]
 scenario_runner = ["gauntlet-cli/scenario_runner"]
 
-[profile.release]
+[profile.release-size]
 opt-level = "s"
 lto = true
 strip = true
