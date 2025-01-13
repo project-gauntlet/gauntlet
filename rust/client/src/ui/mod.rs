@@ -71,6 +71,7 @@ pub struct AppModel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
     theme: GauntletComplexTheme,
+    close_on_unfocus: bool,
 
     // ephemeral state
     prompt: String,
@@ -522,6 +523,7 @@ fn new(
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             tray_icon: sys_tray::create_tray(),
             theme,
+            close_on_unfocus: setup_data.close_on_unfocus,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -970,6 +972,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Focused)) => {
+            if !state.close_on_unfocus {
+                return Task::none()
+            }
+
             if window_id != state.main_window_id {
                 return Task::none()
             }
@@ -977,6 +983,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             state.on_focused()
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Unfocused)) => {
+            if !state.close_on_unfocus {
+                return Task::none()
+            }
+
             if window_id != state.main_window_id {
                 return Task::none()
             }

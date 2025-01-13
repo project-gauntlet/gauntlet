@@ -90,10 +90,12 @@ impl ApplicationManager {
     pub async fn setup_data(&self) -> anyhow::Result<UiSetupData> {
         let theme = self.settings.effective_theme().await?;
         let global_shortcut = self.settings.effective_global_shortcut().await?;
+        let close_on_unfocus = self.config_reader.close_on_unfocus();
 
         Ok(UiSetupData {
             theme,
-            global_shortcut
+            global_shortcut,
+            close_on_unfocus
         })
     }
 

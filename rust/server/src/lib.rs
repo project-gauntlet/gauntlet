@@ -151,7 +151,7 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
         }
     }
 
-    application_manager.reload_all_plugins().await?; // TODO do not fail here ?
+    application_manager.reload_all_plugins().await?;
 
     tokio::spawn({
         let application_manager = application_manager.clone();
@@ -164,9 +164,7 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
     loop {
         let (request_data, responder) = backend_receiver.recv().await;
 
-        let response_data = handle_request(application_manager.clone(), request_data)
-            .await
-            .unwrap(); // TODO error handling
+        let response_data = handle_request(application_manager.clone(), request_data).await?;
 
         responder.respond(response_data);
     }

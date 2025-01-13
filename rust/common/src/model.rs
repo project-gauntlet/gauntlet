@@ -202,6 +202,7 @@ pub struct UiTheme {
 pub struct UiSetupData {
     pub theme: UiTheme,
     pub global_shortcut: Option<PhysicalShortcut>,
+    pub close_on_unfocus: bool,
 }
 
 #[derive(Debug)]
