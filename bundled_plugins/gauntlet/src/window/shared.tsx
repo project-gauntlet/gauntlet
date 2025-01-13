@@ -81,6 +81,12 @@ export function applicationActions(
                     let [windowId, _] = appWindow!!;
                     focusWindow(windowId)
                 },
+            },
+            {
+                label: "Open new instance",
+                run: () => {
+                    openApplication()
+                },
             }
         ]
     } else if (appWindows.length > 1) {
@@ -93,6 +99,12 @@ export function applicationActions(
 
                     return <ListOfWindows windows={appWindowsArr} focus={windowId => focusWindow(windowId)}/>
                 }
+            },
+            {
+                label: "Open new instance",
+                run: () => {
+                    openApplication()
+                },
             }
         ]
     } else {
