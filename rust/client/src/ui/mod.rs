@@ -67,6 +67,7 @@ pub struct AppModel {
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     main_window_id: window::Id,
     focused: bool,
+    opened: bool,
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
@@ -523,6 +524,7 @@ fn new(
             frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
             main_window_id,
             focused: false,
+            opened: !minimized,
             wayland,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             tray_icon: sys_tray::create_tray(),
@@ -2006,6 +2008,7 @@ impl AppModel {
 
     fn hide_window(&mut self) -> Task<AppMsg> {
         self.focused = false;
+        self.opened = false;
 
         let mut commands = vec![];
 
@@ -2049,6 +2052,12 @@ impl AppModel {
     }
 
     fn show_window(&mut self) -> Task<AppMsg> {
+        if self.opened {
+            return Task::none()
+        }
+
+        self.opened = true;
+
         #[cfg(target_os = "linux")]
         let open_task =  if self.wayland {
             let (_, open_task) = open_main_window_wayland(self.main_window_id);
