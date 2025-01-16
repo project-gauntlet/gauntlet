@@ -43,11 +43,11 @@ export const openWindows: Record<string, OpenWindowData> = {};
 
 export function applicationActions(
     id: string,
-    windowTracking: boolean,
+    experimentalWindowTracking: boolean,
     openApplication: () => void,
     focusWindow: (windowId: string) => void,
 ): GeneratedEntrypointAction[] {
-    if (!windowTracking) {
+    if (!experimentalWindowTracking) {
         return [
             {
                 label: "Open application",
@@ -112,8 +112,8 @@ export function applicationActions(
     }
 }
 
-export function applicationAccessories(id: string, windowTracking: boolean): GeneratedEntrypointAccessory[] {
-    if (!windowTracking) {
+export function applicationAccessories(id: string, experimentalWindowTracking: boolean): GeneratedEntrypointAccessory[] {
+    if (!experimentalWindowTracking) {
         return []
     }
 

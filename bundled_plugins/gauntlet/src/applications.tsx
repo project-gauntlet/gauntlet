@@ -20,10 +20,10 @@ import { applicationEventLoopX11, focusX11Window } from "./window/x11";
 import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
 import { windows_app_from_path, windows_application_dirs, windows_open_application } from "gauntlet:bridge/internal-windows";
 
-type EntrypointPreferences = { windowTracking: boolean };
+type EntrypointPreferences = { experimentalWindowTracking: boolean };
 
 export default async function Applications(context: GeneratorContext<object, EntrypointPreferences>): Promise<void | (() => void)> {
-    const { add, remove, get, getAll, entrypointPreferences: { windowTracking } } = context;
+    const { add, remove, get, getAll, entrypointPreferences: { experimentalWindowTracking } } = context;
 
     switch (current_os()) {
         case "linux": {
@@ -36,13 +36,13 @@ export default async function Applications(context: GeneratorContext<object, Ent
                             name: data.name,
                             actions: applicationActions(
                                 id,
-                                windowTracking,
+                                experimentalWindowTracking,
                                 () => {
                                     linux_open_application(id)
                                 },
                                 focusWaylandWindow,
                             ),
-                            accessories: applicationAccessories(id, windowTracking),
+                            accessories: applicationAccessories(id, experimentalWindowTracking),
                             icon: data.icon, // TODO lazy icons
                             "__linux__": {
                                 startupWmClass: data.startup_wm_class,
@@ -54,13 +54,13 @@ export default async function Applications(context: GeneratorContext<object, Ent
                             name: data.name,
                             actions: applicationActions(
                                 id,
-                                windowTracking,
+                                experimentalWindowTracking,
                                 () => {
                                     linux_open_application(id)
                                 },
                                 focusX11Window,
                             ),
-                            accessories: applicationAccessories(id, windowTracking),
+                            accessories: applicationAccessories(id, experimentalWindowTracking),
                             icon: data.icon, // TODO lazy icons
                             "__linux__": {
                                 startupWmClass: data.startup_wm_class,
@@ -73,7 +73,7 @@ export default async function Applications(context: GeneratorContext<object, Ent
                 remove,
             );
 
-            if (windowTracking) {
+            if (experimentalWindowTracking) {
                 if (wayland()) {
                     try {
                         applicationEventLoopWayland(
