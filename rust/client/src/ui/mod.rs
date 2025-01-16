@@ -12,10 +12,10 @@ use iced::widget::text::Shaping;
 use iced::widget::text_input::focus;
 use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
 use iced::window::{Level, Mode, Position, Screenshot};
-use iced::{event, executor, font, futures, keyboard, stream, window, Alignment, Event, Font, Length, Padding, Pixels, Renderer, Settings, Size, Subscription, Task};
+use iced::{event, executor, font, futures, keyboard, stream, window, Alignment, Event, Font, Length, Padding, Pixels, Point, Renderer, Settings, Size, Subscription, Task};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex as StdMutex, Mutex, RwLock as StdRwLock};
 use iced::alignment::{Horizontal, Vertical};
@@ -74,6 +74,7 @@ pub struct AppModel {
     theme: GauntletComplexTheme,
     window_position_mode: WindowPositionMode,
     close_on_unfocus: bool,
+    window_position_file: PathBuf,
 
     // ephemeral state
     prompt: String,
@@ -245,10 +246,10 @@ const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
 #[cfg(not(target_os = "macos"))]
-fn window_settings(visible: bool) -> window::Settings {
+fn window_settings(visible: bool, position: Position) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-        position: Position::Centered,
+        position,
         resizable: false,
         decorations: false,
         visible,
@@ -260,10 +261,10 @@ fn window_settings(visible: bool) -> window::Settings {
 }
 
 #[cfg(target_os = "macos")]
-fn window_settings(visible: bool) -> window::Settings {
+fn window_settings(visible: bool, position: Position) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-        position: Position::Centered,
+        position,
         resizable: false,
         decorations: true,
         visible,
@@ -296,8 +297,22 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
     }
 }
 
-fn open_main_window_non_wayland(minimized: bool) -> (window::Id, Task<AppMsg>) {
-    let (main_window_id, open_task) = window::open(window_settings(!minimized));
+fn open_main_window_non_wayland(minimized: bool, window_position_file: &PathBuf) -> (window::Id, Task<AppMsg>) {
+    let position = fs::read_to_string(window_position_file)
+        .map(|data| {
+            if let Some((x, y)) = data.split_once(":") {
+                match (x.parse(), y.parse()) {
+                    (Ok(x), Ok(y)) => Some(Position::Specific(Point::new(x, y))),
+                    _ => None
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or(None)
+        .unwrap_or(Position::Centered);
+
+    let (main_window_id, open_task) = window::open(window_settings(!minimized, position));
 
     (main_window_id, Task::batch([
         open_task.map(|_| AppMsg::Noop),
@@ -423,11 +438,11 @@ fn new(
             open_main_window_wayland(id)
         }
     } else {
-        open_main_window_non_wayland(minimized)
+        open_main_window_non_wayland(minimized, &setup_data.window_position_file)
     };
 
     #[cfg(not(target_os = "linux"))]
-    let (main_window_id, open_task) = open_main_window_non_wayland(minimized);
+    let (main_window_id, open_task) = open_main_window_non_wayland(minimized, &setup_data.window_position_file);
 
     tasks.push(open_task);
 
@@ -531,6 +546,7 @@ fn new(
             theme,
             window_position_mode: setup_data.window_position_mode,
             close_on_unfocus: setup_data.close_on_unfocus,
+            window_position_file: setup_data.window_position_file,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -1003,6 +1019,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             } else {
                 state.on_unfocused()
             }
+        }
+        AppMsg::IcedEvent(window_id, Event::Window(window::Event::Moved(point))) => {
+            if window_id != state.main_window_id {
+                return Task::none()
+            }
+
+            let _ = fs::create_dir_all(state.window_position_file.parent().unwrap());
+            let _ = fs::write(&state.window_position_file, format!("{}:{}", point.x, point.y));
+
+            Task::none()
         }
         AppMsg::IcedEvent(_, _) => Task::none(),
         AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::Noop, .. } => Task::none(),

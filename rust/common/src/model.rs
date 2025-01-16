@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -218,6 +218,7 @@ pub struct UiTheme {
 
 #[derive(Debug)]
 pub struct UiSetupData {
+    pub window_position_file: PathBuf,
     pub theme: UiTheme,
     pub global_shortcut: Option<PhysicalShortcut>,
     pub close_on_unfocus: bool,

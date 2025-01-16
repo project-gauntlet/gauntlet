@@ -88,12 +88,14 @@ impl ApplicationManager {
     }
 
     pub async fn setup_data(&self) -> anyhow::Result<UiSetupData> {
+        let window_position_file = self.dirs.window_position();
         let theme = self.settings.effective_theme().await?;
         let global_shortcut = self.settings.effective_global_shortcut().await?;
         let window_position_mode = self.settings.window_position_mode_setting().await?;
         let close_on_unfocus = self.config_reader.close_on_unfocus();
 
         Ok(UiSetupData {
+            window_position_file,
             theme,
             global_shortcut,
             close_on_unfocus,

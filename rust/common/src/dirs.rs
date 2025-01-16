@@ -124,4 +124,7 @@ impl Dirs {
         state_dir.join(format!("project-gauntlet-{}.sock", plugin_uuid))
     }
 
+    pub fn window_position(&self) -> PathBuf {
+        self.state_dir().join("window_position")
+    }
 }
