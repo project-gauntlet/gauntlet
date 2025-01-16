@@ -106,18 +106,18 @@ impl ClientContext {
         }
     }
 
-    pub fn handle_event(&self, render_location: UiRenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
+    pub fn handle_event(&mut self, render_location: UiRenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         match render_location {
-            UiRenderLocation::InlineView => self.get_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
-            UiRenderLocation::View => self.get_view_container().handle_event(plugin_id.clone(), event)
+            UiRenderLocation::InlineView => self.get_mut_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
+            UiRenderLocation::View => self.get_mut_view_container().handle_event(plugin_id.clone(), event)
         }
     }
 
-    pub fn append_text(&self, text: &str) -> Task<AppMsg> {
+    pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
         self.view.append_text(text)
     }
 
-    pub fn backspace_text(&self) -> Task<AppMsg> {
+    pub fn backspace_text(&mut self) -> Task<AppMsg> {
         self.view.backspace_text()
     }
 
@@ -125,7 +125,7 @@ impl ClientContext {
         self.view.focus_search_bar(widget_id)
     }
 
-    pub fn toggle_action_panel(&self) {
+    pub fn toggle_action_panel(&mut self) {
         self.view.toggle_action_panel()
     }
 
@@ -137,19 +137,19 @@ impl ClientContext {
         self.view.get_focused_item_id()
     }
 
-    pub fn focus_up(&self) -> Task<AppMsg> {
+    pub fn focus_up(&mut self) -> Task<AppMsg> {
         self.view.focus_up()
     }
 
-    pub fn focus_down(&self) -> Task<AppMsg> {
+    pub fn focus_down(&mut self) -> Task<AppMsg> {
         self.view.focus_down()
     }
 
-    pub fn focus_left(&self) -> Task<AppMsg> {
+    pub fn focus_left(&mut self) -> Task<AppMsg> {
         self.view.focus_left()
     }
 
-    pub fn focus_right(&self) -> Task<AppMsg> {
+    pub fn focus_right(&mut self) -> Task<AppMsg> {
         self.view.focus_right()
     }
 }

@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry;
 use crate::model::UiViewEvent;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
-use crate::ui::widget::{create_state, ActionPanel, ComponentWidgetEvent, ComponentWidgetState, ComponentWidgets};
+use crate::ui::widget::{create_state, ActionPanel, ComponentWidgetEvent, ComponentWidgetState, ComponentWidgets, ComponentWidgetsMut};
 use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidgetId};
 use std::collections::HashMap;
 use std::mem;
@@ -12,8 +12,8 @@ use iced::Task;
 use crate::ui::AppMsg;
 
 pub struct PluginWidgetContainer {
-    root_widget: Arc<Mutex<Option<Arc<RootWidget>>>>,
-    state: Arc<Mutex<HashMap<UiWidgetId, ComponentWidgetState>>>,
+    root_widget: Option<Arc<RootWidget>>,
+    state: HashMap<UiWidgetId, ComponentWidgetState>,
     images: HashMap<UiWidgetId, Vec<u8>>,
     plugin_id: Option<PluginId>,
     plugin_name: Option<String>,
@@ -24,8 +24,8 @@ pub struct PluginWidgetContainer {
 impl PluginWidgetContainer {
     pub fn new() -> Self {
         Self {
-            root_widget: Arc::new(Mutex::new(None)),
-            state: Arc::new(Mutex::new(HashMap::new())),
+            root_widget: None,
+            state: HashMap::new(),
             images: HashMap::new(),
             plugin_id: None,
             plugin_name: None,
@@ -59,15 +59,12 @@ impl PluginWidgetContainer {
         self.entrypoint_name = Some(entrypoint_name.to_string());
         self.images = images;
 
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
         // use new state with values from old state but only widget ids which exists in new state
         // so we this way we use already existing values but remove state for removed widgets
-        let old_state = mem::replace(state.deref_mut(), create_state(&container));
+        let old_state = mem::replace(&mut self.state, create_state(&container));
 
         for (key, value) in old_state.into_iter() {
-            match state.entry(key) {
+            match self.state.entry(key) {
                 Entry::Occupied(mut entry) => {
                     entry.insert(value);
                 }
@@ -75,27 +72,25 @@ impl PluginWidgetContainer {
             }
         }
 
-        let first_open = match root_widget.as_ref() {
+        let first_open = match self.root_widget.as_ref() {
             None => true,
             Some(root_widget) => root_widget.content.is_none()
         };
 
-        *root_widget = Some(container);
+        self.root_widget = Some(container);
 
         if first_open {
-            ComponentWidgets::new(&mut root_widget, &mut state, plugin_id.clone(), &self.images)
+            ComponentWidgets::new(&mut self.root_widget, &mut self.state, plugin_id.clone(), &self.images)
                 .first_open()
         } else {
             AppMsg::Noop
         }
     }
 
-    pub fn handle_event(&self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
-        let mut state = self.state.lock().expect("lock is poisoned");
-
+    pub fn handle_event(&mut self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         let widget_id = event.widget_id();
 
-        event.handle(plugin_id, state.get_mut(&widget_id))
+        event.handle(plugin_id, self.state.get_mut(&widget_id))
     }
 
     pub fn render_root_widget<'a>(
@@ -103,95 +98,75 @@ impl PluginWidgetContainer {
         plugin_view_state: &PluginViewState,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images)
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
             .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts)
     }
 
     pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images)
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
             .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
     }
 
-    pub fn append_text(&self, text: &str) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).append_text(text)
+    pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .append_text(text)
     }
 
-    pub fn backspace_text(&self) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).backspace_text()
+    pub fn backspace_text(&mut self) -> Task<AppMsg> {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .backspace_text()
     }
 
     pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).focus_search_bar(widget_id)
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.images)
+            .focus_search_bar(widget_id)
     }
 
-    pub fn toggle_action_panel(&self) {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).toggle_action_panel()
+    pub fn toggle_action_panel(&mut self) {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .toggle_action_panel()
     }
 
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).get_action_ids()
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
+            .get_action_ids()
     }
 
     pub fn get_focused_item_id(&self) -> Option<String> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).get_focused_item_id()
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
+            .get_focused_item_id()
     }
 
     pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).get_action_panel(action_shortcuts)
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
+            .get_action_panel(action_shortcuts)
     }
 
-    pub fn focus_up(&self) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).focus_up()
+    pub fn focus_up(&mut self) -> Task<AppMsg> {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .focus_up()
     }
 
-    pub fn focus_down(&self) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).focus_down()
+    pub fn focus_down(&mut self) -> Task<AppMsg> {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .focus_down()
     }
 
-    pub fn focus_left(&self) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).focus_left()
+    pub fn focus_left(&mut self) -> Task<AppMsg> {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .focus_left()
     }
 
-    pub fn focus_right(&self) -> Task<AppMsg> {
-        let mut root_widget = self.root_widget.lock().expect("lock is poisoned");
-        let mut state = self.state.lock().expect("lock is poisoned");
-
-        ComponentWidgets::new(&mut root_widget, &mut state, self.get_plugin_id(), &self.images).focus_right()
+    pub fn focus_right(&mut self) -> Task<AppMsg> {
+        let plugin_id = self.get_plugin_id();
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
+            .focus_right()
     }
 }

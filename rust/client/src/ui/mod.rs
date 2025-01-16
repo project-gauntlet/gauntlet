@@ -823,10 +823,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
                     tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
                     match key {
-                        Key::Named(Named::ArrowUp) => state.global_state.up(&state.client_context, &state.search_results),
-                        Key::Named(Named::ArrowDown) => state.global_state.down(&state.client_context, &state.search_results),
-                        Key::Named(Named::ArrowLeft) => state.global_state.left(&state.client_context, &state.search_results),
-                        Key::Named(Named::ArrowRight) => state.global_state.right(&state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowUp) => state.global_state.up(&mut state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowDown) => state.global_state.down(&mut state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowLeft) => state.global_state.left(&mut state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowRight) => state.global_state.right(&mut state.client_context, &state.search_results),
                         Key::Named(Named::Escape) => state.global_state.back(&state.client_context),
                         Key::Named(Named::Tab) if !modifiers.shift() => state.global_state.next(&state.client_context),
                         Key::Named(Named::Tab) if modifiers.shift() => state.global_state.previous(&state.client_context),
@@ -2164,7 +2164,7 @@ impl AppModel {
         }, |result| handle_backend_error(result, |()| AppMsg::Noop))
     }
 
-    fn handle_plugin_event(&self, widget_event: ComponentWidgetEvent, plugin_id: PluginId, render_location: UiRenderLocation) -> Task<AppMsg> {
+    fn handle_plugin_event(&mut self, widget_event: ComponentWidgetEvent, plugin_id: PluginId, render_location: UiRenderLocation) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         let event = self.client_context.handle_event(render_location, &plugin_id, widget_event.clone());

@@ -124,10 +124,10 @@ pub trait Focus<T> {
     fn back(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
     fn next(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
     fn previous(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
-    fn up(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn down(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn left(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn right(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn up(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn down(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn left(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn right(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
 }
 
 impl Focus<SearchResult> for GlobalState {
@@ -300,7 +300,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn up(&mut self, client_context: &ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn up(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -332,7 +332,7 @@ impl Focus<SearchResult> for GlobalState {
             },
         }
     }
-    fn down(&mut self, client_context: &ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn down(&mut self, client_context: &mut ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::MainView { focused_search_result, sub_state, .. } => {
                 match sub_state {
@@ -391,7 +391,7 @@ impl Focus<SearchResult> for GlobalState {
             }
         }
     }
-    fn left(&mut self, client_context: &ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn left(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::PluginView { sub_state, .. } => {
                 match sub_state {
@@ -405,7 +405,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::ErrorView { .. } => Task::none(),
         }
     }
-    fn right(&mut self, client_context: &ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn right(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
         match self {
             GlobalState::PluginView { sub_state, .. } => {
                 match sub_state {

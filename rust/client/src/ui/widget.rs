@@ -36,16 +36,16 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ComponentWidgets<'b> {
-    root_widget: &'b mut Option<Arc<RootWidget>>,
-    state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+    root_widget: &'b Option<Arc<RootWidget>>,
+    state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
     plugin_id: PluginId,
     images: &'b HashMap<UiWidgetId, Vec<u8>>,
 }
 
 impl<'b> ComponentWidgets<'b> {
     pub fn new(
-        root_widget: &'b mut Option<Arc<RootWidget>>,
-        state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+        root_widget: &'b Option<Arc<RootWidget>>,
+        state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
         plugin_id: PluginId,
         images: &'b HashMap<UiWidgetId, Vec<u8>>
     ) -> ComponentWidgets<'b> {
@@ -59,19 +59,6 @@ impl<'b> ComponentWidgets<'b> {
 
     fn text_field_state(&self, widget_id: UiWidgetId) -> &TextFieldState {
         let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
-
-        match state {
-            ComponentWidgetState::TextField(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
-        }
-    }
-
-    fn text_field_state_mut(&mut self, widget_id: UiWidgetId) -> &mut TextFieldState {
-        Self::text_field_state_mut_on_state(&mut self.state, widget_id)
-    }
-
-    fn text_field_state_mut_on_state(state: &mut HashMap<UiWidgetId, ComponentWidgetState>, widget_id: UiWidgetId) -> &mut TextFieldState {
-        let state = state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
 
         match state {
             ComponentWidgetState::TextField(state) => state,
@@ -114,6 +101,43 @@ impl<'b> ComponentWidgets<'b> {
             _ => panic!("TextFieldState expected, {:?} found", state)
         }
     }
+}
+
+#[derive(Debug)]
+pub struct ComponentWidgetsMut<'b> {
+    root_widget: &'b mut Option<Arc<RootWidget>>,
+    state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+    plugin_id: PluginId,
+    images: &'b HashMap<UiWidgetId, Vec<u8>>,
+}
+
+impl<'b> ComponentWidgetsMut<'b> {
+    pub fn new(
+        root_widget: &'b mut Option<Arc<RootWidget>>,
+        state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
+        plugin_id: PluginId,
+        images: &'b HashMap<UiWidgetId, Vec<u8>>
+    ) -> ComponentWidgetsMut<'b> {
+        Self {
+            root_widget,
+            state,
+            plugin_id,
+            images
+        }
+    }
+
+    fn text_field_state_mut(&mut self, widget_id: UiWidgetId) -> &mut TextFieldState {
+        Self::text_field_state_mut_on_state(&mut self.state, widget_id)
+    }
+
+    fn text_field_state_mut_on_state(state: &mut HashMap<UiWidgetId, ComponentWidgetState>, widget_id: UiWidgetId) -> &mut TextFieldState {
+        let state = state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+
+        match state {
+            ComponentWidgetState::TextField(state) => state,
+            _ => panic!("TextFieldState expected, {:?} found", state)
+        }
+    }
 
     fn root_state_mut(&mut self, widget_id: UiWidgetId) -> &mut RootState {
         Self::root_state_mut_on_field(&mut self.state, widget_id)
@@ -128,7 +152,6 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 }
-
 
 pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWidgetState> {
     let mut result = HashMap::new();
@@ -305,7 +328,7 @@ pub enum TextRenderType {
     H6,
 }
 
-impl<'b> ComponentWidgets<'b> {
+impl<'b> ComponentWidgetsMut<'b> {
     pub fn toggle_action_panel(&mut self) {
         let Some(root_widget) = &self.root_widget else {
             return;
@@ -327,7 +350,9 @@ impl<'b> ComponentWidgets<'b> {
 
         state.show_action_panel = !state.show_action_panel;
     }
+}
 
+impl<'b> ComponentWidgets<'b> {
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
         let Some(root_widget) = &self.root_widget else {
             return vec![];
@@ -395,6 +420,12 @@ impl<'b> ComponentWidgets<'b> {
                 ComponentWidgets::grid_focused_item_id(focused_item, widget)
             },
         }
+    }
+
+    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
+        let TextFieldState { text_input_id, .. } = self.text_field_state(widget_id);
+
+        text_input::focus(text_input_id.clone())
     }
 
     fn grid_section_sizes(grid_widget: &GridWidget) -> Vec<GridSectionData> {
@@ -466,7 +497,9 @@ impl<'b> ComponentWidgets<'b> {
 
         amount_per_section
     }
+}
 
+impl<'b> ComponentWidgetsMut<'b> {
     pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
         let Some(root_widget) = &self.root_widget else {
             return Task::none();
@@ -496,7 +529,7 @@ impl<'b> ComponentWidgets<'b> {
             _ => return Task::none()
         };
 
-        let TextFieldState { text_input_id, state_value } = ComponentWidgets::text_field_state_mut_on_state(&mut self.state, widget_id);
+        let TextFieldState { text_input_id, state_value } = ComponentWidgetsMut::text_field_state_mut_on_state(&mut self.state, widget_id);
 
         if let Some(value) = text.chars().next().filter(|c| !c.is_control()) {
             *state_value = format!("{}{}", state_value, value);
@@ -536,51 +569,11 @@ impl<'b> ComponentWidgets<'b> {
             _ => return Task::none()
         };
 
-        let TextFieldState { text_input_id, state_value } = ComponentWidgets::text_field_state_mut_on_state(&mut self.state, widget_id);
+        let TextFieldState { text_input_id, state_value } = ComponentWidgetsMut::text_field_state_mut_on_state(&mut self.state, widget_id);
 
         let mut chars = state_value.chars();
         chars.next_back();
         *state_value = chars.as_str().to_owned();
-
-        text_input::focus(text_input_id.clone())
-    }
-
-    pub fn first_open(&self) -> AppMsg {
-        let Some(root_widget) = &self.root_widget else {
-            return AppMsg::Noop;
-        };
-
-        let Some(content) = &root_widget.content else {
-            return AppMsg::Noop;
-        };
-
-        let widget_id = match content {
-            RootWidgetMembers::List(widget) => {
-                match &widget.content.search_bar {
-                    None => {
-                        return AppMsg::Noop
-                    }
-                    Some(widget) => widget.__id__
-                }
-            }
-            RootWidgetMembers::Grid(widget) => {
-                match &widget.content.search_bar {
-                    None => {
-                        return AppMsg::Noop
-                    }
-                    Some(widget) => widget.__id__
-                }
-            }
-            _ => return AppMsg::Noop
-        };
-
-        AppMsg::FocusPluginViewSearchBar {
-            widget_id
-        }
-    }
-
-    pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
-        let TextFieldState { text_input_id, .. } = self.text_field_state(widget_id);
 
         text_input::focus(text_input_id.clone())
     }
@@ -599,7 +592,7 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(list_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, list_widget.__id__);
+                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, list_widget.__id__);
 
                 let focus_task = focused_item.focus_previous()
                     .unwrap_or_else(|| Task::none());
@@ -612,13 +605,13 @@ impl<'b> ComponentWidgets<'b> {
                 ])
             }
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
                 let Some(current_index) = &focused_item.index else {
                     return Task::none();
                 };
 
-                let amount_per_section_total = Self::grid_section_sizes(grid_widget);
+                let amount_per_section_total = ComponentWidgets::grid_section_sizes(grid_widget);
 
                 let focus_task = match grid_up_offset(*current_index, amount_per_section_total) {
                     None => Task::none(),
@@ -654,7 +647,7 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, widget.__id__);
+                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, widget.__id__);
 
                 let total = widget.content.ordered_members
                     .iter()
@@ -686,9 +679,9 @@ impl<'b> ComponentWidgets<'b> {
                 ])
             }
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
-                let amount_per_section_total = Self::grid_section_sizes(grid_widget);
+                let amount_per_section_total = ComponentWidgets::grid_section_sizes(grid_widget);
 
                 let total = amount_per_section_total
                     .iter()
@@ -750,7 +743,7 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
                 let _ = focused_item.focus_previous();
 
@@ -776,7 +769,7 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgets::root_state_mut_on_field(self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
                 let total = grid_widget.content.ordered_members
                     .iter()
@@ -803,6 +796,43 @@ impl<'b> ComponentWidgets<'b> {
 
                 ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget)
             }
+        }
+    }
+}
+
+impl<'b> ComponentWidgets<'b> {
+
+    pub fn first_open(&self) -> AppMsg {
+        let Some(root_widget) = &self.root_widget else {
+            return AppMsg::Noop;
+        };
+
+        let Some(content) = &root_widget.content else {
+            return AppMsg::Noop;
+        };
+
+        let widget_id = match content {
+            RootWidgetMembers::List(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return AppMsg::Noop
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            RootWidgetMembers::Grid(widget) => {
+                match &widget.content.search_bar {
+                    None => {
+                        return AppMsg::Noop
+                    }
+                    Some(widget) => widget.__id__
+                }
+            }
+            _ => return AppMsg::Noop
+        };
+
+        AppMsg::FocusPluginViewSearchBar {
+            widget_id
         }
     }
 
