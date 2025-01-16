@@ -1,9 +1,9 @@
-use crate::plugins::data_db_repository::{DataDbRepository, DbTheme};
+use crate::plugins::data_db_repository::{DataDbRepository, DbTheme, DbWindowPositionMode};
 use crate::plugins::theme::{read_theme_file, BundledThemes};
 use anyhow::anyhow;
 use dark_light::Mode;
 use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::{PhysicalKey, PhysicalShortcut, SettingsTheme, UiTheme};
+use gauntlet_common::model::{PhysicalKey, PhysicalShortcut, SettingsTheme, UiTheme, WindowPositionMode};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use std::env::consts::OS;
 
@@ -147,6 +147,39 @@ impl Settings {
         self.repository.set_settings(settings).await?;
 
         self.frontend_api.set_theme(theme).await?;
+
+        Ok(())
+    }
+
+    pub async fn window_position_mode_setting(&self) -> anyhow::Result<WindowPositionMode> {
+        let mut settings = self.repository
+            .get_settings()
+            .await?;
+
+        let window_position_mode = match &settings.window_position_mode {
+            None => WindowPositionMode::Static,
+            Some(DbWindowPositionMode::ActiveMonitor) => WindowPositionMode::ActiveMonitor
+        };
+
+        Ok(window_position_mode)
+    }
+
+    pub async fn set_window_position_mode_setting(&self, mode: WindowPositionMode) -> anyhow::Result<()> {
+
+        let mut settings = self.repository
+            .get_settings()
+            .await?;
+
+        let window_position_mode = match mode {
+            WindowPositionMode::Static => None,
+            WindowPositionMode::ActiveMonitor => Some(DbWindowPositionMode::ActiveMonitor),
+        };
+
+        settings.window_position_mode = window_position_mode;
+
+        self.repository.set_settings(settings).await?;
+
+        self.frontend_api.set_window_position_mode(mode).await?;
 
         Ok(())
     }

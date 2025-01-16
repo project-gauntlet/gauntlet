@@ -6,8 +6,8 @@ use tokio::net::TcpStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin, SettingsTheme};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcGetThemeRequest, RpcGetThemeResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcSetThemeRequest, RpcSetThemeResponse, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
+use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin, SettingsTheme, WindowPositionMode};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcGetThemeRequest, RpcGetThemeResponse, RpcGetWindowPositionModeRequest, RpcGetWindowPositionModeResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcSetThemeRequest, RpcSetThemeResponse, RpcSetWindowPositionModeRequest, RpcSetWindowPositionModeResponse, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
 use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
 use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -83,6 +83,15 @@ pub trait BackendServer {
     async fn get_theme(
         &self,
     ) -> anyhow::Result<SettingsTheme>;
+
+    async fn set_window_position_mode(
+        &self,
+        mode: WindowPositionMode
+    ) -> anyhow::Result<()>;
+
+    async fn get_window_position_mode(
+        &self,
+    ) -> anyhow::Result<WindowPositionMode>;
 
     async fn set_preference_value(
         &self,
@@ -302,6 +311,36 @@ impl RpcBackend for RpcBackendServerImpl {
 
         Ok(Response::new(RpcGetThemeResponse {
             theme: theme.to_string(),
+        }))
+    }
+    async fn set_window_position_mode(&self, request: Request<RpcSetWindowPositionModeRequest>) -> Result<Response<RpcSetWindowPositionModeResponse>, Status> {
+        let mode = request.into_inner().mode;
+
+        let mode = match mode.as_str() {
+            "Static" => WindowPositionMode::Static,
+            "ActiveMonitor" => WindowPositionMode::ActiveMonitor,
+            _ => unreachable!()
+        };
+
+        self.server.set_window_position_mode(mode)
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        Ok(Response::new(RpcSetWindowPositionModeResponse::default()))
+    }
+
+    async fn get_window_position_mode(&self, _request: Request<RpcGetWindowPositionModeRequest>) -> Result<Response<RpcGetWindowPositionModeResponse>, Status> {
+        let mode = self.server.get_window_position_mode()
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        let mode = match mode {
+            WindowPositionMode::Static => "Static",
+            WindowPositionMode::ActiveMonitor => "ActiveMonitor",
+        };
+
+        Ok(Response::new(RpcGetWindowPositionModeResponse {
+            mode: mode.to_string(),
         }))
     }
 

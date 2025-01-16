@@ -24,7 +24,7 @@ use serde::Deserialize;
 use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 
 use client_context::ClientContext;
-use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, UiTheme, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiSetupData, UiWidgetId};
+use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, UiTheme, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiSetupData, UiWidgetId, WindowPositionMode};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
 use gauntlet_common::scenario_convert::{ui_render_location_from_scenario};
 use gauntlet_common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
@@ -71,6 +71,7 @@ pub struct AppModel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray_icon: tray_icon::TrayIcon,
     theme: GauntletComplexTheme,
+    window_position_mode: WindowPositionMode,
     close_on_unfocus: bool,
 
     // ephemeral state
@@ -222,6 +223,9 @@ pub enum AppMsg {
     },
     SetTheme {
         theme: UiTheme
+    },
+    SetWindowPositionMode {
+        mode: WindowPositionMode
     },
 }
 
@@ -523,6 +527,7 @@ fn new(
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             tray_icon: sys_tray::create_tray(),
             theme,
+            window_position_mode: setup_data.window_position_mode,
             close_on_unfocus: setup_data.close_on_unfocus,
 
             // ephemeral state
@@ -1378,6 +1383,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
+        AppMsg::SetWindowPositionMode { mode } => {
+            state.window_position_mode = mode;
+
+            Task::none()
+        }
     }
 }
 
@@ -2053,6 +2063,11 @@ impl AppModel {
         #[cfg(not(target_os = "linux"))]
         let open_task = Task::batch([
             window::gain_focus(self.main_window_id),
+            #[cfg(target_os = "macos")]
+            match self.window_position_mode {
+                WindowPositionMode::Static => Task::none(),
+                WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(self.main_window_id),
+            },
             window::change_mode(self.main_window_id, Mode::Windowed)
         ]);
 
@@ -2376,6 +2391,13 @@ async fn request_loop(
 
                     AppMsg::SetTheme {
                         theme,
+                    }
+                }
+                UiRequestData::SetWindowPositionMode { mode } => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::SetWindowPositionMode {
+                        mode,
                     }
                 }
             }

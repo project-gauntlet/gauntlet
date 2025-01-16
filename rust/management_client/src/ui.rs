@@ -8,7 +8,7 @@ use iced_aw::Spinner;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT, BOOTSTRAP_FONT_BYTES};
 use itertools::Itertools;
 
-use gauntlet_common::model::{DownloadStatus, PhysicalShortcut, PluginId, SettingsTheme};
+use gauntlet_common::model::{DownloadStatus, PhysicalShortcut, PluginId, SettingsTheme, WindowPositionMode};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 use gauntlet_common_ui::padding;
 use crate::theme::{Element, GauntletSettingsTheme};
@@ -113,6 +113,7 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
                                 Ok(init) => {
                                     ManagementAppMsg::General(ManagementAppGeneralMsgIn::InitSetting {
                                         theme: init.theme,
+                                        window_position_mode: init.window_position_mode,
                                         shortcut: init.global_shortcut,
                                         shortcut_error: init.global_shortcut_error
                                     })
@@ -130,7 +131,8 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
 struct InitSettingsData {
     global_shortcut: Option<PhysicalShortcut>,
     global_shortcut_error: Option<String>,
-    theme: SettingsTheme
+    theme: SettingsTheme,
+    window_position_mode: WindowPositionMode
 }
 
 async fn init_data(mut backend_api: BackendApi) -> Result<InitSettingsData, BackendApiError> {
@@ -140,10 +142,14 @@ async fn init_data(mut backend_api: BackendApi) -> Result<InitSettingsData, Back
     let theme = backend_api.get_theme()
         .await?;
 
+    let window_position_mode = backend_api.get_window_position_mode()
+        .await?;
+
     Ok(InitSettingsData {
         global_shortcut,
         global_shortcut_error,
-        theme
+        theme,
+        window_position_mode
     })
 }
 

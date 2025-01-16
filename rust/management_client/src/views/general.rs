@@ -1,7 +1,7 @@
 use crate::components::shortcut_selector::ShortcutSelector;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
-use gauntlet_common::model::{PhysicalShortcut, SettingsTheme};
+use gauntlet_common::model::{PhysicalShortcut, SettingsTheme, WindowPositionMode};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 use iced::alignment::Horizontal;
 use iced::widget::text::Shaping;
@@ -14,6 +14,7 @@ use crate::theme::container::ContainerStyle;
 pub struct ManagementAppGeneralState {
     backend_api: Option<BackendApi>,
     theme: SettingsTheme,
+    window_position_mode: WindowPositionMode,
     current_shortcut: Option<PhysicalShortcut>,
     current_shortcut_error: Option<String>,
     currently_capturing: bool
@@ -24,8 +25,10 @@ pub enum ManagementAppGeneralMsgIn {
     ShortcutCaptured(Option<PhysicalShortcut>),
     CapturingChanged(bool),
     ThemeChanged(SettingsTheme),
+    WindowPositionModeChanged(WindowPositionMode),
     InitSetting {
         theme: SettingsTheme,
+        window_position_mode: WindowPositionMode,
         shortcut: Option<PhysicalShortcut>,
         shortcut_error: Option<String>
     },
@@ -43,6 +46,7 @@ impl ManagementAppGeneralState {
         Self {
             backend_api,
             theme: SettingsTheme::AutoDetect,
+            window_position_mode: WindowPositionMode::Static,
             current_shortcut: None,
             current_shortcut_error: None,
             currently_capturing: false,
@@ -73,8 +77,9 @@ impl ManagementAppGeneralState {
             ManagementAppGeneralMsgIn::Noop => {
                 Task::none()
             }
-            ManagementAppGeneralMsgIn::InitSetting { theme, shortcut, shortcut_error } => {
+            ManagementAppGeneralMsgIn::InitSetting { theme, window_position_mode, shortcut, shortcut_error } => {
                 self.theme = theme;
+                self.window_position_mode = window_position_mode;
                 self.current_shortcut = shortcut;
                 self.current_shortcut_error = shortcut_error;
 
@@ -98,6 +103,18 @@ impl ManagementAppGeneralState {
                 }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
 
             }
+            ManagementAppGeneralMsgIn::WindowPositionModeChanged(mode) => {
+                self.window_position_mode = mode.clone();
+
+                let mut backend_api = backend_api.clone();
+
+                Task::perform(async move {
+                    backend_api.set_window_position_mode(mode)
+                        .await?;
+
+                    Ok(())
+                }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
+            }
         }
     }
 
@@ -120,7 +137,30 @@ impl ManagementAppGeneralState {
             Some(self.shortcut_capture_after())
         );
 
+        let theme_field = self.theme_field();
 
+        let mut content = vec![global_shortcut_field, theme_field];
+
+        #[cfg(target_os = "macos")]
+        {
+            content.push(self.window_position_mode_field())
+        }
+
+        let content: Element<_> = column(content)
+            .into();
+
+        let content: Element<_> = container(content)
+            .width(Length::Fill)
+            .into();
+
+        let content: Element<_> = container(content)
+            .width(Length::Fill)
+            .into();
+
+        content
+    }
+
+    fn theme_field(&self) -> Element<ManagementAppGeneralMsgIn> {
         let theme_field = match &self.theme {
             SettingsTheme::ThemeFile => {
                 let theme_field: Element<_> = text("Unable to change because theme config file is present ")
@@ -168,18 +208,32 @@ impl ManagementAppGeneralState {
             None
         );
 
-        let content: Element<_> = column(vec![global_shortcut_field, theme_field])
-            .into();
+        theme_field
+    }
 
-        let content: Element<_> = container(content)
+    fn window_position_mode_field(&self) -> Element<ManagementAppGeneralMsgIn> {
+        let items = [
+            WindowPositionMode::Static,
+            WindowPositionMode::ActiveMonitor,
+        ];
+
+        let field: Element<_> = pick_list(
+            items,
+            Some(self.window_position_mode.clone()),
+            move |item| ManagementAppGeneralMsgIn::WindowPositionModeChanged(item),
+        ).into();
+
+        let field: Element<_> = container(field)
             .width(Length::Fill)
             .into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .into();
+        let field = self.view_field(
+            "Window Position Mode",
+            field,
+            None
+        );
 
-        content
+        field
     }
 
     fn view_field<'a>(&'a self, label: &'a str, input: Element<'a, ManagementAppGeneralMsgIn>, after: Option<Element<'a, ManagementAppGeneralMsgIn>>) -> Element<'a, ManagementAppGeneralMsgIn> {

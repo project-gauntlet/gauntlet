@@ -238,6 +238,8 @@ pub struct DbSettingsGlobalShortcutData {
 pub struct DbSettings {
     // none means auto-detect
     pub theme: Option<DbTheme>,
+    // none is static
+    pub window_position_mode: Option<DbWindowPositionMode>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -248,6 +250,12 @@ pub enum DbTheme {
     MacOSDark,
     #[serde(rename = "legacy")]
     Legacy
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum DbWindowPositionMode {
+    #[serde(rename = "active_monitor")]
+    ActiveMonitor,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

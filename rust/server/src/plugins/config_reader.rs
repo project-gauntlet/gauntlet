@@ -36,7 +36,7 @@ impl ConfigReader {
         //     }
         // }
 
-        self.close_on_unfocus.store(config.main_window.close_on_unfocus, Ordering::SeqCst);
+        self.close_on_unfocus.store(config.main_window.unwrap_or_default().close_on_unfocus, Ordering::SeqCst);
 
         Ok(())
     }
@@ -69,7 +69,7 @@ impl ConfigReader {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ApplicationConfig {
-    main_window: ApplicationConfigWindow
+    main_window: Option<ApplicationConfigWindow>
     // #[serde(default)]
     // configuration_mode: ConfigurationModeConfig,
     // #[serde(default)]

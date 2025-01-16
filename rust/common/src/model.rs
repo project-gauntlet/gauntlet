@@ -157,6 +157,24 @@ pub enum UiThemeMode {
     Dark
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum WindowPositionMode {
+    Static,
+    ActiveMonitor
+}
+
+impl Display for WindowPositionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            WindowPositionMode::Static => "Static",
+            WindowPositionMode::ActiveMonitor => "Active Monitor",
+        };
+
+        write!(f, "{}", label)
+    }
+}
+
+
 #[derive(Debug, Clone)]
 pub struct UiThemeColor {
     pub r: f32,
@@ -203,6 +221,7 @@ pub struct UiSetupData {
     pub theme: UiTheme,
     pub global_shortcut: Option<PhysicalShortcut>,
     pub close_on_unfocus: bool,
+    pub window_position_mode: WindowPositionMode,
 }
 
 #[derive(Debug)]
@@ -258,6 +277,9 @@ pub enum UiRequestData {
     },
     SetTheme {
         theme: UiTheme
+    },
+    SetWindowPositionMode {
+        mode: WindowPositionMode
     },
 }
 

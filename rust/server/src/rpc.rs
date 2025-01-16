@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 use gauntlet_common::{settings_env_data_to_string, SettingsEnvData};
-use gauntlet_common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut, LocalSaveData, SettingsTheme};
+use gauntlet_common::model::{DownloadStatus, EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin, UiPropertyValue, SearchResult, UiWidgetId, PhysicalKey, PhysicalShortcut, LocalSaveData, SettingsTheme, WindowPositionMode};
 use gauntlet_common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
@@ -92,6 +92,14 @@ impl BackendServer for BackendServerImpl {
 
     async fn get_theme(&self) -> anyhow::Result<SettingsTheme> {
         self.application_manager.get_theme().await
+    }
+
+    async fn set_window_position_mode(&self, mode: WindowPositionMode) -> anyhow::Result<()> {
+        self.application_manager.set_window_position_mode(mode).await
+    }
+
+    async fn get_window_position_mode(&self, ) -> anyhow::Result<WindowPositionMode> {
+        self.application_manager.get_window_position_mode().await
     }
 
     async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {

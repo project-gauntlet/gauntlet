@@ -5,8 +5,8 @@ use tonic::transport::Channel;
 
 use gauntlet_utils::channel::{RequestError, RequestSender};
 
-use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiSetupData, UiWidgetId};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetThemeRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcSetThemeRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
+use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiSetupData, UiWidgetId, WindowPositionMode};
+use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetThemeRequest, RpcGetWindowPositionModeRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcSetThemeRequest, RpcSetWindowPositionModeRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
 
@@ -451,6 +451,37 @@ impl BackendApi {
         };
 
         Ok(theme)
+    }
+
+    pub async fn set_window_position_mode(&mut self, mode: WindowPositionMode) -> Result<(), BackendApiError> {
+        let mode = match mode {
+            WindowPositionMode::Static => "Static",
+            WindowPositionMode::ActiveMonitor => "ActiveMonitor",
+        };
+
+        let request = RpcSetWindowPositionModeRequest {
+            mode: mode.to_string()
+        };
+
+        self.client.set_window_position_mode(Request::new(request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_window_position_mode(&mut self) -> Result<WindowPositionMode, BackendApiError> {
+        let response = self.client.get_window_position_mode(Request::new(RpcGetWindowPositionModeRequest::default()))
+            .await?;
+
+        let mode = response.into_inner().mode;
+
+        let mode = match mode.as_str() {
+            "Static" => WindowPositionMode::Static,
+            "ActiveMonitor" => WindowPositionMode::ActiveMonitor,
+            _ => unreachable!()
+        };
+
+        Ok(mode)
     }
 
     pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, id: String, user_data: PluginPreferenceUserData) -> Result<(), BackendApiError> {

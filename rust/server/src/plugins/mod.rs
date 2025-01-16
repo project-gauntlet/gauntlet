@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use include_dir::{include_dir, Dir};
 use tokio::runtime::Handle;
 
-use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiRequestData, UiResponseData, UiSetupData, UiWidgetId};
+use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiRequestData, UiResponseData, UiSetupData, UiWidgetId, WindowPositionMode};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::{settings_env_data_to_string, SettingsEnvData};
 use gauntlet_utils::channel::RequestSender;
@@ -90,12 +90,14 @@ impl ApplicationManager {
     pub async fn setup_data(&self) -> anyhow::Result<UiSetupData> {
         let theme = self.settings.effective_theme().await?;
         let global_shortcut = self.settings.effective_global_shortcut().await?;
+        let window_position_mode = self.settings.window_position_mode_setting().await?;
         let close_on_unfocus = self.config_reader.close_on_unfocus();
 
         Ok(UiSetupData {
             theme,
             global_shortcut,
-            close_on_unfocus
+            close_on_unfocus,
+            window_position_mode
         })
     }
 
@@ -285,6 +287,14 @@ impl ApplicationManager {
 
     pub async fn get_theme(&self) -> anyhow::Result<SettingsTheme> {
         self.settings.theme_setting().await
+    }
+
+    pub async fn set_window_position_mode(&self, mode: WindowPositionMode) -> anyhow::Result<()> {
+        self.settings.set_window_position_mode_setting(mode).await
+    }
+
+    pub async fn get_window_position_mode(&self) -> anyhow::Result<WindowPositionMode> {
+        self.settings.window_position_mode_setting().await
     }
 
     pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {

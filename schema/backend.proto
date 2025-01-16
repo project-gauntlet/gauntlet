@@ -25,6 +25,9 @@ service RpcBackend {
   rpc SetTheme (RpcSetThemeRequest) returns (RpcSetThemeResponse);
   rpc GetTheme (RpcGetThemeRequest) returns (RpcGetThemeResponse);
 
+  rpc SetWindowPositionMode (RpcSetWindowPositionModeRequest) returns (RpcSetWindowPositionModeResponse);
+  rpc GetWindowPositionMode (RpcGetWindowPositionModeRequest) returns (RpcGetWindowPositionModeResponse);
+
   rpc DownloadPlugin (RpcDownloadPluginRequest) returns (RpcDownloadPluginResponse);
 
   rpc DownloadStatus (RpcDownloadStatusRequest) returns (RpcDownloadStatusResponse);
@@ -106,6 +109,20 @@ message RpcGetThemeRequest {
 
 message RpcGetThemeResponse {
   string theme = 1;
+}
+
+message RpcSetWindowPositionModeRequest {
+  string mode = 1;
+}
+
+message RpcSetWindowPositionModeResponse {
+}
+
+message RpcGetWindowPositionModeRequest {
+}
+
+message RpcGetWindowPositionModeResponse {
+  string mode = 1;
 }
 
 message RpcSetPreferenceValueRequest {

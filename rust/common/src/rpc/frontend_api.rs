@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use thiserror::Error;
 use gauntlet_utils::channel::{RequestError, RequestSender};
 
-use crate::model::{EntrypointId, UiTheme, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId};
+use crate::model::{EntrypointId, UiTheme, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId, WindowPositionMode};
 
 #[derive(Error, Debug)]
 pub enum FrontendApiError {
@@ -195,6 +195,24 @@ impl FrontendApi {
     ) -> anyhow::Result<()> {
         let request = UiRequestData::SetTheme {
             theme,
+        };
+
+        let data = self.frontend_sender.send_receive(request)
+            .await
+            .map_err(|err| anyhow!("error: {:?}", err))?;
+
+        match data {
+            UiResponseData::Nothing => Ok(()),
+            UiResponseData::Err(err) => Err(err)
+        }
+    }
+
+    pub async fn set_window_position_mode(
+        &self,
+        mode: WindowPositionMode
+    ) -> anyhow::Result<()> {
+        let request = UiRequestData::SetWindowPositionMode {
+            mode,
         };
 
         let data = self.frontend_sender.send_receive(request)
