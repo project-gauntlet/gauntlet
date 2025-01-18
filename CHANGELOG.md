@@ -9,6 +9,95 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### General
+- Window Tracking
+  - Gauntlet now tracks opened windows and assigns them to specific application entry in results
+  - If application has window open, primary action now instead focuses the window, or if there are multiple opens view which contains list of windows that can be focused
+  - If application has window open, it is still possible to open new application instance by using separate new action
+  - It is experimental, and it is possible to disable window tracking by unchecking checkbox in Application entrypoint preferences in Settings UI  
+  - Currently supported on
+    - Linux X11
+    - wlroots-based window managers
+    - Hyprland
+    - Cosmic
+- Added "Show all opened windows" entrypoint to bundled plugin
+- Application plugin is now implemented on Windows 
+- macOS native-like dark and light mode themes are now available
+- On macOS theme is now auto-selected based on system theme
+- On macOS window can now be dragged to change its position
+  - Window position is saved and will be used after restart
+- Binary side has been reduced by around 40% (contributed by @davfsa)
+- Added `main_window.close_on_unfocus` boolean option to config file to disable "close on unfocus" functionality of main window
+  - Intended to be used when using "window focus follows mouse" functionality of OS, Desktop Environment or Window Manager 
+- Added option in Settings UI to choose were main window appears when opening it
+  - Current options
+    - `Static`
+      - Window always opens in the same location (on macOS location can be changed by dragging the window)
+    - `Active Monitor`
+      - Windows opens on monitor which has currently focused window
+  - Currently supported only on macOS
+
+### Theming
+- Themes have been reworked
+  - Removed complex themes
+  - Removed theme versioning
+  - Removed sample generation commands
+  - Themes are now defined in TOML format
+    - Theme file is located in config directory (varies based on OS) with name `theme.toml`
+  - Format of theme file has been reworked, see bundled themes for examples
+- 3 bundled themes are now available: [Bundled themes](./bundled_themes)
+  - Legacy (previous default theme)
+  - macOS Light
+  - macOS Dark
+- It is possible to change theme in Settings UI
+  - By default, theme is auto-detected to use one of the bundled ones
+  - Setting is locked if theme config file exists
+
+### Plugins
+- Entrypoint Generator improvements
+  - **BREAKING CHANGE**: Renamed `"command-generator"` entrypoint type into `"entrypoint-generator"`, as well as all types related to it 
+  - **BREAKING CHANGE**: Removed `GeneratedEntrypoint`'s `fn: () => void`
+    - `actions: GeneratedEntrypointAction[]` field now is required to have at least one element
+    - It is now possible to specify label displayed on bottom row panel for primary action
+  - **BREAKING CHANGE**: Renamed `GeneratedEntrypointAction`'s `fn` field into `run`
+  - It is now possible to have `GeneratedEntrypointAction` which opens view instead of running command by specifying `view` field with value of React `FC` type instead of `run`
+  - Renamed `GeneratorProps` to `GeneratorContext`
+  - Added `pluginPreferences` and `entrypointPreferences` properties to `GeneratorContext` to access preferences from Entrypoint Generator 
+  - Added `get: (id: string) => GeneratedEntrypoint | undefined` function to `GeneratorContext` to get added entrypoint
+  - Added `getAll: () => GeneratedEntrypoint[]` function to `GeneratorContext` to get all added entrypoints
+  - Generated Entrypoints can now have accessories similar to `<List/>` component
+- Removed `pluginPreferences` and `entrypointPreferences`
+- Add `usePluginPreferences` and `useEntrypointPreferences` React Hooks 
+- Unified primary and secondary action execution in `<List.Item/>` and `<Grid.Item/>` 
+  - **BREAKING CHANGE**: Removed `onClick` property on `<List.Item/>` and `<Grid.Item/>` components
+  - **BREAKING CHANGE**: `<List.Item/>` and `<Grid.Item/>` now has how `id: string` required property 
+  - If primary or secondary action is executed when `<List.Item/>` and `<Grid.Item/>` is focused, `onAction` handler first parameter will be value of `id` prop of focused item 
+- Added `onItemFocusChange?: (itemId: string | undefined) => void` property on `<List.Item/>` and `<Grid.Item/>`. Function is called when focused item changes 
+- **BREAKING CHANGE**: Renamed `Image` type to `ImageLike` to avoid conflict with `<Image/>` component
+- When entrypoint is enabled/disabled or preference value is changed whole plugin runtime is restarted instead of just reloading the search index
+- It is now possible to control whether the action closes main window by returning `{ close: true }` object from `onAction` property function
+  - For `<Inline/>` view and commands (including generated commands) action always closes window without possibility to keep it open
+- Improved rejected promise error log
+
+### UI/UX Improvements
+- On macOS main window now uses native window decorations
+- Show name of generator entrypoint near plugin name of entrypoints generated by it in main view search results
+- Improved styling of action panel popup
+  - Tweaked padding between sections
+  - Added shadow around it
+- Tweak height of `<List.Detail.Metadata/>` to be slightly taller
+- Values of fields in `<List.Detail.Metadata/>` are now positioned on the same row as labels 
+
+### Fixes
+- Fixed one thread having close to 100% CPU usage while main window is hidden
+- Fixed icons in main search view sometimes not loading when window is opened or disappearing after scrolling
+- Fixed commands in `permissions.exec.command` in Plugin Manifest not being resolved properly
+- Fixed zombie processes being left over after plugin runtime is stopped
+- Fixed `npm run dev` failing to reload in some cases
+- Fixed `<Grid.EmptyView/>` not displaying the image
+- Fixed image in `<List.EmptyView/>` being too big so labels are not shown
+- Fixed action not being run if `<List/>` or `<Grid/>` view has focused `<SearchBar/>`
+
 ## [12] - 2024-12-22
 
 ### General
@@ -54,7 +143,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 ### Plugin API
 - Added `<SearchBar/>` component in `<List/>` and `<Grid/>` which is text input field above content of the respective view
 - `"command-generator"` entrypoints have been reworked
-  - Now it is possible to update list of generated entrypoints (add or remove) after the main entrypoint generator function has finished running
+  - Now it is possible to update list of generated entrypoints (add or remove) after the main command generator function has finished running
   - **BREAKING CHANGE**: Command Generator entrypoint function now accepts an object with `add: (id: string, data: GeneratedCommand) => void` and `remove: (id: string) => void` functions
   - **BREAKING CHANGE**: Command Generator entrypoint function now should return nothing or a cleanup function e.g. close file watcher. Currently, it is called when disabling/enabling any of entrypoints in plugin, but it is not called when whole plugin is stopped
   - While generator function itself is running (given that the function is async) the loading bar and "Indexing..." text in bottom panel will be shown in main window 
