@@ -32,6 +32,12 @@ type = 'bool'
 default = true
 description = "test bool description"
 
+[[entrypoint]]
+id = 'detail-img-download-view'
+name = 'Detail Img Download view'
+path = 'src/detail-img-download-view.tsx'
+type = 'view'
+description = """"""
 
 [[entrypoint]]
 id = 'detail-view'
