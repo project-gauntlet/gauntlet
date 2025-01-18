@@ -13,7 +13,7 @@ description = 'Run installed applications from your system'
 id = 'experimentalWindowTracking'
 name = 'Experimental Window Tracking'
 type = 'bool'
-default = false
+default = true
 description = "Enables experimental window tracking"
 
 [[entrypoint]]
