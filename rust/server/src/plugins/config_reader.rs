@@ -49,7 +49,7 @@ impl ConfigReader {
             Ok(config_content) => {
                 toml::from_str(&config_content)
                     .unwrap_or_else(|err| {
-                        tracing::error!("Unable to parse config, error: {:?}", err);
+                        tracing::error!("Unable to parse config, error: {:#}", err);
 
                         ApplicationConfig::default()
                     })
@@ -68,6 +68,7 @@ impl ConfigReader {
 }
 
 #[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ApplicationConfig {
     main_window: Option<ApplicationConfigWindow>
     // #[serde(default)]

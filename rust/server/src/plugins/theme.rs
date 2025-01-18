@@ -158,7 +158,7 @@ pub fn read_theme_file(theme_file: PathBuf) -> Option<UiTheme> {
             match parse_theme(&value) {
                 Ok(value) => Some(value),
                 Err(err) => {
-                    tracing::warn!("Unable to parse theme file: {:?} - {:#}", theme_file, err);
+                    tracing::error!("Unable to parse theme config file: {:#}", err);
                     None
                 }
             }
@@ -221,6 +221,7 @@ pub struct ConfigThemeContentBorder {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigTheme {
     pub mode: ConfigThemeMode,
     // value of tint/tones/shades/whatever you have, from lower to higher
