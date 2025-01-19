@@ -288,7 +288,7 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
 }
 
 function packageForLinux(projectRoot: string, arch: string): { filePath: string; fileName: string } {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release-size');
     const assetsDirPath = path.join(projectRoot, 'assets', 'linux');
 
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
@@ -331,7 +331,7 @@ function packageForLinux(projectRoot: string, arch: string): { filePath: string;
 }
 
 async function packageForMacos(projectRoot: string, arch: string, sign: boolean, notarize: boolean): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release-size');
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
@@ -444,7 +444,7 @@ async function packageForMacos(projectRoot: string, arch: string, sign: boolean,
 }
 
 async function packageForWindows(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release');
+    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release-size');
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet.exe');
     const outFileName = "gauntlet-x86_64-windows.msi"
     const outFilePath = path.join(releaseDirPath, outFileName);
