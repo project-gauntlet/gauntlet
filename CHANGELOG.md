@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [13] - 2025-01-19
+
 ### General
 - Window Tracking
   - Gauntlet now tracks opened windows and assigns them to specific application entry in results
