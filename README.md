@@ -251,10 +251,10 @@ type = 'command'
 description = 'Some entrypoint description'
 
 [[entrypoint]]
-id = 'command-generator'
-name = 'Command generator'
-path = 'src/command-generator.ts'
-type = 'command-generator'
+id = 'entrypoint-generator'
+name = 'Entrypoint generator'
+path = 'src/entrypoint-generator.ts'
+type = 'entrypoint-generator'
 description = 'Some entrypoint description'
 
 [[entrypoint]]
