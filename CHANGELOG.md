@@ -9,6 +9,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Pressing global shortcut while window is open now preserves search bar value when window is opened next time (contributed by @Kalin8900)  
 - Added localization support for macOS application names (contributed by @BennoCrafter)
   - Added plugin preference `Bundle Name Lang` of enum type
     - `localized` option - use localized name of bundle if available - this is the default

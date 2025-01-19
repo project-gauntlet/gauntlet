@@ -789,14 +789,14 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::RunCommand {
             plugin_id,
             entrypoint_id,
-        } => Task::batch([state.hide_window(), state.run_command(plugin_id, entrypoint_id)]),
+        } => Task::batch([state.hide_window(true), state.run_command(plugin_id, entrypoint_id)]),
         AppMsg::RunGeneratedEntrypoint {
             plugin_id,
             entrypoint_id,
             action_index,
         } => {
             Task::batch([
-                state.hide_window(),
+                state.hide_window(true),
                 state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
             ])
         }
@@ -811,7 +811,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             match render_location {
                 UiRenderLocation::InlineView => {
                     Task::batch([
-                        state.hide_window(),
+                        state.hide_window(true),
                         Task::done(AppMsg::WidgetEvent {
                             widget_event,
                             plugin_id,
@@ -1158,7 +1158,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::ToggleWindow => state.toggle_window(),
         AppMsg::ShowWindow => state.show_window(),
-        AppMsg::HideWindow => state.hide_window(),
+        AppMsg::HideWindow => state.hide_window(true),
         AppMsg::ShowPreferenceRequiredView {
             plugin_id,
             entrypoint_id,
@@ -2254,7 +2254,7 @@ impl AppModel {
     fn on_unfocused(&mut self) -> Task<AppMsg> {
         // for some reason (on both macOS and linux x11 but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
         if self.focused {
-            self.hide_window()
+            self.hide_window(true)
         } else {
             Task::none()
         }
@@ -2262,13 +2262,13 @@ impl AppModel {
 
     fn toggle_window(&mut self) -> Task<AppMsg> {
         if self.opened {
-            self.hide_window()
+            self.hide_window(false)
         } else {
             self.show_window()
         }
     }
 
-    fn hide_window(&mut self) -> Task<AppMsg> {
+    fn hide_window(&mut self, reset_state: bool) -> Task<AppMsg> {
         if !self.opened {
             return Task::none();
         }
@@ -2276,7 +2276,11 @@ impl AppModel {
         self.focused = false;
         self.opened = false;
 
-        let mut commands = vec![self.reset_window_state()];
+        let mut commands = vec![];
+
+        if reset_state {
+            commands.push(self.reset_window_state());
+        }
 
         #[cfg(target_os = "linux")]
         if self.wayland {
