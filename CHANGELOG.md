@@ -29,7 +29,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 - On macOS theme is now auto-selected based on system theme
 - On macOS window can now be dragged to change its position
   - Window position is saved and will be used after restart
-- Binary side has been reduced by around 40% (contributed by @davfsa)
+- Binary size has been reduced by around 40% (contributed by @davfsa)
 - Added `main_window.close_on_unfocus` boolean option to config file to disable "close on unfocus" functionality of main window
   - Intended to be used when using "window focus follows mouse" functionality of OS, Desktop Environment or Window Manager 
 - Added option in Settings UI to choose were main window appears when opening it
