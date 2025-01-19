@@ -78,7 +78,7 @@ scenario_runner = ["gauntlet-cli/scenario_runner"]
 [profile.release-size]
 inherits = "release"
 opt-level = "s"
-lto = true
+lto = "thin"
 strip = true
 
 [patch.crates-io]

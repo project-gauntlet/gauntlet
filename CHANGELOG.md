@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Fixed mouse actions like scrolling or clicking not working on macOS
+
 ## [13] - 2025-01-19
 
 ### General
