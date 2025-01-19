@@ -154,16 +154,10 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     let (stdout_file, stderr_file) = if dev_plugin {
         let (stdout_file, stderr_file) = data.dirs.plugin_log_files(&plugin_uuid);
 
-        std::fs::create_dir_all(stdout_file.parent().unwrap())?;
-        File::create(&stdout_file)?;
-
         let stdout_file = stdout_file
             .to_str()
             .context("non-uft8 paths are not supported")?
             .to_string();
-
-        std::fs::create_dir_all(stderr_file.parent().unwrap())?;
-        File::create(&stderr_file)?;
 
         let stderr_file = stderr_file.to_str()
             .context("non-uft8 paths are not supported")?
