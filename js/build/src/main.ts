@@ -58,10 +58,10 @@ program.command('build-windows')
 
 await program.parseAsync(process.argv);
 
-async function doBuild(projectRoot: string, arch: string) {
+async function doBuild(projectRoot: string, arch: string, profile: string) {
     console.log("Building Gauntlet...")
 
-    build(projectRoot, arch)
+    build(projectRoot, arch, profile)
 }
 
 async function doPublishInit() {
@@ -93,10 +93,10 @@ async function doPublishLinux() {
     await git.pull()
 
     const arch = 'x86_64-unknown-linux-gnu';
+    const profile = 'release-size';
 
-    buildSize(projectRoot, arch)
-
-    const { fileName, filePath } = packageForLinux(projectRoot, arch, 'release-size')
+    build(projectRoot, arch, profile)
+    const { fileName, filePath } = packageForLinux(projectRoot, arch, profile)
 
     await addFileToRelease(filePath, fileName)
 }
@@ -104,9 +104,10 @@ async function doPublishLinux() {
 async function doBuildLinux() {
     const arch = 'x86_64-unknown-linux-gnu';
     const projectRoot = getProjectRoot();
+    const profile = 'release';
 
-    await doBuild(projectRoot, arch)
-    packageForLinux(projectRoot, arch, 'release')
+    await doBuild(projectRoot, arch, profile)
+    packageForLinux(projectRoot, arch, profile)
 }
 
 async function doPublishMacOS() {
@@ -118,10 +119,10 @@ async function doPublishMacOS() {
     await git.pull()
 
     const arch = 'aarch64-apple-darwin';
+    const profile = 'release-size';
 
-    buildSize(projectRoot, arch)
-
-    const { fileName, filePath } = await packageForMacos(projectRoot, arch, 'release-size', true, true)
+    build(projectRoot, arch, profile)
+    const { fileName, filePath } = await packageForMacos(projectRoot, arch, profile, true, true)
 
     await addFileToRelease(filePath, fileName)
 }
@@ -129,9 +130,10 @@ async function doPublishMacOS() {
 async function doBuildMacOS() {
     const projectRoot = getProjectRoot();
     const arch = 'aarch64-apple-darwin';
+    const profile = 'release';
 
-    await doBuild(projectRoot, arch)
-    await packageForMacos(projectRoot, arch, 'release', false, false)
+    await doBuild(projectRoot, arch, profile)
+    await packageForMacos(projectRoot, arch, profile, false, false)
 }
 
 async function doPublishWindows() {
@@ -143,10 +145,11 @@ async function doPublishWindows() {
     await git.pull()
 
     const arch = 'x86_64-pc-windows-msvc';
+    const profile = 'release-size';
 
-    buildSize(projectRoot, arch)
+    build(projectRoot, arch, profile)
 
-    const { fileName, filePath } = await packageForWindows(projectRoot, arch, 'release-size')
+    const { fileName, filePath } = await packageForWindows(projectRoot, arch, profile)
 
     await addFileToRelease(filePath, fileName)
 }
@@ -154,9 +157,10 @@ async function doPublishWindows() {
 async function doBuildWindows() {
     const projectRoot = getProjectRoot();
     const arch = 'x86_64-pc-windows-msvc';
+    const profile = 'release';
 
-    await doBuild(projectRoot, arch)
-    await packageForWindows(projectRoot, arch, 'release')
+    await doBuild(projectRoot, arch, profile)
+    await packageForWindows(projectRoot, arch, profile)
 }
 
 async function doPublishFinal() {
@@ -174,28 +178,15 @@ async function doPublishFinal() {
     await publishNpmPackage(projectRoot)
 }
 
-function build(projectRoot: string, arch: string) {
+function build(projectRoot: string, arch: string, profile: string) {
     buildJs(projectRoot)
 
-    buildRust(projectRoot, arch)
+    buildRust(projectRoot, arch, profile)
 }
 
-function buildSize(projectRoot: string, arch: string) {
-    buildJs(projectRoot)
-
-    buildRustSize(projectRoot, arch)
-}
-
-function buildRust(projectRoot: string, arch: string) {
+function buildRust(projectRoot: string, arch: string, profile: string) {
     console.log("Building rust...")
-    spawnWithErrors('cargo', ['build', '--release', '--features', 'release', '--target', arch], {
-        cwd: projectRoot
-    });
-}
-
-function buildRustSize(projectRoot: string, arch: string) {
-    console.log("Building rust...")
-    spawnWithErrors('cargo', ['build', '--profile', 'release-size', '--features', 'release', '--target', arch], {
+    spawnWithErrors('cargo', ['build', '--profile', profile, '--features', 'release', '--target', arch], {
         cwd: projectRoot
     });
 }
