@@ -12,7 +12,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 ### General
 - Window Tracking
   - Gauntlet now tracks opened windows and assigns them to specific application entry in results
-  - If application has window open, primary action now instead focuses the window, or if there are multiple opens view which contains list of windows that can be focused
+  - If application has window open, primary action now instead focuses the window
+  - If there are multiple windows open, primary action opens view which contains list of windows that can be focused
   - If application has window open, it is still possible to open new application instance by using separate new action
   - It is experimental, and it is possible to disable window tracking by unchecking checkbox in Application entrypoint preferences in Settings UI  
   - Currently supported on
@@ -36,6 +37,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
     - `Active Monitor`
       - Windows opens on monitor which has currently focused window
   - Currently supported only on macOS
+- Improve config and theme config error parsing logs
 
 ### Theming
 - Themes have been reworked
@@ -66,8 +68,10 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
   - Added `get: (id: string) => GeneratedEntrypoint | undefined` function to `GeneratorContext` to get added entrypoint
   - Added `getAll: () => GeneratedEntrypoint[]` function to `GeneratorContext` to get all added entrypoints
   - Generated Entrypoints can now have accessories similar to `<List/>` component
-- Removed `pluginPreferences` and `entrypointPreferences`
-- Add `usePluginPreferences` and `useEntrypointPreferences` React Hooks 
+- Removed `pluginPreferences` and `entrypointPreferences` helper functions
+- Added `usePluginPreferences` and `useEntrypointPreferences` React Hooks 
+- Command function now receives `CommandContext` as first argument
+  - Object contains `pluginPreferences` and `entrypointPreferences` properties to access preferences from Command 
 - Unified primary and secondary action execution in `<List.Item/>` and `<Grid.Item/>` 
   - **BREAKING CHANGE**: Removed `onClick` property on `<List.Item/>` and `<Grid.Item/>` components
   - **BREAKING CHANGE**: `<List.Item/>` and `<Grid.Item/>` now has how `id: string` required property 
@@ -97,6 +101,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 - Fixed `<Grid.EmptyView/>` not displaying the image
 - Fixed image in `<List.EmptyView/>` being too big so labels are not shown
 - Fixed action not being run if `<List/>` or `<Grid/>` view has focused `<SearchBar/>`
+- Fixed `npm run dev` failing because of missing log files when run for the first time
 
 ## [12] - 2024-12-22
 

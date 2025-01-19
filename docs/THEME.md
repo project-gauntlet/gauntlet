@@ -1,44 +1,21 @@
 # Gauntlet Theming
 
-Gauntlet has extensive theming possibilities
+Currently, in Gauntlet with themes it is possible to change (list is likely be extended with future updates):
+- Colors of text and background
+- Window border color, width and radius
+- Border radius of components in content
 
-There are 2 types of themes:
-- Simple Theme
-  - Global colors
-  - Global border width and radius
-- Complex Theme
-  - Colors on per widget type bases
-  - Paddings and spacing on per widget type bases
-  - Borders colors, width and radius on per widget type bases
+Theming is only affects main window and doesn't affect settings
 
-Unfortunately due to the internally invasive nature of themes, it is perpetually unstable feature.
-Themes are versioned and only one version is supported by application at the same time.
-Meaning if there were some changes made in the release and theme version was incremented,
-theme will stop working until it is updated. 
-This may change in the future
+Theme config file is in TOML format
 
-Current version:
-- Simple Theme: `4`
-- Complex Theme: `4`
-
-Theming is only applied to main window and doesn't affect settings
-
-### Creating a custom theme
-
-Gauntlet provides 2 CLI commands to generate sample: `generate-sample-simple-theme` and `generate-sample-complex-theme`. Sample is just a default theme that has been saved to file.
-
-Running the command will create sample file, print location of that sample file
-and will print location to which theme file will need to be saved to be detected by application
+Theme config file locations:
+- Windows:  `C:\Users\Username\AppData\Roaming\Gauntlet\config\theme.toml`
+- Linux: `$XDG_CONFIG_HOME/gauntlet/theme.toml`
+- macOS: `$HOME/Library/Application Support/dev.project-gauntlet.gauntlet/theme.toml`
 
 Currently, theme change is only applied after application restart
 
 Any errors in theme parsing will be shown in application logs
 
-#### Linux
-- `gauntlet generate-sample-simple-theme`
-- `gauntlet generate-sample-complex-theme`
-
-#### macOS
-Note: the binary is not on the PATH
-- `/Applications/Gauntlet.app/Contents/MacOS/Gauntlet generate-sample-simple-theme`
-- `/Applications/Gauntlet.app/Contents/MacOS/Gauntlet generate-sample-complex-theme`
+See bundled themes for examples [here](./../bundled_themes)

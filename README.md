@@ -4,7 +4,7 @@
 
 <img align="right" width="100" height="100" src="assets/linux/icon_256.png">
 
-Web-first cross-platform application launcher with React-based plugins.
+Web-first cross-platform application launcher with React-based plugins
 
 > [!NOTE]
 > Launcher is in active development, expect bugs, missing features, incomplete ux, etc.
@@ -71,7 +71,6 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
    - Application plugin depends on `gtk-launch`
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
-    - Bundled "Applications" plugin is not yet implemented. See [#9](https://github.com/project-gauntlet/gauntlet/issues/9)
 
 ##### Planned features
 
@@ -216,7 +215,7 @@ Main window can be opened using global shortcut or CLI command:
 name = 'Plugin Name'
 description = """
 Plugin description
-""" # required
+"""
 
 [[preferences]] # plugin preference
 name = 'testBool'
@@ -229,8 +228,9 @@ enum_values = [{ label = 'Item', value = 'item'}] # defines list of available en
 id = 'ui-view' # id for entrypoint
 name = 'UI view' # name of entrypoint
 path = 'src/ui-view.tsx' # path to file, default export is expected to be function React Function Component
+icon = 'icon.png' # optional, path to file inside assets dir
 type = 'view'
-description = 'Some entrypoint description' # required
+description = 'Some entrypoint description'
 
 [[entrypoint.preferences]] # entrypoint preference
 name = 'boolPreference'
@@ -248,21 +248,21 @@ id = 'command-a'
 name = 'Command A'
 path = 'src/command-a.ts' # path to file, the whole file is a js script
 type = 'command'
-description = 'Some entrypoint description' # required
+description = 'Some entrypoint description'
 
 [[entrypoint]]
 id = 'command-generator'
 name = 'Command generator'
 path = 'src/command-generator.ts'
 type = 'command-generator'
-description = 'Some entrypoint description' # required
+description = 'Some entrypoint description'
 
 [[entrypoint]]
 id = 'inline-view'
 name = 'Inline view'
 path = 'src/inline-view.tsx'
 type = 'inline-view'
-description = 'Some entrypoint description' # required
+description = 'Some entrypoint description'
 
 [permissions]
 network = ["github.com", "example.com:8833"]
@@ -311,8 +311,6 @@ The Application has a simple command line interface
   - `gauntlet --minimized` - starts server without opening main window 
 - `gauntlet open` - opens application window, can be used instead of global shortcut
 - `gauntlet settings` - settings, plugin installation and removal, preferences, etc
-- `gauntlet generate-sample-simple-theme` - generate sample of simple theme. See: [THEME.md](./docs/THEME.md)
-- `gauntlet generate-sample-complex-theme` - generate sample of complex theme. See: [THEME.md](./docs/THEME.md)
 
 ### Dev Tools
 
@@ -336,10 +334,8 @@ See [THEME.md](./docs/THEME.md)
 
 ## Architecture
 
-The Application consists of three parts: server, frontend and settings.
-Server is an application that exposes gRPC server.
-All plugins run on server.
-Each plugin in its own sandboxed Deno Worker.
+The Application consists of 4 parts: server, frontend, plugin runtime and settings.
+Each plugin runs in separate plugin runtime in separate OS process. Each plugin is its own sandboxed Deno Worker.
 In plugin manifest it is possible to configure permissions which will allow plugin to have access to filesystem,
 network, environment variables or subprocess execution.
 Server saves plugins themselves and state of plugins into SQLite database.
@@ -347,22 +343,19 @@ Server saves plugins themselves and state of plugins into SQLite database.
 Frontend is GUI module that uses [iced-rs](https://github.com/iced-rs/iced) as a GUI framework. It is run in the same process as a server.
 
 Plugins can create UI using [React](https://github.com/facebook/react).
-Server implements custom React Reconciler (similar to React Native) which renders GUI components to frontend.
-Server listens on signals from frontend, so when user opens view defined by plugin, frontend sends an open-view request.
-Server then receives it, runs React render and React Reconciler
-makes requests to the frontend containing information what actually should be rendered.
+Plugin Runtime implements custom React Reconciler (similar to React Native) which renders GUI components to frontend.
+Plugin Runtime listens on signals from frontend, so when user opens view defined by plugin, frontend sends an open-view request.
+Plugin Runtime then receives it, runs React render and React Reconciler makes requests to the frontend containing information what actually should be rendered.
 When a user interacts with the UI by clicking button or entering text into form,
 frontend sends events to server to see whether any re-renders are needed.
 
-Settings is a GUI application runs in separate process that communicates with server via gRPC using a simple request-response approach.
+Settings is a GUI application runs in separate process that communicates with server using a simple request-response approach.
 
-Simplified gRPC communication:
+Simplified communication:
 ![](docs/architecture.png)
 
 Components:
 ![](docs/architecture-blocks.png)
-
-Each component runs in a separate thread. Main thread is the thread that renders GUI. Each component has its own tokio runtime instance. 
 
 Plugins (or rather its compiled state: manifest, js code and assets) are distributed via Git repository in `gauntlet/release` branch (similar to GitHub Pages).
 Which means there is no one central place required for plugin distribution.
@@ -402,13 +395,6 @@ Relevant CLI commands:
     - contains log files created by plugin development 
 - `.desktop` files at locations defined by [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
 
-Application and Dev Tools use temporary directories:
-
-- Rust: [tempfile crate](https://crates.io/crates/tempfile)
-- JS: [NodeJS mkdtemp](https://nodejs.org/api/fs.html#fspromisesmkdtempprefix-options)
-
-X11 API is used to add global shortcut
-
 Client and Setting applications have GUI and therefore use all the usual graphics-related stuff from X11.
 Wayland support requires LayerShell protocol `zwlr_layer_shell_v1`.
 
@@ -442,7 +428,6 @@ But the new version release needs to be done via GitHub Actions
 If you'd like to help build Gauntlet you can do it in more ways than just contributing code:
 - Reporting a bug or UI/UX problem
 - Creating a plugin
-- Creating and contributing a theme - see [#16](https://github.com/project-gauntlet/gauntlet/issues/16)
 
 If you are looking for things to do see pinned [issues](https://github.com/project-gauntlet/gauntlet/issues).
 
