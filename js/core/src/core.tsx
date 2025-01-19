@@ -3,7 +3,10 @@ import { runEntrypointGenerators, runGeneratedEntrypoint, runGeneratedEntrypoint
 import { reloadSearchIndex } from "./search-index";
 import { closeView, handleEvent, handlePluginViewKeyboardEvent, renderInlineView, renderView } from "./render";
 import {
-    entrypoint_preferences_required, op_entrypoint_names,
+    entrypoint_preferences_required,
+    get_entrypoint_preferences,
+    get_plugin_preferences,
+    op_entrypoint_names,
     op_inline_view_entrypoint_id,
     op_log_trace,
     op_plugin_get_pending_event,
@@ -97,8 +100,16 @@ export async function runPluginLoop() {
                         break;
                     }
 
-                    const command: () => Promise<void> | void = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
-                    command()
+                    type CommandContext<P = object, E = object> = {
+                        pluginPreferences: P,
+                        entrypointPreferences: E,
+                    };
+
+                    const pluginPreferences = get_plugin_preferences();
+                    const entrypointPreferences = get_entrypoint_preferences(pluginEvent.entrypointId);
+
+                    const command: (context: CommandContext) => Promise<void> | void = (await import(`gauntlet:entrypoint?${pluginEvent.entrypointId}`)).default;
+                    command({ pluginPreferences, entrypointPreferences })
                 } catch (e) {
                     console.error("Error occurred when running a command", pluginEvent.entrypointId, e)
                 }

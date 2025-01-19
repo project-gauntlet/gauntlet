@@ -68,6 +68,11 @@ export type GeneratorContext<P = object, E = object> = {
     entrypointPreferences: E,
 };
 
+export type CommandContext<P = object, E = object> = {
+    pluginPreferences: P,
+    entrypointPreferences: E,
+};
+
 export const Clipboard: Clipboard = {
     read: async function (): Promise<{ "text/plain"?: string | undefined; "image/png"?: ArrayBuffer | undefined; }> {
         const data = await clipboard_read();
