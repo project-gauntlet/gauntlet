@@ -322,9 +322,7 @@ pub async fn start_js_runtime(
     let stdout = if let Some(stdout_file) = init.stdout_file {
         let stdout_file = PathBuf::from(stdout_file);
 
-        std::fs::create_dir_all(stdout_file.parent().unwrap())?;
-
-        let out_log_file = File::create(stdout_file)?;
+        let out_log_file = File::open(stdout_file)?;
 
         StdioPipe::file(out_log_file)
     } else {
@@ -334,9 +332,7 @@ pub async fn start_js_runtime(
     let stderr = if let Some(stderr_file) = init.stderr_file {
         let stderr_file = PathBuf::from(stderr_file);
 
-        std::fs::create_dir_all(stderr_file.parent().unwrap())?;
-
-        let err_log_file = File::create(stderr_file)?;
+        let err_log_file = File::open(stderr_file)?;
 
         StdioPipe::file(err_log_file)
     } else {
