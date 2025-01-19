@@ -85,9 +85,12 @@ async function doPublishInit() {
 }
 
 async function doPublishLinux() {
-    console.log("Publishing Gauntlet... Linux...")
-
     const projectRoot = getProjectRoot()
+
+    const git = simpleGit(projectRoot);
+
+    console.log("git pull...")
+    await git.pull()
 
     const arch = 'x86_64-unknown-linux-gnu';
 
@@ -101,11 +104,6 @@ async function doPublishLinux() {
 async function doBuildLinux() {
     const arch = 'x86_64-unknown-linux-gnu';
     const projectRoot = getProjectRoot();
-
-    const git = simpleGit(projectRoot);
-
-    console.log("git pull...")
-    await git.pull()
 
     await doBuild(projectRoot, arch)
     packageForLinux(projectRoot, arch)
