@@ -96,7 +96,7 @@ async function doPublishLinux() {
 
     buildSize(projectRoot, arch)
 
-    const { fileName, filePath } = packageForLinux(projectRoot, arch)
+    const { fileName, filePath } = packageForLinux(projectRoot, arch, 'release-size')
 
     await addFileToRelease(filePath, fileName)
 }
@@ -106,7 +106,7 @@ async function doBuildLinux() {
     const projectRoot = getProjectRoot();
 
     await doBuild(projectRoot, arch)
-    packageForLinux(projectRoot, arch)
+    packageForLinux(projectRoot, arch, 'release')
 }
 
 async function doPublishMacOS() {
@@ -121,7 +121,7 @@ async function doPublishMacOS() {
 
     buildSize(projectRoot, arch)
 
-    const { fileName, filePath } = await packageForMacos(projectRoot, arch, true, true)
+    const { fileName, filePath } = await packageForMacos(projectRoot, arch, 'release-size', true, true)
 
     await addFileToRelease(filePath, fileName)
 }
@@ -131,7 +131,7 @@ async function doBuildMacOS() {
     const arch = 'aarch64-apple-darwin';
 
     await doBuild(projectRoot, arch)
-    await packageForMacos(projectRoot, arch, false, false)
+    await packageForMacos(projectRoot, arch, 'release', false, false)
 }
 
 async function doPublishWindows() {
@@ -146,7 +146,7 @@ async function doPublishWindows() {
 
     buildSize(projectRoot, arch)
 
-    const { fileName, filePath } = await packageForWindows(projectRoot, arch)
+    const { fileName, filePath } = await packageForWindows(projectRoot, arch, 'release-size')
 
     await addFileToRelease(filePath, fileName)
 }
@@ -156,7 +156,7 @@ async function doBuildWindows() {
     const arch = 'x86_64-pc-windows-msvc';
 
     await doBuild(projectRoot, arch)
-    await packageForWindows(projectRoot, arch)
+    await packageForWindows(projectRoot, arch, 'release')
 }
 
 async function doPublishFinal() {
@@ -287,8 +287,8 @@ async function makeRepoChanges(projectRoot: string): Promise<{ releaseNotes: str
     }
 }
 
-function packageForLinux(projectRoot: string, arch: string): { filePath: string; fileName: string } {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release-size');
+function packageForLinux(projectRoot: string, arch: string, profile: string): { filePath: string; fileName: string } {
+    const releaseDirPath = path.join(projectRoot, 'target', arch, profile);
     const assetsDirPath = path.join(projectRoot, 'assets', 'linux');
 
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
@@ -330,8 +330,8 @@ function packageForLinux(projectRoot: string, arch: string): { filePath: string;
     }
 }
 
-async function packageForMacos(projectRoot: string, arch: string, sign: boolean, notarize: boolean): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release-size');
+async function packageForMacos(projectRoot: string, arch: string, profile: string, sign: boolean, notarize: boolean): Promise<{ filePath: string; fileName: string }> {
+    const releaseDirPath = path.join(projectRoot, 'target', arch, profile);
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
     const outFileName = "gauntlet-aarch64-macos.dmg"
     const outFilePath = path.join(releaseDirPath, outFileName);
@@ -443,8 +443,8 @@ async function packageForMacos(projectRoot: string, arch: string, sign: boolean,
     }
 }
 
-async function packageForWindows(projectRoot: string, arch: string): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, 'release-size');
+async function packageForWindows(projectRoot: string, arch: string, profile: string): Promise<{ filePath: string; fileName: string }> {
+    const releaseDirPath = path.join(projectRoot, 'target', arch, profile);
     const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet.exe');
     const outFileName = "gauntlet-x86_64-windows.msi"
     const outFilePath = path.join(releaseDirPath, outFileName);
