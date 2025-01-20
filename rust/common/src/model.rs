@@ -214,7 +214,7 @@ pub struct UiTheme {
 
 #[derive(Debug)]
 pub struct UiSetupData {
-    pub window_position_file: PathBuf,
+    pub window_position_file: Option<PathBuf>,
     pub theme: UiTheme,
     pub global_shortcut: Option<PhysicalShortcut>,
     pub close_on_unfocus: bool,

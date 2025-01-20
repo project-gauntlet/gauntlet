@@ -157,7 +157,7 @@ pub struct AppModel {
     theme: GauntletComplexTheme,
     window_position_mode: WindowPositionMode,
     close_on_unfocus: bool,
-    window_position_file: PathBuf,
+    window_position_file: Option<PathBuf>,
     #[cfg(target_os = "linux")]
     x11_active_window: Option<u32>,
     pending_window_state_reset: bool,
@@ -429,8 +429,10 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
     }
 }
 
-fn open_main_window_non_wayland(minimized: bool, window_position_file: &PathBuf) -> (window::Id, Task<AppMsg>) {
-    let position = fs::read_to_string(window_position_file)
+fn open_main_window_non_wayland(minimized: bool, window_position_file: Option<&PathBuf>) -> (window::Id, Task<AppMsg>) {
+    let position = window_position_file
+        .map(|window_position_file| fs::read_to_string(window_position_file).ok())
+        .flatten()
         .map(|data| {
             if let Some((x, y)) = data.split_once(":") {
                 match (x.parse(), y.parse()) {
@@ -575,13 +577,15 @@ fn new(
             open_main_window_wayland(id)
         }
     } else {
-        open_main_window_non_wayland(minimized, &setup_data.window_position_file)
+        open_main_window_non_wayland(minimized, setup_data.window_position_file.as_ref())
     };
 
     #[cfg(not(target_os = "linux"))]
-    let (main_window_id, open_task) = open_main_window_non_wayland(minimized, &setup_data.window_position_file);
+    let (main_window_id, open_task) = open_main_window_non_wayland(minimized, setup_data.window_position_file.as_ref());
 
     tasks.push(open_task);
+
+    let mut client_context = ClientContext::new();
 
     let global_state = if cfg!(feature = "scenario_runner") {
         let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
@@ -619,21 +623,20 @@ fn new(
             } => {
                 let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
                 let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+                let plugin_name = "Screenshot Plugin".to_string();
+                let entrypoint_name = gen_name;
 
                 let render_location = ui_render_location_from_scenario(render_location);
 
-                let msg = AppMsg::RenderPluginUI {
-                    plugin_id: plugin_id.clone(),
-                    plugin_name: "Screenshot Plugin".to_string(),
-                    entrypoint_id: entrypoint_id.clone(),
-                    entrypoint_name: "Screenshot Entrypoint".to_string(),
+                let _ = client_context.render_ui(
                     render_location,
-                    top_level_view,
-                    container: Arc::new(container),
+                    Arc::new(container),
                     images,
-                };
-
-                tasks.push(Task::done(msg));
+                    &plugin_id,
+                    &plugin_name,
+                    &entrypoint_id,
+                    &entrypoint_name,
+                );
 
                 match render_location {
                     UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
@@ -642,9 +645,9 @@ fn new(
                             PluginViewData {
                                 top_level_view,
                                 plugin_id,
-                                plugin_name: "Screenshot Gen".to_string(),
+                                plugin_name,
                                 entrypoint_id,
-                                entrypoint_name: gen_name,
+                                entrypoint_name,
                                 action_shortcuts: Default::default(),
                             },
                             true,
@@ -708,7 +711,7 @@ fn new(
 
             // state
             global_state,
-            client_context: ClientContext::new(),
+            client_context,
             search_results: vec![],
             loading_bar_state: HashMap::new(),
             hud_display: None,
@@ -878,30 +881,26 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::PromptChanged(mut new_prompt) => {
-            if cfg!(feature = "scenario_runner") {
-                Task::none()
-            } else {
-                match &mut state.global_state {
-                    GlobalState::MainView {
+            match &mut state.global_state {
+                GlobalState::MainView {
                         focused_search_result,
                         sub_state,
                         ..
                     } => {
-                        new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
+                    new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
-                        state.prompt = new_prompt.clone();
+                    state.prompt = new_prompt.clone();
 
-                        focused_search_result.reset(true);
+                    focused_search_result.reset(true);
 
-                        MainViewState::initial(sub_state);
-                    }
-                    GlobalState::ErrorView { .. } => {}
-                    GlobalState::PluginView { .. } => {}
-                    GlobalState::PendingPluginView { .. } => {}
+                    MainViewState::initial(sub_state);
+                }
+                GlobalState::ErrorView { .. } => {}
+                GlobalState::PluginView { .. } => {}
+            GlobalState::PendingPluginView { .. } => {}
                 }
 
-                state.search(new_prompt, true)
-            }
+            state.search(new_prompt, true)
         }
         AppMsg::UpdateSearchResults => {
             match &state.global_state {
@@ -1134,8 +1133,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 return Task::none();
             }
 
-            let _ = fs::create_dir_all(state.window_position_file.parent().unwrap());
-            let _ = fs::write(&state.window_position_file, format!("{}:{}", point.x, point.y));
+            if let Some(window_position_file) = &state.window_position_file {
+                let _ = fs::create_dir_all(window_position_file.parent().unwrap());
+                let _ = fs::write(&window_position_file, format!("{}:{}", point.x, point.y));
+            }
 
             Task::none()
         }

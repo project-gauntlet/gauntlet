@@ -87,7 +87,7 @@ pub mod plugin_manifest;
 mod run_status;
 mod runtime;
 mod settings;
-mod theme;
+pub mod theme;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [(
     "gauntlet",
@@ -146,7 +146,7 @@ impl ApplicationManager {
         let close_on_unfocus = self.config_reader.close_on_unfocus();
 
         Ok(UiSetupData {
-            window_position_file,
+            window_position_file: Some(window_position_file),
             theme,
             global_shortcut,
             close_on_unfocus,

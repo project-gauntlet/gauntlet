@@ -18,6 +18,7 @@ use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::UiRequestData;
 use gauntlet_common::model::UiResponseData;
+use gauntlet_common::model::UiTheme;
 use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_api::BackendApiError;
 use gauntlet_common::rpc::backend_server::start_backend_server;
@@ -119,10 +120,13 @@ fn run_scenario_runner() {
             let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
             let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
 
-            start_client(false, frontend_receiver, backend_sender);
+            std::thread::spawn(|| {
+                let theme = crate::plugins::theme::BundledThemes::new().unwrap();
 
-            drop(frontend_sender);
-            drop(backend_receiver);
+                start_mock_server(frontend_sender, backend_receiver, theme.legacy_theme)
+            });
+
+            start_client(false, frontend_receiver, backend_sender);
         }
         "scenario_runner" => {
             let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
@@ -130,7 +134,7 @@ fn run_scenario_runner() {
 
             std::thread::spawn(|| start_server(frontend_sender, backend_receiver));
 
-            start_frontend_mock(frontend_receiver, backend_sender)
+            start_frontend_mock(frontend_receiver, backend_sender);
         }
         _ => panic!("unknown type"),
     }
@@ -165,6 +169,18 @@ fn start_server(
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async { run_server(request_sender, backend_receiver).await })
+        .unwrap();
+}
+
+#[cfg(feature = "scenario_runner")]
+fn start_mock_server(request_sender: RequestSender<UiRequestData, UiResponseData>, backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>, theme: UiTheme) {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("unable to start server tokio runtime")
+        .block_on(async {
+            gauntlet_scenario_runner::run_scenario_runner_mock_server(request_sender, backend_receiver, theme).await
+        })
         .unwrap();
 }
 
