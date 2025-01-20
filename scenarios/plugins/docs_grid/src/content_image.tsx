@@ -36,7 +36,7 @@ export default function Main(): ReactElement {
     return (
         <Grid>
             {items.map(value => (
-                <Grid.Item key={value.title} title={value.title}>
+                <Grid.Item id={value.title} key={value.title} title={value.title}>
                     <Grid.Item.Content>
                         <Grid.Item.Content.Image source={{ url: value.image }}/>
                     </Grid.Item.Content>

@@ -160,7 +160,7 @@ async fn request_loop(
             | UiRequestData::SetTheme { .. } => {
                 unreachable!()
             }
-            UiRequestData::SetGlobalShortcut { .. } | UiRequestData::RequestSearchResultUpdate => {
+            UiRequestData::SetGlobalShortcut { .. } | UiRequestData::SetWindowPositionMode { .. } | UiRequestData::RequestSearchResultUpdate => {
                 // noop
             }
             UiRequestData::ReplaceView {

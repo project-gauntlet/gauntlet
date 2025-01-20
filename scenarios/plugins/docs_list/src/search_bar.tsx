@@ -23,7 +23,7 @@ export default function Main(): ReactElement {
             {results
                 .filter(value => !searchText ? true : value.toLowerCase().includes(searchText))
                 .map(value => (
-                    <List.Item title={value}/>
+                    <List.Item id={value} title={value}/>
                 ))
             }
         </List>

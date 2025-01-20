@@ -23,7 +23,7 @@ export default function Main(): ReactElement {
             {results
                 .filter(value => !searchText ? true : value.toLowerCase().includes(searchText))
                 .map(value => (
-                    <Grid.Item>
+                    <Grid.Item id={value}>
                         <Grid.Item.Content>
                             <Grid.Item.Content.Paragraph>
                                 {value}
