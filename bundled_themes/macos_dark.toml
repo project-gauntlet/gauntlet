@@ -17,7 +17,7 @@ text = [
 [window.border]
 radius = 8
 width = 1
-color = { color = "#646464", alpha = 0.5 }
+color = { color = "#383838", alpha = 1 }
 
 [content.border]
 radius = 4.0
