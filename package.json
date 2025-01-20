@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build-all": "npm run build --workspaces --if-present",
-    "build-scenarios": "npm run build --workspace scenarios --if-present",
+    "build-scenarios": "npm run build --workspace example_plugins --if-present",
     "build-dev-plugin": "npm run build --workspace dev_plugin",
     "build": "npm run build --workspace js --workspace bundled_plugins --if-present",
     "run-scenarios": "npm run run-scenarios --workspace js/scenario_runner_cli",
@@ -12,7 +12,7 @@
   "workspaces": [
     "dev_plugin",
     "bundled_plugins/*",
-    "scenarios/plugins/*",
+    "example_plugins/plugins/*",
     "js/typings",
     "js/build",
     "js/api_build",

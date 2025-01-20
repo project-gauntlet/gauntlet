@@ -31,8 +31,8 @@ async function sleep(ms: number) {
 async function runScenarios(expectedPlugin: string | undefined) {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
 
-    const scenarios = path.join(projectRoot, "scenarios");
-    const scenariosData = path.join(scenarios, "data");
+    const scenarios = path.join(projectRoot, "example_plugins");
+    const scenariosData = path.join(scenarios, "scenarios");
     const scenariosRun = path.join(scenarios, "run");
 
     console.log("Building server")
@@ -78,7 +78,7 @@ async function runScenarios(expectedPlugin: string | undefined) {
 
 async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntrypoint: string | undefined) {
     const projectRoot = path.resolve(process.cwd(), '..', '..');
-    const scenarios = path.join(projectRoot, "scenarios");
+    const scenarios = path.join(projectRoot, "example_plugins");
     const scenariosOut = path.join(scenarios, "out");
 
     for (const plugin of readdirSync(scenariosOut)) {

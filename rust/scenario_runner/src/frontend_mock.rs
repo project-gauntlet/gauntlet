@@ -36,7 +36,7 @@ pub async fn start_scenario_runner_frontend(
         .to_string();
 
     let scenario_data_dir = scenario_dir
-        .join("data")
+        .join("scenarios")
         .join(&plugin_name)
         .to_str()
         .expect("scenario_data_dir is invalid UTF-8")
