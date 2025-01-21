@@ -48,6 +48,132 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start item
+[[entrypoint]]
+id = 'item'
+name = 'List Item'
+path = 'src/item.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content
+[[entrypoint]]
+id = 'content'
+name = 'List Content'
+path = 'src/content.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-code-block
+[[entrypoint]]
+id = 'content-code-block'
+name = 'List Content Code Block'
+path = 'src/content_code_block.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-headers
+[[entrypoint]]
+id = 'content-headers'
+name = 'List Content Headers'
+path = 'src/content_headers.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-horizontal-break
+[[entrypoint]]
+id = 'content-horizontal-break'
+name = 'List Content Horizontal Break'
+path = 'src/content_horizontal_break.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-image
+[[entrypoint]]
+id = 'content-image'
+name = 'List Content Image'
+path = 'src/content_image.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start content-paragraph
+[[entrypoint]]
+id = 'content-paragraph'
+name = 'List Content Paragraph'
+path = 'src/content_paragraph.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata
+[[entrypoint]]
+id = 'metadata'
+name = 'List Metadata'
+path = 'src/metadata.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata-icon
+[[entrypoint]]
+id = 'metadata-icon'
+name = 'List Metadata Icon'
+path = 'src/metadata_icon.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata-icon
+[[entrypoint]]
+id = 'metadata-icon'
+name = 'List Metadata Icon'
+path = 'src/metadata_icon.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata-link
+[[entrypoint]]
+id = 'metadata-link'
+name = 'List Metadata Link'
+path = 'src/metadata_link.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata-separator
+[[entrypoint]]
+id = 'metadata-separator'
+name = 'List Metadata Separator'
+path = 'src/metadata_separator.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata-tag-list
+[[entrypoint]]
+id = 'metadata-tag-list'
+name = 'List Metadata Tag List'
+path = 'src/metadata_tag_list.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start metadata-value
+[[entrypoint]]
+id = 'metadata-value'
+name = 'List Metadata Value'
+path = 'src/metadata_value.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
 [permissions]
 network = ["static.wikia.nocookie.net"]
 

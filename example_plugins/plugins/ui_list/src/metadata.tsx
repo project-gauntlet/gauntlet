@@ -1,9 +1,15 @@
-import { ReactElement } from "react";
-import { List } from "@project-gauntlet/api/components";
+import React, { ReactElement } from "react";
+import { Action, ActionPanel, List } from "@project-gauntlet/api/components";
 
 export default function Main(): ReactElement {
     return (
-        <List>
+        <List
+            actions={
+                <ActionPanel>
+                    <Action label="Select" onAction={() => {}}/>
+                </ActionPanel>
+            }
+        >
             <List.Item id="adarian" title="Adarian"/>
             <List.Item id="aruzan" title="Aruzan"/>
             <List.Item id="blutopian" title="Blutopian"/>
@@ -29,26 +35,6 @@ export default function Main(): ReactElement {
                         <List.Detail.Metadata.TagList.Item>Doctor Aphra (2016) 12</List.Detail.Metadata.TagList.Item>
                     </List.Detail.Metadata.TagList>
                 </List.Detail.Metadata>
-                <List.Detail.Content>
-                    <List.Detail.Content.Paragraph>
-                        The Ezaraa were a species of warmongering carnivorous sentients that were native to the the planet
-                        Ezaraa.
-                        They intended to overthrow the Galactic Empire, only to replace it with their own dominion and feed
-                        on the other species, which they deemed as lesser to them.
-                        To arm their revolution, the dominion sent Ezaraa to take advantage of opportunities such as the
-                        Auction of Rur.
-                    </List.Detail.Content.Paragraph>
-                    <List.Detail.Content.H4>
-                        Society and culture
-                    </List.Detail.Content.H4>
-                    <List.Detail.Content.CodeBlock>
-                        "Bring the Dominion of the Ezaraa across the stars! And consume the flesh of all the lesser
-                        species!"
-                    </List.Detail.Content.CodeBlock>
-                    <List.Detail.Content.Paragraph>
-                        ―An Ezaraa, to Luke Skywalker
-                    </List.Detail.Content.Paragraph>
-                </List.Detail.Content>
             </List.Detail>
         </List>
     )
