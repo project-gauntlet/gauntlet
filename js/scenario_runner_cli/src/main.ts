@@ -121,7 +121,7 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                         RUST_LOG: "gauntlet-client=INFO",
                         GAUNTLET_SCENARIO_RUNNER_TYPE: "screenshot_gen",
                         GAUNTLET_SCREENSHOT_GEN_IN: scenarioFile,
-                        GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out-screenshot", plugin, entrypoint, scenarioName + ".png"),
+                        GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out_screenshot", plugin, entrypoint, scenarioName + ".png"),
                         GAUNTLET_SCREENSHOT_GEN_NAME: scenarioNameTitle,
                     })
                 });
