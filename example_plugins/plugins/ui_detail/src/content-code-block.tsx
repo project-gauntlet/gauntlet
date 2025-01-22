@@ -1,5 +1,5 @@
-import { Detail } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
+import { Detail } from "@project-gauntlet/api/components";
 
 const code = `\
 fib :: Integer -> Integer
@@ -8,7 +8,7 @@ fib 1 = 1
 fib n = fib (n-1) + fib (n-2)
 `
 
-export default function Main(): ReactNode {
+export default function ContentCodeBlock(): ReactNode {
     return (
         <Detail>
             <Detail.Content>

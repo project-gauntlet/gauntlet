@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
-import { Icons, List } from "@project-gauntlet/api/components";
+import { List } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function MetadataSeparatorExample(): ReactElement {
     return (
         <List>
             <List.Item id="ezaraa" title="Ezaraa"/>

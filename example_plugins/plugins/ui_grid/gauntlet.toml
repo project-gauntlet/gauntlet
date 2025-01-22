@@ -7,7 +7,7 @@ description = ''
 [[entrypoint]]
 id = 'empty-view'
 name = 'Empty View'
-path = 'src/empty_view.tsx'
+path = 'src/empty-view.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -34,7 +34,7 @@ description = ''
 [[entrypoint]]
 id = 'search-bar'
 name = 'Grid Search bar'
-path = 'src/search_bar.tsx'
+path = 'src/search-bar.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -43,7 +43,7 @@ description = ''
 [[entrypoint]]
 id = 'content-code-block'
 name = 'Grid Content Code Block'
-path = 'src/content_code_block.tsx'
+path = 'src/content-code-block.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -52,7 +52,7 @@ description = ''
 [[entrypoint]]
 id = 'content-paragraph'
 name = 'Grid Content Paragraph'
-path = 'src/content_paragraph.tsx'
+path = 'src/content-paragraph.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -61,7 +61,7 @@ description = ''
 [[entrypoint]]
 id = 'content-image'
 name = 'Grid Content Image'
-path = 'src/content_image.tsx'
+path = 'src/content-image.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -70,7 +70,7 @@ description = ''
 [[entrypoint]]
 id = 'content-headers'
 name = 'Grid Content Headers'
-path = 'src/content_headers.tsx'
+path = 'src/content-headers.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end

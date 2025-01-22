@@ -1,9 +1,15 @@
-import { Detail } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
+import { Action, ActionPanel, Detail } from "@project-gauntlet/api/components";
 
 export default function Main(): ReactNode {
     return (
-        <Detail>
+        <Detail
+            actions={
+                <ActionPanel>
+                    <Action label="Open Wiki" onAction={() => {/*  */}}/>
+                </ActionPanel>
+            }
+        >
             <Detail.Metadata>
                 <Detail.Metadata.Value label={"Designation"}>Sentient</Detail.Metadata.Value>
                 <Detail.Metadata.Value label={"Classification"}>Humanoid</Detail.Metadata.Value>

@@ -32,7 +32,7 @@ const items = [
     },
 ]
 
-export default function Main(): ReactElement {
+export default function MainExample(): ReactElement {
     return (
         <Grid>
             {items.map(value => (

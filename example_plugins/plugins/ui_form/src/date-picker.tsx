@@ -1,7 +1,7 @@
 import { ReactElement } from 'react';
 import { Form } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function DatePickerExample(): ReactElement {
     return (
         <Form>
             <Form.DatePicker

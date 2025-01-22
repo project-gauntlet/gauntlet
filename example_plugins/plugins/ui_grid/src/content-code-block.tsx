@@ -10,15 +10,15 @@ const items = [
     "C1-10P",
 ]
 
-export default function Main(): ReactElement {
+export default function ContentCodeBlockExample(): ReactElement {
     return (
         <Grid>
             {items.map(value => (
                 <Grid.Item id={value} key={value}>
                     <Grid.Item.Content>
-                        <Grid.Item.Content.Paragraph>
+                        <Grid.Item.Content.CodeBlock>
                             {value}
-                        </Grid.Item.Content.Paragraph>
+                        </Grid.Item.Content.CodeBlock>
                     </Grid.Item.Content>
                 </Grid.Item>
             ))}

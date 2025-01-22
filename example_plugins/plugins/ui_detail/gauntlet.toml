@@ -15,7 +15,7 @@ description = ''
 [[entrypoint]]
 id = 'content-code-block'
 name = 'Content Code Block'
-path = 'src/content_code_block.tsx'
+path = 'src/content-code-block.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -24,7 +24,7 @@ description = ''
 [[entrypoint]]
 id = 'content-header'
 name = 'Content Header'
-path = 'src/content_header.tsx'
+path = 'src/content-header.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -33,7 +33,7 @@ description = ''
 [[entrypoint]]
 id = 'content-horizontal-break'
 name = 'Content Horizontal Break'
-path = 'src/content_horizontal_break.tsx'
+path = 'src/content-horizontal-break.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -42,7 +42,7 @@ description = ''
 [[entrypoint]]
 id = 'content-image'
 name = 'Content Image'
-path = 'src/content_image.tsx'
+path = 'src/content-image.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -51,7 +51,7 @@ description = ''
 [[entrypoint]]
 id = 'content-paragraph'
 name = 'Content Paragraph'
-path = 'src/content_paragraph.tsx'
+path = 'src/content-paragraph.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -78,7 +78,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-icon'
 name = 'Metadata Icon'
-path = 'src/metadata_icon.tsx'
+path = 'src/metadata-icon.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -87,7 +87,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-link'
 name = 'Metadata Link'
-path = 'src/metadata_link.tsx'
+path = 'src/metadata-link.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -96,7 +96,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-separator'
 name = 'Metadata Separator'
-path = 'src/metadata_separator.tsx'
+path = 'src/metadata-separator.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -105,7 +105,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-tag-list'
 name = 'Metadata Tag List'
-path = 'src/metadata_tag_list.tsx'
+path = 'src/metadata-tag-list.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -114,7 +114,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-value'
 name = 'Metadata Value'
-path = 'src/metadata_value.tsx'
+path = 'src/metadata-value.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end

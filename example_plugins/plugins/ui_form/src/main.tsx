@@ -3,7 +3,7 @@ import { Form } from "@project-gauntlet/api/components";
 
 // TODO remake into starwars themed
 
-export default function Main(): ReactElement {
+export default function MainExample(): ReactElement {
     return (
         <Form>
             <Form.Select

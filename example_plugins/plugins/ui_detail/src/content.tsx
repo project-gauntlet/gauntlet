@@ -1,7 +1,7 @@
-import { Detail } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
+import { Detail } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactNode {
+export default function Content(): ReactNode {
     return (
         <Detail>
             <Detail.Content>

@@ -16,7 +16,7 @@ description = ''
 [[entrypoint]]
 id = 'empty-view'
 name = 'Empty View'
-path = 'src/empty_view.tsx'
+path = 'src/empty-view.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -43,7 +43,7 @@ description = ''
 [[entrypoint]]
 id = 'search-bar'
 name = 'List Search bar'
-path = 'src/search_bar.tsx'
+path = 'src/search-bar.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -70,7 +70,7 @@ description = ''
 [[entrypoint]]
 id = 'content-code-block'
 name = 'List Content Code Block'
-path = 'src/content_code_block.tsx'
+path = 'src/content-code-block.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -79,7 +79,7 @@ description = ''
 [[entrypoint]]
 id = 'content-headers'
 name = 'List Content Headers'
-path = 'src/content_headers.tsx'
+path = 'src/content-headers.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -88,7 +88,7 @@ description = ''
 [[entrypoint]]
 id = 'content-horizontal-break'
 name = 'List Content Horizontal Break'
-path = 'src/content_horizontal_break.tsx'
+path = 'src/content-horizontal-break.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -97,7 +97,7 @@ description = ''
 [[entrypoint]]
 id = 'content-image'
 name = 'List Content Image'
-path = 'src/content_image.tsx'
+path = 'src/content-image.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -106,7 +106,7 @@ description = ''
 [[entrypoint]]
 id = 'content-paragraph'
 name = 'List Content Paragraph'
-path = 'src/content_paragraph.tsx'
+path = 'src/content-paragraph.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -124,7 +124,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-icon'
 name = 'List Metadata Icon'
-path = 'src/metadata_icon.tsx'
+path = 'src/metadata-icon.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -133,7 +133,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-icon'
 name = 'List Metadata Icon'
-path = 'src/metadata_icon.tsx'
+path = 'src/metadata-icon.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -142,7 +142,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-link'
 name = 'List Metadata Link'
-path = 'src/metadata_link.tsx'
+path = 'src/metadata-link.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -151,7 +151,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-separator'
 name = 'List Metadata Separator'
-path = 'src/metadata_separator.tsx'
+path = 'src/metadata-separator.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -160,7 +160,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-tag-list'
 name = 'List Metadata Tag List'
-path = 'src/metadata_tag_list.tsx'
+path = 'src/metadata-tag-list.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end
@@ -169,7 +169,7 @@ description = ''
 [[entrypoint]]
 id = 'metadata-value'
 name = 'List Metadata Value'
-path = 'src/metadata_value.tsx'
+path = 'src/metadata-value.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end

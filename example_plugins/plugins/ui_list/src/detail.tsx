@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
 import { List } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function DetailExample(): ReactElement {
     return (
         <List>
             <List.Item id="adarian" title="Adarian"/>

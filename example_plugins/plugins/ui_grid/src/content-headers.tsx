@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
 import { Grid } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function ContentHeadersExample(): ReactElement {
     return (
         <Grid>
             <Grid.Item id="episode-1">

@@ -1,7 +1,7 @@
-import { Detail, Icons } from "@project-gauntlet/api/components";
 import { ReactNode } from "react";
+import { Detail, Icons } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactNode {
+export default function MetadataIcon(): ReactNode {
     return (
         <Detail>
             <Detail.Metadata>

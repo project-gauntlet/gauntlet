@@ -1,13 +1,13 @@
 import { ReactElement } from "react";
-import { Icons, List } from "@project-gauntlet/api/components";
+import { List } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function MetadataValueExample(): ReactElement {
     return (
         <List>
             <List.Item id="ezaraa" title="Ezaraa"/>
             <List.Detail>
                 <List.Detail.Metadata>
-                    <List.Detail.Metadata.Link label="Wiki" href="https://starwars.fandom.com/wiki/Ezaraa"/>
+                    <List.Detail.Metadata.Value label="Designation">Sentient</List.Detail.Metadata.Value>
                 </List.Detail.Metadata>
             </List.Detail>
         </List>

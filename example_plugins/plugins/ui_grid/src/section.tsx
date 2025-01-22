@@ -14,7 +14,7 @@ const vader5 = "https://static.wikia.nocookie.net/starwars/images/a/ab/Darthvade
 const vader6 = "https://static.wikia.nocookie.net/starwars/images/2/20/DarthVader-DLotS--Solicitation.jpg/revision/latest/scale-to-width-down/150?cb=20171001165404"
 const vader7 = "https://static.wikia.nocookie.net/starwars/images/f/fa/DarthVader2017-7.jpg/revision/latest/scale-to-width-down/150?cb=20190226233333"
 
-export default function Main(): ReactElement {
+export default function SectionExample(): ReactElement {
     return (
         <Grid>
             <Grid.Section title="The High Republic">

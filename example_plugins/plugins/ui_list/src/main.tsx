@@ -1,7 +1,7 @@
-import React, { ReactElement } from "react";
+import { ReactElement } from "react";
 import { Action, ActionPanel, IconAccessory, Icons, List, TextAccessory } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function MainExample(): ReactElement {
     return (
         <List
             actions={

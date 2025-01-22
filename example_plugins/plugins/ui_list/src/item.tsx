@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
 import { IconAccessory, Icons, List, TextAccessory } from "@project-gauntlet/api/components";
 
-export default function Main(): ReactElement {
+export default function ItemExample(): ReactElement {
     return (
         <List>
             <List.Item id="frozian" title="Frozian" accessories={[<IconAccessory icon={Icons.Snowflake}/>]}/>
