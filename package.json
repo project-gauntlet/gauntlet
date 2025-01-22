@@ -6,6 +6,7 @@
     "build-scenarios": "npm run build --workspace example_plugins --if-present",
     "build-dev-plugin": "npm run build --workspace dev_plugin",
     "build": "npm run build --workspace js --workspace bundled_plugins --if-present",
+    "run-component-model-gen": "npm run generate-json --workspace js/api_build",
     "run-scenarios": "npm run run-scenarios --workspace js/scenario_runner_cli",
     "run-screenshot-gen": "npm run run-screenshot-gen --workspace js/scenario_runner_cli"
   },
