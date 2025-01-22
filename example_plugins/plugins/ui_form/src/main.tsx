@@ -1,55 +1,47 @@
 import { ReactElement } from 'react';
-import { Form } from "@project-gauntlet/api/components";
-
-// TODO remake into starwars themed
+import { Action, ActionPanel, Form } from "@project-gauntlet/api/components";
 
 export default function MainExample(): ReactElement {
     return (
-        <Form>
+        <Form
+            actions={
+                <ActionPanel>
+                    <Action label="Submit" onAction={() => {}}/>
+                </ActionPanel>
+            }
+        >
+            <Form.TextField label="First Name" value="Cassian" onChange={value => {
+                console.log(`First Name: ${value}`)
+            }}/>
+            <Form.TextField label="Last Name" value="Andor" onChange={value => {
+                console.log(`Last Name: ${value}`)
+            }}/>
             <Form.Select
-                label="Food"
-                value="burger"
-            >
-                <Form.Select.Item value="burger">Burger</Form.Select.Item>
+                label="Species"
+                value="human"
+                onChange={value => {
+                console.log(`Last Name: ${value}`)
+            }}>
+                <Form.Select.Item value="human">Human</Form.Select.Item>
+                <Form.Select.Item value="jawa">Jawa</Form.Select.Item>
+                <Form.Select.Item value="hutt">Hutt</Form.Select.Item>
+                <Form.Select.Item value="twi'lek">Twi'lek</Form.Select.Item>
             </Form.Select>
-            <Form.TextField
-                label="Bun"
-                onChange={value => {
-                    console.log(`value: ${value}`)
-                }}
-            />
-            <Form.TextField
-                label="Meat"
-                value="Chicken"
-                onChange={value => {
-                    console.log(`value: ${value}`)
-                }}
-            />
-            <Form.Checkbox
-                label="Cheese"
-                value={true}
-                onChange={value => {
-                    console.log(`value: ${value}`)
-                }}
-            />
-            <Form.TextField
-                label="Toppings"
-                onChange={value => {
-                    console.log(`value: ${value}`)
-                }}
-            />
-            <Form.TextField
-                label="Condiments"
-                onChange={value => {
-                    console.log(`value: ${value}`)
-                }}
-            />
+
             <Form.Separator/>
+
             <Form.DatePicker
                 label="Date"
                 value={"2024-03-22"}
                 onChange={value => {
                     console.log(`value: ${value}`)
+                }}
+            />
+            <Form.Checkbox
+                title="I acknowledge the Galactic Code and agree to abide by its regulations."
+                value={false}
+                onChange={value => {
+                    console.log(`terms of service: ${value}`)
                 }}
             />
         </Form>

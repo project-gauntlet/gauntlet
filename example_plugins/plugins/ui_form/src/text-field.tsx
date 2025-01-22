@@ -5,9 +5,9 @@ export default function TextFieldExample(): ReactElement {
     return (
         <Form>
             <Form.TextField
-                label="The Tragedy of Darth Plagueis the Wise"
+                label="Homeworld"
                 onChange={value => {
-                    console.log(`value: ${value}`)
+                    console.log(`homeworld: ${value}`)
                 }}
             />
         </Form>

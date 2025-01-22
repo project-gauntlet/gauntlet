@@ -5,7 +5,8 @@ export default function CheckboxExample(): ReactElement {
     return (
         <Form>
             <Form.Checkbox
-                label="Cheese"
+                label="Have heard about"
+                title="The Tragedy of Darth Plagueis the Wise"
                 value={true}
                 onChange={value => {
                     console.log(`value: ${value}`)
