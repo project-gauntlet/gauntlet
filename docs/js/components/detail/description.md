@@ -1,1 +1,1 @@
-Detail is a root component that contains a possibly dynamic, non-interactable [Content]($COMPONENT$__CONTENT__) and an optional side panel
+Detail is a root component that contains a possibly dynamic, non-interactable <Content/> component and an optional side panel
