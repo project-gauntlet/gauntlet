@@ -1,1 +1,1 @@
-Image data. Supported formats: `png`, `gif`, `jpg`, `webp`, `tiff`
+Image data. Supported formats: "png", "gif', "jpg", "webp", "tiff"

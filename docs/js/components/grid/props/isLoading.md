@@ -1,1 +1,1 @@
-If `true` loading bar is shown above content
+If "true" loading bar is shown above content
