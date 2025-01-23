@@ -21,6 +21,24 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start more-columns
+[[entrypoint]]
+id = 'more-columns'
+name = 'Grid More Columns'
+path = 'src/more-columns.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start search-bar-set-search-text
+[[entrypoint]]
+id = 'search-bar-set-search-text'
+name = 'Grid Search Bar Set Search Text'
+path = 'src/search-bar-set-search-text.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
 # docs-code-segment:start section
 [[entrypoint]]
 id = 'section'
@@ -71,6 +89,16 @@ description = ''
 id = 'content-headers'
 name = 'Grid Content Headers'
 path = 'src/content-headers.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+
+# docs-code-segment:start content-horizontal-break
+[[entrypoint]]
+id = 'content-horizontal-break'
+name = 'Grid Content Horizontal Break'
+path = 'src/content-horizontal-break.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end

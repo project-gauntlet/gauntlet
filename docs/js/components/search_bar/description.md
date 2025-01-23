@@ -1,1 +1,1 @@
-Adds search bar above the content
+Adds search bar above the content. Text in search bar can be read and set 
