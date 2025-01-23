@@ -12,10 +12,7 @@ export default function SearchBarSetSearchTextExample(): ReactElement {
                 </ActionPanel>
             }
         >
-            <Grid.SearchBar placeholder="What knowledge do you seek...?"
-                            value={searchText}
-                            onChange={setSearchText}
-            />
+            <Grid.SearchBar value={searchText} onChange={setSearchText}/>
             <Grid.Item id="This will be the value in search bar">
                 <Grid.Item.Content>
                     <Grid.Item.Content.Paragraph>

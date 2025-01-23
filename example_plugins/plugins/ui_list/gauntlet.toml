@@ -48,6 +48,15 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start search-bar-set-search-text
+[[entrypoint]]
+id = 'search-bar-set-search-text'
+name = 'List Search Bar Set Search Text'
+path = 'src/search-bar-set-search-text.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
 # docs-code-segment:start item
 [[entrypoint]]
 id = 'item'
