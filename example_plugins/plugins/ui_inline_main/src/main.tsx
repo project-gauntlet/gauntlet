@@ -1,27 +1,29 @@
 import { ReactElement } from "react";
-import { Inline } from "@project-gauntlet/api/components";
+import { Inline, Icons, ActionPanel, Action } from "@project-gauntlet/api/components";
 
 export default function Main({ text }: { text: string }): ReactElement | null {
 
-    if (text != "example") {
+    if (text != "1 + 2") {
         return null
     }
 
     return (
-        <Inline>
+        <Inline
+            actions={
+                <ActionPanel>
+                    <Action label="Copy" onAction={() => {/*  */}}/>
+                </ActionPanel>
+            }
+        >
             <Inline.Left>
                 <Inline.Left.Paragraph>
-                    Left
+                    1 + 2
                 </Inline.Left.Paragraph>
             </Inline.Left>
-            <Inline.Center>
-                <Inline.Center.Paragraph>
-                    Center
-                </Inline.Center.Paragraph>
-            </Inline.Center>
+            <Inline.Separator icon={Icons.ArrowRight}/>
             <Inline.Right>
                 <Inline.Right.Paragraph>
-                    Right
+                    3
                 </Inline.Right.Paragraph>
             </Inline.Right>
         </Inline>

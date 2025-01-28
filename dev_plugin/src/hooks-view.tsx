@@ -1,20 +1,17 @@
 import { Action, ActionPanel, Element, Icons, List } from "@project-gauntlet/api/components";
-import React, { ReactElement, ReactNode, useRef, useState } from "react";
+import React, { ReactElement, ReactNode, useRef } from "react";
 import { useCachedPromise, useFetch, useNavigation, usePromise } from "@project-gauntlet/api/hooks";
 
 export default function ListView(): ReactElement {
     const { pushView } = useNavigation();
 
-    const [id, setId] = useState<string | undefined>(undefined);
-
     return (
         <List
             actions={
                 <ActionPanel>
-                    <Action label="Run hook" onAction={() => pushPrimaryAction(id, pushView)}/>
+                    <Action label="Run hook" onAction={(id) => pushPrimaryAction(id, pushView)}/>
                 </ActionPanel>
             }
-            onItemFocusChange={itemId => setId(itemId)}
         >
             <List.Item id="UsePromiseTestBasic" title="UsePromiseTestBasic"/>
             <List.Item id="UsePromiseTestExecuteFalse" title="UsePromiseTestExecuteFalse"/>

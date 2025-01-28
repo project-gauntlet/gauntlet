@@ -9,21 +9,11 @@ export default function Main({ text }: { text: string }): ReactElement | null {
 
     return (
         <Inline>
-            <Inline.Left>
-                <Inline.Left.Paragraph>
-                    Left
-                </Inline.Left.Paragraph>
-            </Inline.Left>
             <Inline.Center>
                 <Inline.Center.Paragraph>
-                    Center
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
                 </Inline.Center.Paragraph>
             </Inline.Center>
-            <Inline.Right>
-                <Inline.Right.Paragraph>
-                    Right
-                </Inline.Right.Paragraph>
-            </Inline.Right>
         </Inline>
     )
 }

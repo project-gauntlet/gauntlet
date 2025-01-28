@@ -1,5 +1,5 @@
 {
-  "name": "@project-gauntlet/docs-inline-separators",
+  "name": "@project-gauntlet/docs-inline-horizontal-break",
   "private": true,
   "scripts": {
     "build": "gauntlet build",

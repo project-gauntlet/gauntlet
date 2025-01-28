@@ -1,5 +1,5 @@
 {
-  "name": "@project-gauntlet/docs-detail",
+  "name": "@project-gauntlet/docs-inline-code-block",
   "private": true,
   "scripts": {
     "build": "gauntlet build",
