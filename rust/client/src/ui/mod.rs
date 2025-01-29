@@ -2009,9 +2009,16 @@ fn assign_global_shortcut(
     if let Some(shortcut) = shortcut {
         let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
 
-        *hotkey_guard = Some(hotkey);
+        match global_hotkey_manager.register(hotkey) {
+            Ok(()) => {
+                *hotkey_guard = Some(hotkey);
+            }
+            Err(err) => {
+                *hotkey_guard = None;
 
-        global_hotkey_manager.register(hotkey)?;
+                Err(err)?
+            }
+        }
     }
 
     Ok(())
