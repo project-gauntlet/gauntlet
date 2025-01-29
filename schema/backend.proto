@@ -87,6 +87,7 @@ message RpcSetGlobalShortcutRequest {
 }
 
 message RpcSetGlobalShortcutResponse {
+  optional string error = 1;
 }
 
 message RpcGetGlobalShortcutRequest {

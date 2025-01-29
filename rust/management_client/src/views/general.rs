@@ -26,6 +26,10 @@ pub enum ManagementAppGeneralMsgIn {
     CapturingChanged(bool),
     ThemeChanged(SettingsTheme),
     WindowPositionModeChanged(WindowPositionMode),
+    SetGlobalShortcutResponse {
+        shortcut: Option<PhysicalShortcut>,
+        shortcut_error: Option<String>
+    },
     InitSetting {
         theme: SettingsTheme,
         window_position_mode: WindowPositionMode,
@@ -38,6 +42,10 @@ pub enum ManagementAppGeneralMsgIn {
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgOut {
     Noop,
+    SetGlobalShortcutResponse {
+        shortcut: Option<PhysicalShortcut>,
+        shortcut_error: Option<String>
+    },
     HandleBackendError(BackendApiError)
 }
 
@@ -63,16 +71,28 @@ impl ManagementAppGeneralState {
 
         match message {
             ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut) => {
-                self.current_shortcut = shortcut.clone();
-
                 let mut backend_api = backend_api.clone();
 
-                Task::perform(async move {
-                    backend_api.set_global_shortcut(shortcut)
-                        .await?;
+                Task::perform(
+                    {
+                        let shortcut = shortcut.clone();
 
-                    Ok(())
-                }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
+                        async move {
+                            let error = backend_api.set_global_shortcut(shortcut)
+                                .await?;
+
+                            Ok(error)
+                        }
+                    },
+                    move |result| {
+                        let shortcut = shortcut.clone();
+
+                        handle_backend_error(result, move |shortcut_error| ManagementAppGeneralMsgOut::SetGlobalShortcutResponse {
+                            shortcut,
+                            shortcut_error,
+                        })
+                    },
+                )
             }
             ManagementAppGeneralMsgIn::Noop => {
                 Task::none()
@@ -114,6 +134,12 @@ impl ManagementAppGeneralState {
 
                     Ok(())
                 }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
+            }
+            ManagementAppGeneralMsgIn::SetGlobalShortcutResponse { shortcut, shortcut_error } => {
+                self.current_shortcut = shortcut;
+                self.current_shortcut_error = shortcut_error;
+
+                Task::none()
             }
         }
     }

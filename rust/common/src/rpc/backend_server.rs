@@ -251,11 +251,14 @@ impl RpcBackend for RpcBackendServerImpl {
                 }
             });
 
-        self.server.set_global_shortcut(shortcut)
+        let error = self.server.set_global_shortcut(shortcut)
             .await
-            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+            .map_err(|err| format!("{:#}", err))
+            .err();
 
-        Ok(Response::new(RpcSetGlobalShortcutResponse::default()))
+        Ok(Response::new(RpcSetGlobalShortcutResponse {
+            error
+        }))
     }
 
     async fn get_global_shortcut(&self, _request: Request<RpcGetGlobalShortcutRequest>) -> Result<Response<RpcGetGlobalShortcutResponse>, Status> {

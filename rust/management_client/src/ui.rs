@@ -194,6 +194,9 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                         ManagementAppGeneralMsgOut::HandleBackendError(err) => {
                             ManagementAppMsg::HandleBackendError(err)
                         }
+                        ManagementAppGeneralMsgOut::SetGlobalShortcutResponse { shortcut, shortcut_error } => {
+                            ManagementAppMsg::General(ManagementAppGeneralMsgIn::SetGlobalShortcutResponse { shortcut, shortcut_error })
+                        }
                     }
                 })
         }

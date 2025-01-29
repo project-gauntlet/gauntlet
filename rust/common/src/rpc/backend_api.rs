@@ -374,7 +374,7 @@ impl BackendApi {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&mut self, shortcut: Option<PhysicalShortcut>) -> Result<(), BackendApiError> {
+    pub async fn set_global_shortcut(&mut self, shortcut: Option<PhysicalShortcut>) -> Result<Option<String>, BackendApiError> {
         let request = RpcSetGlobalShortcutRequest {
             shortcut: shortcut.map(|shortcut| {
                 RpcShortcut {
@@ -387,10 +387,12 @@ impl BackendApi {
             })
         };
 
-        self.client.set_global_shortcut(Request::new(request))
-            .await?;
+        let error = self.client.set_global_shortcut(Request::new(request))
+            .await?
+            .into_inner()
+            .error;
 
-        Ok(())
+        Ok(error)
     }
 
     pub async fn get_global_shortcut(&mut self) -> Result<(Option<PhysicalShortcut>, Option<String>), BackendApiError> {
