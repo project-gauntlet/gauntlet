@@ -9,6 +9,10 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Fix no plugins starting on Windows in release mode 
+- Fix all global shortcut registrations failing if one shortcut registration failed
+- Fix error when registering shortcut erroring whole settings window instead of adding an icon
+
 ## [14] - 2025-01-19
 
 - Fixed mouse actions like scrolling or clicking not working on macOS
