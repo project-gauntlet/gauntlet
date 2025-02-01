@@ -6,7 +6,7 @@ use iced::{padding, Alignment, Length, Padding, Task};
 use iced::widget::{button, column, container, row, scrollable, text, text_input, value, vertical_rule};
 use iced::widget::text::Shaping;
 use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
-use gauntlet_common::{settings_env_data_from_string, SettingsEnvData};
+use gauntlet_common::{settings_env_data_from_string, SettingsEnvData, SETTINGS_ENV};
 use gauntlet_common::model::{EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin};
 use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
 
@@ -52,8 +52,6 @@ pub struct ManagementAppPluginsState {
     preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>,
     selected_item: SelectedItem,
 }
-
-const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
 
 impl ManagementAppPluginsState {
     pub fn new(backend_api: Option<BackendApi>) -> Self {

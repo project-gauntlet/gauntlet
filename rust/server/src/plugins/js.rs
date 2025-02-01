@@ -35,7 +35,7 @@ use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepositor
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction, SearchIndexItemActionActionType};
-use crate::{PLUGIN_RUNTIME_ENV, SETTINGS_ENV};
+use crate::{PLUGIN_CONNECT_ENV, PLUGIN_UUID_ENV};
 use crate::plugins::image_gatherer::ImageGatherer;
 
 pub struct PluginRuntimeData {
@@ -264,7 +264,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     #[cfg(not(feature = "scenario_runner"))]
     let mut runtime_process = std::process::Command::new(current_exe)
-        .env(PLUGIN_RUNTIME_ENV, name_str)
+        .env(PLUGIN_CONNECT_ENV, name_str)
+        .env(PLUGIN_UUID_ENV, plugin_uuid.clone())
         .spawn()
         .context("start plugin runtime process")?;
 

@@ -1,27 +1,36 @@
-use std::rc::Rc;
-use std::sync::Arc;
-use vergen_pretty::vergen_pretty_env;
+use crate::plugins::ApplicationManager;
+use crate::rpc::BackendServerImpl;
+use crate::search::SearchIndex;
 use gauntlet_client::{open_window, start_client};
+use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
 use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::{settings_env_data_from_string, settings_env_data_to_string, SettingsEnvData};
 use gauntlet_plugin_runtime::run_plugin_runtime;
 use gauntlet_utils::channel::{channel, RequestReceiver, RequestSender};
-use crate::plugins::ApplicationManager;
-use crate::rpc::BackendServerImpl;
-use crate::search::SearchIndex;
+use std::backtrace::Backtrace;
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use vergen_pretty::vergen_pretty_env;
 
 pub mod rpc;
 pub(in crate) mod search;
 pub(in crate) mod plugins;
 pub(in crate) mod model;
 
-const SETTINGS_ENV: &'static str = "GAUNTLET_INTERNAL_SETTINGS";
-const PLUGIN_RUNTIME_ENV: &'static str = "GAUNTLET_INTERNAL_PLUGIN_RUNTIME";
+const PLUGIN_CONNECT_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_CONNECT__";
+const PLUGIN_UUID_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_UUID__";
 
 pub fn start(minimized: bool) {
-    if let Ok(socket_name) = std::env::var(PLUGIN_RUNTIME_ENV) {
+    #[cfg(not(feature = "release"))]
+    register_panic_hook(std::env::var(PLUGIN_UUID_ENV).ok());
+
+    if let Ok(socket_name) = std::env::var(PLUGIN_CONNECT_ENV) {
         run_plugin_runtime(socket_name);
 
         return;
@@ -259,4 +268,51 @@ async fn handle_request(application_manager: Arc<ApplicationManager>, request_da
     };
 
     Ok(response_data)
+}
+
+
+#[cfg(not(feature = "release"))]
+fn register_panic_hook(plugin_runtime: Option<String>) {
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "1");
+    };
+
+    let dirs = Dirs::new();
+
+    let crash_file = match plugin_runtime {
+        None => dirs.server_crash_log_file(),
+        Some(plugin_uuid) => dirs.plugin_crash_log_file(&plugin_uuid),
+    };
+
+    let _ = std::fs::remove_file(&crash_file);
+
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let payload = panic_info.payload();
+
+        let payload = if let Some(&s) = payload.downcast_ref::<&'static str>() {
+            s
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.as_str()
+        } else {
+            "Box<dyn Any>"
+        };
+
+        let location = panic_info.location().map(|l| l.to_string());
+        let backtrace = Backtrace::capture();
+
+        let crash_file = File::options()
+            .create(true)
+            .append(true)
+            .open(&crash_file);
+
+        if let Ok(mut crash_file) = crash_file {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .map(|duration| duration.as_millis().to_string())
+                .unwrap_or("Unknown".to_string());
+
+            let _ = crash_file.write_all(format!("Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace: {}\n", now, payload, location, backtrace).as_bytes());
+        }
+    }));
 }

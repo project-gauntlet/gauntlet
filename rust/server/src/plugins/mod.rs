@@ -9,7 +9,7 @@ use tokio::runtime::Handle;
 
 use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiRequestData, UiResponseData, UiSetupData, UiWidgetId, WindowPositionMode};
 use gauntlet_common::rpc::frontend_api::FrontendApi;
-use gauntlet_common::{settings_env_data_to_string, SettingsEnvData};
+use gauntlet_common::{settings_env_data_to_string, SettingsEnvData, SETTINGS_ENV};
 use gauntlet_utils::channel::RequestSender;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_plugin_runtime::{JsPluginCode, JsPluginPermissions, JsPluginPermissionsExec, JsPluginPermissionsFileSystem, JsPluginPermissionsMainSearchBar};
@@ -23,7 +23,6 @@ use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::plugins::settings::Settings;
 use crate::search::SearchIndex;
-use crate::SETTINGS_ENV;
 
 pub mod js;
 mod data_db_repository;

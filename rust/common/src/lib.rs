@@ -6,6 +6,8 @@ pub mod scenario_convert;
 pub mod scenario_model;
 pub mod dirs;
 
+pub const SETTINGS_ENV: &'static str = "__GAUNTLET_INTERNAL_SETTINGS__";
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum SettingsEnvData {

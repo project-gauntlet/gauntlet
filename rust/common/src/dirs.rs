@@ -84,8 +84,20 @@ impl Dirs {
         cache_dir
     }
 
+    pub fn logs_dir(&self) -> PathBuf {
+        self.state_dir().join("logs")
+    }
+
+    pub fn server_crash_log_file(&self) -> PathBuf {
+        self.logs_dir().join("crash.txt")
+    }
+
+    pub fn plugin_crash_log_file(&self, plugin_uuid: &str) -> PathBuf {
+        self.logs_dir().join(&plugin_uuid).join("crash.txt")
+    }
+
     pub fn plugin_log_files(&self, plugin_uuid: &str) -> (PathBuf, PathBuf) {
-        let plugin_dir = self.state_dir().join("logs").join(&plugin_uuid);
+        let plugin_dir = self.logs_dir().join(&plugin_uuid);
 
         let out_log_file = plugin_dir.join("stdout.txt");
         let err_log_file = plugin_dir.join("stderr.txt");
