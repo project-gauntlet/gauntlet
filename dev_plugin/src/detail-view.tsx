@@ -63,6 +63,10 @@ export default function DetailView(): ReactElement {
 
     console.error("DetailView error")
 
+    const buf = new Uint8Array(100);
+    Deno.stdin.read(buf)
+        .then(value => console.log(`read from stdin: ${value}`));
+
     useEffect(() => {
         return () => {
             console.log("DetailView useEffect destructor called")

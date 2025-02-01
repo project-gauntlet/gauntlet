@@ -326,7 +326,13 @@ pub async fn start_js_runtime(
 
         StdioPipe::file(out_log_file)
     } else {
-        StdioPipe::inherit()
+        #[cfg(not(windows))]
+        let stdout = StdioPipe::file(File::options().write(true).open("/dev/null")?);
+
+        #[cfg(windows)]
+        let stdout = StdioPipe::file(File::options().write(true).open("nul")?);
+
+        stdout
     };
 
     let stderr = if let Some(stderr_file) = init.stderr_file {
@@ -336,8 +342,20 @@ pub async fn start_js_runtime(
 
         StdioPipe::file(err_log_file)
     } else {
-        StdioPipe::inherit()
+        #[cfg(not(windows))]
+        let stderr = StdioPipe::file(File::options().write(true).open("/dev/null")?);
+
+        #[cfg(windows)]
+        let stderr = StdioPipe::file(File::options().write(true).open("nul")?);
+
+        stderr
     };
+
+    #[cfg(not(windows))]
+    let stdin = StdioPipe::file(File::options().read(true).open("/dev/null")?);
+
+    #[cfg(windows)]
+    let stdin = StdioPipe::file(File::options().read(true).open("nul")?);
 
     std::fs::create_dir_all(&init.plugin_cache_dir)
         .context("Unable to create plugin cache directory")?;
@@ -429,7 +447,7 @@ pub async fn start_js_runtime(
             should_break_on_first_statement: false,
             origin_storage_dir: Some(PathBuf::from(init.local_storage_dir)),
             stdio: Stdio {
-                stdin: StdioPipe::inherit(),
+                stdin,
                 stdout,
                 stderr,
             },
