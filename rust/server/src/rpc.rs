@@ -7,7 +7,6 @@ use gauntlet_common::rpc::backend_server::BackendServer;
 
 use crate::plugins::ApplicationManager;
 use crate::search::SearchIndex;
-use crate::SETTINGS_ENV;
 
 pub struct BackendServerImpl {
     pub application_manager: Arc<ApplicationManager>,
