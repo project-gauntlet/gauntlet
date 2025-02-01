@@ -1156,20 +1156,6 @@ dependencies = [
 
 [[package]]
 name = "calloop"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fba7adb4dd5aa98e5553510223000e7148f621165ec5f9acd7113f6ca4995298"
-dependencies = [
- "bitflags 2.6.0",
- "log",
- "polling",
- "rustix",
- "slab",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "calloop"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b99da2f8558ca23c71f4fd15dc57c906239752dd27ff3c00a1d56b685b7cbfec"
@@ -1193,18 +1179,6 @@ dependencies = [
  "rustix",
  "slab",
  "tracing",
-]
-
-[[package]]
-name = "calloop-wayland-source"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f0ea9b9476c7fad82841a8dbb380e2eae480c21910feba80725b46931ed8f02"
-dependencies = [
- "calloop 0.12.4",
- "rustix",
- "wayland-backend",
- "wayland-client",
 ]
 
 [[package]]
@@ -4133,7 +4107,7 @@ dependencies = [
  "regex",
  "resvg",
  "serde",
- "smithay-client-toolkit 0.19.2",
+ "smithay-client-toolkit",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5162,7 +5136,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -5190,7 +5164,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "bitflags 2.6.0",
  "bytes",
@@ -5217,7 +5191,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "futures",
  "iced_core",
@@ -5231,7 +5205,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -5283,7 +5257,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -5295,7 +5269,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "bytes",
  "iced_core",
@@ -5316,7 +5290,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -5331,7 +5305,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -5350,7 +5324,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -5364,7 +5338,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#a703123a16ab3da006e1b5e0c22aa8b86fcacd84"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13#e97b4e10768225c3a38a417cb6185d5ec096ca8d"
 dependencies = [
  "iced_futures",
  "iced_graphics",
@@ -9009,14 +8983,14 @@ dependencies = [
 
 [[package]]
 name = "sctk-adwaita"
-version = "0.9.1"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7555fcb4f753d095d734fdefebb0ad8c98478a21db500492d87c55913d3b0086"
+checksum = "b6277f0217056f77f1d8f49f2950ac6c278c0d607c45f5ee99328d792ede24ec"
 dependencies = [
  "ab_glyph",
  "log",
  "memmap2 0.9.5",
- "smithay-client-toolkit 0.18.1",
+ "smithay-client-toolkit",
  "tiny-skia",
 ]
 
@@ -9444,31 +9418,6 @@ dependencies = [
 
 [[package]]
 name = "smithay-client-toolkit"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "922fd3eeab3bd820d76537ce8f582b1cf951eceb5475c28500c7457d9d17f53a"
-dependencies = [
- "bitflags 2.6.0",
- "calloop 0.12.4",
- "calloop-wayland-source 0.2.0",
- "cursor-icon",
- "libc",
- "log",
- "memmap2 0.9.5",
- "rustix",
- "thiserror 1.0.69",
- "wayland-backend",
- "wayland-client",
- "wayland-csd-frame",
- "wayland-cursor",
- "wayland-protocols 0.31.2",
- "wayland-protocols-wlr 0.2.0",
- "wayland-scanner",
- "xkeysym",
-]
-
-[[package]]
-name = "smithay-client-toolkit"
 version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3457dea1f0eb631b4034d61d4d8c32074caa6cd1ab2d59f2327bd8461e2c0016"
@@ -9502,7 +9451,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc8216eec463674a0e90f29e0ae41a4db573ec5b56b1c6c1c71615d249b6d846"
 dependencies = [
  "libc",
- "smithay-client-toolkit 0.19.2",
+ "smithay-client-toolkit",
  "wayland-backend",
 ]
 
@@ -11810,14 +11759,14 @@ dependencies = [
 
 [[package]]
 name = "wayland-protocols-plasma"
-version = "0.2.0"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23803551115ff9ea9bce586860c5c5a971e360825a0309264102a9495a5ff479"
+checksum = "9b31cab548ee68c7eb155517f2212049dc151f7cd7910c2b66abfd31c3ee12bd"
 dependencies = [
  "bitflags 2.6.0",
  "wayland-backend",
  "wayland-client",
- "wayland-protocols 0.31.2",
+ "wayland-protocols 0.32.5",
  "wayland-scanner",
 ]
 
@@ -12506,7 +12455,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 [[package]]
 name = "winit"
 version = "0.30.99"
-source = "git+https://github.com/project-gauntlet/winit.git?rev=316726c86d75a751d40677e6d081cc93e917118c#316726c86d75a751d40677e6d081cc93e917118c"
+source = "git+https://github.com/project-gauntlet/winit.git?rev=49690da86351375d2e2ebe8b891cdb90a019b996#49690da86351375d2e2ebe8b891cdb90a019b996"
 dependencies = [
  "ahash 0.8.11",
  "android-activity",
@@ -12514,7 +12463,7 @@ dependencies = [
  "bitflags 2.6.0",
  "block2",
  "bytemuck",
- "calloop 0.12.4",
+ "calloop 0.13.0",
  "cfg_aliases 0.2.1",
  "concurrent-queue",
  "core-foundation 0.9.4",
@@ -12536,7 +12485,7 @@ dependencies = [
  "redox_syscall 0.4.1",
  "rustix",
  "sctk-adwaita",
- "smithay-client-toolkit 0.18.1",
+ "smithay-client-toolkit",
  "smol_str",
  "tracing",
  "unicode-segmentation",
@@ -12544,7 +12493,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wayland-backend",
  "wayland-client",
- "wayland-protocols 0.31.2",
+ "wayland-protocols 0.32.5",
  "wayland-protocols-plasma",
  "web-sys",
  "web-time",
