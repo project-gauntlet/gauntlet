@@ -185,15 +185,10 @@ impl Settings {
     }
 
     fn autodetect_theme(&self) -> UiTheme {
-        match OS {
-            "macos" => {
-                match dark_light::detect() {
-                    Mode::Dark => self.themes.macos_dark_theme.clone(),
-                    Mode::Light => self.themes.macos_light_theme.clone(),
-                    Mode::Default => self.themes.macos_dark_theme.clone()
-                }
-            }
-            _ => self.themes.legacy_theme.clone()
+        match dark_light::detect() {
+            Mode::Dark => self.themes.macos_dark_theme.clone(),
+            Mode::Light => self.themes.macos_light_theme.clone(),
+            Mode::Default => self.themes.macos_dark_theme.clone()
         }
     }
 }
