@@ -154,6 +154,7 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
+    ToggleWindow,
     ToggleActionPanel {
         keyboard: bool
     },
@@ -827,7 +828,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         Key::Named(Named::ArrowDown) => state.global_state.down(&mut state.client_context, &state.search_results),
                         Key::Named(Named::ArrowLeft) => state.global_state.left(&mut state.client_context, &state.search_results),
                         Key::Named(Named::ArrowRight) => state.global_state.right(&mut state.client_context, &state.search_results),
-                        Key::Named(Named::Escape) => state.global_state.back(&state.client_context),
+                        Key::Named(Named::Escape) => match state.prompt.is_empty() {
+                            true => state.global_state.back(&state.client_context),
+                            false => state.reset_window_state(),
+                        },
                         Key::Named(Named::Tab) if !modifiers.shift() => state.global_state.next(&state.client_context),
                         Key::Named(Named::Tab) if modifiers.shift() => state.global_state.previous(&state.client_context),
                         Key::Named(Named::Enter) => {
@@ -1042,6 +1046,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::ShowWindow => state.show_window(),
+        AppMsg::ToggleWindow => state.toggle_window(),
         AppMsg::HideWindow => state.hide_window(),
         AppMsg::ShowPreferenceRequiredView {
             plugin_id,
@@ -2086,37 +2091,42 @@ impl AppModel {
 
     fn show_window(&mut self) -> Task<AppMsg> {
         if self.opened {
-            return Task::none()
+            return Task::none();
         }
 
         self.opened = true;
 
         #[cfg(target_os = "linux")]
-        let open_task =  if self.wayland {
+        return if self.wayland {
             let (_, open_task) = open_main_window_wayland(self.main_window_id);
             open_task
         } else {
             Task::batch([
                 window::gain_focus(self.main_window_id),
-                window::change_mode(self.main_window_id, Mode::Windowed)
+                window::change_mode(self.main_window_id, Mode::Windowed),
             ])
         };
 
         #[cfg(not(target_os = "linux"))]
-        let open_task = Task::batch([
+        return Task::batch([
             window::gain_focus(self.main_window_id),
             #[cfg(target_os = "macos")]
             match self.window_position_mode {
                 WindowPositionMode::Static => Task::none(),
-                WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(self.main_window_id),
+                WindowPositionMode::ActiveMonitor => {
+                    window::move_to_active_monitor(self.main_window_id)
+                }
             },
-            window::change_mode(self.main_window_id, Mode::Windowed)
+            window::change_mode(self.main_window_id, Mode::Windowed),
         ]);
+    }
 
-        Task::batch([
-            open_task,
-            self.reset_window_state()
-        ])
+    fn toggle_window(&mut self) -> Task<AppMsg> {
+        if self.opened {
+            return self.hide_window();
+        } else {
+            return self.show_window();
+        }
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
