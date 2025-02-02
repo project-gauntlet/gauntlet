@@ -1,0 +1,9 @@
+unstable_features = true
+
+imports_granularity = "Item"
+max_width = 120
+force_multiline_blocks = true
+group_imports = "StdExternalCrate"
+single_line_let_else_max_width = 0
+combine_control_expr = false
+use_field_init_shorthand = true

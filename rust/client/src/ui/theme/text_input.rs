@@ -1,8 +1,15 @@
-use iced::widget::text_input::{Status, Style};
-use iced::widget::{text_input, TextInput};
-use iced::{Border, Color, Renderer};
+use iced::widget::text_input;
+use iced::widget::text_input::Status;
+use iced::widget::text_input::Style;
+use iced::widget::TextInput;
+use iced::Border;
+use iced::Color;
+use iced::Renderer;
 
-use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget, NOT_INTENDED_TO_BE_USED};
+use crate::ui::theme::Element;
+use crate::ui::theme::GauntletComplexTheme;
+use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
 
 pub enum TextInputStyle {
     ShouldNotBeUsed,
@@ -43,7 +50,7 @@ fn active(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                 value: NOT_INTENDED_TO_BE_USED,
                 selection: NOT_INTENDED_TO_BE_USED,
             }
-        },
+        }
         TextInputStyle::FormInput => {
             let theme = &theme.form_input_text_field;
 
@@ -59,7 +66,7 @@ fn active(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                 value: theme.text_color,
                 selection: theme.selection_color,
             }
-        },
+        }
         TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
             Style {
                 background: Color::TRANSPARENT.into(),
@@ -69,10 +76,10 @@ fn active(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                 },
                 icon: NOT_INTENDED_TO_BE_USED,
                 placeholder: theme.form_input_text_field.text_color_placeholder, // TODO fix
-                value: theme.form_input_text_field.text_color, // TODO fix
-                selection: theme.form_input_text_field.selection_color, // TODO fix
+                value: theme.form_input_text_field.text_color,                   // TODO fix
+                selection: theme.form_input_text_field.selection_color,          // TODO fix
             }
-        },
+        }
     }
 }
 
@@ -90,7 +97,7 @@ fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                 value: NOT_INTENDED_TO_BE_USED,
                 selection: NOT_INTENDED_TO_BE_USED,
             }
-        },
+        }
         TextInputStyle::FormInput => {
             let theme = &theme.form_input_text_field;
 
@@ -106,7 +113,7 @@ fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                 value: theme.text_color,
                 selection: theme.selection_color,
             }
-        },
+        }
         TextInputStyle::MainSearch | TextInputStyle::PluginSearchBar => {
             Style {
                 background: Color::TRANSPARENT.into(),
@@ -116,10 +123,10 @@ fn focused(theme: &GauntletComplexTheme, style: &TextInputStyle) -> Style {
                 },
                 icon: NOT_INTENDED_TO_BE_USED,
                 placeholder: theme.form_input_text_field.text_color_placeholder, // TODO fix
-                value: theme.form_input_text_field.text_color, // TODO fix
-                selection: theme.form_input_text_field.selection_color, // TODO fix
+                value: theme.form_input_text_field.text_color,                   // TODO fix
+                selection: theme.form_input_text_field.selection_color,          // TODO fix
             }
-        },
+        }
     }
 }
 
@@ -143,11 +150,7 @@ impl<'a, Message: 'a + Clone> ThemableWidget<'a, Message> for TextInput<'a, Mess
 
     fn themed(self, kind: TextInputStyle) -> Element<'a, Message> {
         match kind {
-            TextInputStyle::PluginSearchBar => {
-                self.class(kind)
-                    .padding(0)
-                    .into()
-            }
+            TextInputStyle::PluginSearchBar => self.class(kind).padding(0).into(),
             _ => {
                 self.class(kind)
                     // .padding() // TODO

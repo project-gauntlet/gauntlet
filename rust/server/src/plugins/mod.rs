@@ -3,44 +3,87 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+
 use anyhow::anyhow;
-use include_dir::{include_dir, Dir};
+use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::DownloadStatus;
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::KeyboardEventOrigin;
+use gauntlet_common::model::LocalSaveData;
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::PluginPreference;
+use gauntlet_common::model::PluginPreferenceUserData;
+use gauntlet_common::model::PreferenceEnumValue;
+use gauntlet_common::model::SearchResult;
+use gauntlet_common::model::SettingsEntrypoint;
+use gauntlet_common::model::SettingsEntrypointType;
+use gauntlet_common::model::SettingsPlugin;
+use gauntlet_common::model::SettingsTheme;
+use gauntlet_common::model::UiPropertyValue;
+use gauntlet_common::model::UiRequestData;
+use gauntlet_common::model::UiResponseData;
+use gauntlet_common::model::UiSetupData;
+use gauntlet_common::model::UiWidgetId;
+use gauntlet_common::model::WindowPositionMode;
+use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::settings_env_data_to_string;
+use gauntlet_common::SettingsEnvData;
+use gauntlet_common::SETTINGS_ENV;
+use gauntlet_plugin_runtime::JsPluginCode;
+use gauntlet_plugin_runtime::JsPluginPermissions;
+use gauntlet_plugin_runtime::JsPluginPermissionsExec;
+use gauntlet_plugin_runtime::JsPluginPermissionsFileSystem;
+use gauntlet_plugin_runtime::JsPluginPermissionsMainSearchBar;
+use gauntlet_utils::channel::RequestSender;
+use include_dir::include_dir;
+use include_dir::Dir;
 use tokio::runtime::Handle;
 
-use gauntlet_common::model::{DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreference, PluginPreferenceUserData, PreferenceEnumValue, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiRequestData, UiResponseData, UiSetupData, UiWidgetId, WindowPositionMode};
-use gauntlet_common::rpc::frontend_api::FrontendApi;
-use gauntlet_common::{settings_env_data_to_string, SettingsEnvData, SETTINGS_ENV};
-use gauntlet_utils::channel::RequestSender;
-use gauntlet_common::dirs::Dirs;
-use gauntlet_plugin_runtime::{JsPluginCode, JsPluginPermissions, JsPluginPermissionsExec, JsPluginPermissionsFileSystem, JsPluginPermissionsMainSearchBar};
-use crate::model::{ActionShortcutKey};
+use crate::model::ActionShortcutKey;
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::config_reader::ConfigReader;
-use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginActionShortcutKind, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginMainSearchBarPermissions, DbPluginPreference, DbPluginPreferenceUserData, DbReadPluginEntrypoint};
+use crate::plugins::data_db_repository::db_entrypoint_from_str;
+use crate::plugins::data_db_repository::DataDbRepository;
+use crate::plugins::data_db_repository::DbPluginActionShortcutKind;
+use crate::plugins::data_db_repository::DbPluginClipboardPermissions;
+use crate::plugins::data_db_repository::DbPluginEntrypointType;
+use crate::plugins::data_db_repository::DbPluginMainSearchBarPermissions;
+use crate::plugins::data_db_repository::DbPluginPreference;
+use crate::plugins::data_db_repository::DbPluginPreferenceUserData;
+use crate::plugins::data_db_repository::DbReadPluginEntrypoint;
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::js::{start_plugin_runtime, AllPluginCommandData, OnePluginCommandData, PluginCommand, PluginPermissions, PluginPermissionsClipboard, PluginRuntimeData};
+use crate::plugins::js::start_plugin_runtime;
+use crate::plugins::js::AllPluginCommandData;
+use crate::plugins::js::OnePluginCommandData;
+use crate::plugins::js::PluginCommand;
+use crate::plugins::js::PluginPermissions;
+use crate::plugins::js::PluginPermissionsClipboard;
+use crate::plugins::js::PluginRuntimeData;
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::plugins::settings::Settings;
 use crate::search::SearchIndex;
 
-pub mod js;
-mod data_db_repository;
+mod clipboard;
 mod config_reader;
+mod data_db_repository;
+mod download_status;
+pub(super) mod frecency;
+mod icon_cache;
+mod image_gatherer;
+pub mod js;
 mod loader;
 mod run_status;
-mod download_status;
-mod icon_cache;
-pub(super) mod frecency;
-mod clipboard;
 mod runtime;
-mod image_gatherer;
 mod settings;
 mod theme;
 
-static BUNDLED_PLUGINS: [(&str, Dir); 1] = [
-    ("gauntlet", include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist")),
-];
+static BUNDLED_PLUGINS: [(&str, Dir); 1] = [(
+    "gauntlet",
+    include_dir!("$CARGO_MANIFEST_DIR/../../bundled_plugins/gauntlet/dist"),
+)];
 
 pub struct ApplicationManager {
     config_reader: ConfigReader,
@@ -82,7 +125,7 @@ impl ApplicationManager {
             frontend_api,
             clipboard,
             settings,
-            dirs
+            dirs,
         })
     }
 
@@ -98,7 +141,7 @@ impl ApplicationManager {
             theme,
             global_shortcut,
             close_on_unfocus,
-            window_position_mode
+            window_position_mode,
         })
     }
 
@@ -138,24 +181,26 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn save_local_plugin(
-        &self,
-        path: &str,
-    ) -> anyhow::Result<LocalSaveData> {
+    pub async fn save_local_plugin(&self, path: &str) -> anyhow::Result<LocalSaveData> {
         tracing::info!(target = "plugin", "Saving local plugin at path: {:?}", path);
 
         let plugin_id = self.plugin_downloader.save_local_plugin(path).await?;
 
-        let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())
-            .await?;
+        let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string()).await?;
 
         self.reload_plugin(plugin_id.clone()).await?;
 
         let (stdout_file_path, stderr_file_path) = self.dirs.plugin_log_files(&plugin.uuid);
 
         Ok(LocalSaveData {
-            stdout_file_path: stdout_file_path.into_os_string().into_string().map_err(|_| anyhow!("non uft8 paths are not supported"))?,
-            stderr_file_path: stderr_file_path.into_os_string().into_string().map_err(|_| anyhow!("non uft8 paths are not supported"))?,
+            stdout_file_path: stdout_file_path
+                .into_os_string()
+                .into_string()
+                .map_err(|_| anyhow!("non uft8 paths are not supported"))?,
+            stderr_file_path: stderr_file_path
+                .into_os_string()
+                .into_string()
+                .map_err(|_| anyhow!("non uft8 paths are not supported"))?,
         })
     }
 
@@ -172,7 +217,8 @@ impl ApplicationManager {
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>> {
-        let result = self.db_repository
+        let result = self
+            .db_repository
             .list_plugins_and_entrypoints()
             .await?
             .into_iter()
@@ -191,15 +237,22 @@ impl ApplicationManager {
                                 DbPluginEntrypointType::Command => SettingsEntrypointType::Command,
                                 DbPluginEntrypointType::View => SettingsEntrypointType::View,
                                 DbPluginEntrypointType::InlineView => SettingsEntrypointType::InlineView,
-                                DbPluginEntrypointType::EntrypointGenerator => SettingsEntrypointType::EntrypointGenerator,
-                            }.into(),
-                            preferences: entrypoint.preferences.into_iter()
+                                DbPluginEntrypointType::EntrypointGenerator => {
+                                    SettingsEntrypointType::EntrypointGenerator
+                                }
+                            }
+                            .into(),
+                            preferences: entrypoint
+                                .preferences
+                                .into_iter()
                                 .map(|(key, value)| {
                                     let preference = plugin_preference_from_db(&key, value);
                                     (key, preference)
                                 })
                                 .collect(),
-                            preferences_user_data: entrypoint.preferences_user_data.into_iter()
+                            preferences_user_data: entrypoint
+                                .preferences_user_data
+                                .into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_from_db(value)))
                                 .collect(),
                         };
@@ -214,13 +267,17 @@ impl ApplicationManager {
                     plugin_description: plugin.description,
                     enabled: plugin.enabled,
                     entrypoints,
-                    preferences: plugin.preferences.into_iter()
+                    preferences: plugin
+                        .preferences
+                        .into_iter()
                         .map(|(key, value)| {
                             let preference = plugin_preference_from_db(&key, value);
                             (key, preference)
                         })
                         .collect(),
-                    preferences_user_data: plugin.preferences_user_data.into_iter()
+                    preferences_user_data: plugin
+                        .preferences_user_data
+                        .into_iter()
                         .map(|(key, value)| (key, plugin_preference_user_data_from_db(value)))
                         .collect(),
                 }
@@ -234,11 +291,19 @@ impl ApplicationManager {
         let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
         let currently_enabled = self.is_plugin_enabled(&plugin_id).await?;
 
-        tracing::info!(target = "plugin", "Setting plugin state for plugin id: {:?}, currently_running: {}, currently_enabled: {}, set_enabled: {}", plugin_id, currently_running, currently_enabled, set_enabled);
+        tracing::info!(
+            target = "plugin",
+            "Setting plugin state for plugin id: {:?}, currently_running: {}, currently_enabled: {}, set_enabled: {}",
+            plugin_id,
+            currently_running,
+            currently_enabled,
+            set_enabled
+        );
 
         match (currently_running, currently_enabled, set_enabled) {
             (false, false, true) => {
-                self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)
+                self.db_repository
+                    .set_plugin_enabled(&plugin_id.to_string(), true)
                     .await?;
 
                 self.start_plugin(plugin_id).await?;
@@ -247,14 +312,18 @@ impl ApplicationManager {
                 self.start_plugin(plugin_id).await?;
             }
             (true, true, false) => {
-                self.db_repository.set_plugin_enabled(&plugin_id.to_string(), false)
+                self.db_repository
+                    .set_plugin_enabled(&plugin_id.to_string(), false)
                     .await?;
 
                 self.stop_plugin(plugin_id.clone()).await;
                 self.search_index.remove_for_plugin(plugin_id)?;
             }
             (true, false, _) => {
-                tracing::error!("Plugin is running but is disabled, please report this: {}", plugin_id.to_string())
+                tracing::error!(
+                    "Plugin is running but is disabled, please report this: {}",
+                    plugin_id.to_string()
+                )
             }
             _ => {}
         }
@@ -262,12 +331,23 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn set_entrypoint_state(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> anyhow::Result<()> {
-        tracing::debug!(target = "plugin", "Setting entrypoint state for plugin id: {:?}, entrypoint_id: {:?}, enabled: {}", plugin_id, entrypoint_id, enabled);
+    pub async fn set_entrypoint_state(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        enabled: bool,
+    ) -> anyhow::Result<()> {
+        tracing::debug!(
+            target = "plugin",
+            "Setting entrypoint state for plugin id: {:?}, entrypoint_id: {:?}, enabled: {}",
+            plugin_id,
+            entrypoint_id,
+            enabled
+        );
 
-        self.db_repository.set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
+        self.db_repository
+            .set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
             .await?;
-
 
         self.reload_plugin(plugin_id.clone()).await?;
 
@@ -298,12 +378,30 @@ impl ApplicationManager {
         self.settings.window_position_mode_setting().await
     }
 
-    pub async fn set_preference_value(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, preference_id: String, preference_value: PluginPreferenceUserData) -> anyhow::Result<()> {
-        tracing::debug!(target = "plugin", "Setting preference value for plugin id: {:?}, entrypoint_id: {:?}, preference_id: {}", plugin_id, entrypoint_id, preference_id);
+    pub async fn set_preference_value(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>,
+        preference_id: String,
+        preference_value: PluginPreferenceUserData,
+    ) -> anyhow::Result<()> {
+        tracing::debug!(
+            target = "plugin",
+            "Setting preference value for plugin id: {:?}, entrypoint_id: {:?}, preference_id: {}",
+            plugin_id,
+            entrypoint_id,
+            preference_id
+        );
 
         let user_data = plugin_preference_user_data_to_db(preference_value);
 
-        self.db_repository.set_preference_value(plugin_id.to_string(), entrypoint_id.map(|id| id.to_string()), preference_id, user_data)
+        self.db_repository
+            .set_preference_value(
+                plugin_id.to_string(),
+                entrypoint_id.map(|id| id.to_string()),
+                preference_id,
+                user_data,
+            )
             .await?;
 
         self.reload_plugin(plugin_id.clone()).await?;
@@ -354,9 +452,7 @@ impl ApplicationManager {
 
     pub fn handle_inline_view(&self, text: &str) {
         self.send_command(PluginCommand::All {
-            data: AllPluginCommandData::OpenInlineView {
-                text: text.to_owned()
-            }
+            data: AllPluginCommandData::OpenInlineView { text: text.to_owned() },
         })
     }
 
@@ -365,33 +461,43 @@ impl ApplicationManager {
             id: plugin_id.clone(),
             data: OnePluginCommandData::RunCommand {
                 entrypoint_id: entrypoint_id.to_string(),
-            }
+            },
         });
 
         self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub async fn handle_run_generated_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) {
+    pub async fn handle_run_generated_entrypoint(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_index: usize,
+    ) {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
             data: OnePluginCommandData::RunGeneratedEntrypoint {
                 entrypoint_id: entrypoint_id.to_string(),
                 action_index,
-            }
+            },
         });
 
         self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
     }
 
-    pub async fn handle_render_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
+    pub async fn handle_render_view(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
             data: OnePluginCommandData::RenderView {
                 entrypoint_id: entrypoint_id.clone(),
-            }
+            },
         });
 
-        self.mark_entrypoint_frecency(plugin_id.clone(), entrypoint_id.clone()).await;
+        self.mark_entrypoint_frecency(plugin_id.clone(), entrypoint_id.clone())
+            .await;
 
         let shortcuts = self.action_shortcuts(plugin_id, entrypoint_id).await?;
 
@@ -401,22 +507,38 @@ impl ApplicationManager {
     pub fn handle_view_close(&self, plugin_id: PluginId) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
-            data: OnePluginCommandData::CloseView
+            data: OnePluginCommandData::CloseView,
         })
     }
 
-    pub fn handle_view_event(&self, plugin_id: PluginId, widget_id: UiWidgetId, event_name: String, event_arguments: Vec<UiPropertyValue>) {
+    pub fn handle_view_event(
+        &self,
+        plugin_id: PluginId,
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<UiPropertyValue>,
+    ) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::HandleViewEvent {
                 widget_id,
                 event_name,
-                event_arguments
-            }
+                event_arguments,
+            },
         })
     }
 
-    pub fn handle_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, origin: KeyboardEventOrigin, key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) {
+    pub fn handle_keyboard_event(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        origin: KeyboardEventOrigin,
+        key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool,
+    ) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::HandleKeyboardEvent {
@@ -427,14 +549,14 @@ impl ApplicationManager {
                 modifier_control,
                 modifier_alt,
                 modifier_meta,
-            }
+            },
         })
     }
 
     pub fn request_search_index_refresh(&self, plugin_id: PluginId) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
-            data: OnePluginCommandData::RefreshSearchIndex
+            data: OnePluginCommandData::RefreshSearchIndex,
         })
     }
 
@@ -446,8 +568,7 @@ impl ApplicationManager {
     }
 
     pub fn handle_open_settings_window(&self) {
-        let current_exe = std::env::current_exe()
-            .expect("unable to get current_exe");
+        let current_exe = std::env::current_exe().expect("unable to get current_exe");
 
         std::process::Command::new(current_exe)
             .args(["settings"])
@@ -463,12 +584,11 @@ impl ApplicationManager {
             }
         } else {
             SettingsEnvData::OpenPluginPreferences {
-                plugin_id: plugin_id.to_string()
+                plugin_id: plugin_id.to_string(),
             }
         };
 
-        let current_exe = std::env::current_exe()
-            .expect("unable to get current_exe");
+        let current_exe = std::env::current_exe().expect("unable to get current_exe");
 
         std::process::Command::new(current_exe)
             .args(["settings"])
@@ -493,12 +613,17 @@ impl ApplicationManager {
     }
 
     async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> anyhow::Result<bool> {
-        self.db_repository.is_plugin_enabled(&plugin_id.to_string())
-            .await
+        self.db_repository.is_plugin_enabled(&plugin_id.to_string()).await
     }
 
-    async fn action_shortcuts(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
-        self.db_repository.action_shortcuts(&plugin_id.to_string(), &entrypoint_id.to_string()).await
+    async fn action_shortcuts(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
+        self.db_repository
+            .action_shortcuts(&plugin_id.to_string(), &entrypoint_id.to_string())
+            .await
     }
 
     async fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
@@ -506,35 +631,44 @@ impl ApplicationManager {
 
         let plugin_id_str = plugin_id.to_string();
 
-        let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str)
-            .await?;
+        let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str).await?;
 
-        let entrypoint_names = self.db_repository.get_entrypoints_by_plugin_id(&plugin_id_str)
+        let entrypoint_names = self
+            .db_repository
+            .get_entrypoints_by_plugin_id(&plugin_id_str)
             .await?
             .into_iter()
             .map(|entrypoint| (EntrypointId::from_string(entrypoint.id), entrypoint.name))
             .collect::<HashMap<EntrypointId, String>>();
 
-        let inline_view_entrypoint_id = self.db_repository.get_inline_view_entrypoint_id_for_plugin(&plugin_id_str)
+        let inline_view_entrypoint_id = self
+            .db_repository
+            .get_inline_view_entrypoint_id_for_plugin(&plugin_id_str)
             .await?;
 
         let receiver = self.command_broadcaster.subscribe();
 
-        let clipboard_permissions = plugin.permissions
+        let clipboard_permissions = plugin
+            .permissions
             .clipboard
             .into_iter()
-            .map(|permission| match permission {
-                DbPluginClipboardPermissions::Read => PluginPermissionsClipboard::Read,
-                DbPluginClipboardPermissions::Write => PluginPermissionsClipboard::Write,
-                DbPluginClipboardPermissions::Clear => PluginPermissionsClipboard::Clear,
+            .map(|permission| {
+                match permission {
+                    DbPluginClipboardPermissions::Read => PluginPermissionsClipboard::Read,
+                    DbPluginClipboardPermissions::Write => PluginPermissionsClipboard::Write,
+                    DbPluginClipboardPermissions::Clear => PluginPermissionsClipboard::Clear,
+                }
             })
             .collect();
 
-        let main_search_bar_permissions = plugin.permissions
+        let main_search_bar_permissions = plugin
+            .permissions
             .main_search_bar
             .into_iter()
-            .map(|permission| match permission {
-                DbPluginMainSearchBarPermissions::Read => JsPluginPermissionsMainSearchBar::Read,
+            .map(|permission| {
+                match permission {
+                    DbPluginMainSearchBarPermissions::Read => JsPluginPermissionsMainSearchBar::Read,
+                }
             })
             .collect();
 
@@ -558,7 +692,7 @@ impl ApplicationManager {
                 },
                 system: plugin.permissions.system,
                 clipboard: clipboard_permissions,
-                main_search_bar: main_search_bar_permissions
+                main_search_bar: main_search_bar_permissions,
             },
             command_receiver: receiver,
             db_repository: self.db_repository.clone(),
@@ -596,18 +730,26 @@ impl ApplicationManager {
     }
 
     async fn mark_entrypoint_frecency(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
-        let result = self.db_repository.mark_entrypoint_frecency(&plugin_id.to_string(), &entrypoint_id.to_string())
+        let result = self
+            .db_repository
+            .mark_entrypoint_frecency(&plugin_id.to_string(), &entrypoint_id.to_string())
             .await;
 
         if let Err(err) = &result {
-            tracing::warn!(target = "rpc", "error occurred when marking entrypoint frecency {:?}", err)
+            tracing::warn!(
+                target = "rpc",
+                "error occurred when marking entrypoint frecency {:?}",
+                err
+            )
         }
 
         self.request_search_index_refresh(plugin_id);
     }
 
     pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
-        let result: HashMap<_, _> = self.db_repository.inline_view_shortcuts()
+        let result: HashMap<_, _> = self
+            .db_repository
+            .inline_view_shortcuts()
             .await?
             .into_iter()
             .map(|(plugin_id, shortcuts)| (PluginId::from_string(plugin_id), shortcuts))
@@ -619,65 +761,107 @@ impl ApplicationManager {
 
 fn plugin_preference_from_db(id: &str, value: DbPluginPreference) -> PluginPreference {
     match value {
-        DbPluginPreference::Number { name, default, description } => {
+        DbPluginPreference::Number {
+            name,
+            default,
+            description,
+        } => {
             PluginPreference::Number {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
-                description
+                description,
             }
-        },
-        DbPluginPreference::String { name, default, description } => {
+        }
+        DbPluginPreference::String {
+            name,
+            default,
+            description,
+        } => {
             PluginPreference::String {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
-                description
+                description,
             }
-        },
-        DbPluginPreference::Enum { name, default, description, enum_values } => {
-            let enum_values = enum_values.into_iter()
-                .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
+        }
+        DbPluginPreference::Enum {
+            name,
+            default,
+            description,
+            enum_values,
+        } => {
+            let enum_values = enum_values
+                .into_iter()
+                .map(|value| {
+                    PreferenceEnumValue {
+                        label: value.label,
+                        value: value.value,
+                    }
+                })
                 .collect();
 
             PluginPreference::Enum {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
                 description,
-                enum_values
+                enum_values,
             }
-        },
-        DbPluginPreference::Bool { name, default, description } => {
+        }
+        DbPluginPreference::Bool {
+            name,
+            default,
+            description,
+        } => {
             PluginPreference::Bool {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
-                description
+                description,
             }
-        },
-        DbPluginPreference::ListOfStrings { name, default, description } => {
+        }
+        DbPluginPreference::ListOfStrings {
+            name,
+            default,
+            description,
+        } => {
             PluginPreference::ListOfStrings {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
-                description
+                description,
             }
-        },
-        DbPluginPreference::ListOfNumbers { name, default, description } => {
+        }
+        DbPluginPreference::ListOfNumbers {
+            name,
+            default,
+            description,
+        } => {
             PluginPreference::ListOfNumbers {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
-                description
+                description,
             }
-        },
-        DbPluginPreference::ListOfEnums { name, default, enum_values, description } => {
-            let enum_values = enum_values.into_iter()
-                .map(|value| PreferenceEnumValue { label: value.label, value: value.value })
+        }
+        DbPluginPreference::ListOfEnums {
+            name,
+            default,
+            enum_values,
+            description,
+        } => {
+            let enum_values = enum_values
+                .into_iter()
+                .map(|value| {
+                    PreferenceEnumValue {
+                        label: value.label,
+                        value: value.value,
+                    }
+                })
                 .collect();
 
             PluginPreference::ListOfEnums {
                 name: name.unwrap_or_else(|| id.to_string()),
                 default,
                 enum_values,
-                description
+                description,
             }
-        },
+        }
     }
 }
 
@@ -704,4 +888,3 @@ fn plugin_preference_user_data_from_db(value: DbPluginPreferenceUserData) -> Plu
         DbPluginPreferenceUserData::ListOfEnums { value, .. } => PluginPreferenceUserData::ListOfEnums { value },
     }
 }
-

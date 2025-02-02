@@ -1,11 +1,15 @@
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use crate::model::{RootWidget, UiWidgetId};
+
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::model::RootWidget;
+use crate::model::UiWidgetId;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum ScenarioUiRenderLocation {
     InlineView,
-    View
+    View,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -16,7 +20,7 @@ pub enum ScenarioFrontendEvent {
         render_location: ScenarioUiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-        #[serde(with="base64")]
+        #[serde(with = "base64")]
         images: HashMap<UiWidgetId, Vec<u8>>,
     },
     ShowPreferenceRequiredView {
@@ -33,14 +37,19 @@ pub enum ScenarioFrontendEvent {
 mod base64 {
     use std::collections::HashMap;
     use std::str::FromStr;
-    use serde::{Serialize, Deserialize};
-    use serde::{Deserializer, Serializer};
-    use base64::Engine;
+
     use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
+
     use crate::model::UiWidgetId;
 
     pub fn serialize<S: Serializer>(v: &HashMap<UiWidgetId, Vec<u8>>, s: S) -> Result<S::Ok, S::Error> {
-        let map = v.iter()
+        let map = v
+            .iter()
             .map(|(key, value)| (key.to_string(), STANDARD.encode(value)))
             .collect();
 
@@ -51,11 +60,11 @@ mod base64 {
         HashMap::<String, String>::deserialize(d)?
             .into_iter()
             .map(|(key, value)| {
-                STANDARD.decode(value.as_bytes())
+                STANDARD
+                    .decode(value.as_bytes())
                     .map_err(|e| serde::de::Error::custom(e))
                     .map(|vec| (UiWidgetId::from_str(&key).expect("should not fail"), vec))
             })
             .collect()
-
     }
 }

@@ -1,46 +1,58 @@
-use iced::{Element, Padding, Pixels};
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PhysicalShortcut;
 use iced::border::Radius;
 use iced::keyboard::Modifiers;
-use iced::widget::{text, value};
-use iced_aw::iced_fonts::{bootstrap, Bootstrap, BOOTSTRAP_FONT};
+use iced::widget::text;
+use iced::widget::value;
+use iced::Element;
+use iced::Padding;
+use iced::Pixels;
+use iced_aw::iced_fonts::bootstrap;
+use iced_aw::iced_fonts::Bootstrap;
+use iced_aw::iced_fonts::BOOTSTRAP_FONT;
 
-use gauntlet_common::model::{PhysicalKey, PhysicalShortcut};
-
-pub fn padding(top: impl Into<Pixels>, right: impl Into<Pixels>, bottom: impl Into<Pixels>, left: impl Into<Pixels>) -> Padding {
+pub fn padding(
+    top: impl Into<Pixels>,
+    right: impl Into<Pixels>,
+    bottom: impl Into<Pixels>,
+    left: impl Into<Pixels>,
+) -> Padding {
     Padding {
         top: top.into().0,
         right: right.into().0,
         bottom: bottom.into().0,
-        left: left.into().0
+        left: left.into().0,
     }
 }
-pub fn radius(top_left: impl Into<Pixels>, top_right: impl Into<Pixels>, bottom_right: impl Into<Pixels>, bottom_left: impl Into<Pixels>) -> Radius {
+pub fn radius(
+    top_left: impl Into<Pixels>,
+    top_right: impl Into<Pixels>,
+    bottom_right: impl Into<Pixels>,
+    bottom_left: impl Into<Pixels>,
+) -> Radius {
     Radius {
         top_left: top_left.into().0,
         top_right: top_right.into().0,
         bottom_right: bottom_right.into().0,
-        bottom_left: bottom_left.into().0
+        bottom_left: bottom_left.into().0,
     }
 }
 
 pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
-    shortcut: &PhysicalShortcut
+    shortcut: &PhysicalShortcut,
 ) -> (
     Element<'a, Message, Theme>,
     Option<Element<'a, Message, Theme>>,
     Option<Element<'a, Message, Theme>>,
     Option<Element<'a, Message, Theme>>,
-    Option<Element<'a, Message, Theme>>
+    Option<Element<'a, Message, Theme>>,
 ) {
     let (key_name, show_shift) = match shortcut.physical_key {
         PhysicalKey::Enter => {
             let key_name = if cfg!(target_os = "macos") {
-                value(Bootstrap::ArrowReturnLeft)
-                    .font(BOOTSTRAP_FONT)
-                    .into()
+                value(Bootstrap::ArrowReturnLeft).font(BOOTSTRAP_FONT).into()
             } else {
-                text("Enter")
-                    .into()
+                text("Enter").into()
             };
 
             (key_name, shortcut.modifier_shift)
@@ -48,8 +60,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
         _ => {
             let (key_name, show_shift) = physical_key_name(&shortcut.physical_key, shortcut.modifier_shift);
 
-            let key_name: Element<_, _> = text(key_name)
-                .into();
+            let key_name: Element<_, _> = text(key_name).into();
 
             (key_name, show_shift)
         }
@@ -57,16 +68,9 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let alt_modifier_text = if shortcut.modifier_alt {
         if cfg!(target_os = "macos") {
-            Some(
-                value(Bootstrap::Option)
-                    .font(BOOTSTRAP_FONT)
-                    .into()
-            )
+            Some(value(Bootstrap::Option).font(BOOTSTRAP_FONT).into())
         } else {
-            Some(
-                text("Alt")
-                    .into()
-            )
+            Some(text("Alt").into())
         }
     } else {
         None
@@ -74,21 +78,14 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let meta_modifier_text = if shortcut.modifier_meta {
         if cfg!(target_os = "macos") {
-            Some(
-                value(Bootstrap::Command)
-                    .font(BOOTSTRAP_FONT)
-                    .into()
-            )
+            Some(value(Bootstrap::Command).font(BOOTSTRAP_FONT).into())
         } else if cfg!(target_os = "windows") {
             Some(
                 text("Win") // is it possible to have shortcuts that use win?
-                    .into()
+                    .into(),
             )
         } else {
-            Some(
-                text("Super")
-                    .into()
-            )
+            Some(text("Super").into())
         }
     } else {
         None
@@ -99,13 +96,10 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
             Some(
                 text("^") // TODO bootstrap doesn't have proper macos ctrl icon
                     .font(BOOTSTRAP_FONT)
-                    .into()
+                    .into(),
             )
         } else {
-            Some(
-                text("Ctrl")
-                    .into()
-            )
+            Some(text("Ctrl").into())
         }
     } else {
         None
@@ -113,22 +107,21 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let shift_modifier_text = if show_shift && shortcut.modifier_shift {
         if cfg!(target_os = "macos") {
-            Some(
-                value(Bootstrap::Shift)
-                    .font(BOOTSTRAP_FONT)
-                    .into()
-            )
+            Some(value(Bootstrap::Shift).font(BOOTSTRAP_FONT).into())
         } else {
-            Some(
-                text("Shift")
-                    .into()
-            )
+            Some(text("Shift").into())
         }
     } else {
         None
     };
 
-    (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text)
+    (
+        key_name,
+        alt_modifier_text,
+        meta_modifier_text,
+        control_modifier_text,
+        shift_modifier_text,
+    )
 }
 
 pub fn physical_key_model(key: iced::keyboard::key::Code, modifiers: Modifiers) -> Option<PhysicalShortcut> {
@@ -327,9 +320,7 @@ pub fn physical_key_model(key: iced::keyboard::key::Code, modifiers: Modifiers) 
         | iced::keyboard::key::Code::SuperRight
         | iced::keyboard::key::Code::Hyper
         | iced::keyboard::key::Code::Turbo
-        | _ => {
-            return None
-        }
+        | _ => return None,
     };
 
     let modifier_shift = modifiers.shift();

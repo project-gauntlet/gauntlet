@@ -2,19 +2,43 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use iced::{padding, Alignment, Length, Padding, Task};
-use iced::widget::{button, column, container, row, scrollable, text, text_input, value, vertical_rule};
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::PluginPreferenceUserData;
+use gauntlet_common::model::SettingsPlugin;
+use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_api::BackendApiError;
+use gauntlet_common::settings_env_data_from_string;
+use gauntlet_common::SettingsEnvData;
+use gauntlet_common::SETTINGS_ENV;
+use iced::padding;
+use iced::widget::button;
+use iced::widget::column;
+use iced::widget::container;
+use iced::widget::row;
+use iced::widget::scrollable;
+use iced::widget::text;
 use iced::widget::text::Shaping;
-use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
-use gauntlet_common::{settings_env_data_from_string, SettingsEnvData, SETTINGS_ENV};
-use gauntlet_common::model::{EntrypointId, PluginId, PluginPreferenceUserData, SettingsPlugin};
-use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
+use iced::widget::text_input;
+use iced::widget::value;
+use iced::widget::vertical_rule;
+use iced::Alignment;
+use iced::Length;
+use iced::Padding;
+use iced::Task;
+use iced_fonts::Bootstrap;
+use iced_fonts::BOOTSTRAP_FONT;
 
 use crate::theme::button::ButtonStyle;
-use crate::theme::Element;
 use crate::theme::text::TextStyle;
-use crate::views::plugins::preferences::{PluginPreferencesMsg, preferences_ui, SelectItem};
-use crate::views::plugins::table::{PluginTableMsgIn, PluginTableMsgOut, PluginTableState, PluginTableUpdateResult};
+use crate::theme::Element;
+use crate::views::plugins::preferences::preferences_ui;
+use crate::views::plugins::preferences::PluginPreferencesMsg;
+use crate::views::plugins::preferences::SelectItem;
+use crate::views::plugins::table::PluginTableMsgIn;
+use crate::views::plugins::table::PluginTableMsgOut;
+use crate::views::plugins::table::PluginTableState;
+use crate::views::plugins::table::PluginTableUpdateResult;
 
 mod preferences;
 mod table;
@@ -25,24 +49,18 @@ pub enum ManagementAppPluginMsgIn {
     PluginPreferenceMsg(PluginPreferencesMsg),
     FetchPlugins,
     PluginsFetched(HashMap<PluginId, SettingsPlugin>),
-    RemovePlugin {
-        plugin_id: PluginId
-    },
-    DownloadPlugin {
-        plugin_id: PluginId,
-    },
+    RemovePlugin { plugin_id: PluginId },
+    DownloadPlugin { plugin_id: PluginId },
     SelectItem(SelectedItem),
-    Noop
+    Noop,
 }
 
 pub enum ManagementAppPluginMsgOut {
     PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
     SelectedItem(SelectedItem),
-    DownloadPlugin {
-        plugin_id: PluginId,
-    },
+    DownloadPlugin { plugin_id: PluginId },
     HandleBackendError(BackendApiError),
-    Noop
+    Noop,
 }
 
 pub struct ManagementAppPluginsState {
@@ -62,13 +80,20 @@ impl ManagementAppPluginsState {
 
         let select_item = match settings_env_data {
             None => SelectedItem::None,
-            Some(SettingsEnvData::OpenEntrypointPreferences { plugin_id, entrypoint_id }) => SelectedItem::Entrypoint {
-                plugin_id: PluginId::from_string(plugin_id),
-                entrypoint_id: EntrypointId::from_string(entrypoint_id),
-            },
-            Some(SettingsEnvData::OpenPluginPreferences { plugin_id }) => SelectedItem::Plugin {
-                plugin_id: PluginId::from_string(plugin_id),
-            },
+            Some(SettingsEnvData::OpenEntrypointPreferences {
+                plugin_id,
+                entrypoint_id,
+            }) => {
+                SelectedItem::Entrypoint {
+                    plugin_id: PluginId::from_string(plugin_id),
+                    entrypoint_id: EntrypointId::from_string(entrypoint_id),
+                }
+            }
+            Some(SettingsEnvData::OpenPluginPreferences { plugin_id }) => {
+                SelectedItem::Plugin {
+                    plugin_id: PluginId::from_string(plugin_id),
+                }
+            }
         };
 
         tracing::debug!("Opening selected item: {:?}", select_item);
@@ -85,9 +110,7 @@ impl ManagementAppPluginsState {
     pub fn update(&mut self, message: ManagementAppPluginMsgIn) -> Task<ManagementAppPluginMsgOut> {
         let backend_api = match &self.backend_api {
             Some(backend_api) => backend_api.clone(),
-            None => {
-                return Task::none()
-            }
+            None => return Task::none(),
         };
 
         match message {
@@ -101,31 +124,41 @@ impl ManagementAppPluginsState {
 
                                 Task::perform(
                                     async move {
-                                        backend_client.set_plugin_state(plugin_id, enabled)
-                                            .await?;
+                                        backend_client.set_plugin_state(plugin_id, enabled).await?;
 
-                                        let plugins = backend_client.plugins()
-                                            .await?;
+                                        let plugins = backend_client.plugins().await?;
 
                                         Ok(plugins)
                                     },
-                                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                                    |result| {
+                                        handle_backend_error(result, |plugins| {
+                                            ManagementAppPluginMsgOut::PluginsReloaded(plugins)
+                                        })
+                                    },
                                 )
                             }
-                            PluginTableMsgOut::SetEntrypointState { enabled, plugin_id, entrypoint_id } => {
+                            PluginTableMsgOut::SetEntrypointState {
+                                enabled,
+                                plugin_id,
+                                entrypoint_id,
+                            } => {
                                 let mut backend_client = backend_api.clone();
 
                                 Task::perform(
                                     async move {
-                                        backend_client.set_entrypoint_state(plugin_id, entrypoint_id, enabled)
+                                        backend_client
+                                            .set_entrypoint_state(plugin_id, entrypoint_id, enabled)
                                             .await?;
 
-                                        let plugins = backend_client.plugins()
-                                            .await?;
+                                        let plugins = backend_client.plugins().await?;
 
                                         Ok(plugins)
                                     },
-                                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                                    |result| {
+                                        handle_backend_error(result, |plugins| {
+                                            ManagementAppPluginMsgOut::PluginsReloaded(plugins)
+                                        })
+                                    },
                                 )
                             }
                             PluginTableMsgOut::SelectItem(selected_item) => {
@@ -150,20 +183,28 @@ impl ManagementAppPluginsState {
             }
             ManagementAppPluginMsgIn::PluginPreferenceMsg(msg) => {
                 match msg {
-                    PluginPreferencesMsg::UpdatePreferenceValue { plugin_id, entrypoint_id, id, user_data } => {
-                        self.preference_user_data
-                            .insert((plugin_id.clone(), entrypoint_id.clone(), id.clone()), user_data.clone());
+                    PluginPreferencesMsg::UpdatePreferenceValue {
+                        plugin_id,
+                        entrypoint_id,
+                        id,
+                        user_data,
+                    } => {
+                        self.preference_user_data.insert(
+                            (plugin_id.clone(), entrypoint_id.clone(), id.clone()),
+                            user_data.clone(),
+                        );
 
                         let mut backend_api = backend_api.clone();
 
                         Task::perform(
                             async move {
-                                backend_api.set_preference_value(plugin_id, entrypoint_id, id, user_data.to_user_data())
+                                backend_api
+                                    .set_preference_value(plugin_id, entrypoint_id, id, user_data.to_user_data())
                                     .await?;
 
                                 Ok(())
                             },
-                            |result| handle_backend_error(result, |()| ManagementAppPluginMsgOut::Noop)
+                            |result| handle_backend_error(result, |()| ManagementAppPluginMsgOut::Noop),
                         )
                     }
                 }
@@ -173,12 +214,13 @@ impl ManagementAppPluginsState {
 
                 Task::perform(
                     async move {
-                        let plugins = backend_api.plugins()
-                            .await?;
+                        let plugins = backend_api.plugins().await?;
 
                         Ok(plugins)
                     },
-                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                    |result| {
+                        handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                    },
                 )
             }
             ManagementAppPluginMsgIn::PluginsFetched(plugins) => {
@@ -193,15 +235,15 @@ impl ManagementAppPluginsState {
 
                 Task::perform(
                     async move {
-                        backend_client.remove_plugin(plugin_id)
-                            .await?;
+                        backend_client.remove_plugin(plugin_id).await?;
 
-                        let plugins = backend_client.plugins()
-                            .await?;
+                        let plugins = backend_client.plugins().await?;
 
                         Ok(plugins)
                     },
-                    |result| handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                    |result| {
+                        handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                    },
                 )
             }
             ManagementAppPluginMsgIn::DownloadPlugin { plugin_id } => {
@@ -212,24 +254,29 @@ impl ManagementAppPluginsState {
 
                 Task::none()
             }
-            ManagementAppPluginMsgIn::Noop => {
-                Task::none()
-            }
+            ManagementAppPluginMsgIn::Noop => Task::none(),
         }
     }
 
     fn apply_plugin_fetch(&mut self, plugins: HashMap<PluginId, SettingsPlugin>) {
-        self.preference_user_data = plugins.iter()
+        self.preference_user_data = plugins
+            .iter()
             .map(|(plugin_id, plugin)| {
                 let mut result = vec![];
 
                 for (id, user_data) in &plugin.preferences_user_data {
-                    result.push(((plugin_id.clone(), None, id.clone()), PluginPreferenceUserDataState::from_user_data(user_data.clone())))
+                    result.push((
+                        (plugin_id.clone(), None, id.clone()),
+                        PluginPreferenceUserDataState::from_user_data(user_data.clone()),
+                    ))
                 }
 
                 for (entrypoint_id, entrypoint) in &plugin.entrypoints {
                     for (id, user_data) in &entrypoint.preferences_user_data {
-                        result.push(((plugin_id.clone(), Some(entrypoint_id.clone()), id.clone()), PluginPreferenceUserDataState::from_user_data(user_data.clone())))
+                        result.push((
+                            (plugin_id.clone(), Some(entrypoint_id.clone()), id.clone()),
+                            PluginPreferenceUserDataState::from_user_data(user_data.clone()),
+                        ))
                     }
                 }
 
@@ -240,9 +287,11 @@ impl ManagementAppPluginsState {
 
         let mut plugin_data = self.plugin_data.borrow_mut();
 
-        plugin_data.plugins_state = plugins.iter()
+        plugin_data.plugins_state = plugins
+            .iter()
             .map(|(id, _plugin)| {
-                let show_entrypoints = plugin_data.plugins_state
+                let show_entrypoints = plugin_data
+                    .plugins_state
                     .get(&id)
                     .map(|data| data.show_entrypoints)
                     .unwrap_or(true);
@@ -253,23 +302,25 @@ impl ManagementAppPluginsState {
 
         plugin_data.plugins = plugins;
 
-        let mut plugin_refs: Vec<_> = plugin_data.plugins
+        let mut plugin_refs: Vec<_> = plugin_data
+            .plugins
             .iter()
             .map(|(_, plugin)| (plugin, plugin_data.plugins_state.get(&plugin.plugin_id).unwrap()))
             .collect();
 
         plugin_refs.sort_by_key(|(plugin, _)| &plugin.plugin_name);
-        
-        self.table_state.apply_plugin_reload(self.plugin_data.clone(), plugin_refs)
+
+        self.table_state
+            .apply_plugin_reload(self.plugin_data.clone(), plugin_refs)
     }
 
     pub fn view(&self) -> Element<ManagementAppPluginMsgIn> {
-        let table: Element<_> = self.table_state.view()
+        let table: Element<_> = self
+            .table_state
+            .view()
             .map(|msg| ManagementAppPluginMsgIn::PluginTableMsg(msg));
 
-        let table: Element<_> = container(table)
-            .padding(Padding::new(8.0))
-            .into();
+        let table: Element<_> = container(table).padding(Padding::new(8.0)).into();
 
         let sidebar_content: Element<_> = match &self.selected_item {
             SelectedItem::None => {
@@ -277,8 +328,7 @@ impl ManagementAppPluginsState {
                 let text2: Element<_> = text("or").into();
                 let text3: Element<_> = text("Click '+' to add new plugin").into();
 
-                let text_column = column(vec![text1, text2, text3])
-                    .align_x(Alignment::Center);
+                let text_column = column(vec![text1, text2, text3]).align_x(Alignment::Center);
 
                 container(text_column)
                     .align_y(Alignment::Center)
@@ -304,69 +354,47 @@ impl ManagementAppPluginsState {
                             .into()
                     }
                     Some(plugin) => {
-                        let name = text(plugin.plugin_name.to_string())
-                            .shaping(Shaping::Advanced);
+                        let name = text(plugin.plugin_name.to_string()).shaping(Shaping::Advanced);
 
-                        let name = container(name)
-                            .padding(Padding::new(8.0))
-                            .into();
+                        let name = container(name).padding(Padding::new(8.0)).into();
 
                         let id: Element<_> = text(plugin.plugin_id.to_string())
                             .shaping(Shaping::Advanced)
                             .class(TextStyle::Subtitle)
                             .into();
 
-                        let id = container(id)
-                            .padding(padding::bottom(8.0))
-                            .into();
+                        let id = container(id).padding(padding::bottom(8.0)).into();
 
-                        let mut column_content = vec![
-                            name,
-                            id,
-                        ];
+                        let mut column_content = vec![name, id];
 
                         if !plugin.plugin_description.is_empty() {
-                            let description_label: Element<_> = text("Description")
-                                .size(14)
-                                .class(TextStyle::Subtitle)
-                                .into();
+                            let description_label: Element<_> =
+                                text("Description").size(14).class(TextStyle::Subtitle).into();
 
-                            let description_label = container(description_label)
-                                .padding(padding::bottom(8.0))
-                                .into();
+                            let description_label = container(description_label).padding(padding::bottom(8.0)).into();
 
-                            let description = text(plugin.plugin_description.to_string())
-                                .shaping(Shaping::Advanced);
+                            let description = text(plugin.plugin_description.to_string()).shaping(Shaping::Advanced);
 
-                            let description = container(description)
-                                .padding(Padding::new(8.0))
-                                .into();
+                            let description = container(description).padding(Padding::new(8.0)).into();
 
-                            let content: Element<_> = column(vec![description_label, description])
-                                .into();
+                            let content: Element<_> = column(vec![description_label, description]).into();
 
                             column_content.push(content);
                         }
 
                         column_content.push(
                             preferences_ui(plugin_id.clone(), None, &plugin.preferences, &self.preference_user_data)
-                                .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
+                                .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg)),
                         );
 
-                        let content: Element<_> = column(column_content)
-                            .spacing(12)
-                            .into();
+                        let content: Element<_> = column(column_content).spacing(12).into();
 
-                        let content: Element<_> = scrollable(content)
-                            .height(Length::Fill)
-                            .width(Length::Fill)
-                            .into();
+                        let content: Element<_> = scrollable(content).height(Length::Fill).width(Length::Fill).into();
 
                         let mut column_content = vec![content];
 
                         if !plugin.plugin_id.to_string().starts_with("bundled://") {
-                             let check_for_updates_text: Element<_> = text("Check for updates")
-                                .into();
+                            let check_for_updates_text: Element<_> = text("Check for updates").into();
 
                             let check_for_updates_text_container: Element<_> = container(check_for_updates_text)
                                 .width(Length::Fill)
@@ -377,13 +405,14 @@ impl ManagementAppPluginsState {
                             let check_for_updates_button: Element<_> = button(check_for_updates_text_container)
                                 .width(Length::Fill)
                                 .class(ButtonStyle::Primary)
-                                .on_press(ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: plugin.plugin_id.clone() })
+                                .on_press(ManagementAppPluginMsgIn::DownloadPlugin {
+                                    plugin_id: plugin.plugin_id.clone(),
+                                })
                                 .into();
 
                             column_content.push(check_for_updates_button);
 
-                            let remove_text: Element<_> = text("Remove plugin")
-                                .into();
+                            let remove_text: Element<_> = text("Remove plugin").into();
 
                             let remove_button_text_container: Element<_> = container(remove_text)
                                 .width(Length::Fill)
@@ -394,27 +423,28 @@ impl ManagementAppPluginsState {
                             let remove_button: Element<_> = button(remove_button_text_container)
                                 .width(Length::Fill)
                                 .class(ButtonStyle::Destructive)
-                                .on_press(ManagementAppPluginMsgIn::RemovePlugin { plugin_id: plugin.plugin_id.clone() })
+                                .on_press(ManagementAppPluginMsgIn::RemovePlugin {
+                                    plugin_id: plugin.plugin_id.clone(),
+                                })
                                 .into();
 
                             column_content.push(remove_button);
                         }
 
-                        let content: Element<_> = column(column_content)
-                            .spacing(8.0)
-                            .into();
+                        let content: Element<_> = column(column_content).spacing(8.0).into();
 
-                        container(content)
-                            .width(Length::Fill)
-                            .height(Length::Fill)
-                            .into()
+                        container(content).width(Length::Fill).height(Length::Fill).into()
                     }
                 }
             }
-            SelectedItem::Entrypoint { plugin_id, entrypoint_id } => {
+            SelectedItem::Entrypoint {
+                plugin_id,
+                entrypoint_id,
+            } => {
                 let plugin_data = self.plugin_data.borrow();
 
-                let entrypoint = plugin_data.plugins
+                let entrypoint = plugin_data
+                    .plugins
                     .get(&plugin_id)
                     .map(|plugin| plugin.entrypoints.get(entrypoint_id))
                     .flatten();
@@ -431,49 +461,40 @@ impl ManagementAppPluginsState {
                             .into()
                     }
                     Some(entrypoint) => {
-                        let name = text(entrypoint.entrypoint_name.to_string())
-                            .shaping(Shaping::Advanced);
+                        let name = text(entrypoint.entrypoint_name.to_string()).shaping(Shaping::Advanced);
 
-                        let name = container(name)
-                            .padding(Padding::new(8.0))
-                            .into();
+                        let name = container(name).padding(Padding::new(8.0)).into();
 
-                        let mut column_content = vec![
-                            name,
-                        ];
+                        let mut column_content = vec![name];
 
                         if !entrypoint.entrypoint_description.is_empty() {
-                            let description_label: Element<_> = text("Description")
-                                .size(14)
-                                .class(TextStyle::Subtitle)
-                                .into();
+                            let description_label: Element<_> =
+                                text("Description").size(14).class(TextStyle::Subtitle).into();
 
-                            let description_label = container(description_label)
-                                .padding(padding::bottom(8.0))
-                                .into();
+                            let description_label = container(description_label).padding(padding::bottom(8.0)).into();
 
                             let description = container(text(entrypoint.entrypoint_description.to_string()))
                                 .padding(Padding::new(8.0))
                                 .into();
 
-                            let content: Element<_> = column(vec![description_label, description])
-                                .into();
+                            let content: Element<_> = column(vec![description_label, description]).into();
 
                             column_content.push(content);
                         }
 
                         column_content.push(
-                            preferences_ui(plugin_id.clone(), Some(entrypoint_id.clone()), &entrypoint.preferences, &self.preference_user_data)
-                                .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg))
+                            preferences_ui(
+                                plugin_id.clone(),
+                                Some(entrypoint_id.clone()),
+                                &entrypoint.preferences,
+                                &self.preference_user_data,
+                            )
+                            .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg)),
                         );
 
-                        let column: Element<_> = column(column_content)
-                            .spacing(12)
-                            .into();
+                        let column: Element<_> = column(column_content).spacing(12).into();
 
-                        let column: Element<_> = scrollable(column)
-                            .width(Length::Fill)
-                            .into();
+                        let column: Element<_> = scrollable(column).width(Length::Fill).into();
 
                         container(column)
                             .width(Length::Fill)
@@ -485,15 +506,20 @@ impl ManagementAppPluginsState {
             }
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
-                    .on_input(|value| ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: value }))
-                    .on_submit(ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: PluginId::from_string(repository_url) })
+                    .on_input(|value| {
+                        ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: value })
+                    })
+                    .on_submit(ManagementAppPluginMsgIn::DownloadPlugin {
+                        plugin_id: PluginId::from_string(repository_url),
+                    })
                     .into();
 
                 let content: Element<_> = column(vec![
                     url_input,
                     text("Supported protocols:").into(),
                     text("http(s), ssh, git").into(),
-                ]).into();
+                ])
+                .into();
 
                 container(content)
                     .padding(Padding::new(8.0))
@@ -503,7 +529,6 @@ impl ManagementAppPluginsState {
                     .into()
             }
         };
-
 
         let plugin_url = if let SelectedItem::NewPlugin { repository_url } = &self.selected_item {
             if !repository_url.is_empty() {
@@ -518,8 +543,7 @@ impl ManagementAppPluginsState {
         let top_button_text = if plugin_url.is_some() {
             text("Download plugin")
         } else {
-            value(Bootstrap::Plus)
-                .font(BOOTSTRAP_FONT)
+            value(Bootstrap::Plus).font(BOOTSTRAP_FONT)
         };
 
         let top_button_text_container: Element<_> = container(top_button_text)
@@ -529,8 +553,16 @@ impl ManagementAppPluginsState {
             .into();
 
         let top_button_action = match plugin_url {
-            Some(plugin_url) => ManagementAppPluginMsgIn::DownloadPlugin { plugin_id: PluginId::from_string(plugin_url) },
-            None => ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: Default::default() })
+            Some(plugin_url) => {
+                ManagementAppPluginMsgIn::DownloadPlugin {
+                    plugin_id: PluginId::from_string(plugin_url),
+                }
+            }
+            None => {
+                ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin {
+                    repository_url: Default::default(),
+                })
+            }
         };
 
         let top_button = button(top_button_text_container)
@@ -542,18 +574,16 @@ impl ManagementAppPluginsState {
             .padding(Padding::new(8.0))
             .into();
 
-        let separator: Element<_> = vertical_rule(1)
-            .into();
+        let separator: Element<_> = vertical_rule(1).into();
 
-        let content: Element<_> = row(vec![table, separator, sidebar])
-            .into();
+        let content: Element<_> = row(vec![table, separator, sidebar]).into();
 
         let content = container(content)
             .padding(Padding::new(4.0))
             .height(Length::Fill)
             .width(Length::Fill)
             .into();
-        
+
         content
     }
 }
@@ -561,7 +591,7 @@ impl ManagementAppPluginsState {
 #[derive(Debug, Clone)]
 struct PluginDataContainer {
     plugins: HashMap<PluginId, SettingsPlugin>,
-    plugins_state: HashMap<PluginId, SettingsPluginData>
+    plugins_state: HashMap<PluginId, SettingsPluginData>,
 }
 
 impl PluginDataContainer {
@@ -577,10 +607,10 @@ impl PluginDataContainer {
 pub enum SelectedItem {
     None,
     NewPlugin {
-        repository_url: String
+        repository_url: String,
     },
     Plugin {
-        plugin_id: PluginId
+        plugin_id: PluginId,
     },
     Entrypoint {
         plugin_id: PluginId,
@@ -592,7 +622,6 @@ pub enum SelectedItem {
 struct SettingsPluginData {
     show_entrypoints: bool,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum PluginPreferenceUserDataState {
@@ -610,16 +639,16 @@ pub enum PluginPreferenceUserDataState {
     },
     ListOfStrings {
         value: Option<Vec<String>>,
-        new_value: String
+        new_value: String,
     },
     ListOfNumbers {
         value: Option<Vec<f64>>,
-        new_value: f64
+        new_value: f64,
     },
     ListOfEnums {
         value: Option<Vec<String>>,
-        new_value: Option<SelectItem>
-    }
+        new_value: Option<SelectItem>,
+    },
 }
 
 impl PluginPreferenceUserDataState {
@@ -629,18 +658,18 @@ impl PluginPreferenceUserDataState {
             PluginPreferenceUserData::String { value } => PluginPreferenceUserDataState::String { value },
             PluginPreferenceUserData::Enum { value } => PluginPreferenceUserDataState::Enum { value },
             PluginPreferenceUserData::Bool { value } => PluginPreferenceUserDataState::Bool { value },
-            PluginPreferenceUserData::ListOfStrings { value } => PluginPreferenceUserDataState::ListOfStrings {
-                value,
-                new_value: "".to_owned()
-            },
-            PluginPreferenceUserData::ListOfNumbers { value } => PluginPreferenceUserDataState::ListOfNumbers {
-                value,
-                new_value: 0.0
-            },
-            PluginPreferenceUserData::ListOfEnums { value } => PluginPreferenceUserDataState::ListOfEnums {
-                value,
-                new_value: None
-            },
+            PluginPreferenceUserData::ListOfStrings { value } => {
+                PluginPreferenceUserDataState::ListOfStrings {
+                    value,
+                    new_value: "".to_owned(),
+                }
+            }
+            PluginPreferenceUserData::ListOfNumbers { value } => {
+                PluginPreferenceUserDataState::ListOfNumbers { value, new_value: 0.0 }
+            }
+            PluginPreferenceUserData::ListOfEnums { value } => {
+                PluginPreferenceUserDataState::ListOfEnums { value, new_value: None }
+            }
         }
     }
 
@@ -650,16 +679,23 @@ impl PluginPreferenceUserDataState {
             PluginPreferenceUserDataState::String { value } => PluginPreferenceUserData::String { value },
             PluginPreferenceUserDataState::Enum { value } => PluginPreferenceUserData::Enum { value },
             PluginPreferenceUserDataState::Bool { value } => PluginPreferenceUserData::Bool { value },
-            PluginPreferenceUserDataState::ListOfStrings { value, .. } => PluginPreferenceUserData::ListOfStrings { value },
-            PluginPreferenceUserDataState::ListOfNumbers { value, .. } => PluginPreferenceUserData::ListOfNumbers { value },
+            PluginPreferenceUserDataState::ListOfStrings { value, .. } => {
+                PluginPreferenceUserData::ListOfStrings { value }
+            }
+            PluginPreferenceUserDataState::ListOfNumbers { value, .. } => {
+                PluginPreferenceUserData::ListOfNumbers { value }
+            }
             PluginPreferenceUserDataState::ListOfEnums { value, .. } => PluginPreferenceUserData::ListOfEnums { value },
         }
     }
 }
 
-pub fn handle_backend_error<T>(result: Result<T, BackendApiError>, convert: impl FnOnce(T) -> ManagementAppPluginMsgOut) -> ManagementAppPluginMsgOut {
+pub fn handle_backend_error<T>(
+    result: Result<T, BackendApiError>,
+    convert: impl FnOnce(T) -> ManagementAppPluginMsgOut,
+) -> ManagementAppPluginMsgOut {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppPluginMsgOut::HandleBackendError(err)
+        Err(err) => ManagementAppPluginMsgOut::HandleBackendError(err),
     }
 }

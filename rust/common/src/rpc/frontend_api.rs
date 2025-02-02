@@ -1,9 +1,20 @@
 use std::collections::HashMap;
-use anyhow::anyhow;
-use thiserror::Error;
-use gauntlet_utils::channel::{RequestError, RequestSender};
 
-use crate::model::{EntrypointId, UiTheme, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiRequestData, UiResponseData, UiWidgetId, WindowPositionMode};
+use anyhow::anyhow;
+use gauntlet_utils::channel::RequestError;
+use gauntlet_utils::channel::RequestSender;
+use thiserror::Error;
+
+use crate::model::EntrypointId;
+use crate::model::PhysicalShortcut;
+use crate::model::PluginId;
+use crate::model::RootWidget;
+use crate::model::UiRenderLocation;
+use crate::model::UiRequestData;
+use crate::model::UiResponseData;
+use crate::model::UiTheme;
+use crate::model::UiWidgetId;
+use crate::model::WindowPositionMode;
 
 #[derive(Error, Debug)]
 pub enum FrontendApiError {
@@ -17,7 +28,7 @@ impl From<RequestError> for FrontendApiError {
     fn from(error: RequestError) -> FrontendApiError {
         match error {
             RequestError::TimeoutError => FrontendApiError::TimeoutError,
-            RequestError::OtherSideWasDropped => FrontendApiError::OtherError(anyhow!("other side was dropped"))
+            RequestError::OtherSideWasDropped => FrontendApiError::OtherError(anyhow!("other side was dropped")),
         }
     }
 }
@@ -29,13 +40,14 @@ pub struct FrontendApi {
 
 impl FrontendApi {
     pub fn new(frontend_sender: RequestSender<UiRequestData, UiResponseData>) -> Self {
-        Self {
-            frontend_sender
-        }
+        Self { frontend_sender }
     }
 
     pub async fn request_search_results_update(&self) -> Result<(), FrontendApiError> {
-        let _ = self.frontend_sender.send_receive(UiRequestData::RequestSearchResultUpdate).await;
+        let _ = self
+            .frontend_sender
+            .send_receive(UiRequestData::RequestSearchResultUpdate)
+            .await;
 
         Ok(())
     }
@@ -70,9 +82,7 @@ impl FrontendApi {
     }
 
     pub async fn clear_inline_view(&self, plugin_id: PluginId) -> Result<(), FrontendApiError> {
-        let request = UiRequestData::ClearInlineView {
-            plugin_id,
-        };
+        let request = UiRequestData::ClearInlineView { plugin_id };
 
         let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
             unreachable!()
@@ -137,13 +147,8 @@ impl FrontendApi {
         Ok(())
     }
 
-    pub async fn show_hud(
-        &self,
-        display: String,
-    ) -> Result<(), FrontendApiError> {
-        let request = UiRequestData::ShowHud {
-            display,
-        };
+    pub async fn show_hud(&self, display: String) -> Result<(), FrontendApiError> {
+        let request = UiRequestData::ShowHud { display };
 
         let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {
             unreachable!()
@@ -156,7 +161,7 @@ impl FrontendApi {
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        show: bool
+        show: bool,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::UpdateLoadingBar {
             plugin_id,
@@ -171,57 +176,48 @@ impl FrontendApi {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(
-        &self,
-        shortcut: Option<PhysicalShortcut>
-    ) -> anyhow::Result<()> {
-        let request = UiRequestData::SetGlobalShortcut {
-            shortcut,
-        };
+    pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
+        let request = UiRequestData::SetGlobalShortcut { shortcut };
 
-        let data = self.frontend_sender.send_receive(request)
+        let data = self
+            .frontend_sender
+            .send_receive(request)
             .await
             .map_err(|err| anyhow!("error: {:?}", err))?;
 
         match data {
             UiResponseData::Nothing => Ok(()),
-            UiResponseData::Err(err) => Err(err)
+            UiResponseData::Err(err) => Err(err),
         }
     }
 
-    pub async fn set_theme(
-        &self,
-        theme: UiTheme
-    ) -> anyhow::Result<()> {
-        let request = UiRequestData::SetTheme {
-            theme,
-        };
+    pub async fn set_theme(&self, theme: UiTheme) -> anyhow::Result<()> {
+        let request = UiRequestData::SetTheme { theme };
 
-        let data = self.frontend_sender.send_receive(request)
+        let data = self
+            .frontend_sender
+            .send_receive(request)
             .await
             .map_err(|err| anyhow!("error: {:?}", err))?;
 
         match data {
             UiResponseData::Nothing => Ok(()),
-            UiResponseData::Err(err) => Err(err)
+            UiResponseData::Err(err) => Err(err),
         }
     }
 
-    pub async fn set_window_position_mode(
-        &self,
-        mode: WindowPositionMode
-    ) -> anyhow::Result<()> {
-        let request = UiRequestData::SetWindowPositionMode {
-            mode,
-        };
+    pub async fn set_window_position_mode(&self, mode: WindowPositionMode) -> anyhow::Result<()> {
+        let request = UiRequestData::SetWindowPositionMode { mode };
 
-        let data = self.frontend_sender.send_receive(request)
+        let data = self
+            .frontend_sender
+            .send_receive(request)
             .await
             .map_err(|err| anyhow!("error: {:?}", err))?;
 
         match data {
             UiResponseData::Nothing => Ok(()),
-            UiResponseData::Err(err) => Err(err)
+            UiResponseData::Err(err) => Err(err),
         }
     }
 }

@@ -1,6 +1,10 @@
 use iced::widget::text;
 use iced::widget::text::Style;
-use crate::theme::{DANGER_BRIGHT, GauntletSettingsTheme, SUCCESS, TEXT_DARKER};
+
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::DANGER_BRIGHT;
+use crate::theme::SUCCESS;
+use crate::theme::TEXT_DARKER;
 
 pub enum TextStyle {
     Default,
@@ -18,11 +22,7 @@ impl text::Catalog for GauntletSettingsTheme {
 
     fn style(&self, class: &Self::Class<'_>) -> Style {
         match class {
-            TextStyle::Default => {
-                Style {
-                    color: None,
-                }
-            }
+            TextStyle::Default => Style { color: None },
             TextStyle::Subtitle => {
                 Style {
                     color: Some(TEXT_DARKER.to_iced()),

@@ -1,20 +1,34 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
-use futures::{StreamExt, TryStreamExt};
+use anyhow::anyhow;
+use anyhow::Context;
 use futures::future::join_all;
-use serde::{Deserialize, Serialize};
-use sqlx::{Error, Executor, Pool, Row, Sqlite, SqlitePool};
+use futures::StreamExt;
+use futures::TryStreamExt;
+use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::UiTheme;
+use serde::Deserialize;
+use serde::Serialize;
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
+use sqlx::Error;
+use sqlx::Executor;
+use sqlx::Pool;
+use sqlx::Row;
+use sqlx::Sqlite;
+use sqlx::SqlitePool;
 use typed_path::TypedPathBuf;
 use uuid::Uuid;
-use gauntlet_common::model::{UiTheme, PhysicalKey, PhysicalShortcut, PluginId};
-use gauntlet_common::dirs::Dirs;
+
 use crate::model::ActionShortcutKey;
-use crate::plugins::frecency::{FrecencyItemStats, FrecencyMetaParams};
+use crate::plugins::frecency::FrecencyItemStats;
+use crate::plugins::frecency::FrecencyMetaParams;
 use crate::plugins::loader::PluginManifestActionShortcutKey;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
@@ -94,7 +108,7 @@ pub struct DbWritePluginEntrypoint {
 
 pub struct DbWritePluginAssetData {
     pub path: String,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -153,7 +167,7 @@ pub enum DbPluginClipboardPermissions {
     #[serde(rename = "write")]
     Write,
     #[serde(rename = "clear")]
-    Clear
+    Clear,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -166,33 +180,19 @@ pub enum DbPluginMainSearchBarPermissions {
 #[serde(tag = "type")]
 pub enum DbPluginPreferenceUserData {
     #[serde(rename = "number")]
-    Number {
-        value: Option<f64>,
-    },
+    Number { value: Option<f64> },
     #[serde(rename = "string")]
-    String {
-        value: Option<String>,
-    },
+    String { value: Option<String> },
     #[serde(rename = "enum")]
-    Enum {
-        value: Option<String>,
-    },
+    Enum { value: Option<String> },
     #[serde(rename = "bool")]
-    Bool {
-        value: Option<bool>,
-    },
+    Bool { value: Option<bool> },
     #[serde(rename = "list_of_strings")]
-    ListOfStrings {
-        value: Option<Vec<String>>,
-    },
+    ListOfStrings { value: Option<Vec<String>> },
     #[serde(rename = "list_of_numbers")]
-    ListOfNumbers {
-        value: Option<Vec<f64>>,
-    },
+    ListOfNumbers { value: Option<Vec<f64>> },
     #[serde(rename = "list_of_enums")]
-    ListOfEnums {
-        value: Option<Vec<String>>,
-    }
+    ListOfEnums { value: Option<Vec<String>> },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -200,7 +200,7 @@ pub struct DbPluginAction {
     pub id: String,
     pub description: String,
     pub key: String,
-    pub kind: DbPluginActionShortcutKind
+    pub kind: DbPluginActionShortcutKind,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -210,7 +210,7 @@ pub struct DbPluginActionUserData {
     pub modifier_shift: bool,
     pub modifier_control: bool,
     pub modifier_alt: bool,
-    pub modifier_meta: bool
+    pub modifier_meta: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -231,7 +231,7 @@ pub struct DbSettingsGlobalShortcutData {
     #[serde(default)]
     pub unset: bool,
     #[serde(default)]
-    pub error: Option<String>
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -249,7 +249,7 @@ pub enum DbTheme {
     #[serde(rename = "macos_dark")]
     MacOSDark,
     #[serde(rename = "legacy")]
-    Legacy
+    Legacy,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -312,7 +312,7 @@ pub enum DbPluginPreference {
         default: Option<Vec<String>>,
         enum_values: Vec<DbPreferenceEnumValue>,
         description: String,
-    }
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -320,7 +320,6 @@ pub struct DbPreferenceEnumValue {
     pub label: String,
     pub value: String,
 }
-
 
 #[derive(sqlx::FromRow)]
 pub struct DbReadPendingPlugin {
@@ -349,8 +348,7 @@ impl DataDbRepository {
     pub async fn new(dirs: Dirs) -> anyhow::Result<Self> {
         let data_db_file = dirs.data_db_file()?;
 
-        std::fs::create_dir_all(&data_db_file.parent().unwrap())
-            .context("Unable to create data directory")?;
+        std::fs::create_dir_all(&data_db_file.parent().unwrap()).context("Unable to create data directory")?;
 
         let conn = SqliteConnectOptions::new()
             .filename(data_db_file)
@@ -361,9 +359,7 @@ impl DataDbRepository {
             .context("Unable to open database connection")?;
 
         // TODO backup before migration? up to 5 backups?
-        MIGRATOR.run(&pool)
-            .await
-            .context("Unable apply database migration")?;
+        MIGRATOR.run(&pool).await.context("Unable apply database migration")?;
 
         let db_repository = Self { pool };
 
@@ -389,7 +385,9 @@ impl DataDbRepository {
         }
 
         // language=SQLite
-        let mut stream = self.pool.fetch(sqlx::query("SELECT id FROM plugin_entrypoint WHERE uuid IS NULL"));
+        let mut stream = self
+            .pool
+            .fetch(sqlx::query("SELECT id FROM plugin_entrypoint WHERE uuid IS NULL"));
         while let Some(row) = stream.next().await {
             let row = row?;
             let id: &str = row.get("id");
@@ -422,15 +420,19 @@ impl DataDbRepository {
         Ok(plugins)
     }
 
-    pub async fn list_plugins_and_entrypoints(&self) -> anyhow::Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>> {
+    pub async fn list_plugins_and_entrypoints(
+        &self,
+    ) -> anyhow::Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>> {
         // language=SQLite
         let plugins = self.list_plugins().await?;
 
         let result = futures::stream::iter(plugins)
-            .then(|plugin| async move {
-                let entrypoints = self.get_entrypoints_by_plugin_id(&plugin.id).await?;
+            .then(|plugin| {
+                async move {
+                    let entrypoints = self.get_entrypoints_by_plugin_id(&plugin.id).await?;
 
-                Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), anyhow::Error>((plugin, entrypoints))
+                    Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), anyhow::Error>((plugin, entrypoints))
+                }
             })
             .try_collect::<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>>()
             .await?;
@@ -443,8 +445,8 @@ impl DataDbRepository {
     }
 
     async fn get_plugin_by_id_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<DbReadPlugin>
-        where
-            E: Executor<'a, Database=Sqlite>,
+    where
+        E: Executor<'a, Database = Sqlite>,
     {
         // language=SQLite
         let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
@@ -459,9 +461,13 @@ impl DataDbRepository {
         self.get_plugin_by_id_option_with_executor(plugin_id, &self.pool).await
     }
 
-    async fn get_plugin_by_id_option_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<Option<DbReadPlugin>>
-        where
-            E: Executor<'a, Database=Sqlite>,
+    async fn get_plugin_by_id_option_with_executor<'a, E>(
+        &self,
+        plugin_id: &str,
+        executor: E,
+    ) -> anyhow::Result<Option<DbReadPlugin>>
+    where
+        E: Executor<'a, Database = Sqlite>,
     {
         // language=SQLite
         let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
@@ -473,78 +479,130 @@ impl DataDbRepository {
     }
 
     pub async fn get_entrypoints_by_plugin_id(&self, plugin_id: &str) -> anyhow::Result<Vec<DbReadPluginEntrypoint>> {
-        self.get_entrypoints_by_plugin_id_with_executor(plugin_id, &self.pool).await
+        self.get_entrypoints_by_plugin_id_with_executor(plugin_id, &self.pool)
+            .await
     }
 
-    async fn get_entrypoints_by_plugin_id_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<Vec<DbReadPluginEntrypoint>>
-        where
-            E: Executor<'a, Database=Sqlite>
+    async fn get_entrypoints_by_plugin_id_with_executor<'a, E>(
+        &self,
+        plugin_id: &str,
+        executor: E,
+    ) -> anyhow::Result<Vec<DbReadPluginEntrypoint>>
+    where
+        E: Executor<'a, Database = Sqlite>,
     {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE plugin_id = ?1")
-            .bind(plugin_id)
-            .fetch_all(executor)
-            .await?;
+        let result =
+            sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE plugin_id = ?1")
+                .bind(plugin_id)
+                .fetch_all(executor)
+                .await?;
 
         Ok(result)
     }
 
-    pub async fn get_entrypoint_by_id(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<DbReadPluginEntrypoint> {
-        self.get_entrypoint_by_id_with_executor(plugin_id, entrypoint_id, &self.pool).await
+    pub async fn get_entrypoint_by_id(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+    ) -> anyhow::Result<DbReadPluginEntrypoint> {
+        self.get_entrypoint_by_id_with_executor(plugin_id, entrypoint_id, &self.pool)
+            .await
     }
 
-    async fn get_entrypoint_by_id_with_executor<'a, E>(&self, plugin_id: &str, entrypoint_id: &str, executor: E) -> anyhow::Result<DbReadPluginEntrypoint>
-        where
-            E: Executor<'a, Database=Sqlite>,
+    async fn get_entrypoint_by_id_with_executor<'a, E>(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+        executor: E,
+    ) -> anyhow::Result<DbReadPluginEntrypoint>
+    where
+        E: Executor<'a, Database = Sqlite>,
     {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
-            .bind(entrypoint_id)
-            .bind(plugin_id)
-            .fetch_one(executor)
-            .await?;
+        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>(
+            "SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2",
+        )
+        .bind(entrypoint_id)
+        .bind(plugin_id)
+        .fetch_one(executor)
+        .await?;
 
         Ok(result)
     }
 
-    pub async fn get_entrypoint_by_id_option(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<Option<DbReadPluginEntrypoint>> {
-        self.get_entrypoint_by_id_option_with_executor(plugin_id, entrypoint_id, &self.pool).await
+    pub async fn get_entrypoint_by_id_option(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+    ) -> anyhow::Result<Option<DbReadPluginEntrypoint>> {
+        self.get_entrypoint_by_id_option_with_executor(plugin_id, entrypoint_id, &self.pool)
+            .await
     }
 
-    async fn get_entrypoint_by_id_option_with_executor<'a, E>(&self, plugin_id: &str, entrypoint_id: &str, executor: E) -> anyhow::Result<Option<DbReadPluginEntrypoint>>
-        where
-            E: Executor<'a, Database=Sqlite>,
+    async fn get_entrypoint_by_id_option_with_executor<'a, E>(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+        executor: E,
+    ) -> anyhow::Result<Option<DbReadPluginEntrypoint>>
+    where
+        E: Executor<'a, Database = Sqlite>,
     {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2")
-            .bind(entrypoint_id)
-            .bind(plugin_id)
-            .fetch_optional(executor)
-            .await?;
+        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>(
+            "SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2",
+        )
+        .bind(entrypoint_id)
+        .bind(plugin_id)
+        .fetch_optional(executor)
+        .await?;
 
         Ok(result)
     }
 
     pub async fn get_inline_view_entrypoint_id_for_plugin(&self, plugin_id: &str) -> anyhow::Result<Option<String>> {
         // language=SQLite
-        let entrypoint_id = sqlx::query_as::<_, (String, )>("SELECT id FROM plugin_entrypoint WHERE plugin_id = ?1 AND type = 'inline-view'")
-            .bind(plugin_id)
-            .fetch_optional(&self.pool)
-            .await?
-            .map(|result| result.0);
+        let entrypoint_id = sqlx::query_as::<_, (String,)>(
+            "SELECT id FROM plugin_entrypoint WHERE plugin_id = ?1 AND type = 'inline-view'",
+        )
+        .bind(plugin_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .map(|result| result.0);
 
         Ok(entrypoint_id)
     }
 
-    pub async fn action_shortcuts(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
-        let DbReadPluginEntrypoint { actions, actions_user_data, .. } = self.get_entrypoint_by_id(plugin_id, entrypoint_id)
-            .await?;
+    pub async fn action_shortcuts(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+    ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
+        let DbReadPluginEntrypoint {
+            actions,
+            actions_user_data,
+            ..
+        } = self.get_entrypoint_by_id(plugin_id, entrypoint_id).await?;
 
-        let actions_user_data: HashMap<_, _> = actions_user_data.into_iter()
-            .map(|data| (data.id, (data.key, data.modifier_shift, data.modifier_control, data.modifier_alt, data.modifier_meta)))
+        let actions_user_data: HashMap<_, _> = actions_user_data
+            .into_iter()
+            .map(|data| {
+                (
+                    data.id,
+                    (
+                        data.key,
+                        data.modifier_shift,
+                        data.modifier_control,
+                        data.modifier_alt,
+                        data.modifier_meta,
+                    ),
+                )
+            })
             .collect();
 
-        let action_shortcuts = actions.into_iter()
+        let action_shortcuts = actions
+            .into_iter()
             .map(|action| {
                 let id = action.id;
 
@@ -552,9 +610,7 @@ impl DataDbRepository {
                     None => {
                         let (physical_key, modifier_shift) = match ActionShortcutKey::from_value(&action.key) {
                             Some(key) => key.to_physical_key(),
-                            None => {
-                                return Err(anyhow!("unknown key: {}", &action.key))
-                            },
+                            None => return Err(anyhow!("unknown key: {}", &action.key)),
                         };
 
                         let (modifier_control, modifier_alt, modifier_meta) = match action.kind {
@@ -564,10 +620,8 @@ impl DataDbRepository {
                                 } else {
                                     (true, false, false)
                                 }
-                            },
-                            DbPluginActionShortcutKind::Alternative => {
-                                (false, true, false)
-                            },
+                            }
+                            DbPluginActionShortcutKind::Alternative => (false, true, false),
                         };
 
                         PhysicalShortcut {
@@ -604,12 +658,12 @@ impl DataDbRepository {
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
-        modifier_meta: bool
+        modifier_meta: bool,
     ) -> anyhow::Result<Option<String>> {
         // language=SQLite
         let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions_user_data) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'modifier_shift' = ?4 AND json_each.value ->> 'modifier_control' = ?5 AND json_each.value ->> 'modifier_alt' = ?6 AND json_each.value ->> 'modifier_meta' = ?6"#;
 
-        let action_id = sqlx::query_as::<_, (String, )>(sql)
+        let action_id = sqlx::query_as::<_, (String,)>(sql)
             .bind(plugin_id)
             .bind(entrypoint_id)
             .bind(key.to_value())
@@ -628,13 +682,13 @@ impl DataDbRepository {
                     match (modifier_control, modifier_alt, modifier_meta) {
                         (false, false, true) => DbPluginActionShortcutKind::Main,
                         (false, true, false) => DbPluginActionShortcutKind::Alternative,
-                        _ => return Ok(None)
+                        _ => return Ok(None),
                     }
                 } else {
                     match (modifier_control, modifier_alt, modifier_meta) {
                         (true, false, false) => DbPluginActionShortcutKind::Main,
                         (false, true, false) => DbPluginActionShortcutKind::Alternative,
-                        _ => return Ok(None)
+                        _ => return Ok(None),
                     }
                 };
 
@@ -650,7 +704,7 @@ impl DataDbRepository {
                     return Ok(None);
                 };
 
-                let action_id = sqlx::query_as::<_, (String, )>(sql)
+                let action_id = sqlx::query_as::<_, (String,)>(sql)
                     .bind(plugin_id)
                     .bind(entrypoint_id)
                     .bind(logical_key.to_value())
@@ -675,7 +729,7 @@ impl DataDbRepository {
 
     pub async fn is_plugin_pending(&self, plugin_id: &str) -> anyhow::Result<bool> {
         // language=SQLite
-        let result = sqlx::query_as::<_, (u8, )>("SELECT 1 FROM pending_plugin WHERE id = ?1")
+        let result = sqlx::query_as::<_, (u8,)>("SELECT 1 FROM pending_plugin WHERE id = ?1")
             .bind(plugin_id)
             .fetch_optional(&self.pool)
             .await?;
@@ -685,7 +739,7 @@ impl DataDbRepository {
 
     pub async fn does_plugin_exist(&self, plugin_id: &str) -> anyhow::Result<bool> {
         // language=SQLite
-        let result = sqlx::query_as::<_, (u8, )>("SELECT 1 FROM plugin WHERE id = ?1")
+        let result = sqlx::query_as::<_, (u8,)>("SELECT 1 FROM plugin WHERE id = ?1")
             .bind(plugin_id)
             .fetch_optional(&self.pool)
             .await?;
@@ -715,21 +769,23 @@ impl DataDbRepository {
         }
 
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginAssetData>("SELECT data FROM plugin_asset_data WHERE plugin_id = ?1 and path = ?2")
-            .bind(plugin_id)
-            .bind(path)
-            .fetch_one(&self.pool)
-            .await?;
+        let result = sqlx::query_as::<_, DbReadPluginAssetData>(
+            "SELECT data FROM plugin_asset_data WHERE plugin_id = ?1 and path = ?2",
+        )
+        .bind(plugin_id)
+        .bind(path)
+        .fetch_one(&self.pool)
+        .await?;
 
         Ok(result.data)
     }
 
     async fn get_all_asset_data_paths<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<HashSet<String>>
-        where
-            E: Executor<'a, Database=Sqlite>,
+    where
+        E: Executor<'a, Database = Sqlite>,
     {
         // language=SQLite
-        let result = sqlx::query_as::<_, (String, )>("SELECT path FROM plugin_asset_data WHERE plugin_id = ?1")
+        let result = sqlx::query_as::<_, (String,)>("SELECT path FROM plugin_asset_data WHERE plugin_id = ?1")
             .bind(plugin_id)
             .fetch_all(executor)
             .await?
@@ -742,21 +798,22 @@ impl DataDbRepository {
 
     pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<String, HashMap<String, PhysicalShortcut>>> {
         // language=SQLite
-        let shortcuts: Vec<_> = sqlx::query_as::<_, (String, String)>("SELECT id, plugin_id FROM plugin_entrypoint WHERE type = 'inline-view'")
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(|(entrypoint_id, plugin_id)| async move {
+        let shortcuts: Vec<_> = sqlx::query_as::<_, (String, String)>(
+            "SELECT id, plugin_id FROM plugin_entrypoint WHERE type = 'inline-view'",
+        )
+        .fetch_all(&self.pool)
+        .await?
+        .into_iter()
+        .map(|(entrypoint_id, plugin_id)| {
+            async move {
                 let shortcuts = self.action_shortcuts(&plugin_id, &entrypoint_id).await?;
 
                 Ok((plugin_id, shortcuts))
-            })
-            .collect();
+            }
+        })
+        .collect();
 
-        join_all(shortcuts)
-            .await
-            .into_iter()
-            .collect()
+        join_all(shortcuts).await.into_iter().collect()
     }
 
     pub async fn mark_entrypoint_frecency(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<()> {
@@ -773,15 +830,19 @@ impl DataDbRepository {
         }
 
         // language=SQLite
-        let meta_params = sqlx::query_as::<_, DbFrecencyMetaParams>("SELECT reference_time, half_life FROM plugin_entrypoint_frecency_stats")
-            .fetch_optional(&mut *tx)
-            .await?;
+        let meta_params = sqlx::query_as::<_, DbFrecencyMetaParams>(
+            "SELECT reference_time, half_life FROM plugin_entrypoint_frecency_stats",
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
 
         let meta_params = match meta_params {
             None => FrecencyMetaParams::default(),
-            Some(meta_params) => FrecencyMetaParams {
-                reference_time: meta_params.reference_time,
-                half_life: meta_params.half_life,
+            Some(meta_params) => {
+                FrecencyMetaParams {
+                    reference_time: meta_params.reference_time,
+                    half_life: meta_params.half_life,
+                }
             }
         };
 
@@ -793,9 +854,7 @@ impl DataDbRepository {
             .await?;
 
         let mut new_stats = match stats {
-            None => {
-                FrecencyItemStats::new(meta_params.reference_time, meta_params.half_life)
-            }
+            None => FrecencyItemStats::new(meta_params.reference_time, meta_params.half_life),
             Some(stats) => {
                 FrecencyItemStats {
                     half_life: stats.half_life,
@@ -833,12 +892,14 @@ impl DataDbRepository {
 
     pub async fn get_frecency_for_plugin(&self, plugin_id: &str) -> anyhow::Result<HashMap<String, f64>> {
         // language=SQLite
-        let result = sqlx::query_as::<_, (String, f64)>("SELECT entrypoint_id, frecency FROM plugin_entrypoint_frecency_stats WHERE plugin_id = ?1")
-            .bind(plugin_id)
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .collect();
+        let result = sqlx::query_as::<_, (String, f64)>(
+            "SELECT entrypoint_id, frecency FROM plugin_entrypoint_frecency_stats WHERE plugin_id = ?1",
+        )
+        .bind(plugin_id)
+        .fetch_all(&self.pool)
+        .await?
+        .into_iter()
+        .collect();
 
         Ok(result)
     }
@@ -854,7 +915,12 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn set_plugin_entrypoint_enabled(&self, plugin_id: &str, entrypoint_id: &str, enabled: bool) -> anyhow::Result<()> {
+    pub async fn set_plugin_entrypoint_enabled(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+        enabled: bool,
+    ) -> anyhow::Result<()> {
         // language=SQLite
         sqlx::query("UPDATE plugin_entrypoint SET enabled = ?1 WHERE id = ?2 AND plugin_id = ?3")
             .bind(enabled)
@@ -866,7 +932,11 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>, error: Option<String>) -> anyhow::Result<()> {
+    pub async fn set_global_shortcut(
+        &self,
+        shortcut: Option<PhysicalShortcut>,
+        error: Option<String>,
+    ) -> anyhow::Result<()> {
         // language=SQLite
         let sql = r#"
             INSERT INTO settings_data (id, global_shortcut)
@@ -931,13 +1001,10 @@ impl DataDbRepository {
                     })
                 };
 
-                Ok(Some((
-                    shortcut,
-                    shortcut_data.error,
-                )))
-            },
+                Ok(Some((shortcut, shortcut_data.error)))
+            }
             Ok(None) => Ok(None),
-            Err(err) => Err(anyhow!("Unable to get global shortcut from db: {:?}", err))
+            Err(err) => Err(anyhow!("Unable to get global shortcut from db: {:?}", err)),
         }
     }
 
@@ -947,10 +1014,7 @@ impl DataDbRepository {
             .fetch_optional(&self.pool)
             .await?;
 
-        let theme = settings
-            .map(|data| data.settings)
-            .flatten()
-            .unwrap_or_default();
+        let theme = settings.map(|data| data.settings).flatten().unwrap_or_default();
 
         Ok(theme.0)
     }
@@ -973,12 +1037,19 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn set_preference_value(&self, plugin_id: String, entrypoint_id: Option<String>, preference_id: String, value: DbPluginPreferenceUserData) -> anyhow::Result<()> {
+    pub async fn set_preference_value(
+        &self,
+        plugin_id: String,
+        entrypoint_id: Option<String>,
+        preference_id: String,
+        value: DbPluginPreferenceUserData,
+    ) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
         match entrypoint_id {
             None => {
-                let mut user_data = self.get_plugin_by_id_with_executor(&plugin_id, &mut *tx)
+                let mut user_data = self
+                    .get_plugin_by_id_with_executor(&plugin_id, &mut *tx)
                     .await?
                     .preferences_user_data;
 
@@ -992,7 +1063,8 @@ impl DataDbRepository {
                     .await?;
             }
             Some(entrypoint_id) => {
-                let mut user_data = self.get_entrypoint_by_id_with_executor(&plugin_id, &entrypoint_id, &mut *tx)
+                let mut user_data = self
+                    .get_entrypoint_by_id_with_executor(&plugin_id, &entrypoint_id, &mut *tx)
                     .await?
                     .preferences_user_data;
 
@@ -1035,7 +1107,9 @@ impl DataDbRepository {
     pub async fn save_plugin(&self, new_plugin: DbWritePlugin) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
-        let (uuid, enabled, preferences_user_data) = self.get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx).await?
+        let (uuid, enabled, preferences_user_data) = self
+            .get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx)
+            .await?
             .map(|plugin| (plugin.uuid, plugin.enabled, plugin.preferences_user_data))
             .unwrap_or((Uuid::new_v4().to_string(), new_plugin.enabled, HashMap::new()));
 
@@ -1061,7 +1135,9 @@ impl DataDbRepository {
             .execute(&mut *tx)
             .await?;
 
-        let mut old_entrypoint_ids = self.get_entrypoints_by_plugin_id_with_executor(&new_plugin.id, &mut *tx).await?
+        let mut old_entrypoint_ids = self
+            .get_entrypoints_by_plugin_id_with_executor(&new_plugin.id, &mut *tx)
+            .await?
             .into_iter()
             .map(|entrypoint| entrypoint.id)
             .collect::<HashSet<_>>();
@@ -1069,8 +1145,17 @@ impl DataDbRepository {
         for new_entrypoint in new_plugin.entrypoints {
             old_entrypoint_ids.remove(&new_entrypoint.id);
 
-            let (uuid, preferences_user_data, actions_user_data, enabled) = self.get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut *tx).await?
-                .map(|entrypoint| (entrypoint.uuid, entrypoint.preferences_user_data, entrypoint.actions_user_data, entrypoint.enabled))
+            let (uuid, preferences_user_data, actions_user_data, enabled) = self
+                .get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut *tx)
+                .await?
+                .map(|entrypoint| {
+                    (
+                        entrypoint.uuid,
+                        entrypoint.preferences_user_data,
+                        entrypoint.actions_user_data,
+                        entrypoint.enabled,
+                    )
+                })
                 .unwrap_or((Uuid::new_v4().to_string(), HashMap::new(), vec![], true));
 
             // language=SQLite
@@ -1098,7 +1183,6 @@ impl DataDbRepository {
                 .execute(&mut *tx)
                 .await?;
         }
-
 
         let mut old_asset_data_paths = self.get_all_asset_data_paths(&new_plugin.id, &mut *tx).await?;
 
@@ -1129,13 +1213,12 @@ impl DataDbRepository {
     }
 }
 
-
 pub fn db_entrypoint_to_str(value: DbPluginEntrypointType) -> &'static str {
     match value {
         DbPluginEntrypointType::Command => "command",
         DbPluginEntrypointType::View => "view",
         DbPluginEntrypointType::InlineView => "inline-view",
-        DbPluginEntrypointType::EntrypointGenerator => "command-generator" // command-generator in db for backwards compatibility
+        DbPluginEntrypointType::EntrypointGenerator => "command-generator", // command-generator in db for backwards compatibility
     }
 }
 
@@ -1145,16 +1228,15 @@ pub fn db_entrypoint_from_str(value: &str) -> DbPluginEntrypointType {
         "view" => DbPluginEntrypointType::View,
         "inline-view" => DbPluginEntrypointType::InlineView,
         "command-generator" => DbPluginEntrypointType::EntrypointGenerator,
-        _ => panic!("illegal entrypoint_type: {}", value)
+        _ => panic!("illegal entrypoint_type: {}", value),
     }
 }
-
 
 pub fn db_plugin_type_to_str(value: DbPluginType) -> &'static str {
     match value {
         DbPluginType::Normal => "normal",
         DbPluginType::Config => "config",
-        DbPluginType::Bundled => "bundled"
+        DbPluginType::Bundled => "bundled",
     }
 }
 
@@ -1163,6 +1245,6 @@ pub fn db_plugin_type_from_str(value: &str) -> DbPluginType {
         "normal" => DbPluginType::Normal,
         "config" => DbPluginType::Config,
         "bundled" => DbPluginType::Bundled,
-        _ => panic!("illegal plugin_type: {}", value)
+        _ => panic!("illegal plugin_type: {}", value),
     }
 }

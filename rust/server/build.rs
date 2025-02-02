@@ -1,4 +1,6 @@
-use vergen_gitcl::{CargoBuilder, Emitter, GitclBuilder};
+use vergen_gitcl::CargoBuilder;
+use vergen_gitcl::Emitter;
+use vergen_gitcl::GitclBuilder;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=db_migrations");

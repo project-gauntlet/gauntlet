@@ -1,7 +1,15 @@
-use iced::{Border, Renderer};
-use iced::widget::{checkbox, Checkbox};
-use iced::widget::checkbox::{Status, Style};
-use crate::ui::theme::{Element, GauntletComplexTheme, get_theme, NOT_INTENDED_TO_BE_USED, ThemableWidget};
+use iced::widget::checkbox;
+use iced::widget::checkbox::Status;
+use iced::widget::checkbox::Style;
+use iced::widget::Checkbox;
+use iced::Border;
+use iced::Renderer;
+
+use crate::ui::theme::get_theme;
+use crate::ui::theme::Element;
+use crate::ui::theme::GauntletComplexTheme;
+use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
 
 pub enum CheckboxStyle {
     Default,
@@ -18,7 +26,7 @@ impl checkbox::Catalog for GauntletComplexTheme {
         match status {
             Status::Active { is_checked } => active(self, is_checked),
             Status::Hovered { is_checked } => hovered(self, is_checked),
-            Status::Disabled { is_checked } => disabled(is_checked)
+            Status::Disabled { is_checked } => disabled(is_checked),
         }
     }
 }
@@ -87,9 +95,10 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Checkbox<'a, Message, Gaun
         match style {
             CheckboxStyle::Default => {
                 self.class(style)
-                    // .spacing() // TODO
-                    // .size()
+                // .spacing() // TODO
+                // .size()
             }
-        }.into()
+        }
+        .into()
     }
 }

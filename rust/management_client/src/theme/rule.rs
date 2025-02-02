@@ -1,7 +1,8 @@
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER};
 use iced::widget::rule;
 use iced::widget::rule::Style;
 
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::BACKGROUND_DARKER;
 
 impl rule::Catalog for GauntletSettingsTheme {
     type Class<'a> = ();

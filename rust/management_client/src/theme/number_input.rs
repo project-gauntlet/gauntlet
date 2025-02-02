@@ -1,6 +1,12 @@
+use iced_aw::number_input::number_input;
+use iced_aw::number_input::Style;
 use iced_aw::style::Status;
-use iced_aw::number_input::{number_input, Style};
-use crate::theme::{GauntletSettingsTheme, PRIMARY, PRIMARY_HOVERED, TEXT_DARKER, TEXT_LIGHTEST};
+
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::PRIMARY;
+use crate::theme::PRIMARY_HOVERED;
+use crate::theme::TEXT_DARKER;
+use crate::theme::TEXT_LIGHTEST;
 
 impl number_input::ExtendedCatalog for GauntletSettingsTheme {
     fn style(&self, class: &(), status: Status) -> Style {
@@ -21,7 +27,7 @@ impl number_input::Catalog for GauntletSettingsTheme {
             Status::Hovered => active(), // TODO proper style
             Status::Pressed => pressed(),
             Status::Disabled => disabled(),
-            Status::Focused => active(), // TODO proper style
+            Status::Focused => active(),   // TODO proper style
             Status::Selected => pressed(), // TODO proper style
         }
     }

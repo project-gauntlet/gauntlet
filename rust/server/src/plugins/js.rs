@@ -4,39 +4,90 @@ use std::fs::File;
 use std::hash::Hash;
 use std::io;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use anyhow::Context;
 use futures::AsyncBufReadExt;
-use interprocess::local_socket::{ListenerOptions, ToFsName, ToNsName};
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
-use interprocess::local_socket::traits::tokio::{Listener, Stream};
+use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::KeyboardEventOrigin;
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::RootWidget;
+use gauntlet_common::model::SearchResultAccessory;
+use gauntlet_common::model::SearchResultEntrypointType;
+use gauntlet_common::model::UiPropertyValue;
+use gauntlet_common::model::UiRenderLocation;
+use gauntlet_common::model::UiWidgetId;
+use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::settings_env_data_to_string;
+use gauntlet_plugin_runtime::recv_message;
+use gauntlet_plugin_runtime::send_message;
+use gauntlet_plugin_runtime::BackendForPluginRuntimeApi;
+use gauntlet_plugin_runtime::JsClipboardData;
+use gauntlet_plugin_runtime::JsEvent;
+use gauntlet_plugin_runtime::JsGeneratedSearchItem;
+use gauntlet_plugin_runtime::JsGeneratedSearchItemAccessory;
+use gauntlet_plugin_runtime::JsGeneratedSearchItemActionType;
+use gauntlet_plugin_runtime::JsInit;
+use gauntlet_plugin_runtime::JsKeyboardEventOrigin;
+use gauntlet_plugin_runtime::JsMessage;
+use gauntlet_plugin_runtime::JsMessageSide;
+use gauntlet_plugin_runtime::JsPluginCode;
+use gauntlet_plugin_runtime::JsPluginPermissions;
+use gauntlet_plugin_runtime::JsPluginPermissionsExec;
+use gauntlet_plugin_runtime::JsPluginPermissionsFileSystem;
+use gauntlet_plugin_runtime::JsPluginPermissionsMainSearchBar;
+use gauntlet_plugin_runtime::JsPluginRuntimeMessage;
+use gauntlet_plugin_runtime::JsPreferenceUserData;
+use gauntlet_plugin_runtime::JsRequest;
+use gauntlet_plugin_runtime::JsResponse;
+use gauntlet_plugin_runtime::JsUiPropertyValue;
+use gauntlet_plugin_runtime::JsUiRenderLocation;
+use interprocess::local_socket::tokio::RecvHalf;
+use interprocess::local_socket::tokio::SendHalf;
+use interprocess::local_socket::traits::tokio::Listener;
+use interprocess::local_socket::traits::tokio::Stream;
+use interprocess::local_socket::ListenerOptions;
+use interprocess::local_socket::ToFsName;
+use interprocess::local_socket::ToNsName;
 use interprocess::TryClone;
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncRead, AsyncReadExt};
+use serde::Deserialize;
+use serde::Serialize;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
-use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, PluginId, RootWidget, SearchResultAccessory, SearchResultEntrypointType, UiPropertyValue, UiRenderLocation, UiWidgetId};
-use gauntlet_common::rpc::frontend_api::FrontendApi;
-use gauntlet_common::settings_env_data_to_string;
-use gauntlet_plugin_runtime::{recv_message, send_message, BackendForPluginRuntimeApi, JsGeneratedSearchItem, JsClipboardData, JsInit, JsKeyboardEventOrigin, JsPluginCode, JsPluginPermissions, JsPreferenceUserData, JsEvent, JsUiPropertyValue, JsRequest, JsUiRenderLocation, JsResponse, JsMessage, JsPluginPermissionsFileSystem, JsPluginPermissionsExec, JsPluginPermissionsMainSearchBar, JsMessageSide, JsPluginRuntimeMessage, JsGeneratedSearchItemAccessory, JsGeneratedSearchItemActionType};
-use crate::model::{IntermediateUiEvent};
+
+use crate::model::IntermediateUiEvent;
 use crate::plugins::clipboard::Clipboard;
-use crate::plugins::data_db_repository::{db_entrypoint_from_str, DataDbRepository, DbPluginClipboardPermissions, DbPluginEntrypointType, DbPluginPreference, DbPluginPreferenceUserData, DbReadPlugin, DbReadPluginEntrypoint};
+use crate::plugins::data_db_repository::db_entrypoint_from_str;
+use crate::plugins::data_db_repository::DataDbRepository;
+use crate::plugins::data_db_repository::DbPluginClipboardPermissions;
+use crate::plugins::data_db_repository::DbPluginEntrypointType;
+use crate::plugins::data_db_repository::DbPluginPreference;
+use crate::plugins::data_db_repository::DbPluginPreferenceUserData;
+use crate::plugins::data_db_repository::DbReadPlugin;
+use crate::plugins::data_db_repository::DbReadPluginEntrypoint;
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::run_status::RunStatusGuard;
-use crate::search::{SearchIndex, SearchIndexItem, SearchIndexItemAction, SearchIndexItemActionActionType};
-use crate::{PLUGIN_CONNECT_ENV, PLUGIN_UUID_ENV};
 use crate::plugins::image_gatherer::ImageGatherer;
+use crate::plugins::run_status::RunStatusGuard;
+use crate::search::SearchIndex;
+use crate::search::SearchIndexItem;
+use crate::search::SearchIndexItemAction;
+use crate::search::SearchIndexItemActionActionType;
+use crate::PLUGIN_CONNECT_ENV;
+use crate::PLUGIN_UUID_ENV;
 
 pub struct PluginRuntimeData {
     pub id: PluginId,
@@ -74,18 +125,13 @@ pub struct PluginRuntimePermissions {
 pub enum PluginPermissionsClipboard {
     Read,
     Write,
-    Clear
+    Clear,
 }
 
 #[derive(Clone, Debug)]
 pub enum PluginCommand {
-    One {
-        id: PluginId,
-        data: OnePluginCommandData,
-    },
-    All {
-        data: AllPluginCommandData,
-    }
+    One { id: PluginId, data: OnePluginCommandData },
+    All { data: AllPluginCommandData },
 }
 
 #[derive(Clone, Debug)]
@@ -99,7 +145,7 @@ pub enum OnePluginCommandData {
     },
     RunGeneratedEntrypoint {
         entrypoint_id: String,
-        action_index: usize
+        action_index: usize,
     },
     HandleViewEvent {
         widget_id: UiWidgetId,
@@ -120,13 +166,10 @@ pub enum OnePluginCommandData {
 
 #[derive(Clone, Debug)]
 pub enum AllPluginCommandData {
-    OpenInlineView {
-        text: String
-    }
+    OpenInlineView { text: String },
 }
 
 pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: RunStatusGuard) -> anyhow::Result<()> {
-
     let runtime_permissions = PluginRuntimePermissions {
         clipboard: data.permissions.clipboard,
     };
@@ -165,7 +208,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         std::fs::create_dir_all(stderr_file.parent().unwrap())?;
         File::create(&stderr_file)?;
 
-        let stderr_file = stderr_file.to_str()
+        let stderr_file = stderr_file
+            .to_str()
             .context("non-uft8 paths are not supported")?
             .to_string();
 
@@ -188,7 +232,9 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     // namespaced, removed when both client and server disconnect
     #[cfg(target_os = "windows")]
-    let name = name_str.clone().to_ns_name::<interprocess::local_socket::GenericNamespaced>()?;
+    let name = name_str
+        .clone()
+        .to_ns_name::<interprocess::local_socket::GenericNamespaced>()?;
 
     // not namespaced, needs to be cleaned up manually,
     // by using close-behind semantics and additionally removing it before creating a new runtime
@@ -204,10 +250,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         uds_socket_file.to_fs_name::<interprocess::os::unix::local_socket::FilesystemUdSocket>()?
     };
 
-    let listener = ListenerOptions::new()
-        .name(name)
-        .reclaim_name(false)
-        .create_tokio()?;
+    let listener = ListenerOptions::new().name(name).reclaim_name(false).create_tokio()?;
 
     let home_dir = home_dir
         .to_str()
@@ -259,8 +302,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         stderr_file,
     };
 
-    let current_exe = std::env::current_exe()
-        .context("unable to get current_exe")?;
+    let current_exe = std::env::current_exe().context("unable to get current_exe")?;
 
     #[cfg(not(feature = "scenario_runner"))]
     let mut runtime_process = std::process::Command::new(current_exe)
@@ -271,9 +313,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     // use only for debugging and scenario_runner, only works if only one plugin is enabled
     #[cfg(feature = "scenario_runner")]
-    std::thread::spawn(move || {
-        gauntlet_plugin_runtime::run_plugin_runtime(name_str.to_str().unwrap().to_string())
-    });
+    std::thread::spawn(move || gauntlet_plugin_runtime::run_plugin_runtime(name_str.to_str().unwrap().to_string()));
 
     let conn = listener.accept().await?;
 
@@ -342,7 +382,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     #[cfg(not(feature = "scenario_runner"))]
     {
-        let code = runtime_process.wait()
+        let code = runtime_process
+            .wait()
             .context("Error while waiting for JS runtime process to finish")?
             .code();
 
@@ -353,15 +394,19 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 } else {
                     tracing::error!("Runtime process finished with status code: {code}")
                 }
-            },
-            None => tracing::error!("Process terminated by signal")
+            }
+            None => tracing::error!("Process terminated by signal"),
         }
     }
 
     Ok(())
 }
 
-async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<PluginCommand>, send: &Mutex<SendHalf>, plugin_id: PluginId) -> anyhow::Result<()>  {
+async fn event_loop(
+    command_receiver: &mut tokio::sync::broadcast::Receiver<PluginCommand>,
+    send: &Mutex<SendHalf>,
+    plugin_id: PluginId,
+) -> anyhow::Result<()> {
     let command = command_receiver.recv().await?;
 
     let event = match command {
@@ -371,32 +416,41 @@ async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<Plug
             } else {
                 match data {
                     OnePluginCommandData::RenderView { entrypoint_id } => {
-                        Some(IntermediateUiEvent::OpenView {
-                            entrypoint_id,
-                        })
+                        Some(IntermediateUiEvent::OpenView { entrypoint_id })
                     }
-                    OnePluginCommandData::CloseView => {
-                        Some(IntermediateUiEvent::CloseView)
-                    }
+                    OnePluginCommandData::CloseView => Some(IntermediateUiEvent::CloseView),
                     OnePluginCommandData::RunCommand { entrypoint_id } => {
-                        Some(IntermediateUiEvent::RunCommand {
-                            entrypoint_id,
-                        })
+                        Some(IntermediateUiEvent::RunCommand { entrypoint_id })
                     }
-                    OnePluginCommandData::RunGeneratedEntrypoint { entrypoint_id, action_index } => {
+                    OnePluginCommandData::RunGeneratedEntrypoint {
+                        entrypoint_id,
+                        action_index,
+                    } => {
                         Some(IntermediateUiEvent::RunGeneratedEntrypoint {
                             entrypoint_id,
-                            action_index
+                            action_index,
                         })
                     }
-                    OnePluginCommandData::HandleViewEvent { widget_id, event_name, event_arguments } => {
+                    OnePluginCommandData::HandleViewEvent {
+                        widget_id,
+                        event_name,
+                        event_arguments,
+                    } => {
                         Some(IntermediateUiEvent::HandleViewEvent {
                             widget_id,
                             event_name,
                             event_arguments,
                         })
                     }
-                    OnePluginCommandData::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+                    OnePluginCommandData::HandleKeyboardEvent {
+                        entrypoint_id,
+                        origin,
+                        key,
+                        modifier_shift,
+                        modifier_control,
+                        modifier_alt,
+                        modifier_meta,
+                    } => {
                         Some(IntermediateUiEvent::HandleKeyboardEvent {
                             entrypoint_id,
                             origin,
@@ -404,40 +458,41 @@ async fn event_loop(command_receiver: &mut tokio::sync::broadcast::Receiver<Plug
                             modifier_shift,
                             modifier_control,
                             modifier_alt,
-                            modifier_meta
+                            modifier_meta,
                         })
                     }
-                    OnePluginCommandData::RefreshSearchIndex => {
-                        Some(IntermediateUiEvent::RefreshSearchIndex)
-                    }
+                    OnePluginCommandData::RefreshSearchIndex => Some(IntermediateUiEvent::RefreshSearchIndex),
                 }
             }
         }
         PluginCommand::All { data } => {
             match data {
-                AllPluginCommandData::OpenInlineView { text } => {
-                    Some(IntermediateUiEvent::OpenInlineView { text })
-                }
+                AllPluginCommandData::OpenInlineView { text } => Some(IntermediateUiEvent::OpenInlineView { text }),
             }
         }
     };
 
-
     if let Some(event) = event {
         let mut send = send.lock().await;
 
-        send_message(JsMessageSide::Backend, &mut send, JsMessage::Event(from_intermediate_to_js_event(event))).await?;
+        send_message(
+            JsMessageSide::Backend,
+            &mut send,
+            JsMessage::Event(from_intermediate_to_js_event(event)),
+        )
+        .await?;
     }
 
     Ok(())
 }
 
-
-async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<bool>  {
+async fn request_loop(
+    recv: &mut RecvHalf,
+    send: &Mutex<SendHalf>,
+    api: &BackendForPluginRuntimeApiImpl,
+) -> anyhow::Result<bool> {
     match recv_message::<JsPluginRuntimeMessage>(JsMessageSide::Backend, recv).await {
-        Err(e) => {
-            Err(anyhow!("Unable to handle message: {:?}", e))
-        }
+        Err(e) => Err(anyhow!("Unable to handle message: {:?}", e)),
         Ok(message) => {
             tracing::trace!("Handling js runtime message: {:?}", message);
 
@@ -472,13 +527,26 @@ async fn request_loop(recv: &mut RecvHalf, send: &Mutex<SendHalf>, api: &Backend
 
 async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<JsResponse> {
     match message {
-        JsRequest::Render { entrypoint_id, entrypoint_name, render_location, top_level_view, container } => {
+        JsRequest::Render {
+            entrypoint_id,
+            entrypoint_name,
+            render_location,
+            top_level_view,
+            container,
+        } => {
             let render_location = match render_location {
                 JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-                JsUiRenderLocation::View => UiRenderLocation::View
+                JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
-            api.ui_render(entrypoint_id, entrypoint_name, render_location, top_level_view, container).await?;
+            api.ui_render(
+                entrypoint_id,
+                entrypoint_name,
+                render_location,
+                top_level_view,
+                container,
+            )
+            .await?;
 
             Ok(JsResponse::Nothing)
         }
@@ -487,18 +555,30 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
 
             Ok(JsResponse::Nothing)
         }
-        JsRequest::ShowPluginErrorView { entrypoint_id, render_location } => {
+        JsRequest::ShowPluginErrorView {
+            entrypoint_id,
+            render_location,
+        } => {
             let render_location = match render_location {
                 JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-                JsUiRenderLocation::View => UiRenderLocation::View
+                JsUiRenderLocation::View => UiRenderLocation::View,
             };
 
             api.ui_show_plugin_error_view(entrypoint_id, render_location).await?;
 
             Ok(JsResponse::Nothing)
         }
-        JsRequest::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
-            api.ui_show_preferences_required_view(entrypoint_id, plugin_preferences_required, entrypoint_preferences_required).await?;
+        JsRequest::ShowPreferenceRequiredView {
+            entrypoint_id,
+            plugin_preferences_required,
+            entrypoint_preferences_required,
+        } => {
+            api.ui_show_preferences_required_view(
+                entrypoint_id,
+                plugin_preferences_required,
+                entrypoint_preferences_required,
+            )
+            .await?;
 
             Ok(JsResponse::Nothing)
         }
@@ -517,66 +597,54 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
 
             Ok(JsResponse::Nothing)
         }
-        JsRequest::ReloadSearchIndex { generated_entrypoints, refresh_search_list } => {
-            api.reload_search_index(generated_entrypoints, refresh_search_list).await?;
+        JsRequest::ReloadSearchIndex {
+            generated_entrypoints,
+            refresh_search_list,
+        } => {
+            api.reload_search_index(generated_entrypoints, refresh_search_list)
+                .await?;
 
             Ok(JsResponse::Nothing)
         }
         JsRequest::GetAssetData { path } => {
             let data = api.get_asset_data(&path).await?;
 
-            Ok(JsResponse::AssetData {
-                data
-            })
+            Ok(JsResponse::AssetData { data })
         }
         JsRequest::GetEntrypointGeneratorEntrypointIds => {
             let data = api.get_entrypoint_generator_entrypoint_ids().await?;
 
-            Ok(JsResponse::EntrypointGeneratorEntrypointIds {
-                data
-            })
+            Ok(JsResponse::EntrypointGeneratorEntrypointIds { data })
         }
         JsRequest::GetPluginPreferences => {
             let data = api.get_plugin_preferences().await?;
 
-            Ok(JsResponse::PluginPreferences {
-                data
-            })
+            Ok(JsResponse::PluginPreferences { data })
         }
         JsRequest::GetEntrypointPreferences { entrypoint_id } => {
             let data = api.get_entrypoint_preferences(entrypoint_id).await?;
 
-            Ok(JsResponse::EntrypointPreferences {
-                data
-            })
+            Ok(JsResponse::EntrypointPreferences { data })
         }
         JsRequest::PluginPreferencesRequired => {
             let data = api.plugin_preferences_required().await?;
 
-            Ok(JsResponse::PluginPreferencesRequired {
-                data
-            })
+            Ok(JsResponse::PluginPreferencesRequired { data })
         }
         JsRequest::EntrypointPreferencesRequired { entrypoint_id } => {
             let data = api.entrypoint_preferences_required(entrypoint_id).await?;
 
-            Ok(JsResponse::EntrypointPreferencesRequired {
-                data
-            })
+            Ok(JsResponse::EntrypointPreferencesRequired { data })
         }
         JsRequest::ClipboardRead => {
             let data = api.clipboard_read().await?;
 
-            Ok(JsResponse::ClipboardRead {
-                data
-            })
+            Ok(JsResponse::ClipboardRead { data })
         }
         JsRequest::ClipboardReadText => {
             let data = api.clipboard_read_text().await?;
 
-            Ok(JsResponse::ClipboardReadText {
-                data
-            })
+            Ok(JsResponse::ClipboardReadText { data })
         }
         JsRequest::ClipboardWrite { data } => {
             api.clipboard_write(data).await?;
@@ -593,45 +661,64 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
 
             Ok(JsResponse::Nothing)
         }
-        JsRequest::GetActionIdForShortcut { entrypoint_id, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
-            let data = api.ui_get_action_id_for_shortcut(
-                entrypoint_id,
-                key,
-                modifier_shift,
-                modifier_control,
-                modifier_alt,
-                modifier_meta
-            ).await?;
+        JsRequest::GetActionIdForShortcut {
+            entrypoint_id,
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        } => {
+            let data = api
+                .ui_get_action_id_for_shortcut(
+                    entrypoint_id,
+                    key,
+                    modifier_shift,
+                    modifier_control,
+                    modifier_alt,
+                    modifier_meta,
+                )
+                .await?;
 
-            Ok(JsResponse::ActionIdForShortcut {
-                data
-            })
+            Ok(JsResponse::ActionIdForShortcut { data })
         }
     }
 }
 
 fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
     match event {
-        IntermediateUiEvent::OpenView { entrypoint_id } => JsEvent::OpenView {
-            entrypoint_id: entrypoint_id.to_string(),
-        },
+        IntermediateUiEvent::OpenView { entrypoint_id } => {
+            JsEvent::OpenView {
+                entrypoint_id: entrypoint_id.to_string(),
+            }
+        }
         IntermediateUiEvent::CloseView => JsEvent::CloseView,
-        IntermediateUiEvent::RunCommand { entrypoint_id } => JsEvent::RunCommand {
-            entrypoint_id
-        },
-        IntermediateUiEvent::RunGeneratedEntrypoint { entrypoint_id, action_index } => JsEvent::RunGeneratedEntrypoint {
+        IntermediateUiEvent::RunCommand { entrypoint_id } => JsEvent::RunCommand { entrypoint_id },
+        IntermediateUiEvent::RunGeneratedEntrypoint {
             entrypoint_id,
             action_index,
-        },
-        IntermediateUiEvent::HandleViewEvent { widget_id, event_name, event_arguments } => {
-            let event_arguments = event_arguments.into_iter()
-                .map(|arg| match arg {
-                    UiPropertyValue::String(value) => JsUiPropertyValue::String { value },
-                    UiPropertyValue::Number(value) => JsUiPropertyValue::Number { value },
-                    UiPropertyValue::Bool(value) => JsUiPropertyValue::Bool { value },
-                    UiPropertyValue::Undefined => JsUiPropertyValue::Undefined,
-                    UiPropertyValue::Array(_) | UiPropertyValue::Bytes(_) | UiPropertyValue::Object(_)  => {
-                        todo!()
+        } => {
+            JsEvent::RunGeneratedEntrypoint {
+                entrypoint_id,
+                action_index,
+            }
+        }
+        IntermediateUiEvent::HandleViewEvent {
+            widget_id,
+            event_name,
+            event_arguments,
+        } => {
+            let event_arguments = event_arguments
+                .into_iter()
+                .map(|arg| {
+                    match arg {
+                        UiPropertyValue::String(value) => JsUiPropertyValue::String { value },
+                        UiPropertyValue::Number(value) => JsUiPropertyValue::Number { value },
+                        UiPropertyValue::Bool(value) => JsUiPropertyValue::Bool { value },
+                        UiPropertyValue::Undefined => JsUiPropertyValue::Undefined,
+                        UiPropertyValue::Array(_) | UiPropertyValue::Bytes(_) | UiPropertyValue::Object(_) => {
+                            todo!()
+                        }
                     }
                 })
                 .collect();
@@ -642,7 +729,15 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
                 event_arguments,
             }
         }
-        IntermediateUiEvent::HandleKeyboardEvent { entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+        IntermediateUiEvent::HandleKeyboardEvent {
+            entrypoint_id,
+            origin,
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        } => {
             JsEvent::KeyboardEvent {
                 entrypoint_id: entrypoint_id.to_string(),
                 origin: match origin {
@@ -653,7 +748,7 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
                 modifier_shift,
                 modifier_control,
                 modifier_alt,
-                modifier_meta
+                modifier_meta,
             }
         }
         IntermediateUiEvent::OpenInlineView { text } => JsEvent::OpenInlineView { text },
@@ -671,7 +766,7 @@ pub struct BackendForPluginRuntimeApiImpl {
     plugin_uuid: String,
     plugin_id: PluginId,
     plugin_name: String,
-    permissions: PluginRuntimePermissions
+    permissions: PluginRuntimePermissions,
 }
 
 impl BackendForPluginRuntimeApiImpl {
@@ -684,7 +779,7 @@ impl BackendForPluginRuntimeApiImpl {
         plugin_uuid: String,
         plugin_id: PluginId,
         plugin_name: String,
-        permissions: PluginRuntimePermissions
+        permissions: PluginRuntimePermissions,
     ) -> Self {
         Self {
             icon_cache,
@@ -695,38 +790,58 @@ impl BackendForPluginRuntimeApiImpl {
             plugin_uuid,
             plugin_id,
             plugin_name,
-            permissions
+            permissions,
         }
     }
 }
 
 impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
-    async fn reload_search_index(&self, generated_entrypoints: Vec<JsGeneratedSearchItem>, refresh_search_list: bool) -> anyhow::Result<()> {
-        let DbReadPlugin { name, .. } = self.repository.get_plugin_by_id(&self.plugin_id.to_string())
+    async fn reload_search_index(
+        &self,
+        generated_entrypoints: Vec<JsGeneratedSearchItem>,
+        refresh_search_list: bool,
+    ) -> anyhow::Result<()> {
+        let DbReadPlugin { name, .. } = self
+            .repository
+            .get_plugin_by_id(&self.plugin_id.to_string())
             .await
             .context("error when getting plugin by id")?;
 
-        let entrypoints = self.repository.get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
+        let entrypoints = self
+            .repository
+            .get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
             .await
             .context("error when getting entrypoints by plugin id")?;
 
-        let frecency_map = self.repository.get_frecency_for_plugin(&self.plugin_id.to_string())
+        let frecency_map = self
+            .repository
+            .get_frecency_for_plugin(&self.plugin_id.to_string())
             .await
             .context("error when getting frecency for plugin")?;
 
         let mut shortcuts = HashMap::new();
 
         for DbReadPluginEntrypoint { id, .. } in &entrypoints {
-            let entrypoint_shortcuts = self.repository.action_shortcuts(&self.plugin_id.to_string(), id).await?;
+            let entrypoint_shortcuts = self
+                .repository
+                .action_shortcuts(&self.plugin_id.to_string(), id)
+                .await?;
             shortcuts.insert(id.clone(), entrypoint_shortcuts);
         }
 
-        let generator_names: HashMap<_, _> = entrypoints.iter()
-            .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::EntrypointGenerator))
+        let generator_names: HashMap<_, _> = entrypoints
+            .iter()
+            .filter(|entrypoint| {
+                matches!(
+                    db_entrypoint_from_str(&entrypoint.entrypoint_type),
+                    DbPluginEntrypointType::EntrypointGenerator
+                )
+            })
             .map(|entrypoint| (entrypoint.id.clone(), entrypoint.name.clone()))
             .collect();
 
-        let mut generated_search_items = generated_entrypoints.into_iter()
+        let mut generated_search_items = generated_entrypoints
+            .into_iter()
             .map(|item| {
                 let entrypoint_icon = match item.entrypoint_icon {
                     None => None,
@@ -735,16 +850,15 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
                 let entrypoint_frecency = frecency_map.get(&item.entrypoint_id).cloned().unwrap_or(0.0);
 
-                let shortcuts = shortcuts
-                    .get(&item.generator_entrypoint_id);
+                let shortcuts = shortcuts.get(&item.generator_entrypoint_id);
 
-                let entrypoint_actions = item.entrypoint_actions.iter()
+                let entrypoint_actions = item
+                    .entrypoint_actions
+                    .iter()
                     .map(|action| {
                         let shortcut = match (shortcuts, &action.id) {
-                            (Some(shortcuts), Some(id)) => {
-                                shortcuts.get(id).cloned()
-                            }
-                            _ => None
+                            (Some(shortcuts), Some(id)) => shortcuts.get(id).cloned(),
+                            _ => None,
                         };
 
                         SearchIndexItemAction {
@@ -758,7 +872,9 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     })
                     .collect();
 
-                let entrypoint_accessories = item.entrypoint_accessories.into_iter()
+                let entrypoint_accessories = item
+                    .entrypoint_accessories
+                    .into_iter()
                     .map(|accessory| {
                         match accessory {
                             JsGeneratedSearchItemAccessory::TextAccessory { text, icon, tooltip } => {
@@ -792,7 +908,9 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
         for entrypoint in &entrypoints {
             if let Some(path_to_asset) = &entrypoint.icon_path {
-                let result = self.repository.get_asset_data(&self.plugin_id.to_string(), path_to_asset)
+                let result = self
+                    .repository
+                    .get_asset_data(&self.plugin_id.to_string(), path_to_asset)
                     .await;
 
                 if let Ok(data) = result {
@@ -801,7 +919,8 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             }
         }
 
-        let mut builtin_search_items = entrypoints.into_iter()
+        let mut builtin_search_items = entrypoints
+            .into_iter()
             .filter(|entrypoint| entrypoint.enabled)
             .map(|entrypoint| {
                 let entrypoint_type = db_entrypoint_from_str(&entrypoint.entrypoint_type);
@@ -814,9 +933,9 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     Some(path_to_asset) => {
                         match icon_asset_data.get(&(entrypoint.id, path_to_asset)) {
                             None => None,
-                            Some(data) => Some(bytes::Bytes::copy_from_slice(data))
+                            Some(data) => Some(bytes::Bytes::copy_from_slice(data)),
                         }
-                    },
+                    }
                 };
 
                 let entrypoint_id = EntrypointId::from_string(entrypoint_id);
@@ -833,7 +952,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_actions: vec![],
                             entrypoint_accessories: vec![],
                         }))
-                    },
+                    }
                     DbPluginEntrypointType::View => {
                         Ok(Some(SearchIndexItem {
                             entrypoint_type: SearchResultEntrypointType::View,
@@ -845,10 +964,8 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                             entrypoint_actions: vec![],
                             entrypoint_accessories: vec![],
                         }))
-                    },
-                    DbPluginEntrypointType::EntrypointGenerator | DbPluginEntrypointType::InlineView => {
-                        Ok(None)
                     }
+                    DbPluginEntrypointType::EntrypointGenerator | DbPluginEntrypointType::InlineView => Ok(None),
                 }
             })
             .collect::<anyhow::Result<Vec<_>>>()?
@@ -858,24 +975,40 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
         generated_search_items.append(&mut builtin_search_items);
 
-        self.search_index.save_for_plugin(self.plugin_id.clone(), name, generated_search_items, refresh_search_list)
+        self.search_index
+            .save_for_plugin(
+                self.plugin_id.clone(),
+                name,
+                generated_search_items,
+                refresh_search_list,
+            )
             .context("error when updating search index")?;
 
         Ok(())
     }
 
     async fn get_asset_data(&self, path: &str) -> anyhow::Result<Vec<u8>> {
-        let data = self.repository.get_asset_data(&self.plugin_id.to_string(), &path)
+        let data = self
+            .repository
+            .get_asset_data(&self.plugin_id.to_string(), &path)
             .await?;
 
         Ok(data)
     }
 
     async fn get_entrypoint_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
-        let result = self.repository.get_entrypoints_by_plugin_id(&self.plugin_id.to_string()).await?
+        let result = self
+            .repository
+            .get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
+            .await?
             .into_iter()
             .filter(|entrypoint| entrypoint.enabled)
-            .filter(|entrypoint| matches!(db_entrypoint_from_str(&entrypoint.entrypoint_type), DbPluginEntrypointType::EntrypointGenerator))
+            .filter(|entrypoint| {
+                matches!(
+                    db_entrypoint_from_str(&entrypoint.entrypoint_type),
+                    DbPluginEntrypointType::EntrypointGenerator
+                )
+            })
             .map(|entrypoint| entrypoint.id)
             .collect::<Vec<_>>();
 
@@ -883,15 +1016,25 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
-        let DbReadPlugin { preferences, preferences_user_data, .. } = self.repository
-            .get_plugin_by_id(&self.plugin_id.to_string())
-            .await?;
+        let DbReadPlugin {
+            preferences,
+            preferences_user_data,
+            ..
+        } = self.repository.get_plugin_by_id(&self.plugin_id.to_string()).await?;
 
         Ok(preferences_to_js(preferences, preferences_user_data))
     }
 
-    async fn get_entrypoint_preferences(&self, entrypoint_id: EntrypointId) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
-        let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = self.repository
+    async fn get_entrypoint_preferences(
+        &self,
+        entrypoint_id: EntrypointId,
+    ) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
+        let DbReadPluginEntrypoint {
+            preferences,
+            preferences_user_data,
+            ..
+        } = self
+            .repository
             .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())
             .await?;
 
@@ -899,24 +1042,30 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn plugin_preferences_required(&self) -> anyhow::Result<bool> {
-        let DbReadPlugin { preferences, preferences_user_data, .. } = self.repository
-            .get_plugin_by_id(&self.plugin_id.to_string()).await?;
+        let DbReadPlugin {
+            preferences,
+            preferences_user_data,
+            ..
+        } = self.repository.get_plugin_by_id(&self.plugin_id.to_string()).await?;
 
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
 
     async fn entrypoint_preferences_required(&self, entrypoint_id: EntrypointId) -> anyhow::Result<bool> {
-        let DbReadPluginEntrypoint { preferences, preferences_user_data, .. } = self.repository
-            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string()).await?;
+        let DbReadPluginEntrypoint {
+            preferences,
+            preferences_user_data,
+            ..
+        } = self
+            .repository
+            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())
+            .await?;
 
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
 
     async fn clipboard_read(&self) -> anyhow::Result<JsClipboardData> {
-        let allow = self
-            .permissions
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Read);
+        let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Read);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
@@ -928,10 +1077,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn clipboard_read_text(&self) -> anyhow::Result<Option<String>> {
-        let allow = self
-            .permissions
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Read);
+        let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Read);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
@@ -943,10 +1089,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn clipboard_write(&self, data: JsClipboardData) -> anyhow::Result<()> {
-        let allow = self
-            .permissions
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Write);
+        let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Write);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
@@ -958,10 +1101,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn clipboard_write_text(&self, data: String) -> anyhow::Result<()> {
-        let allow = self
-            .permissions
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Write);
+        let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Write);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
@@ -973,10 +1113,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn clipboard_clear(&self) -> anyhow::Result<()> {
-        let allow = self
-            .permissions
-            .clipboard
-            .contains(&PluginPermissionsClipboard::Clear);
+        let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Clear);
 
         if !allow {
             return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard"));
@@ -988,7 +1125,9 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn ui_update_loading_bar(&self, entrypoint_id: EntrypointId, show: bool) -> anyhow::Result<()> {
-        self.frontend_api.update_loading_bar(self.plugin_id.clone(), entrypoint_id, show).await?;
+        self.frontend_api
+            .update_loading_bar(self.plugin_id.clone(), entrypoint_id, show)
+            .await?;
 
         Ok(())
     }
@@ -1012,17 +1151,20 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
-        modifier_meta: bool
+        modifier_meta: bool,
     ) -> anyhow::Result<Option<String>> {
-        let result = self.repository.get_action_id_for_shortcut(
-            &self.plugin_id.to_string(),
-            &entrypoint_id.to_string(),
-            PhysicalKey::from_value(key),
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta
-        ).await?;
+        let result = self
+            .repository
+            .get_action_id_for_shortcut(
+                &self.plugin_id.to_string(),
+                &entrypoint_id.to_string(),
+                PhysicalKey::from_value(key),
+                modifier_shift,
+                modifier_control,
+                modifier_alt,
+                modifier_meta,
+            )
+            .await?;
 
         Ok(result)
     }
@@ -1035,19 +1177,20 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         top_level_view: bool,
         container: RootWidget,
     ) -> anyhow::Result<()> {
-
         let images = ImageGatherer::run_gatherer(&self, &container).await?;
 
-        self.frontend_api.replace_view(
-            self.plugin_id.clone(),
-            self.plugin_name.clone(),
-            entrypoint_id,
-            entrypoint_name,
-            render_location,
-            top_level_view,
-            container,
-            images
-        ).await?;
+        self.frontend_api
+            .replace_view(
+                self.plugin_id.clone(),
+                self.plugin_name.clone(),
+                entrypoint_id,
+                entrypoint_name,
+                render_location,
+                top_level_view,
+                container,
+                images,
+            )
+            .await?;
 
         Ok(())
     }
@@ -1055,13 +1198,11 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     async fn ui_show_plugin_error_view(
         &self,
         entrypoint_id: EntrypointId,
-        render_location: UiRenderLocation
+        render_location: UiRenderLocation,
     ) -> anyhow::Result<()> {
-        self.frontend_api.show_plugin_error_view(
-            self.plugin_id.clone(),
-            entrypoint_id,
-            render_location
-        ).await?;
+        self.frontend_api
+            .show_plugin_error_view(self.plugin_id.clone(), entrypoint_id, render_location)
+            .await?;
 
         Ok(())
     }
@@ -1070,15 +1211,16 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         &self,
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
-        entrypoint_preferences_required: bool
+        entrypoint_preferences_required: bool,
     ) -> anyhow::Result<()> {
-
-        self.frontend_api.show_preference_required_view(
-            self.plugin_id.clone(),
-            entrypoint_id,
-            plugin_preferences_required,
-            entrypoint_preferences_required
-        ).await?;
+        self.frontend_api
+            .show_preference_required_view(
+                self.plugin_id.clone(),
+                entrypoint_id,
+                plugin_preferences_required,
+                entrypoint_preferences_required,
+            )
+            .await?;
 
         Ok(())
     }
@@ -1090,31 +1232,91 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 }
 
-
 fn preferences_to_js(
     preferences: HashMap<String, DbPluginPreference>,
-    mut preferences_user_data: HashMap<String, DbPluginPreferenceUserData>
+    mut preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 ) -> HashMap<String, JsPreferenceUserData> {
-    preferences.into_iter()
+    preferences
+        .into_iter()
         .map(|(name, preference)| {
             let user_data = match preferences_user_data.remove(&name) {
-                None => match preference {
-                    DbPluginPreference::Number { default, .. } => JsPreferenceUserData::Number(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::String { default, .. } => JsPreferenceUserData::String(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::Enum { default, .. } => JsPreferenceUserData::String(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::Bool { default, .. } => JsPreferenceUserData::Bool(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::ListOfStrings { default, .. } => JsPreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::ListOfNumbers { default, .. } => JsPreferenceUserData::ListOfNumbers(default.expect("at this point preference should always have value")),
-                    DbPluginPreference::ListOfEnums { default, .. } => JsPreferenceUserData::ListOfStrings(default.expect("at this point preference should always have value")),
+                None => {
+                    match preference {
+                        DbPluginPreference::Number { default, .. } => {
+                            JsPreferenceUserData::Number(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreference::String { default, .. } => {
+                            JsPreferenceUserData::String(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreference::Enum { default, .. } => {
+                            JsPreferenceUserData::String(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreference::Bool { default, .. } => {
+                            JsPreferenceUserData::Bool(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreference::ListOfStrings { default, .. } => {
+                            JsPreferenceUserData::ListOfStrings(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreference::ListOfNumbers { default, .. } => {
+                            JsPreferenceUserData::ListOfNumbers(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreference::ListOfEnums { default, .. } => {
+                            JsPreferenceUserData::ListOfStrings(
+                                default.expect("at this point preference should always have value"),
+                            )
+                        }
+                    }
                 }
-                Some(user_data) => match user_data {
-                    DbPluginPreferenceUserData::Number { value } => JsPreferenceUserData::Number(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::String { value } => JsPreferenceUserData::String(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::Enum { value } => JsPreferenceUserData::String(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::Bool { value } => JsPreferenceUserData::Bool(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::ListOfStrings { value } => JsPreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::ListOfNumbers { value } => JsPreferenceUserData::ListOfNumbers(value.expect("at this point preference should always have value")),
-                    DbPluginPreferenceUserData::ListOfEnums { value } => JsPreferenceUserData::ListOfStrings(value.expect("at this point preference should always have value")),
+                Some(user_data) => {
+                    match user_data {
+                        DbPluginPreferenceUserData::Number { value } => {
+                            JsPreferenceUserData::Number(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreferenceUserData::String { value } => {
+                            JsPreferenceUserData::String(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreferenceUserData::Enum { value } => {
+                            JsPreferenceUserData::String(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreferenceUserData::Bool { value } => {
+                            JsPreferenceUserData::Bool(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreferenceUserData::ListOfStrings { value } => {
+                            JsPreferenceUserData::ListOfStrings(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreferenceUserData::ListOfNumbers { value } => {
+                            JsPreferenceUserData::ListOfNumbers(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                        DbPluginPreferenceUserData::ListOfEnums { value } => {
+                            JsPreferenceUserData::ListOfStrings(
+                                value.expect("at this point preference should always have value"),
+                            )
+                        }
+                    }
                 }
             };
 
@@ -1123,7 +1325,10 @@ fn preferences_to_js(
         .collect()
 }
 
-fn any_preferences_missing_value(preferences: HashMap<String, DbPluginPreference>, preferences_user_data: HashMap<String, DbPluginPreferenceUserData>) -> bool {
+fn any_preferences_missing_value(
+    preferences: HashMap<String, DbPluginPreference>,
+    preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
+) -> bool {
     for (name, preference) in preferences {
         match preferences_user_data.get(&name) {
             None => {
@@ -1138,7 +1343,7 @@ fn any_preferences_missing_value(preferences: HashMap<String, DbPluginPreference
                 };
 
                 if no_default {
-                    return true
+                    return true;
                 }
             }
             Some(preference) => {
@@ -1153,7 +1358,7 @@ fn any_preferences_missing_value(preferences: HashMap<String, DbPluginPreference
                 };
 
                 if no_value {
-                    return true
+                    return true;
                 }
             }
         }

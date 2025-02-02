@@ -1,11 +1,19 @@
-use crate::model::UiViewEvent;
-use crate::ui::widget::{ActionPanel, ComponentWidgetEvent};
-use crate::ui::widget_container::PluginWidgetContainer;
-use crate::ui::AppMsg;
-use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiRenderLocation, UiWidgetId};
-use iced::Task;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::RootWidget;
+use gauntlet_common::model::UiRenderLocation;
+use gauntlet_common::model::UiWidgetId;
+use iced::Task;
+
+use crate::model::UiViewEvent;
+use crate::ui::widget::ActionPanel;
+use crate::ui::widget::ComponentWidgetEvent;
+use crate::ui::widget_container::PluginWidgetContainer;
+use crate::ui::AppMsg;
 
 pub struct ClientContext {
     inline_views: Vec<(PluginId, PluginWidgetContainer)>, // Vec to have stable ordering
@@ -27,8 +35,7 @@ impl ClientContext {
     }
 
     pub fn get_first_inline_view_container(&self) -> Option<&PluginWidgetContainer> {
-        self.inline_views.first()
-            .map(|(_, container)| container)
+        self.inline_views.first().map(|(_, container)| container)
     }
 
     pub fn get_first_inline_view_action_panel(&self) -> Option<ActionPanel> {
@@ -43,7 +50,8 @@ impl ClientContext {
     }
 
     pub fn get_inline_view_container(&self, plugin_id: &PluginId) -> &PluginWidgetContainer {
-        self.inline_views.iter()
+        self.inline_views
+            .iter()
             .find(|(id, _)| id == plugin_id)
             .map(|(_, container)| container)
             .expect("there should always be container for plugin at this point")
@@ -54,7 +62,8 @@ impl ClientContext {
             let (_, container) = &mut self.inline_views[index];
             container
         } else {
-            self.inline_views.push((plugin_id.clone(), PluginWidgetContainer::new()));
+            self.inline_views
+                .push((plugin_id.clone(), PluginWidgetContainer::new()));
             let (_, container) = self.inline_views.last_mut().expect("getting just pushed item");
             container
         }
@@ -84,11 +93,29 @@ impl ClientContext {
         plugin_id: &PluginId,
         plugin_name: &str,
         entrypoint_id: &EntrypointId,
-        entrypoint_name: &str
+        entrypoint_name: &str,
     ) -> AppMsg {
         match render_location {
-            UiRenderLocation::InlineView => self.get_mut_inline_view_container(plugin_id).replace_view(container, images, plugin_id, plugin_name, entrypoint_id, entrypoint_name),
-            UiRenderLocation::View => self.get_mut_view_container().replace_view(container, images, plugin_id, plugin_name, entrypoint_id, entrypoint_name)
+            UiRenderLocation::InlineView => {
+                self.get_mut_inline_view_container(plugin_id).replace_view(
+                    container,
+                    images,
+                    plugin_id,
+                    plugin_name,
+                    entrypoint_id,
+                    entrypoint_name,
+                )
+            }
+            UiRenderLocation::View => {
+                self.get_mut_view_container().replace_view(
+                    container,
+                    images,
+                    plugin_id,
+                    plugin_name,
+                    entrypoint_id,
+                    entrypoint_name,
+                )
+            }
         }
     }
 
@@ -96,7 +123,7 @@ impl ClientContext {
         self.inline_view_shortcuts = shortcuts;
     }
 
-     pub fn clear_all_inline_views(&mut self) {
+    pub fn clear_all_inline_views(&mut self) {
         self.inline_views.clear()
     }
 
@@ -106,10 +133,18 @@ impl ClientContext {
         }
     }
 
-    pub fn handle_event(&mut self, render_location: UiRenderLocation, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
+    pub fn handle_event(
+        &mut self,
+        render_location: UiRenderLocation,
+        plugin_id: &PluginId,
+        event: ComponentWidgetEvent,
+    ) -> Option<UiViewEvent> {
         match render_location {
-            UiRenderLocation::InlineView => self.get_mut_inline_view_container(&plugin_id).handle_event(plugin_id.clone(), event),
-            UiRenderLocation::View => self.get_mut_view_container().handle_event(plugin_id.clone(), event)
+            UiRenderLocation::InlineView => {
+                self.get_mut_inline_view_container(&plugin_id)
+                    .handle_event(plugin_id.clone(), event)
+            }
+            UiRenderLocation::View => self.get_mut_view_container().handle_event(plugin_id.clone(), event),
         }
     }
 

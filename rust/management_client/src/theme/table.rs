@@ -1,8 +1,9 @@
 use iced::widget::container;
 use iced::Border;
 
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, TEXT_LIGHTEST};
-
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::BACKGROUND_DARKER;
+use crate::theme::TEXT_LIGHTEST;
 
 impl iced_table::Catalog for GauntletSettingsTheme {
     type Style = ();
@@ -50,8 +51,6 @@ impl iced_table::Catalog for GauntletSettingsTheme {
     }
 
     fn divider(&self, _: &Self::Style, _hovered: bool) -> container::Style {
-        container::Style {
-            ..Default::default()
-        }
+        container::Style { ..Default::default() }
     }
 }

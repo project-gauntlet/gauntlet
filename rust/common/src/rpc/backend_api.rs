@@ -1,44 +1,85 @@
 use std::collections::HashMap;
+
+use gauntlet_utils::channel::RequestError;
+use gauntlet_utils::channel::RequestSender;
 use thiserror::Error;
-use tonic::{Code, Request};
 use tonic::transport::Channel;
+use tonic::Code;
+use tonic::Request;
 
-use gauntlet_utils::channel::{RequestError, RequestSender};
-
-use crate::model::{BackendRequestData, BackendResponseData, DownloadStatus, EntrypointId, KeyboardEventOrigin, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SearchResult, SettingsEntrypoint, SettingsEntrypointType, SettingsPlugin, SettingsTheme, UiPropertyValue, UiSetupData, UiWidgetId, WindowPositionMode};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadStatus, RpcDownloadStatusRequest, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetThemeRequest, RpcGetWindowPositionModeRequest, RpcPingRequest, RpcPluginsRequest, RpcRemovePluginRequest, RpcSaveLocalPluginRequest, RpcSetEntrypointStateRequest, RpcSetGlobalShortcutRequest, RpcSetPluginStateRequest, RpcSetPreferenceValueRequest, RpcSetThemeRequest, RpcSetWindowPositionModeRequest, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowWindowRequest};
+use crate::model::BackendRequestData;
+use crate::model::BackendResponseData;
+use crate::model::DownloadStatus;
+use crate::model::EntrypointId;
+use crate::model::KeyboardEventOrigin;
+use crate::model::LocalSaveData;
+use crate::model::PhysicalKey;
+use crate::model::PhysicalShortcut;
+use crate::model::PluginId;
+use crate::model::PluginPreferenceUserData;
+use crate::model::SearchResult;
+use crate::model::SettingsEntrypoint;
+use crate::model::SettingsEntrypointType;
+use crate::model::SettingsPlugin;
+use crate::model::SettingsTheme;
+use crate::model::UiPropertyValue;
+use crate::model::UiSetupData;
+use crate::model::UiWidgetId;
+use crate::model::WindowPositionMode;
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
-use crate::rpc::grpc_convert::{plugin_preference_from_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
+use crate::rpc::grpc::RpcDownloadPluginRequest;
+use crate::rpc::grpc::RpcDownloadStatus;
+use crate::rpc::grpc::RpcDownloadStatusRequest;
+use crate::rpc::grpc::RpcEntrypointTypeSettings;
+use crate::rpc::grpc::RpcGetGlobalShortcutRequest;
+use crate::rpc::grpc::RpcGetThemeRequest;
+use crate::rpc::grpc::RpcGetWindowPositionModeRequest;
+use crate::rpc::grpc::RpcPingRequest;
+use crate::rpc::grpc::RpcPluginsRequest;
+use crate::rpc::grpc::RpcRemovePluginRequest;
+use crate::rpc::grpc::RpcSaveLocalPluginRequest;
+use crate::rpc::grpc::RpcSetEntrypointStateRequest;
+use crate::rpc::grpc::RpcSetGlobalShortcutRequest;
+use crate::rpc::grpc::RpcSetPluginStateRequest;
+use crate::rpc::grpc::RpcSetPreferenceValueRequest;
+use crate::rpc::grpc::RpcSetThemeRequest;
+use crate::rpc::grpc::RpcSetWindowPositionModeRequest;
+use crate::rpc::grpc::RpcShortcut;
+use crate::rpc::grpc::RpcShowSettingsWindowRequest;
+use crate::rpc::grpc::RpcShowWindowRequest;
+use crate::rpc::grpc_convert::plugin_preference_from_rpc;
+use crate::rpc::grpc_convert::plugin_preference_user_data_from_rpc;
+use crate::rpc::grpc_convert::plugin_preference_user_data_to_rpc;
 
 #[derive(Error, Debug, Clone)]
 pub enum BackendForFrontendApiError {
     #[error("Frontend wasn't able to process request in a timely manner")]
     TimeoutError,
     #[error("Internal Error: {display:?}")]
-    Internal {
-        display: String
-    },
+    Internal { display: String },
 }
 
 impl From<RequestError> for BackendForFrontendApiError {
     fn from(error: RequestError) -> BackendForFrontendApiError {
         match error {
             RequestError::TimeoutError => BackendForFrontendApiError::TimeoutError,
-            RequestError::OtherSideWasDropped => BackendForFrontendApiError::Internal { display: "other side was dropped".to_string() }
+            RequestError::OtherSideWasDropped => {
+                BackendForFrontendApiError::Internal {
+                    display: "other side was dropped".to_string(),
+                }
+            }
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct BackendForFrontendApi {
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 }
 
 impl BackendForFrontendApi {
     pub fn new(backend_sender: RequestSender<BackendRequestData, BackendResponseData>) -> Self {
-        Self {
-            backend_sender
-        }
+        Self { backend_sender }
     }
 
     pub async fn setup_data(&mut self) -> Result<UiSetupData, BackendForFrontendApiError> {
@@ -51,10 +92,11 @@ impl BackendForFrontendApi {
         Ok(data)
     }
 
-    pub async fn setup_response(&mut self, global_shortcut_error: Option<String>) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SetupResponse {
-            global_shortcut_error
-        };
+    pub async fn setup_response(
+        &mut self,
+        global_shortcut_error: Option<String>,
+    ) -> Result<(), BackendForFrontendApiError> {
+        let request = BackendRequestData::SetupResponse { global_shortcut_error };
 
         let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
             unreachable!()
@@ -63,7 +105,11 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn search(&mut self, text: String, render_inline_view: bool) -> Result<Vec<SearchResult>, BackendForFrontendApiError> {
+    pub async fn search(
+        &mut self,
+        text: String,
+        render_inline_view: bool,
+    ) -> Result<Vec<SearchResult>, BackendForFrontendApiError> {
         let request = BackendRequestData::Search {
             text,
             render_inline_view,
@@ -76,13 +122,18 @@ impl BackendForFrontendApi {
         Ok(results)
     }
 
-    pub async fn request_view_render(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Result<HashMap<String, PhysicalShortcut>, BackendForFrontendApiError> {
+    pub async fn request_view_render(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> Result<HashMap<String, PhysicalShortcut>, BackendForFrontendApiError> {
         let request = BackendRequestData::RequestViewRender {
             plugin_id,
             entrypoint_id,
         };
 
-        let BackendResponseData::RequestViewRender { shortcuts } = self.backend_sender.send_receive(request).await? else {
+        let BackendResponseData::RequestViewRender { shortcuts } = self.backend_sender.send_receive(request).await?
+        else {
             unreachable!()
         };
 
@@ -90,9 +141,7 @@ impl BackendForFrontendApi {
     }
 
     pub async fn request_view_close(&mut self, plugin_id: PluginId) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::RequestViewClose {
-            plugin_id,
-        };
+        let request = BackendRequestData::RequestViewClose { plugin_id };
 
         let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
             unreachable!()
@@ -101,7 +150,11 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn request_run_command(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Result<(), BackendForFrontendApiError> {
+    pub async fn request_run_command(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::RequestRunCommand {
             plugin_id,
             entrypoint_id,
@@ -114,7 +167,12 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn request_run_generated_entrypoint(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Result<(), BackendForFrontendApiError> {
+    pub async fn request_run_generated_entrypoint(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_index: usize,
+    ) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::RequestRunGeneratedEntrypoint {
             plugin_id,
             entrypoint_id,
@@ -133,7 +191,7 @@ impl BackendForFrontendApi {
         plugin_id: PluginId,
         widget_id: UiWidgetId,
         event_name: String,
-        event_arguments: Vec<UiPropertyValue>
+        event_arguments: Vec<UiPropertyValue>,
     ) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::SendViewEvent {
             plugin_id,
@@ -158,7 +216,7 @@ impl BackendForFrontendApi {
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
-        modifier_meta: bool
+        modifier_meta: bool,
     ) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::SendKeyboardEvent {
             plugin_id,
@@ -178,11 +236,12 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn send_open_event(&mut self, plugin_id: PluginId, href: String) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SendOpenEvent {
-            plugin_id,
-            href,
-        };
+    pub async fn send_open_event(
+        &mut self,
+        plugin_id: PluginId,
+        href: String,
+    ) -> Result<(), BackendForFrontendApiError> {
+        let request = BackendRequestData::SendOpenEvent { plugin_id, href };
 
         let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
             unreachable!()
@@ -191,7 +250,7 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn open_settings_window(&mut self, ) -> Result<(), BackendForFrontendApiError> {
+    pub async fn open_settings_window(&mut self) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::OpenSettingsWindow;
 
         let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
@@ -201,7 +260,11 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn open_settings_window_preferences(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) -> Result<(), BackendForFrontendApiError> {
+    pub async fn open_settings_window_preferences(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>,
+    ) -> Result<(), BackendForFrontendApiError> {
         let request = BackendRequestData::OpenSettingsWindowPreferences {
             plugin_id,
             entrypoint_id,
@@ -214,10 +277,13 @@ impl BackendForFrontendApi {
         Ok(())
     }
 
-    pub async fn inline_view_shortcuts(&self) -> Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>, BackendForFrontendApiError> {
+    pub async fn inline_view_shortcuts(
+        &self,
+    ) -> Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>, BackendForFrontendApiError> {
         let request = BackendRequestData::InlineViewShortcuts;
 
-        let BackendResponseData::InlineViewShortcuts { shortcuts } = self.backend_sender.send_receive(request).await? else {
+        let BackendResponseData::InlineViewShortcuts { shortcuts } = self.backend_sender.send_receive(request).await?
+        else {
             unreachable!()
         };
 
@@ -230,9 +296,7 @@ pub enum BackendApiError {
     #[error("Timeout Error")]
     Timeout,
     #[error("Internal Backend Error: {display:?}")]
-    Internal {
-        display: String
-    },
+    Internal { display: String },
 }
 
 impl From<tonic::Status> for BackendApiError {
@@ -240,74 +304,83 @@ impl From<tonic::Status> for BackendApiError {
         match error.code() {
             Code::Ok => unreachable!(),
             Code::DeadlineExceeded => BackendApiError::Timeout,
-            _ => BackendApiError::Internal {
-                display: format!("{}", error)
+            _ => {
+                BackendApiError::Internal {
+                    display: format!("{}", error),
+                }
             }
         }
-
     }
 }
 
 impl From<prost::UnknownEnumValue> for BackendApiError {
     fn from(error: prost::UnknownEnumValue) -> BackendApiError {
         BackendApiError::Internal {
-            display: format!("{}", error)
+            display: format!("{}", error),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct BackendApi {
-    client: RpcBackendClient<Channel>
+    client: RpcBackendClient<Channel>,
 }
 
 impl BackendApi {
     pub async fn new() -> anyhow::Result<Self> {
         Ok(Self {
-            client: RpcBackendClient::connect("http://127.0.0.1:42320").await?
+            client: RpcBackendClient::connect("http://127.0.0.1:42320").await?,
         })
     }
 
     pub async fn ping(&mut self) -> Result<(), BackendApiError> {
-        let _ = self.client.ping(Request::new(RpcPingRequest::default()))
-            .await?;
+        let _ = self.client.ping(Request::new(RpcPingRequest::default())).await?;
 
         Ok(())
     }
 
     pub async fn show_window(&mut self) -> Result<(), BackendApiError> {
-        let _ = self.client.show_window(Request::new(RpcShowWindowRequest::default()))
+        let _ = self
+            .client
+            .show_window(Request::new(RpcShowWindowRequest::default()))
             .await?;
 
         Ok(())
     }
 
     pub async fn show_settings_window(&mut self) -> Result<(), BackendApiError> {
-        let _ = self.client.show_settings_window(Request::new(RpcShowSettingsWindowRequest::default()))
+        let _ = self
+            .client
+            .show_settings_window(Request::new(RpcShowSettingsWindowRequest::default()))
             .await?;
 
         Ok(())
     }
 
     pub async fn plugins(&mut self) -> Result<HashMap<PluginId, SettingsPlugin>, BackendApiError> {
-        let plugins = self.client.plugins(Request::new(RpcPluginsRequest::default()))
+        let plugins = self
+            .client
+            .plugins(Request::new(RpcPluginsRequest::default()))
             .await?
             .into_inner()
             .plugins
             .into_iter()
             .map(|plugin| {
-                let entrypoints: HashMap<_, _> = plugin.entrypoints
+                let entrypoints: HashMap<_, _> = plugin
+                    .entrypoints
                     .into_iter()
                     .map(|entrypoint| {
                         let id = EntrypointId::from_string(entrypoint.entrypoint_id);
-                        let entrypoint_type: RpcEntrypointTypeSettings = entrypoint.entrypoint_type.try_into()
-                            .expect("download status failed"); // TODO proper error handling
+                        let entrypoint_type: RpcEntrypointTypeSettings =
+                            entrypoint.entrypoint_type.try_into().expect("download status failed"); // TODO proper error handling
 
                         let entrypoint_type = match entrypoint_type {
                             RpcEntrypointTypeSettings::SCommand => SettingsEntrypointType::Command,
                             RpcEntrypointTypeSettings::SView => SettingsEntrypointType::View,
                             RpcEntrypointTypeSettings::SInlineView => SettingsEntrypointType::InlineView,
-                            RpcEntrypointTypeSettings::SEntrypointGenerator => SettingsEntrypointType::EntrypointGenerator
+                            RpcEntrypointTypeSettings::SEntrypointGenerator => {
+                                SettingsEntrypointType::EntrypointGenerator
+                            }
                         };
 
                         let entrypoint = SettingsEntrypoint {
@@ -316,10 +389,14 @@ impl BackendApi {
                             entrypoint_name: entrypoint.entrypoint_name.clone(),
                             entrypoint_description: entrypoint.entrypoint_description,
                             entrypoint_type,
-                            preferences: entrypoint.preferences.into_iter()
+                            preferences: entrypoint
+                                .preferences
+                                .into_iter()
                                 .map(|(key, value)| (key, plugin_preference_from_rpc(value)))
                                 .collect(),
-                            preferences_user_data: entrypoint.preferences_user_data.into_iter()
+                            preferences_user_data: entrypoint
+                                .preferences_user_data
+                                .into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_from_rpc(value)))
                                 .collect(),
                         };
@@ -334,10 +411,14 @@ impl BackendApi {
                     plugin_description: plugin.plugin_description,
                     enabled: plugin.enabled,
                     entrypoints,
-                    preferences: plugin.preferences.into_iter()
+                    preferences: plugin
+                        .preferences
+                        .into_iter()
                         .map(|(key, value)| (key, plugin_preference_from_rpc(value)))
                         .collect(),
-                    preferences_user_data: plugin.preferences_user_data.into_iter()
+                    preferences_user_data: plugin
+                        .preferences_user_data
+                        .into_iter()
                         .map(|(key, value)| (key, plugin_preference_user_data_from_rpc(value)))
                         .collect(),
                 };
@@ -355,26 +436,32 @@ impl BackendApi {
             enabled,
         };
 
-        self.client.set_plugin_state(Request::new(request))
-            .await?;
+        self.client.set_plugin_state(Request::new(request)).await?;
 
         Ok(())
     }
 
-    pub async fn set_entrypoint_state(&mut self, plugin_id: PluginId, entrypoint_id: EntrypointId, enabled: bool) -> Result<(), BackendApiError> {
+    pub async fn set_entrypoint_state(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        enabled: bool,
+    ) -> Result<(), BackendApiError> {
         let request = RpcSetEntrypointStateRequest {
             plugin_id: plugin_id.to_string(),
             entrypoint_id: entrypoint_id.to_string(),
             enabled,
         };
 
-        self.client.set_entrypoint_state(Request::new(request))
-            .await?;
+        self.client.set_entrypoint_state(Request::new(request)).await?;
 
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&mut self, shortcut: Option<PhysicalShortcut>) -> Result<Option<String>, BackendApiError> {
+    pub async fn set_global_shortcut(
+        &mut self,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> Result<Option<String>, BackendApiError> {
         let request = RpcSetGlobalShortcutRequest {
             shortcut: shortcut.map(|shortcut| {
                 RpcShortcut {
@@ -384,10 +471,12 @@ impl BackendApi {
                     modifier_alt: shortcut.modifier_alt,
                     modifier_meta: shortcut.modifier_meta,
                 }
-            })
+            }),
         };
 
-        let error = self.client.set_global_shortcut(Request::new(request))
+        let error = self
+            .client
+            .set_global_shortcut(Request::new(request))
             .await?
             .into_inner()
             .error;
@@ -396,23 +485,24 @@ impl BackendApi {
     }
 
     pub async fn get_global_shortcut(&mut self) -> Result<(Option<PhysicalShortcut>, Option<String>), BackendApiError> {
-        let response = self.client.get_global_shortcut(Request::new(RpcGetGlobalShortcutRequest::default()))
+        let response = self
+            .client
+            .get_global_shortcut(Request::new(RpcGetGlobalShortcutRequest::default()))
             .await?;
 
         let response = response.into_inner();
 
         Ok((
-            response.shortcut
-                .map(|shortcut| {
-                    PhysicalShortcut {
-                        physical_key: PhysicalKey::from_value(shortcut.physical_key),
-                        modifier_shift: shortcut.modifier_shift,
-                        modifier_control: shortcut.modifier_control,
-                        modifier_alt: shortcut.modifier_alt,
-                        modifier_meta: shortcut.modifier_meta,
-                    }
-                }),
-            response.error
+            response.shortcut.map(|shortcut| {
+                PhysicalShortcut {
+                    physical_key: PhysicalKey::from_value(shortcut.physical_key),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                }
+            }),
+            response.error,
         ))
     }
 
@@ -427,17 +517,18 @@ impl BackendApi {
         };
 
         let request = RpcSetThemeRequest {
-            theme: theme.to_string()
+            theme: theme.to_string(),
         };
 
-        self.client.set_theme(Request::new(request))
-            .await?;
+        self.client.set_theme(Request::new(request)).await?;
 
         Ok(())
     }
 
     pub async fn get_theme(&mut self) -> Result<SettingsTheme, BackendApiError> {
-        let response = self.client.get_theme(Request::new(RpcGetThemeRequest::default()))
+        let response = self
+            .client
+            .get_theme(Request::new(RpcGetThemeRequest::default()))
             .await?;
 
         let theme = response.into_inner().theme;
@@ -449,7 +540,7 @@ impl BackendApi {
             "MacOSLight" => SettingsTheme::MacOSLight,
             "MacOSDark" => SettingsTheme::MacOSDark,
             "Legacy" => SettingsTheme::Legacy,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         Ok(theme)
@@ -461,18 +552,17 @@ impl BackendApi {
             WindowPositionMode::ActiveMonitor => "ActiveMonitor",
         };
 
-        let request = RpcSetWindowPositionModeRequest {
-            mode: mode.to_string()
-        };
+        let request = RpcSetWindowPositionModeRequest { mode: mode.to_string() };
 
-        self.client.set_window_position_mode(Request::new(request))
-            .await?;
+        self.client.set_window_position_mode(Request::new(request)).await?;
 
         Ok(())
     }
 
     pub async fn get_window_position_mode(&mut self) -> Result<WindowPositionMode, BackendApiError> {
-        let response = self.client.get_window_position_mode(Request::new(RpcGetWindowPositionModeRequest::default()))
+        let response = self
+            .client
+            .get_window_position_mode(Request::new(RpcGetWindowPositionModeRequest::default()))
             .await?;
 
         let mode = response.into_inner().mode;
@@ -480,13 +570,19 @@ impl BackendApi {
         let mode = match mode.as_str() {
             "Static" => WindowPositionMode::Static,
             "ActiveMonitor" => WindowPositionMode::ActiveMonitor,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         Ok(mode)
     }
 
-    pub async fn set_preference_value(&mut self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>, id: String, user_data: PluginPreferenceUserData) -> Result<(), BackendApiError> {
+    pub async fn set_preference_value(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>,
+        id: String,
+        user_data: PluginPreferenceUserData,
+    ) -> Result<(), BackendApiError> {
         let request = RpcSetPreferenceValueRequest {
             plugin_id: plugin_id.to_string(),
             entrypoint_id: entrypoint_id.map(|id| id.to_string()).unwrap_or_default(),
@@ -494,25 +590,25 @@ impl BackendApi {
             preference_value: Some(plugin_preference_user_data_to_rpc(user_data)),
         };
 
-        self.client.set_preference_value(Request::new(request))
-            .await?;
+        self.client.set_preference_value(Request::new(request)).await?;
 
         Ok(())
     }
 
     pub async fn download_plugin(&mut self, plugin_id: PluginId) -> Result<(), BackendApiError> {
         let request = RpcDownloadPluginRequest {
-            plugin_id: plugin_id.to_string()
+            plugin_id: plugin_id.to_string(),
         };
 
-        self.client.download_plugin(Request::new(request))
-            .await?;
+        self.client.download_plugin(Request::new(request)).await?;
 
         Ok(())
     }
 
     pub async fn download_status(&mut self) -> Result<HashMap<PluginId, DownloadStatus>, BackendApiError> {
-        let plugins = self.client.download_status(Request::new(RpcDownloadStatusRequest::default()))
+        let plugins = self
+            .client
+            .download_status(Request::new(RpcDownloadStatusRequest::default()))
             .await?
             .into_inner()
             .status_per_plugin
@@ -523,7 +619,11 @@ impl BackendApi {
                 let status = match status.status.try_into()? {
                     RpcDownloadStatus::InProgress => DownloadStatus::InProgress,
                     RpcDownloadStatus::Done => DownloadStatus::Done,
-                    RpcDownloadStatus::Failed => DownloadStatus::Failed { message: status.message },
+                    RpcDownloadStatus::Failed => {
+                        DownloadStatus::Failed {
+                            message: status.message,
+                        }
+                    }
                 };
 
                 Ok::<(PluginId, DownloadStatus), BackendApiError>((plugin_id, status))
@@ -534,10 +634,11 @@ impl BackendApi {
     }
 
     pub async fn remove_plugin(&mut self, plugin_id: PluginId) -> Result<(), BackendApiError> {
-        let request = RpcRemovePluginRequest { plugin_id: plugin_id.to_string() };
+        let request = RpcRemovePluginRequest {
+            plugin_id: plugin_id.to_string(),
+        };
 
-        self.client.remove_plugin(Request::new(request))
-            .await?;
+        self.client.remove_plugin(Request::new(request)).await?;
 
         Ok(())
     }
@@ -545,9 +646,7 @@ impl BackendApi {
     pub async fn save_local_plugin(&mut self, path: String) -> Result<LocalSaveData, BackendApiError> {
         let request = RpcSaveLocalPluginRequest { path };
 
-        let response = self.client.save_local_plugin(Request::new(request))
-            .await?
-            .into_inner();
+        let response = self.client.save_local_plugin(Request::new(request)).await?.into_inner();
 
         Ok(LocalSaveData {
             stdout_file_path: response.stdout_file_path,

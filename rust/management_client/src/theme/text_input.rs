@@ -1,10 +1,17 @@
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, TEXT_DARKER, TEXT_LIGHTEST, TRANSPARENT};
 use iced::widget::text_input;
-use iced::widget::text_input::{Status, Style};
-use iced::{Background, Border};
+use iced::widget::text_input::Status;
+use iced::widget::text_input::Style;
+use iced::Background;
+use iced::Border;
+
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::BACKGROUND_DARKER;
+use crate::theme::TEXT_DARKER;
+use crate::theme::TEXT_LIGHTEST;
+use crate::theme::TRANSPARENT;
 
 pub enum TextInputStyle {
-    FormInput
+    FormInput,
 }
 
 impl text_input::Catalog for GauntletSettingsTheme {
@@ -30,19 +37,25 @@ impl text_input::Catalog for GauntletSettingsTheme {
 
         match status {
             Status::Active => active,
-            Status::Hovered => Style {
-                background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
-                ..active
-            },
-            Status::Focused => Style {
-                background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
-                ..active
-            },
-            Status::Disabled => Style {
-                background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
-                value: active.placeholder,
-                ..active
-            },
+            Status::Hovered => {
+                Style {
+                    background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
+                    ..active
+                }
+            }
+            Status::Focused => {
+                Style {
+                    background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
+                    ..active
+                }
+            }
+            Status::Disabled => {
+                Style {
+                    background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
+                    value: active.placeholder,
+                    ..active
+                }
+            }
         }
     }
 }

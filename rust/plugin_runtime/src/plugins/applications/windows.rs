@@ -1,19 +1,30 @@
-use std::{mem, ptr};
 use std::io::Cursor;
+use std::mem;
 use std::mem::MaybeUninit;
-use crate::plugins::applications::{resize_icon, DesktopApplication, DesktopPathAction};
-use deno_core::op2;
 use std::path::PathBuf;
-use anyhow::{anyhow, Context};
+use std::ptr;
+
+use anyhow::anyhow;
+use anyhow::Context;
+use deno_core::op2;
 use image::RgbaImage;
 use tokio::task::spawn_blocking;
-use windows::core::{GUID, HSTRING, PWSTR};
-use windows::Win32::Foundation::{HANDLE, HWND};
+use windows::core::GUID;
+use windows::core::HSTRING;
+use windows::core::PWSTR;
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi;
 use windows::Win32::Graphics::Gdi::HDC;
 use windows::Win32::Storage::FileSystem;
-use windows::Win32::UI::{Controls, Shell, WindowsAndMessaging};
+use windows::Win32::UI::Controls;
 use windows::Win32::UI::Controls::HIMAGELIST;
+use windows::Win32::UI::Shell;
+use windows::Win32::UI::WindowsAndMessaging;
+
+use crate::plugins::applications::resize_icon;
+use crate::plugins::applications::DesktopApplication;
+use crate::plugins::applications::DesktopPathAction;
 
 deno_core::extension!(
     gauntlet_internal_windows,
@@ -24,11 +35,11 @@ deno_core::extension!(
     ],
     esm_entry_point = "ext:gauntlet/internal-windows/bootstrap.js",
     esm = [
-        "ext:gauntlet/internal-windows/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-windows-bootstrap.js",
-        "ext:gauntlet/internal-windows.js" =  "../../js/core/dist/internal-windows.js",
+        "ext:gauntlet/internal-windows/bootstrap.js" =
+            "../../js/bridge_build/dist/bridge-internal-windows-bootstrap.js",
+        "ext:gauntlet/internal-windows.js" = "../../js/core/dist/internal-windows.js",
     ]
 );
-
 
 #[op2]
 #[serde]
@@ -39,9 +50,9 @@ fn windows_application_dirs() -> Vec<String> {
         known_folder(&Shell::FOLDERID_StartMenu),
         known_folder(&Shell::FOLDERID_CommonStartMenu),
     ]
-        .into_iter()
-        .flatten()
-        .collect()
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 #[op2]
@@ -74,9 +85,7 @@ fn windows_app_from_path_blocking(file_path: String) -> anyhow::Result<Option<De
             },
         }))
     } else {
-        Ok(Some(DesktopPathAction::Remove {
-            id: file_path,
-        }))
+        Ok(Some(DesktopPathAction::Remove { id: file_path }))
     }
 }
 
@@ -100,8 +109,7 @@ fn extract_icon(file_path: &str) -> anyhow::Result<Vec<u8>> {
         let icon = image_list.GetIcon(shfileinfow.iIcon, Controls::ILD_TRANSPARENT.0)?;
 
         let mut icon_info = WindowsAndMessaging::ICONINFO::default();
-        WindowsAndMessaging::GetIconInfo(icon, &mut icon_info)
-            .context("Unable to GetIconInfo")?;
+        WindowsAndMessaging::GetIconInfo(icon, &mut icon_info).context("Unable to GetIconInfo")?;
 
         let _ = Gdi::DeleteObject(icon_info.hbmMask);
 
@@ -161,7 +169,7 @@ fn extract_icon(file_path: &str) -> anyhow::Result<Vec<u8>> {
         let _ = Gdi::DeleteObject(icon_info.hbmColor);
 
         let image_buffer = RgbaImage::from_fn(bitmap.bmWidth as u32, bitmap.bmHeight as u32, |x, y| {
-            let idx= y as usize * bitmap.bmWidth as usize + x as usize;
+            let idx = y as usize * bitmap.bmWidth as usize + x as usize;
             let [b, g, r, a] = bits[idx].to_le_bytes();
             [r, g, b, a].into()
         });
@@ -172,7 +180,8 @@ fn extract_icon(file_path: &str) -> anyhow::Result<Vec<u8>> {
 
         let mut result = Cursor::new(vec![]);
 
-        rgba_image.write_to(&mut result, image::ImageFormat::Png)
+        rgba_image
+            .write_to(&mut result, image::ImageFormat::Png)
             .expect("should be able to convert to png");
 
         let data = result.into_inner();
@@ -182,7 +191,6 @@ fn extract_icon(file_path: &str) -> anyhow::Result<Vec<u8>> {
         Ok(data)
     }
 }
-
 
 fn extract_name(file_path: &str) -> anyhow::Result<String> {
     let mut file_info = Shell::SHFILEINFOW::default();
@@ -197,11 +205,7 @@ fn extract_name(file_path: &str) -> anyhow::Result<String> {
         );
     }
 
-    let strlen = file_info
-        .szDisplayName
-        .iter()
-        .position(|x| *x == 0)
-        .unwrap();
+    let strlen = file_info.szDisplayName.iter().position(|x| *x == 0).unwrap();
 
     Ok(String::from_utf16(&file_info.szDisplayName[..strlen])?)
 }

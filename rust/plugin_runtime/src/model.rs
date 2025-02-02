@@ -1,9 +1,16 @@
-use crate::JsEvent;
-use gauntlet_common::model::{EntrypointId, Icons, PluginId, RootWidget};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use bincode::{Decode, Encode};
+
+use bincode::Decode;
+use bincode::Encode;
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::Icons;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::RootWidget;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::JsEvent;
 
 #[derive(Debug, Encode, Decode)]
 pub enum JsMessage {
@@ -15,7 +22,7 @@ pub enum JsMessage {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 pub enum JsUiRenderLocation {
     InlineView,
-    View
+    View,
 }
 
 #[derive(Debug, Encode, Decode)]
@@ -77,31 +84,31 @@ pub enum JsPluginRuntimeMessage {
 pub enum JsResponse {
     Nothing,
     AssetData {
-        data: Vec<u8>
+        data: Vec<u8>,
     },
     EntrypointGeneratorEntrypointIds {
-        data: Vec<String>
+        data: Vec<String>,
     },
     PluginPreferences {
-        data: HashMap<String, JsPreferenceUserData>
+        data: HashMap<String, JsPreferenceUserData>,
     },
     EntrypointPreferences {
-        data: HashMap<String, JsPreferenceUserData>
+        data: HashMap<String, JsPreferenceUserData>,
     },
     PluginPreferencesRequired {
-        data: bool
+        data: bool,
     },
     EntrypointPreferencesRequired {
-        data: bool
+        data: bool,
     },
     ClipboardRead {
-        data: JsClipboardData
+        data: JsClipboardData,
     },
     ClipboardReadText {
-        data: Option<String>
+        data: Option<String>,
     },
     ActionIdForShortcut {
-        data: Option<String>
+        data: Option<String>,
     },
 }
 
@@ -122,19 +129,19 @@ pub enum JsRequest {
     ShowPreferenceRequiredView {
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
-        entrypoint_preferences_required: bool
+        entrypoint_preferences_required: bool,
     },
     ShowHud {
-        display: String
+        display: String,
     },
     HideWindow,
     UpdateLoadingBar {
         entrypoint_id: EntrypointId,
-        show: bool
+        show: bool,
     },
     ReloadSearchIndex {
         generated_entrypoints: Vec<JsGeneratedSearchItem>,
-        refresh_search_list: bool
+        refresh_search_list: bool,
     },
     GetAssetData {
         path: String,
@@ -151,10 +158,10 @@ pub enum JsRequest {
     ClipboardRead,
     ClipboardReadText,
     ClipboardWrite {
-        data: JsClipboardData
+        data: JsClipboardData,
     },
     ClipboardWriteText {
-        data: String
+        data: String,
     },
     ClipboardClear,
     GetActionIdForShortcut {
@@ -163,7 +170,7 @@ pub enum JsRequest {
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
-        modifier_meta: bool
+        modifier_meta: bool,
     },
 }
 
@@ -199,7 +206,6 @@ pub struct JsGeneratedSearchItemAction {
     pub label: String,
 }
 
-
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
 pub enum JsGeneratedSearchItemActionType {
     View,
@@ -222,16 +228,16 @@ pub enum JsGeneratedSearchItemAccessory {
     TextAccessory {
         text: String,
         icon: Option<Icons>,
-        tooltip: Option<String>
+        tooltip: Option<String>,
     },
     IconAccessory {
         icon: Icons,
-        tooltip: Option<String>
+        tooltip: Option<String>,
     },
 }
 
 #[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct JsClipboardData {
     pub text_data: Option<String>,
-    pub png_data: Option<Vec<u8>>
+    pub png_data: Option<Vec<u8>>,
 }

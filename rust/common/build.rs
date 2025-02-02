@@ -3,19 +3,26 @@ use std::fs::File;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
-use gauntlet_component_model::{create_component_model, Arity, Children, Component, ComponentName, ComponentRef, Property, PropertyKind, PropertyType, SharedType};
-use itertools::Itertools;
 
-use convert_case::{Case, Casing};
+use convert_case::Case;
+use convert_case::Casing;
+use gauntlet_component_model::create_component_model;
+use gauntlet_component_model::Arity;
+use gauntlet_component_model::Children;
+use gauntlet_component_model::Component;
+use gauntlet_component_model::ComponentName;
+use gauntlet_component_model::ComponentRef;
+use gauntlet_component_model::Property;
+use gauntlet_component_model::PropertyKind;
+use gauntlet_component_model::PropertyType;
+use gauntlet_component_model::SharedType;
 use indexmap::IndexMap;
+use itertools::Itertools;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .protoc_arg("--experimental_allow_proto3_optional")
-        .compile_protos(
-            &["./../../schema/backend.proto"],
-            &["./../../schema/"],
-        )?;
+        .compile_protos(&["./../../schema/backend.proto"], &["./../../schema/"])?;
 
     component_model_generator()?;
 
@@ -32,14 +39,25 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
     for component in &components {
         match component {
-            Component::Standard { name, props, children, .. } => {
-                let props_has_content = props.iter().any(|prop| matches!(prop.property_type.kind(), PropertyKind::Component));
+            Component::Standard {
+                name, props, children, ..
+            } => {
+                let props_has_content = props
+                    .iter()
+                    .any(|prop| matches!(prop.property_type.kind(), PropertyKind::Component));
 
                 let children_has_content = match children {
-                    Children::Members { ordered_members, per_type_members, .. } | Children::StringOrMembers { ordered_members, per_type_members, .. } => {
-                        !ordered_members.is_empty() || !per_type_members.is_empty()
+                    Children::Members {
+                        ordered_members,
+                        per_type_members,
+                        ..
                     }
-                    _ => false
+                    | Children::StringOrMembers {
+                        ordered_members,
+                        per_type_members,
+                        ..
+                    } => !ordered_members.is_empty() || !per_type_members.is_empty(),
+                    _ => false,
                 };
 
                 let has_text = matches!(children, Children::StringOrMembers { .. } | Children::String { .. });
@@ -49,10 +67,17 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 let default = IndexMap::new();
 
                 let (ordered_members, per_type_members) = match children {
-                    Children::Members { ordered_members, per_type_members, .. } | Children::StringOrMembers { ordered_members, per_type_members, .. } => {
-                        (ordered_members, per_type_members)
+                    Children::Members {
+                        ordered_members,
+                        per_type_members,
+                        ..
                     }
-                    _ => (&default, &default)
+                    | Children::StringOrMembers {
+                        ordered_members,
+                        per_type_members,
+                        ..
+                    } => (ordered_members, per_type_members),
+                    _ => (&default, &default),
                 };
 
                 if !ordered_members.is_empty() {
@@ -66,7 +91,10 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                         .collect::<Vec<_>>();
 
                     for component_ref in &unique_component_refs {
-                        output.push_str(&format!("    {}({}Widget),\n", component_ref.component_name, component_ref.component_name));
+                        output.push_str(&format!(
+                            "    {}({}Widget),\n",
+                            component_ref.component_name, component_ref.component_name
+                        ));
                     }
 
                     output.push_str("}\n");
@@ -82,13 +110,24 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 let is_union = match &prop.property_type {
                                     PropertyType::Union { .. } => true,
                                     PropertyType::Array { item } => matches!(item.as_ref(), PropertyType::Union { .. }),
-                                    _ => false
+                                    _ => false,
                                 };
 
                                 if is_union {
-                                    output.push_str(&format!("    pub {}: {},\n", prop.name.to_case(Case::Snake), generate_required_type(&prop.property_type, Some(format!("{}{}", name, &prop.name.to_case(Case::Pascal))))));
+                                    output.push_str(&format!(
+                                        "    pub {}: {},\n",
+                                        prop.name.to_case(Case::Snake),
+                                        generate_required_type(
+                                            &prop.property_type,
+                                            Some(format!("{}{}", name, &prop.name.to_case(Case::Pascal)))
+                                        )
+                                    ));
                                 } else {
-                                    output.push_str(&format!("    pub {}: {},\n", prop.name.to_case(Case::Snake), generate_type(&prop, name)));
+                                    output.push_str(&format!(
+                                        "    pub {}: {},\n",
+                                        prop.name.to_case(Case::Snake),
+                                        generate_type(&prop, name)
+                                    ));
                                 }
                             }
                         }
@@ -96,10 +135,18 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                         for (member_name, component_ref) in per_type_members {
                             match component_ref.arity {
                                 Arity::ZeroOrOne => {
-                                    output.push_str(&format!("    pub {}: Option<{}Widget>,\n", member_name.to_case(Case::Snake), component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "    pub {}: Option<{}Widget>,\n",
+                                        member_name.to_case(Case::Snake),
+                                        component_ref.component_name
+                                    ));
                                 }
                                 Arity::One => {
-                                    output.push_str(&format!("    pub {}: {}Widget,\n", member_name.to_case(Case::Snake), component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "    pub {}: {}Widget,\n",
+                                        member_name.to_case(Case::Snake),
+                                        component_ref.component_name
+                                    ));
                                 }
                                 Arity::ZeroOrMore => {
                                     todo!()
@@ -108,7 +155,10 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                         }
 
                         if !ordered_members.is_empty() {
-                            output.push_str(&format!("    pub ordered_members: Vec<{}WidgetOrderedMembers>,\n", name));
+                            output.push_str(&format!(
+                                "    pub ordered_members: Vec<{}WidgetOrderedMembers>,\n",
+                                name
+                            ));
                         }
 
                         if has_text {
@@ -137,7 +187,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             let is_union = match &prop.property_type {
                                 PropertyType::Union { .. } => true,
                                 PropertyType::Array { item } => matches!(item.as_ref(), PropertyType::Union { .. }),
-                                _ => false
+                                _ => false,
                             };
 
                             let prop_name = prop.name.to_case(Case::Snake);
@@ -154,7 +204,7 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                         PropertyType::Union { items } => {
                                             items.iter().flat_map(|prop| all_component_refs(prop)).collect()
                                         }
-                                        PropertyType::Array { item } => all_component_refs(item)
+                                        PropertyType::Array { item } => all_component_refs(item),
                                     }
                                 }
 
@@ -163,16 +213,15 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 match &prop.property_type {
                                     PropertyType::Component { reference } => {
                                         prop_other_component_refs.insert(prop_name, reference);
-                                    },
+                                    }
                                     PropertyType::Array { item, .. } => {
                                         match item.as_ref() {
                                             PropertyType::Component { reference } => {
                                                 prop_other_component_refs.insert(prop_name, reference);
-
-                                            },
+                                            }
                                             _ => {}
                                         }
-                                    },
+                                    }
                                     _ => {}
                                 }
                             }
@@ -185,7 +234,9 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                         {
                             output.push_str(&format!("impl<'de> Deserialize<'de> for {}WidgetContent {{\n", name));
-                            output.push_str(&format!("    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>\n"));
+                            output.push_str(&format!(
+                                "    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>\n"
+                            ));
                             output.push_str(&format!("    where\n"));
                             output.push_str(&format!("        D: Deserializer<'de>,\n"));
                             output.push_str(&format!("    {{\n"));
@@ -197,18 +248,32 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                                 for (_, prop_union_component_refs) in &prop_union_component_refs {
                                     for prop_union_component_ref in prop_union_component_refs {
-                                        output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", prop_union_component_ref.component_internal_name));
-                                        output.push_str(&format!("            {}({}Widget),\n", prop_union_component_ref.component_name, prop_union_component_ref.component_name));
+                                        output.push_str(&format!(
+                                            "            #[serde(rename = \"gauntlet:{}\")]\n",
+                                            prop_union_component_ref.component_internal_name
+                                        ));
+                                        output.push_str(&format!(
+                                            "            {}({}Widget),\n",
+                                            prop_union_component_ref.component_name,
+                                            prop_union_component_ref.component_name
+                                        ));
                                     }
                                 }
 
                                 for component_ref in &component_refs {
-                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", component_ref.component_internal_name));
-                                    output.push_str(&format!("            {}({}Widget),\n", component_ref.component_name, component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "            #[serde(rename = \"gauntlet:{}\")]\n",
+                                        component_ref.component_internal_name
+                                    ));
+                                    output.push_str(&format!(
+                                        "            {}({}Widget),\n",
+                                        component_ref.component_name, component_ref.component_name
+                                    ));
                                 }
 
                                 if has_text {
-                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
+                                    output
+                                        .push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
                                     output.push_str(&format!("            Text {{\n"));
                                     output.push_str(&format!("                value: String\n"));
                                     output.push_str(&format!("            }},\n"));
@@ -217,7 +282,10 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 output.push_str("        }\n");
                             }
 
-                            output.push_str(&format!("        let mut members = Vec::<{}WidgetMembersOwned>::deserialize(deserializer)?;\n", name));
+                            output.push_str(&format!(
+                                "        let mut members = Vec::<{}WidgetMembersOwned>::deserialize(deserializer)?;\n",
+                                name
+                            ));
                             output.push_str("\n");
 
                             for (prop_name, _) in &prop_other_component_refs {
@@ -229,7 +297,10 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             }
 
                             for per_type_component_ref in &per_type_component_refs {
-                                output.push_str(&format!("        let mut {}: Option<_> = None;\n", per_type_component_ref.component_internal_name));
+                                output.push_str(&format!(
+                                    "        let mut {}: Option<_> = None;\n",
+                                    per_type_component_ref.component_internal_name
+                                ));
                             }
 
                             if !ordered_members.is_empty() {
@@ -247,16 +318,31 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 output.push_str("            match member {\n");
 
                                 for (prop_name, prop_union_component_refs) in &prop_union_component_refs {
-                                    for (index, prop_union_component_ref) in prop_union_component_refs.iter().enumerate() {
-                                        output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, prop_union_component_ref.component_name));
-                                        output.push_str(&format!("                    {}.push({}{}::_{}(widget));\n", prop_name, name, prop_name.to_case(Case::Pascal), index));
+                                    for (index, prop_union_component_ref) in
+                                        prop_union_component_refs.iter().enumerate()
+                                    {
+                                        output.push_str(&format!(
+                                            "                {}WidgetMembersOwned::{}(widget) => {{\n",
+                                            name, prop_union_component_ref.component_name
+                                        ));
+                                        output.push_str(&format!(
+                                            "                    {}.push({}{}::_{}(widget));\n",
+                                            prop_name,
+                                            name,
+                                            prop_name.to_case(Case::Pascal),
+                                            index
+                                        ));
                                         output.push_str(&format!("                }}\n"));
                                     }
                                 }
 
                                 for (prop_name, prop_other_component_refs) in &prop_other_component_refs {
-                                    output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, prop_other_component_refs.component_name));
-                                    output.push_str(&format!("                    if let Some(_) = {} {{\n", prop_name));
+                                    output.push_str(&format!(
+                                        "                {}WidgetMembersOwned::{}(widget) => {{\n",
+                                        name, prop_other_component_refs.component_name
+                                    ));
+                                    output
+                                        .push_str(&format!("                    if let Some(_) = {} {{\n", prop_name));
                                     output.push_str(&format!("                        return Err(Error::custom(\"Only one {} is allowed\"))\n", prop_other_component_refs.component_name));
                                     output.push_str(&format!("                    }}\n"));
                                     output.push_str(&format!("                    {} = Some(widget);\n", prop_name));
@@ -264,22 +350,37 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 }
 
                                 for per_type_component_ref in &per_type_component_refs {
-                                    output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, per_type_component_ref.component_name));
-                                    output.push_str(&format!("                    if let Some(_) = {} {{\n", per_type_component_ref.component_internal_name));
+                                    output.push_str(&format!(
+                                        "                {}WidgetMembersOwned::{}(widget) => {{\n",
+                                        name, per_type_component_ref.component_name
+                                    ));
+                                    output.push_str(&format!(
+                                        "                    if let Some(_) = {} {{\n",
+                                        per_type_component_ref.component_internal_name
+                                    ));
                                     output.push_str(&format!("                        return Err(Error::custom(\"Only one {} is allowed\"))\n", per_type_component_ref.component_name));
                                     output.push_str(&format!("                    }}\n"));
-                                    output.push_str(&format!("                    {} = Some(widget);\n", per_type_component_ref.component_internal_name));
+                                    output.push_str(&format!(
+                                        "                    {} = Some(widget);\n",
+                                        per_type_component_ref.component_internal_name
+                                    ));
                                     output.push_str(&format!("                }}\n"));
                                 }
 
                                 for ordered_component_ref in &unique_ordered_component_refs {
-                                    output.push_str(&format!("                {}WidgetMembersOwned::{}(widget) => {{\n", name, ordered_component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "                {}WidgetMembersOwned::{}(widget) => {{\n",
+                                        name, ordered_component_ref.component_name
+                                    ));
                                     output.push_str(&format!("                    ordered_members.insert(0, {}WidgetOrderedMembers::{}(widget));\n", name, ordered_component_ref.component_name));
                                     output.push_str(&format!("                }}\n"));
                                 }
 
                                 if has_text {
-                                    output.push_str(&format!("                {}WidgetMembersOwned::Text {{ value }} => {{\n", name));
+                                    output.push_str(&format!(
+                                        "                {}WidgetMembersOwned::Text {{ value }} => {{\n",
+                                        name
+                                    ));
                                     output.push_str(&format!("                    text.insert(0, value);\n"));
                                     output.push_str(&format!("                }}\n"));
                                 }
@@ -298,10 +399,18 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             for per_type_component_ref in &per_type_component_refs {
                                 match per_type_component_ref.arity {
                                     Arity::ZeroOrOne => {
-                                        output.push_str(&format!("            {},\n", per_type_component_ref.component_internal_name));
+                                        output.push_str(&format!(
+                                            "            {},\n",
+                                            per_type_component_ref.component_internal_name
+                                        ));
                                     }
                                     Arity::One => {
-                                        output.push_str(&format!("            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n", per_type_component_ref.component_internal_name, per_type_component_ref.component_internal_name, per_type_component_ref.component_name));
+                                        output.push_str(&format!(
+                                            "            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n",
+                                            per_type_component_ref.component_internal_name,
+                                            per_type_component_ref.component_internal_name,
+                                            per_type_component_ref.component_name
+                                        ));
                                     }
                                     Arity::ZeroOrMore => {
                                         todo!()
@@ -315,7 +424,12 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                         output.push_str(&format!("            {},\n", prop_name));
                                     }
                                     Arity::One => {
-                                        output.push_str(&format!("            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n", prop_name, prop_other_component_ref.component_internal_name, prop_other_component_ref.component_name));
+                                        output.push_str(&format!(
+                                            "            {}: {}.ok_or(Error::custom(\"{} is required\"))?,\n",
+                                            prop_name,
+                                            prop_other_component_ref.component_internal_name,
+                                            prop_other_component_ref.component_name
+                                        ));
                                     }
                                     Arity::ZeroOrMore => {
                                         todo!()
@@ -337,9 +451,10 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                         }
 
                         {
-
                             output.push_str(&format!("impl Serialize for {}WidgetContent {{\n", name));
-                            output.push_str(&format!("    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>\n"));
+                            output.push_str(&format!(
+                                "    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>\n"
+                            ));
                             output.push_str(&format!("    where\n"));
                             output.push_str(&format!("        S: Serializer\n"));
                             output.push_str(&format!("    {{\n"));
@@ -351,18 +466,32 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                                 for (_, prop_union_component_refs) in &prop_union_component_refs {
                                     for prop_union_component_ref in prop_union_component_refs {
-                                        output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", prop_union_component_ref.component_internal_name));
-                                        output.push_str(&format!("            {}(&'a {}Widget),\n", prop_union_component_ref.component_name, prop_union_component_ref.component_name));
+                                        output.push_str(&format!(
+                                            "            #[serde(rename = \"gauntlet:{}\")]\n",
+                                            prop_union_component_ref.component_internal_name
+                                        ));
+                                        output.push_str(&format!(
+                                            "            {}(&'a {}Widget),\n",
+                                            prop_union_component_ref.component_name,
+                                            prop_union_component_ref.component_name
+                                        ));
                                     }
                                 }
 
                                 for component_ref in &component_refs {
-                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:{}\")]\n", component_ref.component_internal_name));
-                                    output.push_str(&format!("            {}(&'a {}Widget),\n", component_ref.component_name, component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "            #[serde(rename = \"gauntlet:{}\")]\n",
+                                        component_ref.component_internal_name
+                                    ));
+                                    output.push_str(&format!(
+                                        "            {}(&'a {}Widget),\n",
+                                        component_ref.component_name, component_ref.component_name
+                                    ));
                                 }
 
                                 if has_text {
-                                    output.push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
+                                    output
+                                        .push_str(&format!("            #[serde(rename = \"gauntlet:text_part\")]\n"));
                                     output.push_str(&format!("            Text {{\n"));
                                     output.push_str(&format!("                value: &'a String\n"));
                                     output.push_str(&format!("            }},\n"));
@@ -371,17 +500,27 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 output.push_str("        }\n");
                             }
 
-                            output.push_str(&format!("        let mut members = Vec::<{}WidgetMembersRef>::new();\n", name));
+                            output.push_str(&format!(
+                                "        let mut members = Vec::<{}WidgetMembersRef>::new();\n",
+                                name
+                            ));
                             output.push_str("\n");
-
 
                             for (prop_name, prop_union_component_refs) in &prop_union_component_refs {
                                 output.push_str(&format!("        for item in &self.{} {{\n", prop_name));
                                 output.push_str(&format!("            match item {{\n"));
 
                                 for (index, prop_union_component_ref) in prop_union_component_refs.iter().enumerate() {
-                                    output.push_str(&format!("                {}{}::_{}(widget) => {{\n", name, prop_name.to_case(Case::Pascal), index));
-                                    output.push_str(&format!("                    members.push({}WidgetMembersRef::{}(widget));\n", name, prop_union_component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "                {}{}::_{}(widget) => {{\n",
+                                        name,
+                                        prop_name.to_case(Case::Pascal),
+                                        index
+                                    ));
+                                    output.push_str(&format!(
+                                        "                    members.push({}WidgetMembersRef::{}(widget));\n",
+                                        name, prop_union_component_ref.component_name
+                                    ));
                                     output.push_str(&format!("                }}\n"));
                                 }
 
@@ -392,12 +531,21 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             for (prop_name, prop_other_component_refs) in &prop_other_component_refs {
                                 match prop_other_component_refs.arity {
                                     Arity::ZeroOrOne => {
-                                        output.push_str(&format!("        if let Some({}) = &self.{} {{\n", prop_name, prop_name));
-                                        output.push_str(&format!("            members.push({}WidgetMembersRef::{}({}))\n", name, prop_other_component_refs.component_name, prop_name));
+                                        output.push_str(&format!(
+                                            "        if let Some({}) = &self.{} {{\n",
+                                            prop_name, prop_name
+                                        ));
+                                        output.push_str(&format!(
+                                            "            members.push({}WidgetMembersRef::{}({}))\n",
+                                            name, prop_other_component_refs.component_name, prop_name
+                                        ));
                                         output.push_str(&format!("        }}\n"));
                                     }
                                     Arity::One => {
-                                        output.push_str(&format!("        members.push({}WidgetMembersRef::{}(&self.{}))\n", name, prop_other_component_refs.component_name, prop_name));
+                                        output.push_str(&format!(
+                                            "        members.push({}WidgetMembersRef::{}(&self.{}))\n",
+                                            name, prop_other_component_refs.component_name, prop_name
+                                        ));
                                     }
                                     Arity::ZeroOrMore => {
                                         todo!()
@@ -408,12 +556,23 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             for per_type_component_ref in &per_type_component_refs {
                                 match per_type_component_ref.arity {
                                     Arity::ZeroOrOne => {
-                                        output.push_str(&format!("        if let Some(item) = &self.{} {{\n", per_type_component_ref.component_internal_name));
-                                        output.push_str(&format!("            members.push({}WidgetMembersRef::{}(item))\n", name, per_type_component_ref.component_name));
+                                        output.push_str(&format!(
+                                            "        if let Some(item) = &self.{} {{\n",
+                                            per_type_component_ref.component_internal_name
+                                        ));
+                                        output.push_str(&format!(
+                                            "            members.push({}WidgetMembersRef::{}(item))\n",
+                                            name, per_type_component_ref.component_name
+                                        ));
                                         output.push_str(&format!("        }}\n"));
                                     }
                                     Arity::One => {
-                                        output.push_str(&format!("        members.push({}WidgetMembersRef::{}(&self.{}));\n", name, per_type_component_ref.component_name, per_type_component_ref.component_internal_name));
+                                        output.push_str(&format!(
+                                            "        members.push({}WidgetMembersRef::{}(&self.{}));\n",
+                                            name,
+                                            per_type_component_ref.component_name,
+                                            per_type_component_ref.component_internal_name
+                                        ));
                                     }
                                     Arity::ZeroOrMore => {
                                         todo!()
@@ -426,8 +585,14 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                                 output.push_str(&format!("            match member {{\n"));
 
                                 for ordered_component_ref in &unique_ordered_component_refs {
-                                    output.push_str(&format!("                {}WidgetOrderedMembers::{}(widget) => {{\n", name, ordered_component_ref.component_name));
-                                    output.push_str(&format!("                    members.push({}WidgetMembersRef::{}(widget))\n", name, ordered_component_ref.component_name));
+                                    output.push_str(&format!(
+                                        "                {}WidgetOrderedMembers::{}(widget) => {{\n",
+                                        name, ordered_component_ref.component_name
+                                    ));
+                                    output.push_str(&format!(
+                                        "                    members.push({}WidgetMembersRef::{}(widget))\n",
+                                        name, ordered_component_ref.component_name
+                                    ));
                                     output.push_str(&format!("                }}\n"));
                                 }
 
@@ -437,12 +602,18 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                             if has_text {
                                 output.push_str(&format!("        for value in &self.text {{\n"));
-                                output.push_str(&format!("            members.push({}WidgetMembersRef::Text {{ value }});\n", name));
+                                output.push_str(&format!(
+                                    "            members.push({}WidgetMembersRef::Text {{ value }});\n",
+                                    name
+                                ));
                                 output.push_str(&format!("        }}\n"));
                             }
 
                             output.push_str("\n");
-                            output.push_str(&format!("        Vec::<{}WidgetMembersRef>::serialize(&members, serializer)\n", name));
+                            output.push_str(&format!(
+                                "        Vec::<{}WidgetMembersRef>::serialize(&members, serializer)\n",
+                                name
+                            ));
 
                             output.push_str(&format!("    }}\n"));
                             output.push_str(&format!("}}\n"));
@@ -458,7 +629,11 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 for prop in props {
                     if matches!(prop.property_type.kind(), PropertyKind::Property) {
                         output.push_str(&format!("    #[serde(rename = \"{}\")]\n", prop.name));
-                        output.push_str(&format!("    pub {}: {},\n", prop.name.to_case(Case::Snake), generate_type(&prop, name)));
+                        output.push_str(&format!(
+                            "    pub {}: {},\n",
+                            prop.name.to_case(Case::Snake),
+                            generate_type(&prop, name)
+                        ));
                     }
                 }
 
@@ -473,7 +648,11 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                     output.push_str(&format!("pub enum {}{} {{\n", name, prop_name.to_case(Case::Pascal)));
 
                     for (index, property_type) in items.iter().enumerate() {
-                        output.push_str(&format!("    _{}({}),\n", index, generate_required_type(&property_type, None)));
+                        output.push_str(&format!(
+                            "    _{}({}),\n",
+                            index,
+                            generate_required_type(&property_type, None)
+                        ));
                     }
 
                     output.push_str("}\n");
@@ -482,14 +661,10 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
 
                 for prop in props {
                     match &prop.property_type {
-                        PropertyType::Union { items } => {
-                            generate_union(&mut output, items, &prop.name)
-                        }
-                        PropertyType::Array { item} => {
+                        PropertyType::Union { items } => generate_union(&mut output, items, &prop.name),
+                        PropertyType::Array { item } => {
                             match item.deref() {
-                                PropertyType::Union { items } => {
-                                    generate_union(&mut output, items, &prop.name)
-                                }
+                                PropertyType::Union { items } => generate_union(&mut output, items, &prop.name),
                                 _ => {}
                             }
                         }
@@ -497,7 +672,9 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-            Component::Root { children, shared_types, .. } => {
+            Component::Root {
+                children, shared_types, ..
+            } => {
                 for (type_name, shared_type) in shared_types {
                     match shared_type {
                         SharedType::Enum { items } => {
@@ -517,7 +694,14 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                             output.push_str(&format!("pub struct {} {{\n", type_name));
 
                             for (property_name, property_type) in items {
-                                output.push_str(&format!("    pub {}: {},\n", &property_name, generate_required_type(&property_type, Some(format!("{}{}", type_name, property_name)))));
+                                output.push_str(&format!(
+                                    "    pub {}: {},\n",
+                                    &property_name,
+                                    generate_required_type(
+                                        &property_type,
+                                        Some(format!("{}{}", type_name, property_name))
+                                    )
+                                ));
                             }
 
                             output.push_str("}\n");
@@ -550,8 +734,14 @@ fn component_model_generator() -> Result<(), Box<dyn std::error::Error>> {
                 output.push_str("pub enum RootWidgetMembers {\n");
 
                 for component_ref in children {
-                    output.push_str(&format!("    #[serde(rename = \"gauntlet:{}\")]\n", component_ref.component_internal_name));
-                    output.push_str(&format!("    {}({}Widget),\n", component_ref.component_name, component_ref.component_name));
+                    output.push_str(&format!(
+                        "    #[serde(rename = \"gauntlet:{}\")]\n",
+                        component_ref.component_internal_name
+                    ));
+                    output.push_str(&format!(
+                        "    {}({}Widget),\n",
+                        component_ref.component_name, component_ref.component_name
+                    ));
                 }
 
                 output.push_str("}\n");
@@ -578,8 +768,18 @@ fn generate_file<P: AsRef<Path>>(path: P, text: &str) -> std::io::Result<()> {
 
 fn generate_type(property: &Property, name: &ComponentName) -> String {
     match property.optional {
-        true => generate_optional_type(&property.property_type, format!("{}{}", name, &property.name.to_case(Case::Pascal))),
-        false => generate_required_type(&property.property_type, Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))))
+        true => {
+            generate_optional_type(
+                &property.property_type,
+                format!("{}{}", name, &property.name.to_case(Case::Pascal)),
+            )
+        }
+        false => {
+            generate_required_type(
+                &property.property_type,
+                Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))),
+            )
+        }
     }
 }
 
@@ -598,9 +798,9 @@ fn generate_required_type(property_type: &PropertyType, union_name: Option<Strin
         PropertyType::Union { .. } => {
             match union_name {
                 None => panic!("should not be used"),
-                Some(union_name) => union_name
+                Some(union_name) => union_name,
             }
-        },
-        PropertyType::Array { item } => format!("Vec<{}>", generate_required_type(item, union_name))
+        }
+        PropertyType::Array { item } => format!("Vec<{}>", generate_required_type(item, union_name)),
     }
 }

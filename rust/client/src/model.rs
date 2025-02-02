@@ -1,4 +1,6 @@
-use gauntlet_common::model::{UiPropertyValue, UiWidgetId};
+use gauntlet_common::model::UiPropertyValue;
+use gauntlet_common::model::UiWidgetId;
+
 use crate::ui::AppMsg;
 
 #[derive(Debug, Clone)]
@@ -9,9 +11,9 @@ pub enum UiViewEvent {
         event_arguments: Vec<UiPropertyValue>,
     },
     Open {
-        href: String
+        href: String,
     },
     AppEvent {
-        event: AppMsg
+        event: AppMsg,
     },
 }

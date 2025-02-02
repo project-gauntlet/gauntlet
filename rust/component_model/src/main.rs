@@ -1,4 +1,6 @@
-use std::{env, fs};
+use std::env;
+use std::fs;
+
 use anyhow::anyhow;
 use gauntlet_component_model::create_component_model;
 
@@ -17,8 +19,6 @@ fn main() -> anyhow::Result<()> {
 
             Ok(())
         }
-        args @ _ => {
-            Err(anyhow!("Unsupported args number: {args}"))
-        }
+        args @ _ => Err(anyhow!("Unsupported args number: {args}")),
     }
 }

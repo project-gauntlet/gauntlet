@@ -1,7 +1,14 @@
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, BACKGROUND_DARKEST, BACKGROUND_LIGHTER, PRIMARY, PRIMARY_HOVERED};
 use iced::widget::checkbox;
-use iced::widget::checkbox::{Status, Style};
+use iced::widget::checkbox::Status;
+use iced::widget::checkbox::Style;
 use iced::Border;
+
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::BACKGROUND_DARKER;
+use crate::theme::BACKGROUND_DARKEST;
+use crate::theme::BACKGROUND_LIGHTER;
+use crate::theme::PRIMARY;
+use crate::theme::PRIMARY_HOVERED;
 
 impl checkbox::Catalog for GauntletSettingsTheme {
     type Class<'a> = ();

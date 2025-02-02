@@ -1,11 +1,12 @@
-use std::ops::{Div, Rem};
+use std::ops::Div;
+use std::ops::Rem;
 
 #[derive(Debug)]
 pub struct GridSectionData {
     pub start_index: usize,
     pub start_row_index: usize,
     pub amount_in_section: usize,
-    pub width: usize
+    pub width: usize,
 }
 
 struct GridRowData {
@@ -27,20 +28,33 @@ pub struct GridItemOffset {
     pub offset: usize,
 }
 
-fn grid_row_data(mut amount_per_section_total: Vec<GridSectionData>, current_index: usize) -> (Option<GridRowData>, GridCurrentRowData, Option<GridRowData>) {
+fn grid_row_data(
+    mut amount_per_section_total: Vec<GridSectionData>,
+    current_index: usize,
+) -> (Option<GridRowData>, GridCurrentRowData, Option<GridRowData>) {
     let mut previous_section_index: Option<usize> = None;
     let mut current_section_index: usize = 0;
 
-    for (index, GridSectionData { start_index, amount_in_section, ..  }) in amount_per_section_total.iter().enumerate() {
+    for (
+        index,
+        GridSectionData {
+            start_index,
+            amount_in_section,
+            ..
+        },
+    ) in amount_per_section_total.iter().enumerate()
+    {
         if start_index + amount_in_section >= (current_index + 1) {
             current_section_index = index;
-            break
+            break;
         }
         previous_section_index = Some(index);
     }
 
     let prev_section = previous_section_index.and_then(|index| amount_per_section_total.get(index));
-    let current_section = amount_per_section_total.get(current_section_index).expect("guarantied to exist");
+    let current_section = amount_per_section_total
+        .get(current_section_index)
+        .expect("guarantied to exist");
     let next_section = amount_per_section_total.get(current_section_index + 1);
 
     let item_index_in_section = current_index - current_section.start_index;
@@ -57,14 +71,14 @@ fn grid_row_data(mut amount_per_section_total: Vec<GridSectionData>, current_ind
                 row_index,
                 column_index: usize::rem(item_index_in_section, current_section.width),
                 amount_in_row: if reminder == 0 { current_section.width } else { reminder },
-                max_amount_in_row: current_section.width
+                max_amount_in_row: current_section.width,
             }
         } else {
             GridCurrentRowData {
                 row_index,
                 column_index: usize::rem(item_index_in_section, current_section.width),
                 amount_in_row: current_section.width,
-                max_amount_in_row: current_section.width
+                max_amount_in_row: current_section.width,
             }
         }
     };
@@ -78,7 +92,7 @@ fn grid_row_data(mut amount_per_section_total: Vec<GridSectionData>, current_ind
                     Some(GridRowData {
                         row_index: current_row.row_index - 1,
                         amount_in_row: if reminder == 0 { prev_section.width } else { reminder },
-                        max_amount_in_row: prev_section.width
+                        max_amount_in_row: prev_section.width,
                     })
                 }
             }
@@ -86,7 +100,7 @@ fn grid_row_data(mut amount_per_section_total: Vec<GridSectionData>, current_ind
             Some(GridRowData {
                 row_index: current_row.row_index - 1,
                 amount_in_row: current_section.width,
-                max_amount_in_row: current_section.width
+                max_amount_in_row: current_section.width,
             })
         }
     };
@@ -100,7 +114,7 @@ fn grid_row_data(mut amount_per_section_total: Vec<GridSectionData>, current_ind
                     Some(GridRowData {
                         row_index: current_row.row_index + 1,
                         amount_in_row: if reminder == 0 { next_section.width } else { reminder },
-                        max_amount_in_row: next_section.width
+                        max_amount_in_row: next_section.width,
                     })
                 }
             }
@@ -111,13 +125,13 @@ fn grid_row_data(mut amount_per_section_total: Vec<GridSectionData>, current_ind
                 Some(GridRowData {
                     row_index: current_row.row_index + 1,
                     amount_in_row: if reminder == 0 { current_section.width } else { reminder },
-                    max_amount_in_row: current_section.width
+                    max_amount_in_row: current_section.width,
                 })
             } else {
                 Some(GridRowData {
                     row_index: current_row.row_index + 1,
                     amount_in_row: current_section.width,
-                    max_amount_in_row: current_section.width
+                    max_amount_in_row: current_section.width,
                 })
             }
         }
@@ -154,7 +168,10 @@ pub fn grid_up_offset(current_index: usize, amount_per_section_total: Vec<GridSe
     }
 }
 
-pub fn grid_down_offset(current_index: usize, amount_per_section_total: Vec<GridSectionData>) -> Option<GridItemOffset> {
+pub fn grid_down_offset(
+    current_index: usize,
+    amount_per_section_total: Vec<GridSectionData>,
+) -> Option<GridItemOffset> {
     let (_prev_row, current_row, next_row) = grid_row_data(amount_per_section_total, current_index);
 
     match next_row {
@@ -175,7 +192,6 @@ pub fn grid_down_offset(current_index: usize, amount_per_section_total: Vec<Grid
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,9 +205,7 @@ mod tests {
                 let cumulative_item_index_at_start = cumulative_item_index;
                 let cumulative_row_index_at_start = cumulative_row_index;
 
-                let amount = section.iter()
-                    .map(|row| row.iter().sum::<usize>())
-                    .sum();
+                let amount = section.iter().map(|row| row.iter().sum::<usize>()).sum();
 
                 let width = section[0].len();
 
@@ -215,291 +229,322 @@ mod tests {
 
     #[test]
     fn grid_down_last_row() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //fr     V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //fr     V
+            vec![1, 1, 0],
+        ]]);
 
         assert_eq!(grid_down_offset(1, sections_amount_width), None)
     }
 
     #[test]
     fn grid_down_inside_1() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //fr V
-                    vec![1, 1, 1],
-                    //to V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //fr V
+            vec![1, 1, 1],
+            //to V
+            vec![1, 1, 0],
+        ]]);
 
-        assert_eq!(grid_down_offset(0, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 3 } ))
+        assert_eq!(
+            grid_down_offset(0, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_down_inside_2() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //fr    V
-                    vec![1, 1, 1],
-                    //to    V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //fr    V
+            vec![1, 1, 1],
+            //to    V
+            vec![1, 1, 0],
+        ]]);
 
-        assert_eq!(grid_down_offset(1, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 3 } ))
+        assert_eq!(
+            grid_down_offset(1, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_down_inside_3() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //fr       V
-                    vec![1, 1, 1],
-                    //to    V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //fr       V
+            vec![1, 1, 1],
+            //to    V
+            vec![1, 1, 0],
+        ]]);
 
-        assert_eq!(grid_down_offset(2, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 2 } ))
+        assert_eq!(
+            grid_down_offset(2, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 2
+            })
+        )
     }
 
     #[test]
     fn grid_down_inside_4() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //fr       V
-                    vec![1, 1, 1],
-                    //to V
-                    vec![1, 0, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //fr       V
+            vec![1, 1, 1],
+            //to V
+            vec![1, 0, 0],
+        ]]);
 
-        assert_eq!(grid_down_offset(2, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 1 } ))
+        assert_eq!(
+            grid_down_offset(2, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 1
+            })
+        )
     }
 
     #[test]
     fn grid_down_inside_5() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    vec![1, 1, 1],
-                    //fr    V
-                    vec![1, 1, 1],
-                    //to    V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            vec![1, 1, 1],
+            //fr    V
+            vec![1, 1, 1],
+            //to    V
+            vec![1, 1, 0],
+        ]]);
 
-        assert_eq!(grid_down_offset(4, sections_amount_width), Some(GridItemOffset { row_index: 2, offset: 3 } ))
+        assert_eq!(
+            grid_down_offset(4, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 2,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_down_outside_1() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
             vec![
-                vec![
-                    //fr    V
-                    vec![1, 1, 1],
-                ],
-                vec![
-                    //to    V
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+                //fr    V
+                vec![1, 1, 1],
+            ],
+            vec![
+                //to    V
+                vec![1, 1, 1],
+            ],
+        ]);
 
-        assert_eq!(grid_down_offset(1, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 3 }))
+        assert_eq!(
+            grid_down_offset(1, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_down_outside_2() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
             vec![
-                vec![
-                    //fr    V
-                    vec![1, 1, 0],
-                ],
-                vec![
-                    //to    V
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+                //fr    V
+                vec![1, 1, 0],
+            ],
+            vec![
+                //to    V
+                vec![1, 1, 1],
+            ],
+        ]);
 
-        assert_eq!(grid_down_offset(1, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 2 }))
+        assert_eq!(
+            grid_down_offset(1, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 2
+            })
+        )
     }
 
     #[test]
     fn grid_down_outside_3() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
             vec![
-                vec![
-                    //fr       V
-                    vec![1, 1, 1],
-                ],
-                vec![
-                    //to    V
-                    vec![1, 1, 0],
-                ],
-                vec![
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+                //fr       V
+                vec![1, 1, 1],
+            ],
+            vec![
+                //to    V
+                vec![1, 1, 0],
+            ],
+            vec![vec![1, 1, 1]],
+        ]);
 
-        assert_eq!(grid_down_offset(2, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 2 }))
+        assert_eq!(
+            grid_down_offset(2, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 2
+            })
+        )
     }
 
     #[test]
     fn grid_up_first_row() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //fr    V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //fr    V
+            vec![1, 1, 0],
+        ]]);
 
         assert_eq!(grid_up_offset(1, sections_amount_width), None)
     }
 
     #[test]
     fn grid_up_inside_1() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //to    V
-                    vec![1, 1, 1],
-                    //fr    V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //to    V
+            vec![1, 1, 1],
+            //fr    V
+            vec![1, 1, 0],
+        ]]);
 
-        assert_eq!(grid_up_offset(4, sections_amount_width), Some(GridItemOffset { row_index: 0, offset: 3 }))
+        assert_eq!(
+            grid_up_offset(4, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 0,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_up_inside_2() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //to V
-                    vec![1, 1, 1],
-                    //fr V
-                    vec![1, 1, 0],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //to V
+            vec![1, 1, 1],
+            //fr V
+            vec![1, 1, 0],
+        ]]);
 
-        assert_eq!(grid_up_offset(3, sections_amount_width), Some(GridItemOffset { row_index: 0, offset: 3 }))
+        assert_eq!(
+            grid_up_offset(3, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 0,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_up_inside_3() {
-        let sections_amount_width = prepare_sections(
-            vec![
-                vec![
-                    //to       V
-                    vec![1, 1, 1],
-                    //fr       V
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+        let sections_amount_width = prepare_sections(vec![vec![
+            //to       V
+            vec![1, 1, 1],
+            //fr       V
+            vec![1, 1, 1],
+        ]]);
 
-        assert_eq!(grid_up_offset(5, sections_amount_width), Some(GridItemOffset { row_index: 0, offset: 3 }))
+        assert_eq!(
+            grid_up_offset(5, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 0,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_up_outside_1() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
             vec![
-                vec![
-                    //to    V
-                    vec![1, 1, 1],
-                ],
-                vec![
-                    //fr    V
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+                //to    V
+                vec![1, 1, 1],
+            ],
+            vec![
+                //fr    V
+                vec![1, 1, 1],
+            ],
+        ]);
 
-        assert_eq!(grid_up_offset(4, sections_amount_width), Some(GridItemOffset { row_index: 0, offset: 3 }))
+        assert_eq!(
+            grid_up_offset(4, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 0,
+                offset: 3
+            })
+        )
     }
 
     #[test]
     fn grid_up_outside_2() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
             vec![
-                vec![
-                    //to    V
-                    vec![1, 1, 0],
-                ],
-                vec![
-                    //fr       V
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+                //to    V
+                vec![1, 1, 0],
+            ],
+            vec![
+                //fr       V
+                vec![1, 1, 1],
+            ],
+        ]);
 
-        assert_eq!(grid_up_offset(4, sections_amount_width), Some(GridItemOffset { row_index: 0, offset: 3 }))
+        assert_eq!(
+            grid_up_offset(4, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 0,
+                offset: 3
+            })
+        )
     }
-
 
     #[test]
     fn grid_up_outside_3() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
             vec![
-                vec![
-                    //to V
-                    vec![1, 1, 0],
-                ],
-                vec![
-                    //fr V
-                    vec![1, 0, 0],
-                ],
-            ]
-        );
+                //to V
+                vec![1, 1, 0],
+            ],
+            vec![
+                //fr V
+                vec![1, 0, 0],
+            ],
+        ]);
 
-        assert_eq!(grid_up_offset(2, sections_amount_width), Some(GridItemOffset { row_index: 0, offset: 2 }))
+        assert_eq!(
+            grid_up_offset(2, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 0,
+                offset: 2
+            })
+        )
     }
 
     #[test]
     fn grid_up_outside_4() {
-        let sections_amount_width = prepare_sections(
+        let sections_amount_width = prepare_sections(vec![
+            vec![vec![1, 1, 1]],
             vec![
-                vec![
-                    vec![1, 1, 1],
-                ],
-                vec![
-                    //to    V
-                    vec![1, 1, 0],
-                ],
-                vec![
-                    //fr       V
-                    vec![1, 1, 1],
-                ],
-            ]
-        );
+                //to    V
+                vec![1, 1, 0],
+            ],
+            vec![
+                //fr       V
+                vec![1, 1, 1],
+            ],
+        ]);
 
-        assert_eq!(grid_up_offset(7, sections_amount_width), Some(GridItemOffset { row_index: 1, offset: 3 }))
+        assert_eq!(
+            grid_up_offset(7, sections_amount_width),
+            Some(GridItemOffset {
+                row_index: 1,
+                offset: 3
+            })
+        )
     }
 }

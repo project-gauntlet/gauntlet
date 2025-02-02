@@ -1,8 +1,18 @@
 use iced::widget::button;
-use iced::widget::button::{Status, Style};
+use iced::widget::button::Status;
+use iced::widget::button::Style;
 use iced::Border;
 
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, BACKGROUND_LIGHTER, BUTTON_BORDER_RADIUS, DANGER, PRIMARY, PRIMARY_HOVERED, SUCCESS, TEXT_DARKEST, TEXT_LIGHTEST};
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::BACKGROUND_DARKER;
+use crate::theme::BACKGROUND_LIGHTER;
+use crate::theme::BUTTON_BORDER_RADIUS;
+use crate::theme::DANGER;
+use crate::theme::PRIMARY;
+use crate::theme::PRIMARY_HOVERED;
+use crate::theme::SUCCESS;
+use crate::theme::TEXT_DARKEST;
+use crate::theme::TEXT_LIGHTEST;
 
 pub enum ButtonStyle {
     Primary,
@@ -26,11 +36,10 @@ impl button::Catalog for GauntletSettingsTheme {
             Status::Active => active(class),
             Status::Hovered => hovered(class),
             Status::Pressed => pressed(class),
-            Status::Disabled => disabled(class)
+            Status::Disabled => disabled(class),
         }
     }
 }
-
 
 fn active(class: &ButtonStyle) -> Style {
     let (background_color, text_color) = match class {
@@ -100,7 +109,7 @@ fn hovered(class: &ButtonStyle) -> Style {
                 background: None,
                 text_color: TEXT_LIGHTEST.to_iced(), // TODO
                 ..Default::default()
-            }
+            };
         }
         ButtonStyle::ViewSwitcher => {
             return Style {
@@ -161,9 +170,7 @@ fn pressed(class: &ButtonStyle) -> Style {
                 ..Default::default()
             }
         }
-        _ => {
-            active(class)
-        }
+        _ => active(class),
     }
 }
 
@@ -171,9 +178,7 @@ fn disabled(class: &ButtonStyle) -> Style {
     let style = active(class);
 
     Style {
-        background: style
-            .background
-            .map(|background| background.scale_alpha(0.5)),
+        background: style.background.map(|background| background.scale_alpha(0.5)),
         text_color: style.text_color.scale_alpha(0.5),
         ..style
     }

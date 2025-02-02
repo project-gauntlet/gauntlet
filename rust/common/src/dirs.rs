@@ -1,17 +1,19 @@
-use std::path::{Path, PathBuf};
-use anyhow::Context;
+use std::path::Path;
+use std::path::PathBuf;
 
-use directories::{BaseDirs, ProjectDirs};
+use anyhow::Context;
+use directories::BaseDirs;
+use directories::ProjectDirs;
 
 #[derive(Clone)]
 pub struct Dirs {
-    inner: ProjectDirs
+    inner: ProjectDirs,
 }
 
 impl Dirs {
     pub fn new() -> Self {
         Self {
-            inner: ProjectDirs::from("dev", "project-gauntlet", "Gauntlet").unwrap()
+            inner: ProjectDirs::from("dev", "project-gauntlet", "Gauntlet").unwrap(),
         }
     }
 
@@ -126,7 +128,8 @@ impl Dirs {
 
     pub fn plugin_uds_socket(&self, plugin_uuid: &str) -> PathBuf {
         let state_dir = if cfg!(feature = "release") || cfg!(feature = "scenario_runner") {
-            self.inner.runtime_dir()
+            self.inner
+                .runtime_dir()
                 .unwrap_or_else(|| Path::new("/tmp"))
                 .to_path_buf()
         } else {

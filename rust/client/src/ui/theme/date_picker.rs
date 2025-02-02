@@ -1,9 +1,12 @@
-use crate::ui::theme::{Element, GauntletComplexTheme, ThemableWidget};
 use iced::Color;
 use iced_aw::date_picker::Style;
 use iced_aw::style::date_picker::Catalog;
 use iced_aw::style::Status;
 use iced_aw::DatePicker;
+
+use crate::ui::theme::Element;
+use crate::ui::theme::GauntletComplexTheme;
+use crate::ui::theme::ThemableWidget;
 
 #[derive(Clone, Default)]
 pub enum DatePickerStyle {
@@ -22,14 +25,13 @@ impl Catalog for GauntletComplexTheme {
         match status {
             Status::Active => active(self),
             Status::Hovered => hovered(self),
-            Status::Pressed => hovered(self), // TODO proper styling
+            Status::Pressed => hovered(self),  // TODO proper styling
             Status::Disabled => hovered(self), // TODO proper styling
             Status::Focused => focused(self),
-            Status::Selected => selected(self)
+            Status::Selected => selected(self),
         }
     }
 }
-
 
 fn active(theme: &GauntletComplexTheme) -> Style {
     let root_theme = &theme.popup;
@@ -72,7 +74,6 @@ fn focused(theme: &GauntletComplexTheme) -> Style {
         ..active(theme)
     }
 }
-
 
 impl<'a, Message: 'a + Clone + 'static> ThemableWidget<'a, Message> for DatePicker<'a, Message, GauntletComplexTheme> {
     type Kind = DatePickerStyle;

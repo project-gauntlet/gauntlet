@@ -1,4 +1,5 @@
-use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_ACTION_ITEM_HEIGHT};
+use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::scroll_handle::ESTIMATED_ACTION_ITEM_HEIGHT;
 
 pub enum MainViewState {
     None,
@@ -9,7 +10,7 @@ pub enum MainViewState {
     InlineViewActionPanel {
         // ephemeral state
         focused_action_item: ScrollHandle,
-    }
+    },
 }
 
 impl MainViewState {

@@ -1,6 +1,7 @@
 use iced::widget::Space;
 
-use crate::ui::theme::{Element, ThemableWidget};
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
 
 pub enum ThemeKindSpace {
     MainListItemIcon,
@@ -11,11 +12,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Space {
 
     fn themed(self, kind: ThemeKindSpace) -> Element<'a, Message> {
         match kind {
-            ThemeKindSpace::MainListItemIcon => {
-                self.width(18)
-                    .height(18)
-            }
-        }.into()
+            ThemeKindSpace::MainListItemIcon => self.width(18).height(18),
+        }
+        .into()
     }
 }
-

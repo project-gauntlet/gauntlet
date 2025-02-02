@@ -1,5 +1,7 @@
-use crate::ui::theme::{Element, ThemableWidget};
 use iced::widget::Image;
+
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
 
 pub enum ImageStyle {
     MainListItemIcon,
@@ -10,10 +12,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Image<iced::advanced::imag
 
     fn themed(self, kind: ImageStyle) -> Element<'a, Message> {
         match kind {
-            ImageStyle::MainListItemIcon => {
-                self.width(18)
-                    .height(18)
-            }
-        }.into()
+            ImageStyle::MainListItemIcon => self.width(18).height(18),
+        }
+        .into()
     }
 }

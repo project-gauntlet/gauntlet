@@ -1,4 +1,3 @@
-
 // shamelessly stolen from MIT licensed https://github.com/camdencheek/fre
 
 use std::time::SystemTime;
@@ -17,14 +16,13 @@ impl Default for FrecencyMetaParams {
     }
 }
 
-
 #[derive(Clone)]
 pub struct FrecencyItemStats {
-    pub(in super) half_life: f64,
-    pub(in super) reference_time: f64, // Time in seconds since the epoch
-    pub(in super) last_accessed: f64, // Time in seconds since reference_time that this item was last accessed
-    pub(in super) frecency: f64,
-    pub(in super) num_accesses: i32,
+    pub(super) half_life: f64,
+    pub(super) reference_time: f64, // Time in seconds since the epoch
+    pub(super) last_accessed: f64,  // Time in seconds since reference_time that this item was last accessed
+    pub(super) frecency: f64,
+    pub(super) num_accesses: i32,
 }
 
 impl FrecencyItemStats {

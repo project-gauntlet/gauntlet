@@ -1,9 +1,13 @@
-use anyhow::{anyhow, Context, Error};
-use arboard::ImageData;
-use image::RgbaImage;
 use std::io::Cursor;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use std::sync::RwLock;
+
+use anyhow::anyhow;
+use anyhow::Context;
+use anyhow::Error;
+use arboard::ImageData;
 use gauntlet_plugin_runtime::JsClipboardData;
+use image::RgbaImage;
 
 #[derive(Clone)]
 pub struct Clipboard {
@@ -12,8 +16,7 @@ pub struct Clipboard {
 
 impl Clipboard {
     pub fn new() -> anyhow::Result<Self> {
-        let clipboard = arboard::Clipboard::new()
-            .context("error while creating clipboard")?;
+        let clipboard = arboard::Clipboard::new().context("error while creating clipboard")?;
 
         Ok(Self {
             clipboard: Arc::new(RwLock::new(clipboard)),
@@ -30,17 +33,18 @@ impl Clipboard {
 
                 let mut result = Cursor::new(vec![]);
 
-                rgba_image.write_to(&mut result, image::ImageFormat::Png)
+                rgba_image
+                    .write_to(&mut result, image::ImageFormat::Png)
                     .expect("should be able to convert to png");
 
                 Some(result.into_inner())
-            },
+            }
             Err(err) => {
                 match err {
                     arboard::Error::ContentNotAvailable => None,
                     err @ _ => {
                         return Err(unknown_err_clipboard(err));
-                    },
+                    }
                 }
             }
         };
@@ -52,15 +56,12 @@ impl Clipboard {
                     arboard::Error::ContentNotAvailable => None,
                     err @ _ => {
                         return Err(unknown_err_clipboard(err));
-                    },
+                    }
                 }
             }
         };
 
-        Ok(JsClipboardData {
-            text_data,
-            png_data,
-        })
+        Ok(JsClipboardData { text_data, png_data })
     }
 
     pub fn read_text(&self) -> anyhow::Result<Option<String>> {
@@ -73,7 +74,7 @@ impl Clipboard {
                     arboard::Error::ContentNotAvailable => None,
                     err @ _ => {
                         return Err(unknown_err_clipboard(err));
-                    },
+                    }
                 }
             }
         };
@@ -85,13 +86,13 @@ impl Clipboard {
         let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
         if let Some(png_data) = data.png_data {
-
             let cursor = Cursor::new(&png_data);
 
             let mut reader = image::io::Reader::new(cursor);
             reader.set_format(image::ImageFormat::Png);
 
-            let image = reader.decode()
+            let image = reader
+                .decode()
                 .map_err(|_err| unable_to_convert_image_err())?
                 .into_rgba8();
 
@@ -100,15 +101,17 @@ impl Clipboard {
             let image_data = ImageData {
                 width: w as usize,
                 height: h as usize,
-                bytes: image.into_raw().into()
+                bytes: image.into_raw().into(),
             };
 
-            clipboard.set_image(image_data)
+            clipboard
+                .set_image(image_data)
                 .map_err(|err| unknown_err_clipboard(err))?;
         }
 
         if let Some(text_data) = data.text_data {
-            clipboard.set_text(text_data)
+            clipboard
+                .set_text(text_data)
                 .map_err(|err| unknown_err_clipboard(err))?;
         }
 
@@ -118,8 +121,7 @@ impl Clipboard {
     pub fn write_text(&self, data: String) -> anyhow::Result<()> {
         let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
-        clipboard.set_text(data)
-            .map_err(|err| unknown_err_clipboard(err))?;
+        clipboard.set_text(data).map_err(|err| unknown_err_clipboard(err))?;
 
         Ok(())
     }
@@ -127,8 +129,7 @@ impl Clipboard {
     pub fn clear(&self) -> anyhow::Result<()> {
         let mut clipboard = self.clipboard.write().expect("lock is poisoned");
 
-        clipboard.clear()
-            .map_err(|err| unknown_err_clipboard(err))?;
+        clipboard.clear().map_err(|err| unknown_err_clipboard(err))?;
 
         Ok(())
     }

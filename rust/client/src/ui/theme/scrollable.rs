@@ -1,8 +1,12 @@
-use iced::{Border, Color};
-use iced::widget::{container, scrollable};
-use iced::widget::scrollable::{Status, Style};
+use iced::widget::container;
+use iced::widget::scrollable;
+use iced::widget::scrollable::Status;
+use iced::widget::scrollable::Style;
+use iced::Border;
+use iced::Color;
 
-use crate::ui::theme::{GauntletComplexTheme, get_theme};
+use crate::ui::theme::get_theme;
+use crate::ui::theme::GauntletComplexTheme;
 
 impl scrollable::Catalog for GauntletComplexTheme {
     type Class<'a> = ();
@@ -29,12 +33,14 @@ impl scrollable::Catalog for GauntletComplexTheme {
         };
 
         match status {
-            Status::Active => Style {
-                container: container::Style::default(),
-                vertical_rail: scrollbar,
-                horizontal_rail: scrollbar,
-                gap: None,
-            },
+            Status::Active => {
+                Style {
+                    container: container::Style::default(),
+                    vertical_rail: scrollbar,
+                    horizontal_rail: scrollbar,
+                    gap: None,
+                }
+            }
             Status::Hovered {
                 is_horizontal_scrollbar_hovered,
                 is_vertical_scrollbar_hovered,

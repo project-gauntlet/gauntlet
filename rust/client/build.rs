@@ -3,9 +3,13 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use convert_case::{Case, Casing};
-
-use gauntlet_component_model::{create_component_model, Component, ComponentName, Property, PropertyType};
+use convert_case::Case;
+use convert_case::Casing;
+use gauntlet_component_model::create_component_model;
+use gauntlet_component_model::Component;
+use gauntlet_component_model::ComponentName;
+use gauntlet_component_model::Property;
+use gauntlet_component_model::PropertyType;
 
 fn main() -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR")?;
@@ -20,10 +24,14 @@ fn main() -> anyhow::Result<()> {
             Component::Standard { name, props, .. } => {
                 for prop in props {
                     let PropertyType::Function { arguments } = &prop.property_type else {
-                        continue
+                        continue;
                     };
 
-                    output.push_str(&format!("fn create_{}_{}_event(\n", name.to_string().to_case(Case::Snake), prop.name.to_case(Case::Snake)));
+                    output.push_str(&format!(
+                        "fn create_{}_{}_event(\n",
+                        name.to_string().to_case(Case::Snake),
+                        prop.name.to_case(Case::Snake)
+                    ));
                     output.push_str("    widget_id: UiWidgetId,\n");
 
                     for arg in arguments {
@@ -34,7 +42,7 @@ fn main() -> anyhow::Result<()> {
                     output.push_str("    crate::model::UiViewEvent::View {\n");
                     output.push_str("        widget_id,\n");
                     output.push_str(&format!("        event_name: \"{}\".to_owned(),\n", prop.name));
-                    output.push_str("        event_arguments: vec![\n",);
+                    output.push_str("        event_arguments: vec![\n");
 
                     for arg in arguments {
                         match arg.property_type {
@@ -42,21 +50,30 @@ fn main() -> anyhow::Result<()> {
                                 if arg.optional {
                                     output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::String({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            gauntlet_common::model::UiPropertyValue::String({}),\n", arg.name));
+                                    output.push_str(&format!(
+                                        "            gauntlet_common::model::UiPropertyValue::String({}),\n",
+                                        arg.name
+                                    ));
                                 }
                             }
                             PropertyType::Number => {
                                 if arg.optional {
                                     output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Number({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            gauntlet_common::model::UiPropertyValue::Number({}),\n", arg.name));
+                                    output.push_str(&format!(
+                                        "            gauntlet_common::model::UiPropertyValue::Number({}),\n",
+                                        arg.name
+                                    ));
                                 }
                             }
                             PropertyType::Boolean => {
                                 if arg.optional {
                                     output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Bool({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
-                                    output.push_str(&format!("            gauntlet_common::model::UiPropertyValue::Bool({}),\n", arg.name));
+                                    output.push_str(&format!(
+                                        "            gauntlet_common::model::UiPropertyValue::Bool({}),\n",
+                                        arg.name
+                                    ));
                                 }
                             }
                             _ => {
@@ -87,8 +104,18 @@ fn generate_file<P: AsRef<Path>>(path: P, text: &str) -> std::io::Result<()> {
 
 fn generate_type(property: &Property, name: &ComponentName) -> String {
     match property.optional {
-        true => generate_optional_type(&property.property_type, format!("{}{}", name, &property.name.to_case(Case::Pascal))),
-        false => generate_required_type(&property.property_type, Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))))
+        true => {
+            generate_optional_type(
+                &property.property_type,
+                format!("{}{}", name, &property.name.to_case(Case::Pascal)),
+            )
+        }
+        false => {
+            generate_required_type(
+                &property.property_type,
+                Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))),
+            )
+        }
     }
 }
 
@@ -107,9 +134,9 @@ fn generate_required_type(property_type: &PropertyType, union_name: Option<Strin
         PropertyType::Union { .. } => {
             match union_name {
                 None => panic!("should not be used"),
-                Some(union_name) => union_name
+                Some(union_name) => union_name,
             }
-        },
-        PropertyType::Array { item } => format!("Vec<{}>", generate_required_type(item, union_name))
+        }
+        PropertyType::Array { item } => format!("Vec<{}>", generate_required_type(item, union_name)),
     }
 }

@@ -1,15 +1,31 @@
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::SettingsTheme;
+use gauntlet_common::model::WindowPositionMode;
+use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_api::BackendApiError;
+use iced::alignment;
+use iced::alignment::Horizontal;
+use iced::widget::column;
+use iced::widget::container;
+use iced::widget::pick_list;
+use iced::widget::row;
+use iced::widget::text;
+use iced::widget::text::Shaping;
+use iced::widget::tooltip;
+use iced::widget::tooltip::Position;
+use iced::widget::value;
+use iced::widget::Space;
+use iced::Alignment;
+use iced::Length;
+use iced::Padding;
+use iced::Task;
+use iced_fonts::Bootstrap;
+use iced_fonts::BOOTSTRAP_FONT;
+
 use crate::components::shortcut_selector::ShortcutSelector;
+use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
-use gauntlet_common::model::{PhysicalShortcut, SettingsTheme, WindowPositionMode};
-use gauntlet_common::rpc::backend_api::{BackendApi, BackendApiError};
-use iced::alignment::Horizontal;
-use iced::widget::text::Shaping;
-use iced::widget::tooltip::Position;
-use iced::widget::{column, container, pick_list, row, text, tooltip, value, Space};
-use iced::{alignment, Alignment, Length, Padding, Task};
-use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
-use crate::theme::container::ContainerStyle;
 
 pub struct ManagementAppGeneralState {
     backend_api: Option<BackendApi>,
@@ -17,7 +33,7 @@ pub struct ManagementAppGeneralState {
     window_position_mode: WindowPositionMode,
     current_shortcut: Option<PhysicalShortcut>,
     current_shortcut_error: Option<String>,
-    currently_capturing: bool
+    currently_capturing: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -28,15 +44,15 @@ pub enum ManagementAppGeneralMsgIn {
     WindowPositionModeChanged(WindowPositionMode),
     SetGlobalShortcutResponse {
         shortcut: Option<PhysicalShortcut>,
-        shortcut_error: Option<String>
+        shortcut_error: Option<String>,
     },
     InitSetting {
         theme: SettingsTheme,
         window_position_mode: WindowPositionMode,
         shortcut: Option<PhysicalShortcut>,
-        shortcut_error: Option<String>
+        shortcut_error: Option<String>,
     },
-    Noop
+    Noop,
 }
 
 #[derive(Debug, Clone)]
@@ -44,9 +60,9 @@ pub enum ManagementAppGeneralMsgOut {
     Noop,
     SetGlobalShortcutResponse {
         shortcut: Option<PhysicalShortcut>,
-        shortcut_error: Option<String>
+        shortcut_error: Option<String>,
     },
-    HandleBackendError(BackendApiError)
+    HandleBackendError(BackendApiError),
 }
 
 impl ManagementAppGeneralState {
@@ -64,9 +80,7 @@ impl ManagementAppGeneralState {
     pub fn update(&mut self, message: ManagementAppGeneralMsgIn) -> Task<ManagementAppGeneralMsgOut> {
         let backend_api = match &self.backend_api {
             Some(backend_api) => backend_api.clone(),
-            None => {
-                return Task::none()
-            }
+            None => return Task::none(),
         };
 
         match message {
@@ -78,8 +92,7 @@ impl ManagementAppGeneralState {
                         let shortcut = shortcut.clone();
 
                         async move {
-                            let error = backend_api.set_global_shortcut(shortcut)
-                                .await?;
+                            let error = backend_api.set_global_shortcut(shortcut).await?;
 
                             Ok(error)
                         }
@@ -87,17 +100,22 @@ impl ManagementAppGeneralState {
                     move |result| {
                         let shortcut = shortcut.clone();
 
-                        handle_backend_error(result, move |shortcut_error| ManagementAppGeneralMsgOut::SetGlobalShortcutResponse {
-                            shortcut,
-                            shortcut_error,
+                        handle_backend_error(result, move |shortcut_error| {
+                            ManagementAppGeneralMsgOut::SetGlobalShortcutResponse {
+                                shortcut,
+                                shortcut_error,
+                            }
                         })
                     },
                 )
             }
-            ManagementAppGeneralMsgIn::Noop => {
-                Task::none()
-            }
-            ManagementAppGeneralMsgIn::InitSetting { theme, window_position_mode, shortcut, shortcut_error } => {
+            ManagementAppGeneralMsgIn::Noop => Task::none(),
+            ManagementAppGeneralMsgIn::InitSetting {
+                theme,
+                window_position_mode,
+                shortcut,
+                shortcut_error,
+            } => {
                 self.theme = theme;
                 self.window_position_mode = window_position_mode;
                 self.current_shortcut = shortcut;
@@ -115,27 +133,33 @@ impl ManagementAppGeneralState {
 
                 let mut backend_api = backend_api.clone();
 
-                Task::perform(async move {
-                    backend_api.set_theme(theme)
-                        .await?;
+                Task::perform(
+                    async move {
+                        backend_api.set_theme(theme).await?;
 
-                    Ok(())
-                }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
-
+                        Ok(())
+                    },
+                    |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop),
+                )
             }
             ManagementAppGeneralMsgIn::WindowPositionModeChanged(mode) => {
                 self.window_position_mode = mode.clone();
 
                 let mut backend_api = backend_api.clone();
 
-                Task::perform(async move {
-                    backend_api.set_window_position_mode(mode)
-                        .await?;
+                Task::perform(
+                    async move {
+                        backend_api.set_window_position_mode(mode).await?;
 
-                    Ok(())
-                }, |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop))
+                        Ok(())
+                    },
+                    |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop),
+                )
             }
-            ManagementAppGeneralMsgIn::SetGlobalShortcutResponse { shortcut, shortcut_error } => {
+            ManagementAppGeneralMsgIn::SetGlobalShortcutResponse {
+                shortcut,
+                shortcut_error,
+            } => {
                 self.current_shortcut = shortcut;
                 self.current_shortcut_error = shortcut_error;
 
@@ -145,12 +169,12 @@ impl ManagementAppGeneralState {
     }
 
     pub fn view(&self) -> Element<ManagementAppGeneralMsgIn> {
-
         let global_shortcut_selector: Element<_> = ShortcutSelector::new(
             &self.current_shortcut,
-            move |value| { ManagementAppGeneralMsgIn::ShortcutCaptured(value) },
-            move |value| { ManagementAppGeneralMsgIn::CapturingChanged(value) },
-        ).into();
+            move |value| ManagementAppGeneralMsgIn::ShortcutCaptured(value),
+            move |value| ManagementAppGeneralMsgIn::CapturingChanged(value),
+        )
+        .into();
 
         let global_shortcut_field: Element<_> = container(global_shortcut_selector)
             .width(Length::Fill)
@@ -160,7 +184,7 @@ impl ManagementAppGeneralState {
         let global_shortcut_field = self.view_field(
             "Global Shortcut",
             global_shortcut_field,
-            Some(self.shortcut_capture_after())
+            Some(self.shortcut_capture_after()),
         );
 
         let theme_field = self.theme_field();
@@ -172,16 +196,11 @@ impl ManagementAppGeneralState {
             content.push(self.window_position_mode_field())
         }
 
-        let content: Element<_> = column(content)
-            .into();
+        let content: Element<_> = column(content).into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .into();
+        let content: Element<_> = container(content).width(Length::Fill).into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .into();
+        let content: Element<_> = container(content).width(Length::Fill).into();
 
         content
     }
@@ -214,86 +233,58 @@ impl ManagementAppGeneralState {
                     SettingsTheme::Legacy,
                 ];
 
-                let theme_field: Element<_> = pick_list(
-                    theme_items,
-                    Some(self.theme.clone()),
-                    move |item| ManagementAppGeneralMsgIn::ThemeChanged(item),
-                ).into();
+                let theme_field: Element<_> = pick_list(theme_items, Some(self.theme.clone()), move |item| {
+                    ManagementAppGeneralMsgIn::ThemeChanged(item)
+                })
+                .into();
 
                 theme_field
             }
         };
 
-        let theme_field: Element<_> = container(theme_field)
-            .width(Length::Fill)
-            .into();
+        let theme_field: Element<_> = container(theme_field).width(Length::Fill).into();
 
-        let theme_field = self.view_field(
-            "Theme",
-            theme_field,
-            None
-        );
+        let theme_field = self.view_field("Theme", theme_field, None);
 
         theme_field
     }
 
     fn window_position_mode_field(&self) -> Element<ManagementAppGeneralMsgIn> {
-        let items = [
-            WindowPositionMode::Static,
-            WindowPositionMode::ActiveMonitor,
-        ];
+        let items = [WindowPositionMode::Static, WindowPositionMode::ActiveMonitor];
 
-        let field: Element<_> = pick_list(
-            items,
-            Some(self.window_position_mode.clone()),
-            move |item| ManagementAppGeneralMsgIn::WindowPositionModeChanged(item),
-        ).into();
+        let field: Element<_> = pick_list(items, Some(self.window_position_mode.clone()), move |item| {
+            ManagementAppGeneralMsgIn::WindowPositionModeChanged(item)
+        })
+        .into();
 
-        let field: Element<_> = container(field)
-            .width(Length::Fill)
-            .into();
+        let field: Element<_> = container(field).width(Length::Fill).into();
 
-        let field = self.view_field(
-            "Window Position Mode",
-            field,
-            None
-        );
+        let field = self.view_field("Window Position Mode", field, None);
 
         field
     }
 
-    fn view_field<'a>(&'a self, label: &'a str, input: Element<'a, ManagementAppGeneralMsgIn>, after: Option<Element<'a, ManagementAppGeneralMsgIn>>) -> Element<'a, ManagementAppGeneralMsgIn> {
+    fn view_field<'a>(
+        &'a self,
+        label: &'a str,
+        input: Element<'a, ManagementAppGeneralMsgIn>,
+        after: Option<Element<'a, ManagementAppGeneralMsgIn>>,
+    ) -> Element<'a, ManagementAppGeneralMsgIn> {
         let label: Element<_> = text(label)
             .shaping(Shaping::Advanced)
             .align_x(Horizontal::Right)
             .width(Length::Fill)
             .into();
 
-        let label: Element<_> = container(label)
-            .width(Length::FillPortion(3))
-            .padding(4)
-            .into();
+        let label: Element<_> = container(label).width(Length::FillPortion(3)).padding(4).into();
 
-        let input_field = container(input)
-            .width(Length::FillPortion(3))
-            .padding(4)
-            .into();
+        let input_field = container(input).width(Length::FillPortion(3)).padding(4).into();
 
-        let after = after.unwrap_or_else(|| {
-            Space::with_width(Length::FillPortion(3))
-                .into()
-        });
+        let after = after.unwrap_or_else(|| Space::with_width(Length::FillPortion(3)).into());
 
-        let content = vec![
-            label,
-            input_field,
-            after,
-        ];
+        let content = vec![label, input_field, after];
 
-        let row: Element<_> = row(content)
-            .align_y(Alignment::Center)
-            .padding(12)
-            .into();
+        let row: Element<_> = row(content).align_y(Alignment::Center).padding(12).into();
 
         row
     }
@@ -322,9 +313,7 @@ impl ManagementAppGeneralState {
                     .class(TextStyle::Destructive)
                     .into();
 
-                let error_text: Element<_> = text(current_shortcut_error)
-                    .class(TextStyle::Destructive)
-                    .into();
+                let error_text: Element<_> = text(current_shortcut_error).class(TextStyle::Destructive).into();
 
                 let error_text: Element<_> = container(error_text)
                     .padding(16.0)
@@ -332,8 +321,7 @@ impl ManagementAppGeneralState {
                     .class(ContainerStyle::Box)
                     .into();
 
-                let tooltip: Element<_> = tooltip(error_icon, error_text, Position::Bottom)
-                    .into();
+                let tooltip: Element<_> = tooltip(error_icon, error_text, Position::Bottom).into();
 
                 let content = container(tooltip)
                     .width(Length::FillPortion(3))
@@ -343,16 +331,18 @@ impl ManagementAppGeneralState {
 
                 content
             } else {
-                Space::with_width(Length::FillPortion(3))
-                    .into()
+                Space::with_width(Length::FillPortion(3)).into()
             }
         }
     }
 }
 
-pub fn handle_backend_error<T>(result: Result<T, BackendApiError>, convert: impl FnOnce(T) -> ManagementAppGeneralMsgOut) -> ManagementAppGeneralMsgOut {
+pub fn handle_backend_error<T>(
+    result: Result<T, BackendApiError>,
+    convert: impl FnOnce(T) -> ManagementAppGeneralMsgOut,
+) -> ManagementAppGeneralMsgOut {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppGeneralMsgOut::HandleBackendError(err)
+        Err(err) => ManagementAppGeneralMsgOut::HandleBackendError(err),
     }
 }

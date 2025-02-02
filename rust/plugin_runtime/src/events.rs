@@ -1,31 +1,36 @@
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
+
 use anyhow::anyhow;
-use bincode::{Decode, Encode};
-use deno_core::{op2, OpState};
-use deno_core::futures::{Stream, StreamExt};
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::Receiver;
+use bincode::Decode;
+use bincode::Encode;
+use deno_core::futures::Stream;
+use deno_core::futures::StreamExt;
+use deno_core::op2;
+use deno_core::OpState;
 use gauntlet_common::model::UiWidgetId;
+use serde::Deserialize;
+use serde::Serialize;
+use tokio::sync::mpsc::Receiver;
 
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
 #[serde(tag = "type")]
 pub enum JsEvent {
     OpenView {
         #[serde(rename = "entrypointId")]
-        entrypoint_id: String
+        entrypoint_id: String,
     },
     CloseView,
     RunCommand {
         #[serde(rename = "entrypointId")]
-        entrypoint_id: String
+        entrypoint_id: String,
     },
     RunGeneratedEntrypoint {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String,
         #[serde(rename = "actionIndex")]
-        action_index: usize
+        action_index: usize,
     },
     ViewEvent {
         #[serde(rename = "widgetId")]
@@ -47,7 +52,7 @@ pub enum JsEvent {
         #[serde(rename = "modifierAlt")]
         modifier_alt: bool,
         #[serde(rename = "modifierMeta")]
-        modifier_meta: bool
+        modifier_meta: bool,
     },
     OpenInlineView {
         #[serde(rename = "text")]
@@ -66,15 +71,9 @@ pub enum JsKeyboardEventOrigin {
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
 #[serde(tag = "type")]
 pub enum JsUiPropertyValue {
-    String {
-        value: String
-    },
-    Number {
-        value: f64
-    },
-    Bool {
-        value: bool
-    },
+    String { value: String },
+    Number { value: f64 },
+    Bool { value: bool },
     Undefined,
 }
 
@@ -93,15 +92,11 @@ impl EventReceiver {
 #[op2(async)]
 #[serde]
 pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsEvent> {
-    let event_stream = {
-        state.borrow()
-            .borrow::<EventReceiver>()
-            .event_stream
-            .clone()
-    };
+    let event_stream = { state.borrow().borrow::<EventReceiver>().event_stream.clone() };
 
     let mut event_stream = event_stream.borrow_mut();
-    let event = event_stream.recv()
+    let event = event_stream
+        .recv()
         .await
         .ok_or_else(|| anyhow!("event stream was suddenly closed"))?;
 
@@ -109,4 +104,3 @@ pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow:
 
     Ok(event)
 }
-

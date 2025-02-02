@@ -1,14 +1,18 @@
 use std::cell::RefCell;
-use deno_core::{op2, OpState};
 use std::path::PathBuf;
 use std::rc::Rc;
+
 use anyhow::anyhow;
-use image::ImageFormat;
+use deno_core::op2;
+use deno_core::OpState;
 use image::imageops::FilterType;
-use serde::{Deserialize, Serialize};
+use image::ImageFormat;
+use serde::Deserialize;
+use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 use tokio::task::spawn_blocking;
+
 use crate::plugin_data::PluginData;
 
 #[cfg(target_os = "linux")]
@@ -26,19 +30,13 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::gauntlet_internal_windows;
 
-
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum DesktopPathAction {
     #[serde(rename = "add")]
-    Add {
-        id: String,
-        data: DesktopApplication
-    },
+    Add { id: String, data: DesktopApplication },
     #[serde(rename = "remove")]
-    Remove {
-        id: String
-    }
+    Remove { id: String },
 }
 
 #[cfg(target_os = "linux")]
@@ -82,7 +80,6 @@ pub struct DesktopSettings13AndPostData {
     icon: Option<Vec<u8>>,
 }
 
-
 #[op2]
 #[string]
 pub fn current_os() -> &'static str {
@@ -91,13 +88,7 @@ pub fn current_os() -> &'static str {
 
 #[op2(fast)]
 pub fn wayland(state: Rc<RefCell<OpState>>) -> bool {
-    let wayland = {
-        state
-            .borrow()
-            .borrow::<ApplicationContext>()
-            .desktop
-            .is_wayland()
-    };
+    let wayland = { state.borrow().borrow::<ApplicationContext>().desktop.is_wayland() };
 
     wayland
 }
@@ -123,7 +114,7 @@ impl DesktopEnvironment {
         match self {
             #[cfg(target_os = "linux")]
             DesktopEnvironment::Linux(linux) => linux.is_wayland(),
-            DesktopEnvironment::None => false
+            DesktopEnvironment::None => false,
         }
     }
 }
@@ -183,7 +174,6 @@ pub fn macos_application_dirs() -> Vec<String> {
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_open_application(#[string] app_path: String) -> anyhow::Result<()> {
-
     spawn_detached("open", &[app_path])?;
 
     Ok(())
@@ -206,13 +196,7 @@ pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> anyhow::Result<()> {
-
-    spawn_detached(
-        "open",
-        &[
-            format!("x-apple.systempreferences:{}", preferences_id)
-        ]
-    )?;
+    spawn_detached("open", &[format!("x-apple.systempreferences:{}", preferences_id)])?;
 
     Ok(())
 }
@@ -220,31 +204,21 @@ pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> anyho
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Result<()> {
-
-    spawn_detached(
-        "open",
-        &[
-            "-b",
-            "com.apple.systempreferences",
-            &setting_path,
-        ]
-    )?;
+    spawn_detached("open", &["-b", "com.apple.systempreferences", &setting_path])?;
 
     Ok(())
 }
 
 #[cfg(unix)]
-pub fn spawn_detached<I, S>(
-    path: &str,
-    args: I,
-) -> std::io::Result<()>
+pub fn spawn_detached<I, S>(path: &str, args: I) -> std::io::Result<()>
 where
     I: IntoIterator<Item = S> + Copy,
     S: AsRef<std::ffi::OsStr>,
 {
     // from https://github.com/alacritty/alacritty/blob/5abb4b73937b17fe501b9ca20b602950f1218b96/alacritty/src/daemon.rs#L65
     use std::os::unix::prelude::CommandExt;
-    use std::process::{Command, Stdio};
+    use std::process::Command;
+    use std::process::Stdio;
 
     let mut command = Command::new(path);
 

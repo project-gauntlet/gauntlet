@@ -1,63 +1,139 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
+use std::sync::Mutex;
+use std::sync::RwLock as StdRwLock;
+
 use anyhow::anyhow;
+use client_context::ClientContext;
+use gauntlet_common::model::BackendRequestData;
+use gauntlet_common::model::BackendResponseData;
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::KeyboardEventOrigin;
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::RootWidget;
+use gauntlet_common::model::RootWidgetMembers;
+use gauntlet_common::model::SearchResult;
+use gauntlet_common::model::SearchResultEntrypointAction;
+use gauntlet_common::model::SearchResultEntrypointActionType;
+use gauntlet_common::model::SearchResultEntrypointType;
+use gauntlet_common::model::UiRenderLocation;
+use gauntlet_common::model::UiRequestData;
+use gauntlet_common::model::UiResponseData;
+use gauntlet_common::model::UiSetupData;
+use gauntlet_common::model::UiTheme;
+use gauntlet_common::model::UiWidgetId;
+use gauntlet_common::model::WindowPositionMode;
+use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiError;
+use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
+use gauntlet_common::scenario_model::ScenarioFrontendEvent;
+use gauntlet_common::scenario_model::ScenarioUiRenderLocation;
+use gauntlet_common_ui::physical_key_model;
+use gauntlet_utils::channel::RequestReceiver;
+use gauntlet_utils::channel::RequestSender;
+use gauntlet_utils::channel::Responder;
 use global_hotkey::hotkey::HotKey;
 use global_hotkey::GlobalHotKeyManager;
 use iced::advanced::graphics::core::SmolStr;
 use iced::advanced::layout::Limits;
+use iced::alignment::Horizontal;
+use iced::alignment::Vertical;
+use iced::event;
+use iced::executor;
+use iced::font;
+use iced::futures;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
-use iced::keyboard::key::{Named, Physical};
-use iced::keyboard::{Key, Modifiers};
-use iced::widget::scrollable::{scroll_to, AbsoluteOffset};
+use iced::keyboard;
+use iced::keyboard::key::Named;
+use iced::keyboard::key::Physical;
+use iced::keyboard::Key;
+use iced::keyboard::Modifiers;
+use iced::stream;
+use iced::widget::button;
+use iced::widget::column;
+use iced::widget::container;
+use iced::widget::horizontal_rule;
+use iced::widget::horizontal_space;
+use iced::widget::row;
+use iced::widget::scrollable;
+use iced::widget::scrollable::scroll_to;
+use iced::widget::scrollable::AbsoluteOffset;
+use iced::widget::text;
 use iced::widget::text::Shaping;
+use iced::widget::text_input;
 use iced::widget::text_input::focus;
-use iced::widget::{button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input, Space};
-use iced::window::{Level, Mode, Position, Screenshot};
-use iced::{event, executor, font, futures, keyboard, stream, window, Alignment, Event, Font, Length, Padding, Pixels, Point, Renderer, Settings, Size, Subscription, Task};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::{Arc, Mutex as StdMutex, Mutex, RwLock as StdRwLock};
-use iced::alignment::{Horizontal, Vertical};
+use iced::widget::Space;
+use iced::window;
+use iced::window::Level;
+use iced::window::Mode;
+use iced::window::Position;
+use iced::window::Screenshot;
+use iced::Alignment;
+use iced::Event;
+use iced::Font;
+use iced::Length;
+use iced::Padding;
+use iced::Pixels;
+use iced::Point;
+use iced::Renderer;
+use iced::Settings;
+use iced::Size;
+use iced::Subscription;
+use iced::Task;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 use serde::Deserialize;
-use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
-
-use client_context::ClientContext;
-use gauntlet_common::model::{BackendRequestData, BackendResponseData, EntrypointId, UiTheme, KeyboardEventOrigin, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchResult, SearchResultEntrypointAction, SearchResultEntrypointActionType, SearchResultEntrypointType, UiRenderLocation, UiRequestData, UiResponseData, UiSetupData, UiWidgetId, WindowPositionMode};
-use gauntlet_common::rpc::backend_api::{BackendApi, BackendForFrontendApi, BackendForFrontendApiError};
-use gauntlet_common::scenario_convert::{ui_render_location_from_scenario};
-use gauntlet_common::scenario_model::{ScenarioFrontendEvent, ScenarioUiRenderLocation};
-use gauntlet_common_ui::physical_key_model;
-use gauntlet_utils::channel::{RequestReceiver, RequestSender, Responder};
+use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::RwLock as TokioRwLock;
 
 use crate::model::UiViewEvent;
 use crate::ui::search_list::search_list;
-use crate::ui::theme::container::{ContainerStyle, ContainerStyleInner};
+use crate::ui::theme::container::ContainerStyle;
+use crate::ui::theme::container::ContainerStyleInner;
 use crate::ui::theme::text_input::TextInputStyle;
-use crate::ui::theme::{Element, ThemableWidget};
-use crate::ui::widget::{render_root, ActionPanel, ActionPanelItem, ComponentWidgetEvent};
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
+use crate::ui::widget::render_root;
+use crate::ui::widget::ActionPanel;
+use crate::ui::widget::ActionPanelItem;
+use crate::ui::widget::ComponentWidgetEvent;
 
-mod search_list;
-mod widget;
-mod theme;
 mod client_context;
-mod widget_container;
+mod custom_widgets;
+mod grid_navigation;
+mod hud;
+mod scroll_handle;
+mod search_list;
+mod state;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod sys_tray;
-mod custom_widgets;
-mod scroll_handle;
-mod state;
-mod hud;
-mod grid_navigation;
+mod theme;
+mod widget;
+mod widget_container;
 
-use crate::global_shortcut::{convert_physical_shortcut_to_hotkey, register_listener};
+pub use theme::GauntletComplexTheme;
+
+use crate::global_shortcut::convert_physical_shortcut_to_hotkey;
+use crate::global_shortcut::register_listener;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::hud::show_hud_window;
 use crate::ui::scroll_handle::ScrollHandle;
-use crate::ui::state::{ErrorViewData, Focus, GlobalState, LoadingBarState, MainViewState, PluginViewData, PluginViewState};
+use crate::ui::state::ErrorViewData;
+use crate::ui::state::Focus;
+use crate::ui::state::GlobalState;
+use crate::ui::state::LoadingBarState;
+use crate::ui::state::MainViewState;
+use crate::ui::state::PluginViewData;
+use crate::ui::state::PluginViewState;
 use crate::ui::widget_container::PluginWidgetContainer;
-pub use theme::GauntletComplexTheme;
 
 pub struct AppModel {
     // logic
@@ -84,7 +160,7 @@ pub struct AppModel {
     global_state: GlobalState,
     search_results: Vec<SearchResult>,
     loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
-    hud_display: Option<String>
+    hud_display: Option<String>,
 }
 
 #[cfg(target_os = "linux")]
@@ -107,7 +183,7 @@ pub enum AppMsg {
         plugin_name: String,
         entrypoint_id: EntrypointId,
         entrypoint_name: String,
-        action_index: usize
+        action_index: usize,
     },
     RunCommand {
         plugin_id: PluginId,
@@ -116,7 +192,7 @@ pub enum AppMsg {
     RunGeneratedEntrypoint {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        action_index: usize
+        action_index: usize,
     },
     RunSearchItemAction(SearchResult, usize),
     RunPluginAction {
@@ -155,68 +231,92 @@ pub enum AppMsg {
     ShowWindow,
     HideWindow,
     ToggleActionPanel {
-        keyboard: bool
+        keyboard: bool,
     },
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
-        entrypoint_preferences_required: bool
+        entrypoint_preferences_required: bool,
     },
     OpenSettingsPreferences {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
     },
     OnOpenView {
-        action_shortcuts: HashMap<String, PhysicalShortcut>
+        action_shortcuts: HashMap<String, PhysicalShortcut>,
     },
     ShowPluginErrorView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: UiRenderLocation
+        render_location: UiRenderLocation,
     },
     Screenshot {
-        save_path: String
+        save_path: String,
     },
     ScreenshotDone {
         save_path: String,
-        screenshot: Screenshot
+        screenshot: Screenshot,
     },
     ShowBackendError(BackendForFrontendApiError),
     ClosePluginView(PluginId),
     OpenPluginView(PluginId, EntrypointId),
     InlineViewShortcuts {
-        shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>
+        shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
     },
     ShowHud {
-        display: String
+        display: String,
     },
     OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus,
-    OnPrimaryActionMainViewNoPanel { search_result: SearchResult },
-    OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result: SearchResult },
+    OnPrimaryActionMainViewNoPanel {
+        search_result: SearchResult,
+    },
+    OnSecondaryActionMainViewNoPanelKeyboardWithFocus {
+        search_result: SearchResult,
+    },
     OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus,
-    OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result: SearchResult, widget_id: UiWidgetId },
-    OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id: UiWidgetId },
-    OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id: UiWidgetId, id: Option<String> },
-    OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id: UiWidgetId, id: Option<String> },
-    OnAnyActionPluginViewAnyPanel { widget_id: UiWidgetId, id: Option<String> },
-    OnAnyActionMainViewSearchResultPanelMouse { widget_id: UiWidgetId },
-    OnPrimaryActionMainViewActionPanelMouse { widget_id: UiWidgetId },
+    OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
+        search_result: SearchResult,
+        widget_id: UiWidgetId,
+    },
+    OnAnyActionMainViewInlineViewPanelKeyboardWithFocus {
+        widget_id: UiWidgetId,
+    },
+    OnAnyActionPluginViewNoPanelKeyboardWithFocus {
+        widget_id: UiWidgetId,
+        id: Option<String>,
+    },
+    OnAnyActionPluginViewAnyPanelKeyboardWithFocus {
+        widget_id: UiWidgetId,
+        id: Option<String>,
+    },
+    OnAnyActionPluginViewAnyPanel {
+        widget_id: UiWidgetId,
+        id: Option<String>,
+    },
+    OnAnyActionMainViewSearchResultPanelMouse {
+        widget_id: UiWidgetId,
+    },
+    OnPrimaryActionMainViewActionPanelMouse {
+        widget_id: UiWidgetId,
+    },
     ResetMainViewState,
-    OnAnyActionMainViewNoPanelKeyboardAtIndex { index: usize },
+    OnAnyActionMainViewNoPanelKeyboardAtIndex {
+        index: usize,
+    },
     SetGlobalShortcut {
         shortcut: Option<PhysicalShortcut>,
-        responder: Arc<Mutex<Option<Responder<UiResponseData>>>>
+        responder: Arc<Mutex<Option<Responder<UiResponseData>>>>,
     },
     UpdateLoadingBar {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        show: bool
+        show: bool,
     },
     PendingPluginViewLoadingBar,
     ShowPluginViewLoadingBar,
     FocusPluginViewSearchBar {
-        widget_id: UiWidgetId
+        widget_id: UiWidgetId,
     },
     #[cfg(target_os = "linux")]
     LayerShell(layer_shell::LayerShellAppMsg),
@@ -224,10 +324,10 @@ pub enum AppMsg {
         plugin_id: PluginId,
     },
     SetTheme {
-        theme: UiTheme
+        theme: UiTheme,
     },
     SetWindowPositionMode {
-        mode: WindowPositionMode
+        mode: WindowPositionMode,
     },
 }
 
@@ -237,7 +337,7 @@ impl TryInto<iced_layershell::actions::LayershellCustomActionsWithId> for AppMsg
     fn try_into(self) -> Result<iced_layershell::actions::LayershellCustomActionsWithId, Self::Error> {
         match self {
             Self::LayerShell(msg) => msg.try_into().map_err(|msg| Self::LayerShell(msg)),
-            _ => Err(self)
+            _ => Err(self),
         }
     }
 }
@@ -282,7 +382,6 @@ fn window_settings(visible: bool, position: Position) -> window::Settings {
     }
 }
 
-
 #[cfg(target_os = "linux")]
 fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
     iced_layershell::reexport::NewLayerShellSettings {
@@ -303,7 +402,7 @@ fn open_main_window_non_wayland(minimized: bool, window_position_file: &PathBuf)
             if let Some((x, y)) = data.split_once(":") {
                 match (x.parse(), y.parse()) {
                     (Ok(x), Ok(y)) => Some(Position::Specific(Point::new(x, y))),
-                    _ => None
+                    _ => None,
                 }
             } else {
                 None
@@ -314,20 +413,28 @@ fn open_main_window_non_wayland(minimized: bool, window_position_file: &PathBuf)
 
     let (main_window_id, open_task) = window::open(window_settings(!minimized, position));
 
-    (main_window_id, Task::batch([
-        open_task.map(|_| AppMsg::Noop),
-        window::gain_focus(main_window_id),
-        window::change_level(main_window_id, Level::AlwaysOnTop),
-    ]))
+    (
+        main_window_id,
+        Task::batch([
+            open_task.map(|_| AppMsg::Noop),
+            window::gain_focus(main_window_id),
+            window::change_level(main_window_id, Level::AlwaysOnTop),
+        ]),
+    )
 }
 
 #[cfg(target_os = "linux")]
 fn open_main_window_wayland(id: window::Id) -> (window::Id, Task<AppMsg>) {
     let settings = layer_shell_settings();
 
-    (id, Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell { id, settings })))
+    (
+        id,
+        Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell {
+            id,
+            settings,
+        })),
+    )
 }
-
 
 pub fn run(
     minimized: bool,
@@ -396,8 +503,7 @@ fn run_wayland(
 }
 
 #[cfg(target_os = "linux")]
-fn wayland_remove_id_info(_state: &mut AppModel, _id: window::Id) {
-}
+fn wayland_remove_id_info(_state: &mut AppModel, _id: window::Id) {}
 
 fn new(
     frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
@@ -407,8 +513,7 @@ fn new(
 ) -> (AppModel, Task<AppMsg>) {
     let mut backend_api = BackendForFrontendApi::new(backend_sender);
 
-    let setup_data = futures::executor::block_on(backend_api.setup_data())
-        .expect("Unable to setup frontend");
+    let setup_data = futures::executor::block_on(backend_api.setup_data()).expect("Unable to setup frontend");
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
 
@@ -416,20 +521,19 @@ fn new(
 
     let current_hotkey = Arc::new(StdMutex::new(None));
 
-    let global_hotkey_manager = GlobalHotKeyManager::new()
-        .expect("unable to create global hot key manager");
+    let global_hotkey_manager = GlobalHotKeyManager::new().expect("unable to create global hot key manager");
 
     let assignment_result = assign_global_shortcut(&global_hotkey_manager, &current_hotkey, setup_data.global_shortcut);
 
-    futures::executor::block_on(backend_api.setup_response(assignment_result.map_err(|err| format!("{:#}", err)).err()))
-        .expect("Unable to setup frontend");
+    futures::executor::block_on(
+        backend_api.setup_response(assignment_result.map_err(|err| format!("{:#}", err)).err()),
+    )
+    .expect("Unable to setup frontend");
 
-    let mut tasks = vec![
-        font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded),
-    ];
+    let mut tasks = vec![font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)];
 
     #[cfg(target_os = "linux")]
-    let (main_window_id, open_task) =  if wayland {
+    let (main_window_id, open_task) = if wayland {
         let id = window::Id::unique();
 
         if minimized {
@@ -447,34 +551,39 @@ fn new(
     tasks.push(open_task);
 
     let global_state = if cfg!(feature = "scenario_runner") {
-        let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN")
-            .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
+        let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
 
-       println!("Reading scenario file at: {}", gen_in);
+        println!("Reading scenario file at: {}", gen_in);
 
-        let gen_in = fs::read_to_string(gen_in)
-            .expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
+        let gen_in = fs::read_to_string(gen_in).expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
 
-        let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT")
-            .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
+        let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
 
-        let gen_name = std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME")
-            .expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
+        let gen_name =
+            std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
 
-        let event: ScenarioFrontendEvent = serde_json::from_str(&gen_in)
-            .expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
+        let event: ScenarioFrontendEvent =
+            serde_json::from_str(&gen_in).expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
 
-        tasks.push(
-            Task::perform(
-                async {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                },
-                move |_| AppMsg::Screenshot { save_path: gen_out.clone() },
-            )
-        );
+        tasks.push(Task::perform(
+            async {
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            },
+            move |_| {
+                AppMsg::Screenshot {
+                    save_path: gen_out.clone(),
+                }
+            },
+        ));
 
         match event {
-            ScenarioFrontendEvent::ReplaceView { entrypoint_id, render_location, top_level_view, container, images } => {
+            ScenarioFrontendEvent::ReplaceView {
+                entrypoint_id,
+                render_location,
+                top_level_view,
+                container,
+                images,
+            } => {
                 let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
                 let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
@@ -488,26 +597,30 @@ fn new(
                     render_location,
                     top_level_view,
                     container: Arc::new(container),
-                    images
+                    images,
                 };
 
                 tasks.push(Task::done(msg));
 
                 match render_location {
                     UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
-                    UiRenderLocation::View => GlobalState::new_plugin(
-                        PluginViewData {
+                    UiRenderLocation::View => {
+                        GlobalState::new_plugin(PluginViewData {
                             top_level_view,
                             plugin_id,
                             plugin_name: "Screenshot Gen".to_string(),
                             entrypoint_id,
                             entrypoint_name: gen_name,
                             action_shortcuts: Default::default(),
-                        },
-                    )
+                        })
+                    }
                 }
             }
-            ScenarioFrontendEvent::ShowPreferenceRequiredView { entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
+            ScenarioFrontendEvent::ShowPreferenceRequiredView {
+                entrypoint_id,
+                plugin_preferences_required,
+                entrypoint_preferences_required,
+            } => {
                 let error_view = ErrorViewData::PreferenceRequired {
                     plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
                     entrypoint_id: EntrypointId::from_string(entrypoint_id),
@@ -517,7 +630,10 @@ fn new(
 
                 GlobalState::new_error(error_view)
             }
-            ScenarioFrontendEvent::ShowPluginErrorView { entrypoint_id, render_location: _ } => {
+            ScenarioFrontendEvent::ShowPluginErrorView {
+                entrypoint_id,
+                render_location: _,
+            } => {
                 let error_view = ErrorViewData::PluginError {
                     plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
                     entrypoint_id: EntrypointId::from_string(entrypoint_id),
@@ -572,9 +688,17 @@ fn title(state: &AppModel, window: window::Id) -> String {
 
 fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
     match message {
-        AppMsg::OpenView { plugin_id, plugin_name, entrypoint_id, entrypoint_name } => {
+        AppMsg::OpenView {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+        } => {
             match &mut state.global_state {
-                GlobalState::MainView { pending_plugin_view_data, .. } => {
+                GlobalState::MainView {
+                    pending_plugin_view_data,
+                    ..
+                } => {
                     *pending_plugin_view_data = Some(PluginViewData {
                         top_level_view: true,
                         plugin_id: plugin_id.clone(),
@@ -586,20 +710,25 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
                     Task::batch([
                         state.open_plugin_view(plugin_id, entrypoint_id),
-                        Task::done(AppMsg::PendingPluginViewLoadingBar)
+                        Task::done(AppMsg::PendingPluginViewLoadingBar),
                     ])
                 }
-                GlobalState::ErrorView { .. } => {
-                    Task::none()
-                }
-                GlobalState::PluginView { .. } => {
-                    Task::none()
-                }
+                GlobalState::ErrorView { .. } => Task::none(),
+                GlobalState::PluginView { .. } => Task::none(),
             }
         }
-        AppMsg::OpenGeneratedView { plugin_id, plugin_name, entrypoint_id, entrypoint_name, action_index } => {
+        AppMsg::OpenGeneratedView {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+            action_index,
+        } => {
             match &mut state.global_state {
-                GlobalState::MainView { pending_plugin_view_data, .. } => {
+                GlobalState::MainView {
+                    pending_plugin_view_data,
+                    ..
+                } => {
                     *pending_plugin_view_data = Some(PluginViewData {
                         top_level_view: true,
                         plugin_id: plugin_id.clone(),
@@ -611,44 +740,52 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
                     Task::batch([
                         state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
-                        Task::done(AppMsg::PendingPluginViewLoadingBar)
+                        Task::done(AppMsg::PendingPluginViewLoadingBar),
                     ])
                 }
-                GlobalState::ErrorView { .. } => {
-                    Task::none()
-                }
-                GlobalState::PluginView { .. } => {
-                    Task::none()
-                }
+                GlobalState::ErrorView { .. } => Task::none(),
+                GlobalState::PluginView { .. } => Task::none(),
             }
         }
-        AppMsg::RunCommand { plugin_id, entrypoint_id } => {
-            Task::batch([
-                state.hide_window(),
-                state.run_command(plugin_id, entrypoint_id),
-            ])
-        }
-        AppMsg::RunGeneratedEntrypoint { plugin_id, entrypoint_id, action_index } => {
+        AppMsg::RunCommand {
+            plugin_id,
+            entrypoint_id,
+        } => Task::batch([state.hide_window(), state.run_command(plugin_id, entrypoint_id)]),
+        AppMsg::RunGeneratedEntrypoint {
+            plugin_id,
+            entrypoint_id,
+            action_index,
+        } => {
             Task::batch([
                 state.hide_window(),
                 state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
             ])
         }
-        AppMsg::RunPluginAction { render_location, plugin_id, widget_id, id } => {
-            let widget_event = ComponentWidgetEvent::RunAction {
-                widget_id,
-                id
-            };
+        AppMsg::RunPluginAction {
+            render_location,
+            plugin_id,
+            widget_id,
+            id,
+        } => {
+            let widget_event = ComponentWidgetEvent::RunAction { widget_id, id };
 
             match render_location {
                 UiRenderLocation::InlineView => {
                     Task::batch([
                         state.hide_window(),
-                        Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                        Task::done(AppMsg::WidgetEvent {
+                            widget_event,
+                            plugin_id,
+                            render_location,
+                        }),
                     ])
                 }
                 UiRenderLocation::View => {
-                    Task::done(AppMsg::WidgetEvent { widget_event, plugin_id, render_location })
+                    Task::done(AppMsg::WidgetEvent {
+                        widget_event,
+                        plugin_id,
+                        render_location,
+                    })
                 }
             }
         }
@@ -663,7 +800,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     } else {
                         Task::none()
                     }
-                },
+                }
                 SearchResultEntrypointType::View => {
                     if action_index == 0 {
                         Task::done(AppMsg::OpenView {
@@ -675,7 +812,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     } else {
                         Task::none()
                     }
-                },
+                }
                 SearchResultEntrypointType::Generated => {
                     let action = &search_result.entrypoint_actions[action_index];
                     match &action.action_type {
@@ -696,7 +833,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                             })
                         }
                     }
-                },
+                }
             }
         }
         AppMsg::PromptChanged(mut new_prompt) => {
@@ -704,7 +841,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::none()
             } else {
                 match &mut state.global_state {
-                    GlobalState::MainView { focused_search_result, sub_state, ..} => {
+                    GlobalState::MainView {
+                        focused_search_result,
+                        sub_state,
+                        ..
+                    } => {
                         new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
                         state.prompt = new_prompt.clone();
@@ -722,15 +863,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::UpdateSearchResults => {
             match &state.global_state {
-                GlobalState::MainView { .. } => {
-                    state.search(state.prompt.clone(), false)
-                }
-                _ => Task::none()
+                GlobalState::MainView { .. } => state.search(state.prompt.clone(), false),
+                _ => Task::none(),
             }
         }
-        AppMsg::PromptSubmit => {
-            state.global_state.primary(&state.client_context, &state.search_results)
-        },
+        AppMsg::PromptSubmit => state.global_state.primary(&state.client_context, &state.search_results),
         AppMsg::SetSearchResults(new_search_results) => {
             state.search_results = new_search_results;
 
@@ -744,7 +881,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             render_location,
             top_level_view,
             container,
-            images
+            images,
         } => {
             let has_children = container.content.is_some();
 
@@ -762,17 +899,21 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     top_level_view,
                     has_children,
                     render_location,
-                })
+                }),
             ])
         }
         AppMsg::HandleRenderPluginUI {
             top_level_view,
             has_children,
-            render_location
+            render_location,
         } => {
             match &mut state.global_state {
-                GlobalState::MainView { pending_plugin_view_data, focused_search_result, pending_plugin_view_loading_bar, .. } => {
-
+                GlobalState::MainView {
+                    pending_plugin_view_data,
+                    focused_search_result,
+                    pending_plugin_view_loading_bar,
+                    ..
+                } => {
                     if let LoadingBarState::Pending = pending_plugin_view_loading_bar {
                         *pending_plugin_view_loading_bar = LoadingBarState::Off;
                     }
@@ -798,16 +939,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     };
 
                     if let UiRenderLocation::InlineView = render_location {
-                        Task::batch([
-                            command,
-                            state.inline_view_shortcuts()
-                        ])
+                        Task::batch([command, state.inline_view_shortcuts()])
                     } else {
                         command
                     }
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
-                GlobalState::PluginView { plugin_view_data, ..} => {
+                GlobalState::PluginView { plugin_view_data, .. } => {
                     plugin_view_data.top_level_view = top_level_view;
 
                     Task::none()
@@ -816,68 +954,128 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::IcedEvent(window_id, Event::Keyboard(event)) => {
             if window_id != state.main_window_id {
-                return Task::none()
+                return Task::none();
             }
 
             match event {
-                keyboard::Event::KeyPressed { key, modifiers, physical_key, text, .. } => {
-                    tracing::debug!("Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}", key, modifiers.shift(), modifiers.control(), modifiers.alt(), modifiers.logo());
+                keyboard::Event::KeyPressed {
+                    key,
+                    modifiers,
+                    physical_key,
+                    text,
+                    ..
+                } => {
+                    tracing::debug!(
+                        "Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}",
+                        key,
+                        modifiers.shift(),
+                        modifiers.control(),
+                        modifiers.alt(),
+                        modifiers.logo()
+                    );
                     match key {
-                        Key::Named(Named::ArrowUp) => state.global_state.up(&mut state.client_context, &state.search_results),
-                        Key::Named(Named::ArrowDown) => state.global_state.down(&mut state.client_context, &state.search_results),
-                        Key::Named(Named::ArrowLeft) => state.global_state.left(&mut state.client_context, &state.search_results),
-                        Key::Named(Named::ArrowRight) => state.global_state.right(&mut state.client_context, &state.search_results),
+                        Key::Named(Named::ArrowUp) => {
+                            state.global_state.up(&mut state.client_context, &state.search_results)
+                        }
+                        Key::Named(Named::ArrowDown) => {
+                            state
+                                .global_state
+                                .down(&mut state.client_context, &state.search_results)
+                        }
+                        Key::Named(Named::ArrowLeft) => {
+                            state
+                                .global_state
+                                .left(&mut state.client_context, &state.search_results)
+                        }
+                        Key::Named(Named::ArrowRight) => {
+                            state
+                                .global_state
+                                .right(&mut state.client_context, &state.search_results)
+                        }
                         Key::Named(Named::Escape) => state.global_state.back(&state.client_context),
                         Key::Named(Named::Tab) if !modifiers.shift() => state.global_state.next(&state.client_context),
-                        Key::Named(Named::Tab) if modifiers.shift() => state.global_state.previous(&state.client_context),
+                        Key::Named(Named::Tab) if modifiers.shift() => {
+                            state.global_state.previous(&state.client_context)
+                        }
                         Key::Named(Named::Enter) => {
                             if modifiers.logo() || modifiers.alt() || modifiers.control() {
                                 Task::none() // to avoid not wanted "enter" presses
                             } else {
                                 if modifiers.shift() {
                                     // for main view, also fired in cases where main text field is not focused
-                                    state.global_state.secondary(&state.client_context, &state.search_results)
+                                    state
+                                        .global_state
+                                        .secondary(&state.client_context, &state.search_results)
                                 } else {
                                     state.global_state.primary(&state.client_context, &state.search_results)
                                 }
                             }
-                        },
+                        }
                         Key::Named(Named::Backspace) => {
                             match &mut state.global_state {
-                                GlobalState::MainView { sub_state, search_field_id, .. } => {
+                                GlobalState::MainView {
+                                    sub_state,
+                                    search_field_id,
+                                    ..
+                                } => {
                                     match sub_state {
-                                        MainViewState::None => AppModel::backspace_prompt(&mut state.prompt, search_field_id.clone()),
+                                        MainViewState::None => {
+                                            AppModel::backspace_prompt(&mut state.prompt, search_field_id.clone())
+                                        }
                                         MainViewState::SearchResultActionPanel { .. } => Task::none(),
-                                        MainViewState::InlineViewActionPanel { .. } => Task::none()
+                                        MainViewState::InlineViewActionPanel { .. } => Task::none(),
                                     }
                                 }
                                 GlobalState::ErrorView { .. } => Task::none(),
                                 GlobalState::PluginView { sub_state, .. } => {
                                     match sub_state {
-                                        PluginViewState::None => {
-                                            state.client_context.backspace_text()
-                                        }
-                                        PluginViewState::ActionPanel { .. } => Task::none()
+                                        PluginViewState::None => state.client_context.backspace_text(),
+                                        PluginViewState::ActionPanel { .. } => Task::none(),
                                     }
                                 }
                             }
-                        },
+                        }
                         _ => {
                             let Physical::Code(physical_key) = physical_key else {
-                                return Task::none()
+                                return Task::none();
                             };
 
                             match &mut state.global_state {
-                                GlobalState::MainView { sub_state, search_field_id, focused_search_result, .. } => {
+                                GlobalState::MainView {
+                                    sub_state,
+                                    search_field_id,
+                                    focused_search_result,
+                                    ..
+                                } => {
                                     match sub_state {
                                         MainViewState::None => {
                                             match physical_key_model(physical_key, modifiers) {
-                                                Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                    Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
+                                                Some(PhysicalShortcut {
+                                                    physical_key: PhysicalKey::KeyK,
+                                                    modifier_shift: false,
+                                                    modifier_control: false,
+                                                    modifier_alt: true,
+                                                    modifier_meta: false,
+                                                }) => {
+                                                    Task::perform(async {}, |_| {
+                                                        AppMsg::ToggleActionPanel { keyboard: true }
+                                                    })
                                                 }
-                                                Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                    if modifier_shift || modifier_control || modifier_alt || modifier_meta {
-                                                        if let Some(search_item) = focused_search_result.get(&state.search_results) {
+                                                Some(PhysicalShortcut {
+                                                    physical_key,
+                                                    modifier_shift,
+                                                    modifier_control,
+                                                    modifier_alt,
+                                                    modifier_meta,
+                                                }) => {
+                                                    if modifier_shift
+                                                        || modifier_control
+                                                        || modifier_alt
+                                                        || modifier_meta
+                                                    {
+                                                        if let Some(search_item) =
+                                                            focused_search_result.get(&state.search_results)
+                                                        {
                                                             if search_item.entrypoint_actions.len() > 0 {
                                                                 state.handle_main_view_keyboard_event(
                                                                     search_item.plugin_id.clone(),
@@ -886,7 +1084,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                                                     modifier_shift,
                                                                     modifier_control,
                                                                     modifier_alt,
-                                                                    modifier_meta
+                                                                    modifier_meta,
                                                                 )
                                                             } else {
                                                                 Task::none()
@@ -897,24 +1095,56 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                                                 modifier_shift,
                                                                 modifier_control,
                                                                 modifier_alt,
-                                                                modifier_meta
+                                                                modifier_meta,
                                                             )
                                                         }
                                                     } else {
-                                                        AppModel::append_prompt(&mut state.prompt, text, search_field_id.clone(), modifiers)
+                                                        AppModel::append_prompt(
+                                                            &mut state.prompt,
+                                                            text,
+                                                            search_field_id.clone(),
+                                                            modifiers,
+                                                        )
                                                     }
                                                 }
-                                                _ => AppModel::append_prompt(&mut state.prompt, text, search_field_id.clone(), modifiers)
+                                                _ => {
+                                                    AppModel::append_prompt(
+                                                        &mut state.prompt,
+                                                        text,
+                                                        search_field_id.clone(),
+                                                        modifiers,
+                                                    )
+                                                }
                                             }
                                         }
                                         MainViewState::SearchResultActionPanel { .. } => {
                                             match physical_key_model(physical_key, modifiers) {
-                                                Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                    Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
+                                                Some(PhysicalShortcut {
+                                                    physical_key: PhysicalKey::KeyK,
+                                                    modifier_shift: false,
+                                                    modifier_control: false,
+                                                    modifier_alt: true,
+                                                    modifier_meta: false,
+                                                }) => {
+                                                    Task::perform(async {}, |_| {
+                                                        AppMsg::ToggleActionPanel { keyboard: true }
+                                                    })
                                                 }
-                                                Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                    if modifier_shift || modifier_control || modifier_alt || modifier_meta {
-                                                        if let Some(search_item) = focused_search_result.get(&state.search_results) {
+                                                Some(PhysicalShortcut {
+                                                    physical_key,
+                                                    modifier_shift,
+                                                    modifier_control,
+                                                    modifier_alt,
+                                                    modifier_meta,
+                                                }) => {
+                                                    if modifier_shift
+                                                        || modifier_control
+                                                        || modifier_alt
+                                                        || modifier_meta
+                                                    {
+                                                        if let Some(search_item) =
+                                                            focused_search_result.get(&state.search_results)
+                                                        {
                                                             if search_item.entrypoint_actions.len() > 0 {
                                                                 state.handle_main_view_keyboard_event(
                                                                     search_item.plugin_id.clone(),
@@ -923,7 +1153,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                                                     modifier_shift,
                                                                     modifier_control,
                                                                     modifier_alt,
-                                                                    modifier_meta
+                                                                    modifier_meta,
                                                                 )
                                                             } else {
                                                                 Task::none()
@@ -935,28 +1165,46 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                                         Task::none()
                                                     }
                                                 }
-                                                _ => Task::none()
+                                                _ => Task::none(),
                                             }
                                         }
                                         MainViewState::InlineViewActionPanel { .. } => {
                                             match physical_key_model(physical_key, modifiers) {
-                                                Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                                    Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
+                                                Some(PhysicalShortcut {
+                                                    physical_key: PhysicalKey::KeyK,
+                                                    modifier_shift: false,
+                                                    modifier_control: false,
+                                                    modifier_alt: true,
+                                                    modifier_meta: false,
+                                                }) => {
+                                                    Task::perform(async {}, |_| {
+                                                        AppMsg::ToggleActionPanel { keyboard: true }
+                                                    })
                                                 }
-                                                Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
-                                                    if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                                Some(PhysicalShortcut {
+                                                    physical_key,
+                                                    modifier_shift,
+                                                    modifier_control,
+                                                    modifier_alt,
+                                                    modifier_meta,
+                                                }) => {
+                                                    if modifier_shift
+                                                        || modifier_control
+                                                        || modifier_alt
+                                                        || modifier_meta
+                                                    {
                                                         state.handle_inline_plugin_view_keyboard_event(
                                                             physical_key,
                                                             modifier_shift,
                                                             modifier_control,
                                                             modifier_alt,
-                                                            modifier_meta
+                                                            modifier_meta,
                                                         )
                                                     } else {
                                                         Task::none()
                                                     }
                                                 }
-                                                _ => Task::none()
+                                                _ => Task::none(),
                                             }
                                         }
                                     }
@@ -964,12 +1212,28 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                 GlobalState::ErrorView { .. } => Task::none(),
                                 GlobalState::PluginView { sub_state, .. } => {
                                     match physical_key_model(physical_key, modifiers) {
-                                        Some(PhysicalShortcut { physical_key: PhysicalKey::KeyK, modifier_shift: false, modifier_control: false, modifier_alt: true, modifier_meta: false }) => {
-                                            Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true })
-                                        }
-                                        Some(PhysicalShortcut { physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta }) => {
+                                        Some(PhysicalShortcut {
+                                            physical_key: PhysicalKey::KeyK,
+                                            modifier_shift: false,
+                                            modifier_control: false,
+                                            modifier_alt: true,
+                                            modifier_meta: false,
+                                        }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                                        Some(PhysicalShortcut {
+                                            physical_key,
+                                            modifier_shift,
+                                            modifier_control,
+                                            modifier_alt,
+                                            modifier_meta,
+                                        }) => {
                                             if modifier_shift || modifier_control || modifier_alt || modifier_meta {
-                                                state.handle_plugin_view_keyboard_event(physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                                                state.handle_plugin_view_keyboard_event(
+                                                    physical_key,
+                                                    modifier_shift,
+                                                    modifier_control,
+                                                    modifier_alt,
+                                                    modifier_meta,
+                                                )
                                             } else {
                                                 match sub_state {
                                                     PluginViewState::None => {
@@ -980,38 +1244,38 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                                             }
                                                         }
                                                     }
-                                                    PluginViewState::ActionPanel { .. } => Task::none()
+                                                    PluginViewState::ActionPanel { .. } => Task::none(),
                                                 }
                                             }
                                         }
-                                        _ => Task::none()
+                                        _ => Task::none(),
                                     }
                                 }
                             }
                         }
                     }
                 }
-                _ => Task::none()
+                _ => Task::none(),
             }
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Focused)) => {
             if !state.close_on_unfocus {
-                return Task::none()
+                return Task::none();
             }
 
             if window_id != state.main_window_id {
-                return Task::none()
+                return Task::none();
             }
 
             state.on_focused()
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Unfocused)) => {
             if !state.close_on_unfocus {
-                return Task::none()
+                return Task::none();
             }
 
             if window_id != state.main_window_id {
-                return Task::none()
+                return Task::none();
             }
 
             if state.wayland {
@@ -1022,7 +1286,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Moved(point))) => {
             if window_id != state.main_window_id {
-                return Task::none()
+                return Task::none();
             }
 
             let _ = fs::create_dir_all(state.window_position_file.parent().unwrap());
@@ -1031,11 +1295,19 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::IcedEvent(_, _) => Task::none(),
-        AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::Noop, .. } => Task::none(),
-        AppMsg::WidgetEvent { widget_event: ComponentWidgetEvent::PreviousView, .. } => state.global_state.back(&state.client_context),
-        AppMsg::WidgetEvent { widget_event, plugin_id, render_location } => {
-            state.handle_plugin_event(widget_event, plugin_id, render_location)
-        }
+        AppMsg::WidgetEvent {
+            widget_event: ComponentWidgetEvent::Noop,
+            ..
+        } => Task::none(),
+        AppMsg::WidgetEvent {
+            widget_event: ComponentWidgetEvent::PreviousView,
+            ..
+        } => state.global_state.back(&state.client_context),
+        AppMsg::WidgetEvent {
+            widget_event,
+            plugin_id,
+            render_location,
+        } => state.handle_plugin_event(widget_event, plugin_id, render_location),
         AppMsg::Noop => Task::none(),
         AppMsg::FontLoaded(result) => {
             result.expect("unable to load font");
@@ -1047,7 +1319,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             plugin_id,
             entrypoint_id,
             plugin_preferences_required,
-            entrypoint_preferences_required
+            entrypoint_preferences_required,
         } => {
             GlobalState::error(
                 &mut state.global_state,
@@ -1059,7 +1331,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 },
             )
         }
-        AppMsg::ShowPluginErrorView { plugin_id, entrypoint_id, .. } => {
+        AppMsg::ShowPluginErrorView {
+            plugin_id,
+            entrypoint_id,
+            ..
+        } => {
             GlobalState::error(
                 &mut state.global_state,
                 ErrorViewData::PluginError {
@@ -1073,16 +1349,20 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 &mut state.global_state,
                 match err {
                     BackendForFrontendApiError::TimeoutError => ErrorViewData::BackendTimeout,
-                    BackendForFrontendApiError::Internal { display } => ErrorViewData::UnknownError { display }
-                }
+                    BackendForFrontendApiError::Internal { display } => ErrorViewData::UnknownError { display },
+                },
             )
         }
-        AppMsg::OpenSettingsPreferences { plugin_id, entrypoint_id, } => {
-            state.open_settings_window_preferences(plugin_id, entrypoint_id)
-        }
+        AppMsg::OpenSettingsPreferences {
+            plugin_id,
+            entrypoint_id,
+        } => state.open_settings_window_preferences(plugin_id, entrypoint_id),
         AppMsg::OnOpenView { action_shortcuts } => {
             match &mut state.global_state {
-                GlobalState::MainView { pending_plugin_view_data, .. } => {
+                GlobalState::MainView {
+                    pending_plugin_view_data,
+                    ..
+                } => {
                     match pending_plugin_view_data {
                         None => {}
                         Some(pending_plugin_view_data) => {
@@ -1090,8 +1370,8 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         }
                     };
                 }
-                GlobalState::ErrorView { .. } => { },
-                GlobalState::PluginView { plugin_view_data, ..} => {
+                GlobalState::ErrorView { .. } => {}
+                GlobalState::PluginView { plugin_view_data, .. } => {
                     plugin_view_data.action_shortcuts = action_shortcuts;
                 }
             }
@@ -1104,11 +1384,12 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             fs::create_dir_all(Path::new(&save_path).parent().expect("no parent?"))
                 .expect("unable to create scenario out directories");
 
-            window::screenshot(state.main_window_id)
-                .map(move |screenshot| AppMsg::ScreenshotDone {
+            window::screenshot(state.main_window_id).map(move |screenshot| {
+                AppMsg::ScreenshotDone {
                     save_path: save_path.clone(),
                     screenshot,
-                })
+                }
+            })
         }
         AppMsg::ScreenshotDone { save_path, screenshot } => {
             println!("Saving screenshot at: {}", save_path);
@@ -1118,12 +1399,9 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     tokio::task::spawn_blocking(move || {
                         let save_dir = Path::new(&save_path);
 
-                        let save_parent_dir = save_dir
-                            .parent()
-                            .expect("save_path has no parent");
+                        let save_parent_dir = save_dir.parent().expect("save_path has no parent");
 
-                        fs::create_dir_all(save_parent_dir)
-                            .expect("unable to create save_parent_dir");
+                        fs::create_dir_all(save_parent_dir).expect("unable to create save_parent_dir");
 
                         image::save_buffer_with_format(
                             &save_path,
@@ -1131,17 +1409,23 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                             screenshot.size.width,
                             screenshot.size.height,
                             image::ColorType::Rgba8,
-                            image::ImageFormat::Png
+                            image::ImageFormat::Png,
                         )
-                    }).await
-                        .expect("Unable to save screenshot")
+                    })
+                    .await
+                    .expect("Unable to save screenshot")
                 },
                 |_| (),
-            ).then(|_| iced::exit())
+            )
+            .then(|_| iced::exit())
         }
         AppMsg::ToggleActionPanel { keyboard } => {
             match &mut state.global_state {
-                GlobalState::MainView { sub_state, focused_search_result, .. } => {
+                GlobalState::MainView {
+                    sub_state,
+                    focused_search_result,
+                    ..
+                } => {
                     match sub_state {
                         MainViewState::None => {
                             if let Some(search_item) = focused_search_result.get(&state.search_results) {
@@ -1162,17 +1446,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         }
                     }
                 }
-                GlobalState::ErrorView { .. } => { },
+                GlobalState::ErrorView { .. } => {}
                 GlobalState::PluginView { sub_state, .. } => {
                     state.client_context.toggle_action_panel();
 
                     match sub_state {
-                        PluginViewState::None => {
-                            PluginViewState::action_panel(sub_state, keyboard)
-                        }
-                        PluginViewState::ActionPanel { .. } => {
-                            PluginViewState::initial(sub_state)
-                        }
+                        PluginViewState::None => PluginViewState::action_panel(sub_state, keyboard),
+                        PluginViewState::ActionPanel { .. } => PluginViewState::initial(sub_state),
                     }
                 }
             }
@@ -1191,12 +1471,15 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
             Task::done(AppMsg::RunSearchItemAction(search_result, 1))
         }
-        AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id } => {
+        AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
+            search_result,
+            widget_id,
+        } => {
             let index = widget_id;
 
             Task::batch([
                 Task::done(AppMsg::RunSearchItemAction(search_result, index)),
-                Task::done(AppMsg::ResetMainViewState)
+                Task::done(AppMsg::ResetMainViewState),
             ])
         }
         AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
@@ -1210,11 +1493,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                             render_location: UiRenderLocation::InlineView,
                             plugin_id,
                             widget_id,
-                            id: None
-                        })
+                            id: None,
+                        }),
                     ])
                 }
-                None => Task::none()
+                None => Task::none(),
             }
         }
         AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id, id } => {
@@ -1227,14 +1510,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     render_location: UiRenderLocation::View,
                     plugin_id: state.client_context.get_view_plugin_id(),
                     widget_id,
-                    id
-                })
+                    id,
+                }),
             ])
         }
         AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id: _ } => {
             // widget_id here is always 0
             match &state.global_state {
-                GlobalState::MainView { focused_search_result, .. } => {
+                GlobalState::MainView {
+                    focused_search_result, ..
+                } => {
                     if let Some(search_result) = focused_search_result.get(&state.search_results) {
                         let search_result = search_result.clone();
                         Task::done(AppMsg::OnPrimaryActionMainViewNoPanel { search_result })
@@ -1243,7 +1528,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     }
                 }
                 GlobalState::PluginView { .. } => Task::none(),
-                GlobalState::ErrorView { .. } => Task::none()
+                GlobalState::ErrorView { .. } => Task::none(),
             }
         }
         AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
@@ -1259,10 +1544,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                             render_location: UiRenderLocation::InlineView,
                             plugin_id,
                             widget_id,
-                            id: None
+                            id: None,
                         })
                     }
-                    None => Task::none()
+                    None => Task::none(),
                 }
             } else {
                 Task::none()
@@ -1270,24 +1555,29 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::OnAnyActionMainViewSearchResultPanelMouse { widget_id } => {
             match &mut state.global_state {
-                GlobalState::MainView { focused_search_result, sub_state, .. } => {
+                GlobalState::MainView {
+                    focused_search_result,
+                    sub_state,
+                    ..
+                } => {
                     match sub_state {
                         MainViewState::None => Task::none(),
                         MainViewState::SearchResultActionPanel { .. } => {
                             if let Some(search_result) = focused_search_result.get(&state.search_results) {
                                 let search_result = search_result.clone();
-                                Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result, widget_id })
+                                Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
+                                    search_result,
+                                    widget_id,
+                                })
                             } else {
                                 Task::none()
                             }
                         }
-                        MainViewState::InlineViewActionPanel { .. } => {
-                            Task::none()
-                        }
+                        MainViewState::InlineViewActionPanel { .. } => Task::none(),
                     }
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
-                GlobalState::PluginView { .. } => Task::none()
+                GlobalState::PluginView { .. } => Task::none(),
             }
         }
         AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id } => {
@@ -1295,15 +1585,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 render_location: UiRenderLocation::View,
                 plugin_id: state.client_context.get_view_plugin_id(),
                 widget_id,
-                id
+                id,
             })
         }
-        AppMsg::OpenPluginView(plugin_id, entrypoint_id) => {
-            state.open_plugin_view(plugin_id, entrypoint_id)
-        }
-        AppMsg::ClosePluginView(plugin_id) => {
-            state.close_plugin_view(plugin_id)
-        }
+        AppMsg::OpenPluginView(plugin_id, entrypoint_id) => state.open_plugin_view(plugin_id, entrypoint_id),
+        AppMsg::ClosePluginView(plugin_id) => state.close_plugin_view(plugin_id),
         AppMsg::InlineViewShortcuts { shortcuts } => {
             state.client_context.set_inline_view_shortcuts(shortcuts);
 
@@ -1332,15 +1618,9 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             tracing::info!("Registering new global shortcut: {:?}", shortcut);
 
             let run = || {
-                let global_hotkey_manager = state.global_hotkey_manager
-                    .read()
-                    .expect("lock is poisoned");
+                let global_hotkey_manager = state.global_hotkey_manager.read().expect("lock is poisoned");
 
-                assign_global_shortcut(
-                    &global_hotkey_manager,
-                    &state.current_hotkey,
-                    shortcut
-                )
+                assign_global_shortcut(&global_hotkey_manager, &state.current_hotkey, shortcut)
             };
 
             // responder is not clone and send, and we need to consume it
@@ -1362,7 +1642,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
-        AppMsg::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
+        AppMsg::UpdateLoadingBar {
+            plugin_id,
+            entrypoint_id,
+            show,
+        } => {
             if show {
                 state.loading_bar_state.insert((plugin_id, entrypoint_id), ());
             } else {
@@ -1372,18 +1656,29 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::PendingPluginViewLoadingBar => {
-            if let GlobalState::MainView { pending_plugin_view_loading_bar, .. } = &mut state.global_state {
+            if let GlobalState::MainView {
+                pending_plugin_view_loading_bar,
+                ..
+            } = &mut state.global_state
+            {
                 *pending_plugin_view_loading_bar = LoadingBarState::Pending;
             }
 
-            Task::perform(async move {
-                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            Task::perform(
+                async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
-                AppMsg::ShowPluginViewLoadingBar
-            }, std::convert::identity)
+                    AppMsg::ShowPluginViewLoadingBar
+                },
+                std::convert::identity,
+            )
         }
         AppMsg::ShowPluginViewLoadingBar => {
-            if let GlobalState::MainView { pending_plugin_view_loading_bar, .. } = &mut state.global_state {
+            if let GlobalState::MainView {
+                pending_plugin_view_loading_bar,
+                ..
+            } = &mut state.global_state
+            {
                 if let LoadingBarState::Pending = pending_plugin_view_loading_bar {
                     *pending_plugin_view_loading_bar = LoadingBarState::On;
                 }
@@ -1391,9 +1686,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
-        AppMsg::FocusPluginViewSearchBar { widget_id } => {
-            state.client_context.focus_search_bar(widget_id)
-        }
+        AppMsg::FocusPluginViewSearchBar { widget_id } => state.client_context.focus_search_bar(widget_id),
         #[cfg(target_os = "linux")]
         AppMsg::LayerShell(_) => {
             // handled by library
@@ -1430,9 +1723,7 @@ fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
 fn view_hud(state: &AppModel) -> Element<'_, AppMsg> {
     match &state.hud_display {
         Some(hud_display) => {
-            let hud: Element<_> = text(hud_display.to_string())
-                .shaping(Shaping::Advanced)
-                .into();
+            let hud: Element<_> = text(hud_display.to_string()).shaping(Shaping::Advanced).into();
 
             let hud = container(hud)
                 .align_x(Horizontal::Center)
@@ -1458,8 +1749,7 @@ fn view_hud(state: &AppModel) -> Element<'_, AppMsg> {
         }
         None => {
             // this should never be shown, but in case it does, do not make it fully transparent
-            container(horizontal_space())
-                .themed(ContainerStyle::Hud)
+            container(horizontal_space()).themed(ContainerStyle::Hud)
         }
     }
 }
@@ -1468,56 +1758,59 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
     match &state.global_state {
         GlobalState::ErrorView { error_view } => {
             match error_view {
-                ErrorViewData::PreferenceRequired { plugin_id, entrypoint_id, plugin_preferences_required, entrypoint_preferences_required } => {
-
+                ErrorViewData::PreferenceRequired {
+                    plugin_id,
+                    entrypoint_id,
+                    plugin_preferences_required,
+                    entrypoint_preferences_required,
+                } => {
                     let (description_text, msg) = match (plugin_preferences_required, entrypoint_preferences_required) {
                         (true, true) => {
                             // TODO do not show "entrypoint" name to user
-                            let description_text = "Before using, plugin and entrypoint preferences need to be specified";
+                            let description_text =
+                                "Before using, plugin and entrypoint preferences need to be specified";
                             // note:
                             // we open plugin view and not entrypoint even though both need to be specified
-                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                            let msg = AppMsg::OpenSettingsPreferences {
+                                plugin_id: plugin_id.clone(),
+                                entrypoint_id: None,
+                            };
                             (description_text, msg)
                         }
                         (false, true) => {
                             // TODO do not show "entrypoint" name to user
                             let description_text = "Before using, entrypoint preferences need to be specified";
-                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: Some(entrypoint_id.clone()) };
+                            let msg = AppMsg::OpenSettingsPreferences {
+                                plugin_id: plugin_id.clone(),
+                                entrypoint_id: Some(entrypoint_id.clone()),
+                            };
                             (description_text, msg)
                         }
                         (true, false) => {
                             let description_text = "Before using, plugin preferences need to be specified";
-                            let msg = AppMsg::OpenSettingsPreferences { plugin_id: plugin_id.clone(), entrypoint_id: None };
+                            let msg = AppMsg::OpenSettingsPreferences {
+                                plugin_id: plugin_id.clone(),
+                                entrypoint_id: None,
+                            };
                             (description_text, msg)
                         }
-                        (false, false) => unreachable!()
+                        (false, false) => unreachable!(),
                     };
 
-                    let description: Element<_> = text(description_text)
-                        .shaping(Shaping::Advanced)
-                        .into();
+                    let description: Element<_> = text(description_text).shaping(Shaping::Advanced).into();
 
                     let description = container(description)
                         .width(Length::Fill)
                         .align_x(Horizontal::Center)
                         .themed(ContainerStyle::PreferenceRequiredViewDescription);
 
-                    let button_label: Element<_> = text("Open Settings")
-                        .into();
+                    let button_label: Element<_> = text("Open Settings").into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(msg)
-                        .into();
+                    let button: Element<_> = button(button_label).on_press(msg).into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .align_x(Horizontal::Center)
-                        .into();
+                    let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
-                    let content: Element<_> = column([
-                        description,
-                        button
-                    ]).into();
+                    let content: Element<_> = column([description, button]).into();
 
                     let content: Element<_> = container(content)
                         .align_x(Horizontal::Center)
@@ -1529,39 +1822,27 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     content
                 }
                 ErrorViewData::PluginError { .. } => {
-                    let description: Element<_> = text("Error occurred in plugin when trying to show the view")
-                        .into();
+                    let description: Element<_> = text("Error occurred in plugin when trying to show the view").into();
 
                     let description = container(description)
                         .width(Length::Fill)
                         .align_x(Horizontal::Center)
                         .themed(ContainerStyle::PluginErrorViewTitle);
 
-                    let sub_description: Element<_> = text("Please report this to plugin author")
-                        .into();
+                    let sub_description: Element<_> = text("Please report this to plugin author").into();
 
                     let sub_description = container(sub_description)
                         .width(Length::Fill)
                         .align_x(Horizontal::Center)
                         .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let button_label: Element<_> = text("Close")
-                        .into();
+                    let button_label: Element<_> = text("Close").into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(AppMsg::HideWindow)
-                        .into();
+                    let button: Element<_> = button(button_label).on_press(AppMsg::HideWindow).into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .align_x(Horizontal::Center)
-                        .into();
+                    let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
-                    let content: Element<_> = column([
-                        description,
-                        sub_description,
-                        button
-                    ]).into();
+                    let content: Element<_> = column([description, sub_description, button]).into();
 
                     let content: Element<_> = container(content)
                         .align_x(Horizontal::Center)
@@ -1573,8 +1854,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     content
                 }
                 ErrorViewData::UnknownError { display } => {
-                    let description: Element<_> = text("Unknown error occurred")
-                        .into();
+                    let description: Element<_> = text("Unknown error occurred").into();
 
                     let description = container(description)
                         .width(Length::Fill)
@@ -1589,36 +1869,21 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         .align_x(Horizontal::Center)
                         .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let error_description: Element<_> = text(display)
-                        .shaping(Shaping::Advanced)
-                        .into();
+                    let error_description: Element<_> = text(display).shaping(Shaping::Advanced).into();
 
                     let error_description = container(error_description)
                         .width(Length::Fill)
                         .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let error_description = scrollable(error_description)
-                        .width(Length::Fill)
-                        .into();
+                    let error_description = scrollable(error_description).width(Length::Fill).into();
 
-                    let button_label: Element<_> = text("Close")
-                        .into();
+                    let button_label: Element<_> = text("Close").into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(AppMsg::HideWindow)
-                        .into();
+                    let button: Element<_> = button(button_label).on_press(AppMsg::HideWindow).into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .align_x(Horizontal::Center)
-                        .into();
+                    let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
-                    let content: Element<_> = column([
-                        description,
-                        sub_description,
-                        error_description,
-                        button
-                    ]).into();
+                    let content: Element<_> = column([description, sub_description, error_description, button]).into();
 
                     let content: Element<_> = container(content)
                         .align_x(Horizontal::Center)
@@ -1630,39 +1895,28 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                     content
                 }
                 ErrorViewData::BackendTimeout => {
-                    let description: Element<_> = text("Error occurred")
-                        .into();
+                    let description: Element<_> = text("Error occurred").into();
 
                     let description = container(description)
                         .width(Length::Fill)
                         .align_x(Horizontal::Center)
                         .themed(ContainerStyle::PluginErrorViewTitle);
 
-                    let sub_description: Element<_> = text("Backend was unable to process message in a timely manner")
-                        .into();
+                    let sub_description: Element<_> =
+                        text("Backend was unable to process message in a timely manner").into();
 
                     let sub_description = container(sub_description)
                         .width(Length::Fill)
                         .align_x(Horizontal::Center)
                         .themed(ContainerStyle::PluginErrorViewDescription);
 
-                    let button_label: Element<_> = text("Close")
-                        .into();
+                    let button_label: Element<_> = text("Close").into();
 
-                    let button: Element<_> = button(button_label)
-                        .on_press(AppMsg::HideWindow)
-                        .into();
+                    let button: Element<_> = button(button_label).on_press(AppMsg::HideWindow).into();
 
-                    let button = container(button)
-                        .width(Length::Fill)
-                        .align_x(Horizontal::Center)
-                        .into();
+                    let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
-                    let content: Element<_> = column([
-                        description,
-                        sub_description,
-                        button
-                    ]).into();
+                    let content: Element<_> = column([description, sub_description, button]).into();
 
                     let content: Element<_> = container(content)
                         .align_x(Horizontal::Center)
@@ -1675,7 +1929,13 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                 }
             }
         }
-        GlobalState::MainView { focused_search_result, sub_state, search_field_id, pending_plugin_view_loading_bar, .. } => {
+        GlobalState::MainView {
+            focused_search_result,
+            sub_state,
+            search_field_id,
+            pending_plugin_view_loading_bar,
+            ..
+        } => {
             let input: Element<_> = text_input("Search...", &state.prompt)
                 .on_input(AppMsg::PromptChanged)
                 .on_submit(AppMsg::PromptSubmit)
@@ -1705,157 +1965,171 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                 .width(Length::Fill)
                 .themed(ContainerStyle::MainSearchBar);
 
-            let separator = if matches!(pending_plugin_view_loading_bar, LoadingBarState::On) || !state.loading_bar_state.is_empty() {
-                LoadingBar::new()
-                    .into()
+            let separator = if matches!(pending_plugin_view_loading_bar, LoadingBarState::On)
+                || !state.loading_bar_state.is_empty()
+            {
+                LoadingBar::new().into()
             } else {
-                horizontal_rule(1)
-                    .into()
+                horizontal_rule(1).into()
             };
 
             let inline_view = match state.client_context.get_all_inline_view_containers().first() {
                 Some((plugin_id, container)) => {
                     let plugin_id = plugin_id.clone();
-                    container.render_inline_root_widget()
-                        .map(move |widget_event| {
-                            AppMsg::WidgetEvent {
-                                plugin_id: plugin_id.clone(),
-                                render_location: UiRenderLocation::InlineView,
-                                widget_event,
-                            }
-                        })
+                    container.render_inline_root_widget().map(move |widget_event| {
+                        AppMsg::WidgetEvent {
+                            plugin_id: plugin_id.clone(),
+                            render_location: UiRenderLocation::InlineView,
+                            widget_event,
+                        }
+                    })
                 }
-                None => {
-                    horizontal_space()
-                        .into()
-                }
+                None => horizontal_space().into(),
             };
 
-            let content: Element<_> = column(vec![
-                inline_view,
-                list,
-            ]).into();
+            let content: Element<_> = column(vec![inline_view, list]).into();
 
-            let (primary_action, action_panel) = if let Some(search_item) = focused_search_result.get(&state.search_results) {
-                let primary_shortcut = PhysicalShortcut {
-                    physical_key: PhysicalKey::Enter,
-                    modifier_shift: false,
-                    modifier_control: false,
-                    modifier_alt: false,
-                    modifier_meta: false,
-                };
-
-                let secondary_shortcut = PhysicalShortcut {
-                    physical_key: PhysicalKey::Enter,
-                    modifier_shift: true,
-                    modifier_control: false,
-                    modifier_alt: false,
-                    modifier_meta: false,
-                };
-
-                let create_static = |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
-                    let mut actions: Vec<_> = search_item.entrypoint_actions
-                        .iter()
-                        .enumerate()
-                        .map(|(index, action)| {
-                            let physical_shortcut = if index == 0 {
-                                Some(secondary_shortcut.clone())
-                            } else {
-                                action.shortcut.clone()
-                            };
-
-                            ActionPanelItem::Action {
-                                label: action.label.clone(),
-                                widget_id: index,
-                                physical_shortcut,
-                            }
-                        })
-                        .collect();
-
-                    let primary_action_widget_id = 0;
-
-                    if actions.len() == 0 {
-                        (Some((label.to_string(), primary_action_widget_id, primary_shortcut)), None)
-                    } else {
-                        let label = label.to_string();
-
-                        let primary_action = ActionPanelItem::Action {
-                            label: label.clone(),
-                            widget_id: primary_action_widget_id,
-                            physical_shortcut: Some(primary_shortcut.clone()),
-                        };
-
-                        actions.insert(0, primary_action);
-
-                        let action_panel = ActionPanel {
-                            title: Some(search_item.entrypoint_name.clone()),
-                            items: actions,
-                        };
-
-                        (Some((label, primary_action_widget_id, primary_shortcut)), Some(action_panel))
-                    }
-                };
-
-                let create_generated = |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
-                    let label = search_item.entrypoint_actions
-                        .first()
-                        .map(|action| action.label.clone())
-                        .unwrap_or_else(|| label.to_string()); // should never happen, because there is always at least one action
-
-                    let mut actions: Vec<_> = search_item.entrypoint_actions
-                        .iter()
-                        .enumerate()
-                        .map(|(index, action)| {
-                            let physical_shortcut = match index {
-                                0 => Some(primary_shortcut.clone()),
-                                1 => Some(secondary_shortcut.clone()),
-                                _ => action.shortcut.clone()
-                            };
-
-                            ActionPanelItem::Action {
-                                label: action.label.clone(),
-                                widget_id: index,
-                                physical_shortcut,
-                            }
-                        })
-                        .collect();
-
-                    let primary_action_widget_id = 0;
-
-                    let action_panel = ActionPanel {
-                        title: Some(search_item.entrypoint_name.clone()),
-                        items: actions,
+            let (primary_action, action_panel) =
+                if let Some(search_item) = focused_search_result.get(&state.search_results) {
+                    let primary_shortcut = PhysicalShortcut {
+                        physical_key: PhysicalKey::Enter,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: false,
                     };
 
-                    (Some((label, primary_action_widget_id, primary_shortcut)), Some(action_panel))
-                };
+                    let secondary_shortcut = PhysicalShortcut {
+                        physical_key: PhysicalKey::Enter,
+                        modifier_shift: true,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: false,
+                    };
 
-                match search_item.entrypoint_type {
-                    SearchResultEntrypointType::Command => create_static("Run Command", primary_shortcut, secondary_shortcut),
-                    SearchResultEntrypointType::View => create_static("Open View", primary_shortcut, secondary_shortcut),
-                    SearchResultEntrypointType::Generated => create_generated("Run Command", primary_shortcut, secondary_shortcut),
-                }
-            } else {
-                match state.client_context.get_first_inline_view_action_panel() {
-                    None => (None, None),
-                    Some(action_panel) => {
-                        match action_panel.find_first() {
-                            None => (None, None),
-                            Some((label, widget_id)) => {
-                                let shortcut = PhysicalShortcut {
-                                    physical_key: PhysicalKey::Enter,
-                                    modifier_shift: false,
-                                    modifier_control: false,
-                                    modifier_alt: false,
-                                    modifier_meta: false
+                    let create_static =
+                        |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
+                            let mut actions: Vec<_> = search_item
+                                .entrypoint_actions
+                                .iter()
+                                .enumerate()
+                                .map(|(index, action)| {
+                                    let physical_shortcut = if index == 0 {
+                                        Some(secondary_shortcut.clone())
+                                    } else {
+                                        action.shortcut.clone()
+                                    };
+
+                                    ActionPanelItem::Action {
+                                        label: action.label.clone(),
+                                        widget_id: index,
+                                        physical_shortcut,
+                                    }
+                                })
+                                .collect();
+
+                            let primary_action_widget_id = 0;
+
+                            if actions.len() == 0 {
+                                (
+                                    Some((label.to_string(), primary_action_widget_id, primary_shortcut)),
+                                    None,
+                                )
+                            } else {
+                                let label = label.to_string();
+
+                                let primary_action = ActionPanelItem::Action {
+                                    label: label.clone(),
+                                    widget_id: primary_action_widget_id,
+                                    physical_shortcut: Some(primary_shortcut.clone()),
                                 };
 
-                                (Some((label, widget_id, shortcut)), Some(action_panel))
+                                actions.insert(0, primary_action);
+
+                                let action_panel = ActionPanel {
+                                    title: Some(search_item.entrypoint_name.clone()),
+                                    items: actions,
+                                };
+
+                                (
+                                    Some((label, primary_action_widget_id, primary_shortcut)),
+                                    Some(action_panel),
+                                )
+                            }
+                        };
+
+                    let create_generated =
+                        |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
+                            let label = search_item
+                                .entrypoint_actions
+                                .first()
+                                .map(|action| action.label.clone())
+                                .unwrap_or_else(|| label.to_string()); // should never happen, because there is always at least one action
+
+                            let mut actions: Vec<_> = search_item
+                                .entrypoint_actions
+                                .iter()
+                                .enumerate()
+                                .map(|(index, action)| {
+                                    let physical_shortcut = match index {
+                                        0 => Some(primary_shortcut.clone()),
+                                        1 => Some(secondary_shortcut.clone()),
+                                        _ => action.shortcut.clone(),
+                                    };
+
+                                    ActionPanelItem::Action {
+                                        label: action.label.clone(),
+                                        widget_id: index,
+                                        physical_shortcut,
+                                    }
+                                })
+                                .collect();
+
+                            let primary_action_widget_id = 0;
+
+                            let action_panel = ActionPanel {
+                                title: Some(search_item.entrypoint_name.clone()),
+                                items: actions,
+                            };
+
+                            (
+                                Some((label, primary_action_widget_id, primary_shortcut)),
+                                Some(action_panel),
+                            )
+                        };
+
+                    match search_item.entrypoint_type {
+                        SearchResultEntrypointType::Command => {
+                            create_static("Run Command", primary_shortcut, secondary_shortcut)
+                        }
+                        SearchResultEntrypointType::View => {
+                            create_static("Open View", primary_shortcut, secondary_shortcut)
+                        }
+                        SearchResultEntrypointType::Generated => {
+                            create_generated("Run Command", primary_shortcut, secondary_shortcut)
+                        }
+                    }
+                } else {
+                    match state.client_context.get_first_inline_view_action_panel() {
+                        None => (None, None),
+                        Some(action_panel) => {
+                            match action_panel.find_first() {
+                                None => (None, None),
+                                Some((label, widget_id)) => {
+                                    let shortcut = PhysicalShortcut {
+                                        physical_key: PhysicalKey::Enter,
+                                        modifier_shift: false,
+                                        modifier_control: false,
+                                        modifier_alt: false,
+                                        modifier_meta: false,
+                                    };
+
+                                    (Some((label, widget_id, shortcut)), Some(action_panel))
+                                }
                             }
                         }
                     }
-                }
-            };
+                };
 
             let toast_text = if !state.loading_bar_state.is_empty() {
                 Some("Indexing...")
@@ -1881,7 +2155,9 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         || AppMsg::Noop,
                     )
                 }
-                MainViewState::SearchResultActionPanel { focused_action_item, .. } => {
+                MainViewState::SearchResultActionPanel {
+                    focused_action_item, ..
+                } => {
                     render_root(
                         true,
                         input,
@@ -1898,7 +2174,9 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         || AppMsg::Noop,
                     )
                 }
-                MainViewState::InlineViewActionPanel { focused_action_item, .. } => {
+                MainViewState::InlineViewActionPanel {
+                    focused_action_item, ..
+                } => {
                     render_root(
                         true,
                         input,
@@ -1924,18 +2202,29 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
             root
         }
-        GlobalState::PluginView { plugin_view_data, sub_state, ..  } => {
-            let PluginViewData { plugin_id, action_shortcuts, .. } = plugin_view_data;
+        GlobalState::PluginView {
+            plugin_view_data,
+            sub_state,
+            ..
+        } => {
+            let PluginViewData {
+                plugin_id,
+                action_shortcuts,
+                ..
+            } = plugin_view_data;
 
             let view_container = state.client_context.get_view_container();
 
-            let container_element = view_container
-                .render_root_widget(sub_state, action_shortcuts)
-                .map(|widget_event| AppMsg::WidgetEvent {
-                    plugin_id: plugin_id.clone(),
-                    render_location: UiRenderLocation::View,
-                    widget_event,
-                });
+            let container_element =
+                view_container
+                    .render_root_widget(sub_state, action_shortcuts)
+                    .map(|widget_event| {
+                        AppMsg::WidgetEvent {
+                            plugin_id: plugin_id.clone(),
+                            render_location: UiRenderLocation::View,
+                            widget_event,
+                        }
+                    });
 
             let element: Element<_> = container(container_element)
                 .width(Length::Fill)
@@ -1955,40 +2244,45 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
     struct RequestLoop;
     struct GlobalShortcutListener;
 
-    let events_subscription = event::listen_with(|event, status, window_id| match status {
-        event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
-        event::Status::Captured => match &event {
-            Event::Keyboard(keyboard::Event::KeyPressed { key: Key::Named(Named::Escape), .. }) => Some(AppMsg::IcedEvent(window_id, event)),
-            _ => None
+    let events_subscription = event::listen_with(|event, status, window_id| {
+        match status {
+            event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
+            event::Status::Captured => {
+                match &event {
+                    Event::Keyboard(keyboard::Event::KeyPressed {
+                        key: Key::Named(Named::Escape),
+                        ..
+                    }) => Some(AppMsg::IcedEvent(window_id, event)),
+                    _ => None,
+                }
+            }
         }
     });
 
     Subscription::batch([
         Subscription::run_with_id(
             std::any::TypeId::of::<GlobalShortcutListener>(),
-            stream::channel(
-                10,
-                |sender| async move {
+            stream::channel(10, |sender| {
+                async move {
                     register_listener(sender.clone());
 
                     std::future::pending::<()>().await;
 
                     unreachable!()
-                },
-            )
+                }
+            }),
         ),
         events_subscription,
         Subscription::run_with_id(
             std::any::TypeId::of::<RequestLoop>(),
-            stream::channel(
-                100,
-                |sender| async move {
+            stream::channel(100, |sender| {
+                async move {
                     request_loop(frontend_receiver, sender).await;
 
                     panic!("request_rx was unexpectedly closed")
-                },
-            )
-        )
+                }
+            }),
+        ),
     ])
 }
 
@@ -1997,10 +2291,7 @@ fn assign_global_shortcut(
     current_hotkey: &Arc<StdMutex<Option<HotKey>>>,
     shortcut: Option<PhysicalShortcut>,
 ) -> anyhow::Result<()> {
-
-    let mut hotkey_guard = current_hotkey
-        .lock()
-        .expect("lock is poisoned");
+    let mut hotkey_guard = current_hotkey.lock().expect("lock is poisoned");
 
     if let Some(current_hotkey) = *hotkey_guard {
         global_hotkey_manager.unregister(current_hotkey)?;
@@ -2047,26 +2338,21 @@ impl AppModel {
 
         #[cfg(target_os = "linux")]
         if self.wayland {
-            commands.push(
-                Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::RemoveWindow(self.main_window_id)))
-            );
+            commands.push(Task::done(AppMsg::LayerShell(
+                layer_shell::LayerShellAppMsg::RemoveWindow(self.main_window_id),
+            )));
         } else {
-            commands.push(
-                window::change_mode(self.main_window_id, Mode::Hidden)
-            );
+            commands.push(window::change_mode(self.main_window_id, Mode::Hidden));
         };
 
         #[cfg(not(target_os = "linux"))]
-        commands.push(
-            window::change_mode(self.main_window_id, Mode::Hidden)
-        );
+        commands.push(window::change_mode(self.main_window_id, Mode::Hidden));
 
         #[cfg(target_os = "macos")]
         unsafe {
             // when closing NSPanel current active application doesn't automatically become key window
             // is there a proper way? without doing this manually
-            let app = objc2_app_kit::NSWorkspace::sharedWorkspace()
-                .menuBarOwningApplication();
+            let app = objc2_app_kit::NSWorkspace::sharedWorkspace().menuBarOwningApplication();
 
             if let Some(app) = app {
                 app.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
@@ -2074,7 +2360,10 @@ impl AppModel {
         }
 
         match &self.global_state {
-            GlobalState::PluginView { plugin_view_data: PluginViewData { plugin_id, .. }, .. } => {
+            GlobalState::PluginView {
+                plugin_view_data: PluginViewData { plugin_id, .. },
+                ..
+            } => {
                 commands.push(self.close_plugin_view(plugin_id.clone()));
             }
             GlobalState::MainView { .. } => {}
@@ -2086,19 +2375,19 @@ impl AppModel {
 
     fn show_window(&mut self) -> Task<AppMsg> {
         if self.opened {
-            return Task::none()
+            return Task::none();
         }
 
         self.opened = true;
 
         #[cfg(target_os = "linux")]
-        let open_task =  if self.wayland {
+        let open_task = if self.wayland {
             let (_, open_task) = open_main_window_wayland(self.main_window_id);
             open_task
         } else {
             Task::batch([
                 window::gain_focus(self.main_window_id),
-                window::change_mode(self.main_window_id, Mode::Windowed)
+                window::change_mode(self.main_window_id, Mode::Windowed),
             ])
         };
 
@@ -2110,13 +2399,10 @@ impl AppModel {
                 WindowPositionMode::Static => Task::none(),
                 WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(self.main_window_id),
             },
-            window::change_mode(self.main_window_id, Mode::Windowed)
+            window::change_mode(self.main_window_id, Mode::Windowed),
         ]);
 
-        Task::batch([
-            open_task,
-            self.reset_window_state()
-        ])
+        Task::batch([open_task, self.reset_window_state()])
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
@@ -2130,86 +2416,54 @@ impl AppModel {
     fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
-        Task::perform(async move {
-            let result = backend_client.request_view_render(plugin_id, entrypoint_id)
-                .await?;
+        Task::perform(
+            async move {
+                let result = backend_client.request_view_render(plugin_id, entrypoint_id).await?;
 
-            Ok(result)
-        }, |result| handle_backend_error(result, |action_shortcuts| AppMsg::OnOpenView { action_shortcuts }))
+                Ok(result)
+            },
+            |result| handle_backend_error(result, |action_shortcuts| AppMsg::OnOpenView { action_shortcuts }),
+        )
     }
 
     fn close_plugin_view(&self, plugin_id: PluginId) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
-        Task::perform(async move {
-            backend_client.request_view_close(plugin_id)
-                .await?;
+        Task::perform(
+            async move {
+                backend_client.request_view_close(plugin_id).await?;
 
-            Ok(())
-        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
-        Task::perform(async move {
-            backend_client.request_run_command(plugin_id, entrypoint_id)
-                .await?;
+        Task::perform(
+            async move {
+                backend_client.request_run_command(plugin_id, entrypoint_id).await?;
 
-            Ok(())
-        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
     }
 
-    fn run_generated_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_index: usize) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
-
-        Task::perform(async move {
-            backend_client.request_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
-                .await?;
-
-            Ok(())
-        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
-    }
-
-    fn handle_plugin_event(&mut self, widget_event: ComponentWidgetEvent, plugin_id: PluginId, render_location: UiRenderLocation) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
-
-        let event = self.client_context.handle_event(render_location, &plugin_id, widget_event.clone());
-
-        Task::perform(async move {
-            if let Some(event) = event {
-                match event {
-                    UiViewEvent::View { widget_id, event_name, event_arguments } => {
-                        let msg = match widget_event {
-                            ComponentWidgetEvent::ActionClick { .. } => AppMsg::ToggleActionPanel { keyboard: false },
-                            _ => AppMsg::Noop
-                        };
-
-                        backend_client.send_view_event(plugin_id, widget_id, event_name, event_arguments)
-                            .await?;
-
-                        Ok(msg)
-                    }
-                    UiViewEvent::Open { href } => {
-                        backend_client.send_open_event(plugin_id, href)
-                            .await?;
-
-                        Ok(AppMsg::Noop)
-                    }
-                    UiViewEvent::AppEvent { event } => Ok(event)
-                }
-            } else {
-                Ok(AppMsg::Noop)
-            }
-        }, |result| handle_backend_error(result, |msg| msg))
-    }
-
-    fn handle_main_view_keyboard_event(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Task<AppMsg> {
+    fn run_generated_entrypoint(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_index: usize,
+    ) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         Task::perform(
             async move {
-                backend_client.send_keyboard_event(plugin_id, entrypoint_id, KeyboardEventOrigin::MainView, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                backend_client
+                    .request_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
                     .await?;
 
                 Ok(())
@@ -2218,16 +2472,118 @@ impl AppModel {
         )
     }
 
-    fn handle_plugin_view_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Task<AppMsg> {
+    fn handle_plugin_event(
+        &mut self,
+        widget_event: ComponentWidgetEvent,
+        plugin_id: PluginId,
+        render_location: UiRenderLocation,
+    ) -> Task<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+
+        let event = self
+            .client_context
+            .handle_event(render_location, &plugin_id, widget_event.clone());
+
+        Task::perform(
+            async move {
+                if let Some(event) = event {
+                    match event {
+                        UiViewEvent::View {
+                            widget_id,
+                            event_name,
+                            event_arguments,
+                        } => {
+                            let msg = match widget_event {
+                                ComponentWidgetEvent::ActionClick { .. } => {
+                                    AppMsg::ToggleActionPanel { keyboard: false }
+                                }
+                                _ => AppMsg::Noop,
+                            };
+
+                            backend_client
+                                .send_view_event(plugin_id, widget_id, event_name, event_arguments)
+                                .await?;
+
+                            Ok(msg)
+                        }
+                        UiViewEvent::Open { href } => {
+                            backend_client.send_open_event(plugin_id, href).await?;
+
+                            Ok(AppMsg::Noop)
+                        }
+                        UiViewEvent::AppEvent { event } => Ok(event),
+                    }
+                } else {
+                    Ok(AppMsg::Noop)
+                }
+            },
+            |result| handle_backend_error(result, |msg| msg),
+        )
+    }
+
+    fn handle_main_view_keyboard_event(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        physical_key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool,
+    ) -> Task<AppMsg> {
+        let mut backend_client = self.backend_api.clone();
+
+        Task::perform(
+            async move {
+                backend_client
+                    .send_keyboard_event(
+                        plugin_id,
+                        entrypoint_id,
+                        KeyboardEventOrigin::MainView,
+                        physical_key,
+                        modifier_shift,
+                        modifier_control,
+                        modifier_alt,
+                        modifier_meta,
+                    )
+                    .await?;
+
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
+    }
+
+    fn handle_plugin_view_keyboard_event(
+        &self,
+        physical_key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool,
+    ) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
-            (self.client_context.get_view_plugin_id(), self.client_context.get_view_entrypoint_id())
+            (
+                self.client_context.get_view_plugin_id(),
+                self.client_context.get_view_entrypoint_id(),
+            )
         };
 
         Task::perform(
             async move {
-                backend_client.send_keyboard_event(plugin_id, entrypoint_id, KeyboardEventOrigin::PluginView, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                backend_client
+                    .send_keyboard_event(
+                        plugin_id,
+                        entrypoint_id,
+                        KeyboardEventOrigin::PluginView,
+                        physical_key,
+                        modifier_shift,
+                        modifier_control,
+                        modifier_alt,
+                        modifier_meta,
+                    )
                     .await?;
 
                 Ok(())
@@ -2236,21 +2592,36 @@ impl AppModel {
         )
     }
 
-    fn handle_inline_plugin_view_keyboard_event(&self, physical_key: PhysicalKey, modifier_shift: bool, modifier_control: bool, modifier_alt: bool, modifier_meta: bool) -> Task<AppMsg> {
+    fn handle_inline_plugin_view_keyboard_event(
+        &self,
+        physical_key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool,
+    ) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
             match self.client_context.get_first_inline_view_container() {
-                None => {
-                    return Task::none()
-                },
-                Some(container) => (container.get_plugin_id(), container.get_entrypoint_id())
+                None => return Task::none(),
+                Some(container) => (container.get_plugin_id(), container.get_entrypoint_id()),
             }
         };
 
         Task::perform(
             async move {
-                backend_client.send_keyboard_event(plugin_id, entrypoint_id, KeyboardEventOrigin::PluginView, physical_key, modifier_shift, modifier_control, modifier_alt, modifier_meta)
+                backend_client
+                    .send_keyboard_event(
+                        plugin_id,
+                        entrypoint_id,
+                        KeyboardEventOrigin::PluginView,
+                        physical_key,
+                        modifier_shift,
+                        modifier_control,
+                        modifier_alt,
+                        modifier_meta,
+                    )
                     .await?;
 
                 Ok(())
@@ -2262,38 +2633,53 @@ impl AppModel {
     fn search(&self, new_prompt: String, render_inline_view: bool) -> Task<AppMsg> {
         let mut backend_api = self.backend_api.clone();
 
-        Task::perform(async move {
-            let search_results = backend_api.search(new_prompt, render_inline_view)
-                .await?;
+        Task::perform(
+            async move {
+                let search_results = backend_api.search(new_prompt, render_inline_view).await?;
 
-            Ok(search_results)
-        }, |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)))
+                Ok(search_results)
+            },
+            |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)),
+        )
     }
 
-    fn open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) -> Task<AppMsg> {
+    fn open_settings_window_preferences(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>,
+    ) -> Task<AppMsg> {
         let mut backend_api = self.backend_api.clone();
 
-        Task::perform(async move {
-            backend_api.open_settings_window_preferences(plugin_id, entrypoint_id)
-                .await?;
+        Task::perform(
+            async move {
+                backend_api
+                    .open_settings_window_preferences(plugin_id, entrypoint_id)
+                    .await?;
 
-            Ok(())
-        }, |result| handle_backend_error(result, |()| AppMsg::Noop))
+                Ok(())
+            },
+            |result| handle_backend_error(result, |()| AppMsg::Noop),
+        )
     }
 
     fn inline_view_shortcuts(&self) -> Task<AppMsg> {
         let mut backend_api = self.backend_api.clone();
 
-        Task::perform(async move {
-            backend_api.inline_view_shortcuts().await
-        }, |result| handle_backend_error(result, |shortcuts| AppMsg::InlineViewShortcuts { shortcuts }))
+        Task::perform(async move { backend_api.inline_view_shortcuts().await }, |result| {
+            handle_backend_error(result, |shortcuts| AppMsg::InlineViewShortcuts { shortcuts })
+        })
     }
 }
 
 // these are needed to force focus the text_input in main search view when
 // the window is opened but text_input not focused
 impl AppModel {
-    fn append_prompt(prompt: &mut String, value: Option<SmolStr>, search_field_id: text_input::Id, modifiers: Modifiers) -> Task<AppMsg> {
+    fn append_prompt(
+        prompt: &mut String,
+        value: Option<SmolStr>,
+        search_field_id: text_input::Id,
+        modifiers: Modifiers,
+    ) -> Task<AppMsg> {
         if modifiers.control() || modifiers.alt() || modifiers.logo() {
             Task::none()
         } else {
@@ -2306,7 +2692,7 @@ impl AppModel {
                         Task::none()
                     }
                 }
-                None => Task::none()
+                None => Task::none(),
             }
         }
     }
@@ -2323,7 +2709,7 @@ impl AppModel {
 fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, convert: impl FnOnce(T) -> AppMsg) -> AppMsg {
     match result {
         Ok(val) => convert(val),
-        Err(err) => AppMsg::ShowBackendError(err)
+        Err(err) => AppMsg::ShowBackendError(err),
     }
 }
 
@@ -2345,7 +2731,7 @@ async fn request_loop(
                     render_location,
                     top_level_view,
                     container,
-                    images
+                    images,
                 } => {
                     responder.respond(UiResponseData::Nothing);
 
@@ -2357,15 +2743,13 @@ async fn request_loop(
                         render_location,
                         top_level_view,
                         container: Arc::new(container),
-                        images
+                        images,
                     }
                 }
                 UiRequestData::ClearInlineView { plugin_id } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ClearInlineView {
-                        plugin_id
-                    }
+                    AppMsg::ClearInlineView { plugin_id }
                 }
                 UiRequestData::ShowWindow => {
                     responder.respond(UiResponseData::Nothing);
@@ -2381,7 +2765,7 @@ async fn request_loop(
                     plugin_id,
                     entrypoint_id,
                     plugin_preferences_required,
-                    entrypoint_preferences_required
+                    entrypoint_preferences_required,
                 } => {
                     responder.respond(UiResponseData::Nothing);
 
@@ -2389,10 +2773,14 @@ async fn request_loop(
                         plugin_id,
                         entrypoint_id,
                         plugin_preferences_required,
-                        entrypoint_preferences_required
+                        entrypoint_preferences_required,
                     }
                 }
-                UiRequestData::ShowPluginErrorView { plugin_id, entrypoint_id, render_location } => {
+                UiRequestData::ShowPluginErrorView {
+                    plugin_id,
+                    entrypoint_id,
+                    render_location,
+                } => {
                     responder.respond(UiResponseData::Nothing);
 
                     AppMsg::ShowPluginErrorView {
@@ -2409,38 +2797,36 @@ async fn request_loop(
                 UiRequestData::ShowHud { display } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::ShowHud {
-                        display
-                    }
+                    AppMsg::ShowHud { display }
                 }
                 UiRequestData::SetGlobalShortcut { shortcut } => {
                     AppMsg::SetGlobalShortcut {
                         shortcut,
-                        responder: Arc::new(Mutex::new(Some(responder)))
+                        responder: Arc::new(Mutex::new(Some(responder))),
                     }
                 }
-                UiRequestData::UpdateLoadingBar { plugin_id, entrypoint_id, show } => {
+                UiRequestData::UpdateLoadingBar {
+                    plugin_id,
+                    entrypoint_id,
+                    show,
+                } => {
                     responder.respond(UiResponseData::Nothing);
 
                     AppMsg::UpdateLoadingBar {
                         plugin_id,
                         entrypoint_id,
-                        show
+                        show,
                     }
                 }
                 UiRequestData::SetTheme { theme } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::SetTheme {
-                        theme,
-                    }
+                    AppMsg::SetTheme { theme }
                 }
                 UiRequestData::SetWindowPositionMode { mode } => {
                     responder.respond(UiResponseData::Nothing);
 
-                    AppMsg::SetWindowPositionMode {
-                        mode,
-                    }
+                    AppMsg::SetWindowPositionMode { mode }
                 }
             }
         };

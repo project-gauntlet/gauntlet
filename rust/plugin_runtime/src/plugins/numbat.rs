@@ -1,13 +1,17 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use anyhow::anyhow;
-use deno_core::{op2, OpState};
-use numbat::markup::{Formatter, PlainTextFormatter};
+use deno_core::op2;
+use deno_core::OpState;
+use numbat::markup::Formatter;
+use numbat::markup::PlainTextFormatter;
 use numbat::module_importer::BuiltinModuleImporter;
 use numbat::pretty_print::PrettyPrint;
 use numbat::resolver::CodeSource;
-use numbat::{Context, InterpreterResult};
+use numbat::Context;
+use numbat::InterpreterResult;
 use serde::Serialize;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct NumbatContext(Rc<RefCell<Context>>);
@@ -40,9 +44,7 @@ pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> anyho
     let context = {
         let state = state.borrow();
 
-        let context = state
-            .borrow::<NumbatContext>()
-            .clone();
+        let context = state.borrow::<NumbatContext>().clone();
 
         context
     };
@@ -62,11 +64,11 @@ pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> anyho
 
     let value = match result {
         InterpreterResult::Value(value) => format!("{}", value.pretty_print()),
-        InterpreterResult::Continue => Err(anyhow!("numbat returned Continue"))?
+        InterpreterResult::Continue => Err(anyhow!("numbat returned Continue"))?,
     };
 
     Ok(NumbatResult {
         left: expression,
-        right: value
+        right: value,
     })
 }

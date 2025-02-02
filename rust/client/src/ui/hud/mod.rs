@@ -1,16 +1,20 @@
-use iced::window::{Level, Position, Settings};
-use iced::{window, Point, Size, Task};
 use std::convert;
 use std::time::Duration;
+
+use iced::window;
+use iced::window::Level;
+use iced::window::Position;
+use iced::window::Settings;
+use iced::Point;
+use iced::Size;
+use iced::Task;
+
 use crate::ui::AppMsg;
 
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
 
-pub fn show_hud_window(
-    #[cfg(target_os = "linux")]
-    wayland: bool,
-) -> Task<AppMsg> {
+pub fn show_hud_window(#[cfg(target_os = "linux")] wayland: bool) -> Task<AppMsg> {
     #[cfg(target_os = "linux")]
     if wayland {
         open_wayland()
@@ -26,7 +30,10 @@ fn open_non_wayland() -> Task<AppMsg> {
     let settings = Settings {
         size: Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT),
         position: Position::SpecificWith(|window, screen| {
-            Point::new((screen.width - window.width) / 2.0, (screen.height - window.height) / 1.25)
+            Point::new(
+                (screen.width - window.width) / 2.0,
+                (screen.height - window.height) / 1.25,
+            )
         }),
         resizable: false,
         decorations: false,
@@ -54,9 +61,14 @@ fn open_wayland() -> Task<AppMsg> {
     let settings = layer_shell_settings();
 
     Task::batch([
-        Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings })),
-        sleep_for_2_seconds(id)
-            .then(|id| Task::done(AppMsg::LayerShell(crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id))))
+        Task::done(AppMsg::LayerShell(
+            crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings },
+        )),
+        sleep_for_2_seconds(id).then(|id| {
+            Task::done(AppMsg::LayerShell(
+                crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id),
+            ))
+        }),
     ])
 }
 
@@ -75,9 +87,12 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
 }
 
 fn sleep_for_2_seconds(id: window::Id) -> Task<window::Id> {
-    Task::perform(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
+    Task::perform(
+        async move {
+            tokio::time::sleep(Duration::from_secs(2)).await;
 
-        id
-    }, convert::identity)
+            id
+        },
+        convert::identity,
+    )
 }

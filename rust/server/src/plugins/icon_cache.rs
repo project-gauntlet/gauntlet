@@ -7,9 +7,7 @@ pub struct IconCache {
 
 impl IconCache {
     pub fn new(dirs: Dirs) -> Self {
-        Self {
-            dirs
-        }
+        Self { dirs }
     }
 
     // legacy
@@ -24,5 +22,3 @@ impl IconCache {
         Ok(())
     }
 }
-
-

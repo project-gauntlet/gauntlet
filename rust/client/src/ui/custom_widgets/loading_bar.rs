@@ -1,3 +1,6 @@
+use std::time::Duration;
+use std::time::Instant;
+
 use iced::advanced::layout::Limits;
 use iced::advanced::layout::Node;
 use iced::advanced::renderer;
@@ -10,15 +13,15 @@ use iced::advanced::Shell;
 use iced::advanced::Widget;
 use iced::event::Status;
 use iced::mouse::Cursor;
+use iced::window;
 use iced::Border;
+use iced::Color;
 use iced::Element;
 use iced::Event;
 use iced::Length;
 use iced::Rectangle;
 use iced::Shadow;
 use iced::Size;
-use iced::{window, Color};
-use std::time::{Duration, Instant};
 
 pub struct LoadingBar<'a, Theme>
 where
@@ -226,7 +229,6 @@ pub trait Catalog {
 
     fn style(&self, class: &Self::Class<'_>) -> Style;
 }
-
 
 impl<'a, Message, Theme, Renderer> From<LoadingBar<'a, Theme>> for Element<'a, Message, Theme, Renderer>
 where

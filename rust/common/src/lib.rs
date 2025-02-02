@@ -1,23 +1,19 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
+pub mod dirs;
 pub mod model;
 pub mod rpc;
 pub mod scenario_convert;
 pub mod scenario_model;
-pub mod dirs;
 
 pub const SETTINGS_ENV: &'static str = "__GAUNTLET_INTERNAL_SETTINGS__";
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum SettingsEnvData {
-    OpenPluginPreferences {
-        plugin_id: String,
-    },
-    OpenEntrypointPreferences {
-        plugin_id: String,
-        entrypoint_id: String,
-    }
+    OpenPluginPreferences { plugin_id: String },
+    OpenEntrypointPreferences { plugin_id: String, entrypoint_id: String },
 }
 
 pub fn settings_env_data_to_string(data: SettingsEnvData) -> String {

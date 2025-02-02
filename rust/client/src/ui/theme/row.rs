@@ -1,6 +1,11 @@
-use crate::ui::theme::{get_theme, Element, GauntletComplexTheme, ThemableWidget};
 use iced::widget::Row;
-use iced::{Padding, Renderer};
+use iced::Padding;
+use iced::Renderer;
+
+use crate::ui::theme::get_theme;
+use crate::ui::theme::Element;
+use crate::ui::theme::GauntletComplexTheme;
+use crate::ui::theme::ThemableWidget;
 
 pub enum RowStyle {
     ActionShortcut,
@@ -21,12 +26,8 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletC
         let theme = get_theme();
 
         match name {
-            RowStyle::ActionShortcut => {
-                self.padding(theme.action_shortcut.padding.to_iced())
-            }
-            RowStyle::FormInput => {
-                self.padding(theme.form_input.padding.to_iced())
-            }
+            RowStyle::ActionShortcut => self.padding(theme.action_shortcut.padding.to_iced()),
+            RowStyle::FormInput => self.padding(theme.form_input.padding.to_iced()),
             RowStyle::ListSectionTitle => {
                 self.padding(theme.list_section_title.padding.to_iced())
                     .spacing(theme.list_section_title.spacing)
@@ -37,23 +38,28 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Row<'a, Message, GauntletC
             }
             RowStyle::ListFirstSectionTitle => {
                 let padding = theme.list_section_title.padding.to_iced();
-                self.padding(gauntlet_common_ui::padding(padding.bottom, padding.right, padding.bottom, padding.left))
-                    .spacing(theme.list_section_title.spacing)
+                self.padding(gauntlet_common_ui::padding(
+                    padding.bottom,
+                    padding.right,
+                    padding.bottom,
+                    padding.left,
+                ))
+                .spacing(theme.list_section_title.spacing)
             }
             RowStyle::GridFirstSectionTitle => {
                 let padding = theme.grid_section_title.padding.to_iced();
-                self.padding(gauntlet_common_ui::padding(0.0, padding.right, padding.bottom, padding.left))
-                    .spacing(theme.grid_section_title.spacing)
+                self.padding(gauntlet_common_ui::padding(
+                    0.0,
+                    padding.right,
+                    padding.bottom,
+                    padding.left,
+                ))
+                .spacing(theme.grid_section_title.spacing)
             }
-            RowStyle::GridItemTitle => {
-                self.padding(theme.grid_item_title.padding.to_iced())
-            }
-            RowStyle::RootBottomPanel => {
-                self.spacing(theme.root_bottom_panel.spacing)
-            }
-            RowStyle::RootTopPanel => {
-                self.spacing(theme.root_top_panel.spacing)
-            }
-        }.into()
+            RowStyle::GridItemTitle => self.padding(theme.grid_item_title.padding.to_iced()),
+            RowStyle::RootBottomPanel => self.spacing(theme.root_bottom_panel.spacing),
+            RowStyle::RootTopPanel => self.spacing(theme.root_top_panel.spacing),
+        }
+        .into()
     }
 }

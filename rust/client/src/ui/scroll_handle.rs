@@ -1,6 +1,10 @@
 use std::marker::PhantomData;
+
+use iced::widget::scrollable::scroll_to;
+use iced::widget::scrollable::AbsoluteOffset;
+use iced::widget::scrollable::Id;
 use iced::Task;
-use iced::widget::scrollable::{scroll_to, AbsoluteOffset, Id};
+
 use crate::ui::AppMsg;
 
 pub const ESTIMATED_MAIN_LIST_ITEM_HEIGHT: f32 = 38.8;
@@ -38,14 +42,14 @@ impl ScrollHandle {
     pub fn get<'a, T>(&self, search_results: &'a [T]) -> Option<&'a T> {
         match self.index {
             None => None,
-            Some(index) => search_results.get(index)
+            Some(index) => search_results.get(index),
         }
     }
 
     pub fn focus_next(&mut self, total_item_amount: usize) -> Option<Task<AppMsg>> {
         match self.focus_next_in(total_item_amount, 1) {
             None => None,
-            Some(index) => Some(self.scroll_to(index))
+            Some(index) => Some(self.scroll_to(index)),
         }
     }
 
@@ -84,27 +88,24 @@ impl ScrollHandle {
     pub fn focus_previous(&mut self) -> Option<Task<AppMsg>> {
         match self.focus_previous_in(1) {
             None => None,
-            Some(index) => Some(self.scroll_to(index))
+            Some(index) => Some(self.scroll_to(index)),
         }
     }
 
     pub fn focus_previous_in(&mut self, amount: usize) -> Option<usize> {
-        self.offset = if self.offset > 1 {
-            self.offset - 1
-        } else {
-            1
-        };
+        self.offset = if self.offset > 1 { self.offset - 1 } else { 1 };
 
         match self.index.as_mut() {
             None => None,
             Some(index) => {
-                match index.checked_sub(amount) { // basically a check if result is >= 0
+                match index.checked_sub(amount) {
+                    // basically a check if result is >= 0
                     Some(new_index) => {
                         *index = new_index;
 
                         Some(new_index)
                     }
-                    None => None
+                    None => None,
                 }
             }
         }

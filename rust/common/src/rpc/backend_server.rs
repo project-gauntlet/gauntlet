@@ -3,13 +3,67 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use tokio::net::TcpStream;
-use tonic::{Request, Response, Status};
 use tonic::transport::Server;
+use tonic::Request;
+use tonic::Response;
+use tonic::Status;
 
-use crate::model::{DownloadStatus, EntrypointId, LocalSaveData, PhysicalKey, PhysicalShortcut, PluginId, PluginPreferenceUserData, SettingsEntrypointType, SettingsPlugin, SettingsTheme, WindowPositionMode};
-use crate::rpc::grpc::{RpcDownloadPluginRequest, RpcDownloadPluginResponse, RpcDownloadStatus, RpcDownloadStatusRequest, RpcDownloadStatusResponse, RpcDownloadStatusValue, RpcEntrypoint, RpcEntrypointTypeSettings, RpcGetGlobalShortcutRequest, RpcGetGlobalShortcutResponse, RpcGetThemeRequest, RpcGetThemeResponse, RpcGetWindowPositionModeRequest, RpcGetWindowPositionModeResponse, RpcPingRequest, RpcPingResponse, RpcPlugin, RpcPluginsRequest, RpcPluginsResponse, RpcRemovePluginRequest, RpcRemovePluginResponse, RpcSaveLocalPluginRequest, RpcSaveLocalPluginResponse, RpcSetEntrypointStateRequest, RpcSetEntrypointStateResponse, RpcSetGlobalShortcutRequest, RpcSetGlobalShortcutResponse, RpcSetPluginStateRequest, RpcSetPluginStateResponse, RpcSetPreferenceValueRequest, RpcSetPreferenceValueResponse, RpcSetThemeRequest, RpcSetThemeResponse, RpcSetWindowPositionModeRequest, RpcSetWindowPositionModeResponse, RpcShortcut, RpcShowSettingsWindowRequest, RpcShowSettingsWindowResponse, RpcShowWindowRequest, RpcShowWindowResponse};
-use crate::rpc::grpc::rpc_backend_server::{RpcBackend, RpcBackendServer};
-use crate::rpc::grpc_convert::{plugin_preference_to_rpc, plugin_preference_user_data_from_rpc, plugin_preference_user_data_to_rpc};
+use crate::model::DownloadStatus;
+use crate::model::EntrypointId;
+use crate::model::LocalSaveData;
+use crate::model::PhysicalKey;
+use crate::model::PhysicalShortcut;
+use crate::model::PluginId;
+use crate::model::PluginPreferenceUserData;
+use crate::model::SettingsEntrypointType;
+use crate::model::SettingsPlugin;
+use crate::model::SettingsTheme;
+use crate::model::WindowPositionMode;
+use crate::rpc::grpc::rpc_backend_server::RpcBackend;
+use crate::rpc::grpc::rpc_backend_server::RpcBackendServer;
+use crate::rpc::grpc::RpcDownloadPluginRequest;
+use crate::rpc::grpc::RpcDownloadPluginResponse;
+use crate::rpc::grpc::RpcDownloadStatus;
+use crate::rpc::grpc::RpcDownloadStatusRequest;
+use crate::rpc::grpc::RpcDownloadStatusResponse;
+use crate::rpc::grpc::RpcDownloadStatusValue;
+use crate::rpc::grpc::RpcEntrypoint;
+use crate::rpc::grpc::RpcEntrypointTypeSettings;
+use crate::rpc::grpc::RpcGetGlobalShortcutRequest;
+use crate::rpc::grpc::RpcGetGlobalShortcutResponse;
+use crate::rpc::grpc::RpcGetThemeRequest;
+use crate::rpc::grpc::RpcGetThemeResponse;
+use crate::rpc::grpc::RpcGetWindowPositionModeRequest;
+use crate::rpc::grpc::RpcGetWindowPositionModeResponse;
+use crate::rpc::grpc::RpcPingRequest;
+use crate::rpc::grpc::RpcPingResponse;
+use crate::rpc::grpc::RpcPlugin;
+use crate::rpc::grpc::RpcPluginsRequest;
+use crate::rpc::grpc::RpcPluginsResponse;
+use crate::rpc::grpc::RpcRemovePluginRequest;
+use crate::rpc::grpc::RpcRemovePluginResponse;
+use crate::rpc::grpc::RpcSaveLocalPluginRequest;
+use crate::rpc::grpc::RpcSaveLocalPluginResponse;
+use crate::rpc::grpc::RpcSetEntrypointStateRequest;
+use crate::rpc::grpc::RpcSetEntrypointStateResponse;
+use crate::rpc::grpc::RpcSetGlobalShortcutRequest;
+use crate::rpc::grpc::RpcSetGlobalShortcutResponse;
+use crate::rpc::grpc::RpcSetPluginStateRequest;
+use crate::rpc::grpc::RpcSetPluginStateResponse;
+use crate::rpc::grpc::RpcSetPreferenceValueRequest;
+use crate::rpc::grpc::RpcSetPreferenceValueResponse;
+use crate::rpc::grpc::RpcSetThemeRequest;
+use crate::rpc::grpc::RpcSetThemeResponse;
+use crate::rpc::grpc::RpcSetWindowPositionModeRequest;
+use crate::rpc::grpc::RpcSetWindowPositionModeResponse;
+use crate::rpc::grpc::RpcShortcut;
+use crate::rpc::grpc::RpcShowSettingsWindowRequest;
+use crate::rpc::grpc::RpcShowSettingsWindowResponse;
+use crate::rpc::grpc::RpcShowWindowRequest;
+use crate::rpc::grpc::RpcShowWindowResponse;
+use crate::rpc::grpc_convert::plugin_preference_to_rpc;
+use crate::rpc::grpc_convert::plugin_preference_user_data_from_rpc;
+use crate::rpc::grpc_convert::plugin_preference_user_data_to_rpc;
 
 pub async fn wait_for_backend_server() {
     loop {
@@ -34,14 +88,12 @@ pub async fn start_backend_server(server: Box<dyn BackendServer + Sync + Send>) 
 }
 
 struct RpcBackendServerImpl {
-    server: Box<dyn BackendServer + Sync + Send>
+    server: Box<dyn BackendServer + Sync + Send>,
 }
 
 impl RpcBackendServerImpl {
     pub fn new(server: Box<dyn BackendServer + Sync + Send>) -> Self {
-        Self {
-            server
-        }
+        Self { server }
     }
 }
 
@@ -53,52 +105,33 @@ pub trait BackendServer {
 
     async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>>;
 
-    async fn set_plugin_state(
-        &self,
-        plugin_id: PluginId,
-        enabled: bool
-    ) -> anyhow::Result<()>;
+    async fn set_plugin_state(&self, plugin_id: PluginId, enabled: bool) -> anyhow::Result<()>;
 
     async fn set_entrypoint_state(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        enabled: bool
+        enabled: bool,
     ) -> anyhow::Result<()>;
 
-    async fn set_global_shortcut(
-        &self,
-        shortcut: Option<PhysicalShortcut>
-    ) -> anyhow::Result<()>;
+    async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()>;
 
-    async fn get_global_shortcut(
-        &self,
-    ) -> anyhow::Result<(Option<PhysicalShortcut>, Option<String>)>;
+    async fn get_global_shortcut(&self) -> anyhow::Result<(Option<PhysicalShortcut>, Option<String>)>;
 
-    async fn set_theme(
-        &self,
-        theme: SettingsTheme
-    ) -> anyhow::Result<()>;
+    async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()>;
 
-    async fn get_theme(
-        &self,
-    ) -> anyhow::Result<SettingsTheme>;
+    async fn get_theme(&self) -> anyhow::Result<SettingsTheme>;
 
-    async fn set_window_position_mode(
-        &self,
-        mode: WindowPositionMode
-    ) -> anyhow::Result<()>;
+    async fn set_window_position_mode(&self, mode: WindowPositionMode) -> anyhow::Result<()>;
 
-    async fn get_window_position_mode(
-        &self,
-    ) -> anyhow::Result<WindowPositionMode>;
+    async fn get_window_position_mode(&self) -> anyhow::Result<WindowPositionMode>;
 
     async fn set_preference_value(
         &self,
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
         preference_id: String,
-        preference_value: PluginPreferenceUserData
+        preference_value: PluginPreferenceUserData,
     ) -> anyhow::Result<()>;
 
     async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()>;
@@ -110,23 +143,30 @@ pub trait BackendServer {
     async fn save_local_plugin(&self, path: String) -> anyhow::Result<LocalSaveData>;
 }
 
-
 #[tonic::async_trait]
 impl RpcBackend for RpcBackendServerImpl {
     async fn ping(&self, _: Request<RpcPingRequest>) -> Result<Response<RpcPingResponse>, Status> {
         Ok(Response::new(RpcPingResponse::default()))
     }
 
-    async fn show_window(&self, _request: Request<RpcShowWindowRequest>) -> Result<Response<RpcShowWindowResponse>, Status> {
-        self.server.show_window()
+    async fn show_window(
+        &self,
+        _request: Request<RpcShowWindowRequest>,
+    ) -> Result<Response<RpcShowWindowResponse>, Status> {
+        self.server
+            .show_window()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcShowWindowResponse::default()))
     }
 
-    async fn show_settings_window(&self, _request: Request<RpcShowSettingsWindowRequest>) -> Result<Response<RpcShowSettingsWindowResponse>, Status> {
-        self.server.show_settings_window()
+    async fn show_settings_window(
+        &self,
+        _request: Request<RpcShowSettingsWindowRequest>,
+    ) -> Result<Response<RpcShowSettingsWindowResponse>, Status> {
+        self.server
+            .show_settings_window()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
@@ -134,30 +174,42 @@ impl RpcBackend for RpcBackendServerImpl {
     }
 
     async fn plugins(&self, _: Request<RpcPluginsRequest>) -> Result<Response<RpcPluginsResponse>, Status> {
-        let plugins = self.server.plugins()
+        let plugins = self
+            .server
+            .plugins()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?
             .into_iter()
             .map(|plugin| {
-                let entrypoints = plugin.entrypoints
+                let entrypoints = plugin
+                    .entrypoints
                     .into_iter()
-                    .map(|(_, entrypoint)| RpcEntrypoint {
-                        enabled: entrypoint.enabled,
-                        entrypoint_id: entrypoint.entrypoint_id.to_string(),
-                        entrypoint_name: entrypoint.entrypoint_name,
-                        entrypoint_description: entrypoint.entrypoint_description,
-                        entrypoint_type: match entrypoint.entrypoint_type {
-                            SettingsEntrypointType::Command => RpcEntrypointTypeSettings::SCommand,
-                            SettingsEntrypointType::View => RpcEntrypointTypeSettings::SView,
-                            SettingsEntrypointType::InlineView => RpcEntrypointTypeSettings::SInlineView,
-                            SettingsEntrypointType::EntrypointGenerator => RpcEntrypointTypeSettings::SEntrypointGenerator,
-                        }.into(),
-                        preferences: entrypoint.preferences.into_iter()
-                            .map(|(key, value)| (key, plugin_preference_to_rpc(value)))
-                            .collect(),
-                        preferences_user_data: entrypoint.preferences_user_data.into_iter()
-                            .map(|(key, value)| (key, plugin_preference_user_data_to_rpc(value)))
-                            .collect(),
+                    .map(|(_, entrypoint)| {
+                        RpcEntrypoint {
+                            enabled: entrypoint.enabled,
+                            entrypoint_id: entrypoint.entrypoint_id.to_string(),
+                            entrypoint_name: entrypoint.entrypoint_name,
+                            entrypoint_description: entrypoint.entrypoint_description,
+                            entrypoint_type: match entrypoint.entrypoint_type {
+                                SettingsEntrypointType::Command => RpcEntrypointTypeSettings::SCommand,
+                                SettingsEntrypointType::View => RpcEntrypointTypeSettings::SView,
+                                SettingsEntrypointType::InlineView => RpcEntrypointTypeSettings::SInlineView,
+                                SettingsEntrypointType::EntrypointGenerator => {
+                                    RpcEntrypointTypeSettings::SEntrypointGenerator
+                                }
+                            }
+                            .into(),
+                            preferences: entrypoint
+                                .preferences
+                                .into_iter()
+                                .map(|(key, value)| (key, plugin_preference_to_rpc(value)))
+                                .collect(),
+                            preferences_user_data: entrypoint
+                                .preferences_user_data
+                                .into_iter()
+                                .map(|(key, value)| (key, plugin_preference_user_data_to_rpc(value)))
+                                .collect(),
+                        }
                     })
                     .collect();
 
@@ -167,10 +219,14 @@ impl RpcBackend for RpcBackendServerImpl {
                     plugin_description: plugin.plugin_description,
                     enabled: plugin.enabled,
                     entrypoints,
-                    preferences: plugin.preferences.into_iter()
+                    preferences: plugin
+                        .preferences
+                        .into_iter()
                         .map(|(key, value)| (key, plugin_preference_to_rpc(value)))
                         .collect(),
-                    preferences_user_data: plugin.preferences_user_data.into_iter()
+                    preferences_user_data: plugin
+                        .preferences_user_data
+                        .into_iter()
                         .map(|(key, value)| (key, plugin_preference_user_data_to_rpc(value)))
                         .collect(),
                 }
@@ -180,21 +236,28 @@ impl RpcBackend for RpcBackendServerImpl {
         Ok(Response::new(RpcPluginsResponse { plugins }))
     }
 
-    async fn set_plugin_state(&self, request: Request<RpcSetPluginStateRequest>) -> Result<Response<RpcSetPluginStateResponse>, Status> {
+    async fn set_plugin_state(
+        &self,
+        request: Request<RpcSetPluginStateRequest>,
+    ) -> Result<Response<RpcSetPluginStateResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
         let enabled = request.enabled;
 
         let plugin_id = PluginId::from_string(plugin_id);
 
-        self.server.set_plugin_state(plugin_id, enabled)
+        self.server
+            .set_plugin_state(plugin_id, enabled)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetPluginStateResponse::default()))
     }
 
-    async fn set_entrypoint_state(&self, request: Request<RpcSetEntrypointStateRequest>) -> Result<Response<RpcSetEntrypointStateResponse>, Status> {
+    async fn set_entrypoint_state(
+        &self,
+        request: Request<RpcSetEntrypointStateRequest>,
+    ) -> Result<Response<RpcSetEntrypointStateResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
         let entrypoint_id = request.entrypoint_id;
@@ -203,14 +266,18 @@ impl RpcBackend for RpcBackendServerImpl {
         let plugin_id = PluginId::from_string(plugin_id);
         let entrypoint_id = EntrypointId::from_string(entrypoint_id);
 
-        self.server.set_entrypoint_state(plugin_id, entrypoint_id, enabled)
+        self.server
+            .set_entrypoint_state(plugin_id, entrypoint_id, enabled)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetEntrypointStateResponse::default()))
     }
 
-    async fn set_preference_value(&self, request: Request<RpcSetPreferenceValueRequest>) -> Result<Response<RpcSetPreferenceValueResponse>, Status> {
+    async fn set_preference_value(
+        &self,
+        request: Request<RpcSetPreferenceValueRequest>,
+    ) -> Result<Response<RpcSetPreferenceValueResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
         let plugin_id = PluginId::from_string(plugin_id);
@@ -224,55 +291,70 @@ impl RpcBackend for RpcBackendServerImpl {
         let preference_id = request.preference_id;
         let preference_value = request.preference_value.unwrap();
 
-        self.server.set_preference_value(plugin_id, entrypoint_id, preference_id, plugin_preference_user_data_from_rpc(preference_value))
+        self.server
+            .set_preference_value(
+                plugin_id,
+                entrypoint_id,
+                preference_id,
+                plugin_preference_user_data_from_rpc(preference_value),
+            )
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetPreferenceValueResponse::default()))
     }
 
-    async fn set_global_shortcut(&self, request: Request<RpcSetGlobalShortcutRequest>) -> Result<Response<RpcSetGlobalShortcutResponse>, Status> {
+    async fn set_global_shortcut(
+        &self,
+        request: Request<RpcSetGlobalShortcutRequest>,
+    ) -> Result<Response<RpcSetGlobalShortcutResponse>, Status> {
         let request = request.into_inner();
 
-        let shortcut = request.shortcut
-            .map(|shortcut| {
-                let physical_key = shortcut.physical_key;
-                let modifier_shift = shortcut.modifier_shift;
-                let modifier_control = shortcut.modifier_control;
-                let modifier_alt = shortcut.modifier_alt;
-                let modifier_meta = shortcut.modifier_meta;
+        let shortcut = request.shortcut.map(|shortcut| {
+            let physical_key = shortcut.physical_key;
+            let modifier_shift = shortcut.modifier_shift;
+            let modifier_control = shortcut.modifier_control;
+            let modifier_alt = shortcut.modifier_alt;
+            let modifier_meta = shortcut.modifier_meta;
 
-                PhysicalShortcut {
-                    physical_key: PhysicalKey::from_value(physical_key),
-                    modifier_shift,
-                    modifier_control,
-                    modifier_alt,
-                    modifier_meta,
-                }
-            });
+            PhysicalShortcut {
+                physical_key: PhysicalKey::from_value(physical_key),
+                modifier_shift,
+                modifier_control,
+                modifier_alt,
+                modifier_meta,
+            }
+        });
 
-        let error = self.server.set_global_shortcut(shortcut)
+        let error = self
+            .server
+            .set_global_shortcut(shortcut)
             .await
             .map_err(|err| format!("{:#}", err))
             .err();
 
-        Ok(Response::new(RpcSetGlobalShortcutResponse {
-            error
-        }))
+        Ok(Response::new(RpcSetGlobalShortcutResponse { error }))
     }
 
-    async fn get_global_shortcut(&self, _request: Request<RpcGetGlobalShortcutRequest>) -> Result<Response<RpcGetGlobalShortcutResponse>, Status> {
-        let (shortcut, error) = self.server.get_global_shortcut()
+    async fn get_global_shortcut(
+        &self,
+        _request: Request<RpcGetGlobalShortcutRequest>,
+    ) -> Result<Response<RpcGetGlobalShortcutResponse>, Status> {
+        let (shortcut, error) = self
+            .server
+            .get_global_shortcut()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcGetGlobalShortcutResponse {
-            shortcut: shortcut.map(|shortcut| RpcShortcut {
-                physical_key: shortcut.physical_key.to_value(),
-                modifier_shift: shortcut.modifier_shift,
-                modifier_control: shortcut.modifier_control,
-                modifier_alt: shortcut.modifier_alt,
-                modifier_meta: shortcut.modifier_meta,
+            shortcut: shortcut.map(|shortcut| {
+                RpcShortcut {
+                    physical_key: shortcut.physical_key.to_value(),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                }
             }),
             error,
         }))
@@ -288,10 +370,11 @@ impl RpcBackend for RpcBackendServerImpl {
             "MacOSLight" => SettingsTheme::MacOSLight,
             "MacOSDark" => SettingsTheme::MacOSDark,
             "Legacy" => SettingsTheme::Legacy,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
-        self.server.set_theme(theme)
+        self.server
+            .set_theme(theme)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
@@ -299,7 +382,9 @@ impl RpcBackend for RpcBackendServerImpl {
     }
 
     async fn get_theme(&self, _request: Request<RpcGetThemeRequest>) -> Result<Response<RpcGetThemeResponse>, Status> {
-        let theme = self.server.get_theme()
+        let theme = self
+            .server
+            .get_theme()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
@@ -316,24 +401,33 @@ impl RpcBackend for RpcBackendServerImpl {
             theme: theme.to_string(),
         }))
     }
-    async fn set_window_position_mode(&self, request: Request<RpcSetWindowPositionModeRequest>) -> Result<Response<RpcSetWindowPositionModeResponse>, Status> {
+    async fn set_window_position_mode(
+        &self,
+        request: Request<RpcSetWindowPositionModeRequest>,
+    ) -> Result<Response<RpcSetWindowPositionModeResponse>, Status> {
         let mode = request.into_inner().mode;
 
         let mode = match mode.as_str() {
             "Static" => WindowPositionMode::Static,
             "ActiveMonitor" => WindowPositionMode::ActiveMonitor,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
-        self.server.set_window_position_mode(mode)
+        self.server
+            .set_window_position_mode(mode)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcSetWindowPositionModeResponse::default()))
     }
 
-    async fn get_window_position_mode(&self, _request: Request<RpcGetWindowPositionModeRequest>) -> Result<Response<RpcGetWindowPositionModeResponse>, Status> {
-        let mode = self.server.get_window_position_mode()
+    async fn get_window_position_mode(
+        &self,
+        _request: Request<RpcGetWindowPositionModeRequest>,
+    ) -> Result<Response<RpcGetWindowPositionModeResponse>, Status> {
+        let mode = self
+            .server
+            .get_window_position_mode()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
@@ -347,21 +441,30 @@ impl RpcBackend for RpcBackendServerImpl {
         }))
     }
 
-    async fn download_plugin(&self, request: Request<RpcDownloadPluginRequest>) -> Result<Response<RpcDownloadPluginResponse>, Status> {
+    async fn download_plugin(
+        &self,
+        request: Request<RpcDownloadPluginRequest>,
+    ) -> Result<Response<RpcDownloadPluginResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
 
         let plugin_id = PluginId::from_string(plugin_id);
 
-        self.server.download_plugin(plugin_id)
+        self.server
+            .download_plugin(plugin_id)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcDownloadPluginResponse::default()))
     }
 
-    async fn download_status(&self, _: Request<RpcDownloadStatusRequest>) -> Result<Response<RpcDownloadStatusResponse>, Status> {
-        let status_per_plugin = self.server.download_status()
+    async fn download_status(
+        &self,
+        _: Request<RpcDownloadStatusRequest>,
+    ) -> Result<Response<RpcDownloadStatusResponse>, Status> {
+        let status_per_plugin = self
+            .server
+            .download_status()
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?
             .into_iter()
@@ -372,35 +475,48 @@ impl RpcBackend for RpcBackendServerImpl {
                     DownloadStatus::Failed { message } => (RpcDownloadStatus::Failed, message),
                 };
 
-                (plugin_id.to_string(), RpcDownloadStatusValue { status: status.into(), message })
+                (
+                    plugin_id.to_string(),
+                    RpcDownloadStatusValue {
+                        status: status.into(),
+                        message,
+                    },
+                )
             })
             .collect();
 
-        let response = RpcDownloadStatusResponse {
-            status_per_plugin,
-        };
+        let response = RpcDownloadStatusResponse { status_per_plugin };
 
         Ok(Response::new(response))
     }
 
-    async fn remove_plugin(&self, request: Request<RpcRemovePluginRequest>) -> Result<Response<RpcRemovePluginResponse>, Status> {
+    async fn remove_plugin(
+        &self,
+        request: Request<RpcRemovePluginRequest>,
+    ) -> Result<Response<RpcRemovePluginResponse>, Status> {
         let request = request.into_inner();
         let plugin_id = request.plugin_id;
 
         let plugin_id = PluginId::from_string(plugin_id);
 
-        self.server.remove_plugin(plugin_id)
+        self.server
+            .remove_plugin(plugin_id)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcRemovePluginResponse::default()))
     }
 
-    async fn save_local_plugin(&self, request: Request<RpcSaveLocalPluginRequest>) -> Result<Response<RpcSaveLocalPluginResponse>, Status> {
+    async fn save_local_plugin(
+        &self,
+        request: Request<RpcSaveLocalPluginRequest>,
+    ) -> Result<Response<RpcSaveLocalPluginResponse>, Status> {
         let request = request.into_inner();
         let path = request.path;
 
-        let local_save_data = self.server.save_local_plugin(path)
+        let local_save_data = self
+            .server
+            .save_local_plugin(path)
             .await
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 

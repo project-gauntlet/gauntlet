@@ -1,17 +1,19 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
-use gauntlet_common::model::{DownloadStatus, PluginId};
+use gauntlet_common::model::DownloadStatus;
+use gauntlet_common::model::PluginId;
 
 pub struct DownloadStatusHolder {
-    running_downloads: Arc<Mutex<HashMap<PluginId, DownloadStatus>>>
+    running_downloads: Arc<Mutex<HashMap<PluginId, DownloadStatus>>>,
 }
 
 impl DownloadStatusHolder {
     pub fn new() -> Self {
         Self {
-            running_downloads: Arc::new(Mutex::new(HashMap::new()))
+            running_downloads: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -26,7 +28,8 @@ impl DownloadStatusHolder {
 
     pub fn download_status(&self) -> HashMap<PluginId, DownloadStatus> {
         let running_downloads = self.running_downloads.lock().expect("lock is poisoned");
-        running_downloads.iter()
+        running_downloads
+            .iter()
             .map(|(plugin_id, status)| (plugin_id.clone(), status.clone()))
             .collect()
     }
@@ -34,7 +37,7 @@ impl DownloadStatusHolder {
 
 pub struct DownloadStatusGuard {
     id: PluginId,
-    running_downloads: Arc<Mutex<HashMap<PluginId, DownloadStatus>>>
+    running_downloads: Arc<Mutex<HashMap<PluginId, DownloadStatus>>>,
 }
 
 impl DownloadStatusGuard {

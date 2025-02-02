@@ -1,6 +1,8 @@
 use crate::ui::custom_widgets::loading_bar;
-use crate::ui::custom_widgets::loading_bar::{LoadingBar, Style};
-use crate::ui::theme::{Element, ThemableWidget};
+use crate::ui::custom_widgets::loading_bar::LoadingBar;
+use crate::ui::custom_widgets::loading_bar::Style;
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
 use crate::ui::GauntletComplexTheme;
 
 #[derive(Default)]

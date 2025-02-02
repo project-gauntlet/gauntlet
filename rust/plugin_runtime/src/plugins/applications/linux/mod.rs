@@ -1,21 +1,30 @@
-use crate::plugin_data::PluginData;
-use crate::plugins::applications::{linux, resize_icon, spawn_detached, DesktopApplication, DesktopPathAction};
-use deno_core::{op2, OpState};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fs::Metadata;
+use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
+
+use deno_core::op2;
+use deno_core::OpState;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use image::imageops::FilterType;
 use image::ImageFormat;
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::fs::Metadata;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use tokio::sync::mpsc::Sender;
 use tokio::task::spawn_blocking;
 use walkdir::WalkDir;
 
-mod x11;
+use crate::plugin_data::PluginData;
+use crate::plugins::applications::linux;
+use crate::plugins::applications::resize_icon;
+use crate::plugins::applications::spawn_detached;
+use crate::plugins::applications::DesktopApplication;
+use crate::plugins::applications::DesktopPathAction;
+
 mod wayland;
+mod x11;
 
 deno_core::extension!(
     gauntlet_internal_linux,
@@ -31,8 +40,8 @@ deno_core::extension!(
     ],
     esm_entry_point = "ext:gauntlet/internal-linux/bootstrap.js",
     esm = [
-        "ext:gauntlet/internal-linux/bootstrap.js" =  "../../js/bridge_build/dist/bridge-internal-linux-bootstrap.js",
-        "ext:gauntlet/internal-linux.js" =  "../../js/core/dist/internal-linux.js",
+        "ext:gauntlet/internal-linux/bootstrap.js" = "../../js/bridge_build/dist/bridge-internal-linux-bootstrap.js",
+        "ext:gauntlet/internal-linux.js" = "../../js/core/dist/internal-linux.js",
     ]
 );
 
@@ -48,7 +57,9 @@ impl LinuxDesktopEnvironment {
             .is_ok();
 
         if wayland {
-            Ok(LinuxDesktopEnvironment::Wayland(wayland::WaylandDesktopEnvironment::new()?))
+            Ok(LinuxDesktopEnvironment::Wayland(
+                wayland::WaylandDesktopEnvironment::new()?,
+            ))
         } else {
             Ok(LinuxDesktopEnvironment::X11(x11::X11DesktopEnvironment::new()))
         }
@@ -61,13 +72,14 @@ impl LinuxDesktopEnvironment {
 
 #[op2(async)]
 #[serde]
-async fn linux_app_from_path(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
+async fn linux_app_from_path(
+    state: Rc<RefCell<OpState>>,
+    #[string] path: String,
+) -> anyhow::Result<Option<DesktopPathAction>> {
     let home_dir = {
         let state = state.borrow();
 
-        let home_dir = state
-            .borrow::<PluginData>()
-            .home_dir();
+        let home_dir = state.borrow::<PluginData>().home_dir();
 
         home_dir
     };
@@ -81,9 +93,7 @@ fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
     let home_dir = {
         let state = state.borrow();
 
-        let home_dir = state
-            .borrow::<PluginData>()
-            .home_dir();
+        let home_dir = state.borrow::<PluginData>().home_dir();
 
         home_dir
     };
@@ -96,29 +106,19 @@ fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
 
 #[op2(fast)]
 fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Result<()> {
-
     spawn_detached("gtk-launch", &[desktop_file_id])?;
 
     Ok(())
 }
 
-
 fn linux_application_dirs_inner(home_dir: PathBuf) -> Vec<PathBuf> {
     let data_home = match std::env::var_os("XDG_DATA_HOME") {
-        Some(val) => {
-            PathBuf::from(val)
-        },
-        None => {
-            home_dir
-                .join(".local")
-                .join("share")
-        }
+        Some(val) => PathBuf::from(val),
+        None => home_dir.join(".local").join("share"),
     };
 
     let mut extra_data_dirs = match std::env::var_os("XDG_DATA_DIRS") {
-        Some(val) => {
-            std::env::split_paths(&val).map(PathBuf::from).collect()
-        },
+        Some(val) => std::env::split_paths(&val).map(PathBuf::from).collect(),
         None => {
             vec![
                 PathBuf::from("/usr/local/share"),
@@ -128,19 +128,14 @@ fn linux_application_dirs_inner(home_dir: PathBuf) -> Vec<PathBuf> {
         }
     };
 
-    let flatpak = data_home.to_path_buf()
-        .join("flatpak")
-        .join("exports")
-        .join("share");
+    let flatpak = data_home.to_path_buf().join("flatpak").join("exports").join("share");
 
     let mut res = Vec::new();
     res.push(data_home);
     res.push(flatpak);
     res.append(&mut extra_data_dirs);
 
-    res.into_iter()
-        .map(|d| d.join("applications"))
-        .collect()
+    res.into_iter().map(|d| d.join("applications")).collect()
 }
 
 fn linux_app_from_path_async(home_dir: PathBuf, path: PathBuf) -> Option<DesktopPathAction> {
@@ -191,7 +186,7 @@ fn linux_app_from_path_async(home_dir: PathBuf, path: PathBuf) -> Option<Desktop
 
             Some(DesktopPathAction::Add {
                 id: desktop_app_id,
-                data: entry
+                data: entry,
             })
         } else {
             None
@@ -204,7 +199,8 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
         .inspect_err(|err| tracing::warn!("error parsing .desktop file at path {:?}: {:?}", desktop_file_path, err))
         .ok()?;
 
-    let desktop_file_path_str = desktop_file_path.to_str()
+    let desktop_file_path_str = desktop_file_path
+        .to_str()
         .expect("non-utf8 paths are not supported")
         .to_string();
 
@@ -214,11 +210,11 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
     let icon = entry.attr("Icon").map(|s| s.to_string());
     let no_display = entry.attr("NoDisplay").map(|val| val == "true").unwrap_or(false);
     let hidden = entry.attr("Hidden").map(|val| val == "true").unwrap_or(false);
-    let startup_wm_class = entry.attr("StartupWMClass").map(|s| s.to_string());;
+    let startup_wm_class = entry.attr("StartupWMClass").map(|s| s.to_string());
     // TODO NotShowIn, OnlyShowIn https://wiki.archlinux.org/title/desktop_entries
 
     if no_display || hidden {
-        return None
+        return None;
     }
 
     let icon = icon
@@ -227,9 +223,7 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
             if icon_path.is_absolute() {
                 Some(icon_path)
             } else {
-                lookup(&icon)
-                    .with_size(48)
-                    .find()
+                lookup(&icon).with_size(48).find()
             }
         })
         .flatten()
@@ -243,14 +237,15 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
                             let data = std::fs::read(path)?;
 
                             resize_icon(data)
-                        },
+                        }
                         Some("svg") => {
                             let data = std::fs::read(path)?;
 
                             let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default())?;
 
                             let pixmap_size = tree.size().to_int_size();
-                            let mut pixmap = resvg::tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+                            let mut pixmap =
+                                resvg::tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
 
                             resvg::render(&tree, resvg::tiny_skia::Transform::default(), &mut pixmap.as_mut());
 
@@ -259,7 +254,7 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
                             let data = resize_icon(data)?;
 
                             Ok(data)
-                        },
+                        }
                         Some("xpm") => Err(anyhow::anyhow!("xpm format")),
                         _ => Err(anyhow::anyhow!("unsupported by spec format {:?}", extension)),
                     }
@@ -267,8 +262,7 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
             }
         })
         .map(|res| {
-            res
-                .inspect_err(|err| tracing::warn!("error processing icon of {:?}: {:?}", desktop_file_path, err))
+            res.inspect_err(|err| tracing::warn!("error processing icon of {:?}: {:?}", desktop_file_path, err))
                 .ok()
         })
         .flatten();

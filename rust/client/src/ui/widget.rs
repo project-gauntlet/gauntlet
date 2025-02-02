@@ -1,7 +1,117 @@
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::sync::Arc;
+
+use gauntlet_common::model::ActionPanelSectionWidget;
+use gauntlet_common::model::ActionPanelSectionWidgetOrderedMembers;
+use gauntlet_common::model::ActionPanelWidget;
+use gauntlet_common::model::ActionPanelWidgetOrderedMembers;
+use gauntlet_common::model::ActionWidget;
+use gauntlet_common::model::CheckboxWidget;
+use gauntlet_common::model::CodeBlockWidget;
+use gauntlet_common::model::ContentWidget;
+use gauntlet_common::model::ContentWidgetOrderedMembers;
+use gauntlet_common::model::DatePickerWidget;
+use gauntlet_common::model::DetailWidget;
+use gauntlet_common::model::EmptyViewWidget;
+use gauntlet_common::model::FormWidget;
+use gauntlet_common::model::FormWidgetOrderedMembers;
+use gauntlet_common::model::GridItemWidget;
+use gauntlet_common::model::GridSectionWidget;
+use gauntlet_common::model::GridSectionWidgetOrderedMembers;
+use gauntlet_common::model::GridWidget;
+use gauntlet_common::model::GridWidgetOrderedMembers;
+use gauntlet_common::model::H1Widget;
+use gauntlet_common::model::H2Widget;
+use gauntlet_common::model::H3Widget;
+use gauntlet_common::model::H4Widget;
+use gauntlet_common::model::H5Widget;
+use gauntlet_common::model::H6Widget;
+use gauntlet_common::model::HorizontalBreakWidget;
+use gauntlet_common::model::IconAccessoryWidget;
+use gauntlet_common::model::Icons;
+use gauntlet_common::model::ImageLike;
+use gauntlet_common::model::ImageWidget;
+use gauntlet_common::model::InlineSeparatorWidget;
+use gauntlet_common::model::InlineWidget;
+use gauntlet_common::model::InlineWidgetOrderedMembers;
+use gauntlet_common::model::ListItemAccessories;
+use gauntlet_common::model::ListItemWidget;
+use gauntlet_common::model::ListSectionWidget;
+use gauntlet_common::model::ListSectionWidgetOrderedMembers;
+use gauntlet_common::model::ListWidget;
+use gauntlet_common::model::ListWidgetOrderedMembers;
+use gauntlet_common::model::MetadataIconWidget;
+use gauntlet_common::model::MetadataLinkWidget;
+use gauntlet_common::model::MetadataSeparatorWidget;
+use gauntlet_common::model::MetadataTagItemWidget;
+use gauntlet_common::model::MetadataTagListWidget;
+use gauntlet_common::model::MetadataTagListWidgetOrderedMembers;
+use gauntlet_common::model::MetadataValueWidget;
+use gauntlet_common::model::MetadataWidget;
+use gauntlet_common::model::MetadataWidgetOrderedMembers;
+use gauntlet_common::model::ParagraphWidget;
+use gauntlet_common::model::PasswordFieldWidget;
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::RootWidget;
+use gauntlet_common::model::RootWidgetMembers;
+use gauntlet_common::model::SearchBarWidget;
+use gauntlet_common::model::SelectWidget;
+use gauntlet_common::model::SelectWidgetOrderedMembers;
+use gauntlet_common::model::SeparatorWidget;
+use gauntlet_common::model::TextAccessoryWidget;
+use gauntlet_common::model::TextFieldWidget;
+use gauntlet_common::model::UiRenderLocation;
+use gauntlet_common::model::UiWidgetId;
+use gauntlet_common_ui::shortcut_to_text;
+use iced::alignment::Horizontal;
+use iced::alignment::Vertical;
+use iced::font::Weight;
+use iced::widget::button;
+use iced::widget::checkbox;
+use iced::widget::column;
+use iced::widget::container;
+use iced::widget::horizontal_rule;
+use iced::widget::horizontal_space;
+use iced::widget::image;
+use iced::widget::image::Handle;
+use iced::widget::mouse_area;
+use iced::widget::pick_list;
+use iced::widget::row;
+use iced::widget::scrollable;
+use iced::widget::stack;
+use iced::widget::text;
+use iced::widget::text::Shaping;
+use iced::widget::text_input;
+use iced::widget::tooltip;
+use iced::widget::tooltip::Position;
+use iced::widget::value;
+use iced::widget::vertical_rule;
+use iced::widget::Space;
+use iced::Alignment;
+use iced::Font;
+use iced::Length;
+use iced::Task;
+use iced_aw::date_picker::Date;
+use iced_aw::helpers::date_picker;
+use iced_aw::helpers::grid;
+use iced_aw::helpers::grid_row;
+use iced_aw::GridRow;
+use iced_fonts::Bootstrap;
+use iced_fonts::BOOTSTRAP_FONT;
+use itertools::Itertools;
+
 use crate::model::UiViewEvent;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
-use crate::ui::grid_navigation::{grid_down_offset, grid_up_offset, GridSectionData};
-use crate::ui::scroll_handle::{ScrollHandle, ESTIMATED_MAIN_LIST_ITEM_HEIGHT};
+use crate::ui::grid_navigation::grid_down_offset;
+use crate::ui::grid_navigation::grid_up_offset;
+use crate::ui::grid_navigation::GridSectionData;
+use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::scroll_handle::ESTIMATED_MAIN_LIST_ITEM_HEIGHT;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
@@ -13,26 +123,9 @@ use crate::ui::theme::rule::RuleStyle;
 use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
-use crate::ui::theme::{Element, ThemableWidget};
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
 use crate::ui::AppMsg;
-use gauntlet_common::model::{ActionPanelSectionWidget, ActionPanelSectionWidgetOrderedMembers, ActionPanelWidget, ActionPanelWidgetOrderedMembers, ActionWidget, CheckboxWidget, CodeBlockWidget, ContentWidget, ContentWidgetOrderedMembers, DatePickerWidget, DetailWidget, EmptyViewWidget, FormWidget, FormWidgetOrderedMembers, GridItemWidget, GridSectionWidget, GridSectionWidgetOrderedMembers, GridWidget, GridWidgetOrderedMembers, H1Widget, H2Widget, H3Widget, H4Widget, H5Widget, H6Widget, HorizontalBreakWidget, IconAccessoryWidget, Icons, ImageLike, ImageWidget, InlineSeparatorWidget, InlineWidget, InlineWidgetOrderedMembers, ListItemAccessories, ListItemWidget, ListSectionWidget, ListSectionWidgetOrderedMembers, ListWidget, ListWidgetOrderedMembers, MetadataIconWidget, MetadataLinkWidget, MetadataSeparatorWidget, MetadataTagItemWidget, MetadataTagListWidget, MetadataTagListWidgetOrderedMembers, MetadataValueWidget, MetadataWidget, MetadataWidgetOrderedMembers, ParagraphWidget, PasswordFieldWidget, PhysicalKey, PhysicalShortcut, PluginId, RootWidget, RootWidgetMembers, SearchBarWidget, SelectWidget, SelectWidgetOrderedMembers, SeparatorWidget, TextAccessoryWidget, TextFieldWidget, UiRenderLocation, UiWidgetId};
-use gauntlet_common_ui::shortcut_to_text;
-use iced::alignment::{Horizontal, Vertical};
-use iced::font::Weight;
-use iced::widget::image::Handle;
-use iced::widget::text::Shaping;
-use iced::widget::tooltip::Position;
-use iced::widget::{button, checkbox, column, container, horizontal_rule, horizontal_space, image, mouse_area, pick_list, row, scrollable, stack, text, text_input, tooltip, value, vertical_rule, Space};
-use iced::{Alignment, Font, Length, Task};
-use iced_aw::date_picker::Date;
-use iced_aw::helpers::{date_picker, grid, grid_row};
-use iced_aw::GridRow;
-use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
-use itertools::Itertools;
-use std::cell::Cell;
-use std::collections::HashMap;
-use std::fmt::{Debug, Display};
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ComponentWidgets<'b> {
@@ -47,58 +140,73 @@ impl<'b> ComponentWidgets<'b> {
         root_widget: &'b Option<Arc<RootWidget>>,
         state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
         plugin_id: PluginId,
-        images: &'b HashMap<UiWidgetId, Vec<u8>>
+        images: &'b HashMap<UiWidgetId, Vec<u8>>,
     ) -> ComponentWidgets<'b> {
         Self {
             root_widget,
             state,
             plugin_id,
-            images
+            images,
         }
     }
 
     fn text_field_state(&self, widget_id: UiWidgetId) -> &TextFieldState {
-        let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+        let state = self.state.get(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::TextField(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 
     fn checkbox_state(&self, widget_id: UiWidgetId) -> &CheckboxState {
-        let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+        let state = self.state.get(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::Checkbox(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 
     fn date_picker_state(&self, widget_id: UiWidgetId) -> &DatePickerState {
-        let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+        let state = self.state.get(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::DatePicker(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 
     fn select_state(&self, widget_id: UiWidgetId) -> &SelectState {
-        let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+        let state = self.state.get(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::Select(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 
     fn root_state(&self, widget_id: UiWidgetId) -> &RootState {
-        let state = self.state.get(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+        let state = self.state.get(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::Root(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 }
@@ -116,13 +224,13 @@ impl<'b> ComponentWidgetsMut<'b> {
         root_widget: &'b mut Option<Arc<RootWidget>>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
         plugin_id: PluginId,
-        images: &'b HashMap<UiWidgetId, Vec<u8>>
+        images: &'b HashMap<UiWidgetId, Vec<u8>>,
     ) -> ComponentWidgetsMut<'b> {
         Self {
             root_widget,
             state,
             plugin_id,
-            images
+            images,
         }
     }
 
@@ -130,12 +238,18 @@ impl<'b> ComponentWidgetsMut<'b> {
         Self::text_field_state_mut_on_state(&mut self.state, widget_id)
     }
 
-    fn text_field_state_mut_on_state(state: &mut HashMap<UiWidgetId, ComponentWidgetState>, widget_id: UiWidgetId) -> &mut TextFieldState {
-        let state = state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+    fn text_field_state_mut_on_state(
+        state: &mut HashMap<UiWidgetId, ComponentWidgetState>,
+        widget_id: UiWidgetId,
+    ) -> &mut TextFieldState {
+        let state = state.get_mut(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::TextField(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 
@@ -143,12 +257,18 @@ impl<'b> ComponentWidgetsMut<'b> {
         Self::root_state_mut_on_field(&mut self.state, widget_id)
     }
 
-    fn root_state_mut_on_field(state: &mut HashMap<UiWidgetId, ComponentWidgetState>, widget_id: UiWidgetId) -> &mut RootState {
-        let state = state.get_mut(&widget_id).expect(&format!("requested state should always be present for id: {}", widget_id));
+    fn root_state_mut_on_field(
+        state: &mut HashMap<UiWidgetId, ComponentWidgetState>,
+        widget_id: UiWidgetId,
+    ) -> &mut RootState {
+        let state = state.get_mut(&widget_id).expect(&format!(
+            "requested state should always be present for id: {}",
+            widget_id
+        ));
 
         match state {
             ComponentWidgetState::Root(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state)
+            _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }
 }
@@ -188,7 +308,10 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
                     }
                 }
                 RootWidgetMembers::List(widget) => {
-                    result.insert(widget.__id__, ComponentWidgetState::root(ESTIMATED_MAIN_LIST_ITEM_HEIGHT, 7));
+                    result.insert(
+                        widget.__id__,
+                        ComponentWidgetState::root(ESTIMATED_MAIN_LIST_ITEM_HEIGHT, 7),
+                    );
 
                     if let Some(widget) = &widget.content.search_bar {
                         result.insert(widget.__id__, ComponentWidgetState::text_field(&widget.value));
@@ -196,18 +319,25 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
                 }
                 RootWidgetMembers::Grid(widget) => {
                     // cursed heuristic
-                    let has_title = widget.content
+                    let has_title = widget
+                        .content
                         .ordered_members
                         .iter()
-                        .flat_map(|members| match members {
-                            GridWidgetOrderedMembers::GridItem(widget) => vec![widget],
-                            GridWidgetOrderedMembers::GridSection(widget) => {
-                                widget.content.ordered_members
-                                    .iter()
-                                    .map(|members| match members {
-                                        GridSectionWidgetOrderedMembers::GridItem(widget) => widget
-                                    })
-                                    .collect()
+                        .flat_map(|members| {
+                            match members {
+                                GridWidgetOrderedMembers::GridItem(widget) => vec![widget],
+                                GridWidgetOrderedMembers::GridSection(widget) => {
+                                    widget
+                                        .content
+                                        .ordered_members
+                                        .iter()
+                                        .map(|members| {
+                                            match members {
+                                                GridSectionWidgetOrderedMembers::GridItem(widget) => widget,
+                                            }
+                                        })
+                                        .collect()
+                                }
                             }
                         })
                         .next()
@@ -250,12 +380,12 @@ pub enum ComponentWidgetState {
 #[derive(Debug, Clone)]
 struct TextFieldState {
     text_input_id: text_input::Id,
-    state_value: String
+    state_value: String,
 }
 
 #[derive(Debug, Clone)]
 struct CheckboxState {
-    state_value: bool
+    state_value: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -266,7 +396,7 @@ struct DatePickerState {
 
 #[derive(Debug, Clone)]
 struct SelectState {
-    state_value: Option<String>
+    state_value: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -286,13 +416,13 @@ impl ComponentWidgetState {
     fn text_field(value: &Option<String>) -> ComponentWidgetState {
         ComponentWidgetState::TextField(TextFieldState {
             text_input_id: text_input::Id::unique(),
-            state_value: value.to_owned().unwrap_or_default()
+            state_value: value.to_owned().unwrap_or_default(),
         })
     }
 
     fn checkbox(value: &Option<bool>) -> ComponentWidgetState {
         ComponentWidgetState::Checkbox(CheckboxState {
-            state_value: value.to_owned().unwrap_or(false)
+            state_value: value.to_owned().unwrap_or(false),
         })
     }
 
@@ -312,7 +442,7 @@ impl ComponentWidgetState {
 
     fn select(value: &Option<String>) -> ComponentWidgetState {
         ComponentWidgetState::Select(SelectState {
-            state_value: value.to_owned()
+            state_value: value.to_owned(),
         })
     }
 }
@@ -376,9 +506,7 @@ impl<'b> ComponentWidgets<'b> {
             Some(widget) => {
                 for members in &widget.content.ordered_members {
                     match members {
-                        ActionPanelWidgetOrderedMembers::Action(widget) => {
-                            result.push(widget.__id__)
-                        }
+                        ActionPanelWidgetOrderedMembers::Action(widget) => result.push(widget.__id__),
                         ActionPanelWidgetOrderedMembers::ActionPanelSection(widget) => {
                             for members in &widget.content.ordered_members {
                                 match members {
@@ -413,12 +541,12 @@ impl<'b> ComponentWidgets<'b> {
                 let RootState { focused_item, .. } = self.root_state(widget.__id__);
 
                 ComponentWidgets::list_focused_item_id(focused_item, widget)
-            },
+            }
             RootWidgetMembers::Grid(widget) => {
                 let RootState { focused_item, .. } = self.root_state(widget.__id__);
 
                 ComponentWidgets::grid_focused_item_id(focused_item, widget)
-            },
+            }
         }
     }
 
@@ -454,7 +582,8 @@ impl<'b> ComponentWidgets<'b> {
                         });
 
                         cumulative_item_index = cumulative_item_index + pending_section_size;
-                        cumulative_row_index = cumulative_row_index_at_start + (usize::div_ceil(pending_section_size, width));
+                        cumulative_row_index =
+                            cumulative_row_index_at_start + (usize::div_ceil(pending_section_size, width));
 
                         cumulative_item_index_at_start = cumulative_item_index;
                         cumulative_row_index_at_start = cumulative_row_index;
@@ -512,24 +641,23 @@ impl<'b> ComponentWidgetsMut<'b> {
         let widget_id = match content {
             RootWidgetMembers::List(widget) => {
                 match &widget.content.search_bar {
-                    None => {
-                        return Task::none()
-                    }
-                    Some(widget) => widget.__id__
+                    None => return Task::none(),
+                    Some(widget) => widget.__id__,
                 }
             }
             RootWidgetMembers::Grid(widget) => {
                 match &widget.content.search_bar {
-                    None => {
-                        return Task::none()
-                    }
-                    Some(widget) => widget.__id__
+                    None => return Task::none(),
+                    Some(widget) => widget.__id__,
                 }
             }
-            _ => return Task::none()
+            _ => return Task::none(),
         };
 
-        let TextFieldState { text_input_id, state_value } = ComponentWidgetsMut::text_field_state_mut_on_state(&mut self.state, widget_id);
+        let TextFieldState {
+            text_input_id,
+            state_value,
+        } = ComponentWidgetsMut::text_field_state_mut_on_state(&mut self.state, widget_id);
 
         if let Some(value) = text.chars().next().filter(|c| !c.is_control()) {
             *state_value = format!("{}{}", state_value, value);
@@ -552,24 +680,23 @@ impl<'b> ComponentWidgetsMut<'b> {
         let widget_id = match content {
             RootWidgetMembers::List(widget) => {
                 match &widget.content.search_bar {
-                    None => {
-                        return Task::none()
-                    }
-                    Some(widget) => widget.__id__
+                    None => return Task::none(),
+                    Some(widget) => widget.__id__,
                 }
             }
             RootWidgetMembers::Grid(widget) => {
                 match &widget.content.search_bar {
-                    None => {
-                        return Task::none()
-                    }
-                    Some(widget) => widget.__id__
+                    None => return Task::none(),
+                    Some(widget) => widget.__id__,
                 }
             }
-            _ => return Task::none()
+            _ => return Task::none(),
         };
 
-        let TextFieldState { text_input_id, state_value } = ComponentWidgetsMut::text_field_state_mut_on_state(&mut self.state, widget_id);
+        let TextFieldState {
+            text_input_id,
+            state_value,
+        } = ComponentWidgetsMut::text_field_state_mut_on_state(&mut self.state, widget_id);
 
         let mut chars = state_value.chars();
         chars.next_back();
@@ -592,20 +719,19 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(list_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, list_widget.__id__);
+                let RootState { focused_item, .. } =
+                    ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, list_widget.__id__);
 
-                let focus_task = focused_item.focus_previous()
-                    .unwrap_or_else(|| Task::none());
+                let focus_task = focused_item.focus_previous().unwrap_or_else(|| Task::none());
 
-                let item_focus_event = ComponentWidgets::list_item_focus_event(self.plugin_id.clone(), focused_item, list_widget);
+                let item_focus_event =
+                    ComponentWidgets::list_item_focus_event(self.plugin_id.clone(), focused_item, list_widget);
 
-                Task::batch([
-                    item_focus_event,
-                    focus_task
-                ])
+                Task::batch([item_focus_event, focus_task])
             }
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } =
+                    ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
                 let Some(current_index) = &focused_item.index else {
                     return Task::none();
@@ -618,17 +744,15 @@ impl<'b> ComponentWidgetsMut<'b> {
                     Some(data) => {
                         match focused_item.focus_previous_in(data.offset) {
                             None => Task::none(),
-                            Some(_) => focused_item.scroll_to(data.row_index)
+                            Some(_) => focused_item.scroll_to(data.row_index),
                         }
                     }
                 };
 
-                let item_focus_event = ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
+                let item_focus_event =
+                    ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
 
-                Task::batch([
-                    item_focus_event,
-                    focus_task
-                ])
+                Task::batch([item_focus_event, focus_task])
             }
         }
     }
@@ -647,15 +771,20 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(widget) => {
-                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, widget.__id__);
+                let RootState { focused_item, .. } =
+                    ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, widget.__id__);
 
-                let total = widget.content.ordered_members
+                let total = widget
+                    .content
+                    .ordered_members
                     .iter()
                     .flat_map(|members| {
                         match members {
                             ListWidgetOrderedMembers::ListItem(widget) => vec![widget],
                             ListWidgetOrderedMembers::ListSection(widget) => {
-                                widget.content.ordered_members
+                                widget
+                                    .content
+                                    .ordered_members
                                     .iter()
                                     .map(|members| {
                                         match members {
@@ -668,25 +797,20 @@ impl<'b> ComponentWidgetsMut<'b> {
                     })
                     .count();
 
-                let focus_task = focused_item.focus_next(total)
-                    .unwrap_or_else(|| Task::none());
+                let focus_task = focused_item.focus_next(total).unwrap_or_else(|| Task::none());
 
-                let item_focus_event = ComponentWidgets::list_item_focus_event(self.plugin_id.clone(), focused_item, widget);
+                let item_focus_event =
+                    ComponentWidgets::list_item_focus_event(self.plugin_id.clone(), focused_item, widget);
 
-                Task::batch([
-                    item_focus_event,
-                    focus_task
-                ])
+                Task::batch([item_focus_event, focus_task])
             }
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } =
+                    ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
                 let amount_per_section_total = ComponentWidgets::grid_section_sizes(grid_widget);
 
-                let total = amount_per_section_total
-                    .iter()
-                    .map(|data| data.amount_in_section)
-                    .sum();
+                let total = amount_per_section_total.iter().map(|data| data.amount_in_section).sum();
 
                 let Some(current_index) = &focused_item.index else {
                     let unfocus = match &grid_widget.content.search_bar {
@@ -699,13 +823,10 @@ impl<'b> ComponentWidgetsMut<'b> {
 
                     let _ = focused_item.focus_next(total);
 
-                    let item_focus_event = ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
+                    let item_focus_event =
+                        ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
 
-                    return Task::batch([
-                        unfocus,
-                        focused_item.scroll_to(0),
-                        item_focus_event
-                    ])
+                    return Task::batch([unfocus, focused_item.scroll_to(0), item_focus_event]);
                 };
 
                 let focus_task = match grid_down_offset(*current_index, amount_per_section_total) {
@@ -713,17 +834,15 @@ impl<'b> ComponentWidgetsMut<'b> {
                     Some(data) => {
                         match focused_item.focus_next_in(total, data.offset) {
                             None => Task::none(),
-                            Some(_) => focused_item.scroll_to(data.row_index)
+                            Some(_) => focused_item.scroll_to(data.row_index),
                         }
                     }
                 };
 
-                let item_focus_event = ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
+                let item_focus_event =
+                    ComponentWidgets::grid_item_focus_event(self.plugin_id.clone(), focused_item, grid_widget);
 
-                Task::batch([
-                    item_focus_event,
-                    focus_task
-                ])
+                Task::batch([item_focus_event, focus_task])
             }
         }
     }
@@ -743,7 +862,8 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } =
+                    ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
                 let _ = focused_item.focus_previous();
 
@@ -769,15 +889,20 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(grid_widget) => {
-                let RootState { focused_item, .. } = ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
+                let RootState { focused_item, .. } =
+                    ComponentWidgetsMut::root_state_mut_on_field(&mut self.state, grid_widget.__id__);
 
-                let total = grid_widget.content.ordered_members
+                let total = grid_widget
+                    .content
+                    .ordered_members
                     .iter()
                     .flat_map(|members| {
                         match members {
                             GridWidgetOrderedMembers::GridItem(widget) => vec![widget],
                             GridWidgetOrderedMembers::GridSection(widget) => {
-                                widget.content.ordered_members
+                                widget
+                                    .content
+                                    .ordered_members
                                     .iter()
                                     .map(|members| {
                                         match members {
@@ -801,7 +926,6 @@ impl<'b> ComponentWidgetsMut<'b> {
 }
 
 impl<'b> ComponentWidgets<'b> {
-
     pub fn first_open(&self) -> AppMsg {
         let Some(root_widget) = &self.root_widget else {
             return AppMsg::Noop;
@@ -814,26 +938,20 @@ impl<'b> ComponentWidgets<'b> {
         let widget_id = match content {
             RootWidgetMembers::List(widget) => {
                 match &widget.content.search_bar {
-                    None => {
-                        return AppMsg::Noop
-                    }
-                    Some(widget) => widget.__id__
+                    None => return AppMsg::Noop,
+                    Some(widget) => widget.__id__,
                 }
             }
             RootWidgetMembers::Grid(widget) => {
                 match &widget.content.search_bar {
-                    None => {
-                        return AppMsg::Noop
-                    }
-                    Some(widget) => widget.__id__
+                    None => return AppMsg::Noop,
+                    Some(widget) => widget.__id__,
                 }
             }
-            _ => return AppMsg::Noop
+            _ => return AppMsg::Noop,
         };
 
-        AppMsg::FocusPluginViewSearchBar {
-            widget_id
-        }
+        AppMsg::FocusPluginViewSearchBar { widget_id }
     }
 
     fn list_focused_item_id(focused_item: &ScrollHandle, widget: &ListWidget) -> Option<String> {
@@ -858,17 +976,23 @@ impl<'b> ComponentWidgets<'b> {
 
         match focused_item.get(&items) {
             None => None,
-            Some(item_id) => Some(item_id.to_string())
+            Some(item_id) => Some(item_id.to_string()),
         }
     }
 
     fn list_item_focus_event(plugin_id: PluginId, focused_item: &ScrollHandle, widget: &ListWidget) -> Task<AppMsg> {
         let widget_event = match ComponentWidgets::list_focused_item_id(focused_item, widget) {
             None => {
-                ComponentWidgetEvent::FocusListItem { list_widget_id: widget.__id__, item_id: None }
+                ComponentWidgetEvent::FocusListItem {
+                    list_widget_id: widget.__id__,
+                    item_id: None,
+                }
             }
             Some(item_id) => {
-                ComponentWidgetEvent::FocusListItem { list_widget_id: widget.__id__, item_id: Some(item_id) }
+                ComponentWidgetEvent::FocusListItem {
+                    list_widget_id: widget.__id__,
+                    item_id: Some(item_id),
+                }
             }
         };
 
@@ -901,17 +1025,23 @@ impl<'b> ComponentWidgets<'b> {
 
         match focused_item.get(&items) {
             None => None,
-            Some(item_id) => Some(item_id.to_string())
+            Some(item_id) => Some(item_id.to_string()),
         }
     }
 
     fn grid_item_focus_event(plugin_id: PluginId, focused_item: &ScrollHandle, widget: &GridWidget) -> Task<AppMsg> {
         let widget_event = match ComponentWidgets::grid_focused_item_id(focused_item, widget) {
             None => {
-                ComponentWidgetEvent::FocusGridItem { grid_widget_id: widget.__id__, item_id: None }
+                ComponentWidgetEvent::FocusGridItem {
+                    grid_widget_id: widget.__id__,
+                    item_id: None,
+                }
             }
             Some(item_id) => {
-                ComponentWidgetEvent::FocusGridItem { grid_widget_id: widget.__id__, item_id: Some(item_id) }
+                ComponentWidgetEvent::FocusGridItem {
+                    grid_widget_id: widget.__id__,
+                    item_id: Some(item_id),
+                }
             }
         };
 
@@ -951,16 +1081,13 @@ impl<'b> ComponentWidgets<'b> {
             TextRenderType::H6 => Some(16),
         };
 
-        let mut text = text(value.join(""))
-            .shaping(Shaping::Advanced);
+        let mut text = text(value.join("")).shaping(Shaping::Advanced);
 
         if let Some(size) = header {
-            text = text
-                .size(size)
-                .font(Font {
-                    weight: Weight::Bold,
-                    ..Font::DEFAULT
-                })
+            text = text.size(size).font(Font {
+                weight: Weight::Bold,
+                ..Font::DEFAULT
+            })
         }
 
         text.into()
@@ -973,18 +1100,13 @@ impl<'b> ComponentWidgets<'b> {
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
         match &self.root_widget {
-            None => {
-                horizontal_space()
-                    .into()
-            }
+            None => horizontal_space().into(),
             Some(root) => {
                 match &root.content {
-                    None => {
-                        horizontal_space()
-                            .into()
-                    }
+                    None => horizontal_space().into(),
                     Some(content) => {
-                        let entrypoint_name = entrypoint_name.expect("entrypoint name should always exist after render");
+                        let entrypoint_name =
+                            entrypoint_name.expect("entrypoint name should always exist after render");
 
                         match content {
                             RootWidgetMembers::Detail(widget) => {
@@ -1004,10 +1126,16 @@ impl<'b> ComponentWidgets<'b> {
                                     entrypoint_name,
                                     action_shortcuts,
                                 )
-                            },
-                            RootWidgetMembers::Form(widget) => self.render_form_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
-                            RootWidgetMembers::List(widget) => self.render_list_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
-                            RootWidgetMembers::Grid(widget) => self.render_grid_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts),
+                            }
+                            RootWidgetMembers::Form(widget) => {
+                                self.render_form_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts)
+                            }
+                            RootWidgetMembers::List(widget) => {
+                                self.render_list_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts)
+                            }
+                            RootWidgetMembers::Grid(widget) => {
+                                self.render_grid_widget(widget, plugin_view_state, entrypoint_name, action_shortcuts)
+                            }
                             _ => {
                                 panic!("used inline widget in non-inline place")
                             }
@@ -1018,26 +1146,26 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 
-    pub fn render_root_inline_widget<'a>(&self, plugin_name: Option<&String>, entrypoint_name: Option<&String>) -> Element<'a, ComponentWidgetEvent> {
+    pub fn render_root_inline_widget<'a>(
+        &self,
+        plugin_name: Option<&String>,
+        entrypoint_name: Option<&String>,
+    ) -> Element<'a, ComponentWidgetEvent> {
         match &self.root_widget {
-            None => {
-                horizontal_space()
-                    .into()
-            }
+            None => horizontal_space().into(),
             Some(root) => {
                 match &root.content {
-                    None => {
-                        horizontal_space()
-                            .into()
-                    }
+                    None => horizontal_space().into(),
                     Some(content) => {
                         match content {
                             RootWidgetMembers::Inline(widget) => {
-                                let entrypoint_name = entrypoint_name.expect("entrypoint name should always exist after render");
-                                let plugin_name = plugin_name.expect("entrypoint name should always exist after render");
+                                let entrypoint_name =
+                                    entrypoint_name.expect("entrypoint name should always exist after render");
+                                let plugin_name =
+                                    plugin_name.expect("entrypoint name should always exist after render");
 
                                 self.render_inline_widget(widget, plugin_name, entrypoint_name)
-                            },
+                            }
                             _ => {
                                 panic!("used non-inline widget in inline place")
                             }
@@ -1052,122 +1180,149 @@ impl<'b> ComponentWidgets<'b> {
         let content: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
         let tag: Element<_> = button(content)
-            .on_press(ComponentWidgetEvent::TagClick { widget_id: widget.__id__ })
+            .on_press(ComponentWidgetEvent::TagClick {
+                widget_id: widget.__id__,
+            })
             .themed(ButtonStyle::MetadataTagItem);
 
-        container(tag)
-            .themed(ContainerStyle::MetadataTagItem)
+        container(tag).themed(ContainerStyle::MetadataTagItem)
     }
 
-    fn render_metadata_tag_list_widget<'a>(&self, widget: &MetadataTagListWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
-        let content: Vec<Element<_>> = widget.content.ordered_members
+    fn render_metadata_tag_list_widget<'a>(
+        &self,
+        widget: &MetadataTagListWidget,
+        is_in_list: bool,
+    ) -> Element<'a, ComponentWidgetEvent> {
+        let content: Vec<Element<_>> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
-                    MetadataTagListWidgetOrderedMembers::MetadataTagItem(content) => self.render_metadata_tag_item_widget(&content)
+                    MetadataTagListWidgetOrderedMembers::MetadataTagItem(content) => {
+                        self.render_metadata_tag_item_widget(&content)
+                    }
                 }
             })
             .collect();
 
-        let value = row(content)
-            .wrap()
-            .into();
+        let value = row(content).wrap().into();
 
-        render_metadata_item(&widget.label, value, is_in_list)
-            .into()
+        render_metadata_item(&widget.label, value, is_in_list).into()
     }
 
-    fn render_metadata_link_widget<'a>(&self, widget: &MetadataLinkWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_link_widget<'a>(
+        &self,
+        widget: &MetadataLinkWidget,
+        is_in_list: bool,
+    ) -> Element<'a, ComponentWidgetEvent> {
         let content: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
-        let icon: Element<_> = value(Bootstrap::BoxArrowUpRight)
-            .font(BOOTSTRAP_FONT)
-            .size(16)
-            .into();
+        let icon: Element<_> = value(Bootstrap::BoxArrowUpRight).font(BOOTSTRAP_FONT).size(16).into();
 
-        let icon = container(icon)
-            .themed(ContainerStyle::MetadataLinkIcon);
+        let icon = container(icon).themed(ContainerStyle::MetadataLinkIcon);
 
-        let content: Element<_> = row([content, icon])
-            .align_y(Alignment::Center)
-            .into();
+        let content: Element<_> = row([content, icon]).align_y(Alignment::Center).into();
 
         let link: Element<_> = button(content)
-            .on_press(ComponentWidgetEvent::LinkClick { widget_id: widget.__id__, href: widget.href.to_owned() })
+            .on_press(ComponentWidgetEvent::LinkClick {
+                widget_id: widget.__id__,
+                href: widget.href.to_owned(),
+            })
             .themed(ButtonStyle::MetadataLink);
 
         let content: Element<_> = if widget.href.is_empty() {
             link
         } else {
-            let href: Element<_> = text(widget.href.to_string())
-                .shaping(Shaping::Advanced)
-                .into();
+            let href: Element<_> = text(widget.href.to_string()).shaping(Shaping::Advanced).into();
 
-            tooltip(link, href, Position::Top)
-                .themed(TooltipStyle::Tooltip)
+            tooltip(link, href, Position::Top).themed(TooltipStyle::Tooltip)
         };
 
-        render_metadata_item(&widget.label, content, is_in_list)
-            .into()
+        render_metadata_item(&widget.label, content, is_in_list).into()
     }
 
-    fn render_metadata_value_widget<'a>(&self, widget: &MetadataValueWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_value_widget<'a>(
+        &self,
+        widget: &MetadataValueWidget,
+        is_in_list: bool,
+    ) -> Element<'a, ComponentWidgetEvent> {
         let value: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
-        render_metadata_item(&widget.label, value, is_in_list)
-            .into()
+        render_metadata_item(&widget.label, value, is_in_list).into()
     }
 
-    fn render_metadata_icon_widget<'a>(&self, widget: &MetadataIconWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
+    fn render_metadata_icon_widget<'a>(
+        &self,
+        widget: &MetadataIconWidget,
+        is_in_list: bool,
+    ) -> Element<'a, ComponentWidgetEvent> {
         let value = value(icon_to_bootstrap(&widget.icon))
             .font(BOOTSTRAP_FONT)
             .size(26)
             .into();
 
-        render_metadata_item(&widget.label, value, is_in_list)
-            .into()
+        render_metadata_item(&widget.label, value, is_in_list).into()
     }
 
-    fn render_metadata_separator_widget<'a>(&self, _widget: &MetadataSeparatorWidget) -> Element<'a, ComponentWidgetEvent> {
-        let separator: Element<_> = horizontal_rule(1)
-            .into();
+    fn render_metadata_separator_widget<'a>(
+        &self,
+        _widget: &MetadataSeparatorWidget,
+    ) -> Element<'a, ComponentWidgetEvent> {
+        let separator: Element<_> = horizontal_rule(1).into();
 
         container(separator)
             .width(Length::Fill)
             .themed(ContainerStyle::MetadataSeparator)
     }
 
-    fn render_metadata_widget<'a>(&self, widget: &MetadataWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
-        let content: Vec<Element<_>> = widget.content.ordered_members
+    fn render_metadata_widget<'a>(
+        &self,
+        widget: &MetadataWidget,
+        is_in_list: bool,
+    ) -> Element<'a, ComponentWidgetEvent> {
+        let content: Vec<Element<_>> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
-                    MetadataWidgetOrderedMembers::MetadataTagList(content) => self.render_metadata_tag_list_widget(content, is_in_list),
-                    MetadataWidgetOrderedMembers::MetadataLink(content) => self.render_metadata_link_widget(content, is_in_list),
-                    MetadataWidgetOrderedMembers::MetadataValue(content) => self.render_metadata_value_widget(content, is_in_list),
-                    MetadataWidgetOrderedMembers::MetadataIcon(content) => self.render_metadata_icon_widget(content, is_in_list),
-                    MetadataWidgetOrderedMembers::MetadataSeparator(content) => self.render_metadata_separator_widget(content),
+                    MetadataWidgetOrderedMembers::MetadataTagList(content) => {
+                        self.render_metadata_tag_list_widget(content, is_in_list)
+                    }
+                    MetadataWidgetOrderedMembers::MetadataLink(content) => {
+                        self.render_metadata_link_widget(content, is_in_list)
+                    }
+                    MetadataWidgetOrderedMembers::MetadataValue(content) => {
+                        self.render_metadata_value_widget(content, is_in_list)
+                    }
+                    MetadataWidgetOrderedMembers::MetadataIcon(content) => {
+                        self.render_metadata_icon_widget(content, is_in_list)
+                    }
+                    MetadataWidgetOrderedMembers::MetadataSeparator(content) => {
+                        self.render_metadata_separator_widget(content)
+                    }
                 }
             })
             .collect();
 
-        let metadata: Element<_> = column(content)
-            .into();
+        let metadata: Element<_> = column(content).into();
 
         let metadata = container(metadata)
             .width(Length::Fill)
             .themed(ContainerStyle::MetadataInner);
 
-        scrollable(metadata)
-            .width(Length::Fill)
-            .into()
+        scrollable(metadata).width(Length::Fill).into()
     }
 
-    fn render_paragraph_widget<'a>(&self, widget: &ParagraphWidget, centered: bool) -> Element<'a, ComponentWidgetEvent> {
+    fn render_paragraph_widget<'a>(
+        &self,
+        widget: &ParagraphWidget,
+        centered: bool,
+    ) -> Element<'a, ComponentWidgetEvent> {
         let paragraph: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
-        let mut content = container(paragraph)
-            .width(Length::Fill);
+        let mut content = container(paragraph).width(Length::Fill);
 
         if centered {
             content = content.align_x(Horizontal::Center)
@@ -1180,8 +1335,7 @@ impl<'b> ComponentWidgets<'b> {
         // TODO image size, height and width
         let content: Element<_> = render_image(self.images, widget.__id__, &widget.source, None);
 
-        let mut content = container(content)
-            .width(Length::Fill);
+        let mut content = container(content).width(Length::Fill);
 
         if centered {
             content = content.align_x(Horizontal::Center)
@@ -1235,7 +1389,9 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_content_widget<'a>(&self, widget: &ContentWidget, centered: bool) -> Element<'a, ComponentWidgetEvent> {
-        let content: Vec<_> = widget.content.ordered_members
+        let content: Vec<_> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
@@ -1253,8 +1409,7 @@ impl<'b> ComponentWidgets<'b> {
             })
             .collect();
 
-        let content: Element<_> = column(content)
-            .into();
+        let content: Element<_> = column(content).into();
 
         if centered {
             container(content)
@@ -1269,51 +1424,65 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_detail_widget<'a>(&self, widget: &DetailWidget, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
-        let metadata_element = widget.content.metadata
-            .as_ref()
-            .map(|widget| {
-                let content = self.render_metadata_widget(widget, is_in_list);
+        let metadata_element = widget.content.metadata.as_ref().map(|widget| {
+            let content = self.render_metadata_widget(widget, is_in_list);
 
-                container(content)
-                    .width(if is_in_list { Length::Fill } else { Length::FillPortion(2) })
-                    .height(if is_in_list { Length::FillPortion(3) } else { Length::Fill })
-                    .themed(ContainerStyle::DetailMetadata)
-            });
+            container(content)
+                .width(
+                    if is_in_list {
+                        Length::Fill
+                    } else {
+                        Length::FillPortion(2)
+                    },
+                )
+                .height(
+                    if is_in_list {
+                        Length::FillPortion(3)
+                    } else {
+                        Length::Fill
+                    },
+                )
+                .themed(ContainerStyle::DetailMetadata)
+        });
 
-        let content_element = widget.content.content
-            .as_ref()
-            .map(|widget| {
-                let content_element: Element<_> = container(self.render_content_widget(widget, false))
-                    .width(Length::Fill)
-                    .themed(ContainerStyle::DetailContentInner);
+        let content_element = widget.content.content.as_ref().map(|widget| {
+            let content_element: Element<_> = container(self.render_content_widget(widget, false))
+                .width(Length::Fill)
+                .themed(ContainerStyle::DetailContentInner);
 
-                let content_element: Element<_> = scrollable(content_element)
-                    .width(Length::Fill)
-                    .into();
+            let content_element: Element<_> = scrollable(content_element).width(Length::Fill).into();
 
-                let content_element: Element<_> = container(content_element)
-                    .width(if is_in_list { Length::Fill } else { Length::FillPortion(3) })
-                    .height(if is_in_list { Length::FillPortion(3) } else { Length::Fill })
-                    .themed(ContainerStyle::DetailContent);
+            let content_element: Element<_> = container(content_element)
+                .width(
+                    if is_in_list {
+                        Length::Fill
+                    } else {
+                        Length::FillPortion(3)
+                    },
+                )
+                .height(
+                    if is_in_list {
+                        Length::FillPortion(3)
+                    } else {
+                        Length::Fill
+                    },
+                )
+                .themed(ContainerStyle::DetailContent);
 
-                content_element
-            });
+            content_element
+        });
 
         let separator = if is_in_list {
-            horizontal_rule(1)
-                .into()
+            horizontal_rule(1).into()
         } else {
-            vertical_rule(1)
-                .into()
+            vertical_rule(1).into()
         };
 
         let list_fn = |vec| {
             if is_in_list {
-                column(vec)
-                    .into()
+                column(vec).into()
             } else {
-                row(vec)
-                    .into()
+                row(vec).into()
             }
         };
 
@@ -1321,15 +1490,9 @@ impl<'b> ComponentWidgets<'b> {
             (Some(content_element), Some(metadata_element)) => {
                 list_fn(vec![content_element, separator, metadata_element])
             }
-            (Some(content_element), None) => {
-                list_fn(vec![content_element])
-            }
-            (None, Some(metadata_element)) => {
-                list_fn(vec![metadata_element])
-            }
-            (None, None) => {
-                list_fn(vec![])
-            }
+            (Some(content_element), None) => list_fn(vec![content_element]),
+            (None, Some(metadata_element)) => list_fn(vec![metadata_element]),
+            (None, None) => list_fn(vec![]),
         };
 
         content
@@ -1365,13 +1528,16 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_date_picker_widget<'a>(&self, widget: &DatePickerWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let DatePickerState { state_value, show_picker } = self.date_picker_state(widget.__id__);
+        let DatePickerState {
+            state_value,
+            show_picker,
+        } = self.date_picker_state(widget.__id__);
 
-        let button_text = text(state_value.to_string())
-            .shaping(Shaping::Advanced);
+        let button_text = text(state_value.to_string()).shaping(Shaping::Advanced);
 
-        let button = button(button_text)
-            .on_press(ComponentWidgetEvent::ToggleDatePicker { widget_id: widget.__id__ });
+        let button = button(button_text).on_press(ComponentWidgetEvent::ToggleDatePicker {
+            widget_id: widget.__id__,
+        });
 
         // TODO unable to customize buttons here, split to separate button styles
         //     DatePickerUnderlay,
@@ -1388,14 +1554,17 @@ impl<'b> ComponentWidgets<'b> {
                     value: date.to_string(),
                 }
             },
-        ).themed(DatePickerStyle::Default)
+        )
+        .themed(DatePickerStyle::Default)
     }
 
     fn render_select_widget<'a>(&self, widget: &SelectWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
         let SelectState { state_value } = self.select_state(widget_id);
 
-        let items: Vec<_> = widget.content.ordered_members
+        let items: Vec<_> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
@@ -1409,21 +1578,23 @@ impl<'b> ComponentWidgets<'b> {
             })
             .collect();
 
-        let state_value = state_value.clone()
+        let state_value = state_value
+            .clone()
             .map(|value| items.iter().find(|item| item.value == value))
             .flatten()
             .map(|value| value.clone());
 
-        pick_list(
-            items,
-            state_value,
-            move |item| ComponentWidgetEvent::SelectPickList { widget_id, value: item.value },
-        ).themed(PickListStyle::Default)
+        pick_list(items, state_value, move |item| {
+            ComponentWidgetEvent::SelectPickList {
+                widget_id,
+                value: item.value,
+            }
+        })
+        .themed(PickListStyle::Default)
     }
 
     fn render_separator_widget<'a>(&self, _widget: &SeparatorWidget) -> Element<'a, ComponentWidgetEvent> {
-        horizontal_rule(1)
-            .into()
+        horizontal_rule(1).into()
     }
 
     fn render_form_widget<'a>(
@@ -1436,15 +1607,17 @@ impl<'b> ComponentWidgets<'b> {
         let widget_id = widget.__id__;
         let RootState { show_action_panel, .. } = self.root_state(widget_id);
 
-        let items: Vec<Element<_>> = widget.content.ordered_members
+        let items: Vec<Element<_>> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
-                fn render_field<'c, 'd>(field: Element<'c, ComponentWidgetEvent>, label: &'d Option<String>) -> Element<'c, ComponentWidgetEvent> {
+                fn render_field<'c, 'd>(
+                    field: Element<'c, ComponentWidgetEvent>,
+                    label: &'d Option<String>,
+                ) -> Element<'c, ComponentWidgetEvent> {
                     let before_or_label: Element<_> = match label {
-                        None => {
-                            Space::with_width(Length::FillPortion(2))
-                                .into()
-                        }
+                        None => Space::with_width(Length::FillPortion(2)).into(),
                         Some(label) => {
                             let label: Element<_> = text(label.to_string())
                                 .shaping(Shaping::Advanced)
@@ -1458,51 +1631,45 @@ impl<'b> ComponentWidgets<'b> {
                         }
                     };
 
-                    let form_input = container(field)
-                        .width(Length::FillPortion(3))
-                        .into();
+                    let form_input = container(field).width(Length::FillPortion(3)).into();
 
-                    let after = Space::with_width(Length::FillPortion(2))
-                        .into();
+                    let after = Space::with_width(Length::FillPortion(2)).into();
 
-                    let content = vec![
-                        before_or_label,
-                        form_input,
-                        after,
-                    ];
+                    let content = vec![before_or_label, form_input, after];
 
-                    let row: Element<_> = row(content)
-                        .align_y(Alignment::Center)
-                        .themed(RowStyle::FormInput);
+                    let row: Element<_> = row(content).align_y(Alignment::Center).themed(RowStyle::FormInput);
 
                     row
                 }
 
                 match members {
                     FormWidgetOrderedMembers::Separator(widget) => self.render_separator_widget(widget),
-                    FormWidgetOrderedMembers::TextField(widget) => render_field(self.render_text_field_widget(widget), &widget.label),
-                    FormWidgetOrderedMembers::PasswordField(widget) => render_field(self.render_password_field_widget(widget), &widget.label),
-                    FormWidgetOrderedMembers::Checkbox(widget) => render_field(self.render_checkbox_widget(widget), &widget.label),
-                    FormWidgetOrderedMembers::DatePicker(widget) => render_field(self.render_date_picker_widget(widget), &widget.label),
-                    FormWidgetOrderedMembers::Select(widget) => render_field(self.render_select_widget(widget), &widget.label)
+                    FormWidgetOrderedMembers::TextField(widget) => {
+                        render_field(self.render_text_field_widget(widget), &widget.label)
+                    }
+                    FormWidgetOrderedMembers::PasswordField(widget) => {
+                        render_field(self.render_password_field_widget(widget), &widget.label)
+                    }
+                    FormWidgetOrderedMembers::Checkbox(widget) => {
+                        render_field(self.render_checkbox_widget(widget), &widget.label)
+                    }
+                    FormWidgetOrderedMembers::DatePicker(widget) => {
+                        render_field(self.render_date_picker_widget(widget), &widget.label)
+                    }
+                    FormWidgetOrderedMembers::Select(widget) => {
+                        render_field(self.render_select_widget(widget), &widget.label)
+                    }
                 }
             })
             .collect();
 
-        let content: Element<_> = column(items)
-            .into();
+        let content: Element<_> = column(items).into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .themed(ContainerStyle::FormInner);
+        let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::FormInner);
 
-        let content: Element<_> = scrollable(content)
-            .width(Length::Fill)
-            .into();
+        let content: Element<_> = scrollable(content).width(Length::Fill).into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .themed(ContainerStyle::Form);
+        let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::Form);
 
         self.render_plugin_root(
             *show_action_panel,
@@ -1514,7 +1681,7 @@ impl<'b> ComponentWidgets<'b> {
             widget.is_loading.unwrap_or(false),
             plugin_view_state,
             entrypoint_name,
-            action_shortcuts
+            action_shortcuts,
         )
     }
 
@@ -1522,80 +1689,70 @@ impl<'b> ComponentWidgets<'b> {
         match &widget.icon {
             None => vertical_rule(1).into(),
             Some(icon) => {
-                let top_rule: Element<_> = vertical_rule(1)
-                    .into();
+                let top_rule: Element<_> = vertical_rule(1).into();
 
-                let top_rule = container(top_rule)
-                    .align_x(Horizontal::Center)
-                    .into();
+                let top_rule = container(top_rule).align_x(Horizontal::Center).into();
 
                 let icon = value(icon_to_bootstrap(icon))
                     .font(BOOTSTRAP_FONT)
                     .size(45)
                     .themed(TextStyle::InlineSeparator);
 
-                let bot_rule: Element<_> = vertical_rule(1)
-                    .into();
+                let bot_rule: Element<_> = vertical_rule(1).into();
 
-                let bot_rule = container(bot_rule)
-                    .align_x(Horizontal::Center)
-                    .into();
+                let bot_rule = container(bot_rule).align_x(Horizontal::Center).into();
 
-                column([top_rule, icon, bot_rule])
-                    .align_x(Alignment::Center)
-                    .into()
+                column([top_rule, icon, bot_rule]).align_x(Alignment::Center).into()
             }
         }
     }
 
-    fn render_inline_widget<'a>(&self, widget: &InlineWidget, plugin_name: &str, entrypoint_name: &str) -> Element<'a, ComponentWidgetEvent> {
+    fn render_inline_widget<'a>(
+        &self,
+        widget: &InlineWidget,
+        plugin_name: &str,
+        entrypoint_name: &str,
+    ) -> Element<'a, ComponentWidgetEvent> {
         let name: Element<_> = text(format!("{} - {}", plugin_name, entrypoint_name))
             .shaping(Shaping::Advanced)
             .themed(TextStyle::InlineName);
 
-        let name: Element<_> = container(name)
-            .themed(ContainerStyle::InlineName);
+        let name: Element<_> = container(name).themed(ContainerStyle::InlineName);
 
-        let content: Vec<Element<_>> = widget.content.ordered_members
+        let content: Vec<Element<_>> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
                     InlineWidgetOrderedMembers::Content(widget) => {
                         let element = self.render_content_widget(widget, true);
 
-                        container(element)
-                            .into()
-                    },
-                    InlineWidgetOrderedMembers::InlineSeparator(widget) => self.render_inline_separator_widget(widget)
+                        container(element).into()
+                    }
+                    InlineWidgetOrderedMembers::InlineSeparator(widget) => self.render_inline_separator_widget(widget),
                 }
             })
             .collect();
 
-        let content: Element<_> = row(content)
-            .into();
+        let content: Element<_> = row(content).into();
 
-        let content: Element<_> = container(content)
-            .themed(ContainerStyle::InlineInner);
+        let content: Element<_> = container(content).themed(ContainerStyle::InlineInner);
 
-        let content: Element<_> = column(vec![name, content])
-            .width(Length::Fill)
-            .into();
+        let content: Element<_> = column(vec![name, content]).width(Length::Fill).into();
 
-        let content: Element<_> = container(content)
-            .width(Length::Fill)
-            .themed(ContainerStyle::Inline);
+        let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::Inline);
 
         content
     }
 
     fn render_empty_view_widget<'a>(&self, widget: &EmptyViewWidget) -> Element<'a, ComponentWidgetEvent> {
-        let image: Option<Element<_>> = widget.image
+        let image: Option<Element<_>> = widget
+            .image
             .as_ref()
             .map(|image| render_image(self.images, widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
 
-        let title: Element<_> = text(widget.title.to_string())
-            .shaping(Shaping::Advanced)
-            .into();
+        let title: Element<_> = text(widget.title.to_string()).shaping(Shaping::Advanced).into();
 
         let subtitle: Element<_> = match &widget.description {
             None => horizontal_space().into(),
@@ -1608,15 +1765,12 @@ impl<'b> ComponentWidgets<'b> {
 
         let mut content = vec![title, subtitle];
         if let Some(image) = image {
-            let image: Element<_> = container(image)
-                .themed(ContainerStyle::EmptyViewImage);
+            let image: Element<_> = container(image).themed(ContainerStyle::EmptyViewImage);
 
             content.insert(0, image)
         }
 
-        let content: Element<_> = column(content)
-            .align_x(Alignment::Center)
-            .into();
+        let content: Element<_> = column(content).align_x(Alignment::Center).into();
 
         container(content)
             .width(Length::Fill)
@@ -1626,10 +1780,12 @@ impl<'b> ComponentWidgets<'b> {
             .into()
     }
 
-
     fn render_search_bar_widget<'a>(&self, widget: &SearchBarWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let TextFieldState { state_value, text_input_id } = self.text_field_state(widget_id);
+        let TextFieldState {
+            state_value,
+            text_input_id,
+        } = self.text_field_state(widget_id);
 
         text_input(widget.placeholder.as_deref().unwrap_or_default(), state_value)
             .id(text_input_id.clone())
@@ -1646,7 +1802,10 @@ impl<'b> ComponentWidgets<'b> {
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = list_widget.__id__;
-        let RootState { show_action_panel, focused_item } = self.root_state(widget_id);
+        let RootState {
+            show_action_panel,
+            focused_item,
+        } = self.root_state(widget_id);
 
         let mut pending: Vec<&ListItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
@@ -1658,7 +1817,7 @@ impl<'b> ComponentWidgets<'b> {
                 ListWidgetOrderedMembers::ListItem(widget) => {
                     first_section = false;
                     pending.push(widget)
-                },
+                }
                 ListWidgetOrderedMembers::ListSection(widget) => {
                     if !pending.is_empty() {
                         let content: Vec<_> = pending
@@ -1666,18 +1825,22 @@ impl<'b> ComponentWidgets<'b> {
                             .map(|widget| self.render_list_item_widget(widget, focused_item.index, index_counter))
                             .collect();
 
-                        let content: Element<_> = column(content)
-                            .into();
+                        let content: Element<_> = column(content).into();
 
                         items.push(content);
 
                         pending = vec![];
                     }
 
-                    items.push(self.render_list_section_widget(widget, focused_item.index, index_counter, first_section));
+                    items.push(self.render_list_section_widget(
+                        widget,
+                        focused_item.index,
+                        index_counter,
+                        first_section,
+                    ));
 
                     first_section = false;
-                },
+                }
             }
         }
 
@@ -1687,8 +1850,7 @@ impl<'b> ComponentWidgets<'b> {
                 .map(|widget| self.render_list_item_widget(widget, focused_item.index, index_counter))
                 .collect();
 
-            let content: Element<_> = column(content)
-                .into();
+            let content: Element<_> = column(content).into();
 
             items.push(content);
         }
@@ -1696,16 +1858,12 @@ impl<'b> ComponentWidgets<'b> {
         let content = if items.is_empty() {
             match &list_widget.content.empty_view {
                 Some(widget) => self.render_empty_view_widget(widget),
-                None => horizontal_space().into()
+                None => horizontal_space().into(),
             }
         } else {
-            let content: Element<_> = column(items)
-                .width(Length::Fill)
-                .into();
+            let content: Element<_> = column(items).width(Length::Fill).into();
 
-            let content: Element<_> = container(content)
-                .width(Length::Fill)
-                .themed(ContainerStyle::ListInner);
+            let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::ListInner);
 
             let content: Element<_> = scrollable(content)
                 .id(focused_item.scrollable_id.clone())
@@ -1724,21 +1882,16 @@ impl<'b> ComponentWidgets<'b> {
         if let Some(detail) = &list_widget.content.detail {
             let detail = self.render_detail_widget(detail, true);
 
-            let detail: Element<_> = container(detail)
-                .width(Length::FillPortion(5))
-                .into();
+            let detail: Element<_> = container(detail).width(Length::FillPortion(5)).into();
 
-            let separator: Element<_> = vertical_rule(1)
-                .into();
+            let separator: Element<_> = vertical_rule(1).into();
 
             elements.push(separator);
 
             elements.push(detail);
         }
 
-        let content: Element<_> = row(elements)
-            .height(Length::Fill)
-            .into();
+        let content: Element<_> = row(elements).height(Length::Fill).into();
 
         let focused_item_id = ComponentWidgets::list_focused_item_id(focused_item, list_widget);
 
@@ -1752,7 +1905,7 @@ impl<'b> ComponentWidgets<'b> {
             list_widget.is_loading.unwrap_or(false),
             plugin_view_state,
             entrypoint_name,
-            action_shortcuts
+            action_shortcuts,
         )
     }
 
@@ -1763,44 +1916,55 @@ impl<'b> ComponentWidgets<'b> {
         index_counter: &Cell<usize>,
         first_section: bool,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let content: Vec<_> = widget.content.ordered_members
+        let content: Vec<_> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
-                    ListSectionWidgetOrderedMembers::ListItem(widget) => self.render_list_item_widget(widget, item_focus_index, index_counter)
+                    ListSectionWidgetOrderedMembers::ListItem(widget) => {
+                        self.render_list_item_widget(widget, item_focus_index, index_counter)
+                    }
                 }
             })
             .collect();
 
-        let content = column(content)
-            .into();
+        let content = column(content).into();
 
-        let section_title_style = if first_section { RowStyle::ListFirstSectionTitle } else { RowStyle::ListSectionTitle };
+        let section_title_style = if first_section {
+            RowStyle::ListFirstSectionTitle
+        } else {
+            RowStyle::ListSectionTitle
+        };
 
-        render_section(content, Some(&widget.title), &widget.subtitle, section_title_style, TextStyle::ListSectionTitle, TextStyle::ListSectionSubtitle)
+        render_section(
+            content,
+            Some(&widget.title),
+            &widget.subtitle,
+            section_title_style,
+            TextStyle::ListSectionTitle,
+            TextStyle::ListSectionSubtitle,
+        )
     }
 
     fn render_list_item_widget<'a>(
         &self,
         widget: &ListItemWidget,
         item_focus_index: Option<usize>,
-        index_counter: &Cell<usize>
+        index_counter: &Cell<usize>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let icon: Option<Element<_>> = widget.icon
+        let icon: Option<Element<_>> = widget
+            .icon
             .as_ref()
             .map(|icon| render_image(self.images, widget.__id__, icon, None));
 
-        let title: Element<_> = text(widget.title.to_string())
-            .shaping(Shaping::Advanced)
-            .into();
-        let title: Element<_> = container(title)
-            .themed(ContainerStyle::ListItemTitle);
+        let title: Element<_> = text(widget.title.to_string()).shaping(Shaping::Advanced).into();
+        let title: Element<_> = container(title).themed(ContainerStyle::ListItemTitle);
 
         let mut content = vec![title];
 
         if let Some(icon) = icon {
-            let icon: Element<_> = container(icon)
-                .themed(ContainerStyle::ListItemIcon);
+            let icon: Element<_> = container(icon).themed(ContainerStyle::ListItemIcon);
 
             content.insert(0, icon)
         }
@@ -1809,36 +1973,33 @@ impl<'b> ComponentWidgets<'b> {
             let subtitle: Element<_> = text(subtitle.to_string())
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::ListItemSubtitle);
-            let subtitle: Element<_> = container(subtitle)
-                .themed(ContainerStyle::ListItemSubtitle);
+            let subtitle: Element<_> = container(subtitle).themed(ContainerStyle::ListItemSubtitle);
 
             content.push(subtitle)
         }
 
         if widget.content.accessories.len() > 0 {
-            let accessories: Vec<Element<_>> = widget.content.accessories
+            let accessories: Vec<Element<_>> = widget
+                .content
+                .accessories
                 .iter()
                 .map(|accessory| {
                     match accessory {
                         ListItemAccessories::_0(widget) => render_text_accessory(self.images, widget),
-                        ListItemAccessories::_1(widget) => render_icon_accessory(self.images, widget)
+                        ListItemAccessories::_1(widget) => render_icon_accessory(self.images, widget),
                     }
                 })
                 .collect();
 
-            let accessories: Element<_> = row(accessories)
-                .into();
+            let accessories: Element<_> = row(accessories).into();
 
-            let space = horizontal_space()
-                .into();
+            let space = horizontal_space().into();
 
             content.push(space);
             content.push(accessories);
         }
 
-        let content: Element<_> = row(content)
-            .align_y(Alignment::Center)
-            .into();
+        let content: Element<_> = row(content).align_y(Alignment::Center).into();
 
         let style = match item_focus_index {
             None => ButtonStyle::ListItem,
@@ -1858,13 +2019,15 @@ impl<'b> ComponentWidgets<'b> {
 
         let on_press_msg = match primary_action {
             None => ComponentWidgetEvent::Noop,
-            Some(widget_id) => ComponentWidgetEvent::RunPrimaryAction { widget_id: *widget_id, id: Some(widget.id.clone()) }
+            Some(widget_id) => {
+                ComponentWidgetEvent::RunPrimaryAction {
+                    widget_id: *widget_id,
+                    id: Some(widget.id.clone()),
+                }
+            }
         };
 
-        button(content)
-            .on_press(on_press_msg)
-            .width(Length::Fill)
-            .themed(style)
+        button(content).on_press(on_press_msg).width(Length::Fill).themed(style)
     }
 
     fn render_grid_widget<'a>(
@@ -1874,12 +2037,15 @@ impl<'b> ComponentWidgets<'b> {
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let RootState { show_action_panel, focused_item } = self.root_state(grid_widget.__id__);
+        let RootState {
+            show_action_panel,
+            focused_item,
+        } = self.root_state(grid_widget.__id__);
 
         let content = if grid_widget.content.ordered_members.is_empty() {
             match &grid_widget.content.empty_view {
                 Some(widget) => self.render_empty_view_widget(widget),
-                None => horizontal_space().into()
+                None => horizontal_space().into(),
             }
         } else {
             let mut pending: Vec<&GridItemWidget> = vec![];
@@ -1895,14 +2061,20 @@ impl<'b> ComponentWidgets<'b> {
                     }
                     GridWidgetOrderedMembers::GridSection(widget) => {
                         if !pending.is_empty() {
-                            let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
+                            let content =
+                                self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
 
                             items.push(content);
 
                             pending = vec![];
                         }
 
-                        items.push(self.render_grid_section_widget(widget, focused_item.index, index_counter, first_section));
+                        items.push(self.render_grid_section_widget(
+                            widget,
+                            focused_item.index,
+                            index_counter,
+                            first_section,
+                        ));
 
                         first_section = false;
                     }
@@ -1915,21 +2087,16 @@ impl<'b> ComponentWidgets<'b> {
                 items.push(content);
             }
 
-            let content: Element<_> = column(items)
-                .into();
+            let content: Element<_> = column(items).into();
 
-            let content: Element<_> = container(content)
-                .width(Length::Fill)
-                .themed(ContainerStyle::GridInner);
+            let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::GridInner);
 
             let content: Element<_> = scrollable(content)
                 .id(focused_item.scrollable_id.clone())
                 .width(Length::Fill)
                 .into();
 
-            let content: Element<_> = container(content)
-                .width(Length::Fill)
-                .themed(ContainerStyle::Grid);
+            let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::Grid);
 
             content
         };
@@ -1946,7 +2113,7 @@ impl<'b> ComponentWidgets<'b> {
             grid_widget.is_loading.unwrap_or(false),
             plugin_view_state,
             entrypoint_name,
-            action_shortcuts
+            action_shortcuts,
         )
     }
 
@@ -1955,22 +2122,35 @@ impl<'b> ComponentWidgets<'b> {
         widget: &GridSectionWidget,
         item_focus_index: Option<usize>,
         index_counter: &Cell<usize>,
-        first_section: bool
+        first_section: bool,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let items: Vec<_> = widget.content.ordered_members
+        let items: Vec<_> = widget
+            .content
+            .ordered_members
             .iter()
             .map(|members| {
                 match members {
-                    GridSectionWidgetOrderedMembers::GridItem(widget) => widget
+                    GridSectionWidgetOrderedMembers::GridItem(widget) => widget,
                 }
             })
             .collect();
 
         let content = self.render_grid(&items, &widget.columns, item_focus_index, index_counter);
 
-        let section_title_style = if first_section { RowStyle::GridFirstSectionTitle } else { RowStyle::GridSectionTitle };
+        let section_title_style = if first_section {
+            RowStyle::GridFirstSectionTitle
+        } else {
+            RowStyle::GridSectionTitle
+        };
 
-        render_section(content, Some(&widget.title), &widget.subtitle, section_title_style, TextStyle::GridSectionTitle, TextStyle::GridSectionSubtitle)
+        render_section(
+            content,
+            Some(&widget.title),
+            &widget.subtitle,
+            section_title_style,
+            TextStyle::GridSectionTitle,
+            TextStyle::GridSectionSubtitle,
+        )
     }
 
     fn render_grid_item_widget<'a>(
@@ -1978,7 +2158,7 @@ impl<'b> ComponentWidgets<'b> {
         widget: &GridItemWidget,
         item_focus_index: Option<usize>,
         index_counter: &Cell<usize>,
-        grid_width: usize
+        grid_width: usize,
     ) -> Element<'a, ComponentWidgetEvent> {
         let height = match grid_width {
             ..4 => 130,
@@ -2012,13 +2192,15 @@ impl<'b> ComponentWidgets<'b> {
 
         let on_press_msg = match primary_action {
             None => ComponentWidgetEvent::Noop,
-            Some(widget_id) => ComponentWidgetEvent::RunPrimaryAction { widget_id: *widget_id, id: Some(widget.id.clone()) }
+            Some(widget_id) => {
+                ComponentWidgetEvent::RunPrimaryAction {
+                    widget_id: *widget_id,
+                    id: Some(widget.id.clone()),
+                }
+            }
         };
 
-        let content: Element<_> = button(content)
-            .on_press(on_press_msg)
-            .width(Length::Fill)
-            .themed(style);
+        let content: Element<_> = button(content).on_press(on_press_msg).width(Length::Fill).themed(style);
 
         let mut sub_content_left = vec![];
 
@@ -2044,20 +2226,13 @@ impl<'b> ComponentWidgets<'b> {
             sub_content_right.push(render_icon_accessory(self.images, widget));
         }
 
-        let sub_content_left: Element<_> = column(sub_content_left)
-            .width(Length::Fill)
-            .into();
+        let sub_content_left: Element<_> = column(sub_content_left).width(Length::Fill).into();
 
-        let sub_content_right: Element<_> = column(sub_content_right)
-            .width(Length::Shrink)
-            .into();
+        let sub_content_right: Element<_> = column(sub_content_right).width(Length::Shrink).into();
 
-        let sub_content: Element<_> = row(vec![sub_content_left, sub_content_right])
-            .themed(RowStyle::GridItemTitle);
+        let sub_content: Element<_> = row(vec![sub_content_left, sub_content_right]).themed(RowStyle::GridItemTitle);
 
-        let content: Element<_> = column(vec![content, sub_content])
-            .width(Length::Fill)
-            .into();
+        let content: Element<_> = column(vec![content, sub_content]).width(Length::Fill).into();
 
         content
     }
@@ -2068,7 +2243,7 @@ impl<'b> ComponentWidgets<'b> {
         /*aspect_ratio: Option<&str>,*/
         columns: &Option<f64>,
         item_focus_index: Option<usize>,
-        index_counter: &Cell<usize>
+        index_counter: &Cell<usize>,
     ) -> Element<'a, ComponentWidgetEvent> {
         // TODO
         // let (width, height) = match aspect_ratio {
@@ -2107,8 +2282,7 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_top_panel<'a>(&self, search_bar: &Option<SearchBarWidget>) -> Element<'a, ComponentWidgetEvent> {
-        let icon = value(Bootstrap::ArrowLeft)
-            .font(BOOTSTRAP_FONT);
+        let icon = value(Bootstrap::ArrowLeft).font(BOOTSTRAP_FONT);
 
         let back_button: Element<_> = button(icon)
             .on_press(ComponentWidgetEvent::PreviousView)
@@ -2142,34 +2316,33 @@ impl<'b> ComponentWidgets<'b> {
         plugin_view_state: &PluginViewState,
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
-    ) -> Element<'a, ComponentWidgetEvent>  {
-
+    ) -> Element<'a, ComponentWidgetEvent> {
         let top_panel = self.render_top_panel(search_bar);
 
         let top_separator = if is_loading {
-            LoadingBar::new()
-                .into()
+            LoadingBar::new().into()
         } else {
-            horizontal_rule(1)
-                .into()
+            horizontal_rule(1).into()
         };
 
         let mut action_panel = convert_action_panel(action_panel, &action_shortcuts);
 
-        let primary_action = action_panel.as_mut()
-            .map(|panel| panel.find_first())
-            .flatten()
-            .map(|(label, widget_id)| {
-                let shortcut = PhysicalShortcut {
-                    physical_key: PhysicalKey::Enter,
-                    modifier_shift: false,
-                    modifier_control: false,
-                    modifier_alt: false,
-                    modifier_meta: false
-                };
+        let primary_action =
+            action_panel
+                .as_mut()
+                .map(|panel| panel.find_first())
+                .flatten()
+                .map(|(label, widget_id)| {
+                    let shortcut = PhysicalShortcut {
+                        physical_key: PhysicalKey::Enter,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: false,
+                        modifier_meta: false,
+                    };
 
-                (label.to_string(), widget_id, shortcut)
-            });
+                    (label.to_string(), widget_id, shortcut)
+                });
 
         match plugin_view_state {
             PluginViewState::None => {
@@ -2183,9 +2356,23 @@ impl<'b> ComponentWidgets<'b> {
                     action_panel,
                     None::<&ScrollHandle>,
                     entrypoint_name,
-                    || ComponentWidgetEvent::ToggleActionPanel { widget_id: root_widget_id },
-                    |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id, id: focused_item_id.clone() },
-                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id, id: focused_item_id.clone() },
+                    || {
+                        ComponentWidgetEvent::ToggleActionPanel {
+                            widget_id: root_widget_id,
+                        }
+                    },
+                    |widget_id| {
+                        ComponentWidgetEvent::RunPrimaryAction {
+                            widget_id,
+                            id: focused_item_id.clone(),
+                        }
+                    },
+                    |widget_id| {
+                        ComponentWidgetEvent::ActionClick {
+                            widget_id,
+                            id: focused_item_id.clone(),
+                        }
+                    },
                     || ComponentWidgetEvent::Noop,
                 )
             }
@@ -2200,9 +2387,23 @@ impl<'b> ComponentWidgets<'b> {
                     action_panel,
                     Some(&focused_action_item),
                     entrypoint_name,
-                    || ComponentWidgetEvent::ToggleActionPanel { widget_id: root_widget_id },
-                    |widget_id| ComponentWidgetEvent::RunPrimaryAction { widget_id, id: focused_item_id.clone() },
-                    |widget_id| ComponentWidgetEvent::ActionClick { widget_id, id: focused_item_id.clone() },
+                    || {
+                        ComponentWidgetEvent::ToggleActionPanel {
+                            widget_id: root_widget_id,
+                        }
+                    },
+                    |widget_id| {
+                        ComponentWidgetEvent::RunPrimaryAction {
+                            widget_id,
+                            id: focused_item_id.clone(),
+                        }
+                    },
+                    |widget_id| {
+                        ComponentWidgetEvent::ActionClick {
+                            widget_id,
+                            id: focused_item_id.clone(),
+                        }
+                    },
                     || ComponentWidgetEvent::Noop,
                 )
             }
@@ -2210,11 +2411,10 @@ impl<'b> ComponentWidgets<'b> {
     }
 }
 
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct SelectItem {
     value: String,
-    label: String
+    label: String,
 }
 
 impl Display for SelectItem {
@@ -2223,31 +2423,27 @@ impl Display for SelectItem {
     }
 }
 
-
-fn render_metadata_item<'a>(label: &str, value: Element<'a, ComponentWidgetEvent>, is_in_list: bool) -> Element<'a, ComponentWidgetEvent> {
+fn render_metadata_item<'a>(
+    label: &str,
+    value: Element<'a, ComponentWidgetEvent>,
+    is_in_list: bool,
+) -> Element<'a, ComponentWidgetEvent> {
     let label: Element<_> = text(label.to_string())
         .shaping(Shaping::Advanced)
         .themed(TextStyle::MetadataItemLabel);
 
-    let label = container(label)
-        .themed(ContainerStyle::MetadataItemLabel);
+    let label = container(label).themed(ContainerStyle::MetadataItemLabel);
 
     if is_in_list {
-        let space = horizontal_space()
-            .into();
+        let space = horizontal_space().into();
 
-        let value = container(value)
-            .themed(ContainerStyle::MetadataItemValueInList);
+        let value = container(value).themed(ContainerStyle::MetadataItemValueInList);
 
-        row(vec![label, space, value])
-            .width(Length::Fill)
-            .into()
+        row(vec![label, space, value]).width(Length::Fill).into()
     } else {
-        let value = container(value)
-            .themed(ContainerStyle::MetadataItemValue);
+        let value = container(value).themed(ContainerStyle::MetadataItemValue);
 
-        column(vec![label, value])
-            .into()
+        column(vec![label, value]).into()
     }
 }
 
@@ -2255,8 +2451,14 @@ fn grid_width(columns: &Option<f64>) -> usize {
     columns.map(|value| value.trunc() as usize).unwrap_or(5)
 }
 
-
-fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<&str>, subtitle: &Option<String>, theme_kind_title: RowStyle, theme_kind_title_text: TextStyle, theme_kind_subtitle_text: TextStyle) -> Element<'a, ComponentWidgetEvent> {
+fn render_section<'a>(
+    content: Element<'a, ComponentWidgetEvent>,
+    title: Option<&str>,
+    subtitle: &Option<String>,
+    theme_kind_title: RowStyle,
+    theme_kind_title_text: TextStyle,
+    theme_kind_subtitle_text: TextStyle,
+) -> Element<'a, ComponentWidgetEvent> {
     let mut title_content = vec![];
 
     if let Some(title) = title {
@@ -2278,25 +2480,20 @@ fn render_section<'a>(content: Element<'a, ComponentWidgetEvent>, title: Option<
     }
 
     if title_content.is_empty() {
-        let space: Element<_> = horizontal_space()
-            .height(40)
-            .into();
+        let space: Element<_> = horizontal_space().height(40).into();
 
         title_content.push(space)
     }
 
-    let title_content = row(title_content)
-        .themed(theme_kind_title);
+    let title_content = row(title_content).themed(theme_kind_title);
 
-    column([title_content, content])
-        .into()
+    column([title_content, content]).into()
 }
-
 
 #[derive(Debug)]
 pub struct ActionPanel {
     pub title: Option<String>,
-    pub items: Vec<ActionPanelItem>
+    pub items: Vec<ActionPanelItem>,
 }
 
 impl ActionPanel {
@@ -2314,33 +2511,29 @@ pub enum ActionPanelItem {
     Action {
         label: String,
         widget_id: UiWidgetId,
-        physical_shortcut: Option<PhysicalShortcut>
+        physical_shortcut: Option<PhysicalShortcut>,
     },
     ActionSection {
         title: Option<String>,
-        items: Vec<ActionPanelItem>
-    }
+        items: Vec<ActionPanelItem>,
+    },
 }
 
 impl ActionPanelItem {
     fn action_count(&self) -> usize {
         match self {
             ActionPanelItem::Action { .. } => 1,
-            ActionPanelItem::ActionSection { items, .. } => {
-                items.iter().map(|item| item.action_count()).sum()
-            }
+            ActionPanelItem::ActionSection { items, .. } => items.iter().map(|item| item.action_count()).sum(),
         }
     }
 
     fn find_first(items: &[ActionPanelItem]) -> Option<(String, UiWidgetId)> {
         for item in items {
             match item {
-                ActionPanelItem::Action { label, widget_id, .. } => {
-                    return Some((label.to_string(), *widget_id))
-                }
+                ActionPanelItem::Action { label, widget_id, .. } => return Some((label.to_string(), *widget_id)),
                 ActionPanelItem::ActionSection { items, .. } => {
                     if let Some(item) = Self::find_first(items) {
-                        return Some(item)
+                        return Some(item);
                     }
                 }
             }
@@ -2350,14 +2543,18 @@ impl ActionPanelItem {
     }
 }
 
-fn convert_action_panel(action_panel: &Option<ActionPanelWidget>, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
+fn convert_action_panel(
+    action_panel: &Option<ActionPanelWidget>,
+    action_shortcuts: &HashMap<String, PhysicalShortcut>,
+) -> Option<ActionPanel> {
     match action_panel {
         Some(ActionPanelWidget { content, title, .. }) => {
-            fn action_widget_to_action(ActionWidget { __id__, id, label }: &ActionWidget, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> ActionPanelItem {
-                let physical_shortcut: Option<PhysicalShortcut> = id.as_ref()
-                    .map(|id| action_shortcuts.get(id))
-                    .flatten()
-                    .cloned();
+            fn action_widget_to_action(
+                ActionWidget { __id__, id, label }: &ActionWidget,
+                action_shortcuts: &HashMap<String, PhysicalShortcut>,
+            ) -> ActionPanelItem {
+                let physical_shortcut: Option<PhysicalShortcut> =
+                    id.as_ref().map(|id| action_shortcuts.get(id)).flatten().cloned();
 
                 ActionPanelItem::Action {
                     label: label.clone(),
@@ -2366,18 +2563,27 @@ fn convert_action_panel(action_panel: &Option<ActionPanelWidget>, action_shortcu
                 }
             }
 
-            let items = content.ordered_members.iter()
+            let items = content
+                .ordered_members
+                .iter()
                 .map(|members| {
                     match members {
                         ActionPanelWidgetOrderedMembers::Action(widget) => {
                             action_widget_to_action(widget, action_shortcuts)
                         }
-                        ActionPanelWidgetOrderedMembers::ActionPanelSection(ActionPanelSectionWidget { content, title, .. }) => {
-                            let section_items = content.ordered_members
+                        ActionPanelWidgetOrderedMembers::ActionPanelSection(ActionPanelSectionWidget {
+                            content,
+                            title,
+                            ..
+                        }) => {
+                            let section_items = content
+                                .ordered_members
                                 .iter()
                                 .map(|members| {
                                     match members {
-                                        ActionPanelSectionWidgetOrderedMembers::Action(widget) => action_widget_to_action(widget, action_shortcuts)
+                                        ActionPanelSectionWidgetOrderedMembers::Action(widget) => {
+                                            action_widget_to_action(widget, action_shortcuts)
+                                        }
                                     }
                                 })
                                 .collect();
@@ -2396,7 +2602,7 @@ fn convert_action_panel(action_panel: &Option<ActionPanelWidget>, action_shortcu
                 items,
             })
         }
-        _ => None
+        _ => None,
     }
 }
 
@@ -2406,7 +2612,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
     items: Vec<ActionPanelItem>,
     action_panel_focus_index: Option<usize>,
     on_action_click: &dyn Fn(UiWidgetId) -> T,
-    index_counter: &Cell<usize>
+    index_counter: &Cell<usize>,
 ) -> Vec<Element<'a, T>> {
     let mut columns = vec![];
 
@@ -2419,14 +2625,18 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
             })
             .themed(TextStyle::ActionSectionTitle);
 
-        let text = container(text)
-            .themed(if root { ContainerStyle::ActionPanelTitle } else { ContainerStyle::ActionSectionTitle });
+        let text = container(text).themed(
+            if root {
+                ContainerStyle::ActionPanelTitle
+            } else {
+                ContainerStyle::ActionSectionTitle
+            },
+        );
 
         columns.push(text)
     } else {
         if !root {
-            let separator: Element<_> = horizontal_rule(1)
-                .themed(RuleStyle::ActionPanel);
+            let separator: Element<_> = horizontal_rule(1).themed(RuleStyle::ActionPanel);
 
             columns.push(separator);
         }
@@ -2434,44 +2644,46 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
 
     for item in items {
         match item {
-            ActionPanelItem::Action { label, widget_id, physical_shortcut } => {
-
+            ActionPanelItem::Action {
+                label,
+                widget_id,
+                physical_shortcut,
+            } => {
                 let physical_shortcut = match index_counter.get() {
-                    0 => Some(PhysicalShortcut { // primary
-                        physical_key: PhysicalKey::Enter,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: false,
-                    }),
-                    1 => Some(PhysicalShortcut { // secondary
-                        physical_key: PhysicalKey::Enter,
-                        modifier_shift: true,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: false,
-                    }),
-                    _ => physical_shortcut
+                    0 => {
+                        Some(PhysicalShortcut {
+                            // primary
+                            physical_key: PhysicalKey::Enter,
+                            modifier_shift: false,
+                            modifier_control: false,
+                            modifier_alt: false,
+                            modifier_meta: false,
+                        })
+                    }
+                    1 => {
+                        Some(PhysicalShortcut {
+                            // secondary
+                            physical_key: PhysicalKey::Enter,
+                            modifier_shift: true,
+                            modifier_control: false,
+                            modifier_alt: false,
+                            modifier_meta: false,
+                        })
+                    }
+                    _ => physical_shortcut,
                 };
 
-                let shortcut_element: Option<Element<_>> = physical_shortcut.as_ref()
-                    .map(|shortcut| render_shortcut(shortcut));
+                let shortcut_element: Option<Element<_>> =
+                    physical_shortcut.as_ref().map(|shortcut| render_shortcut(shortcut));
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
-                    let text: Element<_> = text(label)
-                        .shaping(Shaping::Advanced)
-                        .into();
+                    let text: Element<_> = text(label).shaping(Shaping::Advanced).into();
 
-                    let space: Element<_> = horizontal_space()
-                        .into();
+                    let space: Element<_> = horizontal_space().into();
 
-                    row([text, space, shortcut_element])
-                        .align_y(Alignment::Center)
-                        .into()
+                    row([text, space, shortcut_element]).align_y(Alignment::Center).into()
                 } else {
-                    text(label)
-                        .shaping(Shaping::Advanced)
-                        .into()
+                    text(label).shaping(Shaping::Advanced).into()
                 };
 
                 let style = match action_panel_focus_index {
@@ -2495,7 +2707,14 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                 columns.push(content);
             }
             ActionPanelItem::ActionSection { title, items } => {
-                let content = render_action_panel_items(false, title, items, action_panel_focus_index, on_action_click, index_counter);
+                let content = render_action_panel_items(
+                    false,
+                    title,
+                    items,
+                    action_panel_focus_index,
+                    on_action_click,
+                    index_counter,
+                );
 
                 for content in content {
                     columns.push(content);
@@ -2512,18 +2731,23 @@ fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T>(
     on_action_click: F,
     action_panel_scroll_handle: &ScrollHandle,
 ) -> Element<'a, T> {
-    let columns = render_action_panel_items(true, action_panel.title, action_panel.items, action_panel_scroll_handle.index, &on_action_click, &Cell::new(0));
+    let columns = render_action_panel_items(
+        true,
+        action_panel.title,
+        action_panel.items,
+        action_panel_scroll_handle.index,
+        &on_action_click,
+        &Cell::new(0),
+    );
 
-    let actions: Element<_> = column(columns)
-        .into();
+    let actions: Element<_> = column(columns).into();
 
     let actions: Element<_> = scrollable(actions)
         .id(action_panel_scroll_handle.scrollable_id.clone())
         .width(Length::Fill)
         .into();
 
-    container(actions)
-        .themed(ContainerStyle::ActionPanel)
+    container(actions).themed(ContainerStyle::ActionPanel)
 }
 
 pub fn render_root<'a, T: 'a + Clone>(
@@ -2540,12 +2764,10 @@ pub fn render_root<'a, T: 'a + Clone>(
     on_panel_primary_click: impl Fn(UiWidgetId) -> T,
     on_action_click: impl Fn(UiWidgetId) -> T,
     noop_msg: impl Fn() -> T,
-) -> Element<'a, T>  {
-    let entrypoint_name: Element<_> = text(entrypoint_name.to_string())
-        .shaping(Shaping::Advanced)
-        .into();
+) -> Element<'a, T> {
+    let entrypoint_name: Element<_> = text(entrypoint_name.to_string()).shaping(Shaping::Advanced).into();
 
-    let panel_height = 16 + 8 + 2;  // TODO get value from theme
+    let panel_height = 16 + 8 + 2; // TODO get value from theme
 
     let primary_action = match primary_action {
         Some((label, widget_id, shortcut)) => {
@@ -2553,33 +2775,29 @@ pub fn render_root<'a, T: 'a + Clone>(
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::RootBottomPanelPrimaryActionText);
 
-            let label: Element<_> = container(label)
-                .themed(ContainerStyle::RootBottomPanelPrimaryActionText);
+            let label: Element<_> = container(label).themed(ContainerStyle::RootBottomPanelPrimaryActionText);
 
             let shortcut = render_shortcut(&shortcut);
 
-            let content: Element<_> = row(vec![label, shortcut])
-                .into();
+            let content: Element<_> = row(vec![label, shortcut]).into();
 
             let content: Element<_> = button(content)
                 .on_press(on_panel_primary_click(widget_id))
                 .themed(ButtonStyle::RootBottomPanelPrimaryActionButton);
 
-            let content: Element<_> = container(content)
-                .themed(ContainerStyle::RootBottomPanelPrimaryActionButton);
+            let content: Element<_> = container(content).themed(ContainerStyle::RootBottomPanelPrimaryActionButton);
 
             Some(content)
         }
-        None => None
+        None => None,
     };
 
     let (hide_action_panel, action_panel, bottom_panel) = match action_panel {
         Some(action_panel) => {
-            let actions_text: Element<_> = text("Actions")
-                .themed(TextStyle::RootBottomPanelActionToggleText);
+            let actions_text: Element<_> = text("Actions").themed(TextStyle::RootBottomPanelActionToggleText);
 
-            let actions_text: Element<_> = container(actions_text)
-                .themed(ContainerStyle::RootBottomPanelActionToggleText);
+            let actions_text: Element<_> =
+                container(actions_text).themed(ContainerStyle::RootBottomPanelActionToggleText);
 
             let shortcut = render_shortcut(&PhysicalShortcut {
                 physical_key: PhysicalKey::KeyK,
@@ -2592,23 +2810,19 @@ pub fn render_root<'a, T: 'a + Clone>(
             let mut bottom_panel_content = vec![entrypoint_name];
 
             if let Some(toast_text) = toast_text {
-                let toast_text = text(toast_text.to_string())
-                    .into();
+                let toast_text = text(toast_text.to_string()).into();
 
                 bottom_panel_content.push(toast_text);
             }
 
-            let space = horizontal_space()
-                .into();
+            let space = horizontal_space().into();
 
             bottom_panel_content.push(space);
 
             if let Some(primary_action) = primary_action {
                 bottom_panel_content.push(primary_action);
 
-                let rule: Element<_> = vertical_rule(1)
-                    .class(RuleStyle::PrimaryActionSeparator)
-                    .into();
+                let rule: Element<_> = vertical_rule(1).class(RuleStyle::PrimaryActionSeparator).into();
 
                 let rule: Element<_> = container(rule)
                     .width(Length::Shrink)
@@ -2619,8 +2833,7 @@ pub fn render_root<'a, T: 'a + Clone>(
                 bottom_panel_content.push(rule);
             }
 
-            let action_panel_toggle_content: Element<_> = row(vec![actions_text, shortcut])
-                .into();
+            let action_panel_toggle_content: Element<_> = row(vec![actions_text, shortcut]).into();
 
             let action_panel_toggle: Element<_> = button(action_panel_toggle_content)
                 .on_press(on_panel_toggle_click())
@@ -2635,14 +2848,12 @@ pub fn render_root<'a, T: 'a + Clone>(
             (!show_action_panel, Some(action_panel), bottom_panel)
         }
         None => {
-            let space: Element<_> = Space::new(Length::Fill, panel_height)
-                .into();
+            let space: Element<_> = Space::new(Length::Fill, panel_height).into();
 
             let mut bottom_panel_content = vec![];
 
             if let Some(toast_text) = toast_text {
-                let toast_text = text(toast_text.to_string())
-                    .into();
+                let toast_text = text(toast_text.to_string()).into();
 
                 bottom_panel_content.push(toast_text);
             } else {
@@ -2672,11 +2883,16 @@ pub fn render_root<'a, T: 'a + Clone>(
         .height(Length::Fill)
         .themed(ContainerStyle::RootInner);
 
-    let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_panel])
-        .into();
+    let content: Element<_> = column(vec![top_panel, top_separator, content, bottom_panel]).into();
 
     let content: Element<_> = mouse_area(content)
-        .on_press(if hide_action_panel { noop_msg() } else { on_panel_toggle_click() })
+        .on_press(
+            if hide_action_panel {
+                noop_msg()
+            } else {
+                on_panel_toggle_click()
+            },
+        )
         .into();
 
     let mut content = vec![content];
@@ -2685,7 +2901,7 @@ pub fn render_root<'a, T: 'a + Clone>(
         if !hide_action_panel {
             let action_panel = render_action_panel(action_panel, on_action_click, action_panel_scroll_handle);
 
-            let action_panel: Element<_>= container(action_panel)
+            let action_panel: Element<_> = container(action_panel)
                 .padding(gauntlet_common_ui::padding(0.0, 8.0, 48.0, 0.0))
                 .align_right(Length::Fill)
                 .align_bottom(Length::Fill)
@@ -2695,32 +2911,23 @@ pub fn render_root<'a, T: 'a + Clone>(
         }
     };
 
-    stack(content)
-        .into()
+    stack(content).into()
 }
-
 
 fn render_shortcut<'a, T: 'a>(shortcut: &PhysicalShortcut) -> Element<'a, T> {
     let mut result = vec![];
 
-    let (
-        key_name,
-        alt_modifier_text,
-        meta_modifier_text,
-        control_modifier_text,
-        shift_modifier_text
-    ) = shortcut_to_text(shortcut);
+    let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) =
+        shortcut_to_text(shortcut);
 
     fn apply_modifier<'result, 'element, T: 'element>(
         result: &'result mut Vec<Element<'element, T>>,
-        modifier: Option<Element<'element, T>>
+        modifier: Option<Element<'element, T>>,
     ) {
         if let Some(modifier) = modifier {
-            let modifier: Element<_> = container(modifier)
-                .themed(ContainerStyle::ActionShortcutModifier);
+            let modifier: Element<_> = container(modifier).themed(ContainerStyle::ActionShortcutModifier);
 
-            let modifier: Element<_> = container(modifier)
-                .themed(ContainerStyle::ActionShortcutModifiersInit);
+            let modifier: Element<_> = container(modifier).themed(ContainerStyle::ActionShortcutModifiersInit);
 
             result.push(modifier);
         }
@@ -2731,47 +2938,39 @@ fn render_shortcut<'a, T: 'a>(shortcut: &PhysicalShortcut) -> Element<'a, T> {
     apply_modifier(&mut result, shift_modifier_text);
     apply_modifier(&mut result, alt_modifier_text);
 
-    let key_name: Element<_> = container(key_name)
-        .themed(ContainerStyle::ActionShortcutModifier);
+    let key_name: Element<_> = container(key_name).themed(ContainerStyle::ActionShortcutModifier);
 
     result.push(key_name);
 
-    row(result)
-        .themed(RowStyle::ActionShortcut)
+    row(result).themed(RowStyle::ActionShortcut)
 }
 
-fn render_image<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec<u8>>, widget_id: UiWidgetId, image_data: &ImageLike, icon_style: Option<TextStyle>) -> Element<'a, T> {
+fn render_image<'a, T: 'a + Clone>(
+    images: &HashMap<UiWidgetId, Vec<u8>>,
+    widget_id: UiWidgetId,
+    image_data: &ImageLike,
+    icon_style: Option<TextStyle>,
+) -> Element<'a, T> {
     match image_data {
         ImageLike::ImageSource(_) => {
             match images.get(&widget_id) {
-                Some(bytes) => {
-                    image(Handle::from_bytes(bytes.clone()))
-                        .into()
-                }
-                None => {
-                    horizontal_space()
-                        .into()
-                }
+                Some(bytes) => image(Handle::from_bytes(bytes.clone())).into(),
+                None => horizontal_space().into(),
             }
         }
         ImageLike::Icons(icon) => {
             match icon_style {
-                None => {
-                    value(icon_to_bootstrap(icon))
-                        .font(BOOTSTRAP_FONT)
-                        .into()
-                }
-                Some(icon_style) => {
-                    value(icon_to_bootstrap(icon))
-                        .font(BOOTSTRAP_FONT)
-                        .themed(icon_style)
-                }
+                None => value(icon_to_bootstrap(icon)).font(BOOTSTRAP_FONT).into(),
+                Some(icon_style) => value(icon_to_bootstrap(icon)).font(BOOTSTRAP_FONT).themed(icon_style),
             }
         }
     }
 }
 
-pub fn render_icon_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec<u8>>, widget: &IconAccessoryWidget) -> Element<'a, T> {
+pub fn render_icon_accessory<'a, T: 'a + Clone>(
+    images: &HashMap<UiWidgetId, Vec<u8>>,
+    widget: &IconAccessoryWidget,
+) -> Element<'a, T> {
     let icon = render_image(images, widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
 
     let content = container(icon)
@@ -2782,18 +2981,19 @@ pub fn render_icon_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec
     match widget.tooltip.as_ref() {
         None => content,
         Some(tooltip_text) => {
-            let tooltip_text: Element<_> = text(tooltip_text.to_string())
-                .shaping(Shaping::Advanced)
-                .into();
+            let tooltip_text: Element<_> = text(tooltip_text.to_string()).shaping(Shaping::Advanced).into();
 
-            tooltip(content, tooltip_text, Position::Top)
-                .themed(TooltipStyle::Tooltip)
+            tooltip(content, tooltip_text, Position::Top).themed(TooltipStyle::Tooltip)
         }
     }
 }
 
-pub fn render_text_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec<u8>>, widget: &TextAccessoryWidget) -> Element<'a, T> {
-    let icon: Option<Element<_>> = widget.icon
+pub fn render_text_accessory<'a, T: 'a + Clone>(
+    images: &HashMap<UiWidgetId, Vec<u8>>,
+    widget: &TextAccessoryWidget,
+) -> Element<'a, T> {
+    let icon: Option<Element<_>> = widget
+        .icon
         .as_ref()
         .map(|icon| render_image(images, widget.__id__, icon, Some(TextStyle::TextAccessory)));
 
@@ -2804,17 +3004,14 @@ pub fn render_text_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec
     let mut content: Vec<Element<_>> = vec![];
 
     if let Some(icon) = icon {
-        let icon: Element<_> = container(icon)
-            .themed(ContainerStyle::TextAccessoryIcon);
+        let icon: Element<_> = container(icon).themed(ContainerStyle::TextAccessoryIcon);
 
         content.push(icon)
     }
 
     content.push(text_content);
 
-    let content: Element<_> = row(content)
-        .align_y(Alignment::Center)
-        .into();
+    let content: Element<_> = row(content).align_y(Alignment::Center).into();
 
     let content = container(content)
         .align_x(Horizontal::Center)
@@ -2824,63 +3021,59 @@ pub fn render_text_accessory<'a, T: 'a + Clone>(images: &HashMap<UiWidgetId, Vec
     match widget.tooltip.as_ref() {
         None => content,
         Some(tooltip_text) => {
-            let tooltip_text: Element<_> = text(tooltip_text.to_string())
-                .shaping(Shaping::Advanced)
-                .into();
+            let tooltip_text: Element<_> = text(tooltip_text.to_string()).shaping(Shaping::Advanced).into();
 
-            tooltip(content, tooltip_text, Position::Top)
-                .themed(TooltipStyle::Tooltip)
+            tooltip(content, tooltip_text, Position::Top).themed(TooltipStyle::Tooltip)
         }
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub enum ComponentWidgetEvent {
     LinkClick {
         widget_id: UiWidgetId,
-        href: String
+        href: String,
     },
     TagClick {
         widget_id: UiWidgetId,
     },
     ActionClick {
         widget_id: UiWidgetId,
-        id: Option<String>
+        id: Option<String>,
     },
     RunAction {
         widget_id: UiWidgetId,
-        id: Option<String>
+        id: Option<String>,
     },
     ToggleDatePicker {
         widget_id: UiWidgetId,
     },
     OnChangeTextField {
         widget_id: UiWidgetId,
-        value: String
+        value: String,
     },
     OnChangePasswordField {
         widget_id: UiWidgetId,
-        value: String
+        value: String,
     },
     OnChangeSearchBar {
         widget_id: UiWidgetId,
-        value: String
+        value: String,
     },
     SubmitDatePicker {
         widget_id: UiWidgetId,
-        value: String
+        value: String,
     },
     CancelDatePicker {
         widget_id: UiWidgetId,
     },
     ToggleCheckbox {
         widget_id: UiWidgetId,
-        value: bool
+        value: bool,
     },
     SelectPickList {
         widget_id: UiWidgetId,
-        value: String
+        value: String,
     },
     ToggleActionPanel {
         widget_id: UiWidgetId,
@@ -2906,21 +3099,19 @@ include!(concat!(env!("OUT_DIR"), "/components.rs"));
 impl ComponentWidgetEvent {
     pub fn handle(self, _plugin_id: PluginId, state: Option<&mut ComponentWidgetState>) -> Option<UiViewEvent> {
         match self {
-            ComponentWidgetEvent::LinkClick { widget_id: _, href } => {
-                Some(UiViewEvent::Open {
-                    href
-                })
-            }
-            ComponentWidgetEvent::TagClick { widget_id } => {
-                Some(create_metadata_tag_item_on_click_event(widget_id))
-            }
+            ComponentWidgetEvent::LinkClick { widget_id: _, href } => Some(UiViewEvent::Open { href }),
+            ComponentWidgetEvent::TagClick { widget_id } => Some(create_metadata_tag_item_on_click_event(widget_id)),
             ComponentWidgetEvent::RunAction { widget_id, id } | ComponentWidgetEvent::ActionClick { widget_id, id } => {
                 Some(create_action_on_action_event(widget_id, id))
             }
             ComponentWidgetEvent::ToggleDatePicker { widget_id } => {
                 let state = state.expect("state should always exist for ");
 
-                let ComponentWidgetState::DatePicker(DatePickerState { state_value: _, show_picker }) = state else {
+                let ComponentWidgetState::DatePicker(DatePickerState {
+                    state_value: _,
+                    show_picker,
+                }) = state
+                else {
                     panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                 };
 
@@ -2930,7 +3121,11 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::CancelDatePicker { widget_id } => {
                 let state = state.expect("state should always exist for ");
 
-                let ComponentWidgetState::DatePicker(DatePickerState { state_value: _, show_picker }) = state else {
+                let ComponentWidgetState::DatePicker(DatePickerState {
+                    state_value: _,
+                    show_picker,
+                }) = state
+                else {
                     panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                 };
 
@@ -2941,7 +3136,11 @@ impl ComponentWidgetEvent {
                 let state = state.expect("state should always exist for ");
 
                 {
-                    let ComponentWidgetState::DatePicker(DatePickerState { state_value: _, show_picker }) = state else {
+                    let ComponentWidgetState::DatePicker(DatePickerState {
+                        state_value: _,
+                        show_picker,
+                    }) = state
+                    else {
                         panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                     };
 
@@ -3017,21 +3216,23 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
                 Some(UiViewEvent::AppEvent {
-                    event: AppMsg::ToggleActionPanel { keyboard: false }
+                    event: AppMsg::ToggleActionPanel { keyboard: false },
                 })
             }
-            ComponentWidgetEvent::FocusListItem { list_widget_id, item_id } => {
-                Some(create_list_on_item_focus_change_event(list_widget_id, item_id))
-            }
-            ComponentWidgetEvent::FocusGridItem { grid_widget_id, item_id } => {
-                Some(create_grid_on_item_focus_change_event(grid_widget_id, item_id))
-            }
+            ComponentWidgetEvent::FocusListItem {
+                list_widget_id,
+                item_id,
+            } => Some(create_list_on_item_focus_change_event(list_widget_id, item_id)),
+            ComponentWidgetEvent::FocusGridItem {
+                grid_widget_id,
+                item_id,
+            } => Some(create_grid_on_item_focus_change_event(grid_widget_id, item_id)),
             ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => {
                 panic!("widget_id on these events is not supposed to be called")
             }
             ComponentWidgetEvent::RunPrimaryAction { widget_id, id } => {
                 Some(UiViewEvent::AppEvent {
-                    event: AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id }
+                    event: AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id },
                 })
             }
         }
@@ -3055,14 +3256,16 @@ impl ComponentWidgetEvent {
             ComponentWidgetEvent::FocusListItem { list_widget_id, .. } => list_widget_id,
             ComponentWidgetEvent::FocusGridItem { grid_widget_id, .. } => grid_widget_id,
             ComponentWidgetEvent::RunPrimaryAction { widget_id, .. } => widget_id,
-            ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => panic!("widget_id on these events is not supposed to be called"),
-        }.to_owned()
+            ComponentWidgetEvent::Noop | ComponentWidgetEvent::PreviousView => {
+                panic!("widget_id on these events is not supposed to be called")
+            }
+        }
+        .to_owned()
     }
 }
 
 pub fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
-    let ymd: Vec<_> = value.split("-")
-        .collect();
+    let ymd: Vec<_> = value.split("-").collect();
 
     match ymd[..] {
         [year, month, day] => {
@@ -3072,10 +3275,10 @@ pub fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
 
             match (year, month, day) {
                 (Ok(year), Ok(month), Ok(day)) => Some((year, month, day)),
-                _ => None
+                _ => None,
             }
         }
-        _ => None
+        _ => None,
     }
 }
 

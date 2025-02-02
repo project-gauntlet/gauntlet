@@ -1,9 +1,9 @@
 mod api;
 mod assets;
 mod clipboard;
-mod entrypoint_generators;
 mod component_model;
 mod deno;
+mod entrypoint_generators;
 mod environment;
 mod events;
 mod logs;
@@ -15,38 +15,56 @@ mod preferences;
 mod search;
 mod ui;
 
-use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::deno::start_js_runtime;
-use anyhow::{anyhow, Context};
-use bincode::{Decode, Encode};
-use deno_core::futures::SinkExt;
-use interprocess::local_socket::tokio::prelude::*;
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf, Stream};
-use interprocess::local_socket::{GenericFilePath, NameType, ToNsName};
-use once_cell::sync::Lazy;
-use regex::Regex;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
+use std::cell::RefMut;
 use std::convert;
 use std::fmt::Debug;
-use std::ops::{Deref, DerefMut};
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tokio::io::AsyncWriteExt;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt};
-use tokio::runtime::Handle;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::{oneshot, Mutex, MutexGuard};
-use tokio_util::sync::CancellationToken;
-use gauntlet_utils::channel::{Payload, RequestReceiver};
 
+use anyhow::anyhow;
+use anyhow::Context;
 pub use api::BackendForPluginRuntimeApi;
+use bincode::Decode;
+use bincode::Encode;
+use deno_core::futures::SinkExt;
 pub use events::JsEvent;
 pub use events::JsKeyboardEventOrigin;
 pub use events::JsUiPropertyValue;
+use gauntlet_utils::channel::Payload;
+use gauntlet_utils::channel::RequestReceiver;
+use interprocess::local_socket::tokio::prelude::*;
+use interprocess::local_socket::tokio::RecvHalf;
+use interprocess::local_socket::tokio::SendHalf;
+use interprocess::local_socket::tokio::Stream;
+use interprocess::local_socket::GenericFilePath;
+use interprocess::local_socket::NameType;
+use interprocess::local_socket::ToNsName;
 pub use model::*;
+use once_cell::sync::Lazy;
 pub use permissions::PERMISSIONS_VARIABLE_PATTERN;
+use regex::Regex;
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde::Serialize;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::runtime::Handle;
+use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::oneshot;
+use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
+use tokio_util::sync::CancellationToken;
+
+use crate::api::BackendForPluginRuntimeApiProxy;
+use crate::deno::start_js_runtime;
 
 pub fn run_plugin_runtime(socket_name: String) {
     tokio::runtime::Builder::new_current_thread()
@@ -66,14 +84,14 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
     let name = socket_name.to_ns_name::<interprocess::local_socket::GenericNamespaced>()?;
 
     #[cfg(unix)]
-    let name = socket_name
-        .to_fs_name::<interprocess::os::unix::local_socket::FilesystemUdSocket>()?;
+    let name = socket_name.to_fs_name::<interprocess::os::unix::local_socket::FilesystemUdSocket>()?;
 
     let conn = Stream::connect(name).await?;
 
     let (mut recver, mut sender) = conn.split();
 
-    let (request_sender, mut request_receiver) = gauntlet_utils::channel::channel::<JsRequest, Result<JsResponse, String>>();
+    let (request_sender, mut request_receiver) =
+        gauntlet_utils::channel::channel::<JsRequest, Result<JsResponse, String>>();
     let (event_sender, event_receiver) = channel::<JsEvent>(10);
     let response_oneshot = Mutex::new(None);
 
@@ -120,7 +138,12 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
         }
     }
 
-    send_message(JsMessageSide::PluginRuntime, &mut sender, JsPluginRuntimeMessage::Stopped).await?;
+    send_message(
+        JsMessageSide::PluginRuntime,
+        &mut sender,
+        JsPluginRuntimeMessage::Stopped,
+    )
+    .await?;
 
     tracing::debug!("Plugin runtime outer loop has been stopped {:?}", plugin_id);
 
@@ -129,19 +152,32 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_new_tokio(outer_handle: Handle, stop_token: CancellationToken, init: JsInit, event_receiver: Receiver<JsEvent>, api: BackendForPluginRuntimeApiProxy) -> anyhow::Result<()> {
+async fn run_new_tokio(
+    outer_handle: Handle,
+    stop_token: CancellationToken,
+    init: JsInit,
+    event_receiver: Receiver<JsEvent>,
+    api: BackendForPluginRuntimeApiProxy,
+) -> anyhow::Result<()> {
     tokio::task::spawn_blocking(|| {
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("unable to start tokio runtime for plugin")
             .block_on(run(outer_handle, stop_token, init, event_receiver, api))
-    }).await??;
+    })
+    .await??;
 
     Ok(())
 }
 
-async fn run(outer_handle: Handle, stop_token: CancellationToken, init: JsInit, event_receiver: Receiver<JsEvent>, api: BackendForPluginRuntimeApiProxy) -> anyhow::Result<()> {
+async fn run(
+    outer_handle: Handle,
+    stop_token: CancellationToken,
+    init: JsInit,
+    event_receiver: Receiver<JsEvent>,
+    api: BackendForPluginRuntimeApiProxy,
+) -> anyhow::Result<()> {
     let plugin_id = init.plugin_id.clone();
 
     tokio::select! {
@@ -167,7 +203,7 @@ async fn run(outer_handle: Handle, stop_token: CancellationToken, init: JsInit, 
 async fn request_loop(
     send: &mut SendHalf,
     request_receiver: &mut RequestReceiver<JsRequest, Result<JsResponse, String>>,
-    response_oneshot: &Mutex<Option<oneshot::Sender<Result<JsResponse, String>>>>
+    response_oneshot: &Mutex<Option<oneshot::Sender<Result<JsResponse, String>>>>,
 ) -> anyhow::Result<()> {
     let (request, responder) = request_receiver.recv().await;
 
@@ -177,7 +213,9 @@ async fn request_loop(
         let mut response_oneshot = response_oneshot.lock().await;
 
         let None = response_oneshot.deref() else {
-            return Err(anyhow!("Trying to set response one shot while previous is not fulfilled"))
+            return Err(anyhow!(
+                "Trying to set response one shot while previous is not fulfilled"
+            ));
         };
 
         let (tx, rx) = oneshot::channel::<Result<JsResponse, String>>();
@@ -187,7 +225,12 @@ async fn request_loop(
         rx
     };
 
-    send_message(JsMessageSide::PluginRuntime, send, JsPluginRuntimeMessage::Request(request)).await?;
+    send_message(
+        JsMessageSide::PluginRuntime,
+        send,
+        JsPluginRuntimeMessage::Request(request),
+    )
+    .await?;
 
     tracing::trace!("Waiting for oneshot response...");
 
@@ -204,62 +247,61 @@ async fn message_loop(
     recv: &mut RecvHalf,
     event_sender: &Sender<JsEvent>,
     response_oneshot: &Mutex<Option<oneshot::Sender<Result<JsResponse, String>>>>,
-    stop_token: CancellationToken
+    stop_token: CancellationToken,
 ) -> anyhow::Result<()> {
     match recv_message::<JsMessage>(JsMessageSide::PluginRuntime, recv).await {
         Err(e) => {
             tracing::error!("Unable to handle message: {:?}", e);
             Err(e)
         }
-        Ok(msg) => match msg {
-            JsMessage::Event(event) => {
-                tracing::trace!("Received plugin event from backend {:?}", event);
+        Ok(msg) => {
+            match msg {
+                JsMessage::Event(event) => {
+                    tracing::trace!("Received plugin event from backend {:?}", event);
 
-                let event_sender = event_sender.clone();
+                    let event_sender = event_sender.clone();
 
-                tokio::spawn(async move {
-                    event_sender
-                        .send(event)
-                        .await
-                        .expect("event receiver was dropped");
-                });
+                    tokio::spawn(async move {
+                        event_sender.send(event).await.expect("event receiver was dropped");
+                    });
 
-                Ok(())
-            }
-            JsMessage::Response(response) => {
-                let mut response_oneshot = response_oneshot.lock().await;
+                    Ok(())
+                }
+                JsMessage::Response(response) => {
+                    let mut response_oneshot = response_oneshot.lock().await;
 
-                match response_oneshot.take() {
-                    Some(mut oneshot) => {
-                        match oneshot.send(response) {
-                            Err(_) => {
-                                tracing::error!("Dropped oneshot receiving side");
-                            }
-                            Ok(_) => {
-                                tracing::trace!("Oneshot response sent");
+                    match response_oneshot.take() {
+                        Some(mut oneshot) => {
+                            match oneshot.send(response) {
+                                Err(_) => {
+                                    tracing::error!("Dropped oneshot receiving side");
+                                }
+                                Ok(_) => {
+                                    tracing::trace!("Oneshot response sent");
+                                }
                             }
                         }
+                        None => {
+                            tracing::error!("Received response without corresponding request: {:?}", response);
+                        }
                     }
-                    None => {
-                        tracing::error!("Received response without corresponding request: {:?}", response);
-                    }
+
+                    Ok(())
                 }
+                JsMessage::Stop => {
+                    stop_token.cancel();
 
-                Ok(())
+                    Ok(())
+                }
             }
-            JsMessage::Stop => {
-                stop_token.cancel();
-
-                Ok(())
-            }
-        },
+        }
     }
 }
 
 #[derive(Debug)]
 pub enum JsMessageSide {
     PluginRuntime,
-    Backend
+    Backend,
 }
 
 static MESSAGE_ID: AtomicU32 = AtomicU32::new(0);
@@ -269,7 +311,13 @@ pub async fn send_message<T: Encode + Debug>(side: JsMessageSide, send: &mut Sen
 
     let message_id = MESSAGE_ID.fetch_add(1, Ordering::SeqCst);
 
-    tracing::trace!(side = debug(&side), "Sending message with id {} and size of {} bytes: {:?}", message_id, encoded.len(), &value);
+    tracing::trace!(
+        side = debug(&side),
+        "Sending message with id {} and size of {} bytes: {:?}",
+        message_id,
+        encoded.len(),
+        &value
+    );
 
     send.write_u32(message_id).await?;
 
@@ -277,7 +325,12 @@ pub async fn send_message<T: Encode + Debug>(side: JsMessageSide, send: &mut Sen
 
     send.write_all(&encoded[..]).await?;
 
-    tracing::trace!(side = debug(&side), "Message with id {} and size of {} bytes has been sent", message_id, encoded.len());
+    tracing::trace!(
+        side = debug(&side),
+        "Message with id {} and size of {} bytes has been sent",
+        message_id,
+        encoded.len()
+    );
 
     Ok(())
 }
@@ -298,7 +351,12 @@ pub async fn recv_message<T: Decode + Debug>(side: JsMessageSide, recv: &mut Rec
     let (decoded, _) = bincode::decode_from_slice(&buffer[..], bincode::config::standard())
         .context(format!("Unable to deserialize message with id: {}", message_id))?;
 
-    tracing::trace!(side = debug(&side), "Received message with id {}: {:?}", message_id, &decoded);
+    tracing::trace!(
+        side = debug(&side),
+        "Received message with id {}: {:?}",
+        message_id,
+        &decoded
+    );
 
     Ok(decoded)
 }

@@ -1,19 +1,37 @@
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+
 use anyhow::anyhow;
-use deno_runtime::deno_fs::{FileSystemRc, RealFs};
-use deno_runtime::deno_permissions::{AllowRunDescriptor, EnvDescriptor, EnvQueryDescriptor, NetDescriptor, Permissions, PermissionsContainer, QueryDescriptor, ReadDescriptor, RunQueryDescriptor, SysDescriptor, SysDescriptorParseError, UnaryPermission, WriteDescriptor};
+use deno_runtime::deno_fs::FileSystemRc;
+use deno_runtime::deno_fs::RealFs;
+use deno_runtime::deno_permissions::AllowRunDescriptor;
+use deno_runtime::deno_permissions::EnvDescriptor;
+use deno_runtime::deno_permissions::EnvQueryDescriptor;
+use deno_runtime::deno_permissions::NetDescriptor;
+use deno_runtime::deno_permissions::Permissions;
+use deno_runtime::deno_permissions::PermissionsContainer;
+use deno_runtime::deno_permissions::QueryDescriptor;
+use deno_runtime::deno_permissions::ReadDescriptor;
+use deno_runtime::deno_permissions::RunQueryDescriptor;
+use deno_runtime::deno_permissions::SysDescriptor;
+use deno_runtime::deno_permissions::SysDescriptorParseError;
+use deno_runtime::deno_permissions::UnaryPermission;
+use deno_runtime::deno_permissions::WriteDescriptor;
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
+use gauntlet_common::dirs::Dirs;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use typed_path::Utf8TypedPath;
-use gauntlet_common::dirs::Dirs;
-use crate::{JsPluginPermissions, JsPluginPermissionsExec};
 
-pub static PERMISSIONS_VARIABLE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
+use crate::JsPluginPermissions;
+use crate::JsPluginPermissionsExec;
+
+pub static PERMISSIONS_VARIABLE_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
 
 pub fn permissions_to_deno(
     fs: FileSystemRc,
@@ -25,8 +43,20 @@ pub fn permissions_to_deno(
     Ok(PermissionsContainer::new(
         Arc::new(RuntimePermissionDescriptorParser::new(fs)),
         Permissions {
-            read: path_permission(&permissions.filesystem.read, ReadDescriptor, home_dir, plugin_data_dir, plugin_cache_dir)?,
-            write: path_permission(&permissions.filesystem.write, WriteDescriptor, home_dir, plugin_data_dir, plugin_cache_dir)?,
+            read: path_permission(
+                &permissions.filesystem.read,
+                ReadDescriptor,
+                home_dir,
+                plugin_data_dir,
+                plugin_cache_dir,
+            )?,
+            write: path_permission(
+                &permissions.filesystem.write,
+                WriteDescriptor,
+                home_dir,
+                plugin_data_dir,
+                plugin_cache_dir,
+            )?,
             net: net_permission(&permissions.network),
             env: env_permission(&permissions.environment),
             sys: sys_permission(&permissions.system)?,
@@ -34,7 +64,7 @@ pub fn permissions_to_deno(
             ffi: Permissions::new_unary(None, None, false),
             import: UnaryPermission::default(),
             all: Permissions::new_all(false),
-        }
+        },
     ))
 }
 
@@ -56,11 +86,7 @@ fn path_permission<P: Eq + Hash, T: QueryDescriptor<AllowDesc = P, DenyDesc = P>
         .filter_map(std::convert::identity)
         .collect::<HashSet<_>>();
 
-    let allow_list = if allow_list.is_empty() {
-        None
-    } else {
-        Some(allow_list)
-    };
+    let allow_list = if allow_list.is_empty() { None } else { Some(allow_list) };
 
     Ok(Permissions::new_unary(allow_list, None, false))
 }
@@ -69,11 +95,9 @@ fn net_permission(domain_and_ports: &[String]) -> UnaryPermission<NetDescriptor>
     let allow_list = if domain_and_ports.is_empty() {
         None
     } else {
-        let allow_list = domain_and_ports.into_iter()
-            .map(|domain_and_port| {
-                NetDescriptor::parse(&domain_and_port)
-                    .expect("should be validated when loading")
-            })
+        let allow_list = domain_and_ports
+            .into_iter()
+            .map(|domain_and_port| NetDescriptor::parse(&domain_and_port).expect("should be validated when loading"))
             .collect();
 
         Some(allow_list)
@@ -86,9 +110,7 @@ fn env_permission(envs: &[String]) -> UnaryPermission<EnvQueryDescriptor> {
     let allow_list = if envs.is_empty() {
         None
     } else {
-        let allow_list = envs.into_iter()
-            .map(|env| EnvDescriptor::new(env))
-            .collect();
+        let allow_list = envs.into_iter().map(|env| EnvDescriptor::new(env)).collect();
 
         Some(allow_list)
     };
@@ -100,7 +122,8 @@ fn sys_permission(system: &[String]) -> anyhow::Result<UnaryPermission<SysDescri
     let allow_list = if system.is_empty() {
         None
     } else {
-        let allow_list = system.into_iter()
+        let allow_list = system
+            .into_iter()
             .map(|system| SysDescriptor::parse(system.to_owned()))
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
@@ -118,7 +141,8 @@ fn run_permission(
     plugin_data_dir: &Path,
     plugin_cache_dir: &Path,
 ) -> anyhow::Result<UnaryPermission<RunQueryDescriptor>> {
-    let granted_executable = permissions.executable
+    let granted_executable = permissions
+        .executable
         .iter()
         .map(|path| {
             augment_path(path, home_dir, plugin_data_dir, plugin_cache_dir)
@@ -129,7 +153,8 @@ fn run_permission(
         .filter_map(std::convert::identity)
         .collect::<Vec<_>>();
 
-    let granted_command = permissions.command
+    let granted_command = permissions
+        .command
         .iter()
         .flat_map(|cmd| anyhow::Ok(AllowRunDescriptor(which::which_global(cmd)?)))
         .collect::<Vec<_>>();
@@ -138,16 +163,17 @@ fn run_permission(
     granted.extend(granted_executable);
     granted.extend(granted_command);
 
-    let allow_list = if granted.is_empty() {
-        None
-    } else {
-        Some(granted)
-    };
+    let allow_list = if granted.is_empty() { None } else { Some(granted) };
 
     Ok(Permissions::new_unary(allow_list, None, false))
 }
 
-fn augment_path(path: &String, home_dir: &Path, plugin_data_dir: &Path, plugin_cache_dir: &Path) -> anyhow::Result<Option<PathBuf>> {
+fn augment_path(
+    path: &String,
+    home_dir: &Path,
+    plugin_data_dir: &Path,
+    plugin_cache_dir: &Path,
+) -> anyhow::Result<Option<PathBuf>> {
     if let Some(matches) = PERMISSIONS_VARIABLE_PATTERN.captures(path) {
         let namespace = &matches["namespace"];
         let name = &matches["name"];
@@ -159,35 +185,39 @@ fn augment_path(path: &String, home_dir: &Path, plugin_data_dir: &Path, plugin_c
                 } else {
                     None
                 }
-            },
+            }
             ("linux", "user-home") => {
                 if cfg!(target_os = "linux") {
                     Some(home_dir)
                 } else {
                     None
                 }
-            },
+            }
             ("windows", "user-home") => {
                 if cfg!(windows) {
                     Some(home_dir)
                 } else {
                     None
                 }
-            },
+            }
             ("common", "plugin-data") => Some(plugin_data_dir),
             ("common", "plugin-cache") => Some(plugin_cache_dir),
             (_, _) => {
-                Err(anyhow!("Trying to load plugin with unknown variable in path in manifest permissions: {}", path))?
+                Err(anyhow!(
+                    "Trying to load plugin with unknown variable in path in manifest permissions: {}",
+                    path
+                ))?
             }
         };
 
         match replacement {
             None => Ok(None),
             Some(replacement) => {
-                let replacement = replacement.to_str()
-                    .expect("non-utf8 file paths are not supported");
+                let replacement = replacement.to_str().expect("non-utf8 file paths are not supported");
 
-                Ok(Some(PathBuf::from(PERMISSIONS_VARIABLE_PATTERN.replace(path, replacement).to_string())))
+                Ok(Some(PathBuf::from(
+                    PERMISSIONS_VARIABLE_PATTERN.replace(path, replacement).to_string(),
+                )))
             }
         }
     } else {

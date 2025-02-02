@@ -1,6 +1,8 @@
 use std::time::Duration;
+
 use thiserror::Error;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tokio::time::error::Elapsed;
 
 #[derive(Error, Debug)]
@@ -32,13 +34,13 @@ impl<Res> ResponseReceiver<Res> {
     }
 
     pub async fn recv(&mut self) -> Res {
-        self.response_receiver.take()
+        self.response_receiver
+            .take()
             .expect("recv was called second time")
             .await
             .expect("oneshot was dropped before sending")
     }
 }
-
 
 #[derive(Debug)]
 pub struct RequestSender<Req, Res> {
@@ -46,19 +48,17 @@ pub struct RequestSender<Req, Res> {
 }
 
 impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
-    fn new(
-        request_sender: mpsc::UnboundedSender<Payload<Req, Res>>,
-    ) -> Self {
-        RequestSender {
-            request_sender,
-        }
+    fn new(request_sender: mpsc::UnboundedSender<Payload<Req, Res>>) -> Self {
+        RequestSender { request_sender }
     }
 
     pub fn send(&self, request: Req) -> Result<ResponseReceiver<Res>, RequestError> {
         let (response_sender, response_receiver) = oneshot::channel::<Res>();
         let responder = Responder::new(response_sender);
         let payload = (request, responder);
-        self.request_sender.send(payload).map_err(|err| RequestError::OtherSideWasDropped)?;
+        self.request_sender
+            .send(payload)
+            .map_err(|err| RequestError::OtherSideWasDropped)?;
         Ok(ResponseReceiver::new(response_receiver))
     }
 
@@ -81,7 +81,6 @@ impl<Req, Res> Clone for RequestSender<Req, Res> {
     }
 }
 
-
 #[derive(Debug)]
 pub struct RequestReceiver<Req, Res> {
     request_receiver: mpsc::UnboundedReceiver<Payload<Req, Res>>,
@@ -95,7 +94,8 @@ impl<Req, Res> RequestReceiver<Req, Res> {
     }
 
     pub async fn recv(&mut self) -> Payload<Req, Res> {
-        self.request_receiver.recv()
+        self.request_receiver
+            .recv()
             .await
             .expect("the other side of a channel was dropped")
     }

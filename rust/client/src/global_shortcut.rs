@@ -1,8 +1,12 @@
-use global_hotkey::hotkey::{Code, HotKey, Modifiers};
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::PhysicalShortcut;
+use global_hotkey::hotkey::Code;
+use global_hotkey::hotkey::HotKey;
+use global_hotkey::hotkey::Modifiers;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use tokio::runtime::Handle;
-use gauntlet_common::model::{PhysicalKey, PhysicalShortcut};
+
 use crate::ui::AppMsg;
 
 pub fn register_listener(msg_sender: Sender<AppMsg>) {
@@ -22,7 +26,6 @@ pub fn register_listener(msg_sender: Sender<AppMsg>) {
 }
 
 pub fn convert_physical_shortcut_to_hotkey(shortcut: PhysicalShortcut) -> HotKey {
-
     let modifiers: Modifiers = {
         let mut modifiers = Modifiers::empty();
 

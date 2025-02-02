@@ -2,7 +2,8 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
+use serde::Serializer;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ComponentName(Arc<str>);
@@ -21,8 +22,8 @@ impl Display for ComponentName {
 
 impl Serialize for ComponentName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         serializer.serialize_str(&self.0)
     }
@@ -46,7 +47,7 @@ pub enum Component {
         internal_name: String,
         children: Vec<ComponentRef>,
         #[serde(rename = "sharedTypes")]
-        shared_types: IndexMap<String, SharedType>
+        shared_types: IndexMap<String, SharedType>,
     },
     #[serde(rename = "text_part")]
     TextPart {
@@ -75,32 +76,22 @@ pub enum PropertyType {
     #[serde(rename = "boolean")]
     Boolean,
     #[serde(rename = "component")]
-    Component {
-        reference: ComponentRef,
-    },
+    Component { reference: ComponentRef },
     #[serde(rename = "function")]
-    Function {
-        arguments: Vec<Property>
-    },
+    Function { arguments: Vec<Property> },
     #[serde(rename = "shared_type_ref")]
-    SharedTypeRef {
-        name: String
-    },
+    SharedTypeRef { name: String },
     #[serde(rename = "union")]
-    Union {
-        items: Vec<PropertyType>
-    },
+    Union { items: Vec<PropertyType> },
     #[serde(rename = "array")]
-    Array {
-        item: Box<PropertyType>
-    },
+    Array { item: Box<PropertyType> },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum PropertyKind {
     Event,
     Component,
-    Property
+    Property,
 }
 
 impl PropertyType {
@@ -135,17 +126,11 @@ impl PropertyType {
 #[serde(tag = "type")]
 pub enum SharedType {
     #[serde(rename = "enum")]
-    Enum {
-        items: Vec<String>
-    },
+    Enum { items: Vec<String> },
     #[serde(rename = "object")]
-    Object {
-        items: IndexMap<String, PropertyType>
-    },
+    Object { items: IndexMap<String, PropertyType> },
     #[serde(rename = "union")]
-    Union {
-        items: Vec<PropertyType>
-    }
+    Union { items: Vec<PropertyType> },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -194,8 +179,9 @@ pub struct ComponentRef {
 }
 
 fn children_string_or_members<I1, I2>(ordered_members: I1, per_type_members: I2) -> Children
-where I1: IntoIterator<Item=(String, ComponentRef)>,
-      I2: IntoIterator<Item=(String, ComponentRef)>
+where
+    I1: IntoIterator<Item = (String, ComponentRef)>,
+    I2: IntoIterator<Item = (String, ComponentRef)>,
 {
     Children::StringOrMembers {
         text_part_internal_name: "text_part".to_owned(),
@@ -205,8 +191,9 @@ where I1: IntoIterator<Item=(String, ComponentRef)>,
 }
 
 fn children_members<I1, I2>(ordered_members: I1, per_type_members: I2) -> Children
-where I1: IntoIterator<Item=(String, ComponentRef)>,
-      I2: IntoIterator<Item=(String, ComponentRef)>
+where
+    I1: IntoIterator<Item = (String, ComponentRef)>,
+    I2: IntoIterator<Item = (String, ComponentRef)>,
 {
     Children::Members {
         ordered_members: ordered_members.into_iter().collect(),
@@ -227,14 +214,16 @@ fn children_none() -> Children {
 
 fn member(member_name: impl ToString, component: &Component, arity: Arity) -> (String, ComponentRef) {
     match component {
-        Component::Standard { internal_name, name, .. } => {
+        Component::Standard {
+            internal_name, name, ..
+        } => {
             (
                 member_name.to_string(),
                 ComponentRef {
                     component_internal_name: internal_name.to_owned(),
                     component_name: name.to_owned(),
-                    arity
-                }
+                    arity,
+                },
             )
         }
         Component::Root { .. } => panic!("invalid component member"),
@@ -242,9 +231,15 @@ fn member(member_name: impl ToString, component: &Component, arity: Arity) -> (S
     }
 }
 
-
-fn component<I>(internal_name: impl ToString, description: String, name: impl ToString, properties: I, children: Children) -> Component
-    where I: IntoIterator<Item=Property>
+fn component<I>(
+    internal_name: impl ToString,
+    description: String,
+    name: impl ToString,
+    properties: I,
+    children: Children,
+) -> Component
+where
+    I: IntoIterator<Item = Property>,
 {
     Component::Standard {
         internal_name: internal_name.to_string(),
@@ -257,13 +252,15 @@ fn component<I>(internal_name: impl ToString, description: String, name: impl To
 
 fn component_ref(component: &Component, arity: Arity) -> PropertyType {
     match component {
-        Component::Standard { internal_name, name, .. } => {
+        Component::Standard {
+            internal_name, name, ..
+        } => {
             PropertyType::Component {
                 reference: ComponentRef {
                     component_internal_name: internal_name.to_owned(),
                     component_name: name.to_owned(),
-                    arity
-                }
+                    arity,
+                },
             }
         }
         Component::Root { .. } => panic!("invalid component member"),
@@ -292,11 +289,18 @@ macro_rules! mark_doc {
 fn root(children: &[&Component]) -> Component {
     Component::Root {
         internal_name: "root".to_owned(),
-        children: children.into_iter()
+        children: children
+            .into_iter()
             .map(|child| {
                 match child {
-                    Component::Standard { internal_name, name, .. } => {
-                        ComponentRef { component_name: name.to_owned(), component_internal_name: internal_name.to_owned(), arity: Arity::ZeroOrOne }
+                    Component::Standard {
+                        internal_name, name, ..
+                    } => {
+                        ComponentRef {
+                            component_name: name.to_owned(),
+                            component_internal_name: internal_name.to_owned(),
+                            arity: Arity::ZeroOrOne,
+                        }
                     }
                     Component::Root { .. } => panic!("invalid root child"),
                     Component::TextPart { .. } => panic!("invalid root child"),
@@ -304,285 +308,304 @@ fn root(children: &[&Component]) -> Component {
             })
             .collect(),
         shared_types: IndexMap::from([
-            ("Icons".to_owned(), SharedType::Enum {
-                items: [
-                    "PersonAdd",
-                    "Airplane",
-                    // "AirplaneLanding",
-                    // "AirplaneTakeoff",
-                    "Alarm",
-                    // "AlarmRinging",
-                    "AlignCentre",
-                    "AlignLeft",
-                    "AlignRight",
-                    // "Anchor",
-                    "ArrowClockwise",
-                    "ArrowCounterClockwise",
-                    "ArrowDown",
-                    "ArrowLeft",
-                    "ArrowRight",
-                    "ArrowUp",
-                    "ArrowLeftRight",
-                    "ArrowsContract",
-                    "ArrowsExpand",
-                    "AtSymbol",
-                    // "BandAid",
-                    "Cash",
-                    // "BarChart",
-                    // "BarCode",
-                    "Battery",
-                    "BatteryCharging",
-                    // "BatteryDisabled",
-                    "Bell",
-                    "BellDisabled",
-                    // "Bike",
-                    // "Binoculars",
-                    // "Bird",
-                    "Document",
-                    "DocumentAdd",
-                    "DocumentDelete",
-                    "Bluetooth",
-                    // "Boat",
-                    "Bold",
-                    // "Bolt",
-                    // "BoltDisabled",
-                    "Book",
-                    "Bookmark",
-                    "Box",
-                    // "Brush",
-                    "Bug",
-                    "Building",
-                    "BulletPoints",
-                    "Calculator",
-                    "Calendar",
-                    "Camera",
-                    "Car",
-                    "Cart",
-                    // "Cd",
-                    // "Center",
-                    "Checkmark",
-                    // "ChessPiece",
-                    "ChevronDown",
-                    "ChevronLeft",
-                    "ChevronRight",
-                    "ChevronUp",
-                    "ChevronExpand",
-                    "Circle",
-                    // "CircleProgress100",
-                    // "CircleProgress25",
-                    // "CircleProgress50",
-                    // "CircleProgress75",
-                    // "ClearFormatting",
-                    "Clipboard",
-                    "Clock",
-                    "Cloud",
-                    "CloudLightning",
-                    "CloudRain",
-                    "CloudSnow",
-                    "CloudSun",
-                    "Code",
-                    "Gear",
-                    "Coin",
-                    "Command",
-                    "Compass",
-                    // "ComputerChip",
-                    // "Contrast",
-                    "CreditCard",
-                    "Crop",
-                    // "Crown",
-                    // "Desktop",
-                    "Dot",
-                    "Download",
-                    // "Duplicate",
-                    "Eject",
-                    "ThreeDots",
-                    "Envelope",
-                    "Eraser",
-                    "ExclamationMark",
-                    "Eye",
-                    "EyeDisabled",
-                    "EyeDropper",
-                    "Female",
-                    "Film",
-                    "Filter",
-                    "Fingerprint",
-                    "Flag",
-                    "Folder",
-                    "FolderAdd",
-                    "FolderDelete",
-                    "Forward",
-                    "GameController",
-                    "Virus",
-                    "Gift",
-                    "Glasses",
-                    "Globe",
-                    "Hammer",
-                    "HardDrive",
-                    "Headphones",
-                    "Heart",
-                    // "HeartDisabled",
-                    "Heartbeat",
-                    "Hourglass",
-                    "House",
-                    "Image",
-                    "Info",
-                    "Italics",
-                    "Key",
-                    "Keyboard",
-                    "Layers",
-                    // "Leaf",
-                    "LightBulb",
-                    "LightBulbDisabled",
-                    "Link",
-                    "List",
-                    "Lock",
-                    // "LockDisabled",
-                    "LockUnlocked",
-                    // "Logout",
-                    // "Lowercase",
-                    // "MagnifyingGlass",
-                    "Male",
-                    "Map",
-                    "Maximize",
-                    "Megaphone",
-                    "MemoryModule",
-                    "MemoryStick",
-                    "Message",
-                    "Microphone",
-                    "MicrophoneDisabled",
-                    "Minimize",
-                    "Minus",
-                    "Mobile",
-                    // "Monitor",
-                    "Moon",
-                    // "Mountain",
-                    "Mouse",
-                    "Multiply",
-                    "Music",
-                    "Network",
-                    "Paperclip",
-                    "Paragraph",
-                    "Pause",
-                    "Pencil",
-                    "Person",
-                    "Phone",
-                    // "PhoneRinging",
-                    "PieChart",
-                    "Capsule",
-                    // "Pin",
-                    // "PinDisabled",
-                    "Play",
-                    "Plug",
-                    "Plus",
-                    // "PlusMinusDivideMultiply",
-                    "Power",
-                    "Printer",
-                    "QuestionMark",
-                    "Quotes",
-                    "Receipt",
-                    "PersonRemove",
-                    "Repeat",
-                    "Reply",
-                    "Rewind",
-                    "Rocket",
-                    // "Ruler",
-                    "Shield",
-                    "Shuffle",
-                    "Snippets",
-                    "Snowflake",
-                    // "VolumeHigh",
-                    // "VolumeLow",
-                    // "VolumeOff",
-                    // "VolumeOn",
-                    "Star",
-                    // "StarDisabled",
-                    "Stop",
-                    "Stopwatch",
-                    "StrikeThrough",
-                    "Sun",
-                    // "Syringe",
-                    "Scissors",
-                    "Tag",
-                    "Thermometer",
-                    "Terminal",
-                    "Text",
-                    "TextCursor",
-                    // "TextSelection",
-                    // "Torch",
-                    // "Train",
-                    "Trash",
-                    "Tree",
-                    "Trophy",
-                    "People",
-                    "Umbrella",
-                    "Underline",
-                    "Upload",
-                    // "Uppercase",
-                    "Wallet",
-                    "Wand",
-                    // "Warning",
-                    // "Weights",
-                    "Wifi",
-                    "WifiDisabled",
-                    "Window",
-                    "Tools",
-                    "Watch",
-                    "XMark",
-                    //
-                    "Indent",
-                    "Unindent",
-
-                ].into_iter().map(|s| s.to_string()).collect()
-            }),
-            ("ImageSourceUrl".to_owned(), SharedType::Object {
-                items: {
-                    let mut map = IndexMap::new();
-                    map.insert("url".to_string(), PropertyType::String);
-                    map
+            (
+                "Icons".to_owned(),
+                SharedType::Enum {
+                    items: [
+                        "PersonAdd",
+                        "Airplane",
+                        // "AirplaneLanding",
+                        // "AirplaneTakeoff",
+                        "Alarm",
+                        // "AlarmRinging",
+                        "AlignCentre",
+                        "AlignLeft",
+                        "AlignRight",
+                        // "Anchor",
+                        "ArrowClockwise",
+                        "ArrowCounterClockwise",
+                        "ArrowDown",
+                        "ArrowLeft",
+                        "ArrowRight",
+                        "ArrowUp",
+                        "ArrowLeftRight",
+                        "ArrowsContract",
+                        "ArrowsExpand",
+                        "AtSymbol",
+                        // "BandAid",
+                        "Cash",
+                        // "BarChart",
+                        // "BarCode",
+                        "Battery",
+                        "BatteryCharging",
+                        // "BatteryDisabled",
+                        "Bell",
+                        "BellDisabled",
+                        // "Bike",
+                        // "Binoculars",
+                        // "Bird",
+                        "Document",
+                        "DocumentAdd",
+                        "DocumentDelete",
+                        "Bluetooth",
+                        // "Boat",
+                        "Bold",
+                        // "Bolt",
+                        // "BoltDisabled",
+                        "Book",
+                        "Bookmark",
+                        "Box",
+                        // "Brush",
+                        "Bug",
+                        "Building",
+                        "BulletPoints",
+                        "Calculator",
+                        "Calendar",
+                        "Camera",
+                        "Car",
+                        "Cart",
+                        // "Cd",
+                        // "Center",
+                        "Checkmark",
+                        // "ChessPiece",
+                        "ChevronDown",
+                        "ChevronLeft",
+                        "ChevronRight",
+                        "ChevronUp",
+                        "ChevronExpand",
+                        "Circle",
+                        // "CircleProgress100",
+                        // "CircleProgress25",
+                        // "CircleProgress50",
+                        // "CircleProgress75",
+                        // "ClearFormatting",
+                        "Clipboard",
+                        "Clock",
+                        "Cloud",
+                        "CloudLightning",
+                        "CloudRain",
+                        "CloudSnow",
+                        "CloudSun",
+                        "Code",
+                        "Gear",
+                        "Coin",
+                        "Command",
+                        "Compass",
+                        // "ComputerChip",
+                        // "Contrast",
+                        "CreditCard",
+                        "Crop",
+                        // "Crown",
+                        // "Desktop",
+                        "Dot",
+                        "Download",
+                        // "Duplicate",
+                        "Eject",
+                        "ThreeDots",
+                        "Envelope",
+                        "Eraser",
+                        "ExclamationMark",
+                        "Eye",
+                        "EyeDisabled",
+                        "EyeDropper",
+                        "Female",
+                        "Film",
+                        "Filter",
+                        "Fingerprint",
+                        "Flag",
+                        "Folder",
+                        "FolderAdd",
+                        "FolderDelete",
+                        "Forward",
+                        "GameController",
+                        "Virus",
+                        "Gift",
+                        "Glasses",
+                        "Globe",
+                        "Hammer",
+                        "HardDrive",
+                        "Headphones",
+                        "Heart",
+                        // "HeartDisabled",
+                        "Heartbeat",
+                        "Hourglass",
+                        "House",
+                        "Image",
+                        "Info",
+                        "Italics",
+                        "Key",
+                        "Keyboard",
+                        "Layers",
+                        // "Leaf",
+                        "LightBulb",
+                        "LightBulbDisabled",
+                        "Link",
+                        "List",
+                        "Lock",
+                        // "LockDisabled",
+                        "LockUnlocked",
+                        // "Logout",
+                        // "Lowercase",
+                        // "MagnifyingGlass",
+                        "Male",
+                        "Map",
+                        "Maximize",
+                        "Megaphone",
+                        "MemoryModule",
+                        "MemoryStick",
+                        "Message",
+                        "Microphone",
+                        "MicrophoneDisabled",
+                        "Minimize",
+                        "Minus",
+                        "Mobile",
+                        // "Monitor",
+                        "Moon",
+                        // "Mountain",
+                        "Mouse",
+                        "Multiply",
+                        "Music",
+                        "Network",
+                        "Paperclip",
+                        "Paragraph",
+                        "Pause",
+                        "Pencil",
+                        "Person",
+                        "Phone",
+                        // "PhoneRinging",
+                        "PieChart",
+                        "Capsule",
+                        // "Pin",
+                        // "PinDisabled",
+                        "Play",
+                        "Plug",
+                        "Plus",
+                        // "PlusMinusDivideMultiply",
+                        "Power",
+                        "Printer",
+                        "QuestionMark",
+                        "Quotes",
+                        "Receipt",
+                        "PersonRemove",
+                        "Repeat",
+                        "Reply",
+                        "Rewind",
+                        "Rocket",
+                        // "Ruler",
+                        "Shield",
+                        "Shuffle",
+                        "Snippets",
+                        "Snowflake",
+                        // "VolumeHigh",
+                        // "VolumeLow",
+                        // "VolumeOff",
+                        // "VolumeOn",
+                        "Star",
+                        // "StarDisabled",
+                        "Stop",
+                        "Stopwatch",
+                        "StrikeThrough",
+                        "Sun",
+                        // "Syringe",
+                        "Scissors",
+                        "Tag",
+                        "Thermometer",
+                        "Terminal",
+                        "Text",
+                        "TextCursor",
+                        // "TextSelection",
+                        // "Torch",
+                        // "Train",
+                        "Trash",
+                        "Tree",
+                        "Trophy",
+                        "People",
+                        "Umbrella",
+                        "Underline",
+                        "Upload",
+                        // "Uppercase",
+                        "Wallet",
+                        "Wand",
+                        // "Warning",
+                        // "Weights",
+                        "Wifi",
+                        "WifiDisabled",
+                        "Window",
+                        "Tools",
+                        "Watch",
+                        "XMark",
+                        //
+                        "Indent",
+                        "Unindent",
+                    ]
+                    .into_iter()
+                    .map(|s| s.to_string())
+                    .collect(),
                 },
-            }),
-            ("ImageSourceAsset".to_owned(), SharedType::Object {
-                items: {
-                    let mut map = IndexMap::new();
-                    map.insert("asset".to_string(), PropertyType::String);
-                    map
+            ),
+            (
+                "ImageSourceUrl".to_owned(),
+                SharedType::Object {
+                    items: {
+                        let mut map = IndexMap::new();
+                        map.insert("url".to_string(), PropertyType::String);
+                        map
+                    },
                 },
-            }),
-            ("ImageSource".to_owned(), SharedType::Union {
-                items: vec![
-                    PropertyType::SharedTypeRef {
-                        name: "ImageSourceUrl".to_owned()
+            ),
+            (
+                "ImageSourceAsset".to_owned(),
+                SharedType::Object {
+                    items: {
+                        let mut map = IndexMap::new();
+                        map.insert("asset".to_string(), PropertyType::String);
+                        map
                     },
-                    PropertyType::SharedTypeRef {
-                        name: "ImageSourceAsset".to_owned()
-                    },
-                ]
-            }),
-            ("ImageLike".to_owned(), SharedType::Union {
-                items: vec![
-                    PropertyType::SharedTypeRef {
-                        name: "ImageSource".to_owned()
-                    },
-                    PropertyType::SharedTypeRef {
-                        name: "Icons".to_owned()
-                    }
-                ],
-            }),
+                },
+            ),
+            (
+                "ImageSource".to_owned(),
+                SharedType::Union {
+                    items: vec![
+                        PropertyType::SharedTypeRef {
+                            name: "ImageSourceUrl".to_owned(),
+                        },
+                        PropertyType::SharedTypeRef {
+                            name: "ImageSourceAsset".to_owned(),
+                        },
+                    ],
+                },
+            ),
+            (
+                "ImageLike".to_owned(),
+                SharedType::Union {
+                    items: vec![
+                        PropertyType::SharedTypeRef {
+                            name: "ImageSource".to_owned(),
+                        },
+                        PropertyType::SharedTypeRef {
+                            name: "Icons".to_owned(),
+                        },
+                    ],
+                },
+            ),
         ]),
     }
 }
 
 fn event<I>(name: impl Into<String>, description: String, optional: bool, arguments: I) -> Property
-    where I: IntoIterator<Item=Property>
+where
+    I: IntoIterator<Item = Property>,
 {
     Property {
         name: name.into(),
         description,
         optional,
-        property_type: PropertyType::Function { arguments: arguments.into_iter().collect() },
+        property_type: PropertyType::Function {
+            arguments: arguments.into_iter().collect(),
+        },
     }
 }
-
 
 fn property(name: impl Into<String>, description: String, optional: bool, property_type: PropertyType) -> Property {
     Property {
@@ -594,62 +617,77 @@ fn property(name: impl Into<String>, description: String, optional: bool, proper
 }
 
 pub fn create_component_model() -> Vec<Component> {
-
     let action_component = component(
         "action",
         mark_doc!("/action/description.md"),
         "Action",
         [
             property("id", mark_doc!("/action/props/id.md"), true, PropertyType::String),
-            property("label", mark_doc!("/action/props/label.md"), false, PropertyType::String),
-            event("onAction", mark_doc!("/action/props/onAction.md"), false, [
-                property("id", "".to_string(), true, PropertyType::String)
-            ])
+            property(
+                "label",
+                mark_doc!("/action/props/label.md"),
+                false,
+                PropertyType::String,
+            ),
+            event(
+                "onAction",
+                mark_doc!("/action/props/onAction.md"),
+                false,
+                [property("id", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_none(),
     );
-
 
     let action_panel_section_component = component(
         "action_panel_section",
         mark_doc!("/action_panel_section/description.md"),
         "ActionPanelSection",
-        [
-            property("title", mark_doc!("/action_panel_section/props/title.md"), true, PropertyType::String),
-        ],
-        children_members(
-            [
-                member("Action", &action_component, Arity::ZeroOrMore),
-            ],
-            []
-        ),
+        [property(
+            "title",
+            mark_doc!("/action_panel_section/props/title.md"),
+            true,
+            PropertyType::String,
+        )],
+        children_members([member("Action", &action_component, Arity::ZeroOrMore)], []),
     );
-
 
     let action_panel_component = component(
         "action_panel",
         mark_doc!("/action_panel/description.md"),
         "ActionPanel",
-        [
-            property("title", mark_doc!("/action_panel/props/title.md"), true, PropertyType::String),
-        ],
+        [property(
+            "title",
+            mark_doc!("/action_panel/props/title.md"),
+            true,
+            PropertyType::String,
+        )],
         children_members(
             [
                 member("Action", &action_component, Arity::ZeroOrMore),
                 member("Section", &action_panel_section_component, Arity::ZeroOrMore),
             ],
-            []
+            [],
         ),
     );
-
 
     let metadata_link_component = component(
         "metadata_link",
         mark_doc!("/metadata_link/description.md"),
         "MetadataLink",
         [
-            property("label", mark_doc!("/metadata_link/props/label.md"), false, PropertyType::String),
-            property("href", mark_doc!("/metadata_link/props/href.md"), false, PropertyType::String),
+            property(
+                "label",
+                mark_doc!("/metadata_link/props/label.md"),
+                false,
+                PropertyType::String,
+            ),
+            property(
+                "href",
+                mark_doc!("/metadata_link/props/href.md"),
+                false,
+                PropertyType::String,
+            ),
         ],
         children_string(mark_doc!("/metadata_link/props/children.md")),
     );
@@ -660,7 +698,7 @@ pub fn create_component_model() -> Vec<Component> {
         "MetadataTagItem",
         [
             // property("color", true, PropertyType::String),
-            event("onClick", mark_doc!("/metadata_tag_item/props/onClick.md"), true, [])
+            event("onClick", mark_doc!("/metadata_tag_item/props/onClick.md"), true, []),
         ],
         children_string(mark_doc!("/metadata_tag_item/props/children.md")),
     );
@@ -669,15 +707,13 @@ pub fn create_component_model() -> Vec<Component> {
         "metadata_tag_list",
         mark_doc!("/metadata_tag_list/description.md"),
         "MetadataTagList",
-        [
-            property("label", mark_doc!("/metadata_tag_list/props/label.md"), false, PropertyType::String)
-        ],
-        children_members(
-            [
-                member("Item", &metadata_tag_item_component, Arity::ZeroOrMore),
-            ],
-            [],
-        ),
+        [property(
+            "label",
+            mark_doc!("/metadata_tag_list/props/label.md"),
+            false,
+            PropertyType::String,
+        )],
+        children_members([member("Item", &metadata_tag_item_component, Arity::ZeroOrMore)], []),
     );
 
     let metadata_separator_component = component(
@@ -693,8 +729,20 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/metadata_icon/description.md"),
         "MetadataIcon",
         [
-            property("icon", mark_doc!("/metadata_icon/props/icon.md"), false, PropertyType::SharedTypeRef { name: "Icons".to_owned() }),
-            property("label", mark_doc!("/metadata_icon/props/label.md"), false, PropertyType::String),
+            property(
+                "icon",
+                mark_doc!("/metadata_icon/props/icon.md"),
+                false,
+                PropertyType::SharedTypeRef {
+                    name: "Icons".to_owned(),
+                },
+            ),
+            property(
+                "label",
+                mark_doc!("/metadata_icon/props/label.md"),
+                false,
+                PropertyType::String,
+            ),
         ],
         children_none(),
     );
@@ -703,9 +751,12 @@ pub fn create_component_model() -> Vec<Component> {
         "metadata_value",
         mark_doc!("/metadata_value/description.md"),
         "MetadataValue",
-        [
-            property("label", mark_doc!("/metadata_value/props/label.md"), false, PropertyType::String),
-        ],
+        [property(
+            "label",
+            mark_doc!("/metadata_value/props/label.md"),
+            false,
+            PropertyType::String,
+        )],
         children_string(mark_doc!("/metadata_value/props/children.md")),
     );
 
@@ -739,9 +790,14 @@ pub fn create_component_model() -> Vec<Component> {
         "image",
         mark_doc!("/image/description.md"),
         "Image",
-        [
-            property("source", mark_doc!("/image/props/source.md"), false, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() })
-        ],
+        [property(
+            "source",
+            mark_doc!("/image/props/source.md"),
+            false,
+            PropertyType::SharedTypeRef {
+                name: "ImageLike".to_owned(),
+            },
+        )],
         children_none(),
     );
 
@@ -849,7 +905,7 @@ pub fn create_component_model() -> Vec<Component> {
                 member("CodeBlock", &code_block_component, Arity::ZeroOrMore),
                 // member("Code", &code_component),
             ],
-            []
+            [],
         ),
     );
 
@@ -858,8 +914,18 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/detail/description.md"),
         "Detail",
         [
-            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            property("actions", mark_doc!("/detail/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne))
+            property(
+                "isLoading",
+                mark_doc!("/list/props/isLoading.md"),
+                true,
+                PropertyType::Boolean,
+            ),
+            property(
+                "actions",
+                mark_doc!("/detail/props/actions.md"),
+                true,
+                component_ref(&action_panel_component, Arity::ZeroOrOne),
+            ),
         ],
         children_members(
             [],
@@ -870,17 +936,29 @@ pub fn create_component_model() -> Vec<Component> {
         ),
     );
 
-
     let text_field_component = component(
         "text_field",
         mark_doc!("/text_field/description.md"),
         "TextField",
         [
-            property("label", mark_doc!("/text_field/props/label.md"),true, PropertyType::String),
-            property("value", mark_doc!("/text_field/props/value.md"),true, PropertyType::String),
-            event("onChange", mark_doc!("/text_field/props/onChange.md"),true, [
-                property("value", "".to_string(), true, PropertyType::String)
-            ])
+            property(
+                "label",
+                mark_doc!("/text_field/props/label.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "value",
+                mark_doc!("/text_field/props/value.md"),
+                true,
+                PropertyType::String,
+            ),
+            event(
+                "onChange",
+                mark_doc!("/text_field/props/onChange.md"),
+                true,
+                [property("value", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_none(),
     );
@@ -890,11 +968,24 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/password_field/description.md"),
         "PasswordField",
         [
-            property("label", mark_doc!("/password_field/props/label.md"), true, PropertyType::String),
-            property("value", mark_doc!("/password_field/props/value.md"), true, PropertyType::String),
-            event("onChange", mark_doc!("/password_field/props/onChange.md"), true, [
-                property("value", "".to_string(), true, PropertyType::String)
-            ])
+            property(
+                "label",
+                mark_doc!("/password_field/props/label.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "value",
+                mark_doc!("/password_field/props/value.md"),
+                true,
+                PropertyType::String,
+            ),
+            event(
+                "onChange",
+                mark_doc!("/password_field/props/onChange.md"),
+                true,
+                [property("value", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_none(),
     );
@@ -911,12 +1002,30 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/checkbox/description.md"),
         "Checkbox",
         [
-            property("label", mark_doc!("/checkbox/props/label.md"),true, PropertyType::String),
-            property("title", mark_doc!("/checkbox/props/title.md"),true, PropertyType::String),
-            property("value", mark_doc!("/checkbox/props/value.md"),true, PropertyType::Boolean),
-            event("onChange", mark_doc!("/checkbox/props/onChange.md"),true, [
-                property("value", "".to_string(),false, PropertyType::Boolean)
-            ])
+            property(
+                "label",
+                mark_doc!("/checkbox/props/label.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "title",
+                mark_doc!("/checkbox/props/title.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "value",
+                mark_doc!("/checkbox/props/value.md"),
+                true,
+                PropertyType::Boolean,
+            ),
+            event(
+                "onChange",
+                mark_doc!("/checkbox/props/onChange.md"),
+                true,
+                [property("value", "".to_string(), false, PropertyType::Boolean)],
+            ),
         ],
         children_none(),
     );
@@ -926,11 +1035,24 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/date_picker/description.md"),
         "DatePicker",
         [
-            property("label", mark_doc!("/date_picker/props/label.md"),true, PropertyType::String),
-            property("value", mark_doc!("/date_picker/props/value.md"),true, PropertyType::String),
-            event("onChange", mark_doc!("/date_picker/props/onChange.md"),true, [
-                property("value", "".to_string(), true, PropertyType::String)
-            ])
+            property(
+                "label",
+                mark_doc!("/date_picker/props/label.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "value",
+                mark_doc!("/date_picker/props/value.md"),
+                true,
+                PropertyType::String,
+            ),
+            event(
+                "onChange",
+                mark_doc!("/date_picker/props/onChange.md"),
+                true,
+                [property("value", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_none(),
     );
@@ -939,9 +1061,12 @@ pub fn create_component_model() -> Vec<Component> {
         "select_item",
         mark_doc!("/select_item/description.md"),
         "SelectItem",
-        [
-            property("value", mark_doc!("/select_item/props/value.md"),false, PropertyType::String),
-        ],
+        [property(
+            "value",
+            mark_doc!("/select_item/props/value.md"),
+            false,
+            PropertyType::String,
+        )],
         children_string(mark_doc!("/select_item/props/children.md")),
     );
 
@@ -950,18 +1075,16 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/select/description.md"),
         "Select",
         [
-            property("label", mark_doc!("/select/props/label.md"),true, PropertyType::String),
-            property("value", mark_doc!("/select/props/value.md"),true, PropertyType::String),
-            event("onChange", mark_doc!("/select/props/onChange.md"),true, [
-                property("value", "".to_string(), true, PropertyType::String)
-            ])
+            property("label", mark_doc!("/select/props/label.md"), true, PropertyType::String),
+            property("value", mark_doc!("/select/props/value.md"), true, PropertyType::String),
+            event(
+                "onChange",
+                mark_doc!("/select/props/onChange.md"),
+                true,
+                [property("value", "".to_string(), true, PropertyType::String)],
+            ),
         ],
-        children_members(
-            [
-                member("Item", &select_item_component, Arity::ZeroOrMore )
-            ],
-            []
-        ),
+        children_members([member("Item", &select_item_component, Arity::ZeroOrMore)], []),
     );
 
     // let multi_select_component = component(
@@ -984,8 +1107,18 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/form/description.md"),
         "Form",
         [
-            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            property("actions", mark_doc!("/form/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
+            property(
+                "isLoading",
+                mark_doc!("/list/props/isLoading.md"),
+                true,
+                PropertyType::Boolean,
+            ),
+            property(
+                "actions",
+                mark_doc!("/form/props/actions.md"),
+                true,
+                component_ref(&action_panel_component, Arity::ZeroOrOne),
+            ),
         ],
         children_members(
             [
@@ -998,7 +1131,7 @@ pub fn create_component_model() -> Vec<Component> {
                 // member("MultiSelect", &multi_select_component),
                 member("Separator", &separator_component, Arity::ZeroOrMore),
             ],
-            []
+            [],
         ),
     );
 
@@ -1006,9 +1139,14 @@ pub fn create_component_model() -> Vec<Component> {
         "inline_separator",
         mark_doc!("/inline_separator/description.md"),
         "InlineSeparator",
-        [
-            property("icon", mark_doc!("/inline_separator/props/icon.md"), true, PropertyType::SharedTypeRef { name: "Icons".to_owned() }),
-        ],
+        [property(
+            "icon",
+            mark_doc!("/inline_separator/props/icon.md"),
+            true,
+            PropertyType::SharedTypeRef {
+                name: "Icons".to_owned(),
+            },
+        )],
         children_none(),
     );
 
@@ -1016,9 +1154,12 @@ pub fn create_component_model() -> Vec<Component> {
         "inline",
         mark_doc!("/inline/description.md"),
         "Inline",
-        [
-            property("actions", mark_doc!("/inline/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
-        ],
+        [property(
+            "actions",
+            mark_doc!("/inline/props/actions.md"),
+            true,
+            component_ref(&action_panel_component, Arity::ZeroOrOne),
+        )],
         children_members(
             [
                 member("Left", &content_component, Arity::ZeroOrOne),
@@ -1026,7 +1167,7 @@ pub fn create_component_model() -> Vec<Component> {
                 member("Right", &content_component, Arity::ZeroOrOne),
                 member("Center", &content_component, Arity::ZeroOrOne),
             ],
-            []
+            [],
         ),
     );
 
@@ -1035,9 +1176,26 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/empty_view/description.md"),
         "EmptyView",
         [
-            property("title", mark_doc!("/empty_view/props/title.md"),false, PropertyType::String),
-            property("description", mark_doc!("/empty_view/props/description.md"),true, PropertyType::String),
-            property("image", mark_doc!("/empty_view/props/image.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
+            property(
+                "title",
+                mark_doc!("/empty_view/props/title.md"),
+                false,
+                PropertyType::String,
+            ),
+            property(
+                "description",
+                mark_doc!("/empty_view/props/description.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "image",
+                mark_doc!("/empty_view/props/image.md"),
+                true,
+                PropertyType::SharedTypeRef {
+                    name: "ImageLike".to_owned(),
+                },
+            ),
         ],
         children_none(),
     );
@@ -1047,9 +1205,26 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/accessory_text/description.md"),
         "TextAccessory",
         [
-            property("text", mark_doc!("/accessory_text/props/text.md"),false, PropertyType::String),
-            property("icon", mark_doc!("/accessory_text/props/icon.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
-            property("tooltip", mark_doc!("/accessory_text/props/tooltip.md"),true, PropertyType::String),
+            property(
+                "text",
+                mark_doc!("/accessory_text/props/text.md"),
+                false,
+                PropertyType::String,
+            ),
+            property(
+                "icon",
+                mark_doc!("/accessory_text/props/icon.md"),
+                true,
+                PropertyType::SharedTypeRef {
+                    name: "ImageLike".to_owned(),
+                },
+            ),
+            property(
+                "tooltip",
+                mark_doc!("/accessory_text/props/tooltip.md"),
+                true,
+                PropertyType::String,
+            ),
         ],
         children_none(),
     );
@@ -1059,8 +1234,20 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/accessory_icon/description.md"),
         "IconAccessory",
         [
-            property("icon", mark_doc!("/accessory_icon/props/icon.md"),false, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
-            property("tooltip", mark_doc!("/accessory_icon/props/tooltip.md"),true, PropertyType::String),
+            property(
+                "icon",
+                mark_doc!("/accessory_icon/props/icon.md"),
+                false,
+                PropertyType::SharedTypeRef {
+                    name: "ImageLike".to_owned(),
+                },
+            ),
+            property(
+                "tooltip",
+                mark_doc!("/accessory_icon/props/tooltip.md"),
+                true,
+                PropertyType::String,
+            ),
         ],
         children_none(),
     );
@@ -1070,11 +1257,24 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/search_bar/description.md"),
         "SearchBar",
         [
-            property("value", mark_doc!("/search_bar/props/value.md"),true, PropertyType::String),
-            property("placeholder", mark_doc!("/search_bar/props/placeholder.md"),true, PropertyType::String),
-            event("onChange", mark_doc!("/search_bar/props/onChange.md"),true, [
-                property("value", "".to_string(), true, PropertyType::String)
-            ])
+            property(
+                "value",
+                mark_doc!("/search_bar/props/value.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "placeholder",
+                mark_doc!("/search_bar/props/placeholder.md"),
+                true,
+                PropertyType::String,
+            ),
+            event(
+                "onChange",
+                mark_doc!("/search_bar/props/onChange.md"),
+                true,
+                [property("value", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_none(),
     );
@@ -1085,10 +1285,39 @@ pub fn create_component_model() -> Vec<Component> {
         "ListItem",
         [
             property("id", mark_doc!("/list_item/props/id.md"), false, PropertyType::String),
-            property("title", mark_doc!("/list_item/props/title.md"),false, PropertyType::String),
-            property("subtitle", mark_doc!("/list_item/props/subtitle.md"),true, PropertyType::String),
-            property("icon", mark_doc!("/list_item/props/icon.md"),true, PropertyType::SharedTypeRef { name: "ImageLike".to_owned() }),
-            property("accessories", mark_doc!("/list_item/props/accessories.md"),true, PropertyType::Array { item: Box::new(PropertyType::Union { items: vec![component_ref(&accessory_text_component, Arity::ZeroOrMore), component_ref(&accessory_icon_component, Arity::ZeroOrMore)]}) }),
+            property(
+                "title",
+                mark_doc!("/list_item/props/title.md"),
+                false,
+                PropertyType::String,
+            ),
+            property(
+                "subtitle",
+                mark_doc!("/list_item/props/subtitle.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "icon",
+                mark_doc!("/list_item/props/icon.md"),
+                true,
+                PropertyType::SharedTypeRef {
+                    name: "ImageLike".to_owned(),
+                },
+            ),
+            property(
+                "accessories",
+                mark_doc!("/list_item/props/accessories.md"),
+                true,
+                PropertyType::Array {
+                    item: Box::new(PropertyType::Union {
+                        items: vec![
+                            component_ref(&accessory_text_component, Arity::ZeroOrMore),
+                            component_ref(&accessory_icon_component, Arity::ZeroOrMore),
+                        ],
+                    }),
+                },
+            ),
         ],
         children_none(),
     );
@@ -1098,15 +1327,20 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/list_section/description.md"),
         "ListSection",
         [
-            property("title", mark_doc!("/list_section/props/title.md"),false, PropertyType::String),
-            property("subtitle", mark_doc!("/list_section/props/subtitle.md"),true, PropertyType::String),
+            property(
+                "title",
+                mark_doc!("/list_section/props/title.md"),
+                false,
+                PropertyType::String,
+            ),
+            property(
+                "subtitle",
+                mark_doc!("/list_section/props/subtitle.md"),
+                true,
+                PropertyType::String,
+            ),
         ],
-        children_members(
-            [
-                member("Item", &list_item_component, Arity::ZeroOrMore),
-            ],
-            []
-        ),
+        children_members([member("Item", &list_item_component, Arity::ZeroOrMore)], []),
     );
 
     let list_component = component(
@@ -1114,11 +1348,24 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/list/description.md"),
         "List",
         [
-            property("actions", mark_doc!("/list/props/actions.md"), true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
-            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            event("onItemFocusChange", mark_doc!("/list/props/onItemFocusChange.md"), true, [
-                property("itemId", "".to_string(), true, PropertyType::String)
-            ])
+            property(
+                "actions",
+                mark_doc!("/list/props/actions.md"),
+                true,
+                component_ref(&action_panel_component, Arity::ZeroOrOne),
+            ),
+            property(
+                "isLoading",
+                mark_doc!("/list/props/isLoading.md"),
+                true,
+                PropertyType::Boolean,
+            ),
+            event(
+                "onItemFocusChange",
+                mark_doc!("/list/props/onItemFocusChange.md"),
+                true,
+                [property("itemId", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_members(
             [
@@ -1129,7 +1376,7 @@ pub fn create_component_model() -> Vec<Component> {
                 member("SearchBar", &search_bar_component, Arity::ZeroOrOne),
                 member("EmptyView", &empty_view_component, Arity::ZeroOrOne),
                 member("Detail", &detail_component, Arity::ZeroOrOne),
-            ]
+            ],
         ),
     );
 
@@ -1139,16 +1386,26 @@ pub fn create_component_model() -> Vec<Component> {
         "GridItem",
         [
             property("id", mark_doc!("/list_item/props/id.md"), false, PropertyType::String),
-            property("title", mark_doc!("/grid_item/props/title.md"), true, PropertyType::String),
-            property("subtitle", mark_doc!("/grid_item/props/subtitle.md"), true, PropertyType::String),
-            property("accessory", mark_doc!("/grid_item/props/accessory.md"),true, component_ref(&accessory_icon_component, Arity::ZeroOrOne)),
+            property(
+                "title",
+                mark_doc!("/grid_item/props/title.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "subtitle",
+                mark_doc!("/grid_item/props/subtitle.md"),
+                true,
+                PropertyType::String,
+            ),
+            property(
+                "accessory",
+                mark_doc!("/grid_item/props/accessory.md"),
+                true,
+                component_ref(&accessory_icon_component, Arity::ZeroOrOne),
+            ),
         ],
-        children_members(
-            [],
-            [
-                member("Content", &content_component, Arity::One),
-            ]
-        ),
+        children_members([], [member("Content", &content_component, Arity::One)]),
     );
 
     let grid_section_component = component(
@@ -1156,19 +1413,28 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid_section/description.md"),
         "GridSection",
         [
-            property("title", mark_doc!("/grid_section/props/title.md"), false, PropertyType::String),
-            property("subtitle", mark_doc!("/grid_section/props/subtitle.md"), true, PropertyType::String),
+            property(
+                "title",
+                mark_doc!("/grid_section/props/title.md"),
+                false,
+                PropertyType::String,
+            ),
+            property(
+                "subtitle",
+                mark_doc!("/grid_section/props/subtitle.md"),
+                true,
+                PropertyType::String,
+            ),
             // property("aspectRatio", true, PropertyType::String),
-            property("columns", mark_doc!("/grid_section/props/columns.md"), true, PropertyType::Number)
-            // fit
-            // inset
+            property(
+                "columns",
+                mark_doc!("/grid_section/props/columns.md"),
+                true,
+                PropertyType::Number,
+            ), // fit
+               // inset
         ],
-        children_members(
-            [
-                member("Item", &grid_item_component, Arity::ZeroOrMore),
-            ],
-            []
-        ),
+        children_members([member("Item", &grid_item_component, Arity::ZeroOrMore)], []),
     );
 
     let grid_component = component(
@@ -1176,15 +1442,33 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid/description.md"),
         "Grid",
         [
-            property("isLoading", mark_doc!("/list/props/isLoading.md"), true, PropertyType::Boolean),
-            property("actions", mark_doc!("/grid/props/actions.md"),true, component_ref(&action_panel_component, Arity::ZeroOrOne)),
+            property(
+                "isLoading",
+                mark_doc!("/list/props/isLoading.md"),
+                true,
+                PropertyType::Boolean,
+            ),
+            property(
+                "actions",
+                mark_doc!("/grid/props/actions.md"),
+                true,
+                component_ref(&action_panel_component, Arity::ZeroOrOne),
+            ),
             // property("aspectRatio", true, PropertyType::String),
-            property("columns", mark_doc!("/grid/props/columns.md"),true, PropertyType::Number), // TODO default
+            property(
+                "columns",
+                mark_doc!("/grid/props/columns.md"),
+                true,
+                PropertyType::Number,
+            ), // TODO default
             // fit
             // inset
-            event("onItemFocusChange", mark_doc!("/grid/props/onItemFocusChange.md"), true, [
-                property("itemId", "".to_string(), true, PropertyType::String)
-            ])
+            event(
+                "onItemFocusChange",
+                mark_doc!("/grid/props/onItemFocusChange.md"),
+                true,
+                [property("itemId", "".to_string(), true, PropertyType::String)],
+            ),
         ],
         children_members(
             [
@@ -1194,7 +1478,7 @@ pub fn create_component_model() -> Vec<Component> {
             [
                 member("SearchBar", &search_bar_component, Arity::ZeroOrOne),
                 member("EmptyView", &empty_view_component, Arity::ZeroOrOne),
-            ]
+            ],
         ),
     );
 
@@ -1269,11 +1553,9 @@ pub fn create_component_model() -> Vec<Component> {
 
     vec![
         text_part,
-
         action_component,
         action_panel_section_component,
         action_panel_component,
-
         metadata_link_component,
         metadata_tag_item_component,
         metadata_tag_list_component,
@@ -1281,7 +1563,6 @@ pub fn create_component_model() -> Vec<Component> {
         metadata_value_component,
         metadata_icon_component,
         metadata_component,
-
         // link_component,
         image_component,
         h1_component,
@@ -1295,9 +1576,7 @@ pub fn create_component_model() -> Vec<Component> {
         // code_component,
         paragraph_component,
         content_component,
-
         detail_component,
-
         text_field_component,
         password_field_component,
         // text_area_component,
@@ -1308,24 +1587,18 @@ pub fn create_component_model() -> Vec<Component> {
         // multi_select_component,
         separator_component,
         form_component,
-
         inline_separator_component,
         inline_component,
-
         empty_view_component,
-
         accessory_icon_component,
         accessory_text_component,
-
         search_bar_component,
-
         list_item_component,
         list_section_component,
         list_component,
         grid_item_component,
         grid_section_component,
         grid_component,
-
         root,
     ]
 }

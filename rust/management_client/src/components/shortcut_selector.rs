@@ -1,18 +1,36 @@
-use iced::{alignment, Element, Event, Length, Padding, Rectangle, Renderer, Size};
-use iced::advanced::{Clipboard, layout, Layout, mouse, renderer, Shell, Widget};
-use iced::advanced::graphics::core::{event, keyboard};
-use iced::advanced::widget::{Tree, tree};
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common_ui::physical_key_model;
+use gauntlet_common_ui::shortcut_to_text;
+use iced::advanced::graphics::core::event;
+use iced::advanced::graphics::core::keyboard;
+use iced::advanced::layout;
+use iced::advanced::mouse;
+use iced::advanced::renderer;
+use iced::advanced::widget::tree;
+use iced::advanced::widget::Tree;
+use iced::advanced::Clipboard;
+use iced::advanced::Layout;
+use iced::advanced::Shell;
+use iced::advanced::Widget;
+use iced::alignment;
 use iced::keyboard::key::Physical;
 use iced::mouse::Button;
-use iced::widget::{container, row, text};
-use iced::widget::container::{draw_background, layout};
-
-use gauntlet_common::model::PhysicalShortcut;
-use gauntlet_common_ui::{physical_key_model, shortcut_to_text};
+use iced::widget::container;
+use iced::widget::container::draw_background;
+use iced::widget::container::layout;
+use iced::widget::row;
+use iced::widget::text;
+use iced::Element;
+use iced::Event;
+use iced::Length;
+use iced::Padding;
+use iced::Rectangle;
+use iced::Renderer;
+use iced::Size;
 
 pub struct ShortcutSelector<'a, Message, Theme>
 where
-    Theme: Catalog + text::Catalog + container::Catalog
+    Theme: Catalog + text::Catalog + container::Catalog,
 {
     padding: Padding,
     width: Length,
@@ -30,27 +48,22 @@ where
 
 impl<'a, Message: 'a, Theme> ShortcutSelector<'a, Message, Theme>
 where
-    Theme: Catalog + text::Catalog + container::Catalog + 'a
+    Theme: Catalog + text::Catalog + container::Catalog + 'a,
 {
     pub fn new<F, F2>(
         current_shortcut: &Option<PhysicalShortcut>,
         on_shortcut_captured: F,
         on_capturing_change: F2,
     ) -> Self
-        where
-            F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
-            F2: 'a + Fn(bool) -> Message,
+    where
+        F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
+        F2: 'a + Fn(bool) -> Message,
     {
         let mut content: Vec<Element<Message, Theme>> = vec![];
 
         if let Some(current_shortcut) = current_shortcut {
-            let (
-                key_name,
-                alt_modifier_text,
-                meta_modifier_text,
-                control_modifier_text,
-                shift_modifier_text
-            ) = shortcut_to_text(current_shortcut);
+            let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) =
+                shortcut_to_text(current_shortcut);
 
             if let Some(meta_modifier_text) = meta_modifier_text {
                 content.push(meta_modifier_text);
@@ -71,12 +84,9 @@ where
             content.push(key_name);
         }
 
-        let content: Element<_, _> = row(content)
-            .spacing(8.0)
-            .into();
+        let content: Element<_, _> = row(content).spacing(8.0).into();
 
-        let content = container(content)
-            .into();
+        let content = container(content).into();
 
         Self {
             padding: Padding::ZERO,
@@ -100,10 +110,9 @@ struct State {
     is_capturing: bool,
 }
 
-
 impl<'a, Message, Theme> Widget<Message, Theme, Renderer> for ShortcutSelector<'a, Message, Theme>
 where
-    Theme: Catalog + text::Catalog + container::Catalog
+    Theme: Catalog + text::Catalog + container::Catalog,
 {
     fn size(&self) -> Size<Length> {
         Size {
@@ -112,12 +121,7 @@ where
         }
     }
 
-    fn layout(
-        &self,
-        tree: &mut Tree,
-        renderer: &Renderer,
-        limits: &layout::Limits,
-    ) -> layout::Node {
+    fn layout(&self, tree: &mut Tree, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
         layout(
             limits,
             self.width,
@@ -199,7 +203,11 @@ where
             Event::Keyboard(event) => {
                 if state.is_capturing {
                     match event {
-                        keyboard::Event::KeyReleased { physical_key, modifiers, .. } => {
+                        keyboard::Event::KeyReleased {
+                            physical_key,
+                            modifiers,
+                            ..
+                        } => {
                             match physical_key {
                                 Physical::Code(code) => {
                                     match code {
@@ -237,14 +245,13 @@ where
                                                     event::Status::Captured
                                                 }
                                             }
-
                                         }
                                     }
                                 }
-                                Physical::Unidentified(_) => event::Status::Ignored
+                                Physical::Unidentified(_) => event::Status::Ignored,
                             }
                         }
-                        _ => event::Status::Ignored
+                        _ => event::Status::Ignored,
                     }
                 } else {
                     event::Status::Ignored
@@ -269,12 +276,11 @@ where
                             event::Status::Ignored
                         }
                     }
-                    _ => event::Status::Ignored
+                    _ => event::Status::Ignored,
                 }
             }
-            _ => event::Status::Ignored
+            _ => event::Status::Ignored,
         }
-
     }
 
     fn mouse_interaction(
@@ -296,7 +302,7 @@ where
 impl<'a, Message, Theme> From<ShortcutSelector<'a, Message, Theme>> for Element<'a, Message, Theme>
 where
     Message: 'a,
-    Theme: Catalog + text::Catalog + container::Catalog + 'a
+    Theme: Catalog + text::Catalog + container::Catalog + 'a,
 {
     fn from(shortcut_selector: ShortcutSelector<'a, Message, Theme>) -> Self {
         Self::new(shortcut_selector)
@@ -306,7 +312,7 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
     Active,
-    Capturing
+    Capturing,
 }
 
 pub trait Catalog {

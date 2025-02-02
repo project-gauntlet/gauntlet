@@ -1,13 +1,20 @@
-use crate::theme::{GauntletSettingsTheme, BACKGROUND_DARKER, BACKGROUND_LIGHTER, BACKGROUND_LIGHTEST, DANGER, TRANSPARENT};
 use iced::widget::container;
 use iced::widget::container::Style;
-use iced::{Border, Color};
+use iced::Border;
+use iced::Color;
+
+use crate::theme::GauntletSettingsTheme;
+use crate::theme::BACKGROUND_DARKER;
+use crate::theme::BACKGROUND_LIGHTER;
+use crate::theme::BACKGROUND_LIGHTEST;
+use crate::theme::DANGER;
+use crate::theme::TRANSPARENT;
 
 pub enum ContainerStyle {
     Transparent,
     Box,
     TextInputLike,
-    TextInputMissingValue
+    TextInputMissingValue,
 }
 
 impl container::Catalog for GauntletSettingsTheme {

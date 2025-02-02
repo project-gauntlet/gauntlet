@@ -1,16 +1,17 @@
-use iced::application::{Appearance, DefaultStyle};
+use iced::application::Appearance;
+use iced::application::DefaultStyle;
 
-pub mod container;
-pub mod text;
-pub mod table;
 pub mod button;
-pub mod text_input;
-pub mod number_input;
-pub mod rule;
 pub mod checkbox;
+pub mod container;
+pub mod number_input;
 pub mod pick_list;
+pub mod rule;
 pub mod scrollable;
 pub mod shortcut_selector;
+pub mod table;
+pub mod text;
+pub mod text_input;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletSettingsTheme>;
 
@@ -47,7 +48,6 @@ pub const BUTTON_BORDER_RADIUS: f32 = 6.0;
 pub const SUCCESS: ThemeColor = ThemeColor::new(0x659B5E, 1.0);
 pub const DANGER: ThemeColor = ThemeColor::new(0x6C1B1B, 1.0);
 pub const DANGER_BRIGHT: ThemeColor = ThemeColor::new(0xC20000, 1.0);
-
 
 #[derive(Clone, Debug)]
 pub struct ThemeColor {

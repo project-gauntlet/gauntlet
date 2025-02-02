@@ -1,18 +1,19 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
-use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use gauntlet_common::model::PluginId;
+use tokio_util::sync::CancellationToken;
+use tokio_util::sync::WaitForCancellationFutureOwned;
 
 pub struct RunStatusHolder {
-    running_plugins: Arc<Mutex<HashMap<PluginId, CancellationToken>>>
+    running_plugins: Arc<Mutex<HashMap<PluginId, CancellationToken>>>,
 }
 
 impl RunStatusHolder {
     pub fn new() -> Self {
         Self {
-            running_plugins: Arc::new(Mutex::new(HashMap::new()))
+            running_plugins: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 

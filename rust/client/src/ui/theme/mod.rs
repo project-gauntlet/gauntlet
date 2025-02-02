@@ -1,24 +1,30 @@
-use arc_swap::{ArcSwap, Guard};
-use gauntlet_common::model::{UiTheme, UiThemeColor, UiThemeMode};
-use iced::application::DefaultStyle;
-use iced::{application, Color, Padding};
 use std::sync::Arc;
 
+use arc_swap::ArcSwap;
+use arc_swap::Guard;
+use gauntlet_common::model::UiTheme;
+use gauntlet_common::model::UiThemeColor;
+use gauntlet_common::model::UiThemeMode;
+use iced::application;
+use iced::application::DefaultStyle;
+use iced::Color;
+use iced::Padding;
+
 pub mod button;
-pub mod text_input;
-pub mod row;
-pub mod container;
-pub mod text;
-pub mod date_picker;
-pub mod image;
-pub mod pick_list;
 pub mod checkbox;
-pub mod scrollable;
-pub mod rule;
-pub mod space;
+pub mod container;
+pub mod date_picker;
 pub mod grid;
-pub mod tooltip;
+pub mod image;
 mod loading_bar;
+pub mod pick_list;
+pub mod row;
+pub mod rule;
+pub mod scrollable;
+pub mod space;
+pub mod text;
+pub mod text_input;
+pub mod tooltip;
 
 pub type Element<'a, Message> = iced::Element<'a, Message, GauntletComplexTheme>;
 
@@ -104,7 +110,7 @@ pub struct GauntletComplexTheme {
     text_accessory: ThemePaddingTextColorSpacing,
     icon_accessory: ThemeIconAccessory,
     hud: ThemeRoot,
-    hud_content: ThemePaddingOnly
+    hud_content: ThemePaddingOnly,
 }
 
 impl Default for GauntletComplexTheme {
@@ -130,7 +136,7 @@ impl GauntletComplexTheme {
             background,
             text,
             window,
-            content
+            content,
         } = simple_theme;
 
         let [background_100, background_200, background_300, background_400] = background;
@@ -144,13 +150,13 @@ impl GauntletComplexTheme {
             to_iced(&background_100),
             to_iced(&background_200),
             to_iced(&background_300),
-            to_iced(&background_400)
+            to_iced(&background_400),
         ];
         let [text_100, text_200, text_300, _text_400] = [
             to_iced(&text_100),
             to_iced(&text_200),
             to_iced(&text_300),
-            to_iced(&text_400)
+            to_iced(&text_400),
         ];
 
         GauntletComplexTheme {
@@ -200,7 +206,7 @@ impl GauntletComplexTheme {
                 border_color: Color::TRANSPARENT,
             },
             action_shortcut: ThemePaddingOnly {
-                padding: padding_all(0.0)
+                padding: padding_all(0.0),
             },
             action_shortcut_modifier: ThemeActionShortcutModifier {
                 padding: padding_axis(0.0, 8.0),
@@ -211,7 +217,7 @@ impl GauntletComplexTheme {
                 border_color: Color::TRANSPARENT,
             },
             form_input: ThemePaddingOnly {
-                padding: padding_all(8.0)
+                padding: padding_all(8.0),
             },
             metadata_tag_item: ThemePaddingOnly {
                 padding: padding(0.0, 8.0, 4.0, 0.0),
@@ -220,15 +226,15 @@ impl GauntletComplexTheme {
                 padding: padding_axis(2.0, 8.0),
                 background_color: match mode {
                     UiThemeMode::Light => background_300,
-                    UiThemeMode::Dark => background_200
+                    UiThemeMode::Dark => background_200,
                 },
                 background_color_focused: match mode {
                     UiThemeMode::Light => background_200,
-                    UiThemeMode::Dark => background_100
+                    UiThemeMode::Dark => background_100,
                 },
                 background_color_hovered: match mode {
                     UiThemeMode::Light => background_200,
-                    UiThemeMode::Dark => background_100
+                    UiThemeMode::Dark => background_100,
                 },
                 text_color: text_100,
                 text_color_hovered: text_100,
@@ -258,7 +264,7 @@ impl GauntletComplexTheme {
                 padding: padding_all(4.0),
             },
             content_paragraph: ThemePaddingOnly {
-                padding: padding_all(8.0)
+                padding: padding_all(8.0),
             },
             content_code_block: ThemePaddingOnly {
                 padding: padding_all(0.0),
@@ -274,9 +280,7 @@ impl GauntletComplexTheme {
                 padding: padding_all(8.0),
                 text_color: text_200,
             },
-            inline_separator: ThemeTextColor {
-                text_color: text_200,
-            },
+            inline_separator: ThemeTextColor { text_color: text_200 },
             inline_inner: ThemeInline {
                 padding: padding_all(8.0),
                 background_color: background_200,
@@ -306,9 +310,7 @@ impl GauntletComplexTheme {
                 padding: padding_axis(4.0, 0.0),
                 text_color: text_100,
             },
-            grid_item_subtitle: ThemeTextColor {
-                text_color: text_200,
-            },
+            grid_item_subtitle: ThemeTextColor { text_color: text_200 },
             content_horizontal_break: ThemePaddingOnly {
                 padding: padding_axis(8.0, 0.0),
             },
@@ -330,15 +332,15 @@ impl GauntletComplexTheme {
                 padding: padding_axis(3.0, 5.0),
                 background_color: match mode {
                     UiThemeMode::Light => background_300,
-                    UiThemeMode::Dark => background_200
+                    UiThemeMode::Dark => background_200,
                 },
                 background_color_focused: match mode {
                     UiThemeMode::Light => background_200,
-                    UiThemeMode::Dark => background_100
+                    UiThemeMode::Dark => background_100,
                 },
                 background_color_hovered: match mode {
                     UiThemeMode::Light => background_200,
-                    UiThemeMode::Dark => background_100
+                    UiThemeMode::Dark => background_100,
                 },
                 text_color: text_100,
                 text_color_hovered: text_100,
@@ -349,7 +351,7 @@ impl GauntletComplexTheme {
             root_bottom_panel: ThemeBottomPanel {
                 padding: padding_axis(6.0, 8.0),
                 background_color: background_300,
-                spacing: 8.0
+                spacing: 8.0,
             },
             root_bottom_panel_action_toggle_button: ThemeButton {
                 padding: padding_axis(3.0, 5.0),
@@ -364,11 +366,11 @@ impl GauntletComplexTheme {
             },
             root_bottom_panel_action_toggle_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
-                text_color: text_200
+                text_color: text_200,
             },
             root_bottom_panel_primary_action_text: ThemePaddingTextColor {
                 padding: padding(0.0, 8.0, 0.0, 4.0),
-                text_color: text_100
+                text_color: text_100,
             },
             list_item: ThemeButton {
                 padding: padding_all(5.0),
@@ -382,7 +384,7 @@ impl GauntletComplexTheme {
                 border_color: Color::TRANSPARENT,
             },
             list_item_icon: ThemePaddingOnly {
-                padding: padding_axis(0.0, 4.0)
+                padding: padding_axis(0.0, 4.0),
             },
             detail_metadata: ThemePaddingOnly {
                 padding: padding_axis(0.0, 12.0),
@@ -423,27 +425,23 @@ impl GauntletComplexTheme {
                 text_color: text_200,
                 spacing: 8.0,
             },
-            list_section_subtitle: ThemeTextColor {
-                text_color: text_300
-            },
+            list_section_subtitle: ThemeTextColor { text_color: text_300 },
             grid_section_title: ThemePaddingTextColorSpacing {
                 padding: padding(12.0, 0.0, 4.0, 0.0),
                 text_color: text_200,
                 spacing: 8.0,
             },
-            grid_section_subtitle: ThemeTextColor {
-                text_color: text_300
-            },
+            grid_section_subtitle: ThemeTextColor { text_color: text_300 },
             main_list_item: ThemeButton {
                 padding: padding_all(5.0),
                 background_color: Color::TRANSPARENT,
                 background_color_focused: match mode {
                     UiThemeMode::Light => background_300,
-                    UiThemeMode::Dark => background_200
+                    UiThemeMode::Dark => background_200,
                 },
                 background_color_hovered: match mode {
                     UiThemeMode::Light => background_200,
-                    UiThemeMode::Dark => background_300
+                    UiThemeMode::Dark => background_300,
                 },
                 text_color: text_100,
                 text_color_hovered: text_100,
@@ -483,9 +481,7 @@ impl GauntletComplexTheme {
                 text_color: text_100,
                 text_color_hovered: text_200,
             },
-            empty_view_subtitle: ThemeTextColor {
-                text_color: text_300,
-            },
+            empty_view_subtitle: ThemeTextColor { text_color: text_300 },
             form_input_date_picker: ThemeDatePicker {
                 background_color: background_400,
                 text_color: text_100,
@@ -546,9 +542,7 @@ impl GauntletComplexTheme {
                 border_color: background_200,
                 border_color_hovered: background_200,
             },
-            separator: ThemeSeparator {
-                color: background_200
-            },
+            separator: ThemeSeparator { color: background_200 },
             scrollbar: ThemeScrollbar {
                 color: background_200,
                 border_radius: content.border.radius,
@@ -573,7 +567,7 @@ impl GauntletComplexTheme {
                 icon_color: text_200,
             },
             hud: ThemeRoot {
-                background_color: Color::from_rgba8(30,30,30, 0.7),
+                background_color: Color::from_rgba8(30, 30, 30, 0.7),
                 border_radius: 30.0,
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
@@ -590,14 +584,14 @@ fn init_theme(theme: GauntletComplexTheme) {
 }
 
 fn set_theme(theme: GauntletComplexTheme) {
-    THEME.get().expect("theme global var was not set").store(Arc::new(theme))
-}
-
-fn get_theme() -> Guard<Arc<GauntletComplexTheme>> {
     THEME
         .get()
         .expect("theme global var was not set")
-        .load()
+        .store(Arc::new(theme))
+}
+
+fn get_theme() -> Guard<Arc<GauntletComplexTheme>> {
+    THEME.get().expect("theme global var was not set").load()
 }
 
 static THEME: once_cell::sync::OnceCell<ArcSwap<GauntletComplexTheme>> = once_cell::sync::OnceCell::new();
@@ -614,16 +608,11 @@ const fn padding(top: f32, right: f32, bottom: f32, left: f32) -> ThemePadding {
 }
 
 const fn padding_all(value: f32) -> ThemePadding {
-    ThemePadding::All {
-        all: value
-    }
+    ThemePadding::All { all: value }
 }
 
 const fn padding_axis(vertical: f32, horizontal: f32) -> ThemePadding {
-    ThemePadding::Axis {
-        vertical,
-        horizontal,
-    }
+    ThemePadding::Axis { vertical, horizontal }
 }
 
 #[derive(Debug, Clone)]
@@ -651,7 +640,7 @@ pub struct ThemeCheckbox {
     border_width: f32,
     border_color: Color,
 
-    icon_color: Color
+    icon_color: Color,
 }
 
 #[derive(Debug, Clone)]
@@ -769,7 +758,7 @@ pub struct ThemeDatePicker {
 
     day_background_color: Color,
     day_background_color_selected: Color,
-    day_background_color_hovered: Color
+    day_background_color_hovered: Color,
 }
 
 #[derive(Debug, Clone)]
@@ -878,7 +867,12 @@ pub enum ThemePadding {
 impl ThemePadding {
     fn to_iced(&self) -> Padding {
         match self {
-            ThemePadding::Each { top, right, bottom, left } => {
+            ThemePadding::Each {
+                top,
+                right,
+                bottom,
+                left,
+            } => {
                 Padding {
                     top: *top,
                     right: *right,
@@ -934,4 +928,3 @@ impl iced_layershell::DefaultStyle for GauntletComplexTheme {
         }
     }
 }
-

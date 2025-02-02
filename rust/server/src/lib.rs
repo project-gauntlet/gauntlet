@@ -1,27 +1,38 @@
-use crate::plugins::ApplicationManager;
-use crate::rpc::BackendServerImpl;
-use crate::search::SearchIndex;
-use gauntlet_client::{open_window, start_client};
-use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::{BackendRequestData, BackendResponseData, UiRequestData, UiResponseData};
-use gauntlet_common::rpc::backend_api::BackendApi;
-use gauntlet_common::rpc::backend_server::start_backend_server;
-use gauntlet_common::{settings_env_data_from_string, settings_env_data_to_string, SettingsEnvData};
-use gauntlet_plugin_runtime::run_plugin_runtime;
-use gauntlet_utils::channel::{channel, RequestReceiver, RequestSender};
 use std::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+
+use gauntlet_client::open_window;
+use gauntlet_client::start_client;
+use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::BackendRequestData;
+use gauntlet_common::model::BackendResponseData;
+use gauntlet_common::model::UiRequestData;
+use gauntlet_common::model::UiResponseData;
+use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_server::start_backend_server;
+use gauntlet_common::settings_env_data_from_string;
+use gauntlet_common::settings_env_data_to_string;
+use gauntlet_common::SettingsEnvData;
+use gauntlet_plugin_runtime::run_plugin_runtime;
+use gauntlet_utils::channel::channel;
+use gauntlet_utils::channel::RequestReceiver;
+use gauntlet_utils::channel::RequestSender;
 use vergen_pretty::vergen_pretty_env;
 
+use crate::plugins::ApplicationManager;
+use crate::rpc::BackendServerImpl;
+use crate::search::SearchIndex;
+
+pub(crate) mod model;
+pub(crate) mod plugins;
 pub mod rpc;
-pub(in crate) mod search;
-pub(in crate) mod plugins;
-pub(in crate) mod model;
+pub(crate) mod search;
 
 const PLUGIN_CONNECT_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_CONNECT__";
 const PLUGIN_UUID_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_UUID__";
@@ -65,8 +76,8 @@ pub fn start(minimized: bool) {
 
 #[cfg(feature = "scenario_runner")]
 fn run_scenario_runner() {
-    let runner_type = std::env::var("GAUNTLET_SCENARIO_RUNNER_TYPE")
-        .expect("Unable to read GAUNTLET_SCENARIO_RUNNER_TYPE");
+    let runner_type =
+        std::env::var("GAUNTLET_SCENARIO_RUNNER_TYPE").expect("Unable to read GAUNTLET_SCENARIO_RUNNER_TYPE");
 
     match runner_type.as_str() {
         "screenshot_gen" => {
@@ -82,16 +93,13 @@ fn run_scenario_runner() {
             let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
             let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
 
-            std::thread::spawn(|| {
-                start_server(frontend_sender, backend_receiver)
-            });
+            std::thread::spawn(|| start_server(frontend_sender, backend_receiver));
 
             start_frontend_mock(frontend_receiver, backend_sender)
         }
-        _ => panic!("unknown type")
+        _ => panic!("unknown type"),
     }
 }
-
 
 fn is_server_running() -> bool {
     tokio::runtime::Builder::new_multi_thread()
@@ -99,33 +107,36 @@ fn is_server_running() -> bool {
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
-            let test_fn = || async {
-                let mut api = BackendApi::new().await?;
+            let test_fn = || {
+                async {
+                    let mut api = BackendApi::new().await?;
 
-                api.ping().await?;
+                    api.ping().await?;
 
-                anyhow::Ok(())
+                    anyhow::Ok(())
+                }
             };
 
             test_fn().await.is_ok()
         })
 }
 
-fn start_server(request_sender: RequestSender<UiRequestData, UiResponseData>, backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>) {
+fn start_server(
+    request_sender: RequestSender<UiRequestData, UiResponseData>,
+    backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
+) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("unable to start server tokio runtime")
-        .block_on(async {
-            run_server(request_sender, backend_receiver).await
-        })
+        .block_on(async { run_server(request_sender, backend_receiver).await })
         .unwrap();
 }
 
 #[cfg(feature = "scenario_runner")]
 fn start_frontend_mock(
     request_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>
+    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 ) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -137,7 +148,10 @@ fn start_frontend_mock(
         .unwrap();
 }
 
-async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData>, mut backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>) -> anyhow::Result<()> {
+async fn run_server(
+    frontend_sender: RequestSender<UiRequestData, UiResponseData>,
+    mut backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
+) -> anyhow::Result<()> {
     let application_manager = ApplicationManager::create(frontend_sender).await?;
 
     let mut application_manager = Arc::new(application_manager);
@@ -165,9 +179,7 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
     tokio::spawn({
         let application_manager = application_manager.clone();
 
-        async move {
-            start_backend_server(Box::new(BackendServerImpl::new(application_manager.clone()))).await
-        }
+        async move { start_backend_server(Box::new(BackendServerImpl::new(application_manager.clone()))).await }
     });
 
     loop {
@@ -179,58 +191,83 @@ async fn run_server(frontend_sender: RequestSender<UiRequestData, UiResponseData
     }
 }
 
-async fn handle_request(application_manager: Arc<ApplicationManager>, request_data: BackendRequestData) -> anyhow::Result<BackendResponseData> {
+async fn handle_request(
+    application_manager: Arc<ApplicationManager>,
+    request_data: BackendRequestData,
+) -> anyhow::Result<BackendResponseData> {
     let response_data = match request_data {
         BackendRequestData::Setup => {
             let data = application_manager.setup_data().await?;
 
-            BackendResponseData::SetupData {
-                data,
-            }
+            BackendResponseData::SetupData { data }
         }
         BackendRequestData::SetupResponse { global_shortcut_error } => {
             application_manager.setup_response(global_shortcut_error).await?;
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::Search { text, render_inline_view } => {
+        BackendRequestData::Search {
+            text,
+            render_inline_view,
+        } => {
             let results = application_manager.search(&text, render_inline_view)?;
 
-            BackendResponseData::Search {
-                results,
-            }
+            BackendResponseData::Search { results }
         }
-        BackendRequestData::RequestViewRender { plugin_id, entrypoint_id } => {
-            let shortcuts = application_manager.handle_render_view(plugin_id.clone(), entrypoint_id.clone())
+        BackendRequestData::RequestViewRender {
+            plugin_id,
+            entrypoint_id,
+        } => {
+            let shortcuts = application_manager
+                .handle_render_view(plugin_id.clone(), entrypoint_id.clone())
                 .await?;
 
-            BackendResponseData::RequestViewRender {
-                shortcuts
-            }
+            BackendResponseData::RequestViewRender { shortcuts }
         }
         BackendRequestData::RequestViewClose { plugin_id } => {
             application_manager.handle_view_close(plugin_id);
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::RequestRunCommand { plugin_id, entrypoint_id } => {
-            application_manager.handle_run_command(plugin_id, entrypoint_id)
+        BackendRequestData::RequestRunCommand {
+            plugin_id,
+            entrypoint_id,
+        } => {
+            application_manager.handle_run_command(plugin_id, entrypoint_id).await;
+
+            BackendResponseData::Nothing
+        }
+        BackendRequestData::RequestRunGeneratedEntrypoint {
+            plugin_id,
+            entrypoint_id,
+            action_index,
+        } => {
+            application_manager
+                .handle_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
                 .await;
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::RequestRunGeneratedEntrypoint { plugin_id, entrypoint_id, action_index } => {
-            application_manager.handle_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
-                .await;
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::SendViewEvent { plugin_id, widget_id, event_name, event_arguments } => {
+        BackendRequestData::SendViewEvent {
+            plugin_id,
+            widget_id,
+            event_name,
+            event_arguments,
+        } => {
             application_manager.handle_view_event(plugin_id, widget_id, event_name, event_arguments);
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::SendKeyboardEvent { plugin_id, entrypoint_id, origin, key, modifier_shift, modifier_control, modifier_alt, modifier_meta } => {
+        BackendRequestData::SendKeyboardEvent {
+            plugin_id,
+            entrypoint_id,
+            origin,
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        } => {
             application_manager.handle_keyboard_event(
                 plugin_id,
                 entrypoint_id,
@@ -254,14 +291,16 @@ async fn handle_request(application_manager: Arc<ApplicationManager>, request_da
 
             BackendResponseData::Nothing
         }
-        BackendRequestData::OpenSettingsWindowPreferences { plugin_id, entrypoint_id } => {
+        BackendRequestData::OpenSettingsWindowPreferences {
+            plugin_id,
+            entrypoint_id,
+        } => {
             application_manager.handle_open_settings_window_preferences(plugin_id, entrypoint_id);
 
             BackendResponseData::Nothing
         }
         BackendRequestData::InlineViewShortcuts => {
-            let shortcuts = application_manager.inline_view_shortcuts()
-                .await?;
+            let shortcuts = application_manager.inline_view_shortcuts().await?;
 
             BackendResponseData::InlineViewShortcuts { shortcuts }
         }
@@ -269,7 +308,6 @@ async fn handle_request(application_manager: Arc<ApplicationManager>, request_da
 
     Ok(response_data)
 }
-
 
 #[cfg(not(feature = "release"))]
 fn register_panic_hook(plugin_runtime: Option<String>) {
@@ -300,10 +338,7 @@ fn register_panic_hook(plugin_runtime: Option<String>) {
         let location = panic_info.location().map(|l| l.to_string());
         let backtrace = Backtrace::capture();
 
-        let crash_file = File::options()
-            .create(true)
-            .append(true)
-            .open(&crash_file);
+        let crash_file = File::options().create(true).append(true).open(&crash_file);
 
         if let Ok(mut crash_file) = crash_file {
             let now = SystemTime::now()
@@ -312,7 +347,13 @@ fn register_panic_hook(plugin_runtime: Option<String>) {
                 .map(|duration| duration.as_millis().to_string())
                 .unwrap_or("Unknown".to_string());
 
-            let _ = crash_file.write_all(format!("Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace: {}\n", now, payload, location, backtrace).as_bytes());
+            let _ = crash_file.write_all(
+                format!(
+                    "Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace: {}\n",
+                    now, payload, location, backtrace
+                )
+                .as_bytes(),
+            );
         }
     }));
 }

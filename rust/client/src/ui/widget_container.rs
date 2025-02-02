@@ -1,14 +1,26 @@
 use std::collections::hash_map::Entry;
-use crate::model::UiViewEvent;
-use crate::ui::state::PluginViewState;
-use crate::ui::theme::Element;
-use crate::ui::widget::{create_state, ActionPanel, ComponentWidgetEvent, ComponentWidgetState, ComponentWidgets, ComponentWidgetsMut};
-use gauntlet_common::model::{EntrypointId, PhysicalShortcut, PluginId, RootWidget, UiWidgetId};
 use std::collections::HashMap;
 use std::mem;
 use std::ops::DerefMut;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
+
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::RootWidget;
+use gauntlet_common::model::UiWidgetId;
 use iced::Task;
+
+use crate::model::UiViewEvent;
+use crate::ui::state::PluginViewState;
+use crate::ui::theme::Element;
+use crate::ui::widget::create_state;
+use crate::ui::widget::ActionPanel;
+use crate::ui::widget::ComponentWidgetEvent;
+use crate::ui::widget::ComponentWidgetState;
+use crate::ui::widget::ComponentWidgets;
+use crate::ui::widget::ComponentWidgetsMut;
 use crate::ui::AppMsg;
 
 pub struct PluginWidgetContainer {
@@ -18,7 +30,7 @@ pub struct PluginWidgetContainer {
     plugin_id: Option<PluginId>,
     plugin_name: Option<String>,
     entrypoint_id: Option<EntrypointId>,
-    entrypoint_name: Option<String>
+    entrypoint_name: Option<String>,
 }
 
 impl PluginWidgetContainer {
@@ -35,11 +47,15 @@ impl PluginWidgetContainer {
     }
 
     pub fn get_plugin_id(&self) -> PluginId {
-        self.plugin_id.clone().expect("plugin id should always exist after render")
+        self.plugin_id
+            .clone()
+            .expect("plugin id should always exist after render")
     }
 
     pub fn get_entrypoint_id(&self) -> EntrypointId {
-        self.entrypoint_id.clone().expect("entrypoint id should always exist after render")
+        self.entrypoint_id
+            .clone()
+            .expect("entrypoint id should always exist after render")
     }
 
     pub fn replace_view(
@@ -49,7 +65,7 @@ impl PluginWidgetContainer {
         plugin_id: &PluginId,
         plugin_name: &str,
         entrypoint_id: &EntrypointId,
-        entrypoint_name: &str
+        entrypoint_name: &str,
     ) -> AppMsg {
         tracing::trace!("replace_view is called. container: {:?}", container);
 
@@ -74,14 +90,13 @@ impl PluginWidgetContainer {
 
         let first_open = match self.root_widget.as_ref() {
             None => true,
-            Some(root_widget) => root_widget.content.is_none()
+            Some(root_widget) => root_widget.content.is_none(),
         };
 
         self.root_widget = Some(container);
 
         if first_open {
-            ComponentWidgets::new(&mut self.root_widget, &mut self.state, plugin_id.clone(), &self.images)
-                .first_open()
+            ComponentWidgets::new(&mut self.root_widget, &mut self.state, plugin_id.clone(), &self.images).first_open()
         } else {
             AppMsg::Noop
         }
@@ -98,8 +113,11 @@ impl PluginWidgetContainer {
         plugin_view_state: &PluginViewState,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
-            .render_root_widget(plugin_view_state, self.entrypoint_name.as_ref(), action_shortcuts)
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images).render_root_widget(
+            plugin_view_state,
+            self.entrypoint_name.as_ref(),
+            action_shortcuts,
+        )
     }
 
     pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
@@ -109,36 +127,30 @@ impl PluginWidgetContainer {
 
     pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .append_text(text)
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).append_text(text)
     }
 
     pub fn backspace_text(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .backspace_text()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).backspace_text()
     }
 
     pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.images)
-            .focus_search_bar(widget_id)
+        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.images).focus_search_bar(widget_id)
     }
 
     pub fn toggle_action_panel(&mut self) {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .toggle_action_panel()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).toggle_action_panel()
     }
 
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
-            .get_action_ids()
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images).get_action_ids()
     }
 
     pub fn get_focused_item_id(&self) -> Option<String> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images)
-            .get_focused_item_id()
+        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.images).get_focused_item_id()
     }
 
     pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
@@ -148,25 +160,21 @@ impl PluginWidgetContainer {
 
     pub fn focus_up(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .focus_up()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).focus_up()
     }
 
     pub fn focus_down(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .focus_down()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).focus_down()
     }
 
     pub fn focus_left(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .focus_left()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).focus_left()
     }
 
     pub fn focus_right(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images)
-            .focus_right()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.images).focus_right()
     }
 }

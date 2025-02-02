@@ -1,23 +1,39 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+
 use anyhow::anyhow;
-use deno_core::{op2, OpState};
-use serde::{Deserialize, Serialize};
+use deno_core::op2;
+use deno_core::OpState;
+use serde::Deserialize;
+use serde::Serialize;
 use smithay_client_toolkit::reexports::calloop;
-use smithay_client_toolkit::reexports::calloop::{EventLoop, InsertError, RegistrationToken};
-use smithay_client_toolkit::reexports::calloop::channel::{Channel, Event};
+use smithay_client_toolkit::reexports::calloop::channel::Channel;
+use smithay_client_toolkit::reexports::calloop::channel::Event;
+use smithay_client_toolkit::reexports::calloop::EventLoop;
+use smithay_client_toolkit::reexports::calloop::InsertError;
+use smithay_client_toolkit::reexports::calloop::RegistrationToken;
 use smithay_client_toolkit::reexports::calloop_wayland_source::WaylandSource;
-use smithay_client_toolkit::seat::{Capability, SeatHandler, SeatState};
+use smithay_client_toolkit::seat::Capability;
+use smithay_client_toolkit::seat::SeatHandler;
+use smithay_client_toolkit::seat::SeatState;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{Receiver, Sender};
-use wayland_client::{Connection, Dispatch, QueueHandle};
-use wayland_client::globals::{registry_queue_init, GlobalList, GlobalListContents};
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
+use wayland_client::globals::registry_queue_init;
+use wayland_client::globals::GlobalList;
+use wayland_client::globals::GlobalListContents;
 use wayland_client::protocol::wl_registry;
 use wayland_client::protocol::wl_seat::WlSeat;
-use crate::plugins::applications::{linux, ApplicationContext, DesktopEnvironment};
+use wayland_client::Connection;
+use wayland_client::Dispatch;
+use wayland_client::QueueHandle;
 
-mod wlr;
+use crate::plugins::applications::linux;
+use crate::plugins::applications::ApplicationContext;
+use crate::plugins::applications::DesktopEnvironment;
+
 mod cosmic;
+mod wlr;
 
 pub struct WaylandDesktopEnvironment {
     activate_sender: calloop::channel::Sender<String>,
@@ -55,27 +71,17 @@ impl WaylandDesktopEnvironment {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum JsWaylandApplicationEvent {
-    WindowOpened {
-        window_id: String
-    },
-    WindowClosed {
-        window_id: String
-    },
-    WindowTitleChanged {
-        window_id: String,
-        title: String,
-    },
-    WindowAppIdChanged {
-        window_id: String,
-        app_id: String
-    }
+    WindowOpened { window_id: String },
+    WindowClosed { window_id: String },
+    WindowTitleChanged { window_id: String, title: String },
+    WindowAppIdChanged { window_id: String, app_id: String },
 }
 
 pub struct WaylandState {
     seat_state: SeatState,
     tokio_handle: Handle,
     sender: Sender<JsWaylandApplicationEvent>,
-    inner: WaylandStateInner
+    inner: WaylandStateInner,
 }
 
 impl WaylandState {
@@ -84,14 +90,12 @@ impl WaylandState {
         sender: Sender<JsWaylandApplicationEvent>,
         seat_state: SeatState,
         globals: &GlobalList,
-        queue_handle: &QueueHandle<WaylandState>
+        queue_handle: &QueueHandle<WaylandState>,
     ) -> anyhow::Result<Self> {
-
         let inner = wlr::WlrWaylandState::new(globals, queue_handle)
             .map(|state| WaylandStateInner::Wlr(state))
             .or_else(|test| {
-                cosmic::CosmicWaylandState::new(globals, queue_handle)
-                    .map(|state| WaylandStateInner::Cosmic(state))
+                cosmic::CosmicWaylandState::new(globals, queue_handle).map(|state| WaylandStateInner::Cosmic(state))
             })
             .unwrap_or(WaylandStateInner::None);
 
@@ -107,7 +111,7 @@ impl WaylandState {
 pub enum WaylandStateInner {
     Wlr(wlr::WlrWaylandState),
     Cosmic(cosmic::CosmicWaylandState),
-    None
+    None,
 }
 
 fn send_event(tokio_handle: &Handle, sender: &Sender<JsWaylandApplicationEvent>, app_event: JsWaylandApplicationEvent) {
@@ -162,14 +166,13 @@ pub fn linux_wayland_focus_window(state: Rc<RefCell<OpState>>, #[string] window_
     {
         let state = state.borrow();
 
-        let context = state
-            .borrow::<ApplicationContext>();
+        let context = state.borrow::<ApplicationContext>();
 
         match &context.desktop {
             DesktopEnvironment::Linux(linux::LinuxDesktopEnvironment::Wayland(env)) => {
                 env.focus_window(window_uuid)?;
-            },
-            _ => Err(anyhow!("Calling linux_wayland_focus_window on non-wayland platform"))?
+            }
+            _ => Err(anyhow!("Calling linux_wayland_focus_window on non-wayland platform"))?,
         };
     };
 
@@ -179,7 +182,7 @@ pub fn linux_wayland_focus_window(state: Rc<RefCell<OpState>>, #[string] window_
 fn activation_handler(event: Event<String>, _metadata: &mut (), state: &mut WaylandState) {
     let window_uuid = match event {
         Event::Msg(window_uuid) => window_uuid,
-        Event::Closed => panic!("activation source was closed")
+        Event::Closed => panic!("activation source was closed"),
     };
 
     match &state.inner {
@@ -199,26 +202,29 @@ fn activation_handler(event: Event<String>, _metadata: &mut (), state: &mut Wayl
     }
 }
 
-
 #[op2(async)]
 #[serde]
-pub async fn application_wayland_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsWaylandApplicationEvent> {
+pub async fn application_wayland_pending_event(
+    state: Rc<RefCell<OpState>>,
+) -> anyhow::Result<JsWaylandApplicationEvent> {
     let receiver = {
         let state = state.borrow();
 
-        let context = state
-            .borrow::<ApplicationContext>();
+        let context = state.borrow::<ApplicationContext>();
 
         match &context.desktop {
-            DesktopEnvironment::Linux(linux::LinuxDesktopEnvironment::Wayland(env)) => {
-                env.event_receiver.clone()
-            },
-            _ => Err(anyhow!("Calling application_wayland_pending_event on non-wayland platform"))?
+            DesktopEnvironment::Linux(linux::LinuxDesktopEnvironment::Wayland(env)) => env.event_receiver.clone(),
+            _ => {
+                Err(anyhow!(
+                    "Calling application_wayland_pending_event on non-wayland platform"
+                ))?
+            }
         }
     };
 
     let mut receiver = receiver.borrow_mut();
-    let event = receiver.recv()
+    let event = receiver
+        .recv()
         .await
         .ok_or_else(|| anyhow!("plugin event stream was suddenly closed"))?;
 
@@ -226,7 +232,6 @@ pub async fn application_wayland_pending_event(state: Rc<RefCell<OpState>>) -> a
 
     Ok(event)
 }
-
 
 impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for WaylandState {
     fn event(
@@ -245,17 +250,20 @@ impl SeatHandler for WaylandState {
         &mut self.seat_state
     }
 
-    fn new_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat) {
+    fn new_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat) {}
+
+    fn new_capability(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat, _capability: Capability) {}
+
+    fn remove_capability(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _seat: WlSeat,
+        _capability: Capability,
+    ) {
     }
 
-    fn new_capability(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat, _capability: Capability) {
-    }
-
-    fn remove_capability(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat, _capability: Capability) {
-    }
-
-    fn remove_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat) {
-    }
+    fn remove_seat(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _seat: WlSeat) {}
 }
 
 smithay_client_toolkit::delegate_seat!(WaylandState);

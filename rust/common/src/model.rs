@@ -1,14 +1,20 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use bincode::{Decode, Encode};
+use bincode::Decode;
+use bincode::Encode;
 use gix_url::Scheme;
 use gix_url::Url;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
 pub struct PluginId(Arc<str>);
@@ -29,15 +35,9 @@ impl PluginId {
         let url = self.try_to_url()?;
 
         match url.scheme {
-            Scheme::Git | Scheme::Ssh | Scheme::Http | Scheme::Https => {
-                Ok(url.to_bstring().to_string())
-            }
-            Scheme::File => {
-                Err(anyhow!("'file' schema is not supported"))
-            }
-            Scheme::Ext(schema) => {
-                Err(anyhow!("'{}' schema is not supported", schema))
-            }
+            Scheme::Git | Scheme::Ssh | Scheme::Http | Scheme::Https => Ok(url.to_bstring().to_string()),
+            Scheme::File => Err(anyhow!("'file' schema is not supported")),
+            Scheme::Ext(schema) => Err(anyhow!("'{}' schema is not supported", schema)),
         }
     }
 
@@ -45,7 +45,7 @@ impl PluginId {
         let url = self.try_to_url()?;
 
         if url.scheme != Scheme::File {
-            return Err(anyhow!("plugin id is expected to point to local file"))
+            return Err(anyhow!("plugin id is expected to point to local file"));
         }
 
         let plugin_dir: String = url.path.try_into()?;
@@ -79,15 +79,13 @@ impl Display for EntrypointId {
 pub enum DownloadStatus {
     InProgress,
     Done,
-    Failed {
-        message: String
-    },
+    Failed { message: String },
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum UiRenderLocation {
     InlineView,
-    View
+    View,
 }
 
 #[derive(Debug, Clone)]
@@ -123,11 +121,11 @@ pub enum SearchResultAccessory {
     TextAccessory {
         text: String,
         icon: Option<Icons>,
-        tooltip: Option<String>
+        tooltip: Option<String>,
     },
     IconAccessory {
         icon: Icons,
-        tooltip: Option<String>
+        tooltip: Option<String>,
     },
 }
 
@@ -154,13 +152,13 @@ pub enum SearchResultEntrypointType {
 #[derive(Debug, Clone)]
 pub enum UiThemeMode {
     Light,
-    Dark
+    Dark,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum WindowPositionMode {
     Static,
-    ActiveMonitor
+    ActiveMonitor,
 }
 
 impl Display for WindowPositionMode {
@@ -173,7 +171,6 @@ impl Display for WindowPositionMode {
         write!(f, "{}", label)
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct UiThemeColor {
@@ -241,7 +238,7 @@ pub enum UiRequestData {
     ShowWindow,
     HideWindow,
     ClearInlineView {
-        plugin_id: PluginId
+        plugin_id: PluginId,
     },
     ReplaceView {
         plugin_id: PluginId,
@@ -266,21 +263,21 @@ pub enum UiRequestData {
     },
     RequestSearchResultUpdate,
     ShowHud {
-        display: String
+        display: String,
     },
     UpdateLoadingBar {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        show: bool
+        show: bool,
     },
     SetGlobalShortcut {
-        shortcut: Option<PhysicalShortcut>
+        shortcut: Option<PhysicalShortcut>,
     },
     SetTheme {
-        theme: UiTheme
+        theme: UiTheme,
     },
     SetWindowPositionMode {
-        mode: WindowPositionMode
+        mode: WindowPositionMode,
     },
 }
 
@@ -288,16 +285,16 @@ pub enum UiRequestData {
 pub enum BackendResponseData {
     Nothing,
     SetupData {
-        data: UiSetupData
+        data: UiSetupData,
     },
     Search {
-        results: Vec<SearchResult>
+        results: Vec<SearchResult>,
     },
     RequestViewRender {
-        shortcuts: HashMap<String, PhysicalShortcut>
+        shortcuts: HashMap<String, PhysicalShortcut>,
     },
     InlineViewShortcuts {
-        shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>
+        shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
     },
 }
 
@@ -306,29 +303,29 @@ pub enum BackendRequestData {
     Setup,
     Search {
         text: String,
-        render_inline_view: bool
+        render_inline_view: bool,
     },
     RequestViewRender {
         plugin_id: PluginId,
-        entrypoint_id: EntrypointId
+        entrypoint_id: EntrypointId,
     },
     RequestViewClose {
         plugin_id: PluginId,
     },
     RequestRunCommand {
         plugin_id: PluginId,
-        entrypoint_id: EntrypointId
+        entrypoint_id: EntrypointId,
     },
     RequestRunGeneratedEntrypoint {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        action_index: usize
+        action_index: usize,
     },
     SendViewEvent {
         plugin_id: PluginId,
         widget_id: UiWidgetId,
         event_name: String,
-        event_arguments: Vec<UiPropertyValue>
+        event_arguments: Vec<UiPropertyValue>,
     },
     SendKeyboardEvent {
         plugin_id: PluginId,
@@ -338,20 +335,20 @@ pub enum BackendRequestData {
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
-        modifier_meta: bool
+        modifier_meta: bool,
     },
     SendOpenEvent {
         plugin_id: PluginId,
-        href: String
+        href: String,
     },
     OpenSettingsWindow,
     OpenSettingsWindowPreferences {
         plugin_id: PluginId,
-        entrypoint_id: Option<EntrypointId>
+        entrypoint_id: Option<EntrypointId>,
     },
     InlineViewShortcuts,
     SetupResponse {
-        global_shortcut_error: Option<String>
+        global_shortcut_error: Option<String>,
     },
 }
 
@@ -368,7 +365,7 @@ where
 {
     let value = match value {
         None => vec![],
-        Some(value) => vec![value]
+        Some(value) => vec![value],
     };
 
     let res = Vec::<&V>::serialize(&value, serializer)?;
@@ -376,7 +373,11 @@ where
     Ok(res)
 }
 
-fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error> where D: Deserializer<'de>, V: Deserialize<'de> {
+fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error>
+where
+    D: Deserializer<'de>,
+    V: Deserialize<'de>,
+{
     let res = Option::<Vec<V>>::deserialize(deserializer)?;
 
     match res {
@@ -385,7 +386,7 @@ fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error> wh
             match res.len() {
                 0 => Ok(None),
                 1 => Ok(Some(res.remove(0))),
-                _ => Err(Error::custom("only zero or one allowed"))
+                _ => Err(Error::custom("only zero or one allowed")),
             }
         }
     }
@@ -393,16 +394,14 @@ fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error> wh
 
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
 
-
 // TODO generate this
 #[allow(async_fn_in_trait)]
 pub trait WidgetVisitor {
-    async fn action_widget(&mut self, _widget: &ActionWidget) {
-    }
+    async fn action_widget(&mut self, _widget: &ActionWidget) {}
     async fn action_panel_section_widget(&mut self, widget: &ActionPanelSectionWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                ActionPanelSectionWidgetOrderedMembers::Action(widget) => self.action_widget(widget).await
+                ActionPanelSectionWidgetOrderedMembers::Action(widget) => self.action_widget(widget).await,
             }
         }
     }
@@ -410,7 +409,9 @@ pub trait WidgetVisitor {
         for members in &widget.content.ordered_members {
             match members {
                 ActionPanelWidgetOrderedMembers::Action(widget) => self.action_widget(widget).await,
-                ActionPanelWidgetOrderedMembers::ActionPanelSection(widget) => self.action_panel_section_widget(widget).await
+                ActionPanelWidgetOrderedMembers::ActionPanelSection(widget) => {
+                    self.action_panel_section_widget(widget).await
+                }
             }
         }
     }
@@ -420,7 +421,9 @@ pub trait WidgetVisitor {
     async fn metadata_tag_list_widget(&mut self, widget: &MetadataTagListWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                MetadataTagListWidgetOrderedMembers::MetadataTagItem(widget) => self.metadata_tag_item_widget(widget).await
+                MetadataTagListWidgetOrderedMembers::MetadataTagItem(widget) => {
+                    self.metadata_tag_item_widget(widget).await
+                }
             }
         }
     }
@@ -439,9 +442,7 @@ pub trait WidgetVisitor {
         }
     }
 
-    async fn image(&mut self, _widget_id: UiWidgetId, _widget: &ImageLike) {
-
-    }
+    async fn image(&mut self, _widget_id: UiWidgetId, _widget: &ImageLike) {}
 
     async fn image_widget(&mut self, widget: &ImageWidget) {
         self.image(widget.__id__, &widget.source).await
@@ -492,7 +493,7 @@ pub trait WidgetVisitor {
     async fn select_widget(&mut self, widget: &SelectWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                SelectWidgetOrderedMembers::SelectItem(widget) => self.select_item_widget(widget).await
+                SelectWidgetOrderedMembers::SelectItem(widget) => self.select_item_widget(widget).await,
             }
         }
     }
@@ -522,7 +523,7 @@ pub trait WidgetVisitor {
         for members in &widget.content.ordered_members {
             match members {
                 InlineWidgetOrderedMembers::Content(widget) => self.content_widget(widget).await,
-                InlineWidgetOrderedMembers::InlineSeparator(widget) => self.inline_separator_widget(widget).await
+                InlineWidgetOrderedMembers::InlineSeparator(widget) => self.inline_separator_widget(widget).await,
             }
         }
     }
@@ -552,14 +553,14 @@ pub trait WidgetVisitor {
         for accessories in &widget.content.accessories {
             match accessories {
                 ListItemAccessories::_0(widget) => self.text_accessory_widget(widget).await,
-                ListItemAccessories::_1(widget) => self.icon_accessory_widget(widget).await
+                ListItemAccessories::_1(widget) => self.icon_accessory_widget(widget).await,
             }
         }
     }
     async fn list_section_widget(&mut self, widget: &ListSectionWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                ListSectionWidgetOrderedMembers::ListItem(widget) => self.list_item_widget(widget).await
+                ListSectionWidgetOrderedMembers::ListItem(widget) => self.list_item_widget(widget).await,
             }
         }
     }
@@ -606,7 +607,7 @@ pub trait WidgetVisitor {
     async fn grid_section_widget(&mut self, widget: &GridSectionWidget) {
         for members in &widget.content.ordered_members {
             match members {
-                GridSectionWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget).await
+                GridSectionWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget).await,
             }
         }
     }
@@ -623,7 +624,7 @@ pub trait WidgetVisitor {
         for members in &widget.content.ordered_members {
             match members {
                 GridWidgetOrderedMembers::GridItem(widget) => self.grid_item_widget(widget).await,
-                GridWidgetOrderedMembers::GridSection(widget) => self.grid_section_widget(widget).await
+                GridWidgetOrderedMembers::GridSection(widget) => self.grid_section_widget(widget).await,
             }
         }
     }
@@ -692,7 +693,7 @@ pub enum SettingsTheme {
     // Custom, TODO specify file path or drag and drop via settings ui
     MacOSLight,
     MacOSDark,
-    Legacy
+    Legacy,
 }
 
 impl Display for SettingsTheme {
@@ -712,27 +713,13 @@ impl Display for SettingsTheme {
 
 #[derive(Debug, Clone)]
 pub enum PluginPreferenceUserData {
-    Number {
-        value: Option<f64>,
-    },
-    String {
-        value: Option<String>,
-    },
-    Enum {
-        value: Option<String>,
-    },
-    Bool {
-        value: Option<bool>,
-    },
-    ListOfStrings {
-        value: Option<Vec<String>>,
-    },
-    ListOfNumbers {
-        value: Option<Vec<f64>>,
-    },
-    ListOfEnums {
-        value: Option<Vec<String>>,
-    },
+    Number { value: Option<f64> },
+    String { value: Option<String> },
+    Enum { value: Option<String> },
+    Bool { value: Option<bool> },
+    ListOfStrings { value: Option<Vec<String>> },
+    ListOfNumbers { value: Option<Vec<f64>> },
+    ListOfEnums { value: Option<Vec<String>> },
     // TODO be careful about exposing secrets to logs when adding password type
 }
 
@@ -782,7 +769,6 @@ pub struct PreferenceEnumValue {
     pub label: String,
     pub value: String,
 }
-
 
 // copy of iced (currently fork) PhysicalKey but without modifiers
 #[derive(Debug, Clone)]
@@ -1349,7 +1335,7 @@ impl PhysicalKey {
             PhysicalKey::F33 => "F33",
             PhysicalKey::F34 => "F34",
             PhysicalKey::F35 => "F35",
-        }.to_string()
+        }
+        .to_string()
     }
 }
-

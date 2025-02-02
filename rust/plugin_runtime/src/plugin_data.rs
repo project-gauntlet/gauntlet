@@ -1,6 +1,8 @@
-use gauntlet_common::model::{EntrypointId, PluginId};
 use std::collections::HashMap;
 use std::path::PathBuf;
+
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PluginId;
 
 pub struct PluginData {
     plugin_id: PluginId,
@@ -34,7 +36,7 @@ impl PluginData {
             plugin_data_dir,
             inline_view_entrypoint_id,
             entrypoint_names,
-            home_dir
+            home_dir,
         }
     }
 

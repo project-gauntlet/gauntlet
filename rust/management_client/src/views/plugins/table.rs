@@ -1,27 +1,42 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use iced::{Alignment, Length, Renderer, Task};
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PluginId;
+use gauntlet_common::model::SettingsEntrypointType;
+use gauntlet_common::model::SettingsPlugin;
 use iced::advanced::text::Shaping;
-use iced::widget::{button, checkbox, container, horizontal_space, row, scrollable, Space, text, value};
+use iced::widget::button;
+use iced::widget::checkbox;
+use iced::widget::container;
+use iced::widget::horizontal_space;
+use iced::widget::row;
+use iced::widget::scrollable;
 use iced::widget::scrollable::Id;
-use iced_fonts::{Bootstrap, BOOTSTRAP_FONT};
+use iced::widget::text;
+use iced::widget::value;
+use iced::widget::Space;
+use iced::Alignment;
+use iced::Length;
+use iced::Renderer;
+use iced::Task;
+use iced_fonts::Bootstrap;
+use iced_fonts::BOOTSTRAP_FONT;
 use iced_table::table;
 
-use gauntlet_common::model::{EntrypointId, PluginId, SettingsEntrypointType, SettingsPlugin};
-
-use crate::theme::{Element, GauntletSettingsTheme};
 use crate::theme::button::ButtonStyle;
-use crate::views::plugins::{PluginDataContainer, SelectedItem, SettingsPluginData};
+use crate::theme::Element;
+use crate::theme::GauntletSettingsTheme;
+use crate::views::plugins::PluginDataContainer;
+use crate::views::plugins::SelectedItem;
+use crate::views::plugins::SettingsPluginData;
 
 #[derive(Debug, Clone)]
 pub enum PluginTableMsgIn {
     TableSyncHeader(scrollable::AbsoluteOffset),
     SelectItem(SelectedItem),
     EnabledToggleItem(EnabledItem),
-    ToggleShowEntrypoints {
-        plugin_id: PluginId,
-    },
+    ToggleShowEntrypoints { plugin_id: PluginId },
 }
 
 pub enum PluginTableMsgOut {
@@ -37,7 +52,7 @@ pub enum PluginTableMsgOut {
     SelectItem(SelectedItem),
     ToggleShowEntrypoints {
         plugin_id: PluginId,
-    }
+    },
 }
 
 pub struct PluginTableState {
@@ -49,7 +64,7 @@ pub struct PluginTableState {
 
 pub enum PluginTableUpdateResult {
     Command(Task<()>),
-    Value(PluginTableMsgOut)
+    Value(PluginTableMsgOut),
 }
 
 impl PluginTableState {
@@ -70,38 +85,38 @@ impl PluginTableState {
     pub fn update(&mut self, message: PluginTableMsgIn) -> PluginTableUpdateResult {
         match message {
             PluginTableMsgIn::TableSyncHeader(offset) => {
-                PluginTableUpdateResult::Command(
-                    scrollable::scroll_to(self.header.clone(), offset)
-                )
+                PluginTableUpdateResult::Command(scrollable::scroll_to(self.header.clone(), offset))
             }
             PluginTableMsgIn::EnabledToggleItem(item) => {
                 match item {
                     EnabledItem::Plugin { enabled, plugin_id } => {
-                        PluginTableUpdateResult::Value(
-                            PluginTableMsgOut::SetPluginState { enabled, plugin_id }
-                        )
+                        PluginTableUpdateResult::Value(PluginTableMsgOut::SetPluginState { enabled, plugin_id })
                     }
-                    EnabledItem::Entrypoint { enabled, plugin_id, entrypoint_id } => {
-                        PluginTableUpdateResult::Value(
-                            PluginTableMsgOut::SetEntrypointState { enabled, plugin_id, entrypoint_id }
-                        )
+                    EnabledItem::Entrypoint {
+                        enabled,
+                        plugin_id,
+                        entrypoint_id,
+                    } => {
+                        PluginTableUpdateResult::Value(PluginTableMsgOut::SetEntrypointState {
+                            enabled,
+                            plugin_id,
+                            entrypoint_id,
+                        })
                     }
                 }
             }
-            PluginTableMsgIn::SelectItem(item) => {
-                PluginTableUpdateResult::Value(
-                    PluginTableMsgOut::SelectItem(item)
-                )
-            },
+            PluginTableMsgIn::SelectItem(item) => PluginTableUpdateResult::Value(PluginTableMsgOut::SelectItem(item)),
             PluginTableMsgIn::ToggleShowEntrypoints { plugin_id } => {
-                PluginTableUpdateResult::Value(
-                    PluginTableMsgOut::ToggleShowEntrypoints { plugin_id }
-                )
+                PluginTableUpdateResult::Value(PluginTableMsgOut::ToggleShowEntrypoints { plugin_id })
             }
         }
     }
 
-    pub fn apply_plugin_reload(&mut self, plugin_data: Rc<RefCell<PluginDataContainer>>, plugin_refs: Vec<(&SettingsPlugin, &SettingsPluginData)>) {
+    pub fn apply_plugin_reload(
+        &mut self,
+        plugin_data: Rc<RefCell<PluginDataContainer>>,
+        plugin_refs: Vec<(&SettingsPlugin, &SettingsPluginData)>,
+    ) {
         self.rows = plugin_refs
             .iter()
             .flat_map(|(plugin, plugin_state)| {
@@ -109,14 +124,11 @@ impl PluginTableState {
 
                 result.push(Row::Plugin {
                     plugin_data: plugin_data.clone(),
-                    plugin_id: plugin.plugin_id.clone()
+                    plugin_id: plugin.plugin_id.clone(),
                 });
 
                 if plugin_state.show_entrypoints {
-                    let mut entrypoints: Vec<_> = plugin.entrypoints
-                        .iter()
-                        .map(|(_, entrypoint)| entrypoint)
-                        .collect();
+                    let mut entrypoints: Vec<_> = plugin.entrypoints.iter().map(|(_, entrypoint)| entrypoint).collect();
 
                     entrypoints.sort_by_key(|entrypoint| &entrypoint.entrypoint_name);
 
@@ -140,12 +152,17 @@ impl PluginTableState {
     }
 
     pub fn view(&self) -> Element<PluginTableMsgIn> {
-        table(self.header.clone(), self.body.clone(), &self.columns, &self.rows, PluginTableMsgIn::TableSyncHeader)
-            .cell_padding(0.0)
-            .into()
+        table(
+            self.header.clone(),
+            self.body.clone(),
+            &self.columns,
+            &self.rows,
+            PluginTableMsgIn::TableSyncHeader,
+        )
+        .cell_padding(0.0)
+        .into()
     }
 }
-
 
 #[derive(Debug, Clone)]
 enum EnabledItem {
@@ -163,7 +180,7 @@ enum EnabledItem {
 enum Row {
     Plugin {
         plugin_data: Rc<RefCell<PluginDataContainer>>,
-        plugin_id: PluginId
+        plugin_id: PluginId,
     },
     Entrypoint {
         plugin_data: Rc<RefCell<PluginDataContainer>>,
@@ -185,9 +202,7 @@ struct Column {
 
 impl Column {
     fn new(kind: ColumnKind) -> Self {
-        Self {
-            kind
-        }
+        Self { kind }
     }
 }
 
@@ -196,10 +211,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
 
     fn header(&'a self, _col_index: usize) -> Element<'a, PluginTableMsgIn> {
         match self.kind {
-            ColumnKind::ShowEntrypointsToggle => {
-                horizontal_space()
-                    .into()
-            }
+            ColumnKind::ShowEntrypointsToggle => horizontal_space().into(),
             ColumnKind::Name => {
                 container(text("Name"))
                     .height(Length::Fixed(30.0))
@@ -221,12 +233,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
         }
     }
 
-    fn cell(
-        &'a self,
-        _col_index: usize,
-        _row_index: usize,
-        row_entry: &'a Self::Row,
-    ) -> Element<'a, PluginTableMsgIn> {
+    fn cell(&'a self, _col_index: usize, _row_index: usize, row_entry: &'a Self::Row) -> Element<'a, PluginTableMsgIn> {
         match self.kind {
             ColumnKind::ShowEntrypointsToggle => {
                 match row_entry {
@@ -234,24 +241,25 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin_data = plugin_data.plugins_state.get(&plugin_id).unwrap();
 
-                        let icon = if plugin_data.show_entrypoints { Bootstrap::CaretDown } else { Bootstrap::CaretRight };
+                        let icon = if plugin_data.show_entrypoints {
+                            Bootstrap::CaretDown
+                        } else {
+                            Bootstrap::CaretRight
+                        };
 
-                        let icon: Element<_> = value(icon)
-                            .font(BOOTSTRAP_FONT)
-                            .into();
+                        let icon: Element<_> = value(icon).font(BOOTSTRAP_FONT).into();
 
                         button(icon)
-                            .on_press(PluginTableMsgIn::ToggleShowEntrypoints { plugin_id: plugin_id.clone() })
+                            .on_press(PluginTableMsgIn::ToggleShowEntrypoints {
+                                plugin_id: plugin_id.clone(),
+                            })
                             .width(Length::Fill)
                             .height(Length::Fixed(40.0))
                             .padding(8.0)
                             .class(ButtonStyle::TableRow)
                             .into()
                     }
-                    Row::Entrypoint { .. } => {
-                        horizontal_space()
-                            .into()
-                    }
+                    Row::Entrypoint { .. } => horizontal_space().into(),
                 }
             }
             ColumnKind::Name => {
@@ -260,14 +268,15 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
-                        let plugin_name = text(plugin.plugin_name.to_string())
-                            .shaping(Shaping::Advanced);
+                        let plugin_name = text(plugin.plugin_name.to_string()).shaping(Shaping::Advanced);
 
-                        container(plugin_name)
-                            .align_y(Alignment::Center)
-                            .into()
+                        container(plugin_name).align_y(Alignment::Center).into()
                     }
-                    Row::Entrypoint { plugin_data, plugin_id, entrypoint_id } => {
+                    Row::Entrypoint {
+                        plugin_data,
+                        plugin_id,
+                        entrypoint_id,
+                    } => {
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
@@ -276,14 +285,9 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             .shaping(Shaping::Advanced)
                             .into();
 
-                        let text: Element<_> = row(vec![
-                            Space::with_width(Length::Fixed(30.0)).into(),
-                            text,
-                        ]).into();
+                        let text: Element<_> = row(vec![Space::with_width(Length::Fixed(30.0)).into(), text]).into();
 
-                        container(text)
-                            .align_y(Alignment::Center)
-                            .into()
+                        container(text).align_y(Alignment::Center).into()
                     }
                 };
 
@@ -293,10 +297,14 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                         SelectedItem::Plugin {
-                            plugin_id: plugin.plugin_id.clone()
+                            plugin_id: plugin.plugin_id.clone(),
                         }
-                    },
-                    Row::Entrypoint { plugin_data, entrypoint_id, plugin_id } => {
+                    }
+                    Row::Entrypoint {
+                        plugin_data,
+                        entrypoint_id,
+                        plugin_id,
+                    } => {
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
@@ -318,11 +326,12 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
             }
             ColumnKind::Type => {
                 let content: Element<_> = match row_entry {
-                    Row::Plugin { .. } => {
-                        horizontal_space()
-                            .into()
-                    }
-                    Row::Entrypoint { plugin_data, plugin_id, entrypoint_id } => {
+                    Row::Plugin { .. } => horizontal_space().into(),
+                    Row::Entrypoint {
+                        plugin_data,
+                        plugin_id,
+                        entrypoint_id,
+                    } => {
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
@@ -331,7 +340,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             SettingsEntrypointType::Command => "Command",
                             SettingsEntrypointType::View => "View",
                             SettingsEntrypointType::InlineView => "Inline View",
-                            SettingsEntrypointType::EntrypointGenerator => "Entrypoint Generator"
+                            SettingsEntrypointType::EntrypointGenerator => "Entrypoint Generator",
                         };
 
                         container(text(entrypoint_type.to_string()))
@@ -346,10 +355,14 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
                         SelectedItem::Plugin {
-                            plugin_id: plugin.plugin_id.clone()
+                            plugin_id: plugin.plugin_id.clone(),
                         }
-                    },
-                    Row::Entrypoint { plugin_data, entrypoint_id, plugin_id } => {
+                    }
+                    Row::Entrypoint {
+                        plugin_data,
+                        entrypoint_id,
+                        plugin_id,
+                    } => {
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
@@ -375,14 +388,13 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
-                        (
-                            plugin.enabled,
-                            true,
-                            plugin.plugin_id.clone(),
-                            None
-                        )
+                        (plugin.enabled, true, plugin.plugin_id.clone(), None)
                     }
-                    Row::Entrypoint { plugin_data, entrypoint_id, plugin_id } => {
+                    Row::Entrypoint {
+                        plugin_data,
+                        entrypoint_id,
+                        plugin_id,
+                    } => {
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
                         let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
@@ -391,7 +403,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             entrypoint.enabled,
                             plugin.enabled,
                             plugin.plugin_id.clone(),
-                            Some(entrypoint.entrypoint_id.clone())
+                            Some(entrypoint.entrypoint_id.clone()),
                         )
                     }
                 };
@@ -399,14 +411,18 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                 let on_toggle = if show_checkbox {
                     Some(move |enabled| {
                         let enabled_item = match &entrypoint_id {
-                            None => EnabledItem::Plugin {
-                                enabled,
-                                plugin_id: plugin_id.clone(),
-                            },
-                            Some(entrypoint_id) => EnabledItem::Entrypoint {
-                                enabled,
-                                plugin_id: plugin_id.clone(),
-                                entrypoint_id: entrypoint_id.clone(),
+                            None => {
+                                EnabledItem::Plugin {
+                                    enabled,
+                                    plugin_id: plugin_id.clone(),
+                                }
+                            }
+                            Some(entrypoint_id) => {
+                                EnabledItem::Entrypoint {
+                                    enabled,
+                                    plugin_id: plugin_id.clone(),
+                                    entrypoint_id: entrypoint_id.clone(),
+                                }
                             }
                         };
                         PluginTableMsgIn::EnabledToggleItem(enabled_item)
@@ -415,9 +431,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                     None
                 };
 
-                let checkbox: Element<_> = checkbox("", enabled)
-                    .on_toggle_maybe(on_toggle)
-                    .into();
+                let checkbox: Element<_> = checkbox("", enabled).on_toggle_maybe(on_toggle).into();
 
                 container(checkbox)
                     .width(Length::Fill)
@@ -434,7 +448,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
             ColumnKind::ShowEntrypointsToggle => 35.0,
             ColumnKind::Name => 350.0,
             ColumnKind::Type => 200.0,
-            ColumnKind::EnableToggle => 75.0
+            ColumnKind::EnableToggle => 75.0,
         }
     }
 

@@ -1,14 +1,18 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use deno_core::{op2, OpState};
+
+use deno_core::op2;
+use deno_core::OpState;
+
 use crate::plugin_data::PluginData;
 
 #[op2(fast)]
-pub fn op_log_trace(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
-    let plugin_id = state.borrow()
-        .borrow::<PluginData>()
-        .plugin_id()
-        .to_string();
+pub fn op_log_trace(
+    state: Rc<RefCell<OpState>>,
+    #[string] target: String,
+    #[string] message: String,
+) -> anyhow::Result<()> {
+    let plugin_id = state.borrow().borrow::<PluginData>().plugin_id().to_string();
 
     tracing::trace!(target = target, plugin_id = plugin_id, message);
 
@@ -16,11 +20,12 @@ pub fn op_log_trace(state: Rc<RefCell<OpState>>, #[string] target: String, #[str
 }
 
 #[op2(fast)]
-pub fn op_log_debug(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
-    let plugin_id = state.borrow()
-        .borrow::<PluginData>()
-        .plugin_id()
-        .to_string();
+pub fn op_log_debug(
+    state: Rc<RefCell<OpState>>,
+    #[string] target: String,
+    #[string] message: String,
+) -> anyhow::Result<()> {
+    let plugin_id = state.borrow().borrow::<PluginData>().plugin_id().to_string();
 
     tracing::debug!(target = target, plugin_id = plugin_id, message);
 
@@ -28,11 +33,12 @@ pub fn op_log_debug(state: Rc<RefCell<OpState>>, #[string] target: String, #[str
 }
 
 #[op2(fast)]
-pub fn op_log_info(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
-    let plugin_id = state.borrow()
-        .borrow::<PluginData>()
-        .plugin_id()
-        .to_string();
+pub fn op_log_info(
+    state: Rc<RefCell<OpState>>,
+    #[string] target: String,
+    #[string] message: String,
+) -> anyhow::Result<()> {
+    let plugin_id = state.borrow().borrow::<PluginData>().plugin_id().to_string();
 
     tracing::info!(target = target, plugin_id = plugin_id, message);
 
@@ -40,11 +46,12 @@ pub fn op_log_info(state: Rc<RefCell<OpState>>, #[string] target: String, #[stri
 }
 
 #[op2(fast)]
-pub fn op_log_warn(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
-    let plugin_id = state.borrow()
-        .borrow::<PluginData>()
-        .plugin_id()
-        .to_string();
+pub fn op_log_warn(
+    state: Rc<RefCell<OpState>>,
+    #[string] target: String,
+    #[string] message: String,
+) -> anyhow::Result<()> {
+    let plugin_id = state.borrow().borrow::<PluginData>().plugin_id().to_string();
 
     tracing::warn!(target = target, plugin_id = plugin_id, message);
 
@@ -52,11 +59,12 @@ pub fn op_log_warn(state: Rc<RefCell<OpState>>, #[string] target: String, #[stri
 }
 
 #[op2(fast)]
-pub fn op_log_error(state: Rc<RefCell<OpState>>, #[string] target: String, #[string] message: String) -> anyhow::Result<()> {
-    let plugin_id = state.borrow()
-        .borrow::<PluginData>()
-        .plugin_id()
-        .to_string();
+pub fn op_log_error(
+    state: Rc<RefCell<OpState>>,
+    #[string] target: String,
+    #[string] message: String,
+) -> anyhow::Result<()> {
+    let plugin_id = state.borrow().borrow::<PluginData>().plugin_id().to_string();
 
     tracing::error!(target = target, plugin_id = plugin_id, message);
 

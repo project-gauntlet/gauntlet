@@ -1,12 +1,22 @@
 use std::env::consts::OS;
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use anyhow::{anyhow, Context};
+
+use anyhow::anyhow;
+use anyhow::Context;
 use dark_light::Mode;
-use serde::{Deserialize, Serialize};
 use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::{UiTheme, UiThemeColor, UiThemeContent, UiThemeContentBorder, UiThemeMode, UiThemeWindow, UiThemeWindowBorder};
+use gauntlet_common::model::UiTheme;
+use gauntlet_common::model::UiThemeColor;
+use gauntlet_common::model::UiThemeContent;
+use gauntlet_common::model::UiThemeContentBorder;
+use gauntlet_common::model::UiThemeMode;
+use gauntlet_common::model::UiThemeWindow;
+use gauntlet_common::model::UiThemeWindowBorder;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::plugins::data_db_repository::DataDbRepository;
 
 pub struct BundledThemes {
@@ -16,8 +26,14 @@ pub struct BundledThemes {
 }
 
 const LEGACY_THEME: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../bundled_themes/legacy.toml"));
-const MACOS_DARK_THEME: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../bundled_themes/macos_dark.toml"));
-const MACOS_LIGHT_THEME: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../bundled_themes/macos_light.toml"));
+const MACOS_DARK_THEME: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../bundled_themes/macos_dark.toml"
+));
+const MACOS_LIGHT_THEME: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../bundled_themes/macos_light.toml"
+));
 
 impl BundledThemes {
     pub fn new() -> anyhow::Result<Self> {
@@ -36,13 +52,13 @@ pub fn convert_theme(config_theme: ConfigTheme) -> anyhow::Result<UiTheme> {
     Ok(UiTheme {
         mode: match config_theme.mode {
             ConfigThemeMode::Light => UiThemeMode::Light,
-            ConfigThemeMode::Dark => UiThemeMode::Dark
+            ConfigThemeMode::Dark => UiThemeMode::Dark,
         },
         background: [
             convert_complex_color(background_100)?,
             convert_complex_color(background_200)?,
             convert_complex_color(background_300)?,
-            convert_complex_color(background_400)?
+            convert_complex_color(background_400)?,
         ],
         text: [
             convert_complex_color(text_100)?,
@@ -69,7 +85,6 @@ fn convert_complex_color(color: ConfigThemeColor) -> anyhow::Result<UiThemeColor
     match color {
         ConfigThemeColor::String(value) => convert_color(value, true),
         ConfigThemeColor::Object { color, alpha } => {
-
             if !(0.0..=1.0).contains(&alpha) {
                 Err(anyhow!("Alpha component must be on [0, 1] range"))?;
             }
@@ -91,8 +106,7 @@ fn convert_color(color: String, allow_alpha: bool) -> anyhow::Result<UiThemeColo
     let hex = color.strip_prefix('#').expect("validated just above");
 
     let parse_channel = |from: usize, to: usize| -> anyhow::Result<f32> {
-        let num = usize::from_str_radix(&hex[from..=to], 16)
-            .context("Unable to parse as hex number")?;
+        let num = usize::from_str_radix(&hex[from..=to], 16).context("Unable to parse as hex number")?;
         let num = num as f32 / 255.0;
 
         // If we only got half a byte (one letter), expand it into a full byte (two letters)
@@ -100,12 +114,14 @@ fn convert_color(color: String, allow_alpha: bool) -> anyhow::Result<UiThemeColo
     };
 
     let color = match hex.len() {
-        3 => UiThemeColor {
-            r: parse_channel(0, 0)?,
-            g: parse_channel(1, 1)?,
-            b: parse_channel(2, 2)?,
-            a: 1.0,
-        },
+        3 => {
+            UiThemeColor {
+                r: parse_channel(0, 0)?,
+                g: parse_channel(1, 1)?,
+                b: parse_channel(2, 2)?,
+                a: 1.0,
+            }
+        }
         4 => {
             if allow_alpha {
                 UiThemeColor {
@@ -117,13 +133,15 @@ fn convert_color(color: String, allow_alpha: bool) -> anyhow::Result<UiThemeColo
             } else {
                 Err(anyhow!("alpha channel is not allowed here"))?
             }
-        },
-        6 => UiThemeColor {
-            r: parse_channel(0, 1)?,
-            g: parse_channel(2, 3)?,
-            b: parse_channel(4, 5)?,
-            a: 1.0,
-        },
+        }
+        6 => {
+            UiThemeColor {
+                r: parse_channel(0, 1)?,
+                g: parse_channel(2, 3)?,
+                b: parse_channel(4, 5)?,
+                a: 1.0,
+            }
+        }
         8 => {
             if allow_alpha {
                 UiThemeColor {
@@ -135,7 +153,7 @@ fn convert_color(color: String, allow_alpha: bool) -> anyhow::Result<UiThemeColo
             } else {
                 Err(anyhow!("alpha channel is not allowed here"))?
             }
-        },
+        }
         _ => Err(anyhow!("invalid length of a color string"))?,
     };
 
@@ -143,12 +161,11 @@ fn convert_color(color: String, allow_alpha: bool) -> anyhow::Result<UiThemeColo
 }
 
 pub fn parse_theme(value: &str) -> anyhow::Result<UiTheme> {
-    let value = toml::from_str::<ConfigTheme>(value)
-        .context("Unable to parse theme file")?;
+    let value = toml::from_str::<ConfigTheme>(value).context("Unable to parse theme file")?;
 
     match convert_theme(value) {
         Ok(value) => Ok(value),
-        Err(err) => Err(err.context("Unable to parse theme file"))
+        Err(err) => Err(err.context("Unable to parse theme file")),
     }
 }
 
@@ -162,17 +179,17 @@ pub fn read_theme_file(theme_file: PathBuf) -> Option<UiTheme> {
                     None
                 }
             }
-        },
+        }
         Err(err) => {
             match err.kind() {
                 ErrorKind::NotFound => {
                     tracing::debug!("No theme file was found");
                     None
-                },
+                }
                 err @ _ => {
                     tracing::warn!("Unable to read theme file: {}", err);
                     None
-                },
+                }
             }
         }
     }
@@ -183,17 +200,14 @@ pub enum ConfigThemeMode {
     #[serde(rename = "light")]
     Light,
     #[serde(rename = "dark")]
-    Dark
+    Dark,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ConfigThemeColor {
     String(String),
-    Object {
-        color: String,
-        alpha: f32
-    }
+    Object { color: String, alpha: f32 },
 }
 
 pub type ConfigThemeColorPalette = [ConfigThemeColor; 4];

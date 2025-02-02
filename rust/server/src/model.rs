@@ -1,18 +1,21 @@
-use gauntlet_common::model::{EntrypointId, KeyboardEventOrigin, PhysicalKey, UiPropertyValue, UiWidgetId};
-
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::KeyboardEventOrigin;
+use gauntlet_common::model::PhysicalKey;
+use gauntlet_common::model::UiPropertyValue;
+use gauntlet_common::model::UiWidgetId;
 
 #[derive(Debug)]
 pub enum IntermediateUiEvent {
     OpenView {
-        entrypoint_id: EntrypointId
+        entrypoint_id: EntrypointId,
     },
     CloseView,
     RunCommand {
-        entrypoint_id: String
+        entrypoint_id: String,
     },
     RunGeneratedEntrypoint {
         entrypoint_id: String,
-        action_index: usize
+        action_index: usize,
     },
     HandleViewEvent {
         widget_id: UiWidgetId,
@@ -26,7 +29,7 @@ pub enum IntermediateUiEvent {
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
-        modifier_meta: bool
+        modifier_meta: bool,
     },
     OpenInlineView {
         text: String,
@@ -229,9 +232,7 @@ impl ActionShortcutKey {
             ":" => ActionShortcutKey::Colon,
             "\"" => ActionShortcutKey::DoubleQuotes,
             "|" => ActionShortcutKey::Pipe,
-            _ => {
-                return None
-            }
+            _ => return None,
         };
 
         Some(key)
@@ -331,60 +332,335 @@ impl ActionShortcutKey {
             ActionShortcutKey::Colon => ":",
             ActionShortcutKey::DoubleQuotes => "\"",
             ActionShortcutKey::Pipe => "|",
-        }.to_string()
+        }
+        .to_string()
     }
 
     pub fn from_physical_key(key: PhysicalKey, modifier_shift: bool) -> Option<ActionShortcutKey> {
         let logical_key = match key {
-            PhysicalKey::KeyA => if modifier_shift { ActionShortcutKey::UpperA } else { ActionShortcutKey::LowerA },
-            PhysicalKey::KeyB => if modifier_shift { ActionShortcutKey::UpperB } else { ActionShortcutKey::LowerB },
-            PhysicalKey::KeyC => if modifier_shift { ActionShortcutKey::UpperC } else { ActionShortcutKey::LowerC },
-            PhysicalKey::KeyD => if modifier_shift { ActionShortcutKey::UpperD } else { ActionShortcutKey::LowerD },
-            PhysicalKey::KeyE => if modifier_shift { ActionShortcutKey::UpperE } else { ActionShortcutKey::LowerE },
-            PhysicalKey::KeyF => if modifier_shift { ActionShortcutKey::UpperF } else { ActionShortcutKey::LowerF },
-            PhysicalKey::KeyG => if modifier_shift { ActionShortcutKey::UpperG } else { ActionShortcutKey::LowerG },
-            PhysicalKey::KeyH => if modifier_shift { ActionShortcutKey::UpperH } else { ActionShortcutKey::LowerH },
-            PhysicalKey::KeyI => if modifier_shift { ActionShortcutKey::UpperI } else { ActionShortcutKey::LowerI },
-            PhysicalKey::KeyJ => if modifier_shift { ActionShortcutKey::UpperJ } else { ActionShortcutKey::LowerJ },
-            PhysicalKey::KeyK => if modifier_shift { ActionShortcutKey::UpperK } else { ActionShortcutKey::LowerK },
-            PhysicalKey::KeyL => if modifier_shift { ActionShortcutKey::UpperL } else { ActionShortcutKey::LowerL },
-            PhysicalKey::KeyM => if modifier_shift { ActionShortcutKey::UpperM } else { ActionShortcutKey::LowerM },
-            PhysicalKey::KeyN => if modifier_shift { ActionShortcutKey::UpperN } else { ActionShortcutKey::LowerN },
-            PhysicalKey::KeyO => if modifier_shift { ActionShortcutKey::UpperO } else { ActionShortcutKey::LowerO },
-            PhysicalKey::KeyP => if modifier_shift { ActionShortcutKey::UpperP } else { ActionShortcutKey::LowerP },
-            PhysicalKey::KeyQ => if modifier_shift { ActionShortcutKey::UpperQ } else { ActionShortcutKey::LowerQ },
-            PhysicalKey::KeyR => if modifier_shift { ActionShortcutKey::UpperR } else { ActionShortcutKey::LowerR },
-            PhysicalKey::KeyS => if modifier_shift { ActionShortcutKey::UpperS } else { ActionShortcutKey::LowerS },
-            PhysicalKey::KeyT => if modifier_shift { ActionShortcutKey::UpperT } else { ActionShortcutKey::LowerT },
-            PhysicalKey::KeyU => if modifier_shift { ActionShortcutKey::UpperU } else { ActionShortcutKey::LowerU },
-            PhysicalKey::KeyV => if modifier_shift { ActionShortcutKey::UpperV } else { ActionShortcutKey::LowerV },
-            PhysicalKey::KeyW => if modifier_shift { ActionShortcutKey::UpperW } else { ActionShortcutKey::LowerW },
-            PhysicalKey::KeyX => if modifier_shift { ActionShortcutKey::UpperX } else { ActionShortcutKey::LowerX },
-            PhysicalKey::KeyY => if modifier_shift { ActionShortcutKey::UpperY } else { ActionShortcutKey::LowerY },
-            PhysicalKey::KeyZ => if modifier_shift { ActionShortcutKey::UpperZ } else { ActionShortcutKey::LowerZ },
-            PhysicalKey::Backslash | PhysicalKey::IntlBackslash => if modifier_shift { ActionShortcutKey::Pipe } else { ActionShortcutKey::Backslash },
-            PhysicalKey::BracketLeft => if modifier_shift { ActionShortcutKey::LeftBrace } else { ActionShortcutKey::OpenSquareBracket },
-            PhysicalKey::BracketRight => if modifier_shift { ActionShortcutKey::RightBrace } else { ActionShortcutKey::CloseSquareBracket },
-            PhysicalKey::Comma => if modifier_shift { ActionShortcutKey::LessThan } else { ActionShortcutKey::Comma },
-            PhysicalKey::Period => if modifier_shift { ActionShortcutKey::GreaterThan } else { ActionShortcutKey::Dot },
-            PhysicalKey::Digit1 => if modifier_shift { ActionShortcutKey::Exclamation } else { ActionShortcutKey::Num0 },
-            PhysicalKey::Digit2 => if modifier_shift { ActionShortcutKey::AtSign } else { ActionShortcutKey::Num1 },
-            PhysicalKey::Digit3 => if modifier_shift { ActionShortcutKey::Hash } else { ActionShortcutKey::Num2 },
-            PhysicalKey::Digit4 => if modifier_shift { ActionShortcutKey::Dollar } else { ActionShortcutKey::Num3 },
-            PhysicalKey::Digit5 => if modifier_shift { ActionShortcutKey::Percent } else { ActionShortcutKey::Num4 },
-            PhysicalKey::Digit6 => if modifier_shift { ActionShortcutKey::Caret } else { ActionShortcutKey::Num5 },
-            PhysicalKey::Digit7 => if modifier_shift { ActionShortcutKey::Ampersand } else { ActionShortcutKey::Num6 },
-            PhysicalKey::Digit8 => if modifier_shift { ActionShortcutKey::Star } else { ActionShortcutKey::Num7 },
-            PhysicalKey::Digit9 => if modifier_shift { ActionShortcutKey::LeftParenthesis } else { ActionShortcutKey::Num8 },
-            PhysicalKey::Digit0 => if modifier_shift { ActionShortcutKey::RightParenthesis } else { ActionShortcutKey::Num9 },
-            PhysicalKey::Equal => if modifier_shift { ActionShortcutKey::Equals } else { ActionShortcutKey::Plus },
-            PhysicalKey::Minus => if modifier_shift { ActionShortcutKey::Minus } else { ActionShortcutKey::Underscore },
-            PhysicalKey::Quote => if modifier_shift { ActionShortcutKey::DoubleQuotes } else { ActionShortcutKey::Quote },
-            PhysicalKey::Semicolon => if modifier_shift { ActionShortcutKey::Colon } else { ActionShortcutKey::Semicolon },
-            PhysicalKey::Slash => if modifier_shift { ActionShortcutKey::QuestionMark } else { ActionShortcutKey::Slash },
-            _ => {
-                return None
+            PhysicalKey::KeyA => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperA
+                } else {
+                    ActionShortcutKey::LowerA
+                }
             }
+            PhysicalKey::KeyB => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperB
+                } else {
+                    ActionShortcutKey::LowerB
+                }
+            }
+            PhysicalKey::KeyC => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperC
+                } else {
+                    ActionShortcutKey::LowerC
+                }
+            }
+            PhysicalKey::KeyD => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperD
+                } else {
+                    ActionShortcutKey::LowerD
+                }
+            }
+            PhysicalKey::KeyE => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperE
+                } else {
+                    ActionShortcutKey::LowerE
+                }
+            }
+            PhysicalKey::KeyF => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperF
+                } else {
+                    ActionShortcutKey::LowerF
+                }
+            }
+            PhysicalKey::KeyG => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperG
+                } else {
+                    ActionShortcutKey::LowerG
+                }
+            }
+            PhysicalKey::KeyH => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperH
+                } else {
+                    ActionShortcutKey::LowerH
+                }
+            }
+            PhysicalKey::KeyI => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperI
+                } else {
+                    ActionShortcutKey::LowerI
+                }
+            }
+            PhysicalKey::KeyJ => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperJ
+                } else {
+                    ActionShortcutKey::LowerJ
+                }
+            }
+            PhysicalKey::KeyK => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperK
+                } else {
+                    ActionShortcutKey::LowerK
+                }
+            }
+            PhysicalKey::KeyL => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperL
+                } else {
+                    ActionShortcutKey::LowerL
+                }
+            }
+            PhysicalKey::KeyM => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperM
+                } else {
+                    ActionShortcutKey::LowerM
+                }
+            }
+            PhysicalKey::KeyN => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperN
+                } else {
+                    ActionShortcutKey::LowerN
+                }
+            }
+            PhysicalKey::KeyO => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperO
+                } else {
+                    ActionShortcutKey::LowerO
+                }
+            }
+            PhysicalKey::KeyP => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperP
+                } else {
+                    ActionShortcutKey::LowerP
+                }
+            }
+            PhysicalKey::KeyQ => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperQ
+                } else {
+                    ActionShortcutKey::LowerQ
+                }
+            }
+            PhysicalKey::KeyR => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperR
+                } else {
+                    ActionShortcutKey::LowerR
+                }
+            }
+            PhysicalKey::KeyS => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperS
+                } else {
+                    ActionShortcutKey::LowerS
+                }
+            }
+            PhysicalKey::KeyT => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperT
+                } else {
+                    ActionShortcutKey::LowerT
+                }
+            }
+            PhysicalKey::KeyU => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperU
+                } else {
+                    ActionShortcutKey::LowerU
+                }
+            }
+            PhysicalKey::KeyV => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperV
+                } else {
+                    ActionShortcutKey::LowerV
+                }
+            }
+            PhysicalKey::KeyW => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperW
+                } else {
+                    ActionShortcutKey::LowerW
+                }
+            }
+            PhysicalKey::KeyX => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperX
+                } else {
+                    ActionShortcutKey::LowerX
+                }
+            }
+            PhysicalKey::KeyY => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperY
+                } else {
+                    ActionShortcutKey::LowerY
+                }
+            }
+            PhysicalKey::KeyZ => {
+                if modifier_shift {
+                    ActionShortcutKey::UpperZ
+                } else {
+                    ActionShortcutKey::LowerZ
+                }
+            }
+            PhysicalKey::Backslash | PhysicalKey::IntlBackslash => {
+                if modifier_shift {
+                    ActionShortcutKey::Pipe
+                } else {
+                    ActionShortcutKey::Backslash
+                }
+            }
+            PhysicalKey::BracketLeft => {
+                if modifier_shift {
+                    ActionShortcutKey::LeftBrace
+                } else {
+                    ActionShortcutKey::OpenSquareBracket
+                }
+            }
+            PhysicalKey::BracketRight => {
+                if modifier_shift {
+                    ActionShortcutKey::RightBrace
+                } else {
+                    ActionShortcutKey::CloseSquareBracket
+                }
+            }
+            PhysicalKey::Comma => {
+                if modifier_shift {
+                    ActionShortcutKey::LessThan
+                } else {
+                    ActionShortcutKey::Comma
+                }
+            }
+            PhysicalKey::Period => {
+                if modifier_shift {
+                    ActionShortcutKey::GreaterThan
+                } else {
+                    ActionShortcutKey::Dot
+                }
+            }
+            PhysicalKey::Digit1 => {
+                if modifier_shift {
+                    ActionShortcutKey::Exclamation
+                } else {
+                    ActionShortcutKey::Num0
+                }
+            }
+            PhysicalKey::Digit2 => {
+                if modifier_shift {
+                    ActionShortcutKey::AtSign
+                } else {
+                    ActionShortcutKey::Num1
+                }
+            }
+            PhysicalKey::Digit3 => {
+                if modifier_shift {
+                    ActionShortcutKey::Hash
+                } else {
+                    ActionShortcutKey::Num2
+                }
+            }
+            PhysicalKey::Digit4 => {
+                if modifier_shift {
+                    ActionShortcutKey::Dollar
+                } else {
+                    ActionShortcutKey::Num3
+                }
+            }
+            PhysicalKey::Digit5 => {
+                if modifier_shift {
+                    ActionShortcutKey::Percent
+                } else {
+                    ActionShortcutKey::Num4
+                }
+            }
+            PhysicalKey::Digit6 => {
+                if modifier_shift {
+                    ActionShortcutKey::Caret
+                } else {
+                    ActionShortcutKey::Num5
+                }
+            }
+            PhysicalKey::Digit7 => {
+                if modifier_shift {
+                    ActionShortcutKey::Ampersand
+                } else {
+                    ActionShortcutKey::Num6
+                }
+            }
+            PhysicalKey::Digit8 => {
+                if modifier_shift {
+                    ActionShortcutKey::Star
+                } else {
+                    ActionShortcutKey::Num7
+                }
+            }
+            PhysicalKey::Digit9 => {
+                if modifier_shift {
+                    ActionShortcutKey::LeftParenthesis
+                } else {
+                    ActionShortcutKey::Num8
+                }
+            }
+            PhysicalKey::Digit0 => {
+                if modifier_shift {
+                    ActionShortcutKey::RightParenthesis
+                } else {
+                    ActionShortcutKey::Num9
+                }
+            }
+            PhysicalKey::Equal => {
+                if modifier_shift {
+                    ActionShortcutKey::Equals
+                } else {
+                    ActionShortcutKey::Plus
+                }
+            }
+            PhysicalKey::Minus => {
+                if modifier_shift {
+                    ActionShortcutKey::Minus
+                } else {
+                    ActionShortcutKey::Underscore
+                }
+            }
+            PhysicalKey::Quote => {
+                if modifier_shift {
+                    ActionShortcutKey::DoubleQuotes
+                } else {
+                    ActionShortcutKey::Quote
+                }
+            }
+            PhysicalKey::Semicolon => {
+                if modifier_shift {
+                    ActionShortcutKey::Colon
+                } else {
+                    ActionShortcutKey::Semicolon
+                }
+            }
+            PhysicalKey::Slash => {
+                if modifier_shift {
+                    ActionShortcutKey::QuestionMark
+                } else {
+                    ActionShortcutKey::Slash
+                }
+            }
+            _ => return None,
         };
 
         Some(logical_key)
