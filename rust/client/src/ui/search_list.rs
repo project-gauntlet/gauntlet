@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use gauntlet_common::model::{IconAccessoryWidget, SearchResultEntrypointType};
+use gauntlet_common::model::IconAccessoryWidget;
 use gauntlet_common::model::ImageLike;
 use gauntlet_common::model::SearchResult;
 use gauntlet_common::model::SearchResultAccessory;
+use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::TextAccessoryWidget;
 use iced::advanced::image::Handle;
 use iced::widget::button;
