@@ -43,6 +43,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Text<'a, GauntletComplexTh
                 self.class(kind).size(theme.metadata_item_label.text_size).into()
             }
             TextStyle::InlineName => self.size(15).class(kind).into(),
+            TextStyle::MainListItemSubtext => self.size(15).class(kind).into(),
             _ => self.class(kind).into(),
         }
     }
