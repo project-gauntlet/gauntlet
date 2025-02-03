@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gauntlet_common::model::IconAccessoryWidget;
+use gauntlet_common::model::{IconAccessoryWidget, SearchResultEntrypointType};
 use gauntlet_common::model::ImageLike;
 use gauntlet_common::model::SearchResult;
 use gauntlet_common::model::SearchResultAccessory;
@@ -35,23 +35,16 @@ pub fn search_list<'a>(
         .iter()
         .enumerate()
         .map(|(index, search_result)| {
-            let main_text: Element<_> = text(&search_result.entrypoint_name).shaping(Shaping::Advanced).into();
-            let main_text: Element<_> = container(main_text).themed(ContainerStyle::MainListItemText);
+            let entrypoint_name: Element<_> = text(&search_result.entrypoint_name).shaping(Shaping::Advanced).into();
+            let entrypoint_name: Element<_> = container(entrypoint_name).themed(ContainerStyle::MainListItemText);
 
             let spacer: Element<_> = horizontal_space().width(Length::Fill).into();
 
-            let sub_text = match &search_result.entrypoint_generator_name {
-                None => &search_result.plugin_name,
-                Some(entrypoint_generator_name) => {
-                    &format!("{} - {}", entrypoint_generator_name, &search_result.plugin_name)
-                }
-            };
-
-            let sub_text: Element<_> = text(sub_text.clone())
+            let plugin_name_text: Element<_> = text(search_result.plugin_name.clone())
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::MainListItemSubtext);
 
-            let sub_text: Element<_> = container(sub_text).themed(ContainerStyle::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
+            let plugin_name_text: Element<_> = container(plugin_name_text).themed(ContainerStyle::MainListItemSubText); // FIXME find a way to set padding based on whether the scroll bar is visible
 
             let mut button_content = vec![];
 
@@ -71,7 +64,8 @@ pub fn search_list<'a>(
                 button_content.push(spacer);
             }
 
-            button_content.push(main_text);
+            button_content.push(entrypoint_name);
+            button_content.push(plugin_name_text);
             button_content.push(spacer);
 
             if search_result.entrypoint_accessories.len() > 0 {
@@ -110,7 +104,24 @@ pub fn search_list<'a>(
                 button_content.push(accessories);
             }
 
-            button_content.push(sub_text);
+            let type_text = match search_result.entrypoint_type {
+                SearchResultEntrypointType::Command => "Command",
+                SearchResultEntrypointType::View => "View",
+                SearchResultEntrypointType::Generated => {
+                    match &search_result.entrypoint_generator_name {
+                        None => "",
+                        Some(entrypoint_generator_name) => entrypoint_generator_name,
+                    }
+                }
+            };
+
+            let type_text: Element<_> = text(type_text.to_string())
+                .shaping(Shaping::Advanced)
+                .themed(TextStyle::MainListItemSubtext);
+
+            let type_text: Element<_> = container(type_text).themed(ContainerStyle::MainListItemSubText);
+
+            button_content.push(type_text);
 
             let button_content: Element<_> = row(button_content).align_y(Alignment::Center).into();
 
