@@ -43,7 +43,7 @@ vergen-pretty = "0.3"
 dark-light = "1.1.1"
 
 [features]
-release = ["gauntlet-common/release"]
+release = ["gauntlet-common/release", "gauntlet-plugin-runtime/release"]
 scenario_runner = ["dep:gauntlet-scenario-runner", "gauntlet-common/scenario_runner", "gauntlet-plugin-runtime/scenario_runner"]
 
 [build-dependencies]

@@ -444,6 +444,8 @@ pub async fn start_js_runtime(
     event_stream: Receiver<JsEvent>,
     api: BackendForPluginRuntimeApiProxy,
 ) -> anyhow::Result<()> {
+    let bundled = init.plugin_id.to_string().starts_with("bundled://");
+
     let stdout = if let Some(stdout_file) = init.stdout_file {
         let stdout_file = PathBuf::from(stdout_file);
 
@@ -451,13 +453,15 @@ pub async fn start_js_runtime(
 
         StdioPipe::file(out_log_file)
     } else {
-        #[cfg(not(windows))]
-        let stdout = StdioPipe::file(File::options().write(true).open("/dev/null")?);
-
-        #[cfg(windows)]
-        let stdout = StdioPipe::file(File::options().write(true).open("nul")?);
-
-        stdout
+        if cfg!(all(windows, feature = "release")) {
+            StdioPipe::file(File::options().write(true).open("nul")?)
+        } else {
+            if bundled {
+                StdioPipe::inherit()
+            } else {
+                StdioPipe::file(File::options().write(true).open("/dev/null")?)
+            }
+        }
     };
 
     let stderr = if let Some(stderr_file) = init.stderr_file {
@@ -467,13 +471,15 @@ pub async fn start_js_runtime(
 
         StdioPipe::file(err_log_file)
     } else {
-        #[cfg(not(windows))]
-        let stderr = StdioPipe::file(File::options().write(true).open("/dev/null")?);
-
-        #[cfg(windows)]
-        let stderr = StdioPipe::file(File::options().write(true).open("nul")?);
-
-        stderr
+        if cfg!(all(windows, feature = "release")) {
+            StdioPipe::file(File::options().write(true).open("nul")?)
+        } else {
+            if bundled {
+                StdioPipe::inherit()
+            } else {
+                StdioPipe::file(File::options().write(true).open("/dev/null")?)
+            }
+        }
     };
 
     #[cfg(not(windows))]
