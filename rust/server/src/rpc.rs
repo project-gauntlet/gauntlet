@@ -44,8 +44,15 @@ impl BackendServer for BackendServerImpl {
         Ok(())
     }
 
-    async fn run_action(&self, plugin_id: PluginId, entrypoint_id: EntrypointId, action_id: String) -> anyhow::Result<()> {
-        self.application_manager.run_action(plugin_id, entrypoint_id, action_id).await?;
+    async fn run_action(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_id: String,
+    ) -> anyhow::Result<()> {
+        self.application_manager
+            .run_action(plugin_id, entrypoint_id, action_id)
+            .await?;
 
         Ok(())
     }
