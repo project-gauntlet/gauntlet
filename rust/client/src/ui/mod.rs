@@ -53,9 +53,11 @@ use iced::futures;
 use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard;
+use iced::keyboard::key;
 use iced::keyboard::key::Named;
 use iced::keyboard::key::Physical;
 use iced::keyboard::Key;
+use iced::keyboard::Location;
 use iced::keyboard::Modifiers;
 use iced::stream;
 use iced::widget::button;
@@ -179,6 +181,19 @@ pub enum AppMsg {
         entrypoint_name: String,
     },
     OpenGeneratedView {
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+        action_index: usize,
+    },
+    ShowNewView {
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+    },
+    ShowNewGeneratedView {
         plugin_id: PluginId,
         plugin_name: String,
         entrypoint_id: EntrypointId,
@@ -605,14 +620,17 @@ fn new(
                 match render_location {
                     UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
                     UiRenderLocation::View => {
-                        GlobalState::new_plugin(PluginViewData {
-                            top_level_view,
-                            plugin_id,
-                            plugin_name: "Screenshot Gen".to_string(),
-                            entrypoint_id,
-                            entrypoint_name: gen_name,
-                            action_shortcuts: Default::default(),
-                        })
+                        GlobalState::new_plugin(
+                            PluginViewData {
+                                top_level_view,
+                                plugin_id,
+                                plugin_name: "Screenshot Gen".to_string(),
+                                entrypoint_id,
+                                entrypoint_name: gen_name,
+                                action_shortcuts: Default::default(),
+                            },
+                            true,
+                        )
                     }
                 }
             }
@@ -709,12 +727,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     });
 
                     Task::batch([
-                        state.open_plugin_view(plugin_id, entrypoint_id),
+                        Task::done(AppMsg::OpenPluginView(plugin_id, entrypoint_id)),
                         Task::done(AppMsg::PendingPluginViewLoadingBar),
                     ])
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
                 GlobalState::PluginView { .. } => Task::none(),
+                GlobalState::PendingPluginView { .. } => Task::none(),
             }
         }
         AppMsg::OpenGeneratedView {
@@ -745,6 +764,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
                 GlobalState::PluginView { .. } => Task::none(),
+                GlobalState::PendingPluginView { .. } => Task::none(),
             }
         }
         AppMsg::RunCommand {
@@ -856,6 +876,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     }
                     GlobalState::ErrorView { .. } => {}
                     GlobalState::PluginView { .. } => {}
+                    GlobalState::PendingPluginView { .. } => {}
                 }
 
                 state.search(new_prompt, true)
@@ -934,6 +955,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                     top_level_view,
                                     ..pending_plugin_view_data
                                 },
+                                false,
                             )
                         }
                     };
@@ -949,6 +971,19 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     plugin_view_data.top_level_view = top_level_view;
 
                     Task::none()
+                }
+                GlobalState::PendingPluginView {
+                    pending_plugin_view_data,
+                } => {
+                    let pending_plugin_view_data = pending_plugin_view_data.clone();
+                    GlobalState::plugin(
+                        &mut state.global_state,
+                        PluginViewData {
+                            top_level_view,
+                            ..pending_plugin_view_data
+                        },
+                        true,
+                    )
                 }
             }
         }
@@ -1033,226 +1068,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                         PluginViewState::ActionPanel { .. } => Task::none(),
                                     }
                                 }
+                                GlobalState::PendingPluginView { .. } => Task::none(),
                             }
                         }
-                        _ => {
-                            let Physical::Code(physical_key) = physical_key else {
-                                return Task::none();
-                            };
-
-                            match &mut state.global_state {
-                                GlobalState::MainView {
-                                    sub_state,
-                                    search_field_id,
-                                    focused_search_result,
-                                    ..
-                                } => {
-                                    match sub_state {
-                                        MainViewState::None => {
-                                            match physical_key_model(physical_key, modifiers) {
-                                                Some(PhysicalShortcut {
-                                                    physical_key: PhysicalKey::KeyK,
-                                                    modifier_shift: false,
-                                                    modifier_control: false,
-                                                    modifier_alt: true,
-                                                    modifier_meta: false,
-                                                }) => {
-                                                    Task::perform(async {}, |_| {
-                                                        AppMsg::ToggleActionPanel { keyboard: true }
-                                                    })
-                                                }
-                                                Some(PhysicalShortcut {
-                                                    physical_key,
-                                                    modifier_shift,
-                                                    modifier_control,
-                                                    modifier_alt,
-                                                    modifier_meta,
-                                                }) => {
-                                                    if modifier_shift
-                                                        || modifier_control
-                                                        || modifier_alt
-                                                        || modifier_meta
-                                                    {
-                                                        if let Some(search_item) =
-                                                            focused_search_result.get(&state.search_results)
-                                                        {
-                                                            if search_item.entrypoint_actions.len() > 0 {
-                                                                state.handle_main_view_keyboard_event(
-                                                                    search_item.plugin_id.clone(),
-                                                                    search_item.entrypoint_id.clone(),
-                                                                    physical_key,
-                                                                    modifier_shift,
-                                                                    modifier_control,
-                                                                    modifier_alt,
-                                                                    modifier_meta,
-                                                                )
-                                                            } else {
-                                                                Task::none()
-                                                            }
-                                                        } else {
-                                                            state.handle_inline_plugin_view_keyboard_event(
-                                                                physical_key,
-                                                                modifier_shift,
-                                                                modifier_control,
-                                                                modifier_alt,
-                                                                modifier_meta,
-                                                            )
-                                                        }
-                                                    } else {
-                                                        AppModel::append_prompt(
-                                                            &mut state.prompt,
-                                                            text,
-                                                            search_field_id.clone(),
-                                                            modifiers,
-                                                        )
-                                                    }
-                                                }
-                                                _ => {
-                                                    AppModel::append_prompt(
-                                                        &mut state.prompt,
-                                                        text,
-                                                        search_field_id.clone(),
-                                                        modifiers,
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        MainViewState::SearchResultActionPanel { .. } => {
-                                            match physical_key_model(physical_key, modifiers) {
-                                                Some(PhysicalShortcut {
-                                                    physical_key: PhysicalKey::KeyK,
-                                                    modifier_shift: false,
-                                                    modifier_control: false,
-                                                    modifier_alt: true,
-                                                    modifier_meta: false,
-                                                }) => {
-                                                    Task::perform(async {}, |_| {
-                                                        AppMsg::ToggleActionPanel { keyboard: true }
-                                                    })
-                                                }
-                                                Some(PhysicalShortcut {
-                                                    physical_key,
-                                                    modifier_shift,
-                                                    modifier_control,
-                                                    modifier_alt,
-                                                    modifier_meta,
-                                                }) => {
-                                                    if modifier_shift
-                                                        || modifier_control
-                                                        || modifier_alt
-                                                        || modifier_meta
-                                                    {
-                                                        if let Some(search_item) =
-                                                            focused_search_result.get(&state.search_results)
-                                                        {
-                                                            if search_item.entrypoint_actions.len() > 0 {
-                                                                state.handle_main_view_keyboard_event(
-                                                                    search_item.plugin_id.clone(),
-                                                                    search_item.entrypoint_id.clone(),
-                                                                    physical_key,
-                                                                    modifier_shift,
-                                                                    modifier_control,
-                                                                    modifier_alt,
-                                                                    modifier_meta,
-                                                                )
-                                                            } else {
-                                                                Task::none()
-                                                            }
-                                                        } else {
-                                                            Task::none()
-                                                        }
-                                                    } else {
-                                                        Task::none()
-                                                    }
-                                                }
-                                                _ => Task::none(),
-                                            }
-                                        }
-                                        MainViewState::InlineViewActionPanel { .. } => {
-                                            match physical_key_model(physical_key, modifiers) {
-                                                Some(PhysicalShortcut {
-                                                    physical_key: PhysicalKey::KeyK,
-                                                    modifier_shift: false,
-                                                    modifier_control: false,
-                                                    modifier_alt: true,
-                                                    modifier_meta: false,
-                                                }) => {
-                                                    Task::perform(async {}, |_| {
-                                                        AppMsg::ToggleActionPanel { keyboard: true }
-                                                    })
-                                                }
-                                                Some(PhysicalShortcut {
-                                                    physical_key,
-                                                    modifier_shift,
-                                                    modifier_control,
-                                                    modifier_alt,
-                                                    modifier_meta,
-                                                }) => {
-                                                    if modifier_shift
-                                                        || modifier_control
-                                                        || modifier_alt
-                                                        || modifier_meta
-                                                    {
-                                                        state.handle_inline_plugin_view_keyboard_event(
-                                                            physical_key,
-                                                            modifier_shift,
-                                                            modifier_control,
-                                                            modifier_alt,
-                                                            modifier_meta,
-                                                        )
-                                                    } else {
-                                                        Task::none()
-                                                    }
-                                                }
-                                                _ => Task::none(),
-                                            }
-                                        }
-                                    }
-                                }
-                                GlobalState::ErrorView { .. } => Task::none(),
-                                GlobalState::PluginView { sub_state, .. } => {
-                                    match physical_key_model(physical_key, modifiers) {
-                                        Some(PhysicalShortcut {
-                                            physical_key: PhysicalKey::KeyK,
-                                            modifier_shift: false,
-                                            modifier_control: false,
-                                            modifier_alt: true,
-                                            modifier_meta: false,
-                                        }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
-                                        Some(PhysicalShortcut {
-                                            physical_key,
-                                            modifier_shift,
-                                            modifier_control,
-                                            modifier_alt,
-                                            modifier_meta,
-                                        }) => {
-                                            if modifier_shift || modifier_control || modifier_alt || modifier_meta {
-                                                state.handle_plugin_view_keyboard_event(
-                                                    physical_key,
-                                                    modifier_shift,
-                                                    modifier_control,
-                                                    modifier_alt,
-                                                    modifier_meta,
-                                                )
-                                            } else {
-                                                match sub_state {
-                                                    PluginViewState::None => {
-                                                        match text {
-                                                            None => Task::none(),
-                                                            Some(text) => {
-                                                                state.client_context.append_text(text.as_str())
-                                                            }
-                                                        }
-                                                    }
-                                                    PluginViewState::ActionPanel { .. } => Task::none(),
-                                                }
-                                            }
-                                        }
-                                        _ => Task::none(),
-                                    }
-                                }
-                            }
-                        }
+                        _ => state.handle_shortcut_key(physical_key, modifiers, text),
                     }
                 }
                 _ => Task::none(),
@@ -1374,6 +1193,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 GlobalState::PluginView { plugin_view_data, .. } => {
                     plugin_view_data.action_shortcuts = action_shortcuts;
                 }
+                GlobalState::PendingPluginView { .. } => {}
             }
 
             Task::none()
@@ -1455,6 +1275,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         PluginViewState::ActionPanel { .. } => PluginViewState::initial(sub_state),
                     }
                 }
+                GlobalState::PendingPluginView { .. } => {}
             }
 
             Task::none()
@@ -1529,6 +1350,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 GlobalState::PluginView { .. } => Task::none(),
                 GlobalState::ErrorView { .. } => Task::none(),
+                GlobalState::PendingPluginView { .. } => Task::none(),
             }
         }
         AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
@@ -1578,6 +1400,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
                 GlobalState::PluginView { .. } => Task::none(),
+                GlobalState::PendingPluginView { .. } => Task::none(),
             }
         }
         AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id } => {
@@ -1612,6 +1435,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
                 GlobalState::PluginView { .. } => Task::none(),
+                GlobalState::PendingPluginView { .. } => Task::none(),
             }
         }
         AppMsg::SetGlobalShortcut { shortcut, responder } => {
@@ -1708,6 +1532,51 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             state.window_position_mode = mode;
 
             Task::none()
+        }
+        AppMsg::ShowNewView {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+        } => {
+            Task::batch([
+                GlobalState::pending_plugin(
+                    &mut state.global_state,
+                    PluginViewData {
+                        top_level_view: true,
+                        plugin_id: plugin_id.clone(),
+                        plugin_name,
+                        entrypoint_id: entrypoint_id.clone(),
+                        entrypoint_name,
+                        action_shortcuts: HashMap::new(),
+                    },
+                ),
+                Task::done(AppMsg::OpenPluginView(plugin_id, entrypoint_id)),
+                Task::done(AppMsg::ShowWindow),
+            ])
+        }
+        AppMsg::ShowNewGeneratedView {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+            action_index,
+        } => {
+            Task::batch([
+                GlobalState::pending_plugin(
+                    &mut state.global_state,
+                    PluginViewData {
+                        top_level_view: true,
+                        plugin_id: plugin_id.clone(),
+                        plugin_name,
+                        entrypoint_id: entrypoint_id.clone(),
+                        entrypoint_name,
+                        action_shortcuts: HashMap::new(),
+                    },
+                ),
+                state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
+                Task::done(AppMsg::ShowWindow),
+            ])
         }
     }
 }
@@ -2235,6 +2104,10 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
             element
         }
+        GlobalState::PendingPluginView { .. } => {
+            // this should never be shown, but in case it does, do not make it fully transparent
+            container(horizontal_space()).themed(ContainerStyle::Hud)
+        }
     }
 }
 
@@ -2334,7 +2207,7 @@ impl AppModel {
         self.focused = false;
         self.opened = false;
 
-        let mut commands = vec![];
+        let mut commands = vec![self.reset_window_state()];
 
         #[cfg(target_os = "linux")]
         if self.wayland {
@@ -2368,6 +2241,7 @@ impl AppModel {
             }
             GlobalState::MainView { .. } => {}
             GlobalState::ErrorView { .. } => {}
+            GlobalState::PendingPluginView { .. } => {}
         }
 
         Task::batch(commands)
@@ -2402,7 +2276,7 @@ impl AppModel {
             window::change_mode(self.main_window_id, Mode::Windowed),
         ]);
 
-        Task::batch([open_task, self.reset_window_state()])
+        open_task
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
@@ -2669,6 +2543,189 @@ impl AppModel {
             handle_backend_error(result, |shortcuts| AppMsg::InlineViewShortcuts { shortcuts })
         })
     }
+
+    fn handle_shortcut_key(
+        &mut self,
+        physical_key: Physical,
+        modifiers: Modifiers,
+        text: Option<SmolStr>,
+    ) -> Task<AppMsg> {
+        let Physical::Code(physical_key) = physical_key else {
+            return Task::none();
+        };
+
+        match &mut self.global_state {
+            GlobalState::MainView {
+                sub_state,
+                search_field_id,
+                focused_search_result,
+                ..
+            } => {
+                match sub_state {
+                    MainViewState::None => {
+                        match physical_key_model(physical_key, modifiers) {
+                            Some(PhysicalShortcut {
+                                physical_key: PhysicalKey::KeyK,
+                                modifier_shift: false,
+                                modifier_control: false,
+                                modifier_alt: true,
+                                modifier_meta: false,
+                            }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                            Some(PhysicalShortcut {
+                                physical_key,
+                                modifier_shift,
+                                modifier_control,
+                                modifier_alt,
+                                modifier_meta,
+                            }) => {
+                                if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                    if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                        if search_item.entrypoint_actions.len() > 0 {
+                                            self.handle_main_view_keyboard_event(
+                                                search_item.plugin_id.clone(),
+                                                search_item.entrypoint_id.clone(),
+                                                physical_key,
+                                                modifier_shift,
+                                                modifier_control,
+                                                modifier_alt,
+                                                modifier_meta,
+                                            )
+                                        } else {
+                                            Task::none()
+                                        }
+                                    } else {
+                                        self.handle_inline_plugin_view_keyboard_event(
+                                            physical_key,
+                                            modifier_shift,
+                                            modifier_control,
+                                            modifier_alt,
+                                            modifier_meta,
+                                        )
+                                    }
+                                } else {
+                                    AppModel::append_prompt(&mut self.prompt, text, search_field_id.clone(), modifiers)
+                                }
+                            }
+                            _ => AppModel::append_prompt(&mut self.prompt, text, search_field_id.clone(), modifiers),
+                        }
+                    }
+                    MainViewState::SearchResultActionPanel { .. } => {
+                        match physical_key_model(physical_key, modifiers) {
+                            Some(PhysicalShortcut {
+                                physical_key: PhysicalKey::KeyK,
+                                modifier_shift: false,
+                                modifier_control: false,
+                                modifier_alt: true,
+                                modifier_meta: false,
+                            }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                            Some(PhysicalShortcut {
+                                physical_key,
+                                modifier_shift,
+                                modifier_control,
+                                modifier_alt,
+                                modifier_meta,
+                            }) => {
+                                if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                    if let Some(search_item) = focused_search_result.get(&self.search_results) {
+                                        if search_item.entrypoint_actions.len() > 0 {
+                                            self.handle_main_view_keyboard_event(
+                                                search_item.plugin_id.clone(),
+                                                search_item.entrypoint_id.clone(),
+                                                physical_key,
+                                                modifier_shift,
+                                                modifier_control,
+                                                modifier_alt,
+                                                modifier_meta,
+                                            )
+                                        } else {
+                                            Task::none()
+                                        }
+                                    } else {
+                                        Task::none()
+                                    }
+                                } else {
+                                    Task::none()
+                                }
+                            }
+                            _ => Task::none(),
+                        }
+                    }
+                    MainViewState::InlineViewActionPanel { .. } => {
+                        match physical_key_model(physical_key, modifiers) {
+                            Some(PhysicalShortcut {
+                                physical_key: PhysicalKey::KeyK,
+                                modifier_shift: false,
+                                modifier_control: false,
+                                modifier_alt: true,
+                                modifier_meta: false,
+                            }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                            Some(PhysicalShortcut {
+                                physical_key,
+                                modifier_shift,
+                                modifier_control,
+                                modifier_alt,
+                                modifier_meta,
+                            }) => {
+                                if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                                    self.handle_inline_plugin_view_keyboard_event(
+                                        physical_key,
+                                        modifier_shift,
+                                        modifier_control,
+                                        modifier_alt,
+                                        modifier_meta,
+                                    )
+                                } else {
+                                    Task::none()
+                                }
+                            }
+                            _ => Task::none(),
+                        }
+                    }
+                }
+            }
+            GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PluginView { sub_state, .. } => {
+                match physical_key_model(physical_key, modifiers) {
+                    Some(PhysicalShortcut {
+                        physical_key: PhysicalKey::KeyK,
+                        modifier_shift: false,
+                        modifier_control: false,
+                        modifier_alt: true,
+                        modifier_meta: false,
+                    }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                    Some(PhysicalShortcut {
+                        physical_key,
+                        modifier_shift,
+                        modifier_control,
+                        modifier_alt,
+                        modifier_meta,
+                    }) => {
+                        if modifier_shift || modifier_control || modifier_alt || modifier_meta {
+                            self.handle_plugin_view_keyboard_event(
+                                physical_key,
+                                modifier_shift,
+                                modifier_control,
+                                modifier_alt,
+                                modifier_meta,
+                            )
+                        } else {
+                            match sub_state {
+                                PluginViewState::None => {
+                                    match text {
+                                        None => Task::none(),
+                                        Some(text) => self.client_context.append_text(text.as_str()),
+                                    }
+                                }
+                                PluginViewState::ActionPanel { .. } => Task::none(),
+                            }
+                        }
+                    }
+                    _ => Task::none(),
+                }
+            }
+            GlobalState::PendingPluginView { .. } => Task::none(),
+        }
+    }
 }
 
 // these are needed to force focus the text_input in main search view when
@@ -2827,6 +2884,38 @@ async fn request_loop(
                     responder.respond(UiResponseData::Nothing);
 
                     AppMsg::SetWindowPositionMode { mode }
+                }
+                UiRequestData::ShowPluginView {
+                    plugin_id,
+                    plugin_name,
+                    entrypoint_id,
+                    entrypoint_name,
+                } => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::ShowNewView {
+                        plugin_id,
+                        plugin_name,
+                        entrypoint_id,
+                        entrypoint_name,
+                    }
+                }
+                UiRequestData::ShowGeneratedPluginView {
+                    plugin_id,
+                    plugin_name,
+                    entrypoint_id,
+                    entrypoint_name,
+                    action_index,
+                } => {
+                    responder.respond(UiResponseData::Nothing);
+
+                    AppMsg::ShowNewGeneratedView {
+                        plugin_id,
+                        plugin_name,
+                        entrypoint_id,
+                        entrypoint_name,
+                        action_index,
+                    }
                 }
             }
         };

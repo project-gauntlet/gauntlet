@@ -279,6 +279,19 @@ pub enum UiRequestData {
     SetWindowPositionMode {
         mode: WindowPositionMode,
     },
+    ShowPluginView {
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+    },
+    ShowGeneratedPluginView {
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+        action_index: usize,
+    },
 }
 
 #[derive(Debug)]

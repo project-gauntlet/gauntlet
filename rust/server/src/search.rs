@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
@@ -35,7 +36,7 @@ pub struct SearchIndex {
     index_reader: IndexReader,
     index_writer_mutex: Arc<Mutex<()>>,
 
-    entrypoint_data: Arc<Mutex<HashMap<PluginId, HashMap<EntrypointId, EntrypointData>>>>,
+    entrypoint_data: Arc<Mutex<HashMap<PluginId, PluginData>>>,
 
     entrypoint_name: Field,
     entrypoint_id: Field,
@@ -43,7 +44,13 @@ pub struct SearchIndex {
     plugin_id: Field,
 }
 
+struct PluginData {
+    plugin_name: String,
+    entrypoints: HashMap<EntrypointId, EntrypointData>,
+}
+
 struct EntrypointData {
+    entrypoint_name: String,
     entrypoint_generator_name: Option<String>,
     entrypoint_type: SearchResultEntrypointType,
     icon: Option<bytes::Bytes>,
@@ -53,14 +60,35 @@ struct EntrypointData {
 }
 
 struct EntrypointActionData {
+    id: Option<String>,
     label: String,
     action_type: EntrypointActionType,
     shortcut: Option<PhysicalShortcut>,
 }
 
-enum EntrypointActionType {
+#[derive(Clone, Copy)]
+pub enum EntrypointActionType {
     Command,
     View,
+}
+
+pub struct PluginDataView {
+    pub plugin_name: String,
+    pub entrypoints: HashMap<EntrypointId, EntrypointDataView>,
+}
+
+pub struct EntrypointDataView {
+    pub entrypoint_name: String,
+    pub entrypoint_generator_name: Option<String>,
+    pub entrypoint_type: SearchResultEntrypointType,
+    pub actions: Vec<EntrypointActionDataView>,
+}
+
+pub struct EntrypointActionDataView {
+    pub id: Option<String>,
+    pub label: String,
+    pub action_type: EntrypointActionType,
+    pub shortcut: Option<PhysicalShortcut>,
 }
 
 #[derive(Clone, Debug)]
@@ -77,6 +105,7 @@ pub struct SearchIndexItem {
 
 #[derive(Clone, Debug)]
 pub struct SearchIndexItemAction {
+    pub id: Option<String>,
     pub label: String,
     pub action_type: SearchIndexItemActionActionType,
     pub shortcut: Option<PhysicalShortcut>,
@@ -186,6 +215,7 @@ impl SearchIndex {
                     .into_iter()
                     .map(|action| {
                         EntrypointActionData {
+                            id: action.id,
                             label: action.label,
                             action_type: match action.action_type {
                                 SearchIndexItemActionActionType::Command => EntrypointActionType::Command,
@@ -197,6 +227,7 @@ impl SearchIndex {
                     .collect();
 
                 let data = EntrypointData {
+                    entrypoint_name: item.entrypoint_name,
                     entrypoint_generator_name: item.entrypoint_generator_name,
                     entrypoint_type: item.entrypoint_type,
                     icon: item.entrypoint_icon,
@@ -209,7 +240,13 @@ impl SearchIndex {
             })
             .collect();
 
-        entrypoint_data.insert(plugin_id.clone(), data);
+        entrypoint_data.insert(
+            plugin_id.clone(),
+            PluginData {
+                plugin_name,
+                entrypoints: data,
+            },
+        );
 
         if refresh_search_list {
             let mut frontend_api = self.frontend_api.clone();
@@ -228,6 +265,52 @@ impl SearchIndex {
         }
 
         Ok(())
+    }
+
+    pub fn plugin_entrypoint_actions(&self) -> HashMap<PluginId, PluginDataView> {
+        let entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
+
+        entrypoint_data
+            .iter()
+            .map(|(plugin_id, data)| {
+                let entrypoints = data
+                    .entrypoints
+                    .iter()
+                    .map(|(entrypoint_id, data)| {
+                        let actions = data
+                            .actions
+                            .iter()
+                            .map(|data| {
+                                EntrypointActionDataView {
+                                    id: data.id.clone(),
+                                    label: data.label.clone(),
+                                    action_type: data.action_type,
+                                    shortcut: data.shortcut.clone(),
+                                }
+                            })
+                            .collect();
+
+                        (
+                            entrypoint_id.clone(),
+                            EntrypointDataView {
+                                entrypoint_name: data.entrypoint_name.clone(),
+                                entrypoint_generator_name: data.entrypoint_generator_name.clone(),
+                                entrypoint_type: data.entrypoint_type.clone(),
+                                actions,
+                            },
+                        )
+                    })
+                    .collect();
+
+                (
+                    plugin_id.clone(),
+                    PluginDataView {
+                        plugin_name: data.plugin_name.clone(),
+                        entrypoints,
+                    },
+                )
+            })
+            .collect()
     }
 
     pub fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
@@ -278,7 +361,7 @@ impl SearchIndex {
 
     fn fetch(
         &self,
-        entrypoint_data: &HashMap<PluginId, HashMap<EntrypointId, EntrypointData>>,
+        entrypoint_data: &HashMap<PluginId, PluginData>,
         query: &dyn Query,
         collector: TopDocs,
         searcher: &Searcher,
@@ -318,6 +401,7 @@ impl SearchIndex {
                 let entrypoint_data = entrypoint_data
                     .get(&plugin_id)
                     .expect("Plugin should always exist in entrypoint data")
+                    .entrypoints
                     .get(&entrypoint_id)
                     .expect("Entrypoint should always exist in plugin in entrypoint data");
 

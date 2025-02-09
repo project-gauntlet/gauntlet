@@ -37,6 +37,7 @@ use crate::rpc::grpc::RpcGetWindowPositionModeRequest;
 use crate::rpc::grpc::RpcPingRequest;
 use crate::rpc::grpc::RpcPluginsRequest;
 use crate::rpc::grpc::RpcRemovePluginRequest;
+use crate::rpc::grpc::RpcRunActionRequest;
 use crate::rpc::grpc::RpcSaveLocalPluginRequest;
 use crate::rpc::grpc::RpcSetEntrypointStateRequest;
 use crate::rpc::grpc::RpcSetGlobalShortcutRequest;
@@ -306,7 +307,7 @@ impl From<tonic::Status> for BackendApiError {
             Code::DeadlineExceeded => BackendApiError::Timeout,
             _ => {
                 BackendApiError::Internal {
-                    display: format!("{}", error),
+                    display: format!("{}", error.message()),
                 }
             }
         }
@@ -352,6 +353,24 @@ impl BackendApi {
         let _ = self
             .client
             .show_settings_window(Request::new(RpcShowSettingsWindowRequest::default()))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn run_action(
+        &mut self,
+        plugin_id: String,
+        entrypoint_id: String,
+        action_id: String,
+    ) -> Result<(), BackendApiError> {
+        let _ = self
+            .client
+            .run_action(Request::new(RpcRunActionRequest {
+                plugin_id,
+                entrypoint_id,
+                action_id,
+            }))
             .await?;
 
         Ok(())

@@ -42,6 +42,8 @@ use crate::rpc::grpc::RpcPluginsRequest;
 use crate::rpc::grpc::RpcPluginsResponse;
 use crate::rpc::grpc::RpcRemovePluginRequest;
 use crate::rpc::grpc::RpcRemovePluginResponse;
+use crate::rpc::grpc::RpcRunActionRequest;
+use crate::rpc::grpc::RpcRunActionResponse;
 use crate::rpc::grpc::RpcSaveLocalPluginRequest;
 use crate::rpc::grpc::RpcSaveLocalPluginResponse;
 use crate::rpc::grpc::RpcSetEntrypointStateRequest;
@@ -102,6 +104,13 @@ pub trait BackendServer {
     async fn show_window(&self) -> anyhow::Result<()>;
 
     async fn show_settings_window(&self) -> anyhow::Result<()>;
+
+    async fn run_action(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_id: String,
+    ) -> anyhow::Result<()>;
 
     async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>>;
 
@@ -171,6 +180,26 @@ impl RpcBackend for RpcBackendServerImpl {
             .map_err(|err| Status::internal(format!("{:#}", err)))?;
 
         Ok(Response::new(RpcShowSettingsWindowResponse::default()))
+    }
+
+    async fn run_action(
+        &self,
+        request: Request<RpcRunActionRequest>,
+    ) -> Result<Response<RpcRunActionResponse>, Status> {
+        let request = request.into_inner();
+        let plugin_id = request.plugin_id;
+        let entrypoint_id = request.entrypoint_id;
+        let action_id = request.action_id;
+
+        let plugin_id = PluginId::from_string(plugin_id);
+        let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
+        self.server
+            .run_action(plugin_id, entrypoint_id, action_id)
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        Ok(Response::new(RpcRunActionResponse::default()))
     }
 
     async fn plugins(&self, _: Request<RpcPluginsRequest>) -> Result<Response<RpcPluginsResponse>, Status> {

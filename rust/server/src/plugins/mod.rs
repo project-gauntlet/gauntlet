@@ -1,10 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Index;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use anyhow::Context;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
@@ -17,6 +19,7 @@ use gauntlet_common::model::PluginPreference;
 use gauntlet_common::model::PluginPreferenceUserData;
 use gauntlet_common::model::PreferenceEnumValue;
 use gauntlet_common::model::SearchResult;
+use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::SettingsEntrypoint;
 use gauntlet_common::model::SettingsEntrypointType;
 use gauntlet_common::model::SettingsPlugin;
@@ -64,6 +67,10 @@ use crate::plugins::js::PluginRuntimeData;
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
 use crate::plugins::settings::Settings;
+use crate::search::EntrypointActionDataView;
+use crate::search::EntrypointActionType;
+use crate::search::EntrypointDataView;
+use crate::search::PluginDataView;
 use crate::search::SearchIndex;
 
 mod clipboard;
@@ -177,6 +184,161 @@ impl ApplicationManager {
 
     pub async fn show_window(&self) -> anyhow::Result<()> {
         self.frontend_api.show_window().await?;
+
+        Ok(())
+    }
+
+    pub async fn run_action(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_id: String,
+    ) -> anyhow::Result<()> {
+        let data = self.search_index.plugin_entrypoint_actions();
+
+        let Some(data) = data.get(&plugin_id) else {
+            return Err(anyhow!("Unable to find plugin with id: {}", plugin_id));
+        };
+
+        let PluginDataView {
+            plugin_name,
+            entrypoints,
+        } = data;
+
+        let Some(entrypoint_data) = &entrypoints.get(&entrypoint_id) else {
+            return Err(anyhow!("Unable to find entrypoint with id: {}", entrypoint_id));
+        };
+
+        let EntrypointDataView {
+            entrypoint_name,
+            entrypoint_type,
+            actions,
+            ..
+        } = entrypoint_data;
+
+        match action_id.as_str() {
+            ":primary" => {
+                match entrypoint_type {
+                    SearchResultEntrypointType::Command => {
+                        self.handle_run_command(plugin_id, entrypoint_id).await;
+                    }
+                    SearchResultEntrypointType::View => {
+                        self.frontend_api
+                            .open_plugin_view(
+                                plugin_id,
+                                plugin_name.to_string(),
+                                entrypoint_id,
+                                entrypoint_name.to_string(),
+                            )
+                            .await?;
+                    }
+                    SearchResultEntrypointType::Generated => {
+                        let Some(action_data) = actions.get(0) else {
+                            return Err(anyhow!("Requested entrypoint doesn't provide primary action"));
+                        };
+
+                        let EntrypointActionDataView { action_type, .. } = action_data;
+
+                        match action_type {
+                            EntrypointActionType::Command => {
+                                self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, 0).await;
+                            }
+                            EntrypointActionType::View => {
+                                self.frontend_api
+                                    .open_generated_plugin_view(
+                                        plugin_id,
+                                        plugin_name.to_string(),
+                                        entrypoint_id,
+                                        entrypoint_name.to_string(),
+                                        0,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
+            }
+            ":secondary" => {
+                match entrypoint_type {
+                    SearchResultEntrypointType::Command => {
+                        return Err(anyhow!("Command entrypoints support only ':primary' action"));
+                    }
+                    SearchResultEntrypointType::View => {
+                        return Err(anyhow!("View entrypoints support only ':primary' action"));
+                    }
+                    SearchResultEntrypointType::Generated => {
+                        let Some(action_data) = actions.get(1) else {
+                            return Err(anyhow!("Requested entrypoint doesn't provide secondary action"));
+                        };
+
+                        let EntrypointActionDataView { action_type, .. } = action_data;
+
+                        match action_type {
+                            EntrypointActionType::Command => {
+                                self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, 1).await;
+                            }
+                            EntrypointActionType::View => {
+                                self.frontend_api
+                                    .open_generated_plugin_view(
+                                        plugin_id,
+                                        plugin_name.to_string(),
+                                        entrypoint_id,
+                                        entrypoint_name.to_string(),
+                                        1,
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
+            }
+            action_id @ _ => {
+                match entrypoint_type {
+                    SearchResultEntrypointType::Command => {
+                        return Err(anyhow!("Command entrypoints support only ':primary' action"));
+                    }
+                    SearchResultEntrypointType::View => {
+                        return Err(anyhow!("View entrypoints support only ':primary' action"));
+                    }
+                    SearchResultEntrypointType::Generated => {
+                        let index = entrypoint_data
+                            .actions
+                            .iter()
+                            .position(|data| &data.id == &Some(action_id.to_string()));
+
+                        match index {
+                            None => {
+                                return Err(anyhow!(
+                                    "Requested entrypoint doesn't provide action with id: {}",
+                                    action_id
+                                ));
+                            }
+                            Some(index) => {
+                                let action_data = &entrypoint_data.actions[index];
+
+                                match action_data.action_type {
+                                    EntrypointActionType::Command => {
+                                        self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, index)
+                                            .await;
+                                    }
+                                    EntrypointActionType::View => {
+                                        self.frontend_api
+                                            .open_generated_plugin_view(
+                                                plugin_id,
+                                                plugin_name.to_string(),
+                                                entrypoint_id,
+                                                entrypoint_name.to_string(),
+                                                index,
+                                            )
+                                            .await?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         Ok(())
     }

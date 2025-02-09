@@ -220,4 +220,46 @@ impl FrontendApi {
             UiResponseData::Err(err) => Err(err),
         }
     }
+
+    pub async fn open_generated_plugin_view(
+        &self,
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+        action_index: usize,
+    ) -> Result<(), FrontendApiError> {
+        let data = UiRequestData::ShowGeneratedPluginView {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+            action_index,
+        };
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(data).await? else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
+
+    pub async fn open_plugin_view(
+        &self,
+        plugin_id: PluginId,
+        plugin_name: String,
+        entrypoint_id: EntrypointId,
+        entrypoint_name: String,
+    ) -> Result<(), FrontendApiError> {
+        let data = UiRequestData::ShowPluginView {
+            plugin_id,
+            plugin_name,
+            entrypoint_id,
+            entrypoint_name,
+        };
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(data).await? else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
 }

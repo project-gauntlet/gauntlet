@@ -1,23 +1,46 @@
+use std::time::Duration;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use clap::Parser;
 use gauntlet_client::open_window;
 use gauntlet_management_client::start_management_client;
+use gauntlet_server::run_action;
 use gauntlet_server::start;
 
+/// Gauntlet CLI
+///
+/// If no subcommand is provided server will be started or if one is already running window will be opened
 #[derive(Debug, clap::Parser)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
+    /// Start server without opening Gauntlet window, only used if no subcommand is provided
     #[arg(long)]
     minimized: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
 enum Commands {
+    /// Open Gauntlet window
     Open,
+    /// Open Gauntlet settings
     Settings,
+    /// Run action (only ones visible in main window search results) of specific entrypoint of specific plugin
+    Run {
+        /// Plugin ID, can be found in settings
+        plugin_id: String,
+
+        /// Entrypoint ID, can be found in plugin manifest at `entrypoint.*.id`
+        entrypoint_id: String,
+
+        /// Action ID, can be found in plugin manifest at `entrypoint.actions.*.id`.
+        /// Alternatively, following special values are supported:
+        /// `:primary` (action run with Enter shortcut) or
+        /// `:secondary` (action run with Shift+Enter shortcut)
+        action_id: String,
+    },
 }
 
 pub fn init() {
@@ -25,7 +48,7 @@ pub fn init() {
 
     let cli = Cli::parse();
 
-    match &cli.command {
+    match cli.command {
         None => {
             if cfg!(feature = "release") {
                 #[cfg(target_os = "macos")]
@@ -46,6 +69,13 @@ pub fn init() {
             match command {
                 Commands::Open => open_window(),
                 Commands::Settings => start_management_client(),
+                Commands::Run {
+                    plugin_id,
+                    entrypoint_id,
+                    action_id,
+                } => {
+                    run_action(plugin_id, entrypoint_id, action_id);
+                }
             };
         }
     }

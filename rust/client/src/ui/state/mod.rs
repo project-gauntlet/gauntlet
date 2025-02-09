@@ -31,6 +31,9 @@ pub enum GlobalState {
         pending_plugin_view_data: Option<PluginViewData>,
         pending_plugin_view_loading_bar: LoadingBarState,
     },
+    PendingPluginView {
+        pending_plugin_view_data: PluginViewData,
+    },
     ErrorView {
         error_view: ErrorViewData,
     },
@@ -38,6 +41,7 @@ pub enum GlobalState {
         // state
         plugin_view_data: PluginViewData,
         sub_state: PluginViewState,
+        close_window_on_esc: bool,
     },
 }
 
@@ -92,10 +96,16 @@ impl GlobalState {
         }
     }
 
-    pub fn new_plugin(plugin_view_data: PluginViewData) -> GlobalState {
+    pub fn new_plugin(plugin_view_data: PluginViewData, close_window_on_esc: bool) -> GlobalState {
         GlobalState::PluginView {
             plugin_view_data,
             sub_state: PluginViewState::new(),
+            close_window_on_esc,
+        }
+    }
+    pub fn new_pending_plugin(pending_plugin_view_data: PluginViewData) -> GlobalState {
+        GlobalState::PendingPluginView {
+            pending_plugin_view_data,
         }
     }
 
@@ -113,8 +123,18 @@ impl GlobalState {
         Task::none()
     }
 
-    pub fn plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData) -> Task<AppMsg> {
-        *prev_global_state = GlobalState::new_plugin(plugin_view_data);
+    pub fn plugin(
+        prev_global_state: &mut GlobalState,
+        plugin_view_data: PluginViewData,
+        close_window_on_esc: bool,
+    ) -> Task<AppMsg> {
+        *prev_global_state = GlobalState::new_plugin(plugin_view_data, close_window_on_esc);
+
+        Task::none()
+    }
+
+    pub fn pending_plugin(prev_global_state: &mut GlobalState, plugin_view_data: PluginViewData) -> Task<AppMsg> {
+        *prev_global_state = GlobalState::new_pending_plugin(plugin_view_data);
 
         Task::none()
     }
@@ -209,6 +229,7 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
 
@@ -257,6 +278,7 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
 
@@ -284,17 +306,24 @@ impl Focus<SearchResult> for GlobalState {
                         ..
                     },
                 sub_state,
-                ..
+                close_window_on_esc,
             } => {
                 match sub_state {
                     PluginViewState::None => {
                         if *top_level_view {
                             let plugin_id = plugin_id.clone();
 
-                            Task::batch([
-                                Task::done(AppMsg::ClosePluginView(plugin_id)),
-                                GlobalState::initial(self),
-                            ])
+                            if *close_window_on_esc {
+                                Task::batch([
+                                    Task::done(AppMsg::ClosePluginView(plugin_id)),
+                                    Task::done(AppMsg::HideWindow),
+                                ])
+                            } else {
+                                Task::batch([
+                                    Task::done(AppMsg::ClosePluginView(plugin_id)),
+                                    GlobalState::initial(self),
+                                ])
+                            }
                         } else {
                             let plugin_id = plugin_id.clone();
                             let entrypoint_id = entrypoint_id.clone();
@@ -305,6 +334,7 @@ impl Focus<SearchResult> for GlobalState {
                 }
             }
             GlobalState::ErrorView { .. } => Task::done(AppMsg::HideWindow),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
     fn next(&mut self, _client_context: &ClientContext) -> Task<AppMsg> {
@@ -312,6 +342,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::MainView { .. } => Task::none(),
             GlobalState::PluginView { .. } => Task::none(),
             GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
     fn previous(&mut self, _client_context: &ClientContext) -> Task<AppMsg> {
@@ -319,6 +350,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::MainView { .. } => Task::none(),
             GlobalState::PluginView { .. } => Task::none(),
             GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
     fn up(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
@@ -347,6 +379,7 @@ impl Focus<SearchResult> for GlobalState {
                     }
                 }
             }
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
     fn down(&mut self, client_context: &mut ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
@@ -412,6 +445,7 @@ impl Focus<SearchResult> for GlobalState {
                     }
                 }
             }
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
     fn left(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
@@ -424,6 +458,7 @@ impl Focus<SearchResult> for GlobalState {
             }
             GlobalState::MainView { .. } => Task::none(),
             GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
     fn right(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
@@ -436,6 +471,7 @@ impl Focus<SearchResult> for GlobalState {
             }
             GlobalState::MainView { .. } => Task::none(),
             GlobalState::ErrorView { .. } => Task::none(),
+            GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
 }

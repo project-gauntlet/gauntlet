@@ -862,6 +862,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                         };
 
                         SearchIndexItemAction {
+                            id: action.id.clone(),
                             label: action.label.clone(),
                             action_type: match action.action_type {
                                 JsGeneratedSearchItemActionType::View => SearchIndexItemActionActionType::View,

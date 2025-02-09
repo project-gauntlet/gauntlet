@@ -12,9 +12,12 @@ use gauntlet_client::start_client;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::BackendRequestData;
 use gauntlet_common::model::BackendResponseData;
+use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PluginId;
 use gauntlet_common::model::UiRequestData;
 use gauntlet_common::model::UiResponseData;
 use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_api::BackendApiError;
 use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::settings_env_data_from_string;
 use gauntlet_common::settings_env_data_to_string;
@@ -72,6 +75,34 @@ pub fn start(minimized: bool) {
             start_client(minimized, frontend_receiver, backend_sender)
         }
     }
+}
+
+pub fn run_action(plugin_id: String, entrypoint_id: String, action_id: String) {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("unable to start server tokio runtime")
+        .block_on(async {
+            let result = BackendApi::new().await;
+
+            match result {
+                Ok(mut backend_api) => {
+                    if let Err(err) = backend_api.run_action(plugin_id, entrypoint_id, action_id).await {
+                        match err {
+                            BackendApiError::Timeout => {
+                                tracing::error!("Timeout occurred when handling command");
+                            }
+                            BackendApiError::Internal { display: value } => {
+                                tracing::error!("Error occurred when handling command: {}", value);
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    tracing::error!("Unable to connect to server. Please check if you have Gauntlet running on your PC")
+                }
+            }
+        })
 }
 
 #[cfg(feature = "scenario_runner")]

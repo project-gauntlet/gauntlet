@@ -9,6 +9,21 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- It is now possible to run commands and open views using CLI command
+  - Format: `gauntlet run <plugin-id> <entrypoint-id> <action-id>`
+  - Plugin ID can be found in Settings UI
+  - Entrypoint ID can be found in:
+    - For entrypoint types `command` and `view` - in Plugin Manifest or in Settings UI TODO
+    - For entrypoint type `entrypoint-generator` - in Settings UI TODO 
+  - Action ID can also be found in Plugin Manifest
+  - Action ID option also supports special values
+    - `:primary` - to run primary action of the entrypoint
+    - `:secondary` - to run secondary action of the entrypoint
+- Slightly improved --help documentation of CLI command
+
+- In main window search result, moved plugin name next to entrypoint name
+- In main window search result, displayed type of entrypoint in place of plugin name, use generator entrypoint name if generated
+
 - Fix no plugins starting on Windows in release mode 
 - Fix all global shortcut registrations failing if one shortcut registration failed
 - Fix error when registering shortcut erroring whole settings window instead of adding an icon
