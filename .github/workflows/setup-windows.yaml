@@ -6,6 +6,9 @@ on:
       command:
         required: true
         type: string
+      upload-artifact:
+        default: false
+        type: boolean
       github-release-id:
         type: string
 
@@ -38,3 +41,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
           GITHUB_RELEASE_ID: ${{ inputs.github-release-id }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.upload-artifact }}
+        with:
+          name: 'gauntlet-x86_64-windows.msi'
+          path: 'target/x86_64-pc-windows-msvc/release/gauntlet-x86_64-windows.msi'
+          if-no-files-found: 'error'
+          retention-days: 7
+

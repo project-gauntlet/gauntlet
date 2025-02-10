@@ -6,6 +6,9 @@ on:
       command:
         required: true
         type: string
+      upload-artifact:
+        default: false
+        type: boolean
       github-release-id:
         type: string
 
@@ -40,3 +43,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
           GITHUB_RELEASE_ID: ${{ inputs.github-release-id }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.upload-artifact }}
+        with:
+          name: 'gauntlet-x86_64-linux.tar.gz'
+          path: 'target/x86_64-unknown-linux-gnu/release/archive/gauntlet-x86_64-linux.tar.gz'
+          if-no-files-found: 'error'
+          retention-days: 7
