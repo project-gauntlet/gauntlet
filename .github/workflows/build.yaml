@@ -11,19 +11,19 @@ jobs:
     uses: ./.github/workflows/setup-linux.yaml
     with:
       command: npm run build-linux-project --workspace @project-gauntlet/build
-      upload-artifact: 'true'
+      upload-artifact: true
     secrets: inherit
 
   build-macos:
     uses: ./.github/workflows/setup-macos.yaml
     with:
       command: npm run build-macos-project --workspace @project-gauntlet/build
-      upload-artifact: 'true'
+      upload-artifact: true
     secrets: inherit
 
   build-windows:
     uses: ./.github/workflows/setup-windows.yaml
     with:
       command: npm run build-windows-project --workspace @project-gauntlet/build
-      upload-artifact: 'true'
+      upload-artifact: true
     secrets: inherit
