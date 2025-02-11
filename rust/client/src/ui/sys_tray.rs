@@ -1,6 +1,9 @@
 use image::ImageFormat;
 
 pub fn create_tray() -> tray_icon::TrayIcon {
+    use global_hotkey::hotkey::Code;
+    use global_hotkey::hotkey::CMD_OR_CTRL;
+    use tray_icon::menu::accelerator::Accelerator;
     use tray_icon::menu::AboutMetadataBuilder;
     use tray_icon::menu::Menu;
     use tray_icon::menu::MenuEvent;
@@ -49,7 +52,12 @@ pub fn create_tray() -> tray_icon::TrayIcon {
     let menu = Menu::with_items(&[
         &MenuItem::new("Gauntlet", false, None),
         &MenuItem::with_id("GAUNTLET_OPEN_MAIN_WINDOW", "Open", true, None),
-        &MenuItem::with_id("GAUNTLET_OPEN_SETTING_WINDOW", "Open Settings", true, None),
+        &MenuItem::with_id(
+            "GAUNTLET_OPEN_SETTING_WINDOW",
+            "Open Settings",
+            true,
+            Some(Accelerator::new(Some(CMD_OR_CTRL), Code::Comma)),
+        ),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::about(Some("About..."), Some(about_metadata)),
         &PredefinedMenuItem::quit(Some("Quit Gauntlet")),

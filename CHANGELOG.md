@@ -9,6 +9,9 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Add shortcut to open Settings UI
+  - <kbd>Ctrl</kbd> + <kbd>,</kbd> on Windows and Linux
+  - <kbd>Cmd</kbd> + <kbd>,</kbd> on macOS
 - Global shortcut how hides the main window if it is already open
 - It is now possible to run commands and open views using CLI command
   - Format: `gauntlet run <plugin-id> <entrypoint-id> <action-id>`

@@ -2575,6 +2575,17 @@ impl AppModel {
                     MainViewState::None => {
                         match physical_key_model(physical_key, modifiers) {
                             Some(PhysicalShortcut {
+                                physical_key: PhysicalKey::Comma,
+                                modifier_shift: false,
+                                modifier_control: cfg!(any(target_os = "linux", target_os = "windows")),
+                                modifier_alt: false,
+                                modifier_meta: cfg!(target_os = "macos"),
+                            }) => {
+                                crate::open_settings_window();
+
+                                Task::none()
+                            }
+                            Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::KeyK,
                                 modifier_shift: false,
                                 modifier_control: false,
