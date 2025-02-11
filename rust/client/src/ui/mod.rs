@@ -245,6 +245,7 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
+    ToggleWindowFocus,
     ToggleActionPanel {
         keyboard: bool,
     },
@@ -1132,6 +1133,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             result.expect("unable to load font");
             Task::none()
         }
+        AppMsg::ToggleWindowFocus => state.toggle_window_focus(),
         AppMsg::ShowWindow => state.show_window(),
         AppMsg::HideWindow => state.hide_window(),
         AppMsg::ShowPreferenceRequiredView {
@@ -2203,6 +2205,14 @@ impl AppModel {
         }
     }
 
+    fn toggle_window_focus(&mut self) -> Task<AppMsg> {
+        if self.focused {
+            self.hide_window()
+        } else {
+            self.show_window()
+        }
+    }
+
     fn hide_window(&mut self) -> Task<AppMsg> {
         self.focused = false;
         self.opened = false;
@@ -2564,6 +2574,16 @@ impl AppModel {
                 match sub_state {
                     MainViewState::None => {
                         match physical_key_model(physical_key, modifiers) {
+                            Some(PhysicalShortcut {
+                                            physical_key: PhysicalKey::Comma,
+                                            modifier_shift: false,
+                                            modifier_control: false,
+                                            modifier_alt: false,
+                                            modifier_meta: true,
+                                        }) => {
+                                            crate::open_settings_window();
+                                            return Task::none()
+                                        },
                             Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::KeyK,
                                 modifier_shift: false,

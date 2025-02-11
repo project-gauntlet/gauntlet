@@ -17,7 +17,7 @@ pub fn register_listener(msg_sender: Sender<AppMsg>) {
 
         if let global_hotkey::HotKeyState::Released = e.state() {
             handle.spawn(async move {
-                if let Err(err) = msg_sender.send(AppMsg::ShowWindow).await {
+                if let Err(err) = msg_sender.send(AppMsg::ToggleWindowFocus).await {
                     tracing::warn!(target = "rpc", "error occurred when receiving shortcut event {:?}", err)
                 }
             });
