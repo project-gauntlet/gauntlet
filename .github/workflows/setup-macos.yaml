@@ -6,6 +6,9 @@ on:
       command:
         required: true
         type: string
+      upload-artifact:
+        default: false
+        type: boolean
       github-release-id:
         type: string
 
@@ -52,3 +55,11 @@ jobs:
           APPLE_SIGNING_KEY_PEM: ${{ secrets.APPLE_SIGNING_KEY_PEM }}
           APPLE_SIGNING_CERT_PEM: ${{ secrets.APPLE_SIGNING_CERT_PEM }}
           APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.upload-artifact }}
+        with:
+          name: 'gauntlet-aarch64-macos.dmg'
+          path: 'target/aarch64-apple-darwin/release/gauntlet-aarch64-macos.dmg'
+          if-no-files-found: 'error'
+          retention-days: 7

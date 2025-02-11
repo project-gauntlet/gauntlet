@@ -16,7 +16,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
     - For entrypoint types `command` and `view` - in Plugin Manifest or in Settings UI TODO
     - For entrypoint type `entrypoint-generator` - in Settings UI TODO 
   - Action ID can also be found in Plugin Manifest
-  - Action ID option also supports special values
+  - Action ID option also accepts special values
     - `:primary` - to run primary action of the entrypoint
     - `:secondary` - to run secondary action of the entrypoint
 - Slightly improved --help documentation of CLI command
