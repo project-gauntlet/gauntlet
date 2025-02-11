@@ -149,14 +149,17 @@ fn get_bundle_name(path: &Path) -> String {
     return bundle_name
 }
 
-fn get_localized_bundle_name(path: &Path, preferred_language: &str) -> Option<String> {
+fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
     let localized_info: Option<InfoPlist> = plist::from_file(path).ok();
 
     if let Some(localized_info) = localized_info {
+        // get language info. first try to use display name, if not available use name
         return localized_info.languages
             .get(preferred_language)
-            .map(|localized_info| localized_info.bundle_display_name.clone())
-            .flatten();
+            .and_then(|localized_info| {
+                localized_info.bundle_display_name.clone()
+                    .or_else(|| localized_info.bundle_name.clone())
+            });
     }else {
         eprintln!("Error: Could not load plist from path '{}'.", path.display());
         None
@@ -165,15 +168,17 @@ fn get_localized_bundle_name(path: &Path, preferred_language: &str) -> Option<St
 
 pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
     let preferred_language: Option<&str> = Some("de"); // TODO: make this configurable
+    let use_localized_language = true; // TODO: make this configurable
     if !path.is_dir() {
         return None;
     }
     let name: String;
 
-    if true { // TODO: make this configurable
+    // only use localized language if preferred language is not english and use_localized_language is true
+    if use_localized_language && preferred_language != Some("en") {
         let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
         if info_plist_path.is_file() {
-            name = get_localized_bundle_name(info_plist_path.as_path(), preferred_language.unwrap_or("en")).unwrap_or(get_bundle_name(info_plist_path.as_path()));
+            name = get_localized_name(info_plist_path.as_path(), preferred_language.unwrap_or("en")).unwrap_or(get_bundle_name(info_plist_path.as_path()));
         } else {
             name = get_bundle_name(path);
         }
@@ -253,11 +258,16 @@ pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
         .into_iter()
         .filter_map(|path| {
             fn read_plist(path: &Path) -> anyhow::Result<(String, (String, PathBuf))> {
-                let name = path
+                let mut name = path
                     .file_stem()
                     .expect(&format!("invalid path: {:?}", path))
                     .to_string_lossy()
                     .to_string();
+
+                let localized_info_path = path.join("Contents/Resources/InfoPlist.loctable");
+                if localized_info_path.is_file() {
+                    name = get_localized_name(localized_info_path.as_path(), "de").unwrap_or(name);
+                }
 
                 let info_path = path.join("Contents").join("Info.plist");
 
@@ -265,12 +275,6 @@ pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
                     "Unexpected Info.plist for System Extensions: {}",
                     &info_path.display()
                 ))?;
-
-                let name = info
-                    .bundle_display_name
-                    .clone()
-                    .or_else(|| info.bundle_name.clone())
-                    .unwrap_or(name);
 
                 Ok((info.bundle_id, (name, path.to_path_buf())))
             }
@@ -490,8 +494,10 @@ struct Info {
 
 #[derive(Deserialize)]
 struct LocalizedInfo {
-    #[serde(rename = "CFBundleName")]
+    #[serde(rename = "CFBundleDisplayName")]
     bundle_display_name: Option<String>,
+    #[serde(rename = "CFBundleName")]
+    bundle_name: Option<String>,
 }
 
 #[derive(Deserialize)]
