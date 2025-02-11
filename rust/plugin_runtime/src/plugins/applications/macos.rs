@@ -131,7 +131,7 @@ pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
         return None;
     }
 
-    let name = path
+    let fallback_name = path
         .file_stem()
         .expect(&format!("invalid path: {:?}", path))
         .to_str()
@@ -142,10 +142,14 @@ pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
 
     let info: Option<Info> = plist::from_file(info_path).ok();
 
-    let name = info
+    let mut name = info
         .as_ref()
         .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
-        .unwrap_or(name);
+        .unwrap_or(fallback_name.clone());
+
+    if name.is_empty() {
+        name = fallback_name;
+    }
 
     let icon = get_application_icon(&path)
         .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
