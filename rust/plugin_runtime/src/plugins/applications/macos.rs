@@ -30,9 +30,9 @@ use objc2_foundation::NSRect;
 use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::NSZeroRect;
-use plist::Dictionary;
 use regex::Regex;
 use serde::Deserialize;
+use plist::{Dictionary, Value};
 
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
@@ -126,10 +126,10 @@ pub fn macos_app_from_arbitrary_path(path: PathBuf) -> Option<DesktopPathAction>
     macos_app_from_path(path)
 }
 
-pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
-    if !path.is_dir() {
-        return None;
-    }
+fn get_bundle_name(path: &Path) -> String {
+    let info_path = path.join("Contents").join("Info.plist");
+
+    let info: Option<Info> = plist::from_file(info_path).ok();
 
     let fallback_name = path
         .file_stem()
@@ -138,17 +138,47 @@ pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
         .expect("non-uft8 paths are not supported")
         .to_string();
 
-    let info_path = path.join("Contents").join("Info.plist");
-
-    let info: Option<Info> = plist::from_file(info_path).ok();
-
-    let mut name = info
+    let mut bundle_name = info
         .as_ref()
         .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
         .unwrap_or(fallback_name.clone());
 
-    if name.is_empty() {
-        name = fallback_name;
+    if bundle_name.is_empty() {
+        bundle_name = fallback_name;
+    }
+    return bundle_name
+}
+
+fn get_localized_bundle_name(path: &Path, preferred_language: &str) -> Option<String> {
+    let localized_info: Option<InfoPlist> = plist::from_file(path).ok();
+
+    if let Some(localized_info) = localized_info {
+        return localized_info.languages
+            .get(preferred_language)
+            .map(|localized_info| localized_info.bundle_display_name.clone())
+            .flatten();
+    }else {
+        eprintln!("Error: Could not load plist from path '{}'.", path.display());
+        None
+    }
+}
+
+pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
+    let preferred_language: Option<&str> = Some("de"); // TODO: make this configurable
+    if !path.is_dir() {
+        return None;
+    }
+    let name: String;
+
+    if true { // TODO: make this configurable
+        let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
+        if info_plist_path.is_file() {
+            name = get_localized_bundle_name(info_plist_path.as_path(), preferred_language.unwrap_or("en")).unwrap_or(get_bundle_name(info_plist_path.as_path()));
+        } else {
+            name = get_bundle_name(path);
+        }
+    } else {
+        name = get_bundle_name(path);
     }
 
     let icon = get_application_icon(&path)
@@ -456,6 +486,18 @@ struct Info {
     bundle_icon_file: Option<String>,
     #[serde(rename = "CFBundleIconName")]
     bundle_icon_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct LocalizedInfo {
+    #[serde(rename = "CFBundleName")]
+    bundle_display_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct InfoPlist {
+    #[serde(flatten)]
+    languages: HashMap<String, LocalizedInfo>,
 }
 
 #[derive(Deserialize)]
