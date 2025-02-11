@@ -9,6 +9,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Global shortcut how hides the main window if it is already open
 - It is now possible to run commands and open views using CLI command
   - Format: `gauntlet run <plugin-id> <entrypoint-id> <action-id>`
   - Plugin ID can be found in Settings UI

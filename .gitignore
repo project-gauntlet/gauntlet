@@ -3,3 +3,4 @@
 /node_modules
 /.direnv
 result
+.DS_Store

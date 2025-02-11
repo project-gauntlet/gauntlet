@@ -245,6 +245,7 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
+    ToggleWindowFocus,
     ToggleActionPanel {
         keyboard: bool,
     },
@@ -1132,6 +1133,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             result.expect("unable to load font");
             Task::none()
         }
+        AppMsg::ToggleWindowFocus => state.toggle_window_focus(),
         AppMsg::ShowWindow => state.show_window(),
         AppMsg::HideWindow => state.hide_window(),
         AppMsg::ShowPreferenceRequiredView {
@@ -2200,6 +2202,14 @@ impl AppModel {
             self.hide_window()
         } else {
             Task::none()
+        }
+    }
+
+    fn toggle_window_focus(&mut self) -> Task<AppMsg> {
+        if self.focused {
+            self.hide_window()
+        } else {
+            self.show_window()
         }
     }
 
