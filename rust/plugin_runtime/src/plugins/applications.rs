@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -12,7 +13,6 @@ use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 use tokio::task::spawn_blocking;
-use std::env;
 
 use crate::plugin_data::PluginData;
 
@@ -141,14 +141,20 @@ pub fn macos_major_version() -> u8 {
 #[cfg(target_os = "macos")]
 #[op2(async)]
 #[serde]
-pub async fn macos_app_from_path(#[string] path: String, #[string] lang: Option<String>) -> anyhow::Result<Option<DesktopPathAction>> {
+pub async fn macos_app_from_path(
+    #[string] path: String,
+    #[string] lang: Option<String>,
+) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path), lang)).await?)
 }
 
 #[cfg(target_os = "macos")]
 #[op2(async)]
 #[serde]
-pub async fn macos_app_from_arbitrary_path(#[string] path: String, #[string] lang: Option<String>) -> anyhow::Result<Option<DesktopPathAction>> {
+pub async fn macos_app_from_arbitrary_path(
+    #[string] path: String,
+    #[string] lang: Option<String>,
+) -> anyhow::Result<Option<DesktopPathAction>> {
     Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path), lang)).await?)
 }
 
@@ -194,7 +200,6 @@ pub fn macos_get_localized_language() -> Option<String> {
 
     None
 }
-
 
 #[cfg(target_os = "macos")]
 #[op2]

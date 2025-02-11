@@ -30,9 +30,10 @@ use objc2_foundation::NSRect;
 use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::NSZeroRect;
+use plist::Dictionary;
+use plist::Value;
 use regex::Regex;
 use serde::Deserialize;
-use plist::{Dictionary, Value};
 
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
@@ -146,7 +147,7 @@ fn get_bundle_name(path: &Path) -> String {
     if bundle_name.is_empty() {
         bundle_name = fallback_name;
     }
-    return bundle_name
+    return bundle_name;
 }
 
 fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
@@ -154,13 +155,16 @@ fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
 
     if let Some(localized_info) = localized_info {
         // get language info. first try to use display name, if not available use name
-        return localized_info.languages
+        return localized_info
+            .languages
             .get(preferred_language)
             .and_then(|localized_info| {
-                localized_info.bundle_display_name.clone()
+                localized_info
+                    .bundle_display_name
+                    .clone()
                     .or_else(|| localized_info.bundle_name.clone())
             });
-    }else {
+    } else {
         eprintln!("Error: Could not load plist from path '{}'.", path.display());
         None
     }
@@ -175,7 +179,8 @@ pub fn macos_app_from_path(path: &Path, lang: Option<String>) -> Option<DesktopP
     if let Some(lang) = lang {
         let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
         if info_plist_path.is_file() {
-            name = get_localized_name(info_plist_path.as_path(), &lang).unwrap_or(get_bundle_name(info_plist_path.as_path()));
+            name = get_localized_name(info_plist_path.as_path(), &lang)
+                .unwrap_or(get_bundle_name(info_plist_path.as_path()));
         } else {
             name = get_bundle_name(path);
         }
