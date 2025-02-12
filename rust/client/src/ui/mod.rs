@@ -2249,7 +2249,9 @@ impl AppModel {
             } => {
                 commands.push(self.close_plugin_view(plugin_id.clone()));
             }
-            GlobalState::MainView { focused_search_result, .. } => {
+            GlobalState::MainView {
+                focused_search_result, ..
+            } => {
                 commands.push(focused_search_result.scroll_to(0));
             }
             GlobalState::ErrorView { .. } => {}
