@@ -174,18 +174,17 @@ pub fn macos_app_from_path(path: &Path, lang: Option<String>) -> Option<DesktopP
     if !path.is_dir() {
         return None;
     }
-    let name: String;
 
-    if let Some(lang) = lang {
-        let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
-        if info_plist_path.is_file() {
-            name = get_localized_name(info_plist_path.as_path(), &lang).unwrap_or(get_bundle_name(path));
-        } else {
-            name = get_bundle_name(path);
-        }
-    } else {
-        name = get_bundle_name(path);
-    }
+    let name = lang.
+        and_then(|l| {
+            let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
+            if info_plist_path.is_file() {
+                get_localized_name(info_plist_path.as_path(), &l)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(get_bundle_name(path));
 
     let icon = get_application_icon(&path)
         .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
