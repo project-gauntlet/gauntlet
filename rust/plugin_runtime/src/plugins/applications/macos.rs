@@ -175,8 +175,8 @@ pub fn macos_app_from_path(path: &Path, lang: Option<String>) -> Option<DesktopP
         return None;
     }
 
-    let name = lang.
-        and_then(|l| {
+    let name = lang
+        .and_then(|l| {
             let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
             if info_plist_path.is_file() {
                 get_localized_name(info_plist_path.as_path(), &l)
