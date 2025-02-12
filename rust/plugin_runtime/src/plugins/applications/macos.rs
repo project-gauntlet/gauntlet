@@ -126,26 +126,35 @@ pub fn macos_app_from_arbitrary_path(path: PathBuf) -> Option<DesktopPathAction>
     macos_app_from_path(path)
 }
 
+fn get_bundle_name(app_path: &Path) -> String {
+    let info_path = app_path.join("Contents").join("Info.plist");
+
+    let info: Option<Info> = plist::from_file(info_path).ok();
+
+    let fallback_name = app_path
+        .file_stem()
+        .expect(&format!("invalid path: {:?}", app_path))
+        .to_str()
+        .expect("non-uft8 paths are not supported")
+        .to_string();
+
+    let mut bundle_name = info
+        .as_ref()
+        .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
+        .unwrap_or(fallback_name.clone());
+
+    if bundle_name.is_empty() {
+        bundle_name = fallback_name;
+    }
+    return bundle_name;
+}
+
 pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
     if !path.is_dir() {
         return None;
     }
 
-    let name = path
-        .file_stem()
-        .expect(&format!("invalid path: {:?}", path))
-        .to_str()
-        .expect("non-uft8 paths are not supported")
-        .to_string();
-
-    let info_path = path.join("Contents").join("Info.plist");
-
-    let info: Option<Info> = plist::from_file(info_path).ok();
-
-    let name = info
-        .as_ref()
-        .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
-        .unwrap_or(name);
+    let name = get_bundle_name(path);
 
     let icon = get_application_icon(&path)
         .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
