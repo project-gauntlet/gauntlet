@@ -180,7 +180,7 @@ pub fn macos_app_from_path(path: &Path, lang: Option<String>) -> Option<DesktopP
         let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
         if info_plist_path.is_file() {
             name = get_localized_name(info_plist_path.as_path(), &lang)
-                .unwrap_or(get_bundle_name(info_plist_path.as_path()));
+                .unwrap_or(get_bundle_name(path));
         } else {
             name = get_bundle_name(path);
         }
