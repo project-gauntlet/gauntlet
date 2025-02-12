@@ -190,15 +190,12 @@ pub fn macos_open_application(#[string] app_path: String) -> anyhow::Result<()> 
 #[op2]
 #[string]
 pub fn macos_get_localized_language() -> Option<String> {
-    if let Ok(lang) = env::var("LC_ALL") {
-        return Some(lang.split('_').next().unwrap_or(&lang).to_string());
-    }
+    use sys_locale::get_locale;
 
-    if let Ok(lang) = env::var("LANG") {
-        return Some(lang.split('_').next().unwrap_or(&lang).to_string());
-    }
-
-    None
+    let locale = get_locale();
+    let locale = locale.unwrap();
+    let parts: Vec<&str> = locale.split("-").collect();
+    return parts.get(0).map(|s| s.to_string());
 }
 
 #[cfg(target_os = "macos")]
