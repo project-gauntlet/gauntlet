@@ -16,6 +16,21 @@ type = 'bool'
 default = true
 description = "Enables experimental window tracking"
 
+[[entrypoint.preferences]]
+id = "bundleNameLang"
+name = "Bundle Name Lang"
+type = "enum"
+default = "default"
+description = "Language of the bundle name"
+enum_values = [{ label = 'Default', value = 'default'}, { label = 'Localized', value = 'localized'}]
+
+
+[[entrypoint.actions]]
+id = 'testAction'
+description = "test action description in form"
+shortcut = { key = ':', kind = 'main'}
+
+
 [[entrypoint]]
 id = 'windows'
 name = 'All Open Windows'

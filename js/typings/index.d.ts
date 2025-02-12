@@ -162,15 +162,16 @@ declare module "gauntlet:bridge/internal-linux" {
 declare module "gauntlet:bridge/internal-macos" {
     function macos_major_version(): number
     function macos_settings_pre_13(): MacOSDesktopSettingsPre13Data[]
-    function macos_settings_13_and_post(): MacOSDesktopSettings13AndPostData[]
+    function macos_settings_13_and_post(lang: string | undefined): MacOSDesktopSettings13AndPostData[]
     function macos_open_setting_13_and_post(preferences_id: String): void
     function macos_open_setting_pre_13(setting_path: String): void
 
     function macos_system_applications(): string[]
     function macos_application_dirs(): string[]
-    function macos_app_from_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
-    function macos_app_from_arbitrary_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
+    function macos_app_from_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
+    function macos_app_from_arbitrary_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_open_application(app_path: String): void
+    function macos_get_localized_language(): string | undefined
 }
 
 declare module "gauntlet:bridge/internal-windows" {
@@ -196,14 +197,15 @@ declare module "ext:core/ops" {
 
     function macos_major_version(): number
     function macos_settings_pre_13(): MacOSDesktopSettingsPre13Data[]
-    function macos_settings_13_and_post(): MacOSDesktopSettings13AndPostData[]
+    function macos_settings_13_and_post(lang: string | undefined): MacOSDesktopSettings13AndPostData[]
     function macos_open_setting_13_and_post(preferences_id: String): void
     function macos_open_setting_pre_13(setting_path: String): void
+    function macos_get_localized_language(): string | undefined
 
     function macos_system_applications(): string[]
     function macos_application_dirs(): string[]
-    function macos_app_from_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
-    function macos_app_from_arbitrary_path(path: string): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
+    function macos_app_from_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
+    function macos_app_from_arbitrary_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_open_application(app_path: String): void
 
     function windows_application_dirs(): string[]
