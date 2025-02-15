@@ -4109,6 +4109,7 @@ dependencies = [
  "resvg",
  "serde",
  "smithay-client-toolkit",
+ "sys-locale",
  "tokio",
  "tokio-util",
  "tracing",

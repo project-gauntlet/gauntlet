@@ -9,6 +9,7 @@ use image::imageops::FilterType;
 use image::ImageFormat;
 use serde::Deserialize;
 use serde::Serialize;
+use sys_locale::get_locale;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 use tokio::task::spawn_blocking;
@@ -140,15 +141,21 @@ pub fn macos_major_version() -> u8 {
 #[cfg(target_os = "macos")]
 #[op2(async)]
 #[serde]
-pub async fn macos_app_from_path(#[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
-    Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path))).await?)
+pub async fn macos_app_from_path(
+    #[string] path: String,
+    #[string] lang: Option<String>,
+) -> anyhow::Result<Option<DesktopPathAction>> {
+    Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path), lang)).await?)
 }
 
 #[cfg(target_os = "macos")]
 #[op2(async)]
 #[serde]
-pub async fn macos_app_from_arbitrary_path(#[string] path: String) -> anyhow::Result<Option<DesktopPathAction>> {
-    Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path))).await?)
+pub async fn macos_app_from_arbitrary_path(
+    #[string] path: String,
+    #[string] lang: Option<String>,
+) -> anyhow::Result<Option<DesktopPathAction>> {
+    Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path), lang)).await?)
 }
 
 #[cfg(target_os = "macos")]
@@ -189,8 +196,8 @@ pub fn macos_settings_pre_13() -> Vec<DesktopSettingsPre13Data> {
 #[cfg(target_os = "macos")]
 #[op2]
 #[serde]
-pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
-    macos::macos_settings_13_and_post()
+pub fn macos_settings_13_and_post(#[string] lang: Option<String>) -> Vec<DesktopSettings13AndPostData> {
+    macos::macos_settings_13_and_post(lang)
 }
 
 #[cfg(target_os = "macos")]
@@ -207,6 +214,17 @@ pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Resu
     spawn_detached("open", &["-b", "com.apple.systempreferences", &setting_path])?;
 
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+#[op2]
+#[string]
+pub fn macos_get_localized_language() -> Option<String> {
+    get_locale()?
+        .split("-")
+        .collect::<Vec<&str>>()
+        .get(0)
+        .map(|s| s.to_string())
 }
 
 #[cfg(unix)]

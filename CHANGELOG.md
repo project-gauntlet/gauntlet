@@ -9,6 +9,12 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Added localization support for macOS application names
+  - Added plugin preference `Bundle Name Lang` of enum type
+    - `localized` option - use localized name of bundle if available - this is the default
+    - `default` option - use default name of bundle (usually english)
+- On macOS use app stem name as a fallback if the bundle name is empty
+  - Fixes empty names of some apps, like "Creality Print" which have an empty bundle name
 - Added --version flag to CLI to display Gauntlet version
 - Slightly improved close-on-unfocus behaviour of main window on X11
 - Global shortcut is now executed on key press, instead of key release 

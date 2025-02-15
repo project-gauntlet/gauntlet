@@ -31,6 +31,7 @@ use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::NSZeroRect;
 use plist::Dictionary;
+use plist::Value;
 use regex::Regex;
 use serde::Deserialize;
 
@@ -100,7 +101,7 @@ pub fn macos_application_dirs() -> Vec<PathBuf> {
     all_applications
 }
 
-pub fn macos_app_from_arbitrary_path(path: PathBuf) -> Option<DesktopPathAction> {
+pub fn macos_app_from_arbitrary_path(path: PathBuf, lang: Option<String>) -> Option<DesktopPathAction> {
     let path = path
         .ancestors()
         .into_iter()
@@ -123,29 +124,68 @@ pub fn macos_app_from_arbitrary_path(path: PathBuf) -> Option<DesktopPathAction>
         return None;
     };
 
-    macos_app_from_path(path)
+    macos_app_from_path(path, lang)
 }
 
-pub fn macos_app_from_path(path: &Path) -> Option<DesktopPathAction> {
-    if !path.is_dir() {
-        return None;
-    }
+fn get_bundle_name(app_path: &Path) -> String {
+    let info_path = app_path.join("Contents").join("Info.plist");
 
-    let name = path
+    let info: Option<Info> = plist::from_file(info_path).ok();
+
+    let fallback_name = app_path
         .file_stem()
-        .expect(&format!("invalid path: {:?}", path))
+        .expect(&format!("invalid path: {:?}", app_path))
         .to_str()
         .expect("non-uft8 paths are not supported")
         .to_string();
 
-    let info_path = path.join("Contents").join("Info.plist");
-
-    let info: Option<Info> = plist::from_file(info_path).ok();
-
-    let name = info
+    let mut bundle_name = info
         .as_ref()
         .and_then(|info| info.bundle_display_name.clone().or_else(|| info.bundle_name.clone()))
-        .unwrap_or(name);
+        .unwrap_or(fallback_name.clone());
+
+    if bundle_name.is_empty() {
+        bundle_name = fallback_name;
+    }
+
+    bundle_name
+}
+
+fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
+    let localized_info: Option<InfoPlist> = plist::from_file(path).ok();
+
+    if let Some(localized_info) = localized_info {
+        // get language info. first try to use display name, if not available use name
+        localized_info
+            .languages
+            .get(preferred_language)
+            .and_then(|localized_info| {
+                localized_info
+                    .bundle_display_name
+                    .clone()
+                    .or_else(|| localized_info.bundle_name.clone())
+            })
+    } else {
+        eprintln!("Error: Could not load plist from path '{}'.", path.display());
+        None
+    }
+}
+
+pub fn macos_app_from_path(path: &Path, lang: Option<String>) -> Option<DesktopPathAction> {
+    if !path.is_dir() {
+        return None;
+    }
+
+    let name = lang
+        .and_then(|l| {
+            let info_plist_path = path.join("Contents/Resources/InfoPlist.loctable");
+            if info_plist_path.is_file() {
+                get_localized_name(info_plist_path.as_path(), &l)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(get_bundle_name(path));
 
     let icon = get_application_icon(&path)
         .inspect_err(|err| tracing::error!("error while reading application icon for {:?}: {:?}", path, err))
@@ -198,7 +238,7 @@ pub fn macos_settings_pre_13() -> Vec<DesktopSettingsPre13Data> {
     all_settings
 }
 
-pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
+pub fn macos_settings_13_and_post(lang: Option<String>) -> Vec<DesktopSettings13AndPostData> {
     let sidebar: Vec<SidebarSection> =
         plist::from_file("/System/Applications/System Settings.app/Contents/Resources/Sidebar.plist")
             .expect("Sidebar.plist doesn't follow expected format");
@@ -218,12 +258,23 @@ pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
     let extensions: HashMap<_, _> = get_extensions_in_dir(PathBuf::from("/System/Library/ExtensionKit/Extensions"))
         .into_iter()
         .filter_map(|path| {
-            fn read_plist(path: &Path) -> anyhow::Result<(String, (String, PathBuf))> {
-                let name = path
+            fn read_plist(path: &Path, lang: &Option<String>) -> anyhow::Result<(String, (String, PathBuf))> {
+                let mut name = path
                     .file_stem()
                     .expect(&format!("invalid path: {:?}", path))
                     .to_string_lossy()
                     .to_string();
+
+                let localized_info_path = path.join("Contents/Resources/InfoPlist.loctable");
+                if !localized_info_path.is_file() {
+                    return Ok((name.clone(), (name, path.to_path_buf())));
+                }
+
+                if let Some(lang) = lang {
+                    name = get_localized_name(localized_info_path.as_path(), lang).unwrap_or(name);
+                } else {
+                    name = get_localized_name(localized_info_path.as_path(), "en").unwrap_or(name);
+                }
 
                 let info_path = path.join("Contents").join("Info.plist");
 
@@ -232,16 +283,10 @@ pub fn macos_settings_13_and_post() -> Vec<DesktopSettings13AndPostData> {
                     &info_path.display()
                 ))?;
 
-                let name = info
-                    .bundle_display_name
-                    .clone()
-                    .or_else(|| info.bundle_name.clone())
-                    .unwrap_or(name);
-
                 Ok((info.bundle_id, (name, path.to_path_buf())))
             }
 
-            read_plist(&path)
+            read_plist(&path, &lang)
                 .inspect_err(|err| {
                     tracing::error!("error while reading system extension Info.plist {:?}: {:?}", path, err)
                 })
@@ -452,6 +497,20 @@ struct Info {
     bundle_icon_file: Option<String>,
     #[serde(rename = "CFBundleIconName")]
     bundle_icon_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct LocalizedInfo {
+    #[serde(rename = "CFBundleDisplayName")]
+    bundle_display_name: Option<String>,
+    #[serde(rename = "CFBundleName")]
+    bundle_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct InfoPlist {
+    #[serde(flatten)]
+    languages: HashMap<String, LocalizedInfo>,
 }
 
 #[derive(Deserialize)]

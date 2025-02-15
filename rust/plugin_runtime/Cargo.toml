@@ -34,6 +34,7 @@ numbat = "1.14.0"
 which = "7.0.1"
 uuid = "1.11.0"
 open = "5"
+sys-locale = "0.3.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = "0.2"

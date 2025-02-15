@@ -16,6 +16,17 @@ type = 'bool'
 default = true
 description = "Enables experimental window tracking"
 
+[[entrypoint.preferences]]
+id = "bundleNameLang"
+name = "Bundle Name Lang"
+type = "enum"
+default = "localized"
+description = "Language of the bundle name"
+enum_values = [
+    { label = 'Default', value = 'default' },
+    { label = 'Localized', value = 'localized' },
+]
+
 [[entrypoint]]
 id = 'windows'
 name = 'All Open Windows'
@@ -46,7 +57,7 @@ read = [
     # technically only uses locations defined by XDG Desktop Entry Specification, but
     # the spec allows for customization via XDG_DATA_DIRS and XDG_DATA_HOME env vars so it can be any path
     "/",
-    "C:\\"
+    "C:\\",
 ]
 
 [[supported_system]]

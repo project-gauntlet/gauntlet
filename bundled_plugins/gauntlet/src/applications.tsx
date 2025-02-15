@@ -7,6 +7,7 @@ import {
     macos_app_from_arbitrary_path,
     macos_app_from_path,
     macos_application_dirs,
+    macos_get_localized_language,
     macos_major_version,
     macos_open_application,
     macos_open_setting_13_and_post,
@@ -20,10 +21,25 @@ import { applicationEventLoopX11, focusX11Window } from "./window/x11";
 import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
 import { windows_app_from_path, windows_application_dirs, windows_open_application } from "gauntlet:bridge/internal-windows";
 
-type EntrypointPreferences = { experimentalWindowTracking: boolean };
+type EntrypointPreferences = { experimentalWindowTracking: boolean, bundleNameLang: "default" | "localized" };
 
 export default async function Applications(context: GeneratorContext<object, EntrypointPreferences>): Promise<void | (() => void)> {
-    const { add, remove, get, getAll, entrypointPreferences: { experimentalWindowTracking } } = context;
+    const { add, remove, get, getAll, entrypointPreferences: { experimentalWindowTracking, bundleNameLang } } = context;
+    let lang: string | undefined;
+
+    switch (bundleNameLang) {
+        case "default": {
+            lang = undefined;
+            break;
+        }
+        case "localized": {
+            lang = macos_get_localized_language();
+            break;
+        }
+        default: {
+            throw new Error("Unknown bundle name type")
+        }
+    }
 
     switch (current_os()) {
         case "linux": {
@@ -105,7 +121,7 @@ export default async function Applications(context: GeneratorContext<object, Ent
             const majorVersion = macos_major_version();
 
             if (majorVersion >= 13) {
-                for (const setting of macos_settings_13_and_post()) {
+                for (const setting of macos_settings_13_and_post(lang)) {
                     add(`settings:${setting.preferences_id}`, {
                         name: setting.name,
                         actions: [
@@ -137,7 +153,7 @@ export default async function Applications(context: GeneratorContext<object, Ent
             }
 
             for (const path of macos_system_applications()) {
-                const app = await macos_app_from_path(path)
+                const app = await macos_app_from_path(path, lang)
                 if (app) {
                     switch (app.type) {
                         case "add": {
@@ -164,7 +180,7 @@ export default async function Applications(context: GeneratorContext<object, Ent
 
             return await genericGenerator<MacOSDesktopApplicationData>(
                 macos_application_dirs(),
-                path => macos_app_from_arbitrary_path(path),
+                path => macos_app_from_arbitrary_path(path, lang),
                 (_id, data) => ({
                     name: data.name,
                     actions: [
@@ -279,5 +295,3 @@ async function genericGenerator<DATA>(
         watcher.close()
     }
 }
-
-
