@@ -35,6 +35,8 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - run: brew install protobuf
       - run: brew install create-dmg
@@ -59,7 +61,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.upload-artifact }}
         with:
-          name: 'gauntlet-aarch64-macos.dmg'
-          path: 'target/aarch64-apple-darwin/release/gauntlet-aarch64-macos.dmg'
+          name: 'gauntlet-universal-macos.dmg'
+          path: 'target/out/gauntlet-universal-macos.dmg'
           if-no-files-found: 'error'
           retention-days: 7
