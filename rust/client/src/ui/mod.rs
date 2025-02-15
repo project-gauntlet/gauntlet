@@ -104,10 +104,6 @@ use crate::ui::theme::container::ContainerStyleInner;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
-use crate::ui::widget::render_root;
-use crate::ui::widget::ActionPanel;
-use crate::ui::widget::ActionPanelItem;
-use crate::ui::widget::ComponentWidgetEvent;
 
 mod client_context;
 mod custom_widgets;
@@ -140,6 +136,10 @@ use crate::ui::state::LoadingBarState;
 use crate::ui::state::MainViewState;
 use crate::ui::state::PluginViewData;
 use crate::ui::state::PluginViewState;
+use crate::ui::widget::action_panel::ActionPanel;
+use crate::ui::widget::action_panel::ActionPanelItem;
+use crate::ui::widget::events::ComponentWidgetEvent;
+use crate::ui::widget::root::render_root;
 use crate::ui::widget_container::PluginWidgetContainer;
 
 pub struct AppModel {
