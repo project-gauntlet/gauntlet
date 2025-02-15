@@ -28,7 +28,7 @@ jobs:
 
       - run: choco install protoc
       - run: dotnet tool install --global wix
-      - run: wix extension add -g WixToolset.Util.wixext
+      - run: wix extension add -g WixToolset.Util.wixext/5.0.2
 
       - uses: Swatinem/rust-cache@v2
         with:
