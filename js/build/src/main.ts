@@ -118,22 +118,42 @@ async function doPublishMacOS() {
     console.log("git pull...")
     await git.pull()
 
-    const arch = 'aarch64-apple-darwin';
+    const archArm = 'aarch64-apple-darwin';
+    const archIntel = 'x86_64-apple-darwin';
     const profile = 'release-size';
 
-    build(projectRoot, arch, profile)
-    const { fileName, filePath } = await packageForMacos(projectRoot, arch, profile, true, true)
+    buildJs(projectRoot)
+    buildRust(projectRoot, archArm, profile)
+    buildRust(projectRoot, archIntel, profile)
+
+    const { fileName, filePath } = await packageForMacos(
+        projectRoot,
+        [archArm, archIntel],
+        profile,
+        true,
+        true
+    )
 
     await addFileToRelease(filePath, fileName)
 }
 
 async function doBuildMacOS() {
     const projectRoot = getProjectRoot();
-    const arch = 'aarch64-apple-darwin';
+    const archArm = 'aarch64-apple-darwin';
+    const archIntel = 'x86_64-apple-darwin';
     const profile = 'release';
 
-    await doBuild(projectRoot, arch, profile)
-    await packageForMacos(projectRoot, arch, profile, false, false)
+    buildJs(projectRoot)
+    buildRust(projectRoot, archArm, profile)
+    buildRust(projectRoot, archIntel, profile)
+
+    await packageForMacos(
+        projectRoot,
+        [archArm, archIntel],
+        profile,
+        false,
+        false
+    )
 }
 
 async function doPublishWindows() {
@@ -321,11 +341,11 @@ function packageForLinux(projectRoot: string, arch: string, profile: string): { 
     }
 }
 
-async function packageForMacos(projectRoot: string, arch: string, profile: string, sign: boolean, notarize: boolean): Promise<{ filePath: string; fileName: string }> {
-    const releaseDirPath = path.join(projectRoot, 'target', arch, profile);
-    const sourceExecutableFilePath = path.join(releaseDirPath, 'gauntlet');
-    const outFileName = "gauntlet-aarch64-macos.dmg"
-    const outFilePath = path.join(releaseDirPath, outFileName);
+async function packageForMacos(projectRoot: string, arch: string[], profile: string, sign: boolean, notarize: boolean): Promise<{ filePath: string; fileName: string }> {
+    const targetDirPath = path.join(projectRoot, 'target');
+    const outDirPath = path.join(targetDirPath, 'out');
+    const outFileName = "gauntlet-universal-macos.dmg"
+    const outFilePath = path.join(targetDirPath, outFileName);
 
     const assetsDirPath = path.join(projectRoot, 'assets', 'macos');
     const sourceInfoFilePath = path.join(assetsDirPath, 'Info.plist');
@@ -333,7 +353,7 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
     const dmgBackground = path.join(assetsDirPath, 'dmg-background.png');
     const entitlementsPath = path.join(assetsDirPath, 'entitlements.plist');
 
-    const bundleDir = path.join(releaseDirPath, 'Gauntlet.app');
+    const bundleDir = path.join(outDirPath, 'Gauntlet.app');
     const contentsDir = path.join(bundleDir, 'Contents');
     const macosContentsDir = path.join(contentsDir, 'MacOS');
     const resourcesContentsDir = path.join(contentsDir, 'Resources');
@@ -341,14 +361,25 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
     const targetInfoFilePath = path.join(contentsDir, 'Info.plist');
     const targetIconFilePath = path.join(resourcesContentsDir, 'AppIcon.icns');
 
+    const sourceExecutableFilePaths = arch.map(arch => path.join(targetDirPath, arch, profile, 'gauntlet'));
+
     const version = await readVersion(projectRoot)
 
+    mkdirSync(outDirPath)
     mkdirSync(bundleDir)
     mkdirSync(contentsDir)
     mkdirSync(macosContentsDir)
     mkdirSync(resourcesContentsDir)
 
-    copyFileSync(sourceExecutableFilePath, targetExecutableFilePath)
+    spawnWithErrors(`lipo`, [
+        ...sourceExecutableFilePaths,
+        '-create',
+        '-output',
+        targetExecutableFilePath
+    ], {
+        cwd: outDirPath
+    })
+
     copyFileSync(sourceInfoFilePath, targetInfoFilePath)
     copyFileSync(sourceIconFilePath, targetIconFilePath)
 
@@ -356,9 +387,9 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
     const infoResult = infoSource.replace('__VERSION__', `${version}.0.0`);
     writeFileSync(targetInfoFilePath, infoResult,'utf8');
 
-    const signKeyPath = path.join(releaseDirPath, 'signKey.pem');
-    const signCertPath = path.join(releaseDirPath, 'signCert.pem');
-    const connectApiKeyPath = path.join(releaseDirPath, 'connectApiKey.json');
+    const signKeyPath = path.join(outDirPath, 'signKey.pem');
+    const signCertPath = path.join(outDirPath, 'signCert.pem');
+    const connectApiKeyPath = path.join(outDirPath, 'connectApiKey.json');
 
     const signKeyContent = process.env.APPLE_SIGNING_KEY_PEM;
     const signCertContent = process.env.APPLE_SIGNING_CERT_PEM;
@@ -382,7 +413,7 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
             entitlementsPath,
             bundleDir
         ], {
-            cwd: releaseDirPath
+            cwd: outDirPath
         })
     }
 
@@ -397,7 +428,7 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
         outFileName,
         bundleDir
     ], {
-        cwd: releaseDirPath
+        cwd: outDirPath
     })
 
     if (sign) {
@@ -410,7 +441,7 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
             '--for-notarization',
             outFilePath
         ], {
-            cwd: releaseDirPath
+            cwd: outDirPath
         })
     }
 
@@ -424,7 +455,7 @@ async function packageForMacos(projectRoot: string, arch: string, profile: strin
             '--staple',
             outFilePath
         ], {
-            cwd: releaseDirPath
+            cwd: outDirPath
         })
     }
 
