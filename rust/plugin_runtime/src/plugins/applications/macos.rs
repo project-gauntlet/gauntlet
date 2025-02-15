@@ -147,7 +147,8 @@ fn get_bundle_name(app_path: &Path) -> String {
     if bundle_name.is_empty() {
         bundle_name = fallback_name;
     }
-    return bundle_name;
+
+    bundle_name
 }
 
 fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
@@ -155,7 +156,7 @@ fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
 
     if let Some(localized_info) = localized_info {
         // get language info. first try to use display name, if not available use name
-        return localized_info
+        localized_info
             .languages
             .get(preferred_language)
             .and_then(|localized_info| {
@@ -163,7 +164,7 @@ fn get_localized_name(path: &Path, preferred_language: &str) -> Option<String> {
                     .bundle_display_name
                     .clone()
                     .or_else(|| localized_info.bundle_name.clone())
-            });
+            })
     } else {
         eprintln!("Error: Could not load plist from path '{}'.", path.display());
         None

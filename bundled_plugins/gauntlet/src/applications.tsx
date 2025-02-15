@@ -27,11 +27,18 @@ export default async function Applications(context: GeneratorContext<object, Ent
     const { add, remove, get, getAll, entrypointPreferences: { experimentalWindowTracking, bundleNameLang } } = context;
     let lang: string | undefined;
 
-    if (bundleNameLang == 'default') {
-        lang = undefined;
-    } else {
-        lang = macos_get_localized_language()
-
+    switch (bundleNameLang) {
+        case "default": {
+            lang = undefined;
+            break;
+        }
+        case "localized": {
+            lang = macos_get_localized_language();
+            break;
+        }
+        default: {
+            throw new Error("Unknown bundle name type")
+        }
     }
 
     switch (current_os()) {

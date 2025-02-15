@@ -220,10 +220,11 @@ pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Resu
 #[op2]
 #[string]
 pub fn macos_get_localized_language() -> Option<String> {
-    let locale = get_locale();
-    let locale = locale.unwrap();
-    let parts: Vec<&str> = locale.split("-").collect();
-    return parts.get(0).map(|s| s.to_string());
+    get_locale()?
+        .split("-")
+        .collect::<Vec<&str>>()
+        .get(0)
+        .map(|s| s.to_string())
 }
 
 #[cfg(unix)]

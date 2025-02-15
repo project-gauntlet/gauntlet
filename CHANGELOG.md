@@ -9,6 +9,12 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Added localization support for macOS application names
+  - Added plugin preference `Bundle Name Lang` of enum type
+    - `localized` option - use localized name of bundle if available - this is the default
+    - `default` option - use default name of bundle (usually english)
+- On macOS use app stem name as a fallback if the bundle name is empty
+  - Fixes empty names of some apps, like "Creality Print" which have an empty bundle name
 - When using active screen setting for window positioning, position calculated is now relative to size of the screen. Fixes unexpected position when using monitors of different size (contributed by @BennoCrafter)
 - Add shortcut to open Settings UI (contributed by @BennoCrafter)
   - <kbd>Ctrl</kbd> + <kbd>,</kbd> on Windows and Linux

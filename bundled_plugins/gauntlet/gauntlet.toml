@@ -27,12 +27,6 @@ enum_values = [
     { label = 'Localized', value = 'localized' },
 ]
 
-
-[[entrypoint.actions]]
-id = 'testAction'
-description = "test action description in form"
-shortcut = { key = ':', kind = 'main' }
-
 [[entrypoint]]
 id = 'windows'
 name = 'All Open Windows'
