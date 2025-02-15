@@ -1603,6 +1603,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::done(AppMsg::ShowWindow),
             ])
         }
+        #[cfg(target_os = "linux")]
         AppMsg::X11ActiveWindowChanged { window } => {
             if state.x11_active_window != Some(window) {
                 state.x11_active_window = Some(window);
