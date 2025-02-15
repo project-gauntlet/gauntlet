@@ -9,6 +9,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Slightly improved close-on-unfocus behaviour of main window on X11
 - Global shortcut is now executed on key press, instead of key release 
 - When using active screen setting for window positioning, position calculated is now relative to size of the screen. Fixes unexpected position when using monitors of different size (contributed by @BennoCrafter)
 - Add shortcut to open Settings UI (contributed by @BennoCrafter)

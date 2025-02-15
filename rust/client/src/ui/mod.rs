@@ -93,6 +93,7 @@ use iced::Subscription;
 use iced::Task;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 use serde::Deserialize;
+use tokio::runtime::Handle;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock as TokioRwLock;
 
@@ -121,12 +122,16 @@ mod theme;
 mod widget;
 mod widget_container;
 
+mod platform;
+
 pub use theme::GauntletComplexTheme;
 
 use crate::global_shortcut::convert_physical_shortcut_to_hotkey;
 use crate::global_shortcut::register_listener;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::hud::show_hud_window;
+#[cfg(target_os = "linux")]
+use crate::ui::platform::linux::listen_on_x11_active_window_change;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::ErrorViewData;
 use crate::ui::state::Focus;
@@ -153,6 +158,8 @@ pub struct AppModel {
     window_position_mode: WindowPositionMode,
     close_on_unfocus: bool,
     window_position_file: PathBuf,
+    #[cfg(target_os = "linux")]
+    x11_active_window: Option<u32>,
 
     // ephemeral state
     prompt: String,
@@ -245,7 +252,7 @@ pub enum AppMsg {
     FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
-    ToggleWindowFocus,
+    ToggleWindow,
     ToggleActionPanel {
         keyboard: bool,
     },
@@ -345,6 +352,10 @@ pub enum AppMsg {
     SetWindowPositionMode {
         mode: WindowPositionMode,
     },
+    #[cfg(target_os = "linux")]
+    X11ActiveWindowChanged {
+        window: u32,
+    },
 }
 
 #[cfg(target_os = "linux")]
@@ -372,6 +383,11 @@ fn window_settings(visible: bool, position: Position) -> window::Settings {
         transparent: true,
         closeable: false,
         minimizable: false,
+        #[cfg(target_os = "linux")]
+        platform_specific: window::settings::PlatformSpecific {
+            application_id: "gauntlet".to_string(),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -682,6 +698,8 @@ fn new(
             window_position_mode: setup_data.window_position_mode,
             close_on_unfocus: setup_data.close_on_unfocus,
             window_position_file: setup_data.window_position_file,
+            #[cfg(target_os = "linux")]
+            x11_active_window: None,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -1098,11 +1116,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 return Task::none();
             }
 
+            #[cfg(target_os = "linux")]
             if state.wayland {
                 state.hide_window()
             } else {
-                state.on_unfocused()
+                // x11 uses separate mechanism based on _NET_ACTIVE_WINDOW property
+                Task::none()
             }
+
+            #[cfg(not(target_os = "linux"))]
+            state.on_unfocused()
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Moved(point))) => {
             if window_id != state.main_window_id {
@@ -1133,7 +1156,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             result.expect("unable to load font");
             Task::none()
         }
-        AppMsg::ToggleWindowFocus => state.toggle_window_focus(),
+        AppMsg::ToggleWindow => state.toggle_window(),
         AppMsg::ShowWindow => state.show_window(),
         AppMsg::HideWindow => state.hide_window(),
         AppMsg::ShowPreferenceRequiredView {
@@ -1579,6 +1602,14 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
                 Task::done(AppMsg::ShowWindow),
             ])
+        }
+        AppMsg::X11ActiveWindowChanged { window } => {
+            if state.x11_active_window != Some(window) {
+                state.x11_active_window = Some(window);
+                Task::done(AppMsg::HideWindow)
+            } else {
+                Task::none()
+            }
         }
     }
 }
@@ -2118,6 +2149,7 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
 
     struct RequestLoop;
     struct GlobalShortcutListener;
+    struct X11ActiveWindowListener;
 
     let events_subscription = event::listen_with(|event, status, window_id| {
         match status {
@@ -2134,7 +2166,7 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
         }
     });
 
-    Subscription::batch([
+    let mut subscriptions = vec![
         Subscription::run_with_id(
             std::any::TypeId::of::<GlobalShortcutListener>(),
             stream::channel(10, |sender| {
@@ -2158,7 +2190,29 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
                 }
             }),
         ),
-    ])
+    ];
+
+    #[cfg(target_os = "linux")]
+    if !state.wayland {
+        let handle = Handle::current();
+
+        let subscription = Subscription::run_with_id(
+            std::any::TypeId::of::<X11ActiveWindowListener>(),
+            stream::channel(100, |sender| {
+                async move {
+                    let err = tokio::task::spawn_blocking(|| listen_on_x11_active_window_change(sender, handle)).await;
+
+                    if let Err(err) = err {
+                        tracing::error!("error occurred when listening on x11 events: {:?}", err);
+                    }
+                }
+            }),
+        );
+
+        subscriptions.push(subscription)
+    }
+
+    Subscription::batch(subscriptions)
 }
 
 fn assign_global_shortcut(
@@ -2197,7 +2251,7 @@ impl AppModel {
     }
 
     fn on_unfocused(&mut self) -> Task<AppMsg> {
-        // for some reason (on both macOS and linux x11) duplicate Unfocused fires right before Focus event
+        // for some reason (on both macOS and linux x11 but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
         if self.focused {
             self.hide_window()
         } else {
@@ -2205,8 +2259,8 @@ impl AppModel {
         }
     }
 
-    fn toggle_window_focus(&mut self) -> Task<AppMsg> {
-        if self.focused {
+    fn toggle_window(&mut self) -> Task<AppMsg> {
+        if self.opened {
             self.hide_window()
         } else {
             self.show_window()
@@ -2214,6 +2268,10 @@ impl AppModel {
     }
 
     fn hide_window(&mut self) -> Task<AppMsg> {
+        if !self.opened {
+            return Task::none();
+        }
+
         self.focused = false;
         self.opened = false;
 
