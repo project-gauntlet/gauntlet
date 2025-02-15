@@ -9,6 +9,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Global shortcut is now executed on key press, instead of key release 
 - When using active screen setting for window positioning, position calculated is now relative to size of the screen. Fixes unexpected position when using monitors of different size (contributed by @BennoCrafter)
 - Add shortcut to open Settings UI (contributed by @BennoCrafter)
   - <kbd>Ctrl</kbd> + <kbd>,</kbd> on Windows and Linux
