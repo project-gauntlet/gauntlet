@@ -25,8 +25,8 @@ use crate::ui::theme::space::ThemeKindSpace;
 use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
-use crate::ui::widget::render_icon_accessory;
-use crate::ui::widget::render_text_accessory;
+use crate::ui::widget::accessories::render_icon_accessory;
+use crate::ui::widget::accessories::render_text_accessory;
 
 pub fn search_list<'a>(
     search_results: &'a [SearchResult],

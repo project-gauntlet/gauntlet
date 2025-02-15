@@ -10,8 +10,8 @@ use gauntlet_common::model::UiWidgetId;
 use iced::Task;
 
 use crate::model::UiViewEvent;
-use crate::ui::widget::ActionPanel;
-use crate::ui::widget::ComponentWidgetEvent;
+use crate::ui::widget::action_panel::ActionPanel;
+use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget_container::PluginWidgetContainer;
 use crate::ui::AppMsg;
 

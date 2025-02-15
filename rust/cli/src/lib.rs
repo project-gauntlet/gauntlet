@@ -19,6 +19,10 @@ struct Cli {
     /// Start server without opening Gauntlet window, only used if no subcommand is provided
     #[arg(long)]
     minimized: bool,
+
+    /// Display version and exit
+    #[arg(long)]
+    version: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -47,6 +51,14 @@ pub fn init() {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
+
+    if cli.version {
+        println!(
+            "Gauntlet v{}",
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../VERSION"))
+        );
+        return;
+    }
 
     match cli.command {
         None => {

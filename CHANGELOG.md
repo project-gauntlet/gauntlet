@@ -15,8 +15,11 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
     - `default` option - use default name of bundle (usually english)
 - On macOS use app stem name as a fallback if the bundle name is empty
   - Fixes empty names of some apps, like "Creality Print" which have an empty bundle name
+- Added --version flag to CLI to display Gauntlet version
+- Slightly improved close-on-unfocus behaviour of main window on X11
+- Global shortcut is now executed on key press, instead of key release 
 - When using active screen setting for window positioning, position calculated is now relative to size of the screen. Fixes unexpected position when using monitors of different size (contributed by @BennoCrafter)
-- Add shortcut to open Settings UI (contributed by @BennoCrafter)
+- Added shortcut to open Settings UI (contributed by @BennoCrafter)
   - <kbd>Ctrl</kbd> + <kbd>,</kbd> on Windows and Linux
   - <kbd>Cmd</kbd> + <kbd>,</kbd> on macOS
 - Global shortcut how hides the main window if it is already open (contributed by @BennoCrafter)
