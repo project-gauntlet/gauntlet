@@ -9,6 +9,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Fixed database becoming corrupted after changing theme setting
 - Published macOS `.dmg` file is now universal and can run on x86_64 cpu architecture
   - **BREAKING CHANGE**: Name of published macOS `.dmg` file was changed from `gauntlet-aarch64-macos.dmg` to `gauntlet-universal-macos.dmg`
 - Pressing global shortcut while window is open now preserves search bar value when window is opened next time (contributed by @Kalin8900)  
