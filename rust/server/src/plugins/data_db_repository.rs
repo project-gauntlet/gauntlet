@@ -1025,11 +1025,28 @@ impl DataDbRepository {
             INSERT INTO settings_data (id, global_shortcut, settings)
                 VALUES(?1, ?2, ?3)
                     ON CONFLICT (id)
-                        DO UPDATE SET settings = ?2
+                        DO UPDATE SET settings = ?3
         "#;
+
+        let data = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT * FROM settings_data")
+            .fetch_optional(&self.pool)
+            .await?
+            .unwrap_or(DbSettingsDataContainer {
+                global_shortcut: DbSettingsGlobalShortcutData {
+                    physical_key: "".to_string(),
+                    modifier_shift: false,
+                    modifier_control: false,
+                    modifier_alt: false,
+                    modifier_meta: false,
+                    unset: true,
+                    error: None,
+                },
+                settings: None,
+            });
 
         sqlx::query(sql)
             .bind(SETTINGS_DATA_ID)
+            .bind(Json(data.global_shortcut))
             .bind(Json(value))
             .execute(&self.pool)
             .await?;
