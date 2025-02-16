@@ -1118,7 +1118,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             #[cfg(target_os = "linux")]
             if state.wayland {
-                state.hide_window()
+                state.hide_window(true)
             } else {
                 // x11 uses separate mechanism based on _NET_ACTIVE_WINDOW property
                 Task::none()
