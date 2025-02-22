@@ -6,7 +6,7 @@ import { Octokit } from 'octokit';
 import { sync as spawnSync } from "cross-spawn";
 import path from "node:path";
 import { mkdirSync, readFileSync } from "fs";
-import { copyFileSync, rmdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, rmdirSync, writeFileSync } from "node:fs";
 import * as core from '@actions/core';
 import { SpawnSyncOptions } from "child_process";
 
@@ -365,7 +365,9 @@ async function packageForMacos(projectRoot: string, arch: string[], profile: str
 
     const version = await readVersion(projectRoot)
 
-    rmdirSync(outDirPath)
+    if (existsSync(outDirPath)) {
+        rmdirSync(outDirPath)
+    }
 
     mkdirSync(outDirPath)
     mkdirSync(bundleDir)
