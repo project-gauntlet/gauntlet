@@ -62,6 +62,6 @@ jobs:
         if: ${{ inputs.upload-artifact }}
         with:
           name: 'gauntlet-universal-macos.dmg'
-          path: 'target/out/gauntlet-universal-macos.dmg'
+          path: 'target/gauntlet-universal-macos.dmg'
           if-no-files-found: 'error'
           retention-days: 7
