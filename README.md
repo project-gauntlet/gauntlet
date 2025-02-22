@@ -164,14 +164,9 @@ To start, manually open application.
 
 #### Windows
 
-Although it is possible to install Gauntlet by using `.msi` directly, application doesn't have auto-update functionality so it is recommended to install using `chocolatey` package manager.
+Download `.msi` at [Releases page](https://github.com/project-gauntlet/gauntlet/releases/latest) and open to install Gauntlet
 
-Chocolatey package: [link](https://community.chocolatey.org/packages/gauntlet)
-
-To install run:
-```
-choco install gauntlet
-```
+Note: application doesn't have auto-update functionality, and has to be updated manually
 
 To start, manually open application.
 
