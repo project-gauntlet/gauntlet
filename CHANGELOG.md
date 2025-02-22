@@ -9,42 +9,50 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
-- Fixed database becoming corrupted after changing theme setting
-- Published macOS `.dmg` file is now universal and can run on x86_64 cpu architecture
+### General
+- Published macOS `.dmg` file is now universal and can run on `x86_64` CPU architecture
   - **BREAKING CHANGE**: Name of published macOS `.dmg` file was changed from `gauntlet-aarch64-macos.dmg` to `gauntlet-universal-macos.dmg`
-- Pressing global shortcut while window is open now preserves search bar value when window is opened next time (contributed by @Kalin8900)  
-- Added localization support for macOS application names (contributed by @BennoCrafter)
-  - Added plugin preference `Bundle Name Lang` of enum type
-    - `localized` option - use localized name of bundle if available - this is the default
-    - `default` option - use default name of bundle (usually english)
-- On macOS use app stem name as a fallback if the bundle name is empty (contributed by @BennoCrafter)
-  - Fixes empty names of some apps, like "Creality Print" which have an empty bundle name
-- Added --version flag to CLI to display Gauntlet version
-- Slightly improved close-on-unfocus behaviour of main window on X11
-- Global shortcut is now executed on key press, instead of key release 
-- When using active screen setting for window positioning, position calculated is now relative to size of the screen. Fixes unexpected position when using monitors of different size (contributed by @BennoCrafter)
-- Added shortcut to open Settings UI (contributed by @BennoCrafter)
-  - <kbd>Ctrl</kbd> + <kbd>,</kbd> on Windows and Linux
-  - <kbd>Cmd</kbd> + <kbd>,</kbd> on macOS
+- Pressing global shortcut while window is open now preserves search bar value when window is opened next time (contributed by @Kalin8900)
 - Global shortcut now hides the main window if it is already open (contributed by @BennoCrafter)
+- Global shortcut is now executed on key press, instead of key release
 - It is now possible to run commands and open views using CLI command
   - Format: `gauntlet run <plugin-id> <entrypoint-id> <action-id>`
   - Plugin ID can be found in Settings UI
   - Entrypoint ID can be found in:
     - For entrypoint types `command` and `view` - in Plugin Manifest or in Settings UI TODO
-    - For entrypoint type `entrypoint-generator` - in Settings UI TODO 
+    - For entrypoint type `entrypoint-generator` - in Settings UI TODO
   - Action ID can also be found in Plugin Manifest
   - Action ID option also accepts special values
     - `:primary` - to run primary action of the entrypoint
     - `:secondary` - to run secondary action of the entrypoint
-- Slightly improved --help documentation of CLI command
+- Slightly improved `--help` documentation of CLI command
+- Added `--version` flag to CLI to display Gauntlet version
+- Added localization support for macOS application names (contributed by @BennoCrafter)
+  - Added plugin preference `Bundle Name Lang` of enum type
+    - `localized` option - use localized name of bundle if available - this is the default
+    - `default` option - use default name of bundle (usually english)
+- Added shortcut to open Settings UI (contributed by @BennoCrafter)
+  - <kbd>Ctrl</kbd> + <kbd>,</kbd> on Windows and Linux
+  - <kbd>Cmd</kbd> + <kbd>,</kbd> on macOS
 
+### UI/UX Improvements
 - In main window search result, moved plugin name next to entrypoint name
 - In main window search result, displayed type of entrypoint in place of plugin name, use generator entrypoint name if generated
 
-- Fix no plugins starting on Windows in release mode 
-- Fix all global shortcut registrations failing if one shortcut registration failed
-- Fix error when registering shortcut erroring whole settings window instead of adding an icon
+### Fixes
+- Fixed database becoming corrupted after changing theme setting, preventing application server startup
+  - If you encounter this issue you have to remove application database, file which can be found at
+    - Linux: `/home/alice/.local/share/gauntlet/data.db`
+    - macOS: `/Users/Alice/Library/Application Support/dev.project-gauntlet.Gauntlet/data.db`
+    - Windows: `C:\Users\Alice\AppData\Roaming\project-gauntlet\Gauntlet\data\data.db`
+- Slightly improved close-on-unfocus behaviour of main window on X11
+- On macOS use app stem name as a fallback if the bundle name is empty (contributed by @BennoCrafter)
+  - Fixes empty names of some apps, like "Creality Print" which have an empty bundle name
+- When using active screen setting for window positioning, position calculated is now relative to size of the screen
+  - Fixes unexpected position when using monitors of different size (contributed by @BennoCrafter)
+- Fixed no plugins starting on Windows in release mode 
+- Fixed all global shortcut registrations failing if one shortcut registration failed
+- Fixed error when registering shortcut erroring whole settings window instead of adding an icon
 
 ## [14] - 2025-01-19
 
