@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [15] - 2025-02-22
+
 ### General
 - Published macOS `.dmg` file is now universal and can run on `x86_64` CPU architecture
   - **BREAKING CHANGE**: Name of published macOS `.dmg` file was changed from `gauntlet-aarch64-macos.dmg` to `gauntlet-universal-macos.dmg`
