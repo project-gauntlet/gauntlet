@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [16] - 2025-02-23
+
 - Fixed application plugin being broken on non-macos platforms
 
 ## [15] - 2025-02-22
