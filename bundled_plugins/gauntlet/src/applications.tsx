@@ -25,21 +25,6 @@ type EntrypointPreferences = { experimentalWindowTracking: boolean, bundleNameLa
 
 export default async function Applications(context: GeneratorContext<object, EntrypointPreferences>): Promise<void | (() => void)> {
     const { add, remove, get, getAll, entrypointPreferences: { experimentalWindowTracking, bundleNameLang } } = context;
-    let lang: string | undefined;
-
-    switch (bundleNameLang) {
-        case "default": {
-            lang = undefined;
-            break;
-        }
-        case "localized": {
-            lang = macos_get_localized_language();
-            break;
-        }
-        default: {
-            throw new Error("Unknown bundle name type")
-        }
-    }
 
     switch (current_os()) {
         case "linux": {
@@ -118,6 +103,22 @@ export default async function Applications(context: GeneratorContext<object, Ent
             return cleanup;
         }
         case "macos": {
+            let lang: string | undefined;
+
+            switch (bundleNameLang) {
+                case "default": {
+                    lang = undefined;
+                    break;
+                }
+                case "localized": {
+                    lang = macos_get_localized_language();
+                    break;
+                }
+                default: {
+                    throw new Error("Unknown bundle name type")
+                }
+            }
+
             const majorVersion = macos_major_version();
 
             if (majorVersion >= 13) {
