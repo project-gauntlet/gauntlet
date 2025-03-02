@@ -6,8 +6,10 @@
 
 Web-first cross-platform application launcher with React-based plugins
 
-> [!NOTE]
-> Launcher is in active development, expect bugs, missing features, incomplete ux, etc.
+> [!WARNING]
+> Launcher is being developed by single developer in their free time.
+> Changes may be few and far between.
+> If you face any issues they will likely not get fixed unless they become a problem for that developer
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 
@@ -70,10 +72,15 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
 
 ##### OS Support
 
-- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux
-   - Both X11 and Wayland (via LayerShell protocol) are supported
+##### Official
+- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux X11
    - Application plugin depends on `gtk-launch`
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS
+
+##### Best-effort
+- <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux Wayland
+   - LayerShell support required
+   - Application plugin depends on `gtk-launch`
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
 
 ##### Planned features
