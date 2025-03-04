@@ -3,8 +3,6 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use std::sync::Mutex;
@@ -730,12 +728,6 @@ fn title(state: &AppModel, window: window::Id) -> String {
     }
 }
 
-static BD_SEQ: AtomicU32 = AtomicU32::new(0);
-
-fn get_bdseq() -> u32 {
-    BD_SEQ.fetch_add(1, Ordering::SeqCst) + 1
-}
-
 fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
     match message {
         AppMsg::OpenView {
@@ -936,7 +928,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             container,
             images,
         } => {
-            println!("render");
             let has_children = container.content.is_some();
 
             Task::batch([
@@ -2457,13 +2448,9 @@ impl AppModel {
     ) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
-        let val = get_bdseq();
-
         let event = self
             .client_context
             .handle_event(render_location, &plugin_id, widget_event.clone());
-
-        println!("handle_plugin_event {} {:?}", val, event);
 
         if let Some(event) = event {
             match event {
@@ -2491,8 +2478,6 @@ impl AppModel {
                                 .await?;
 
                             receiver.await.expect("the other side was dropped");
-
-                            println!("handle_plugin_event {} after", val);
 
                             Ok(msg)
                         },
