@@ -86,7 +86,9 @@ impl ComponentWidgetEvent {
                 Some(create_action_on_action_event(widget_id, id))
             }
             ComponentWidgetEvent::ToggleDatePicker { widget_id } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 let ComponentWidgetState::DatePicker(DatePickerState {
                     state_value: _,
@@ -100,7 +102,9 @@ impl ComponentWidgetEvent {
                 None
             }
             ComponentWidgetEvent::CancelDatePicker { widget_id } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 let ComponentWidgetState::DatePicker(DatePickerState {
                     state_value: _,
@@ -114,7 +118,9 @@ impl ComponentWidgetEvent {
                 None
             }
             ComponentWidgetEvent::SubmitDatePicker { widget_id, value } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 {
                     let ComponentWidgetState::DatePicker(DatePickerState {
@@ -131,7 +137,9 @@ impl ComponentWidgetEvent {
                 Some(create_date_picker_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::ToggleCheckbox { widget_id, value } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 {
                     let ComponentWidgetState::Checkbox(CheckboxState { state_value }) = state else {
@@ -144,7 +152,9 @@ impl ComponentWidgetEvent {
                 Some(create_checkbox_on_change_event(widget_id, value))
             }
             ComponentWidgetEvent::SelectPickList { widget_id, value } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 {
                     let ComponentWidgetState::Select(SelectState { state_value }) = state else {
@@ -157,7 +167,9 @@ impl ComponentWidgetEvent {
                 Some(create_select_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::OnChangeTextField { widget_id, value } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 {
                     let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
@@ -170,7 +182,9 @@ impl ComponentWidgetEvent {
                 Some(create_text_field_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::OnChangePasswordField { widget_id, value } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 {
                     let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
@@ -183,7 +197,9 @@ impl ComponentWidgetEvent {
                 Some(create_password_field_on_change_event(widget_id, Some(value)))
             }
             ComponentWidgetEvent::OnChangeSearchBar { widget_id, value } => {
-                let state = state.expect("state should always exist for ");
+                let Some(state) = state else {
+                    return None;
+                };
 
                 {
                     let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
