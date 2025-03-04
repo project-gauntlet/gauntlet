@@ -226,6 +226,7 @@ declare module "ext:core/ops" {
     function op_entrypoint_names(): Record<string, string | undefined>;
     function clear_inline_view(): void;
     function op_plugin_get_pending_event(): Promise<PluginEvent>;
+    function synchronize_event(): Promise<void>;
     function hide_window(): void;
 
     function get_entrypoint_generator_entrypoint_ids(): Promise<string[]>

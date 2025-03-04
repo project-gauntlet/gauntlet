@@ -1,6 +1,6 @@
 import ReactReconciler, { HostConfig, OpaqueHandle } from "react-reconciler";
 import { createContext, ReactNode, useContext } from 'react';
-import { DefaultEventPriority } from 'react-reconciler/constants';
+import { DiscreteEventPriority } from 'react-reconciler/constants';
 import {
     asset_data,
     asset_data_blocking,
@@ -261,7 +261,7 @@ export const createHostConfig = (): HostConfig<
     },
     noTimeout: -1,
     isPrimaryRenderer: true,
-    getCurrentEventPriority: () => DefaultEventPriority,
+    getCurrentEventPriority: () => DiscreteEventPriority,
     getInstanceFromNode(_node: any): ReactReconciler.Fiber | null | undefined {
         return undefined;
     },

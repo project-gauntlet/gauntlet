@@ -262,4 +262,14 @@ impl FrontendApi {
 
         Ok(())
     }
+
+    pub async fn synchronize_event(&self, plugin_id: PluginId) -> Result<(), FrontendApiError> {
+        let data = UiRequestData::SynchronizeEvent { plugin_id };
+
+        let UiResponseData::Nothing = self.frontend_sender.send_receive(data).await? else {
+            unreachable!()
+        };
+
+        Ok(())
+    }
 }

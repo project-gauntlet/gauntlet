@@ -14,6 +14,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::mpsc::Receiver;
 
+use crate::api::BackendForPluginRuntimeApiProxy;
+use crate::BackendForPluginRuntimeApi;
+
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
 #[serde(tag = "type")]
 pub enum JsEvent {
@@ -103,4 +106,21 @@ pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow:
     tracing::trace!("Received plugin event {:?}", event);
 
     Ok(event)
+}
+
+#[op2(async)]
+pub async fn synchronize_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+    let api = {
+        let state = state.borrow();
+
+        let api = state.borrow::<BackendForPluginRuntimeApiProxy>().clone();
+
+        api
+    };
+
+    tracing::trace!(target = "renderer_rs", "Synchronizing event");
+
+    api.ui_synchronize_event().await?;
+
+    Ok(())
 }

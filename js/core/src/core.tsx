@@ -12,7 +12,8 @@ import {
     op_plugin_get_pending_event,
     plugin_preferences_required,
     show_plugin_error_view,
-    show_preferences_required_view
+    show_preferences_required_view,
+    synchronize_event
 } from "ext:core/ops";
 
 
@@ -65,6 +66,9 @@ export async function runPluginLoop() {
                 } catch (e) {
                     console.error("Error occurred when receiving view event to handle", e)
                 }
+
+                await synchronize_event()
+
                 break;
             }
             case "KeyboardEvent": {

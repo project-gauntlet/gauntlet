@@ -67,6 +67,7 @@ pub trait BackendForPluginRuntimeApi {
         entrypoint_preferences_required: bool,
     ) -> anyhow::Result<()>;
     async fn ui_clear_inline_view(&self) -> anyhow::Result<()>;
+    async fn ui_synchronize_event(&self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone)]
@@ -328,6 +329,15 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiProxy {
 
     async fn ui_clear_inline_view(&self) -> anyhow::Result<()> {
         let request = JsRequest::ClearInlineView;
+
+        match self.request(request).await? {
+            JsResponse::Nothing => Ok(()),
+            value @ _ => panic!("Unexpected JsResponse type: {:?}", value),
+        }
+    }
+
+    async fn ui_synchronize_event(&self) -> anyhow::Result<()> {
+        let request = JsRequest::SynchronizeEvent;
 
         match self.request(request).await? {
             JsResponse::Nothing => Ok(()),

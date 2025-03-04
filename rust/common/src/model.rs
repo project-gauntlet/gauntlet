@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -291,6 +290,9 @@ pub enum UiRequestData {
         entrypoint_id: EntrypointId,
         entrypoint_name: String,
         action_index: usize,
+    },
+    SynchronizeEvent {
+        plugin_id: PluginId,
     },
 }
 

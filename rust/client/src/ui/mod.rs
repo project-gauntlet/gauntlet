@@ -3,6 +3,8 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use std::sync::Mutex;
@@ -50,7 +52,6 @@ use iced::event;
 use iced::executor;
 use iced::font;
 use iced::futures;
-use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
 use iced::keyboard;
 use iced::keyboard::key;
@@ -94,6 +95,7 @@ use iced::Task;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 use serde::Deserialize;
 use tokio::runtime::Handle;
+use tokio::sync::oneshot;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock as TokioRwLock;
 
@@ -160,6 +162,7 @@ pub struct AppModel {
     window_position_file: PathBuf,
     #[cfg(target_os = "linux")]
     x11_active_window: Option<u32>,
+    event_synchronizer: Arc<Mutex<HashMap<PluginId, oneshot::Sender<()>>>>,
 
     // ephemeral state
     prompt: String,
@@ -355,6 +358,9 @@ pub enum AppMsg {
     #[cfg(target_os = "linux")]
     X11ActiveWindowChanged {
         window: u32,
+    },
+    EventHanded {
+        plugin_id: PluginId,
     },
 }
 
@@ -702,6 +708,7 @@ fn new(
             x11_active_window: None,
 
             // ephemeral state
+            event_synchronizer: Arc::new(Mutex::new(HashMap::new())),
             prompt: "".to_string(),
 
             // state
@@ -721,6 +728,12 @@ fn title(state: &AppModel, window: window::Id) -> String {
     } else {
         "Gauntlet HUD".to_owned()
     }
+}
+
+static BD_SEQ: AtomicU32 = AtomicU32::new(0);
+
+fn get_bdseq() -> u32 {
+    BD_SEQ.fetch_add(1, Ordering::SeqCst) + 1
 }
 
 fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
@@ -923,6 +936,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             container,
             images,
         } => {
+            println!("render");
             let has_children = container.content.is_some();
 
             Task::batch([
@@ -1611,6 +1625,18 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             } else {
                 Task::none()
             }
+        }
+        AppMsg::EventHanded { plugin_id } => {
+            state
+                .event_synchronizer
+                .lock()
+                .expect("lock is poisoned")
+                .remove(&plugin_id)
+                .expect("there should always be a responder here")
+                .send(())
+                .expect("the other side was dropped");
+
+            Task::none()
         }
     }
 }
@@ -2431,45 +2457,63 @@ impl AppModel {
     ) -> Task<AppMsg> {
         let mut backend_client = self.backend_api.clone();
 
+        let val = get_bdseq();
+
         let event = self
             .client_context
             .handle_event(render_location, &plugin_id, widget_event.clone());
 
-        Task::perform(
-            async move {
-                if let Some(event) = event {
-                    match event {
-                        UiViewEvent::View {
-                            widget_id,
-                            event_name,
-                            event_arguments,
-                        } => {
-                            let msg = match widget_event {
-                                ComponentWidgetEvent::ActionClick { .. } => {
-                                    AppMsg::ToggleActionPanel { keyboard: false }
-                                }
-                                _ => AppMsg::Noop,
-                            };
+        println!("handle_plugin_event {} {:?}", val, event);
 
+        if let Some(event) = event {
+            match event {
+                UiViewEvent::View {
+                    widget_id,
+                    event_name,
+                    event_arguments,
+                } => {
+                    let msg = match widget_event {
+                        ComponentWidgetEvent::ActionClick { .. } => AppMsg::ToggleActionPanel { keyboard: false },
+                        _ => AppMsg::Noop,
+                    };
+
+                    let (sender, receiver) = oneshot::channel();
+
+                    self.event_synchronizer
+                        .lock()
+                        .expect("lock is poisoned")
+                        .insert(plugin_id.clone(), sender);
+
+                    Task::perform(
+                        async move {
                             backend_client
                                 .send_view_event(plugin_id, widget_id, event_name, event_arguments)
                                 .await?;
 
+                            receiver.await.expect("the other side was dropped");
+
+                            println!("handle_plugin_event {} after", val);
+
                             Ok(msg)
-                        }
-                        UiViewEvent::Open { href } => {
+                        },
+                        |result| handle_backend_error(result, |msg| msg),
+                    )
+                }
+                UiViewEvent::Open { href } => {
+                    Task::perform(
+                        async move {
                             backend_client.send_open_event(plugin_id, href).await?;
 
                             Ok(AppMsg::Noop)
-                        }
-                        UiViewEvent::AppEvent { event } => Ok(event),
-                    }
-                } else {
-                    Ok(AppMsg::Noop)
+                        },
+                        |result| handle_backend_error(result, |msg| msg),
+                    )
                 }
-            },
-            |result| handle_backend_error(result, |msg| msg),
-        )
+                UiViewEvent::AppEvent { event } => Task::done(event),
+            }
+        } else {
+            Task::none()
+        }
     }
 
     fn handle_main_view_keyboard_event(
@@ -2860,7 +2904,7 @@ fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, conver
 
 async fn request_loop(
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
-    mut sender: Sender<AppMsg>,
+    mut sender: futures::channel::mpsc::Sender<AppMsg>,
 ) {
     let mut frontend_receiver = frontend_receiver.write().await;
     loop {
@@ -3005,6 +3049,7 @@ async fn request_loop(
                         action_index,
                     }
                 }
+                UiRequestData::SynchronizeEvent { plugin_id } => AppMsg::EventHanded { plugin_id },
             }
         };
 
