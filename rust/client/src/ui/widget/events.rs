@@ -90,15 +90,12 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                let ComponentWidgetState::DatePicker(DatePickerState {
-                    state_value: _,
-                    show_picker,
-                }) = state
-                else {
+                let ComponentWidgetState::DatePicker(DatePickerState { show_picker, .. }) = state else {
                     panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                 };
 
                 *show_picker = !*show_picker;
+
                 None
             }
             ComponentWidgetEvent::CancelDatePicker { widget_id } => {
@@ -106,15 +103,12 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                let ComponentWidgetState::DatePicker(DatePickerState {
-                    state_value: _,
-                    show_picker,
-                }) = state
-                else {
+                let ComponentWidgetState::DatePicker(DatePickerState { show_picker, .. }) = state else {
                     panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
                 };
 
                 *show_picker = false;
+
                 None
             }
             ComponentWidgetEvent::SubmitDatePicker { widget_id, value } => {
@@ -122,17 +116,11 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                {
-                    let ComponentWidgetState::DatePicker(DatePickerState {
-                        state_value: _,
-                        show_picker,
-                    }) = state
-                    else {
-                        panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
-                    };
+                let ComponentWidgetState::DatePicker(DatePickerState { show_picker, .. }) = state else {
+                    panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
+                };
 
-                    *show_picker = false;
-                }
+                *show_picker = false;
 
                 Some(create_date_picker_on_change_event(widget_id, Some(value)))
             }
@@ -141,13 +129,11 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                {
-                    let ComponentWidgetState::Checkbox(CheckboxState { state_value }) = state else {
-                        panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
-                    };
+                let ComponentWidgetState::Checkbox(CheckboxState { state_value }) = state else {
+                    panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
+                };
 
-                    *state_value = !*state_value;
-                }
+                *state_value = !*state_value;
 
                 Some(create_checkbox_on_change_event(widget_id, value))
             }
@@ -156,13 +142,11 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                {
-                    let ComponentWidgetState::Select(SelectState { state_value }) = state else {
-                        panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
-                    };
+                let ComponentWidgetState::Select(SelectState { state_value }) = state else {
+                    panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
+                };
 
-                    *state_value = Some(value.clone());
-                }
+                *state_value = Some(value.clone());
 
                 Some(create_select_on_change_event(widget_id, Some(value)))
             }
@@ -171,13 +155,11 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                {
-                    let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
-                        panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
-                    };
+                let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
+                    panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
+                };
 
-                    *state_value = value.clone();
-                }
+                *state_value = value.clone();
 
                 Some(create_text_field_on_change_event(widget_id, Some(value)))
             }
@@ -186,13 +168,11 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                {
-                    let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
-                        panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
-                    };
+                let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
+                    panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
+                };
 
-                    *state_value = value.clone();
-                }
+                *state_value = value.clone();
 
                 Some(create_password_field_on_change_event(widget_id, Some(value)))
             }
@@ -201,13 +181,11 @@ impl ComponentWidgetEvent {
                     return None;
                 };
 
-                {
-                    let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
-                        panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
-                    };
+                let ComponentWidgetState::TextField(TextFieldState { state_value, .. }) = state else {
+                    panic!("unexpected state kind, widget_id: {:?} state: {:?}", widget_id, state)
+                };
 
-                    *state_value = value.clone();
-                }
+                *state_value = value.clone();
 
                 Some(create_search_bar_on_change_event(widget_id, Some(value)))
             }
