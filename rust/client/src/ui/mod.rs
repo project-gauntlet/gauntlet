@@ -161,6 +161,7 @@ pub struct AppModel {
     #[cfg(target_os = "linux")]
     x11_active_window: Option<u32>,
     event_synchronizer: Arc<Mutex<HashMap<PluginId, oneshot::Sender<()>>>>,
+    pending_window_state_reset: bool,
 
     // ephemeral state
     prompt: String,
@@ -704,9 +705,10 @@ fn new(
             window_position_file: setup_data.window_position_file,
             #[cfg(target_os = "linux")]
             x11_active_window: None,
+            event_synchronizer: Arc::new(Mutex::new(HashMap::new())),
+            pending_window_state_reset: false,
 
             // ephemeral state
-            event_synchronizer: Arc::new(Mutex::new(HashMap::new())),
             prompt: "".to_string(),
 
             // state
@@ -2295,9 +2297,7 @@ impl AppModel {
 
         let mut commands = vec![];
 
-        if reset_state {
-            commands.push(self.reset_window_state());
-        }
+        self.pending_window_state_reset = reset_state;
 
         #[cfg(target_os = "linux")]
         if self.wayland {
@@ -2370,7 +2370,13 @@ impl AppModel {
             window::change_mode(self.main_window_id, Mode::Windowed),
         ]);
 
-        open_task
+        let mut commands = vec![open_task];
+
+        if self.pending_window_state_reset {
+            commands.push(self.reset_window_state());
+        }
+
+        Task::batch(commands)
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
