@@ -32,7 +32,7 @@ toml.workspace = true
 tantivy = "0.22"
 git2 = { version = "0.19", features = ["vendored-libgit2", "vendored-openssl"] }
 tempfile = "3"
-sqlx = { version = "0.8", features = [ "runtime-tokio", "json", "sqlite" ] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "json", "sqlite"] }
 include_dir = "0.7"
 open = "5"
 uuid = "1.8"
@@ -41,10 +41,20 @@ url = "2.5"
 ureq = "2.10"
 vergen-pretty = "0.3"
 dark-light = "1.1.1"
+schemars = "0.8"
+serde_json = "1.0"
 
 [features]
 release = ["gauntlet-common/release", "gauntlet-plugin-runtime/release"]
-scenario_runner = ["dep:gauntlet-scenario-runner", "gauntlet-common/scenario_runner", "gauntlet-plugin-runtime/scenario_runner"]
+scenario_runner = [
+    "dep:gauntlet-scenario-runner",
+    "gauntlet-common/scenario_runner",
+    "gauntlet-plugin-runtime/scenario_runner",
+]
 
 [build-dependencies]
 vergen-gitcl = { version = "1.0", features = ["build", "cargo"] }
+
+[[bin]]
+name = "schema_generator"
+path = "src/schema_generator.rs"

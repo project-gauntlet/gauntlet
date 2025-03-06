@@ -1,0 +1,627 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PluginManifest",
+  "description": "Manifest structure for a plugin.",
+  "type": "object",
+  "required": [
+    "entrypoint",
+    "gauntlet"
+  ],
+  "properties": {
+    "entrypoint": {
+      "description": "Entrypoints for the plugin.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PluginManifestEntrypoint"
+      }
+    },
+    "gauntlet": {
+      "description": "Metadata about the plugin.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/PluginManifestMetadata"
+        }
+      ]
+    },
+    "permissions": {
+      "description": "Permissions required by the plugin.",
+      "default": {
+        "environment": [],
+        "network": [],
+        "filesystem": {
+          "read": [],
+          "write": []
+        },
+        "exec": {
+          "command": [],
+          "executable": []
+        },
+        "system": [],
+        "clipboard": [],
+        "main_search_bar": []
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/PluginManifestPermissions"
+        }
+      ]
+    },
+    "preferences": {
+      "description": "Preferences that can be configured by the user.",
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PluginManifestPreference"
+      }
+    },
+    "supported_system": {
+      "description": "List of supported operating systems.",
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PluginManifestSupportedSystem"
+      }
+    }
+  },
+  "definitions": {
+    "PluginManifestAction": {
+      "description": "Action that can be performed by the plugin.",
+      "type": "object",
+      "required": [
+        "description",
+        "id",
+        "shortcut"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "shortcut": {
+          "$ref": "#/definitions/PluginManifestActionShortcut"
+        }
+      }
+    },
+    "PluginManifestActionShortcut": {
+      "type": "object",
+      "required": [
+        "key",
+        "kind"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/PluginManifestActionShortcutKey"
+        },
+        "kind": {
+          "$ref": "#/definitions/PluginManifestActionShortcutKind"
+        }
+      }
+    },
+    "PluginManifestActionShortcutKey": {
+      "type": "string",
+      "enum": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "!",
+        "@",
+        "#",
+        "$",
+        "%",
+        "^",
+        "&",
+        "*",
+        "(",
+        ")",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "-",
+        "=",
+        ",",
+        ".",
+        "/",
+        "[",
+        "]",
+        ";",
+        "'",
+        "\\",
+        "_",
+        "+",
+        "<",
+        ">",
+        "?",
+        "{",
+        "}",
+        ":",
+        "\"",
+        "|"
+      ]
+    },
+    "PluginManifestActionShortcutKind": {
+      "type": "string",
+      "enum": [
+        "main",
+        "alternative"
+      ]
+    },
+    "PluginManifestClipboardPermissions": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write",
+        "clear"
+      ]
+    },
+    "PluginManifestEntrypoint": {
+      "description": "An entrypoint for the plugin.",
+      "type": "object",
+      "required": [
+        "description",
+        "id",
+        "name",
+        "path",
+        "type"
+      ],
+      "properties": {
+        "actions": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PluginManifestAction"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "icon": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "preferences": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PluginManifestPreference"
+          }
+        },
+        "type": {
+          "$ref": "#/definitions/PluginManifestEntrypointTypes"
+        }
+      }
+    },
+    "PluginManifestEntrypointTypes": {
+      "description": "Types of plugin entrypoints.",
+      "oneOf": [
+        {
+          "description": "A command entrypoint.",
+          "type": "string",
+          "enum": [
+            "command"
+          ]
+        },
+        {
+          "description": "A view-based entrypoint.",
+          "type": "string",
+          "enum": [
+            "view"
+          ]
+        },
+        {
+          "description": "An inline view entrypoint.",
+          "type": "string",
+          "enum": [
+            "inline-view"
+          ]
+        },
+        {
+          "description": "Generates new entrypoints dynamically.",
+          "type": "string",
+          "enum": [
+            "entrypoint-generator"
+          ]
+        }
+      ]
+    },
+    "PluginManifestMainSearchBarPermissions": {
+      "type": "string",
+      "enum": [
+        "read"
+      ]
+    },
+    "PluginManifestMetadata": {
+      "description": "Metadata for the plugin manifest.",
+      "type": "object",
+      "required": [
+        "description",
+        "name"
+      ],
+      "properties": {
+        "description": {
+          "description": "Description of the plugin.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the plugin.",
+          "type": "string"
+        }
+      }
+    },
+    "PluginManifestPermissions": {
+      "type": "object",
+      "properties": {
+        "clipboard": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PluginManifestClipboardPermissions"
+          }
+        },
+        "environment": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec": {
+          "default": {
+            "command": [],
+            "executable": []
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/PluginManifestPermissionsExec"
+            }
+          ]
+        },
+        "filesystem": {
+          "default": {
+            "read": [],
+            "write": []
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/PluginManifestPermissionsFileSystem"
+            }
+          ]
+        },
+        "main_search_bar": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PluginManifestMainSearchBarPermissions"
+          }
+        },
+        "network": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "system": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PluginManifestPermissionsExec": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "executable": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PluginManifestPermissionsFileSystem": {
+      "type": "object",
+      "properties": {
+        "read": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "write": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PluginManifestPreference": {
+      "description": "User-configurable preference options.",
+      "oneOf": [
+        {
+          "description": "A numeric preference.",
+          "type": "object",
+          "required": [
+            "description",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "default": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "number"
+              ]
+            }
+          }
+        },
+        {
+          "description": "A string preference.",
+          "type": "object",
+          "required": [
+            "description",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "default": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            }
+          }
+        },
+        {
+          "description": "An enum preference with selectable values.",
+          "type": "object",
+          "required": [
+            "description",
+            "enum_values",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "default": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "enum_values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PluginManifestPreferenceEnumValue"
+              }
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "enum"
+              ]
+            }
+          }
+        },
+        {
+          "description": "A boolean preference.",
+          "type": "object",
+          "required": [
+            "description",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "default": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "bool"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "PluginManifestPreferenceEnumValue": {
+      "description": "An enumerated preference value.",
+      "type": "object",
+      "required": [
+        "label",
+        "value"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "PluginManifestSupportedSystem": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "os"
+          ],
+          "properties": {
+            "os": {
+              "type": "string",
+              "enum": [
+                "linux"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "os"
+          ],
+          "properties": {
+            "os": {
+              "type": "string",
+              "enum": [
+                "windows"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "os"
+          ],
+          "properties": {
+            "os": {
+              "type": "string",
+              "enum": [
+                "macos"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
