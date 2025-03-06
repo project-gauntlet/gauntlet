@@ -1,72 +1,73 @@
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use crate::model::ActionShortcutKey;
 
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "Manifest structure for a plugin.")]
 pub struct PluginManifest {
     #[schemars(description = "Metadata about the plugin.")]
-    gauntlet: PluginManifestMetadata,
+    pub gauntlet: PluginManifestMetadata,
 
     #[schemars(description = "Entrypoints for the plugin.")]
-    entrypoint: Vec<PluginManifestEntrypoint>,
+    pub entrypoint: Vec<PluginManifestEntrypoint>,
 
     #[serde(default)]
     #[schemars(description = "List of supported operating systems.")]
-    supported_system: Vec<PluginManifestSupportedSystem>,
+    pub supported_system: Vec<PluginManifestSupportedSystem>,
 
     #[serde(default)]
     #[schemars(description = "Permissions required by the plugin.")]
-    permissions: PluginManifestPermissions,
+    pub permissions: PluginManifestPermissions,
 
     #[serde(default)]
     #[schemars(description = "Preferences that can be configured by the user.")]
-    preferences: Vec<PluginManifestPreference>,
+    pub preferences: Vec<PluginManifestPreference>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "Metadata for the plugin manifest.")]
 pub struct PluginManifestMetadata {
     #[schemars(description = "Name of the plugin.")]
-    name: String,
+    pub name: String,
 
     #[schemars(description = "Description of the plugin.")]
-    description: String,
+    pub description: String,
 }
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "Action that can be performed by the plugin.")]
 pub struct PluginManifestAction {
-    id: String,
-    description: String,
-    shortcut: PluginManifestActionShortcut,
+    pub id: String,
+    pub description: String,
+    pub shortcut: PluginManifestActionShortcut,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "An entrypoint for the plugin.")]
 pub struct PluginManifestEntrypoint {
-    id: String,
-    name: String,
-    description: String,
+    pub id: String,
+    pub name: String,
+    pub description: String,
 
     #[allow(unused)] // Used during plugin build
-    path: String,
+    pub path: String,
 
-    icon: Option<String>,
+    pub icon: Option<String>,
 
     #[serde(rename = "type")]
-    entrypoint_type: PluginManifestEntrypointTypes,
+    pub entrypoint_type: PluginManifestEntrypointTypes,
 
     #[serde(default)]
-    preferences: Vec<PluginManifestPreference>,
+    pub preferences: Vec<PluginManifestPreference>,
 
     #[serde(default)]
-    actions: Vec<PluginManifestAction>,
+    pub actions: Vec<PluginManifestAction>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "type")]
 #[schemars(description = "User-configurable preference options.")]
-enum PluginManifestPreference {
+pub enum PluginManifestPreference {
     #[serde(rename = "number")]
     #[schemars(description = "A numeric preference.")]
     Number {
@@ -103,6 +104,33 @@ enum PluginManifestPreference {
         default: Option<bool>,
         description: String,
     },
+
+    #[serde(rename = "list_of_strings")]
+    #[schemars(description = "A list of strings preference.")]
+    ListOfStrings {
+        id: String,
+        name: String,
+        // default: Option<Vec<String>>,
+        description: String,
+    },
+
+    #[serde(rename = "list_of_numbers")]
+    #[schemars(description = "A list of numbers preference.")]
+    ListOfNumbers {
+        id: String,
+        name: String,
+        // default: Option<Vec<f64>>,
+        description: String,
+    },
+    #[serde(rename = "list_of_enums")]
+    #[schemars(description = "A list of enumerated preference values.")]
+    ListOfEnums {
+        id: String,
+        name: String,
+        // default: Option<Vec<String>>,
+        enum_values: Vec<PluginManifestPreferenceEnumValue>,
+        description: String,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -134,8 +162,8 @@ pub enum PluginManifestEntrypointTypes {
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct PluginManifestActionShortcut {
-    key: PluginManifestActionShortcutKey,
-    kind: PluginManifestActionShortcutKind,
+    pub key: PluginManifestActionShortcutKey,
+    pub kind: PluginManifestActionShortcutKind,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -148,7 +176,7 @@ pub enum PluginManifestActionShortcutKind {
 
 // only stuff that is present on 60% keyboard
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-enum PluginManifestActionShortcutKey {
+pub enum PluginManifestActionShortcutKey {
     #[serde(rename = "0")]
     Num0,
     #[serde(rename = "1")]
@@ -439,123 +467,22 @@ impl PluginManifestActionShortcutKey {
     }
 }
 
-
-enum ActionShortcutKey {
-    Num0,
-    Num1,
-    Num2,
-    Num3,
-    Num4,
-    Num5,
-    Num6,
-    Num7,
-    Num8,
-    Num9,
-
-    Exclamation,
-    AtSign,
-    Hash,
-    Dollar,
-    Percent,
-    Caret,
-    Ampersand,
-    Star,
-    LeftParenthesis,
-    RightParenthesis,
-
-    LowerA,
-    LowerB,
-    LowerC,
-    LowerD,
-    LowerE,
-    LowerF,
-    LowerG,
-    LowerH,
-    LowerI,
-    LowerJ,
-    LowerK,
-    LowerL,
-    LowerM,
-    LowerN,
-    LowerO,
-    LowerP,
-    LowerQ,
-    LowerR,
-    LowerS,
-    LowerT,
-    LowerU,
-    LowerV,
-    LowerW,
-    LowerX,
-    LowerY,
-    LowerZ,
-
-    UpperA,
-    UpperB,
-    UpperC,
-    UpperD,
-    UpperE,
-    UpperF,
-    UpperG,
-    UpperH,
-    UpperI,
-    UpperJ,
-    UpperK,
-    UpperL,
-    UpperM,
-    UpperN,
-    UpperO,
-    UpperP,
-    UpperQ,
-    UpperR,
-    UpperS,
-    UpperT,
-    UpperU,
-    UpperV,
-    UpperW,
-    UpperX,
-    UpperY,
-    UpperZ,
-
-    Minus,
-    Equals,
-    Comma,
-    Dot,
-    Slash,
-    OpenSquareBracket,
-    CloseSquareBracket,
-    Semicolon,
-    Quote,
-    Backslash,
-
-    Underscore,
-    Plus,
-    LessThan,
-    GreaterThan,
-    QuestionMark,
-    LeftBrace,
-    RightBrace,
-    Colon,
-    DoubleQuotes,
-    Pipe,
-}
-
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
 pub struct PluginManifestPermissions {
     #[serde(default)]
-    environment: Vec<String>,
+    pub environment: Vec<String>,
     #[serde(default)]
-    network: Vec<String>,
+    pub network: Vec<String>,
     #[serde(default)]
-    filesystem: PluginManifestPermissionsFileSystem,
+    pub filesystem: PluginManifestPermissionsFileSystem,
     #[serde(default)]
-    exec: PluginManifestPermissionsExec,
+    pub exec: PluginManifestPermissionsExec,
     #[serde(default)]
-    system: Vec<String>,
+    pub system: Vec<String>,
     #[serde(default)]
-    clipboard: Vec<PluginManifestClipboardPermissions>,
+    pub clipboard: Vec<PluginManifestClipboardPermissions>,
     #[serde(default)]
-    main_search_bar: Vec<PluginManifestMainSearchBarPermissions>,
+    pub main_search_bar: Vec<PluginManifestMainSearchBarPermissions>,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
@@ -599,4 +526,14 @@ pub enum PluginManifestSupportedSystem {
     Windows,
     #[serde(rename = "macos")]
     MacOS,
+}
+
+impl std::fmt::Display for PluginManifestSupportedSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PluginManifestSupportedSystem::Linux => write!(f, "Linux"),
+            PluginManifestSupportedSystem::Windows => write!(f, "Windows"),
+            PluginManifestSupportedSystem::MacOS => write!(f, "MacOS"),
+        }
+    }
 }

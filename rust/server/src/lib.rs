@@ -33,7 +33,7 @@ use crate::rpc::BackendServerImpl;
 use crate::search::SearchIndex;
 
 pub(crate) mod model;
-pub(crate) mod plugins;
+pub mod plugins;
 pub mod rpc;
 pub(crate) mod search;
 

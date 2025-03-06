@@ -558,6 +558,94 @@
               ]
             }
           }
+        },
+        {
+          "description": "A list of strings preference.",
+          "type": "object",
+          "required": [
+            "description",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "list_of_strings"
+              ]
+            }
+          }
+        },
+        {
+          "description": "A list of numbers preference.",
+          "type": "object",
+          "required": [
+            "description",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "list_of_numbers"
+              ]
+            }
+          }
+        },
+        {
+          "description": "A list of enumerated preference values.",
+          "type": "object",
+          "required": [
+            "description",
+            "enum_values",
+            "id",
+            "name",
+            "type"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "enum_values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PluginManifestPreferenceEnumValue"
+              }
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "list_of_enums"
+              ]
+            }
+          }
         }
       ]
     },

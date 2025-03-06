@@ -1,10 +1,8 @@
-mod manifest_models;
+use gauntlet_server::plugins::plugin_manifest_models::models::PluginManifest;
 
 use schemars::schema_for;
-use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
-use manifest_models::models::*;
 
 fn main() {
     let schema = schema_for!(PluginManifest);
