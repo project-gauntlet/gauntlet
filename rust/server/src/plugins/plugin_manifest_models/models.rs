@@ -21,7 +21,7 @@ pub struct PluginManifest {
     pub permissions: PluginManifestPermissions,
 
     #[serde(default)]
-    #[schemars(description = "Preferences that can be configured by the user.")]
+    #[schemars(description = "Preferences that can be configured by the user in the settings view.")]
     pub preferences: Vec<PluginManifestPreference>,
 }
 
@@ -37,8 +37,11 @@ pub struct PluginManifestMetadata {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "Action that can be performed by the plugin.")]
 pub struct PluginManifestAction {
+    #[schemars(description = "Unique identifier for the action.")]
     pub id: String,
+    #[schemars(description = "Description of what the action does.")]
     pub description: String,
+    #[schemars(description = "Keyboard shortcut to trigger the action.")]
     pub shortcut: PluginManifestActionShortcut,
 }
 
@@ -161,16 +164,22 @@ pub enum PluginManifestEntrypointTypes {
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "Keyboard shortcut configuration for a plugin action.")]
 pub struct PluginManifestActionShortcut {
+    #[schemars(description = "The key to be pressed for this shortcut.")]
     pub key: PluginManifestActionShortcutKey,
+    #[schemars(description = "The type of shortcut.")]
     pub kind: PluginManifestActionShortcutKind,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "The type of shortcut.")]
 pub enum PluginManifestActionShortcutKind {
     #[serde(rename = "main")]
+    #[schemars(description = "Main shortcut for the action (e.g. cmd).")]
     Main,
     #[serde(rename = "alternative")]
+    #[schemars(description = "Alternative shortcut for the action (e.g. opt).")]
     Alternative,
 }
 
@@ -468,52 +477,71 @@ impl PluginManifestActionShortcutKey {
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
+#[schemars(description = "Permissions required by the plugin.")]
 pub struct PluginManifestPermissions {
     #[serde(default)]
+    #[schemars(description = "Environment variables that the plugin can access.")]
     pub environment: Vec<String>,
     #[serde(default)]
+    #[schemars(description = "Network domains that the plugin can access.")]
     pub network: Vec<String>,
     #[serde(default)]
+    #[schemars(description = "Filesystem permissions for the plugin.")]
     pub filesystem: PluginManifestPermissionsFileSystem,
     #[serde(default)]
+    #[schemars(description = "Execution permissions for the plugin.")]
     pub exec: PluginManifestPermissionsExec,
     #[serde(default)]
+    #[schemars(description = "System permissions for the plugin.")]
     pub system: Vec<String>,
     #[serde(default)]
+    #[schemars(description = "Clipboard permissions for the plugin.")]
     pub clipboard: Vec<PluginManifestClipboardPermissions>,
     #[serde(default)]
+    #[schemars(description = "Permissions for the main search bar.")]
     pub main_search_bar: Vec<PluginManifestMainSearchBarPermissions>,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
+#[schemars(description = "Filesystem permissions for the plugin.")]
 pub struct PluginManifestPermissionsFileSystem {
     #[serde(default)]
+    #[schemars(description = "Paths that the plugin can read from.")]
     pub read: Vec<String>,
     #[serde(default)]
+    #[schemars(description = "Paths that the plugin can write to.")]
     pub write: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
+#[schemars(description = "Execution permissions for the plugin.")]
 pub struct PluginManifestPermissionsExec {
     #[serde(default)]
+    #[schemars(description = "Commands that the plugin can execute.")]
     pub command: Vec<String>,
     #[serde(default)]
+    #[schemars(description = "Executables that the plugin can run.")]
     pub executable: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "Clipboard permissions for the plugin.")]
 pub enum PluginManifestClipboardPermissions {
     #[serde(rename = "read")]
+    #[schemars(description = "Allows the plugin to read from the clipboard.")]
     Read,
     #[serde(rename = "write")]
+    #[schemars(description = "Allows the plugin to write to the clipboard.")]
     Write,
     #[serde(rename = "clear")]
+    #[schemars(description = "Allows the plugin to clear the clipboard contents.")]
     Clear,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
 pub enum PluginManifestMainSearchBarPermissions {
     #[serde(rename = "read")]
+    #[schemars(description = "Allows the plugin to read the main search bar")]
     Read,
 }
 
