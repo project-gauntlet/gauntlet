@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::thread;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
@@ -68,9 +69,12 @@ pub fn start(minimized: bool) {
             let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
             let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
 
-            std::thread::spawn(|| {
-                start_server(frontend_sender, backend_receiver);
-            });
+            thread::Builder::new()
+                .name("gauntlet-server".to_string())
+                .spawn(|| {
+                    start_server(frontend_sender, backend_receiver);
+                })
+                .expect("failed to spawn thread");
 
             start_client(minimized, frontend_receiver, backend_sender)
         }

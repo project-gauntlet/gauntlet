@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::thread;
 
 use anyhow::anyhow;
 use deno_core::op2;
@@ -52,11 +53,14 @@ impl WaylandDesktopEnvironment {
 
         let handle = Handle::current();
 
-        std::thread::spawn(|| {
-            if let Err(e) = run_wayland_client(handle, event_sender, activate_receiver) {
-                tracing::error!("Error while running wayland client: {:?}", e);
-            }
-        });
+        thread::Builder::new()
+            .name("gauntlet-wayland-events".to_string())
+            .spawn(|| {
+                if let Err(e) = run_wayland_client(handle, event_sender, activate_receiver) {
+                    tracing::error!("Error while running wayland client: {:?}", e);
+                }
+            })
+            .expect("failed to spawn thread");
 
         Ok(environment)
     }

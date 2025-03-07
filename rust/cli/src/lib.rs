@@ -7,6 +7,7 @@ use gauntlet_client::open_window;
 use gauntlet_management_client::start_management_client;
 use gauntlet_server::run_action;
 use gauntlet_server::start;
+use tracing_subscriber::EnvFilter;
 
 /// Gauntlet CLI
 ///
@@ -48,7 +49,10 @@ enum Commands {
 }
 
 pub fn init() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt::fmt()
+        .with_thread_names(true)
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let cli = Cli::parse();
 

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::rc::Rc;
 use std::str::FromStr;
+use std::thread;
 
 use anyhow::anyhow;
 use deno_core::op2;
@@ -47,11 +48,14 @@ impl X11DesktopEnvironment {
 
         let handle = Handle::current();
 
-        std::thread::spawn(move || {
-            if let Err(e) = listen_on_x11_events(handle, sender.clone()) {
-                tracing::error!("Error while listening on x11 events: {}", e);
-            }
-        });
+        thread::Builder::new()
+            .name("gauntlet-x11-events".to_string())
+            .spawn(move || {
+                if let Err(e) = listen_on_x11_events(handle, sender.clone()) {
+                    tracing::error!("Error while listening on x11 events: {}", e);
+                }
+            })
+            .expect("failed to spawn thread");
 
         Self {
             receiver: Rc::new(RefCell::new(receiver)),

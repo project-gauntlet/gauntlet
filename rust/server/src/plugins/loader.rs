@@ -71,45 +71,49 @@ impl PluginLoader {
         let handle = tokio::runtime::Handle::current();
 
         let plugin_id_clone = plugin_id.clone();
-        thread::spawn(move || {
-            let result = handle.block_on(async move {
-                let temp_dir = tempfile::tempdir()?;
 
-                PluginLoader::download(temp_dir.path(), plugin_id_clone.clone())?;
+        thread::Builder::new()
+            .name("gauntlet-plugin-download".to_string())
+            .spawn(move || {
+                let result = handle.block_on(async move {
+                    let temp_dir = tempfile::tempdir()?;
 
-                let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id_clone.clone()).await?;
+                    PluginLoader::download(temp_dir.path(), plugin_id_clone.clone())?;
 
-                data_db_repository
-                    .save_plugin(DbWritePlugin {
-                        id: plugin_data.id,
-                        name: plugin_data.name,
-                        description: plugin_data.description,
-                        enabled: false,
-                        code: plugin_data.code,
-                        entrypoints: plugin_data.entrypoints,
-                        asset_data: plugin_data.asset_data,
-                        permissions: plugin_data.permissions,
-                        plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
-                        preferences: plugin_data.preferences,
-                    })
-                    .await?;
+                    let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id_clone.clone()).await?;
 
-                anyhow::Ok(())
-            });
+                    data_db_repository
+                        .save_plugin(DbWritePlugin {
+                            id: plugin_data.id,
+                            name: plugin_data.name,
+                            description: plugin_data.description,
+                            enabled: false,
+                            code: plugin_data.code,
+                            entrypoints: plugin_data.entrypoints,
+                            asset_data: plugin_data.asset_data,
+                            permissions: plugin_data.permissions,
+                            plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
+                            preferences: plugin_data.preferences,
+                        })
+                        .await?;
 
-            handle.block_on(async move {
-                match result {
-                    Ok(()) => {
-                        tracing::info!("Finished download of plugin: {:?}", plugin_id);
-                        download_status_guard.download_finished()
+                    anyhow::Ok(())
+                });
+
+                handle.block_on(async move {
+                    match result {
+                        Ok(()) => {
+                            tracing::info!("Finished download of plugin: {:?}", plugin_id);
+                            download_status_guard.download_finished()
+                        }
+                        Err(err) => {
+                            tracing::warn!("Download of plugin {:?} returned an error {:?}", plugin_id, err);
+                            download_status_guard.download_failed(format!("{}", err))
+                        }
                     }
-                    Err(err) => {
-                        tracing::warn!("Download of plugin {:?} returned an error {:?}", plugin_id, err);
-                        download_status_guard.download_failed(format!("{}", err))
-                    }
-                }
+                })
             })
-        });
+            .expect("failed to spawn thread");
 
         Ok(())
     }
