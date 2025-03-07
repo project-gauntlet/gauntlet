@@ -95,7 +95,7 @@ impl Dirs {
     }
 
     pub fn plugin_crash_log_file(&self, plugin_uuid: &str) -> PathBuf {
-        self.logs_dir().join(&plugin_uuid).join("crash.txt")
+        self.logs_dir().join(format!("crash-{}.txt", &plugin_uuid))
     }
 
     pub fn plugin_log_files(&self, plugin_uuid: &str) -> (PathBuf, PathBuf) {

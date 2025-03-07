@@ -2,6 +2,7 @@ use std::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::process::exit;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -41,7 +42,6 @@ const PLUGIN_CONNECT_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_CONNECT__";
 const PLUGIN_UUID_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_UUID__";
 
 pub fn start(minimized: bool) {
-    #[cfg(not(feature = "release"))]
     register_panic_hook(std::env::var(PLUGIN_UUID_ENV).ok());
 
     if let Ok(socket_name) = std::env::var(PLUGIN_CONNECT_ENV) {
@@ -340,10 +340,9 @@ async fn handle_request(
     Ok(response_data)
 }
 
-#[cfg(not(feature = "release"))]
 fn register_panic_hook(plugin_runtime: Option<String>) {
     unsafe {
-        std::env::set_var("RUST_BACKTRACE", "1");
+        std::env::set_var("RUST_BACKTRACE", "full");
     };
 
     let dirs = Dirs::new();
@@ -369,22 +368,25 @@ fn register_panic_hook(plugin_runtime: Option<String>) {
         let location = panic_info.location().map(|l| l.to_string());
         let backtrace = Backtrace::capture();
 
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|duration| duration.as_millis().to_string())
+            .unwrap_or("Unknown".to_string());
+
+        let content = format!(
+            "Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace: {}\n",
+            now, payload, location, backtrace
+        );
+
         let crash_file = File::options().create(true).append(true).open(&crash_file);
 
         if let Ok(mut crash_file) = crash_file {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .ok()
-                .map(|duration| duration.as_millis().to_string())
-                .unwrap_or("Unknown".to_string());
-
-            let _ = crash_file.write_all(
-                format!(
-                    "Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace: {}\n",
-                    now, payload, location, backtrace
-                )
-                .as_bytes(),
-            );
+            let _ = crash_file.write_all(content.as_bytes());
         }
+
+        eprintln!("{}", content);
+
+        exit(101); // poor man's abort on panic because actual setting makes v8 linking fail
     }));
 }
