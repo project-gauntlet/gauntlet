@@ -6,6 +6,9 @@ use crate::model::ActionShortcutKey;
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "Manifest structure for a plugin.")]
 pub struct PluginManifest {
+    #[serde(rename = "$schema")]
+    schema: Option<String>,
+
     #[schemars(description = "Metadata about the plugin.")]
     pub gauntlet: PluginManifestMetadata,
 
