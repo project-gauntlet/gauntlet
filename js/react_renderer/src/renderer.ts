@@ -138,20 +138,24 @@ export function showHudWindow(display: string): void {
     show_hud(display)
 }
 
-function createWidget(hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[] = []): Instance {
+function createWidget(id: number | undefined, hostContext: HostContext, type: ComponentType, properties: Props, children: UiWidget[]): Instance {
     const props = Object.fromEntries(
         Object.entries(properties)
             .filter(([key, _]) => key !== "children")
     );
 
     const instance: Instance = {
-        widgetId: hostContext.nextId,
+        widgetId: id != undefined ? id : hostContext.nextId,
         widgetType: type,
         widgetProperties: props,
         widgetChildren: children,
         hostContext
     };
-    hostContext.nextId += 1
+
+    if (id == undefined) {
+        hostContext.nextId += 1
+    }
+
     return instance
 }
 
@@ -183,7 +187,7 @@ export const createHostConfig = (): HostConfig<
         _internalHandle: OpaqueHandle,
     ): Instance => {
         op_log_trace("renderer_js_common", `createInstance is called, type: ${type}, props: ${Deno.inspect(props)}, rootContainer: ${Deno.inspect(rootContainer)}`)
-        const instance = createWidget(hostContext, type, props)
+        const instance = createWidget(undefined, hostContext, type, props, [])
         op_log_trace("renderer_js_common", `createInstance returned, widget: ${Deno.inspect(instance)}`)
 
         return instance;
@@ -196,7 +200,7 @@ export const createHostConfig = (): HostConfig<
         _internalHandle: OpaqueHandle
     ): TextInstance => {
         op_log_trace("renderer_js_common", `createTextInstance is called, text: ${text}, rootContainer: ${Deno.inspect(rootContainer)}`)
-        const textInstance = createWidget(hostContext, "gauntlet:text_part", { value: text })
+        const textInstance = createWidget(undefined, hostContext, "gauntlet:text_part", { value: text }, [])
         op_log_trace("renderer_js_common", `createTextInstance returned, widget: ${Deno.inspect(textInstance)}`)
 
         return textInstance;
@@ -301,19 +305,21 @@ export const createHostConfig = (): HostConfig<
     ): Instance {
         op_log_trace("renderer_js_persistence", `cloneInstance is called, instance: ${Deno.inspect(instance)}, updatePayload: ${Deno.inspect(updatePayload)}, type: ${type}, oldProps: ${Deno.inspect(oldProps)}, newProps: ${Deno.inspect(newProps)}, keepChildren: ${keepChildren}, recyclableInstance: ${Deno.inspect(recyclableInstance)}`)
 
+        const recyclableId = recyclableInstance != null ? recyclableInstance.widgetId : undefined;
+
         let clonedInstance: Instance;
 
         if (keepChildren) {
             if (updatePayload !== null) {
-                clonedInstance = createWidget(instance.hostContext, type, newProps, instance.widgetChildren)
+                clonedInstance = createWidget(recyclableId, instance.hostContext, type, newProps, instance.widgetChildren)
             } else {
-                clonedInstance = createWidget(instance.hostContext, type, oldProps, instance.widgetChildren)
+                clonedInstance = createWidget(recyclableId, instance.hostContext, type, oldProps, instance.widgetChildren)
             }
         } else {
             if (updatePayload !== null) {
-                clonedInstance = createWidget(instance.hostContext, type, newProps, [])
+                clonedInstance = createWidget(recyclableId, instance.hostContext, type, newProps, [])
             } else {
-                clonedInstance = createWidget(instance.hostContext, type, oldProps, [])
+                clonedInstance = createWidget(recyclableId, instance.hostContext, type, oldProps, [])
             }
         }
 
