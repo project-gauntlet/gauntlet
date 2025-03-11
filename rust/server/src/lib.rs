@@ -379,7 +379,7 @@ fn register_panic_hook(plugin_runtime: Option<String>) {
             .unwrap_or("Unknown".to_string());
 
         let content = format!(
-            "Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace: {}\n",
+            "Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace:\n{}",
             now, payload, location, backtrace
         );
 

@@ -122,7 +122,6 @@ pub enum JsRequest {
         container: RootWidget,
     },
     ClearInlineView,
-    SynchronizeEvent,
     ShowPluginErrorView {
         entrypoint_id: EntrypointId,
         render_location: JsUiRenderLocation,

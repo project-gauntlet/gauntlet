@@ -291,9 +291,6 @@ pub enum UiRequestData {
         entrypoint_name: String,
         action_index: usize,
     },
-    SynchronizeEvent {
-        plugin_id: PluginId,
-    },
 }
 
 #[derive(Debug)]

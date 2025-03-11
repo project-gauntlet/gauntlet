@@ -160,7 +160,6 @@ pub struct AppModel {
     window_position_file: PathBuf,
     #[cfg(target_os = "linux")]
     x11_active_window: Option<u32>,
-    event_synchronizer: Arc<Mutex<HashMap<PluginId, oneshot::Sender<()>>>>,
     pending_window_state_reset: bool,
 
     // ephemeral state
@@ -357,9 +356,6 @@ pub enum AppMsg {
     #[cfg(target_os = "linux")]
     X11ActiveWindowChanged {
         window: u32,
-    },
-    EventHanded {
-        plugin_id: PluginId,
     },
 }
 
@@ -705,7 +701,6 @@ fn new(
             window_position_file: setup_data.window_position_file,
             #[cfg(target_os = "linux")]
             x11_active_window: None,
-            event_synchronizer: Arc::new(Mutex::new(HashMap::new())),
             pending_window_state_reset: false,
 
             // ephemeral state
@@ -1619,18 +1614,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::none()
             }
         }
-        AppMsg::EventHanded { plugin_id } => {
-            state
-                .event_synchronizer
-                .lock()
-                .expect("lock is poisoned")
-                .remove(&plugin_id)
-                .expect("there should always be a responder here")
-                .send(())
-                .expect("the other side was dropped");
-
-            Task::none()
-        }
     }
 }
 
@@ -2470,20 +2453,11 @@ impl AppModel {
                         _ => AppMsg::Noop,
                     };
 
-                    let (sender, receiver) = oneshot::channel();
-
-                    self.event_synchronizer
-                        .lock()
-                        .expect("lock is poisoned")
-                        .insert(plugin_id.clone(), sender);
-
                     Task::perform(
                         async move {
                             backend_client
                                 .send_view_event(plugin_id, widget_id, event_name, event_arguments)
                                 .await?;
-
-                            receiver.await.expect("the other side was dropped");
 
                             Ok(msg)
                         },
@@ -3040,7 +3014,6 @@ async fn request_loop(
                         action_index,
                     }
                 }
-                UiRequestData::SynchronizeEvent { plugin_id } => AppMsg::EventHanded { plugin_id },
             }
         };
 

@@ -49,7 +49,6 @@ use crate::environment::environment_is_development;
 use crate::environment::environment_plugin_cache_dir;
 use crate::environment::environment_plugin_data_dir;
 use crate::events::op_plugin_get_pending_event;
-use crate::events::synchronize_event;
 use crate::events::EventReceiver;
 use crate::events::JsEvent;
 use crate::logs::op_log_debug;
@@ -287,7 +286,6 @@ deno_core::extension!(
     ops = [
         // core
         op_plugin_get_pending_event,
-        synchronize_event,
 
         // logs
         op_log_trace,

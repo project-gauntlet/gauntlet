@@ -682,11 +682,6 @@ async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl
 
             Ok(JsResponse::ActionIdForShortcut { data })
         }
-        JsRequest::SynchronizeEvent => {
-            api.ui_synchronize_event().await?;
-
-            Ok(JsResponse::Nothing)
-        }
     }
 }
 
@@ -1233,12 +1228,6 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
     async fn ui_clear_inline_view(&self) -> anyhow::Result<()> {
         self.frontend_api.clear_inline_view(self.plugin_id.clone()).await?;
-
-        Ok(())
-    }
-
-    async fn ui_synchronize_event(&self) -> anyhow::Result<()> {
-        self.frontend_api.synchronize_event(self.plugin_id.clone()).await?;
 
         Ok(())
     }
