@@ -67,6 +67,11 @@ use crate::api::BackendForPluginRuntimeApiProxy;
 use crate::deno::start_js_runtime;
 
 pub fn run_plugin_runtime(socket_name: String) {
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL);
+
+
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

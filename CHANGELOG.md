@@ -11,8 +11,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 - Fixed crash when typing/clicking fast in React-created plugin ui
 - Fixed events sometimes overwriting other parallel events when typing/clicking fast in React-created plugin ui
   - Fixes mouse clicks sometimes being ignored in high refresh rate views
-  - Fixes keystrokes being rewritten/ignored when holding keys in input fields
-- Fixed crash when closing inline view due to action being run
+  - Fixes keystrokes being rewritten/ignored when holding down keys or typing fast in input fields
+- Fixed crash when closing inline view due to Action being run
 - Fixed zombie processes being left over after closing Settings UI 
 
 ## [16] - 2025-02-23

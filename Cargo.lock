@@ -4098,6 +4098,7 @@ dependencies = [
  "image 0.25.5",
  "indexmap 2.7.0",
  "interprocess",
+ "libc",
  "numbat",
  "objc2",
  "objc2-app-kit",
