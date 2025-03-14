@@ -10,6 +10,7 @@ use deno_core::op2;
 use deno_core::OpState;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
+use gauntlet_common::detached_process::CommandExt;
 use image::imageops::FilterType;
 use image::ImageFormat;
 use tokio::sync::mpsc::Sender;
@@ -19,7 +20,6 @@ use walkdir::WalkDir;
 use crate::plugin_data::PluginData;
 use crate::plugins::applications::linux;
 use crate::plugins::applications::resize_icon;
-use crate::plugins::applications::spawn_detached;
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
 
@@ -106,7 +106,9 @@ fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
 
 #[op2(fast)]
 fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Result<()> {
-    spawn_detached("gtk-launch", &[desktop_file_id])?;
+    std::process::Command::new("gtk-launch")
+        .args([desktop_file_id])
+        .spawn_detached()?;
 
     Ok(())
 }

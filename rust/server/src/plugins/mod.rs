@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use anyhow::Context;
+use gauntlet_common::detached_process::CommandExt;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
@@ -734,7 +735,7 @@ impl ApplicationManager {
 
         std::process::Command::new(current_exe)
             .args(["settings"])
-            .spawn()
+            .spawn_detached()
             .expect("failed to execute settings process");
     }
 
@@ -755,7 +756,7 @@ impl ApplicationManager {
         std::process::Command::new(current_exe)
             .args(["settings"])
             .env(SETTINGS_ENV, settings_env_data_to_string(data))
-            .spawn()
+            .spawn_detached()
             .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by more recent compilation
     }
 

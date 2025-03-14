@@ -22,6 +22,9 @@ gix-url = { version = "0.28.1" }
 base64 = "0.22"
 directories = "5.0"
 
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+libc = "0.2"
+
 [build-dependencies]
 # workspaces
 gauntlet-component-model.workspace = true

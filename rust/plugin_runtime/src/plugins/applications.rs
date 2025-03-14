@@ -5,6 +5,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use deno_core::op2;
 use deno_core::OpState;
+use gauntlet_common::detached_process::CommandExt;
 use image::imageops::FilterType;
 use image::ImageFormat;
 use serde::Deserialize;
@@ -181,7 +182,7 @@ pub fn macos_application_dirs() -> Vec<String> {
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_open_application(#[string] app_path: String) -> anyhow::Result<()> {
-    spawn_detached("open", &[app_path])?;
+    std::process::Command::new("open").args([app_path]).spawn_detached()?;
 
     Ok(())
 }
@@ -203,7 +204,9 @@ pub fn macos_settings_13_and_post(#[string] lang: Option<String>) -> Vec<Desktop
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> anyhow::Result<()> {
-    spawn_detached("open", &[format!("x-apple.systempreferences:{}", preferences_id)])?;
+    std::process::Command::new("open")
+        .args([format!("x-apple.systempreferences:{}", preferences_id)])
+        .spawn_detached()?;
 
     Ok(())
 }
@@ -211,7 +214,9 @@ pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> anyho
 #[cfg(target_os = "macos")]
 #[op2(fast)]
 pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Result<()> {
-    spawn_detached("open", &["-b", "com.apple.systempreferences", &setting_path])?;
+    std::process::Command::new("open")
+        .args(["-b", "com.apple.systempreferences", &setting_path])
+        .spawn_detached()?;
 
     Ok(())
 }
@@ -225,46 +230,6 @@ pub fn macos_get_localized_language() -> Option<String> {
         .collect::<Vec<&str>>()
         .get(0)
         .map(|s| s.to_string())
-}
-
-#[cfg(unix)]
-pub fn spawn_detached<I, S>(path: &str, args: I) -> std::io::Result<()>
-where
-    I: IntoIterator<Item = S> + Copy,
-    S: AsRef<std::ffi::OsStr>,
-{
-    // from https://github.com/alacritty/alacritty/blob/5abb4b73937b17fe501b9ca20b602950f1218b96/alacritty/src/daemon.rs#L65
-    use std::os::unix::prelude::CommandExt;
-    use std::process::Command;
-    use std::process::Stdio;
-
-    let mut command = Command::new(path);
-
-    command
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-
-    unsafe {
-        command
-            .pre_exec(|| {
-                match libc::fork() {
-                    -1 => return Err(std::io::Error::last_os_error()),
-                    0 => (),
-                    _ => libc::_exit(0),
-                }
-
-                if libc::setsid() == -1 {
-                    return Err(std::io::Error::last_os_error());
-                }
-
-                Ok(())
-            })
-            .spawn()?
-            .wait()
-            .map(|_| ())
-    }
 }
 
 pub(in crate::plugins::applications) fn resize_icon(data: Vec<u8>) -> anyhow::Result<Vec<u8>> {
