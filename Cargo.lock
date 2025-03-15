@@ -4076,6 +4076,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gauntlet-manifest-schema"
+version = "0.0.0"
+dependencies = [
+ "gauntlet-server",
+ "schemars",
+ "serde_json",
+]
+
+[[package]]
 name = "gauntlet-plugin-runtime"
 version = "0.1.0"
 dependencies = [
@@ -6277,15 +6286,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "manifest_schema"
-version = "0.0.0"
-dependencies = [
- "gauntlet-server",
- "schemars",
- "serde_json",
 ]
 
 [[package]]

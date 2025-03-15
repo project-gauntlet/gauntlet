@@ -1,5 +1,5 @@
 [package]
-name = "manifest_schema"
+name = "gauntlet-manifest-schema"
 edition.workspace = true
 
 [dependencies]
