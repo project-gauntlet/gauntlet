@@ -173,7 +173,11 @@ fn start_server(
 }
 
 #[cfg(feature = "scenario_runner")]
-fn start_mock_server(request_sender: RequestSender<UiRequestData, UiResponseData>, backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>, theme: UiTheme) {
+fn start_mock_server(
+    request_sender: RequestSender<UiRequestData, UiResponseData>,
+    backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
+    theme: UiTheme,
+) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

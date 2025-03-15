@@ -1,10 +1,10 @@
 use gauntlet_common::model::BackendRequestData;
-use gauntlet_common::model::UiSetupData;
-use gauntlet_common::model::UiTheme;
-use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::model::BackendResponseData;
 use gauntlet_common::model::UiRequestData;
 use gauntlet_common::model::UiResponseData;
+use gauntlet_common::model::UiSetupData;
+use gauntlet_common::model::UiTheme;
+use gauntlet_common::model::WindowPositionMode;
 use gauntlet_utils::channel::RequestReceiver;
 use gauntlet_utils::channel::RequestSender;
 
@@ -23,9 +23,8 @@ pub async fn run_scenario_runner_frontend_mock(
 pub async fn run_scenario_runner_mock_server(
     _request_sender: RequestSender<UiRequestData, UiResponseData>,
     mut backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
-    theme: UiTheme
+    theme: UiTheme,
 ) -> anyhow::Result<()> {
-
     let (_data, responder) = backend_receiver.recv().await;
     responder.respond(BackendResponseData::SetupData {
         data: UiSetupData {
