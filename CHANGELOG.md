@@ -8,6 +8,8 @@ and this project doesn't adhere to Semantic Versioning, see [Versioning](./READM
 For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://github.com/project-gauntlet/tools/blob/main/CHANGELOG.md)
 
 ## [Unreleased]
+
+## [17] - 2025-03-15
 - Fixed crash when typing/clicking fast in React-created plugin ui
 - Fixed events sometimes overwriting other parallel events when typing/clicking fast in React-created plugin ui
   - Fixes mouse clicks sometimes being ignored in high refresh rate views
