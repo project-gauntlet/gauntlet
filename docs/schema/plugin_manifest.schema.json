@@ -8,6 +8,12 @@
     "gauntlet"
   ],
   "properties": {
+    "$schema": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "entrypoint": {
       "description": "Entrypoints for the plugin.",
       "type": "array",

@@ -8,7 +8,8 @@ fn main() {
     let schema = schema_for!(PluginManifest);
     let json = serde_json::to_string_pretty(&schema).unwrap();
 
-    let mut file = File::create("plugin_manifest.schema.json").expect("Failed to create schema.json");
+    std::fs::create_dir_all("../../docs/schema").expect("Failed to create directory");
+    let mut file = File::create("../../docs/schema/plugin_manifest.schema.json").expect("Failed to create schema.json");
     file.write_all(json.as_bytes()).expect("Failed to write schema");
 
     println!("Schema generated and saved to schema.json");
