@@ -157,10 +157,14 @@ async fn request_loop(
             | UiRequestData::ShowWindow
             | UiRequestData::HideWindow
             | UiRequestData::ClearInlineView { .. }
-            | UiRequestData::SetTheme { .. } => {
+            | UiRequestData::SetTheme { .. }
+            | UiRequestData::ShowPluginView { .. }
+            | UiRequestData::ShowGeneratedPluginView { .. } => {
                 unreachable!()
             }
-            UiRequestData::SetGlobalShortcut { .. } | UiRequestData::SetWindowPositionMode { .. } | UiRequestData::RequestSearchResultUpdate => {
+            UiRequestData::SetGlobalShortcut { .. }
+            | UiRequestData::SetWindowPositionMode { .. }
+            | UiRequestData::RequestSearchResultUpdate => {
                 // noop
             }
             UiRequestData::ReplaceView {

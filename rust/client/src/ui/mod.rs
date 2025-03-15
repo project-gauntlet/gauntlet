@@ -883,10 +883,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::PromptChanged(mut new_prompt) => {
             match &mut state.global_state {
                 GlobalState::MainView {
-                        focused_search_result,
-                        sub_state,
-                        ..
-                    } => {
+                    focused_search_result,
+                    sub_state,
+                    ..
+                } => {
                     new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
                     state.prompt = new_prompt.clone();
@@ -897,8 +897,8 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 GlobalState::ErrorView { .. } => {}
                 GlobalState::PluginView { .. } => {}
-            GlobalState::PendingPluginView { .. } => {}
-                }
+                GlobalState::PendingPluginView { .. } => {}
+            }
 
             state.search(new_prompt, true)
         }
@@ -1242,30 +1242,23 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::ScreenshotDone { save_path, screenshot } => {
             println!("Saving screenshot at: {}", save_path);
 
-            Task::perform(
-                async move {
-                    tokio::task::spawn_blocking(move || {
-                        let save_dir = Path::new(&save_path);
+            let save_dir = Path::new(&save_path);
 
-                        let save_parent_dir = save_dir.parent().expect("save_path has no parent");
+            let save_parent_dir = save_dir.parent().expect("save_path has no parent");
 
-                        fs::create_dir_all(save_parent_dir).expect("unable to create save_parent_dir");
+            fs::create_dir_all(save_parent_dir).expect("unable to create save_parent_dir");
 
-                        image::save_buffer_with_format(
-                            &save_path,
-                            &screenshot.bytes,
-                            screenshot.size.width,
-                            screenshot.size.height,
-                            image::ColorType::Rgba8,
-                            image::ImageFormat::Png,
-                        )
-                    })
-                    .await
-                    .expect("Unable to save screenshot")
-                },
-                |_| (),
+            image::save_buffer_with_format(
+                &save_path,
+                &screenshot.bytes,
+                screenshot.size.width,
+                screenshot.size.height,
+                image::ColorType::Rgba8,
+                image::ImageFormat::Png,
             )
-            .then(|_| iced::exit())
+            .expect("Unable to save screenshot");
+
+            std::process::exit(0);
         }
         AppMsg::ToggleActionPanel { keyboard } => {
             match &mut state.global_state {
