@@ -82,11 +82,11 @@ mod icon_cache;
 mod image_gatherer;
 pub mod js;
 mod loader;
+pub mod plugin_manifest;
 mod run_status;
 mod runtime;
 mod settings;
 mod theme;
-pub mod plugin_manifest_models;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [(
     "gauntlet",

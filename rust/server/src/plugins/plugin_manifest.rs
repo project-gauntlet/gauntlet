@@ -1,51 +1,27 @@
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
-use crate::model::ActionShortcutKey;
+use serde::Deserialize;
+use serde::Serialize;
 
+use crate::model::ActionShortcutKey;
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(description = "Manifest structure for a plugin.")]
 pub struct PluginManifest {
     #[serde(rename = "$schema")]
     schema: Option<String>,
-
     #[schemars(description = "Metadata about the plugin.")]
     pub gauntlet: PluginManifestMetadata,
-
     #[schemars(description = "Entrypoints for the plugin.")]
     pub entrypoint: Vec<PluginManifestEntrypoint>,
-
     #[serde(default)]
     #[schemars(description = "List of supported operating systems.")]
     pub supported_system: Vec<PluginManifestSupportedSystem>,
-
     #[serde(default)]
     #[schemars(description = "Permissions required by the plugin.")]
     pub permissions: PluginManifestPermissions,
-
     #[serde(default)]
     #[schemars(description = "Preferences that can be configured by the user in the settings view.")]
     pub preferences: Vec<PluginManifestPreference>,
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Metadata for the plugin manifest.")]
-pub struct PluginManifestMetadata {
-    #[schemars(description = "Name of the plugin.")]
-    pub name: String,
-
-    #[schemars(description = "Description of the plugin.")]
-    pub description: String,
-}
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Action that can be performed by the plugin.")]
-pub struct PluginManifestAction {
-    #[schemars(description = "Unique identifier for the action.")]
-    pub id: String,
-    #[schemars(description = "Description of what the action does.")]
-    pub description: String,
-    #[schemars(description = "Keyboard shortcut to trigger the action.")]
-    pub shortcut: PluginManifestActionShortcut,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -54,18 +30,13 @@ pub struct PluginManifestEntrypoint {
     pub id: String,
     pub name: String,
     pub description: String,
-
     #[allow(unused)] // Used during plugin build
     pub path: String,
-
     pub icon: Option<String>,
-
     #[serde(rename = "type")]
     pub entrypoint_type: PluginManifestEntrypointTypes,
-
     #[serde(default)]
     pub preferences: Vec<PluginManifestPreference>,
-
     #[serde(default)]
     pub actions: Vec<PluginManifestAction>,
 }
@@ -82,7 +53,6 @@ pub enum PluginManifestPreference {
         default: Option<f64>,
         description: String,
     },
-
     #[serde(rename = "string")]
     #[schemars(description = "A string preference.")]
     String {
@@ -91,7 +61,6 @@ pub enum PluginManifestPreference {
         default: Option<String>,
         description: String,
     },
-
     #[serde(rename = "enum")]
     #[schemars(description = "An enum preference with selectable values.")]
     Enum {
@@ -101,7 +70,6 @@ pub enum PluginManifestPreference {
         description: String,
         enum_values: Vec<PluginManifestPreferenceEnumValue>,
     },
-
     #[serde(rename = "bool")]
     #[schemars(description = "A boolean preference.")]
     Bool {
@@ -110,7 +78,6 @@ pub enum PluginManifestPreference {
         default: Option<bool>,
         description: String,
     },
-
     #[serde(rename = "list_of_strings")]
     #[schemars(description = "A list of strings preference.")]
     ListOfStrings {
@@ -119,7 +86,6 @@ pub enum PluginManifestPreference {
         // default: Option<Vec<String>>,
         description: String,
     },
-
     #[serde(rename = "list_of_numbers")]
     #[schemars(description = "A list of numbers preference.")]
     ListOfNumbers {
@@ -152,18 +118,26 @@ pub enum PluginManifestEntrypointTypes {
     #[serde(rename = "command")]
     #[schemars(description = "A command entrypoint.")]
     Command,
-
     #[serde(rename = "view")]
     #[schemars(description = "A view-based entrypoint.")]
     View,
-
     #[serde(rename = "inline-view")]
     #[schemars(description = "An inline view entrypoint.")]
     InlineView,
-
     #[serde(rename = "entrypoint-generator")]
     #[schemars(description = "Generates new entrypoints dynamically.")]
     EntrypointGenerator,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "Action that can be performed by the plugin.")]
+pub struct PluginManifestAction {
+    #[schemars(description = "Unique identifier for the action.")]
+    pub id: String,
+    #[schemars(description = "Description of what the action does.")]
+    pub description: String,
+    #[schemars(description = "Keyboard shortcut to trigger the action.")]
+    pub shortcut: PluginManifestActionShortcut,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -173,17 +147,6 @@ pub struct PluginManifestActionShortcut {
     pub key: PluginManifestActionShortcutKey,
     #[schemars(description = "The type of shortcut.")]
     pub kind: PluginManifestActionShortcutKind,
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "The type of shortcut.")]
-pub enum PluginManifestActionShortcutKind {
-    #[serde(rename = "main")]
-    #[schemars(description = "Main shortcut for the action (e.g. cmd).")]
-    Main,
-    #[serde(rename = "alternative")]
-    #[schemars(description = "Alternative shortcut for the action (e.g. opt).")]
-    Alternative,
 }
 
 // only stuff that is present on 60% keyboard
@@ -479,6 +442,47 @@ impl PluginManifestActionShortcutKey {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "The type of shortcut.")]
+pub enum PluginManifestActionShortcutKind {
+    #[serde(rename = "main")]
+    #[schemars(description = "Main shortcut for the action (e.g. cmd).")]
+    Main,
+    #[serde(rename = "alternative")]
+    #[schemars(description = "Alternative shortcut for the action (e.g. opt).")]
+    Alternative,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "os")]
+pub enum PluginManifestSupportedSystem {
+    #[serde(rename = "linux")]
+    Linux,
+    #[serde(rename = "windows")]
+    Windows,
+    #[serde(rename = "macos")]
+    MacOS,
+}
+
+impl std::fmt::Display for PluginManifestSupportedSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PluginManifestSupportedSystem::Linux => write!(f, "Linux"),
+            PluginManifestSupportedSystem::Windows => write!(f, "Windows"),
+            PluginManifestSupportedSystem::MacOS => write!(f, "MacOS"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "Metadata for the plugin manifest.")]
+pub struct PluginManifestMetadata {
+    #[schemars(description = "Name of the plugin.")]
+    pub name: String,
+    #[schemars(description = "Description of the plugin.")]
+    pub description: String,
+}
+
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
 #[schemars(description = "Permissions required by the plugin.")]
 pub struct PluginManifestPermissions {
@@ -546,25 +550,4 @@ pub enum PluginManifestMainSearchBarPermissions {
     #[serde(rename = "read")]
     #[schemars(description = "Allows the plugin to read the main search bar")]
     Read,
-}
-
-#[derive(Debug, Deserialize, PartialEq, Eq, Serialize, JsonSchema)]
-#[serde(tag = "os")]
-pub enum PluginManifestSupportedSystem {
-    #[serde(rename = "linux")]
-    Linux,
-    #[serde(rename = "windows")]
-    Windows,
-    #[serde(rename = "macos")]
-    MacOS,
-}
-
-impl std::fmt::Display for PluginManifestSupportedSystem {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            PluginManifestSupportedSystem::Linux => write!(f, "Linux"),
-            PluginManifestSupportedSystem::Windows => write!(f, "Windows"),
-            PluginManifestSupportedSystem::MacOS => write!(f, "MacOS"),
-        }
-    }
 }

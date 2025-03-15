@@ -46,7 +46,7 @@ use crate::plugins::data_db_repository::DbWritePlugin;
 use crate::plugins::data_db_repository::DbWritePluginAssetData;
 use crate::plugins::data_db_repository::DbWritePluginEntrypoint;
 use crate::plugins::download_status::DownloadStatusHolder;
-use crate::plugins::plugin_manifest_models::models::*;
+use crate::plugins::plugin_manifest::*;
 
 pub struct PluginLoader {
     db_repository: DataDbRepository,
