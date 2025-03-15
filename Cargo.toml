@@ -15,6 +15,7 @@ members = [
     "rust/component_model",
     "rust/scenario_runner",
     "rust/plugin_runtime",
+    "rust/manifest_schema",
 ]
 [workspace.package]
 edition = "2021"

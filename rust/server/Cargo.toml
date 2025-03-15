@@ -41,6 +41,7 @@ url = "2.5"
 ureq = "2.10"
 vergen-pretty = "0.3"
 dark-light = "1.1.1"
+schemars = "0.8"
 
 [features]
 release = ["gauntlet-common/release", "gauntlet-plugin-runtime/release"]

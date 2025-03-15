@@ -83,6 +83,7 @@ mod icon_cache;
 mod image_gatherer;
 pub mod js;
 mod loader;
+pub mod plugin_manifest;
 mod run_status;
 mod runtime;
 mod settings;

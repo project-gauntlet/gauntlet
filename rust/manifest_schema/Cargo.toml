@@ -1,0 +1,14 @@
+[package]
+name = "gauntlet-manifest-schema"
+edition.workspace = true
+
+[dependencies]
+# workspaces
+gauntlet-server.workspace = true
+
+# other
+schemars = "0.8"
+serde_json = "1.0"
+
+[features]
+release = ["gauntlet-server/release"]

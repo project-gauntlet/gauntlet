@@ -29,7 +29,7 @@ use uuid::Uuid;
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::FrecencyItemStats;
 use crate::plugins::frecency::FrecencyMetaParams;
-use crate::plugins::loader::PluginManifestActionShortcutKey;
+use crate::plugins::plugin_manifest::PluginManifestActionShortcutKey;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
