@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PluginManifest",
-  "description": "Manifest structure for a plugin.",
+  "description": "Plugin Manifest definition",
   "type": "object",
   "required": [
     "entrypoint",
@@ -15,14 +15,14 @@
       ]
     },
     "entrypoint": {
-      "description": "Entrypoints for the plugin.",
+      "description": "Plugin entrypoints, all plugin will have at least one entrypoint",
       "type": "array",
       "items": {
         "$ref": "#/definitions/PluginManifestEntrypoint"
       }
     },
     "gauntlet": {
-      "description": "Metadata about the plugin.",
+      "description": "General plugin metadata",
       "allOf": [
         {
           "$ref": "#/definitions/PluginManifestMetadata"
@@ -30,7 +30,7 @@
       ]
     },
     "permissions": {
-      "description": "Permissions required by the plugin.",
+      "description": "Permissions required by the plugin",
       "default": {
         "environment": [],
         "network": [],
@@ -53,7 +53,7 @@
       ]
     },
     "preferences": {
-      "description": "Preferences that can be configured by the user in the settings view.",
+      "description": "Preferences that can be configured by the user in the settings view",
       "default": [],
       "type": "array",
       "items": {
@@ -61,7 +61,7 @@
       }
     },
     "supported_system": {
-      "description": "List of supported operating systems.",
+      "description": "List of supported operating systems",
       "default": [],
       "type": "array",
       "items": {
@@ -71,7 +71,7 @@
   },
   "definitions": {
     "PluginManifestAction": {
-      "description": "Action that can be performed by the plugin.",
+      "description": "Action definition",
       "type": "object",
       "required": [
         "description",
@@ -80,15 +80,15 @@
       ],
       "properties": {
         "description": {
-          "description": "Description of what the action does.",
+          "description": "Description of what the action does",
           "type": "string"
         },
         "id": {
-          "description": "Unique identifier for the action.",
+          "description": "Unique identifier for the action, can only contain letters and numbers",
           "type": "string"
         },
         "shortcut": {
-          "description": "Keyboard shortcut to trigger the action.",
+          "description": "Default keyboard shortcut to trigger the action",
           "allOf": [
             {
               "$ref": "#/definitions/PluginManifestActionShortcut"
@@ -98,7 +98,7 @@
       }
     },
     "PluginManifestActionShortcut": {
-      "description": "Keyboard shortcut configuration for a plugin action.",
+      "description": "Keyboard shortcut for a plugin action",
       "type": "object",
       "required": [
         "key",
@@ -106,7 +106,7 @@
       ],
       "properties": {
         "key": {
-          "description": "The key to be pressed for this shortcut.",
+          "description": "The main key to be pressed for this shortcut",
           "allOf": [
             {
               "$ref": "#/definitions/PluginManifestActionShortcutKey"
@@ -114,7 +114,7 @@
           ]
         },
         "kind": {
-          "description": "The type of shortcut.",
+          "description": "The kind of shortcut, defines required modifiers",
           "allOf": [
             {
               "$ref": "#/definitions/PluginManifestActionShortcutKind"
@@ -221,17 +221,17 @@
       ]
     },
     "PluginManifestActionShortcutKind": {
-      "description": "The type of shortcut.",
+      "description": "The kind of shortcut",
       "oneOf": [
         {
-          "description": "Main shortcut for the action (e.g. cmd).",
+          "description": "Main kind shortcuts require Ctrl modifier on Windows/Linux or Cmd on macOS",
           "type": "string",
           "enum": [
             "main"
           ]
         },
         {
-          "description": "Alternative shortcut for the action (e.g. opt).",
+          "description": "Alternative kind shortcuts require Alt modifier on Windows/Linux or Opt on macOS",
           "type": "string",
           "enum": [
             "alternative"
@@ -240,24 +240,24 @@
       ]
     },
     "PluginManifestClipboardPermissions": {
-      "description": "Clipboard permissions for the plugin.",
+      "description": "Clipboard permissions for the plugin",
       "oneOf": [
         {
-          "description": "Allows the plugin to read from the clipboard.",
+          "description": "Allows the plugin to read from the clipboard",
           "type": "string",
           "enum": [
             "read"
           ]
         },
         {
-          "description": "Allows the plugin to write to the clipboard.",
+          "description": "Allows the plugin to write to the clipboard",
           "type": "string",
           "enum": [
             "write"
           ]
         },
         {
-          "description": "Allows the plugin to clear the clipboard contents.",
+          "description": "Allows the plugin to clear the clipboard contents",
           "type": "string",
           "enum": [
             "clear"
@@ -266,7 +266,7 @@
       ]
     },
     "PluginManifestEntrypoint": {
-      "description": "An entrypoint for the plugin.",
+      "description": "Plugin entrypoint definition",
       "type": "object",
       "required": [
         "description",
@@ -277,6 +277,7 @@
       ],
       "properties": {
         "actions": {
+          "description": "List of definitions of plugin actions",
           "default": [],
           "type": "array",
           "items": {
@@ -284,24 +285,30 @@
           }
         },
         "description": {
+          "description": "Entrypoint description",
           "type": "string"
         },
         "icon": {
+          "description": "Entrypoint icon, path to file in assets relative to it",
           "type": [
             "string",
             "null"
           ]
         },
         "id": {
+          "description": "Unique identifier of the entrypoint, can only contain small letters, numbers and dash",
           "type": "string"
         },
         "name": {
+          "description": "Entrypoint name",
           "type": "string"
         },
         "path": {
+          "description": "Path to TypeScript file relative to package directory",
           "type": "string"
         },
         "preferences": {
+          "description": "List of definitions of plugin preferences",
           "default": [],
           "type": "array",
           "items": {
@@ -309,36 +316,41 @@
           }
         },
         "type": {
-          "$ref": "#/definitions/PluginManifestEntrypointTypes"
+          "description": "Type of the entrypoint",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PluginManifestEntrypointTypes"
+            }
+          ]
         }
       }
     },
     "PluginManifestEntrypointTypes": {
-      "description": "Types of plugin entrypoints.",
+      "description": "Types of plugin entrypoints",
       "oneOf": [
         {
-          "description": "A command entrypoint.",
+          "description": "A function-based entrypoint",
           "type": "string",
           "enum": [
             "command"
           ]
         },
         {
-          "description": "A view-based entrypoint.",
+          "description": "A view-based entrypoint",
           "type": "string",
           "enum": [
             "view"
           ]
         },
         {
-          "description": "An inline view entrypoint.",
+          "description": "A view-based entrypoint displayed under main search bar",
           "type": "string",
           "enum": [
             "inline-view"
           ]
         },
         {
-          "description": "Generates new entrypoints dynamically.",
+          "description": "Entrypoint that dynamically generatepointsd",
           "type": "string",
           "enum": [
             "entrypoint-generator"
@@ -358,7 +370,7 @@
       ]
     },
     "PluginManifestMetadata": {
-      "description": "Metadata for the plugin manifest.",
+      "description": "General plugin metadata",
       "type": "object",
       "required": [
         "description",
@@ -366,21 +378,21 @@
       ],
       "properties": {
         "description": {
-          "description": "Description of the plugin.",
+          "description": "Description of the plugin",
           "type": "string"
         },
         "name": {
-          "description": "Name of the plugin.",
+          "description": "Name of the plugin",
           "type": "string"
         }
       }
     },
     "PluginManifestPermissions": {
-      "description": "Permissions required by the plugin.",
+      "description": "Permissions required by the plugin",
       "type": "object",
       "properties": {
         "clipboard": {
-          "description": "Clipboard permissions for the plugin.",
+          "description": "Clipboard permissions for the plugin",
           "default": [],
           "type": "array",
           "items": {
@@ -388,7 +400,7 @@
           }
         },
         "environment": {
-          "description": "Environment variables that the plugin can access.",
+          "description": "Environment variables that the plugin can access",
           "default": [],
           "type": "array",
           "items": {
@@ -396,7 +408,7 @@
           }
         },
         "exec": {
-          "description": "Execution permissions for the plugin.",
+          "description": "Execution permissions for the plugin",
           "default": {
             "command": [],
             "executable": []
@@ -408,7 +420,7 @@
           ]
         },
         "filesystem": {
-          "description": "Filesystem permissions for the plugin.",
+          "description": "Filesystem permissions for the plugin",
           "default": {
             "read": [],
             "write": []
@@ -420,7 +432,7 @@
           ]
         },
         "main_search_bar": {
-          "description": "Permissions for the main search bar.",
+          "description": "Permissions for the main search bar",
           "default": [],
           "type": "array",
           "items": {
@@ -428,7 +440,7 @@
           }
         },
         "network": {
-          "description": "Network domains that the plugin can access.",
+          "description": "Network address (domain or ip address + optional port) that the plugin can access",
           "default": [],
           "type": "array",
           "items": {
@@ -436,7 +448,7 @@
           }
         },
         "system": {
-          "description": "System permissions for the plugin.",
+          "description": "Deno system permissions for the plugin",
           "default": [],
           "type": "array",
           "items": {
@@ -446,11 +458,11 @@
       }
     },
     "PluginManifestPermissionsExec": {
-      "description": "Execution permissions for the plugin.",
+      "description": "Execution permissions for the plugin",
       "type": "object",
       "properties": {
         "command": {
-          "description": "Commands that the plugin can execute.",
+          "description": "List of commands on PATH that the plugin can execute",
           "default": [],
           "type": "array",
           "items": {
@@ -458,7 +470,7 @@
           }
         },
         "executable": {
-          "description": "Executables that the plugin can run.",
+          "description": "List of paths to executables that the plugin can run",
           "default": [],
           "type": "array",
           "items": {
@@ -468,11 +480,11 @@
       }
     },
     "PluginManifestPermissionsFileSystem": {
-      "description": "Filesystem permissions for the plugin.",
+      "description": "Filesystem permissions for the plugin",
       "type": "object",
       "properties": {
         "read": {
-          "description": "Paths that the plugin can read from.",
+          "description": "Paths that the plugin can read from",
           "default": [],
           "type": "array",
           "items": {
@@ -480,7 +492,7 @@
           }
         },
         "write": {
-          "description": "Paths that the plugin can write to.",
+          "description": "Paths that the plugin can write to",
           "default": [],
           "type": "array",
           "items": {
@@ -490,10 +502,10 @@
       }
     },
     "PluginManifestPreference": {
-      "description": "User-configurable preference options.",
+      "description": "User-configurable preference options",
       "oneOf": [
         {
-          "description": "A numeric preference.",
+          "description": "A numeric preference",
           "type": "object",
           "required": [
             "description",
@@ -503,6 +515,7 @@
           ],
           "properties": {
             "default": {
+              "description": "Default value",
               "type": [
                 "number",
                 "null"
@@ -510,12 +523,15 @@
               "format": "double"
             },
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -527,7 +543,7 @@
           }
         },
         {
-          "description": "A string preference.",
+          "description": "A string preference",
           "type": "object",
           "required": [
             "description",
@@ -537,18 +553,22 @@
           ],
           "properties": {
             "default": {
+              "description": "Default value",
               "type": [
                 "string",
                 "null"
               ]
             },
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -560,7 +580,7 @@
           }
         },
         {
-          "description": "An enum preference with selectable values.",
+          "description": "An enum preference with selectable values",
           "type": "object",
           "required": [
             "description",
@@ -571,24 +591,29 @@
           ],
           "properties": {
             "default": {
+              "description": "Default value",
               "type": [
                 "string",
                 "null"
               ]
             },
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "enum_values": {
+              "description": "List of allowed enum values",
               "type": "array",
               "items": {
                 "$ref": "#/definitions/PluginManifestPreferenceEnumValue"
               }
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -600,7 +625,7 @@
           }
         },
         {
-          "description": "A boolean preference.",
+          "description": "A boolean preference",
           "type": "object",
           "required": [
             "description",
@@ -610,18 +635,22 @@
           ],
           "properties": {
             "default": {
+              "description": "Default value",
               "type": [
                 "boolean",
                 "null"
               ]
             },
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -633,7 +662,7 @@
           }
         },
         {
-          "description": "A list of strings preference.",
+          "description": "A list of strings preference",
           "type": "object",
           "required": [
             "description",
@@ -643,12 +672,15 @@
           ],
           "properties": {
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -660,7 +692,7 @@
           }
         },
         {
-          "description": "A list of numbers preference.",
+          "description": "A list of numbers preference",
           "type": "object",
           "required": [
             "description",
@@ -670,12 +702,15 @@
           ],
           "properties": {
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -687,7 +722,7 @@
           }
         },
         {
-          "description": "A list of enumerated preference values.",
+          "description": "A list of enumerated preference values",
           "type": "object",
           "required": [
             "description",
@@ -698,18 +733,22 @@
           ],
           "properties": {
             "description": {
+              "description": "Description of the preference",
               "type": "string"
             },
             "enum_values": {
+              "description": "List of allowed enum values",
               "type": "array",
               "items": {
                 "$ref": "#/definitions/PluginManifestPreferenceEnumValue"
               }
             },
             "id": {
+              "description": "Unique identifier of the preference, can only contain letters and numbers",
               "type": "string"
             },
             "name": {
+              "description": "Display name of the preference",
               "type": "string"
             },
             "type": {
@@ -723,7 +762,7 @@
       ]
     },
     "PluginManifestPreferenceEnumValue": {
-      "description": "An enumerated preference value.",
+      "description": "Definition of the values available in enumerated preference",
       "type": "object",
       "required": [
         "label",
@@ -731,9 +770,11 @@
       ],
       "properties": {
         "label": {
+          "description": "Displayed name",
           "type": "string"
         },
         "value": {
+          "description": "Internal enum value",
           "type": "string"
         }
       }

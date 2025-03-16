@@ -5,147 +5,185 @@ use serde::Serialize;
 use crate::model::ActionShortcutKey;
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Manifest structure for a plugin.")]
+#[schemars(description = "Plugin Manifest definition")]
 pub struct PluginManifest {
     #[serde(rename = "$schema")]
+    #[allow(unused)]
     schema: Option<String>,
-    #[schemars(description = "Metadata about the plugin.")]
+    #[schemars(description = "General plugin metadata")]
     pub gauntlet: PluginManifestMetadata,
-    #[schemars(description = "Entrypoints for the plugin.")]
+    #[schemars(description = "Plugin entrypoints, all plugin will have at least one entrypoint")]
     pub entrypoint: Vec<PluginManifestEntrypoint>,
     #[serde(default)]
-    #[schemars(description = "List of supported operating systems.")]
+    #[schemars(description = "List of supported operating systems")]
     pub supported_system: Vec<PluginManifestSupportedSystem>,
     #[serde(default)]
-    #[schemars(description = "Permissions required by the plugin.")]
+    #[schemars(description = "Permissions required by the plugin")]
     pub permissions: PluginManifestPermissions,
     #[serde(default)]
-    #[schemars(description = "Preferences that can be configured by the user in the settings view.")]
+    #[schemars(description = "Preferences that can be configured by the user in the settings view")]
     pub preferences: Vec<PluginManifestPreference>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "An entrypoint for the plugin.")]
+#[schemars(description = "Plugin entrypoint definition")]
 pub struct PluginManifestEntrypoint {
+    #[schemars(description = "Unique identifier of the entrypoint, can only contain small letters, numbers and dash")]
     pub id: String,
+    #[schemars(description = "Entrypoint name")]
     pub name: String,
+    #[schemars(description = "Entrypoint description")]
     pub description: String,
     #[allow(unused)] // Used during plugin build
-    pub path: String,
+    #[schemars(description = "Path to TypeScript file relative to package directory")]
+    path: String,
+    #[schemars(description = "Entrypoint icon, path to file in assets relative to it")]
     pub icon: Option<String>,
     #[serde(rename = "type")]
+    #[schemars(description = "Type of the entrypoint")]
     pub entrypoint_type: PluginManifestEntrypointTypes,
     #[serde(default)]
+    #[schemars(description = "List of definitions of plugin preferences")]
     pub preferences: Vec<PluginManifestPreference>,
     #[serde(default)]
+    #[schemars(description = "List of definitions of plugin actions")]
     pub actions: Vec<PluginManifestAction>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "type")]
-#[schemars(description = "User-configurable preference options.")]
+#[schemars(description = "User-configurable preference options")]
 pub enum PluginManifestPreference {
     #[serde(rename = "number")]
-    #[schemars(description = "A numeric preference.")]
+    #[schemars(description = "A numeric preference")]
     Number {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
+        #[schemars(description = "Default value")]
         default: Option<f64>,
+        #[schemars(description = "Description of the preference")]
         description: String,
     },
     #[serde(rename = "string")]
-    #[schemars(description = "A string preference.")]
+    #[schemars(description = "A string preference")]
     String {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
+        #[schemars(description = "Default value")]
         default: Option<String>,
+        #[schemars(description = "Description of the preference")]
         description: String,
     },
     #[serde(rename = "enum")]
-    #[schemars(description = "An enum preference with selectable values.")]
+    #[schemars(description = "An enum preference with selectable values")]
     Enum {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
+        #[schemars(description = "Default value")]
         default: Option<String>,
+        #[schemars(description = "Description of the preference")]
         description: String,
+        #[schemars(description = "List of allowed enum values")]
         enum_values: Vec<PluginManifestPreferenceEnumValue>,
     },
     #[serde(rename = "bool")]
-    #[schemars(description = "A boolean preference.")]
+    #[schemars(description = "A boolean preference")]
     Bool {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
+        #[schemars(description = "Default value")]
         default: Option<bool>,
+        #[schemars(description = "Description of the preference")]
         description: String,
     },
     #[serde(rename = "list_of_strings")]
-    #[schemars(description = "A list of strings preference.")]
+    #[schemars(description = "A list of strings preference")]
     ListOfStrings {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
         // default: Option<Vec<String>>,
+        #[schemars(description = "Description of the preference")]
         description: String,
     },
     #[serde(rename = "list_of_numbers")]
-    #[schemars(description = "A list of numbers preference.")]
+    #[schemars(description = "A list of numbers preference")]
     ListOfNumbers {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
         // default: Option<Vec<f64>>,
+        #[schemars(description = "Description of the preference")]
         description: String,
     },
     #[serde(rename = "list_of_enums")]
-    #[schemars(description = "A list of enumerated preference values.")]
+    #[schemars(description = "A list of enumerated preference values")]
     ListOfEnums {
+        #[schemars(description = "Unique identifier of the preference, can only contain letters and numbers")]
         id: String,
+        #[schemars(description = "Display name of the preference")]
         name: String,
         // default: Option<Vec<String>>,
+        #[schemars(description = "List of allowed enum values")]
         enum_values: Vec<PluginManifestPreferenceEnumValue>,
+        #[schemars(description = "Description of the preference")]
         description: String,
     },
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "An enumerated preference value.")]
+#[schemars(description = "Definition of the values available in enumerated preference")]
 pub struct PluginManifestPreferenceEnumValue {
+    #[schemars(description = "Displayed name")]
     pub label: String,
+    #[schemars(description = "Internal enum value")]
     pub value: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Types of plugin entrypoints.")]
+#[schemars(description = "Types of plugin entrypoints")]
 pub enum PluginManifestEntrypointTypes {
     #[serde(rename = "command")]
-    #[schemars(description = "A command entrypoint.")]
+    #[schemars(description = "A function-based entrypoint")]
     Command,
     #[serde(rename = "view")]
-    #[schemars(description = "A view-based entrypoint.")]
+    #[schemars(description = "A view-based entrypoint")]
     View,
     #[serde(rename = "inline-view")]
-    #[schemars(description = "An inline view entrypoint.")]
+    #[schemars(description = "A view-based entrypoint displayed under main search bar")]
     InlineView,
     #[serde(rename = "entrypoint-generator")]
-    #[schemars(description = "Generates new entrypoints dynamically.")]
+    #[schemars(description = "Entrypoint that dynamically generatepointsd")]
     EntrypointGenerator,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Action that can be performed by the plugin.")]
+#[schemars(description = "Action definition")]
 pub struct PluginManifestAction {
-    #[schemars(description = "Unique identifier for the action.")]
+    #[schemars(description = "Unique identifier for the action, can only contain letters and numbers")]
     pub id: String,
-    #[schemars(description = "Description of what the action does.")]
+    #[schemars(description = "Description of what the action does")]
     pub description: String,
-    #[schemars(description = "Keyboard shortcut to trigger the action.")]
+    #[schemars(description = "Default keyboard shortcut to trigger the action")]
     pub shortcut: PluginManifestActionShortcut,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Keyboard shortcut configuration for a plugin action.")]
+#[schemars(description = "Keyboard shortcut for a plugin action")]
 pub struct PluginManifestActionShortcut {
-    #[schemars(description = "The key to be pressed for this shortcut.")]
+    #[schemars(description = "The main key to be pressed for this shortcut")]
     pub key: PluginManifestActionShortcutKey,
-    #[schemars(description = "The type of shortcut.")]
+    #[schemars(description = "The kind of shortcut, defines required modifiers")]
     pub kind: PluginManifestActionShortcutKind,
 }
 
@@ -443,13 +481,13 @@ impl PluginManifestActionShortcutKey {
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "The type of shortcut.")]
+#[schemars(description = "The kind of shortcut")]
 pub enum PluginManifestActionShortcutKind {
     #[serde(rename = "main")]
-    #[schemars(description = "Main shortcut for the action (e.g. cmd).")]
+    #[schemars(description = "Main kind shortcuts require Ctrl modifier on Windows/Linux or Cmd on macOS")]
     Main,
     #[serde(rename = "alternative")]
-    #[schemars(description = "Alternative shortcut for the action (e.g. opt).")]
+    #[schemars(description = "Alternative kind shortcuts require Alt modifier on Windows/Linux or Opt on macOS")]
     Alternative,
 }
 
@@ -475,73 +513,73 @@ impl std::fmt::Display for PluginManifestSupportedSystem {
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Metadata for the plugin manifest.")]
+#[schemars(description = "General plugin metadata")]
 pub struct PluginManifestMetadata {
-    #[schemars(description = "Name of the plugin.")]
+    #[schemars(description = "Name of the plugin")]
     pub name: String,
-    #[schemars(description = "Description of the plugin.")]
+    #[schemars(description = "Description of the plugin")]
     pub description: String,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
-#[schemars(description = "Permissions required by the plugin.")]
+#[schemars(description = "Permissions required by the plugin")]
 pub struct PluginManifestPermissions {
     #[serde(default)]
-    #[schemars(description = "Environment variables that the plugin can access.")]
+    #[schemars(description = "Environment variables that the plugin can access")]
     pub environment: Vec<String>,
     #[serde(default)]
-    #[schemars(description = "Network domains that the plugin can access.")]
+    #[schemars(description = "Network address (domain or ip address + optional port) that the plugin can access")]
     pub network: Vec<String>,
     #[serde(default)]
-    #[schemars(description = "Filesystem permissions for the plugin.")]
+    #[schemars(description = "Filesystem permissions for the plugin")]
     pub filesystem: PluginManifestPermissionsFileSystem,
     #[serde(default)]
-    #[schemars(description = "Execution permissions for the plugin.")]
+    #[schemars(description = "Execution permissions for the plugin")]
     pub exec: PluginManifestPermissionsExec,
     #[serde(default)]
-    #[schemars(description = "System permissions for the plugin.")]
+    #[schemars(description = "Deno system permissions for the plugin")]
     pub system: Vec<String>,
     #[serde(default)]
-    #[schemars(description = "Clipboard permissions for the plugin.")]
+    #[schemars(description = "Clipboard permissions for the plugin")]
     pub clipboard: Vec<PluginManifestClipboardPermissions>,
     #[serde(default)]
-    #[schemars(description = "Permissions for the main search bar.")]
+    #[schemars(description = "Permissions for the main search bar")]
     pub main_search_bar: Vec<PluginManifestMainSearchBarPermissions>,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
-#[schemars(description = "Filesystem permissions for the plugin.")]
+#[schemars(description = "Filesystem permissions for the plugin")]
 pub struct PluginManifestPermissionsFileSystem {
     #[serde(default)]
-    #[schemars(description = "Paths that the plugin can read from.")]
+    #[schemars(description = "Paths that the plugin can read from")]
     pub read: Vec<String>,
     #[serde(default)]
-    #[schemars(description = "Paths that the plugin can write to.")]
+    #[schemars(description = "Paths that the plugin can write to")]
     pub write: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
-#[schemars(description = "Execution permissions for the plugin.")]
+#[schemars(description = "Execution permissions for the plugin")]
 pub struct PluginManifestPermissionsExec {
     #[serde(default)]
-    #[schemars(description = "Commands that the plugin can execute.")]
+    #[schemars(description = "List of commands on PATH that the plugin can execute")]
     pub command: Vec<String>,
     #[serde(default)]
-    #[schemars(description = "Executables that the plugin can run.")]
+    #[schemars(description = "List of paths to executables that the plugin can run")]
     pub executable: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(description = "Clipboard permissions for the plugin.")]
+#[schemars(description = "Clipboard permissions for the plugin")]
 pub enum PluginManifestClipboardPermissions {
     #[serde(rename = "read")]
-    #[schemars(description = "Allows the plugin to read from the clipboard.")]
+    #[schemars(description = "Allows the plugin to read from the clipboard")]
     Read,
     #[serde(rename = "write")]
-    #[schemars(description = "Allows the plugin to write to the clipboard.")]
+    #[schemars(description = "Allows the plugin to write to the clipboard")]
     Write,
     #[serde(rename = "clear")]
-    #[schemars(description = "Allows the plugin to clear the clipboard contents.")]
+    #[schemars(description = "Allows the plugin to clear the clipboard contents")]
     Clear,
 }
 
