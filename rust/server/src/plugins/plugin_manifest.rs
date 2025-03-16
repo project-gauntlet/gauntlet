@@ -519,6 +519,21 @@ pub struct PluginManifestMetadata {
     pub name: String,
     #[schemars(description = "Description of the plugin")]
     pub description: String,
+    #[schemars(description = "Description of the plugin")]
+    #[serde(default)]
+    pub authors: Vec<PluginManifestMetadataAuthor>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(description = "Plugin author")]
+pub struct PluginManifestMetadataAuthor {
+    #[schemars(description = "Author name")]
+    pub name: String,
+    #[schemars(
+        description = "URIs that identify the author. Can be a link to social media page or an email (if email it should begin with mailto: schema)"
+    )]
+    #[serde(default)]
+    pub uris: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
