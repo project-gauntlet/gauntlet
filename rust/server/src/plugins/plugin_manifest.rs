@@ -519,7 +519,7 @@ pub struct PluginManifestMetadata {
     pub name: String,
     #[schemars(description = "Description of the plugin")]
     pub description: String,
-    #[schemars(description = "Description of the plugin")]
+    #[schemars(description = "List of plugin authors")]
     #[serde(default)]
     pub authors: Vec<PluginManifestMetadataAuthor>,
 }

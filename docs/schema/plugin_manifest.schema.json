@@ -377,6 +377,14 @@
         "name"
       ],
       "properties": {
+        "authors": {
+          "description": "List of plugin authors",
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PluginManifestMetadataAuthor"
+          }
+        },
         "description": {
           "description": "Description of the plugin",
           "type": "string"
@@ -384,6 +392,27 @@
         "name": {
           "description": "Name of the plugin",
           "type": "string"
+        }
+      }
+    },
+    "PluginManifestMetadataAuthor": {
+      "description": "Plugin author",
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "description": "Author name",
+          "type": "string"
+        },
+        "uris": {
+          "description": "URIs that identify the author. Can be a link to social media page or an email (if email it should begin with mailto: schema)",
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
