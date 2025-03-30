@@ -62,11 +62,6 @@ pub struct PluginTableState {
     body: Id,
 }
 
-pub enum PluginTableUpdateResult {
-    Command(Task<()>),
-    Value(PluginTableMsgOut),
-}
-
 impl PluginTableState {
     pub fn new() -> Self {
         Self {
@@ -82,22 +77,20 @@ impl PluginTableState {
         }
     }
 
-    pub fn update(&mut self, message: PluginTableMsgIn) -> PluginTableUpdateResult {
+    pub fn update(&mut self, message: PluginTableMsgIn) -> Task<PluginTableMsgOut> {
         match message {
-            PluginTableMsgIn::TableSyncHeader(offset) => {
-                PluginTableUpdateResult::Command(scrollable::scroll_to(self.header.clone(), offset))
-            }
+            PluginTableMsgIn::TableSyncHeader(offset) => scrollable::scroll_to(self.header.clone(), offset),
             PluginTableMsgIn::EnabledToggleItem(item) => {
                 match item {
                     EnabledItem::Plugin { enabled, plugin_id } => {
-                        PluginTableUpdateResult::Value(PluginTableMsgOut::SetPluginState { enabled, plugin_id })
+                        Task::done(PluginTableMsgOut::SetPluginState { enabled, plugin_id })
                     }
                     EnabledItem::Entrypoint {
                         enabled,
                         plugin_id,
                         entrypoint_id,
                     } => {
-                        PluginTableUpdateResult::Value(PluginTableMsgOut::SetEntrypointState {
+                        Task::done(PluginTableMsgOut::SetEntrypointState {
                             enabled,
                             plugin_id,
                             entrypoint_id,
@@ -105,9 +98,9 @@ impl PluginTableState {
                     }
                 }
             }
-            PluginTableMsgIn::SelectItem(item) => PluginTableUpdateResult::Value(PluginTableMsgOut::SelectItem(item)),
+            PluginTableMsgIn::SelectItem(item) => Task::done(PluginTableMsgOut::SelectItem(item)),
             PluginTableMsgIn::ToggleShowEntrypoints { plugin_id } => {
-                PluginTableUpdateResult::Value(PluginTableMsgOut::ToggleShowEntrypoints { plugin_id })
+                Task::done(PluginTableMsgOut::ToggleShowEntrypoints { plugin_id })
             }
         }
     }

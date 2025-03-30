@@ -76,7 +76,7 @@ impl PluginWidgetContainer {
         self.images = images;
 
         // use new state with values from old state but only widget ids which exists in new state
-        // so we this way we use already existing values but remove state for removed widgets
+        // so this way we use already existing values but remove state for removed widgets
         let old_state = mem::replace(&mut self.state, create_state(&container));
 
         for (key, value) in old_state.into_iter() {

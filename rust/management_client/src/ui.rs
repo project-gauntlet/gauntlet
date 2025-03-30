@@ -79,7 +79,7 @@ struct ManagementAppModel {
 }
 
 #[derive(Debug, Clone)]
-enum ManagementAppMsg {
+pub enum ManagementAppMsg {
     FontLoaded(Result<(), font::Error>),
     General(ManagementAppGeneralMsgIn),
     Plugin(ManagementAppPluginMsgIn),
@@ -191,34 +191,16 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
         ManagementAppMsg::Plugin(message) => {
             state.plugins_state.update(message).map(|msg| {
                 match msg {
-                    ManagementAppPluginMsgOut::PluginsReloaded(plugins) => {
-                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsFetched(plugins))
-                    }
-                    ManagementAppPluginMsgOut::Noop => ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::Noop),
-                    ManagementAppPluginMsgOut::DownloadPlugin { plugin_id } => {
-                        ManagementAppMsg::DownloadPlugin { plugin_id }
-                    }
-                    ManagementAppPluginMsgOut::SelectedItem(selected_item) => {
-                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::SelectItem(selected_item))
-                    }
-                    ManagementAppPluginMsgOut::HandleBackendError(err) => ManagementAppMsg::HandleBackendError(err),
+                    ManagementAppPluginMsgOut::Inner(msg) => ManagementAppMsg::Plugin(msg),
+                    ManagementAppPluginMsgOut::Outer(msg) => msg,
                 }
             })
         }
         ManagementAppMsg::General(message) => {
             state.general_state.update(message).map(|msg| {
                 match msg {
-                    ManagementAppGeneralMsgOut::Noop => ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop),
-                    ManagementAppGeneralMsgOut::HandleBackendError(err) => ManagementAppMsg::HandleBackendError(err),
-                    ManagementAppGeneralMsgOut::SetGlobalShortcutResponse {
-                        shortcut,
-                        shortcut_error,
-                    } => {
-                        ManagementAppMsg::General(ManagementAppGeneralMsgIn::SetGlobalShortcutResponse {
-                            shortcut,
-                            shortcut_error,
-                        })
-                    }
+                    ManagementAppGeneralMsgOut::Inner(msg) => ManagementAppMsg::General(msg),
+                    ManagementAppGeneralMsgOut::Outer(msg) => msg,
                 }
             })
         }
@@ -266,7 +248,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                 },
                 |result| {
                     handle_backend_error(result, |plugins| {
-                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsFetched(plugins))
+                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
                     })
                 },
             )

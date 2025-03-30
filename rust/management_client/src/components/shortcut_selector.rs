@@ -1,10 +1,13 @@
+use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
 use gauntlet_common_ui::physical_key_model;
 use gauntlet_common_ui::shortcut_to_text;
 use iced::advanced::graphics::core::event;
 use iced::advanced::graphics::core::keyboard;
 use iced::advanced::layout;
 use iced::advanced::mouse;
+use iced::advanced::overlay;
 use iced::advanced::renderer;
 use iced::advanced::widget::tree;
 use iced::advanced::widget::Tree;
@@ -12,95 +15,123 @@ use iced::advanced::Clipboard;
 use iced::advanced::Layout;
 use iced::advanced::Shell;
 use iced::advanced::Widget;
-use iced::alignment;
 use iced::keyboard::key::Physical;
 use iced::mouse::Button;
+use iced::widget::column;
 use iced::widget::container;
 use iced::widget::container::draw_background;
-use iced::widget::container::layout;
 use iced::widget::row;
 use iced::widget::text;
-use iced::Element;
+use iced::Alignment;
 use iced::Event;
 use iced::Length;
 use iced::Padding;
+use iced::Point;
 use iced::Rectangle;
 use iced::Renderer;
 use iced::Size;
+use iced::Vector;
 
-pub struct ShortcutSelector<'a, Message, Theme>
-where
-    Theme: Catalog + text::Catalog + container::Catalog,
-{
-    padding: Padding,
-    width: Length,
-    height: Length,
-    max_width: f32,
-    max_height: f32,
-    horizontal_alignment: alignment::Horizontal,
-    vertical_alignment: alignment::Vertical,
+use crate::theme::text::TextStyle;
+use crate::theme::Element;
+use crate::theme::GauntletSettingsTheme;
 
-    on_shortcut_captured: Box<dyn Fn(Option<PhysicalShortcut>) -> Message + 'a>,
-    on_capturing_change: Box<dyn Fn(bool) -> Message + 'a>,
-
-    content: Element<'a, Message, Theme>,
+pub struct ShortcutData {
+    pub shortcut: Option<PhysicalShortcut>,
+    pub error: Option<String>,
 }
 
-impl<'a, Message: 'a, Theme> ShortcutSelector<'a, Message, Theme>
+pub fn shortcut_selector<'a, 'b: 'a, 'c, Message: 'a, Id: 'a, F>(
+    shortcut_id: Id,
+    current_shortcut: &'b ShortcutData,
+    on_shortcut_captured: F,
+    overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
+) -> Element<'a, Message>
 where
-    Theme: Catalog + text::Catalog + container::Catalog + 'a,
+    F: 'a + Fn(Id, Option<PhysicalShortcut>) -> Message,
+    Id: Clone,
 {
-    pub fn new<F, F2>(
-        current_shortcut: &Option<PhysicalShortcut>,
+    Element::new(ShortcutSelector::new::<F>(
+        shortcut_id,
+        current_shortcut,
+        on_shortcut_captured,
+        overlay_class,
+    ))
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum ShortcutId {
+    Global,
+    Entrypoint {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    },
+}
+
+pub struct ShortcutSelector<'a, 'b, Message, Id>
+where
+    Id: Clone,
+{
+    on_shortcut_captured: Box<dyn Fn(Id, Option<PhysicalShortcut>) -> Message + 'a>,
+
+    shortcut_id: Id,
+    current_shortcut: &'b ShortcutData,
+
+    content: Element<'a, Message>,
+    popup: Element<'a, Message>,
+    overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
+}
+
+impl<'a, 'b, 'c, Message: 'a, Id> ShortcutSelector<'a, 'b, Message, Id>
+where
+    Id: Clone,
+{
+    pub fn new<F>(
+        shortcut_id: Id,
+        current_shortcut: &'b ShortcutData,
         on_shortcut_captured: F,
-        on_capturing_change: F2,
+        overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
     ) -> Self
     where
-        F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
-        F2: 'a + Fn(bool) -> Message,
+        F: 'a + Fn(Id, Option<PhysicalShortcut>) -> Message,
     {
-        let mut content: Vec<Element<Message, Theme>> = vec![];
+        let content = render_shortcut(&current_shortcut.shortcut);
 
-        if let Some(current_shortcut) = current_shortcut {
-            let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) =
-                shortcut_to_text(current_shortcut);
+        let content = container(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into();
 
-            if let Some(meta_modifier_text) = meta_modifier_text {
-                content.push(meta_modifier_text);
-            }
+        let recording_text: Element<_> = text("Recording shortcut...").into();
 
-            if let Some(control_modifier_text) = control_modifier_text {
-                content.push(control_modifier_text);
-            }
+        let backspace_test: Element<_> = text("Backspace - Unset Shortcut").class(TextStyle::Subtitle).into();
 
-            if let Some(shift_modifier_text) = shift_modifier_text {
-                content.push(shift_modifier_text);
-            }
+        let escape_test: Element<_> = text("Escape - Stop Capturing").class(TextStyle::Subtitle).into();
 
-            if let Some(alt_modifier_text) = alt_modifier_text {
-                content.push(alt_modifier_text);
-            }
+        let popup: Element<_> = column(vec![recording_text, backspace_test, escape_test])
+            .align_x(Alignment::Center)
+            .into();
 
-            content.push(key_name);
-        }
-
-        let content: Element<_, _> = row(content).spacing(8.0).into();
-
-        let content = container(content).into();
+        let popup = container(popup)
+            .max_height(80)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .max_width(300)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
 
         Self {
-            padding: Padding::ZERO,
-            width: Length::Fill,
-            height: Length::Fill,
-            max_width: f32::INFINITY,
-            max_height: f32::INFINITY,
-            horizontal_alignment: alignment::Horizontal::Center,
-            vertical_alignment: alignment::Vertical::Center,
-
             on_shortcut_captured: Box::new(on_shortcut_captured),
-            on_capturing_change: Box::new(on_capturing_change),
 
+            shortcut_id,
+            current_shortcut,
             content,
+            popup,
+
+            overlay_class,
         }
     }
 }
@@ -110,36 +141,26 @@ struct State {
     is_capturing: bool,
 }
 
-impl<'a, Message, Theme> Widget<Message, Theme, Renderer> for ShortcutSelector<'a, Message, Theme>
+impl<'a, 'b, Message: 'a, Id> Widget<Message, GauntletSettingsTheme, Renderer> for ShortcutSelector<'a, 'b, Message, Id>
 where
-    Theme: Catalog + text::Catalog + container::Catalog,
+    Id: Clone,
 {
     fn size(&self) -> Size<Length> {
         Size {
-            width: self.width,
-            height: self.height,
+            width: Length::Fill,
+            height: Length::Fill,
         }
     }
 
     fn layout(&self, tree: &mut Tree, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        layout(
-            limits,
-            self.width,
-            self.height,
-            self.max_width,
-            self.max_height,
-            self.padding,
-            self.horizontal_alignment,
-            self.vertical_alignment,
-            |limits| self.content.as_widget().layout(tree, renderer, limits),
-        )
+        self.content.as_widget().layout(&mut tree.children[0], renderer, limits)
     }
 
     fn draw(
         &self,
         tree: &Tree,
         renderer: &mut Renderer,
-        theme: &Theme,
+        theme: &GauntletSettingsTheme,
         renderer_style: &renderer::Style,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
@@ -153,18 +174,16 @@ where
             Status::Active
         };
 
-        let style = Catalog::style(theme, &<Theme as Catalog>::default(), style);
+        let style = Catalog::style(theme, &<GauntletSettingsTheme as Catalog>::default(), style);
 
         draw_background(renderer, &style, layout.bounds());
 
         self.content.as_widget().draw(
-            tree,
+            &tree.children[0],
             renderer,
             theme,
-            &renderer::Style {
-                text_color: renderer_style.text_color,
-            },
-            layout.children().next().unwrap(),
+            renderer_style,
+            layout,
             cursor,
             viewport,
         );
@@ -179,11 +198,11 @@ where
     }
 
     fn children(&self) -> Vec<Tree> {
-        self.content.as_widget().children()
+        vec![Tree::new(&self.content), Tree::new(&self.popup)]
     }
 
     fn diff(&self, tree: &mut Tree) {
-        self.content.as_widget().diff(tree);
+        tree.diff_children(&[self.content.as_widget(), self.popup.as_widget()]);
     }
 
     fn on_event(
@@ -211,21 +230,18 @@ where
                             match physical_key {
                                 Physical::Code(code) => {
                                     match code {
-                                        keyboard::key::Code::Backspace => {
+                                        keyboard::key::Code::Backspace if modifiers.is_empty() => {
                                             state.is_capturing = false;
 
-                                            let message = (self.on_capturing_change)(false);
-                                            shell.publish(message);
-
-                                            let message = (self.on_shortcut_captured)(None);
+                                            let message = (self.on_shortcut_captured)(self.shortcut_id.clone(), None);
                                             shell.publish(message);
 
                                             event::Status::Ignored
                                         }
-                                        keyboard::key::Code::Escape => {
+                                        keyboard::key::Code::Escape if modifiers.is_empty() => {
                                             state.is_capturing = false;
 
-                                            let message = (self.on_capturing_change)(false);
+                                            let message = (self.on_shortcut_captured)(self.shortcut_id.clone(), None);
                                             shell.publish(message);
 
                                             event::Status::Ignored
@@ -236,10 +252,10 @@ where
                                                 Some(shortcut) => {
                                                     state.is_capturing = false;
 
-                                                    let message = (self.on_capturing_change)(false);
-                                                    shell.publish(message);
-
-                                                    let message = (self.on_shortcut_captured)(Some(shortcut));
+                                                    let message = (self.on_shortcut_captured)(
+                                                        self.shortcut_id.clone(),
+                                                        Some(shortcut),
+                                                    );
                                                     shell.publish(message);
 
                                                     event::Status::Captured
@@ -263,15 +279,9 @@ where
                         if cursor.is_over(layout.bounds()) {
                             state.is_capturing = true;
 
-                            let message = (self.on_capturing_change)(true);
-                            shell.publish(message);
-
                             event::Status::Captured
                         } else {
                             state.is_capturing = false;
-
-                            let message = (self.on_capturing_change)(false);
-                            shell.publish(message);
 
                             event::Status::Ignored
                         }
@@ -297,15 +307,40 @@ where
             mouse::Interaction::default()
         }
     }
-}
 
-impl<'a, Message, Theme> From<ShortcutSelector<'a, Message, Theme>> for Element<'a, Message, Theme>
-where
-    Message: 'a,
-    Theme: Catalog + text::Catalog + container::Catalog + 'a,
-{
-    fn from(shortcut_selector: ShortcutSelector<'a, Message, Theme>) -> Self {
-        Self::new(shortcut_selector)
+    fn overlay<'c>(
+        &'c mut self,
+        tree: &'c mut Tree,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        translation: Vector,
+    ) -> Option<overlay::Element<'c, Message, GauntletSettingsTheme, Renderer>> {
+        let state = tree.state.downcast_ref::<State>();
+
+        let mut children = tree.children.iter_mut();
+
+        let content = self
+            .content
+            .as_widget_mut()
+            .overlay(children.next().unwrap(), layout, renderer, translation);
+
+        let popup = if state.is_capturing {
+            Some(overlay::Element::new(Box::new(Overlay {
+                position: layout.position() + translation,
+                popup: &self.popup,
+                state: children.next().unwrap(),
+                content_bounds: layout.bounds(),
+                class: &self.overlay_class,
+            })))
+        } else {
+            None
+        };
+
+        if content.is_some() || popup.is_some() {
+            Some(overlay::Group::with_children(content.into_iter().chain(popup).collect()).overlay())
+        } else {
+            None
+        }
     }
 }
 
@@ -321,4 +356,122 @@ pub trait Catalog {
     fn default<'a>() -> Self::Class<'a>;
 
     fn style(&self, class: &Self::Class<'_>, status: Status) -> container::Style;
+}
+
+pub fn render_shortcut<'a, Message: 'a>(shortcut: &Option<PhysicalShortcut>) -> Element<'a, Message> {
+    let mut content: Vec<Element<Message>> = vec![];
+
+    if let Some(current_shortcut) = shortcut {
+        let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) =
+            shortcut_to_text(current_shortcut);
+
+        if let Some(meta_modifier_text) = meta_modifier_text {
+            content.push(meta_modifier_text);
+        }
+
+        if let Some(control_modifier_text) = control_modifier_text {
+            content.push(control_modifier_text);
+        }
+
+        if let Some(shift_modifier_text) = shift_modifier_text {
+            content.push(shift_modifier_text);
+        }
+
+        if let Some(alt_modifier_text) = alt_modifier_text {
+            content.push(alt_modifier_text);
+        }
+
+        content.push(key_name);
+    }
+
+    let content: Element<Message> = row(content).spacing(8.0).into();
+
+    content
+}
+
+struct Overlay<'a, 'b, Message> {
+    position: Point,
+    popup: &'b Element<'a, Message>,
+    state: &'b mut Tree,
+    content_bounds: Rectangle,
+    class: &'b <GauntletSettingsTheme as container::Catalog>::Class<'a>,
+}
+
+impl<'a, 'b, Message> overlay::Overlay<Message, GauntletSettingsTheme, Renderer> for Overlay<'a, 'b, Message> {
+    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
+        let padding = 2.0;
+        let gap = 10.0;
+
+        let viewport = Rectangle::with_size(bounds);
+
+        let popup_layout = self.popup.as_widget().layout(
+            self.state,
+            renderer,
+            &layout::Limits::new(Size::ZERO, viewport.size()).shrink(Padding::new(padding)),
+        );
+
+        let text_bounds = popup_layout.bounds();
+        let x_center = self.position.x + (self.content_bounds.width - text_bounds.width) / 2.0;
+
+        let mut tooltip_bounds = {
+            let offset = Vector::new(x_center, self.position.y + self.content_bounds.height + gap + padding);
+
+            Rectangle {
+                x: offset.x - padding,
+                y: offset.y - padding,
+                width: text_bounds.width + padding * 2.0,
+                height: text_bounds.height + padding * 2.0,
+            }
+        };
+
+        // snap_within_viewport
+        if tooltip_bounds.x < viewport.x {
+            tooltip_bounds.x = viewport.x;
+        } else if viewport.x + viewport.width < tooltip_bounds.x + tooltip_bounds.width {
+            tooltip_bounds.x = viewport.x + viewport.width - tooltip_bounds.width;
+        }
+
+        if tooltip_bounds.y < viewport.y {
+            tooltip_bounds.y = viewport.y;
+        } else if viewport.y + viewport.height < tooltip_bounds.y + tooltip_bounds.height {
+            tooltip_bounds.y = viewport.y + viewport.height - tooltip_bounds.height;
+        }
+
+        layout::Node::with_children(
+            tooltip_bounds.size(),
+            vec![popup_layout.translate(Vector::new(padding, padding))],
+        )
+        .translate(Vector::new(tooltip_bounds.x, tooltip_bounds.y))
+    }
+
+    fn draw(
+        &self,
+        renderer: &mut Renderer,
+        theme: &GauntletSettingsTheme,
+        inherited_style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor_position: mouse::Cursor,
+    ) {
+        let style = <GauntletSettingsTheme as container::Catalog>::style(theme, self.class);
+
+        draw_background(renderer, &style, layout.bounds());
+
+        let defaults = renderer::Style {
+            text_color: style.text_color.unwrap_or(inherited_style.text_color),
+        };
+
+        self.popup.as_widget().draw(
+            self.state,
+            renderer,
+            theme,
+            &defaults,
+            layout.children().next().unwrap(),
+            cursor_position,
+            &Rectangle::with_size(Size::INFINITY),
+        );
+    }
+
+    fn is_over(&self, _layout: Layout<'_>, _renderer: &Renderer, _cursor_position: Point) -> bool {
+        false
+    }
 }

@@ -22,27 +22,28 @@ use iced::Task;
 use iced_fonts::Bootstrap;
 use iced_fonts::BOOTSTRAP_FONT;
 
-use crate::components::shortcut_selector::ShortcutSelector;
+use crate::components::shortcut_selector::shortcut_selector;
+use crate::components::shortcut_selector::ShortcutData;
+use crate::components::shortcut_selector::ShortcutId;
 use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
+use crate::ui::ManagementAppMsg;
 
 pub struct ManagementAppGeneralState {
     backend_api: Option<BackendApi>,
     theme: SettingsTheme,
     window_position_mode: WindowPositionMode,
-    current_shortcut: Option<PhysicalShortcut>,
-    current_shortcut_error: Option<String>,
-    currently_capturing: bool,
+    current_shortcut: ShortcutData,
 }
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgIn {
-    ShortcutCaptured(Option<PhysicalShortcut>),
-    CapturingChanged(bool),
+    ShortcutCaptured(ShortcutId, Option<PhysicalShortcut>),
     ThemeChanged(SettingsTheme),
     WindowPositionModeChanged(WindowPositionMode),
-    SetGlobalShortcutResponse {
+    HandleShortcutResponse {
+        id: ShortcutId,
         shortcut: Option<PhysicalShortcut>,
         shortcut_error: Option<String>,
     },
@@ -57,12 +58,8 @@ pub enum ManagementAppGeneralMsgIn {
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgOut {
-    Noop,
-    SetGlobalShortcutResponse {
-        shortcut: Option<PhysicalShortcut>,
-        shortcut_error: Option<String>,
-    },
-    HandleBackendError(BackendApiError),
+    Inner(ManagementAppGeneralMsgIn),
+    Outer(ManagementAppMsg),
 }
 
 impl ManagementAppGeneralState {
@@ -71,9 +68,10 @@ impl ManagementAppGeneralState {
             backend_api,
             theme: SettingsTheme::AutoDetect,
             window_position_mode: WindowPositionMode::Static,
-            current_shortcut: None,
-            current_shortcut_error: None,
-            currently_capturing: false,
+            current_shortcut: ShortcutData {
+                shortcut: None,
+                error: None,
+            },
         }
     }
 
@@ -84,7 +82,7 @@ impl ManagementAppGeneralState {
         };
 
         match message {
-            ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut) => {
+            ManagementAppGeneralMsgIn::ShortcutCaptured(id, shortcut) => {
                 let mut backend_api = backend_api.clone();
 
                 Task::perform(
@@ -99,12 +97,14 @@ impl ManagementAppGeneralState {
                     },
                     move |result| {
                         let shortcut = shortcut.clone();
+                        let id = id.clone();
 
                         handle_backend_error(result, move |shortcut_error| {
-                            ManagementAppGeneralMsgOut::SetGlobalShortcutResponse {
+                            ManagementAppGeneralMsgOut::Inner(ManagementAppGeneralMsgIn::HandleShortcutResponse {
+                                id,
                                 shortcut,
                                 shortcut_error,
-                            }
+                            })
                         })
                     },
                 )
@@ -118,13 +118,10 @@ impl ManagementAppGeneralState {
             } => {
                 self.theme = theme;
                 self.window_position_mode = window_position_mode;
-                self.current_shortcut = shortcut;
-                self.current_shortcut_error = shortcut_error;
-
-                Task::done(ManagementAppGeneralMsgOut::Noop)
-            }
-            ManagementAppGeneralMsgIn::CapturingChanged(capturing) => {
-                self.currently_capturing = capturing;
+                self.current_shortcut = ShortcutData {
+                    shortcut,
+                    error: shortcut_error,
+                };
 
                 Task::none()
             }
@@ -139,7 +136,9 @@ impl ManagementAppGeneralState {
 
                         Ok(())
                     },
-                    |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop),
+                    |result| {
+                        handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Outer(ManagementAppMsg::Noop))
+                    },
                 )
             }
             ManagementAppGeneralMsgIn::WindowPositionModeChanged(mode) => {
@@ -153,15 +152,20 @@ impl ManagementAppGeneralState {
 
                         Ok(())
                     },
-                    |result| handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Noop),
+                    |result| {
+                        handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Outer(ManagementAppMsg::Noop))
+                    },
                 )
             }
-            ManagementAppGeneralMsgIn::SetGlobalShortcutResponse {
+            ManagementAppGeneralMsgIn::HandleShortcutResponse {
+                id,
                 shortcut,
                 shortcut_error,
             } => {
-                self.current_shortcut = shortcut;
-                self.current_shortcut_error = shortcut_error;
+                self.current_shortcut = ShortcutData {
+                    shortcut,
+                    error: shortcut_error,
+                };
 
                 Task::none()
             }
@@ -169,12 +173,12 @@ impl ManagementAppGeneralState {
     }
 
     pub fn view(&self) -> Element<ManagementAppGeneralMsgIn> {
-        let global_shortcut_selector: Element<_> = ShortcutSelector::new(
+        let global_shortcut_selector = shortcut_selector(
+            ShortcutId::Global,
             &self.current_shortcut,
-            move |value| ManagementAppGeneralMsgIn::ShortcutCaptured(value),
-            move |value| ManagementAppGeneralMsgIn::CapturingChanged(value),
-        )
-        .into();
+            move |id, shortcut| ManagementAppGeneralMsgIn::ShortcutCaptured(id, shortcut),
+            ContainerStyle::Box,
+        );
 
         let global_shortcut_field: Element<_> = container(global_shortcut_selector)
             .width(Length::Fill)
@@ -197,8 +201,6 @@ impl ManagementAppGeneralState {
         }
 
         let content: Element<_> = column(content).into();
-
-        let content: Element<_> = container(content).width(Length::Fill).into();
 
         let content: Element<_> = container(content).width(Length::Fill).into();
 
@@ -290,59 +292,41 @@ impl ManagementAppGeneralState {
     }
 
     fn shortcut_capture_after(&self) -> Element<ManagementAppGeneralMsgIn> {
-        if self.currently_capturing {
-            let hint1: Element<_> = text("Backspace - Unset Shortcut")
-                .width(Length::Fill)
-                .class(TextStyle::Subtitle)
+        if let Some(current_shortcut_error) = &self.current_shortcut.error {
+            let error_icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
+                .font(BOOTSTRAP_FONT)
+                .class(TextStyle::Destructive)
                 .into();
 
-            let hint2: Element<_> = text("Escape - Stop Capturing")
-                .width(Length::Fill)
-                .class(TextStyle::Subtitle)
+            let error_text: Element<_> = text(current_shortcut_error).class(TextStyle::Destructive).into();
+
+            let error_text: Element<_> = container(error_text)
+                .padding(16.0)
+                .max_width(300)
+                .class(ContainerStyle::Box)
                 .into();
 
-            column(vec![hint1, hint2])
+            let tooltip: Element<_> = tooltip(error_icon, error_text, Position::Bottom).into();
+
+            let content = container(tooltip)
                 .width(Length::FillPortion(3))
-                .align_x(Alignment::Center)
+                .align_y(alignment::Vertical::Center)
                 .padding(Padding::from([0.0, 8.0]))
-                .into()
+                .into();
+
+            content
         } else {
-            if let Some(current_shortcut_error) = &self.current_shortcut_error {
-                let error_icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
-                    .font(BOOTSTRAP_FONT)
-                    .class(TextStyle::Destructive)
-                    .into();
-
-                let error_text: Element<_> = text(current_shortcut_error).class(TextStyle::Destructive).into();
-
-                let error_text: Element<_> = container(error_text)
-                    .padding(16.0)
-                    .max_width(300)
-                    .class(ContainerStyle::Box)
-                    .into();
-
-                let tooltip: Element<_> = tooltip(error_icon, error_text, Position::Bottom).into();
-
-                let content = container(tooltip)
-                    .width(Length::FillPortion(3))
-                    .align_y(alignment::Vertical::Center)
-                    .padding(Padding::from([0.0, 8.0]))
-                    .into();
-
-                content
-            } else {
-                Space::with_width(Length::FillPortion(3)).into()
-            }
+            Space::with_width(Length::FillPortion(3)).into()
         }
     }
 }
 
-pub fn handle_backend_error<T>(
+fn handle_backend_error<T>(
     result: Result<T, BackendApiError>,
     convert: impl FnOnce(T) -> ManagementAppGeneralMsgOut,
 ) -> ManagementAppGeneralMsgOut {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppGeneralMsgOut::HandleBackendError(err),
+        Err(err) => ManagementAppGeneralMsgOut::Outer(ManagementAppMsg::HandleBackendError(err)),
     }
 }

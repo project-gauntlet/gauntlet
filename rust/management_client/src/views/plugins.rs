@@ -32,13 +32,13 @@ use iced_fonts::BOOTSTRAP_FONT;
 use crate::theme::button::ButtonStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
+use crate::ui::ManagementAppMsg;
 use crate::views::plugins::preferences::preferences_ui;
 use crate::views::plugins::preferences::PluginPreferencesMsg;
 use crate::views::plugins::preferences::SelectItem;
 use crate::views::plugins::table::PluginTableMsgIn;
 use crate::views::plugins::table::PluginTableMsgOut;
 use crate::views::plugins::table::PluginTableState;
-use crate::views::plugins::table::PluginTableUpdateResult;
 
 mod preferences;
 mod table;
@@ -48,19 +48,17 @@ pub enum ManagementAppPluginMsgIn {
     PluginTableMsg(PluginTableMsgIn),
     PluginPreferenceMsg(PluginPreferencesMsg),
     FetchPlugins,
-    PluginsFetched(HashMap<PluginId, SettingsPlugin>),
+    PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
     RemovePlugin { plugin_id: PluginId },
+    ToggleShowEntrypoint { plugin_id: PluginId },
     DownloadPlugin { plugin_id: PluginId },
     SelectItem(SelectedItem),
     Noop,
 }
 
 pub enum ManagementAppPluginMsgOut {
-    PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
-    SelectedItem(SelectedItem),
-    DownloadPlugin { plugin_id: PluginId },
-    HandleBackendError(BackendApiError),
-    Noop,
+    Inner(ManagementAppPluginMsgIn),
+    Outer(ManagementAppMsg),
 }
 
 pub struct ManagementAppPluginsState {
@@ -99,7 +97,7 @@ impl ManagementAppPluginsState {
         tracing::debug!("Opening selected item: {:?}", select_item);
 
         Self {
-            backend_api,
+            backend_api: backend_api.clone(),
             plugin_data: Rc::new(RefCell::new(PluginDataContainer::new())),
             preference_user_data: HashMap::new(),
             selected_item: select_item,
@@ -115,71 +113,77 @@ impl ManagementAppPluginsState {
 
         match message {
             ManagementAppPluginMsgIn::PluginTableMsg(message) => {
-                match self.table_state.update(message) {
-                    PluginTableUpdateResult::Command(command) => command.map(|_| ManagementAppPluginMsgOut::Noop),
-                    PluginTableUpdateResult::Value(msg) => {
-                        match msg {
-                            PluginTableMsgOut::SetPluginState { enabled, plugin_id } => {
-                                let mut backend_client = backend_api.clone();
+                self.table_state.update(message).then(move |msg| {
+                    match msg {
+                        PluginTableMsgOut::SetPluginState { enabled, plugin_id } => {
+                            let mut backend_client = backend_api.clone();
 
-                                Task::perform(
-                                    async move {
-                                        backend_client.set_plugin_state(plugin_id, enabled).await?;
+                            Task::perform(
+                                async move {
+                                    backend_client.set_plugin_state(plugin_id, enabled).await?;
 
-                                        let plugins = backend_client.plugins().await?;
+                                    let plugins = backend_client.plugins().await?;
 
-                                        Ok(plugins)
-                                    },
-                                    |result| {
-                                        handle_backend_error(result, |plugins| {
-                                            ManagementAppPluginMsgOut::PluginsReloaded(plugins)
-                                        })
-                                    },
-                                )
-                            }
-                            PluginTableMsgOut::SetEntrypointState {
-                                enabled,
-                                plugin_id,
-                                entrypoint_id,
-                            } => {
-                                let mut backend_client = backend_api.clone();
+                                    Ok(plugins)
+                                },
+                                |result| {
+                                    handle_backend_error(result, |plugins| {
+                                        ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                                            plugins,
+                                        ))
+                                    })
+                                },
+                            )
+                        }
+                        PluginTableMsgOut::SetEntrypointState {
+                            enabled,
+                            plugin_id,
+                            entrypoint_id,
+                        } => {
+                            let mut backend_client = backend_api.clone();
 
-                                Task::perform(
-                                    async move {
-                                        backend_client
-                                            .set_entrypoint_state(plugin_id, entrypoint_id, enabled)
-                                            .await?;
+                            Task::perform(
+                                async move {
+                                    backend_client
+                                        .set_entrypoint_state(plugin_id, entrypoint_id, enabled)
+                                        .await?;
 
-                                        let plugins = backend_client.plugins().await?;
+                                    let plugins = backend_client.plugins().await?;
 
-                                        Ok(plugins)
-                                    },
-                                    |result| {
-                                        handle_backend_error(result, |plugins| {
-                                            ManagementAppPluginMsgOut::PluginsReloaded(plugins)
-                                        })
-                                    },
-                                )
-                            }
-                            PluginTableMsgOut::SelectItem(selected_item) => {
-                                Task::done(ManagementAppPluginMsgOut::SelectedItem(selected_item))
-                            }
-                            PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
-                                let plugins = {
-                                    let mut plugin_data = self.plugin_data.borrow_mut();
-                                    let settings_plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
-                                    settings_plugin_data.show_entrypoints = !settings_plugin_data.show_entrypoints;
-
-                                    plugin_data.plugins.clone()
-                                };
-
-                                self.apply_plugin_fetch(plugins);
-
-                                Task::none()
-                            }
+                                    Ok(plugins)
+                                },
+                                |result| {
+                                    handle_backend_error(result, |plugins| {
+                                        ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                                            plugins,
+                                        ))
+                                    })
+                                },
+                            )
+                        }
+                        PluginTableMsgOut::SelectItem(selected_item) => {
+                            Task::done(ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::SelectItem(
+                                selected_item,
+                            )))
+                        }
+                        PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
+                            Task::done(ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::Noop))
                         }
                     }
-                }
+                })
+            }
+            ManagementAppPluginMsgIn::ToggleShowEntrypoint { plugin_id } => {
+                let plugins = {
+                    let mut plugin_data = self.plugin_data.borrow_mut();
+                    let settings_plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
+                    settings_plugin_data.show_entrypoints = !settings_plugin_data.show_entrypoints;
+
+                    plugin_data.plugins.clone()
+                };
+
+                self.apply_plugin_fetch(plugins);
+
+                Task::none()
             }
             ManagementAppPluginMsgIn::PluginPreferenceMsg(msg) => {
                 match msg {
@@ -204,7 +208,11 @@ impl ManagementAppPluginsState {
 
                                 Ok(())
                             },
-                            |result| handle_backend_error(result, |()| ManagementAppPluginMsgOut::Noop),
+                            |result| {
+                                handle_backend_error(result, |()| {
+                                    ManagementAppPluginMsgOut::Outer(ManagementAppMsg::Noop)
+                                })
+                            },
                         )
                     }
                 }
@@ -219,11 +227,13 @@ impl ManagementAppPluginsState {
                         Ok(plugins)
                     },
                     |result| {
-                        handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                        handle_backend_error(result, |plugins| {
+                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
+                        })
                     },
                 )
             }
-            ManagementAppPluginMsgIn::PluginsFetched(plugins) => {
+            ManagementAppPluginMsgIn::PluginsReloaded(plugins) => {
                 self.apply_plugin_fetch(plugins);
 
                 Task::none()
@@ -242,12 +252,16 @@ impl ManagementAppPluginsState {
                         Ok(plugins)
                     },
                     |result| {
-                        handle_backend_error(result, |plugins| ManagementAppPluginMsgOut::PluginsReloaded(plugins))
+                        handle_backend_error(result, |plugins| {
+                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
+                        })
                     },
                 )
             }
             ManagementAppPluginMsgIn::DownloadPlugin { plugin_id } => {
-                Task::done(ManagementAppPluginMsgOut::DownloadPlugin { plugin_id })
+                Task::done(ManagementAppPluginMsgOut::Outer(ManagementAppMsg::DownloadPlugin {
+                    plugin_id,
+                }))
             }
             ManagementAppPluginMsgIn::SelectItem(selected_item) => {
                 self.selected_item = selected_item;
@@ -696,6 +710,6 @@ pub fn handle_backend_error<T>(
 ) -> ManagementAppPluginMsgOut {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppPluginMsgOut::HandleBackendError(err),
+        Err(err) => ManagementAppPluginMsgOut::Outer(ManagementAppMsg::HandleBackendError(err)),
     }
 }
