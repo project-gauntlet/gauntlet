@@ -23,6 +23,7 @@ use gauntlet_common::model::SearchResult;
 use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::SettingsEntrypoint;
 use gauntlet_common::model::SettingsEntrypointType;
+use gauntlet_common::model::SettingsGeneratedEntrypoint;
 use gauntlet_common::model::SettingsPlugin;
 use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::UiPropertyValue;
@@ -43,6 +44,7 @@ use gauntlet_plugin_runtime::JsPluginPermissionsMainSearchBar;
 use gauntlet_utils::channel::RequestSender;
 use include_dir::include_dir;
 use include_dir::Dir;
+use itertools::Itertools;
 use tokio::runtime::Handle;
 
 use crate::model::ActionShortcutKey;
@@ -196,7 +198,7 @@ impl ApplicationManager {
         entrypoint_id: EntrypointId,
         action_id: String,
     ) -> anyhow::Result<()> {
-        let data = self.search_index.plugin_entrypoint_actions();
+        let data = self.search_index.plugin_entrypoint_data();
 
         let Some(data) = data.get(&plugin_id) else {
             return Err(anyhow!("Unable to find plugin with id: {}", plugin_id));
@@ -213,9 +215,9 @@ impl ApplicationManager {
 
         let EntrypointDataView {
             entrypoint_name,
+            entrypoint_generator: _,
             entrypoint_type,
             actions,
-            ..
         } = entrypoint_data;
 
         match action_id.as_str() {
@@ -381,12 +383,46 @@ impl ApplicationManager {
     }
 
     pub async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>> {
+        let mut generator_data: HashMap<_, _> = self
+            .search_index
+            .plugin_entrypoint_data()
+            .into_iter()
+            .flat_map(|(plugin_id, plugin_data)| {
+                let generator_data: HashMap<_, HashMap<_, _>> = plugin_data
+                    .entrypoints
+                    .into_iter()
+                    .filter_map(|(entrypoint_id, entrypoint_data)| {
+                        match &entrypoint_data.entrypoint_generator {
+                            None => None,
+                            Some((generator_entrypoint_id, _)) => {
+                                Some((generator_entrypoint_id.clone(), entrypoint_id, entrypoint_data))
+                            }
+                        }
+                    })
+                    .chunk_by(|(generator_entrypoint_id, entrypoint_id, entrypoint_data)| {
+                        generator_entrypoint_id.clone()
+                    })
+                    .into_iter()
+                    .map(|(generator_id, data)| {
+                        let data: HashMap<_, _> = data
+                            .map(|(_, entrypoint_id, entrypoint_data)| (entrypoint_id, entrypoint_data))
+                            .collect();
+                        ((plugin_id.clone(), generator_id.clone()), data)
+                    })
+                    .collect();
+
+                generator_data
+            })
+            .collect();
+
         let result = self
             .db_repository
             .list_plugins_and_entrypoints()
             .await?
             .into_iter()
             .map(|(plugin, entrypoints)| {
+                let plugin_id = PluginId::from_string(plugin.id);
+
                 let entrypoints = entrypoints
                     .into_iter()
                     .map(|entrypoint| {
@@ -419,6 +455,19 @@ impl ApplicationManager {
                                 .into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_from_db(value)))
                                 .collect(),
+                            generated_entrypoints: generator_data
+                                .remove(&(plugin_id.clone(), entrypoint_id.clone()))
+                                .unwrap_or_default()
+                                .into_iter()
+                                .map(|(entrypoint_id, data)| {
+                                    let generated_entrypoint = SettingsGeneratedEntrypoint {
+                                        entrypoint_id: entrypoint_id.clone(),
+                                        entrypoint_name: data.entrypoint_name,
+                                    };
+
+                                    (entrypoint_id, generated_entrypoint)
+                                })
+                                .collect(),
                         };
 
                         (entrypoint_id, entrypoint)
@@ -426,7 +475,7 @@ impl ApplicationManager {
                     .collect();
 
                 SettingsPlugin {
-                    plugin_id: PluginId::from_string(plugin.id),
+                    plugin_id,
                     plugin_name: plugin.name,
                     plugin_description: plugin.description,
                     enabled: plugin.enabled,

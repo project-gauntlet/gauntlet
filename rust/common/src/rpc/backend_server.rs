@@ -29,6 +29,7 @@ use crate::rpc::grpc::RpcDownloadStatusResponse;
 use crate::rpc::grpc::RpcDownloadStatusValue;
 use crate::rpc::grpc::RpcEntrypoint;
 use crate::rpc::grpc::RpcEntrypointTypeSettings;
+use crate::rpc::grpc::RpcGeneratedEntrypoint;
 use crate::rpc::grpc::RpcGetGlobalShortcutRequest;
 use crate::rpc::grpc::RpcGetGlobalShortcutResponse;
 use crate::rpc::grpc::RpcGetThemeRequest;
@@ -237,6 +238,19 @@ impl RpcBackend for RpcBackendServerImpl {
                                 .preferences_user_data
                                 .into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_to_rpc(value)))
+                                .collect(),
+                            generated_entrypoints: entrypoint
+                                .generated_entrypoints
+                                .into_iter()
+                                .map(|(entrypoint_id, data)| {
+                                    (
+                                        entrypoint_id.to_string(),
+                                        RpcGeneratedEntrypoint {
+                                            entrypoint_id: data.entrypoint_id.to_string(),
+                                            entrypoint_name: data.entrypoint_name,
+                                        },
+                                    )
+                                })
                                 .collect(),
                         }
                     })

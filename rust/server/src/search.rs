@@ -51,7 +51,7 @@ struct PluginData {
 
 struct EntrypointData {
     entrypoint_name: String,
-    entrypoint_generator_name: Option<String>,
+    entrypoint_generator: Option<(EntrypointId, String)>,
     entrypoint_type: SearchResultEntrypointType,
     icon: Option<bytes::Bytes>,
     frecency: f64,
@@ -79,7 +79,7 @@ pub struct PluginDataView {
 
 pub struct EntrypointDataView {
     pub entrypoint_name: String,
-    pub entrypoint_generator_name: Option<String>,
+    pub entrypoint_generator: Option<(EntrypointId, String)>,
     pub entrypoint_type: SearchResultEntrypointType,
     pub actions: Vec<EntrypointActionDataView>,
 }
@@ -95,7 +95,7 @@ pub struct EntrypointActionDataView {
 pub struct SearchIndexItem {
     pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_name: String,
-    pub entrypoint_generator_name: Option<String>,
+    pub entrypoint_generator: Option<(EntrypointId, String)>,
     pub entrypoint_id: EntrypointId,
     pub entrypoint_icon: Option<bytes::Bytes>,
     pub entrypoint_frecency: f64,
@@ -228,7 +228,7 @@ impl SearchIndex {
 
                 let data = EntrypointData {
                     entrypoint_name: item.entrypoint_name,
-                    entrypoint_generator_name: item.entrypoint_generator_name,
+                    entrypoint_generator: item.entrypoint_generator,
                     entrypoint_type: item.entrypoint_type,
                     icon: item.entrypoint_icon,
                     frecency: item.entrypoint_frecency,
@@ -267,7 +267,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub fn plugin_entrypoint_actions(&self) -> HashMap<PluginId, PluginDataView> {
+    pub fn plugin_entrypoint_data(&self) -> HashMap<PluginId, PluginDataView> {
         let entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
 
         entrypoint_data
@@ -294,7 +294,7 @@ impl SearchIndex {
                             entrypoint_id.clone(),
                             EntrypointDataView {
                                 entrypoint_name: data.entrypoint_name.clone(),
-                                entrypoint_generator_name: data.entrypoint_generator_name.clone(),
+                                entrypoint_generator: data.entrypoint_generator.clone(),
                                 entrypoint_type: data.entrypoint_type.clone(),
                                 actions,
                             },
@@ -425,7 +425,10 @@ impl SearchIndex {
                 let result_item = SearchResult {
                     entrypoint_type: entrypoint_data.entrypoint_type.clone(),
                     entrypoint_name,
-                    entrypoint_generator_name: entrypoint_data.entrypoint_generator_name.clone(),
+                    entrypoint_generator_name: entrypoint_data
+                        .entrypoint_generator
+                        .as_ref()
+                        .map(|(_, name)| name.clone()),
                     entrypoint_id,
                     entrypoint_icon: entrypoint_data.icon.clone(),
                     plugin_name,

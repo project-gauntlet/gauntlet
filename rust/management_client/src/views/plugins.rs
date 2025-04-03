@@ -5,16 +5,19 @@ use std::rc::Rc;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::PluginPreferenceUserData;
+use gauntlet_common::model::SettingsEntrypointType;
 use gauntlet_common::model::SettingsPlugin;
 use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_api::BackendApiError;
 use gauntlet_common::settings_env_data_from_string;
 use gauntlet_common::SettingsEnvData;
 use gauntlet_common::SETTINGS_ENV;
+use iced::alignment;
 use iced::padding;
 use iced::widget::button;
 use iced::widget::column;
 use iced::widget::container;
+use iced::widget::pane_grid::Edge;
 use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
@@ -49,9 +52,19 @@ pub enum ManagementAppPluginMsgIn {
     PluginPreferenceMsg(PluginPreferencesMsg),
     FetchPlugins,
     PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
-    RemovePlugin { plugin_id: PluginId },
-    ToggleShowEntrypoint { plugin_id: PluginId },
-    DownloadPlugin { plugin_id: PluginId },
+    RemovePlugin {
+        plugin_id: PluginId,
+    },
+    ToggleShowEntrypoint {
+        plugin_id: PluginId,
+    },
+    ToggleShowGeneratedEntrypoint {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    },
+    DownloadPlugin {
+        plugin_id: PluginId,
+    },
     SelectItem(SelectedItem),
     Noop,
 }
@@ -167,7 +180,20 @@ impl ManagementAppPluginsState {
                             )))
                         }
                         PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
-                            Task::done(ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::Noop))
+                            Task::done(ManagementAppPluginMsgOut::Inner(
+                                ManagementAppPluginMsgIn::ToggleShowEntrypoint { plugin_id },
+                            ))
+                        }
+                        PluginTableMsgOut::ToggleShowGeneratedEntrypoints {
+                            plugin_id,
+                            entrypoint_id,
+                        } => {
+                            Task::done(ManagementAppPluginMsgOut::Inner(
+                                ManagementAppPluginMsgIn::ToggleShowGeneratedEntrypoint {
+                                    plugin_id,
+                                    entrypoint_id,
+                                },
+                            ))
                         }
                     }
                 })
@@ -177,6 +203,27 @@ impl ManagementAppPluginsState {
                     let mut plugin_data = self.plugin_data.borrow_mut();
                     let settings_plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
                     settings_plugin_data.show_entrypoints = !settings_plugin_data.show_entrypoints;
+
+                    plugin_data.plugins.clone()
+                };
+
+                self.apply_plugin_fetch(plugins);
+
+                Task::none()
+            }
+            ManagementAppPluginMsgIn::ToggleShowGeneratedEntrypoint {
+                plugin_id,
+                entrypoint_id,
+            } => {
+                let plugins = {
+                    let mut plugin_data = self.plugin_data.borrow_mut();
+                    let settings_plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
+                    let settings_entrypoint_data = settings_plugin_data
+                        .generator_entrypoint_state
+                        .get_mut(&entrypoint_id)
+                        .unwrap();
+
+                    settings_entrypoint_data.show_entrypoints = !settings_entrypoint_data.show_entrypoints;
 
                     plugin_data.plugins.clone()
                 };
@@ -303,14 +350,37 @@ impl ManagementAppPluginsState {
 
         plugin_data.plugins_state = plugins
             .iter()
-            .map(|(id, _plugin)| {
-                let show_entrypoints = plugin_data
-                    .plugins_state
-                    .get(&id)
-                    .map(|data| data.show_entrypoints)
-                    .unwrap_or(true);
+            .map(|(id, plugin)| {
+                let plugin_data = plugin_data.plugins_state.get(&id);
 
-                (id.clone(), SettingsPluginData { show_entrypoints })
+                let show_entrypoints = plugin_data.map(|data| data.show_entrypoints).unwrap_or(true);
+
+                let mut generator_entrypoint_state_old = plugin_data
+                    .map(|data| data.generator_entrypoint_state.clone())
+                    .unwrap_or_default();
+
+                let generator_entrypoint_state = plugin
+                    .entrypoints
+                    .iter()
+                    .filter(|(_, entrypoint)| {
+                        matches!(entrypoint.entrypoint_type, SettingsEntrypointType::EntrypointGenerator)
+                    })
+                    .map(|(_, entrypoint)| {
+                        let generator_data = generator_entrypoint_state_old
+                            .remove(&entrypoint.entrypoint_id)
+                            .unwrap_or(SettingsGeneratorData { show_entrypoints: true });
+
+                        (entrypoint.entrypoint_id.clone(), generator_data)
+                    })
+                    .collect();
+
+                (
+                    id.clone(),
+                    SettingsPluginData {
+                        show_entrypoints,
+                        generator_entrypoint_state,
+                    },
+                )
             })
             .collect();
 
@@ -377,7 +447,7 @@ impl ManagementAppPluginsState {
                             .class(TextStyle::Subtitle)
                             .into();
 
-                        let id = container(id).padding(padding::bottom(8.0)).into();
+                        let id = container(id).padding(padding::all(8.0).top(0)).into();
 
                         let mut column_content = vec![name, id];
 
@@ -385,7 +455,8 @@ impl ManagementAppPluginsState {
                             let description_label: Element<_> =
                                 text("Description").size(14).class(TextStyle::Subtitle).into();
 
-                            let description_label = container(description_label).padding(padding::bottom(8.0)).into();
+                            let description_label =
+                                container(description_label).padding(padding::all(8.0).top(0)).into();
 
                             let description = text(plugin.plugin_description.to_string()).shaping(Shaping::Advanced);
 
@@ -485,7 +556,8 @@ impl ManagementAppPluginsState {
                             let description_label: Element<_> =
                                 text("Description").size(14).class(TextStyle::Subtitle).into();
 
-                            let description_label = container(description_label).padding(padding::bottom(8.0)).into();
+                            let description_label =
+                                container(description_label).padding(padding::all(8.0).top(0)).into();
 
                             let description = container(text(entrypoint.entrypoint_description.to_string()))
                                 .padding(Padding::new(8.0))
@@ -541,6 +613,47 @@ impl ManagementAppPluginsState {
                     .height(Length::Fill)
                     .align_x(Alignment::Center)
                     .into()
+            }
+            SelectedItem::GeneratedEntrypoint {
+                plugin_id,
+                generated_entrypoint_id,
+                generator_entrypoint_id,
+            } => {
+                let plugin_data = self.plugin_data.borrow();
+
+                let entrypoint = plugin_data
+                    .plugins
+                    .get(&plugin_id)
+                    .map(|plugin| plugin.entrypoints.get(generator_entrypoint_id))
+                    .flatten()
+                    .map(|entrypoint| entrypoint.generated_entrypoints.get(generated_entrypoint_id))
+                    .flatten();
+
+                match entrypoint {
+                    None => {
+                        let loading_text: Element<_> = text("Loading...").into();
+
+                        container(loading_text)
+                            .align_y(Alignment::Center)
+                            .align_x(Alignment::Center)
+                            .height(Length::Fill)
+                            .width(Length::Fill)
+                            .into()
+                    }
+                    Some(entrypoint) => {
+                        let name: Element<_> = text(entrypoint.entrypoint_name.to_string())
+                            .shaping(Shaping::Advanced)
+                            .into();
+
+                        let name: Element<_> = container(name).padding(padding::all(8.0)).into();
+
+                        container(name)
+                            .padding(Padding::from([4.0, 0.0]))
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .into()
+                    }
+                }
             }
         };
 
@@ -630,10 +743,21 @@ pub enum SelectedItem {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
+    GeneratedEntrypoint {
+        plugin_id: PluginId,
+        generator_entrypoint_id: EntrypointId,
+        generated_entrypoint_id: EntrypointId,
+    },
 }
 
 #[derive(Debug, Clone)]
 struct SettingsPluginData {
+    show_entrypoints: bool,
+    generator_entrypoint_state: HashMap<EntrypointId, SettingsGeneratorData>,
+}
+
+#[derive(Debug, Clone)]
+struct SettingsGeneratorData {
     show_entrypoints: bool,
 }
 

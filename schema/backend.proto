@@ -210,8 +210,13 @@ message RpcEntrypoint {
   RpcEntrypointTypeSettings entrypoint_type = 5;
   map<string, RpcPluginPreference> preferences = 6;
   map<string, RpcPluginPreferenceUserData> preferences_user_data = 7;
+  map<string, RpcGeneratedEntrypoint> generated_entrypoints = 8;
 }
 
+message RpcGeneratedEntrypoint {
+  string entrypoint_id = 1;
+  string entrypoint_name = 2;
+}
 
 message RpcEventRenderView {
   string entrypoint_id = 1;

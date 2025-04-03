@@ -676,6 +676,13 @@ pub struct SettingsEntrypoint {
     pub enabled: bool,
     pub preferences: HashMap<String, PluginPreference>,
     pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
+    pub generated_entrypoints: HashMap<EntrypointId, SettingsGeneratedEntrypoint>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SettingsGeneratedEntrypoint {
+    pub entrypoint_id: EntrypointId,
+    pub entrypoint_name: String,
 }
 
 #[derive(Debug, Clone)]

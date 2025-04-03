@@ -20,6 +20,7 @@ use crate::model::PluginPreferenceUserData;
 use crate::model::SearchResult;
 use crate::model::SettingsEntrypoint;
 use crate::model::SettingsEntrypointType;
+use crate::model::SettingsGeneratedEntrypoint;
 use crate::model::SettingsPlugin;
 use crate::model::SettingsTheme;
 use crate::model::UiPropertyValue;
@@ -417,6 +418,18 @@ impl BackendApi {
                                 .preferences_user_data
                                 .into_iter()
                                 .map(|(key, value)| (key, plugin_preference_user_data_from_rpc(value)))
+                                .collect(),
+                            generated_entrypoints: entrypoint
+                                .generated_entrypoints
+                                .into_iter()
+                                .map(|(entrypoint_id, data)| {
+                                    let generated_entrypoint = SettingsGeneratedEntrypoint {
+                                        entrypoint_id: EntrypointId::from_string(data.entrypoint_id),
+                                        entrypoint_name: data.entrypoint_name,
+                                    };
+
+                                    (EntrypointId::from_string(entrypoint_id), generated_entrypoint)
+                                })
                                 .collect(),
                         };
                         (id, entrypoint)

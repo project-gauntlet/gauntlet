@@ -888,9 +888,12 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     })
                     .collect();
 
-                let entrypoint_generator_name = generator_names
-                    .get(&item.generator_entrypoint_id)
-                    .map(|name| name.to_string());
+                let entrypoint_generator = generator_names.get(&item.generator_entrypoint_id).map(|name| {
+                    (
+                        EntrypointId::from_string(item.generator_entrypoint_id),
+                        name.to_string(),
+                    )
+                });
 
                 Ok(SearchIndexItem {
                     entrypoint_type: SearchResultEntrypointType::Generated,
@@ -900,7 +903,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     entrypoint_frecency,
                     entrypoint_actions,
                     entrypoint_accessories,
-                    entrypoint_generator_name,
+                    entrypoint_generator,
                 })
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -946,7 +949,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                         Ok(Some(SearchIndexItem {
                             entrypoint_type: SearchResultEntrypointType::Command,
                             entrypoint_name: entrypoint.name,
-                            entrypoint_generator_name: None,
+                            entrypoint_generator: None,
                             entrypoint_id,
                             entrypoint_icon,
                             entrypoint_frecency,
@@ -958,7 +961,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                         Ok(Some(SearchIndexItem {
                             entrypoint_type: SearchResultEntrypointType::View,
                             entrypoint_name: entrypoint.name,
-                            entrypoint_generator_name: None,
+                            entrypoint_generator: None,
                             entrypoint_id,
                             entrypoint_icon,
                             entrypoint_frecency,
