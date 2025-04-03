@@ -2221,7 +2221,11 @@ fn assign_global_shortcut(
 
     if let Some(current_hotkey) = *hotkey_guard {
         if let Err(err) = global_hotkey_manager.unregister(current_hotkey) {
-            tracing::warn!("error occurred when unregistering global shortcut {:?}: {:?}", current_hotkey, err)
+            tracing::warn!(
+                "error occurred when unregistering global shortcut {:?}: {:?}",
+                current_hotkey,
+                err
+            )
         }
     }
 
