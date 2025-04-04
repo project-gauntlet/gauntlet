@@ -2353,10 +2353,6 @@ impl AppModel {
 
         let commands = vec![open_task];
 
-        // if self.pending_window_state_reset {
-        //     commands.push(self.reset_window_state());
-        // }
-
         Task::batch(commands)
     }
 
