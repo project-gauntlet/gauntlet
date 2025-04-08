@@ -92,6 +92,7 @@ use iced::Subscription;
 use iced::Task;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 use serde::Deserialize;
+use serde_json::map::Entry;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex as TokioMutex;
@@ -145,8 +146,9 @@ use crate::ui::widget_container::PluginWidgetContainer;
 pub struct AppModel {
     // logic
     backend_api: BackendForFrontendApi,
-    global_hotkey_manager: Arc<StdRwLock<GlobalHotKeyManager>>,
-    current_hotkey: Arc<StdMutex<Option<HotKey>>>,
+    global_hotkey_manager: GlobalHotKeyManager,
+    current_global_hotkey: Option<HotKey>,
+    current_entrypoint_global_hotkeys: HashMap<(PluginId, EntrypointId), HotKey>,
     frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
     main_window_id: window::Id,
     focused: bool,
@@ -254,6 +256,7 @@ pub enum AppMsg {
     ShowWindow,
     HideWindow,
     ToggleWindow,
+    HandleGlobalShortcut(u32),
     ToggleActionPanel {
         keyboard: bool,
     },
@@ -332,6 +335,12 @@ pub enum AppMsg {
         shortcut: Option<PhysicalShortcut>,
         responder: Arc<Mutex<Option<Responder<UiResponseData>>>>,
     },
+    SetGlobalEntrypointShortcut {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+        responder: Arc<Mutex<Option<Responder<UiResponseData>>>>,
+    },
     UpdateLoadingBar {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -356,6 +365,10 @@ pub enum AppMsg {
     #[cfg(target_os = "linux")]
     X11ActiveWindowChanged {
         window: u32,
+    },
+    RunEntrypoint {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
     },
 }
 
@@ -554,15 +567,30 @@ fn new(
 
     GauntletComplexTheme::set_global(theme.clone());
 
-    let current_hotkey = Arc::new(StdMutex::new(None));
-
     let global_hotkey_manager = GlobalHotKeyManager::new().expect("unable to create global hot key manager");
 
-    let assignment_result = assign_global_shortcut(&global_hotkey_manager, &current_hotkey, setup_data.global_shortcut);
+    // let current_global_hotkey = None;
+    // let global_assignment_result = anyhow::Ok(());
+    let (current_global_hotkey, global_assignment_result) =
+        assign_global_shortcut(&global_hotkey_manager, None, setup_data.global_shortcut);
 
-    futures::executor::block_on(
-        backend_api.setup_response(assignment_result.map_err(|err| format!("{:#}", err)).err()),
-    )
+    let mut global_entrypoint_assignment_results = HashMap::new();
+    let mut current_entrypoint_global_hotkeys = HashMap::new();
+    for ((plugin_id, entrypoint_id), shortcut) in setup_data.global_entrypoint_shortcuts {
+        let (global_hotkey, result) = assign_global_shortcut(&global_hotkey_manager, None, Some(shortcut));
+        if let Some(global_hotkey) = global_hotkey {
+            current_entrypoint_global_hotkeys.insert((plugin_id.clone(), entrypoint_id.clone()), global_hotkey);
+        }
+        global_entrypoint_assignment_results.insert(
+            (plugin_id, entrypoint_id),
+            result.map_err(|err| format!("{:#}", err)).err(),
+        );
+    }
+
+    futures::executor::block_on(backend_api.setup_response(
+        global_assignment_result.map_err(|err| format!("{:#}", err)).err(),
+        global_entrypoint_assignment_results,
+    ))
     .expect("Unable to setup frontend");
 
     let mut tasks = vec![font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)];
@@ -689,8 +717,9 @@ fn new(
         AppModel {
             // logic
             backend_api,
-            global_hotkey_manager: Arc::new(StdRwLock::new(global_hotkey_manager)),
-            current_hotkey,
+            global_hotkey_manager,
+            current_global_hotkey,
+            current_entrypoint_global_hotkeys,
             frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
             main_window_id,
             focused: false,
@@ -1460,27 +1489,81 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::SetGlobalShortcut { shortcut, responder } => {
-            tracing::info!("Registering new global shortcut: {:?}", shortcut);
-
-            let run = || {
-                let global_hotkey_manager = state.global_hotkey_manager.read().expect("lock is poisoned");
-
-                assign_global_shortcut(&global_hotkey_manager, &state.current_hotkey, shortcut)
-            };
-
-            // responder is not clone and send, and we need to consume it
-            // so we wrap it in arc mutex option
             let mut responder = responder
                 .lock()
                 .expect("lock is poisoned")
                 .take()
                 .expect("there should always be a responder here");
 
-            match run() {
+            let (hotkey, error) = assign_global_shortcut(
+                &state.global_hotkey_manager,
+                state.current_global_hotkey,
+                shortcut.clone(),
+            );
+
+            state.current_global_hotkey = hotkey;
+
+            match error {
                 Ok(()) => {
+                    tracing::info!("Successfully registered new global shortcut: {:?}", shortcut);
                     responder.respond(UiResponseData::Nothing);
                 }
                 Err(err) => {
+                    tracing::error!("Unable to register new global shortcut {:?}: {:?}", shortcut, err);
+                    responder.respond(UiResponseData::Err(err));
+                }
+            }
+
+            Task::none()
+        }
+        AppMsg::SetGlobalEntrypointShortcut {
+            plugin_id,
+            entrypoint_id,
+            shortcut,
+            responder,
+        } => {
+            let mut responder = responder
+                .lock()
+                .expect("lock is poisoned")
+                .take()
+                .expect("there should always be a responder here");
+
+            let current_global_hotkey = state
+                .current_entrypoint_global_hotkeys
+                .get(&(plugin_id.clone(), entrypoint_id.clone()))
+                .cloned();
+
+            let (hotkey, error) =
+                assign_global_shortcut(&state.global_hotkey_manager, current_global_hotkey, shortcut.clone());
+
+            if let Some(hotkey) = hotkey {
+                state
+                    .current_entrypoint_global_hotkeys
+                    .insert((plugin_id.clone(), entrypoint_id.clone()), hotkey);
+            } else {
+                state
+                    .current_entrypoint_global_hotkeys
+                    .remove(&(plugin_id.clone(), entrypoint_id.clone()));
+            };
+
+            match error {
+                Ok(()) => {
+                    tracing::info!(
+                        "Successfully registered new global shortcut for plugin '{:?}' and entrypoint '{:?}' : {:?}",
+                        plugin_id,
+                        entrypoint_id,
+                        shortcut
+                    );
+                    responder.respond(UiResponseData::Nothing);
+                }
+                Err(err) => {
+                    tracing::info!(
+                        "Unable to register new global shortcut for plugin '{:?}' and entrypoint '{:?}' - {:?}: {:?}",
+                        plugin_id,
+                        entrypoint_id,
+                        shortcut,
+                        err
+                    );
                     responder.respond(UiResponseData::Err(err));
                 }
             }
@@ -1607,6 +1690,43 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             } else {
                 Task::none()
             }
+        }
+        AppMsg::HandleGlobalShortcut(id) => {
+            if let Some(hotkey) = state.current_global_hotkey {
+                if hotkey.id == id {
+                    return Task::done(AppMsg::ToggleWindow);
+                }
+            }
+
+            let ids = state
+                .current_entrypoint_global_hotkeys
+                .iter()
+                .find(|(_, hotkey)| hotkey.id == id)
+                .map(|(ids, _)| ids);
+
+            if let Some((plugin_id, entrypoint_id)) = ids {
+                return Task::done(AppMsg::RunEntrypoint {
+                    plugin_id: plugin_id.clone(),
+                    entrypoint_id: entrypoint_id.clone(),
+                });
+            };
+
+            Task::none()
+        }
+        AppMsg::RunEntrypoint {
+            plugin_id,
+            entrypoint_id,
+        } => {
+            let mut backend_client = state.backend_api.clone();
+
+            Task::perform(
+                async move {
+                    let result = backend_client.run_entrypoint(plugin_id, entrypoint_id).await?;
+
+                    Ok(result)
+                },
+                |result| handle_backend_error(result, |action_shortcuts| AppMsg::Noop),
+            )
         }
     }
 }
@@ -2214,13 +2334,11 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
 
 fn assign_global_shortcut(
     global_hotkey_manager: &GlobalHotKeyManager,
-    current_hotkey: &Arc<StdMutex<Option<HotKey>>>,
-    shortcut: Option<PhysicalShortcut>,
-) -> anyhow::Result<()> {
-    let mut hotkey_guard = current_hotkey.lock().expect("lock is poisoned");
-
-    if let Some(current_hotkey) = *hotkey_guard {
-        if let Err(err) = global_hotkey_manager.unregister(current_hotkey) {
+    current_hotkey: Option<HotKey>,
+    new_shortcut: Option<PhysicalShortcut>,
+) -> (Option<HotKey>, anyhow::Result<()>) {
+    if let Some(current_hotkey) = current_hotkey {
+        if let Err(err) = global_hotkey_manager.unregister(current_hotkey.clone()) {
             tracing::warn!(
                 "error occurred when unregistering global shortcut {:?}: {:?}",
                 current_hotkey,
@@ -2229,22 +2347,15 @@ fn assign_global_shortcut(
         }
     }
 
-    if let Some(shortcut) = shortcut {
-        let hotkey = convert_physical_shortcut_to_hotkey(shortcut);
-
+    if let Some(new_shortcut) = new_shortcut {
+        let hotkey = convert_physical_shortcut_to_hotkey(new_shortcut);
         match global_hotkey_manager.register(hotkey) {
-            Ok(()) => {
-                *hotkey_guard = Some(hotkey);
-            }
-            Err(err) => {
-                *hotkey_guard = None;
-
-                Err(err)?
-            }
+            Ok(()) => (Some(hotkey), Ok(())),
+            Err(err) => (None, Err(anyhow!(err))),
         }
+    } else {
+        (None, Ok(()))
     }
-
-    Ok(())
 }
 
 impl AppModel {
@@ -2955,6 +3066,18 @@ async fn request_loop(
                 }
                 UiRequestData::SetGlobalShortcut { shortcut } => {
                     AppMsg::SetGlobalShortcut {
+                        shortcut,
+                        responder: Arc::new(Mutex::new(Some(responder))),
+                    }
+                }
+                UiRequestData::SetGlobalEntrypointShortcut {
+                    plugin_id,
+                    entrypoint_id,
+                    shortcut,
+                } => {
+                    AppMsg::SetGlobalEntrypointShortcut {
+                        plugin_id,
+                        entrypoint_id,
                         shortcut,
                         responder: Arc::new(Mutex::new(Some(responder))),
                     }

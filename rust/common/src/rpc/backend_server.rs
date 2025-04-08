@@ -30,6 +30,9 @@ use crate::rpc::grpc::RpcDownloadStatusValue;
 use crate::rpc::grpc::RpcEntrypoint;
 use crate::rpc::grpc::RpcEntrypointTypeSettings;
 use crate::rpc::grpc::RpcGeneratedEntrypoint;
+use crate::rpc::grpc::RpcGetGlobalEntrypointShortcut;
+use crate::rpc::grpc::RpcGetGlobalEntrypointShortcutRequest;
+use crate::rpc::grpc::RpcGetGlobalEntrypointShortcutResponse;
 use crate::rpc::grpc::RpcGetGlobalShortcutRequest;
 use crate::rpc::grpc::RpcGetGlobalShortcutResponse;
 use crate::rpc::grpc::RpcGetThemeRequest;
@@ -49,6 +52,8 @@ use crate::rpc::grpc::RpcSaveLocalPluginRequest;
 use crate::rpc::grpc::RpcSaveLocalPluginResponse;
 use crate::rpc::grpc::RpcSetEntrypointStateRequest;
 use crate::rpc::grpc::RpcSetEntrypointStateResponse;
+use crate::rpc::grpc::RpcSetGlobalEntrypointShortcutRequest;
+use crate::rpc::grpc::RpcSetGlobalEntrypointShortcutResponse;
 use crate::rpc::grpc::RpcSetGlobalShortcutRequest;
 use crate::rpc::grpc::RpcSetGlobalShortcutResponse;
 use crate::rpc::grpc::RpcSetPluginStateRequest;
@@ -127,6 +132,17 @@ pub trait BackendServer {
     async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()>;
 
     async fn get_global_shortcut(&self) -> anyhow::Result<(Option<PhysicalShortcut>, Option<String>)>;
+
+    async fn set_global_entrypoint_shortcut(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()>;
+
+    async fn get_global_entrypoint_shortcuts(
+        &self,
+    ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>>;
 
     async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()>;
 
@@ -401,6 +417,68 @@ impl RpcBackend for RpcBackendServerImpl {
             }),
             error,
         }))
+    }
+
+    async fn set_global_entrypoint_shortcut(
+        &self,
+        request: Request<RpcSetGlobalEntrypointShortcutRequest>,
+    ) -> Result<Response<RpcSetGlobalEntrypointShortcutResponse>, Status> {
+        let request = request.into_inner();
+
+        let plugin_id = request.plugin_id;
+        let entrypoint_id = request.entrypoint_id;
+        let shortcut = request.shortcut.map(|shortcut| {
+            PhysicalShortcut {
+                physical_key: PhysicalKey::from_value(shortcut.physical_key),
+                modifier_shift: shortcut.modifier_shift,
+                modifier_control: shortcut.modifier_control,
+                modifier_alt: shortcut.modifier_alt,
+                modifier_meta: shortcut.modifier_meta,
+            }
+        });
+
+        let plugin_id = PluginId::from_string(plugin_id);
+        let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
+        let error = self
+            .server
+            .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
+            .await
+            .map_err(|err| format!("{:#}", err))
+            .err();
+
+        Ok(Response::new(RpcSetGlobalEntrypointShortcutResponse { error }))
+    }
+
+    async fn get_global_entrypoint_shortcut(
+        &self,
+        _request: Request<RpcGetGlobalEntrypointShortcutRequest>,
+    ) -> Result<Response<RpcGetGlobalEntrypointShortcutResponse>, Status> {
+        let shortcuts = self
+            .server
+            .get_global_entrypoint_shortcuts()
+            .await
+            .map_err(|err| Status::internal(format!("{:#}", err)))?;
+
+        let shortcuts = shortcuts
+            .into_iter()
+            .map(|((plugin_id, entrypoint_id), (shortcut, error))| {
+                RpcGetGlobalEntrypointShortcut {
+                    plugin_id: plugin_id.to_string(),
+                    entrypoint_id: entrypoint_id.to_string(),
+                    shortcut: Some(RpcShortcut {
+                        physical_key: shortcut.physical_key.to_value(),
+                        modifier_shift: shortcut.modifier_shift,
+                        modifier_control: shortcut.modifier_control,
+                        modifier_alt: shortcut.modifier_alt,
+                        modifier_meta: shortcut.modifier_meta,
+                    }),
+                    error,
+                }
+            })
+            .collect();
+
+        Ok(Response::new(RpcGetGlobalEntrypointShortcutResponse { shortcuts }))
     }
 
     async fn set_theme(&self, request: Request<RpcSetThemeRequest>) -> Result<Response<RpcSetThemeResponse>, Status> {

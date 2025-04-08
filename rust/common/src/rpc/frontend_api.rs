@@ -191,6 +191,30 @@ impl FrontendApi {
         }
     }
 
+    pub async fn set_global_entrypoint_shortcut(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()> {
+        let request = UiRequestData::SetGlobalEntrypointShortcut {
+            plugin_id,
+            entrypoint_id,
+            shortcut,
+        };
+
+        let data = self
+            .frontend_sender
+            .send_receive(request)
+            .await
+            .map_err(|err| anyhow!("error: {:?}", err))?;
+
+        match data {
+            UiResponseData::Nothing => Ok(()),
+            UiResponseData::Err(err) => Err(err),
+        }
+    }
+
     pub async fn set_theme(&self, theme: UiTheme) -> anyhow::Result<()> {
         let request = UiRequestData::SetTheme { theme };
 

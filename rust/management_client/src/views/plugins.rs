@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use gauntlet_common::model::EntrypointId;
+use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::PluginPreferenceUserData;
 use gauntlet_common::model::SettingsEntrypointType;
@@ -48,10 +49,16 @@ mod table;
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppPluginMsgIn {
+    InitSetting {
+        global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
+    },
     PluginTableMsg(PluginTableMsgIn),
     PluginPreferenceMsg(PluginPreferencesMsg),
     FetchPlugins,
-    PluginsReloaded(HashMap<PluginId, SettingsPlugin>),
+    PluginsReloaded(
+        HashMap<PluginId, SettingsPlugin>,
+        HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
+    ),
     RemovePlugin {
         plugin_id: PluginId,
     },
@@ -80,6 +87,7 @@ pub struct ManagementAppPluginsState {
     plugin_data: Rc<RefCell<PluginDataContainer>>,
     preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>,
     selected_item: SelectedItem,
+    global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
 }
 
 impl ManagementAppPluginsState {
@@ -115,6 +123,7 @@ impl ManagementAppPluginsState {
             preference_user_data: HashMap::new(),
             selected_item: select_item,
             table_state: PluginTableState::new(),
+            global_entrypoint_shortcuts: HashMap::new(),
         }
     }
 
@@ -125,6 +134,13 @@ impl ManagementAppPluginsState {
         };
 
         match message {
+            ManagementAppPluginMsgIn::InitSetting {
+                global_entrypoint_shortcuts,
+            } => {
+                self.global_entrypoint_shortcuts = global_entrypoint_shortcuts;
+
+                Task::none()
+            }
             ManagementAppPluginMsgIn::PluginTableMsg(message) => {
                 self.table_state.update(message).then(move |msg| {
                     match msg {
@@ -136,13 +152,16 @@ impl ManagementAppPluginsState {
                                     backend_client.set_plugin_state(plugin_id, enabled).await?;
 
                                     let plugins = backend_client.plugins().await?;
+                                    let global_entrypoint_shortcuts =
+                                        backend_client.get_global_entrypoint_shortcuts().await?;
 
-                                    Ok(plugins)
+                                    Ok((plugins, global_entrypoint_shortcuts))
                                 },
                                 |result| {
-                                    handle_backend_error(result, |plugins| {
+                                    handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
                                         ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
                                             plugins,
+                                            global_entrypoint_shortcuts,
                                         ))
                                     })
                                 },
@@ -162,13 +181,16 @@ impl ManagementAppPluginsState {
                                         .await?;
 
                                     let plugins = backend_client.plugins().await?;
+                                    let global_entrypoint_shortcuts =
+                                        backend_client.get_global_entrypoint_shortcuts().await?;
 
-                                    Ok(plugins)
+                                    Ok((plugins, global_entrypoint_shortcuts))
                                 },
                                 |result| {
-                                    handle_backend_error(result, |plugins| {
+                                    handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
                                         ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
                                             plugins,
+                                            global_entrypoint_shortcuts,
                                         ))
                                     })
                                 },
@@ -195,6 +217,31 @@ impl ManagementAppPluginsState {
                                 },
                             ))
                         }
+                        PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut) => {
+                            let mut backend_client = backend_api.clone();
+
+                            Task::perform(
+                                async move {
+                                    backend_client
+                                        .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
+                                        .await?;
+
+                                    let plugins = backend_client.plugins().await?;
+                                    let global_entrypoint_shortcuts =
+                                        backend_client.get_global_entrypoint_shortcuts().await?;
+
+                                    Ok((plugins, global_entrypoint_shortcuts))
+                                },
+                                |result| {
+                                    handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
+                                        ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                                            plugins,
+                                            global_entrypoint_shortcuts,
+                                        ))
+                                    })
+                                },
+                            )
+                        }
                     }
                 })
             }
@@ -207,7 +254,7 @@ impl ManagementAppPluginsState {
                     plugin_data.plugins.clone()
                 };
 
-                self.apply_plugin_fetch(plugins);
+                self.apply_plugin_fetch(plugins, self.global_entrypoint_shortcuts.clone());
 
                 Task::none()
             }
@@ -228,7 +275,7 @@ impl ManagementAppPluginsState {
                     plugin_data.plugins.clone()
                 };
 
-                self.apply_plugin_fetch(plugins);
+                self.apply_plugin_fetch(plugins, self.global_entrypoint_shortcuts.clone());
 
                 Task::none()
             }
@@ -270,18 +317,22 @@ impl ManagementAppPluginsState {
                 Task::perform(
                     async move {
                         let plugins = backend_api.plugins().await?;
+                        let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
 
-                        Ok(plugins)
+                        Ok((plugins, global_entrypoint_shortcuts))
                     },
                     |result| {
-                        handle_backend_error(result, |plugins| {
-                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
+                        handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
+                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                                plugins,
+                                global_entrypoint_shortcuts,
+                            ))
                         })
                     },
                 )
             }
-            ManagementAppPluginMsgIn::PluginsReloaded(plugins) => {
-                self.apply_plugin_fetch(plugins);
+            ManagementAppPluginMsgIn::PluginsReloaded(plugins, shortcuts) => {
+                self.apply_plugin_fetch(plugins, shortcuts);
 
                 Task::none()
             }
@@ -295,12 +346,16 @@ impl ManagementAppPluginsState {
                         backend_client.remove_plugin(plugin_id).await?;
 
                         let plugins = backend_client.plugins().await?;
+                        let global_entrypoint_shortcuts = backend_client.get_global_entrypoint_shortcuts().await?;
 
-                        Ok(plugins)
+                        Ok((plugins, global_entrypoint_shortcuts))
                     },
                     |result| {
-                        handle_backend_error(result, |plugins| {
-                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
+                        handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
+                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                                plugins,
+                                global_entrypoint_shortcuts,
+                            ))
                         })
                     },
                 )
@@ -319,7 +374,13 @@ impl ManagementAppPluginsState {
         }
     }
 
-    fn apply_plugin_fetch(&mut self, plugins: HashMap<PluginId, SettingsPlugin>) {
+    fn apply_plugin_fetch(
+        &mut self,
+        plugins: HashMap<PluginId, SettingsPlugin>,
+        global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
+    ) {
+        self.global_entrypoint_shortcuts = global_entrypoint_shortcuts.clone();
+
         self.preference_user_data = plugins
             .iter()
             .map(|(plugin_id, plugin)| {
@@ -395,7 +456,7 @@ impl ManagementAppPluginsState {
         plugin_refs.sort_by_key(|(plugin, _)| &plugin.plugin_name);
 
         self.table_state
-            .apply_plugin_reload(self.plugin_data.clone(), plugin_refs)
+            .apply_plugin_reload(self.plugin_data.clone(), plugin_refs, global_entrypoint_shortcuts)
     }
 
     pub fn view(&self) -> Element<ManagementAppPluginMsgIn> {

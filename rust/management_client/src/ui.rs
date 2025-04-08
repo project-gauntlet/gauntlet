@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use gauntlet_common::model::DownloadStatus;
+use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::SettingsTheme;
@@ -129,32 +130,35 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
         Task::batch([
             font::load(BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
             Task::done(ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::FetchPlugins)),
-            Task::perform(
-                async {
-                    match backend_api {
-                        Some(backend_api) => Some(init_data(backend_api).await),
-                        None => None,
-                    }
-                },
-                |shortcut| {
-                    match shortcut {
-                        None => ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop),
-                        Some(init) => {
-                            match init {
-                                Ok(init) => {
-                                    ManagementAppMsg::General(ManagementAppGeneralMsgIn::InitSetting {
+            Task::future(async {
+                match backend_api {
+                    Some(backend_api) => Some(init_data(backend_api).await),
+                    None => None,
+                }
+            })
+            .then(|init_data| {
+                match init_data {
+                    None => Task::done(ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop)),
+                    Some(init) => {
+                        match init {
+                            Ok(init) => {
+                                Task::batch([
+                                    Task::done(ManagementAppMsg::General(ManagementAppGeneralMsgIn::InitSetting {
                                         theme: init.theme,
                                         window_position_mode: init.window_position_mode,
                                         shortcut: init.global_shortcut,
                                         shortcut_error: init.global_shortcut_error,
-                                    })
-                                }
-                                Err(err) => ManagementAppMsg::HandleBackendError(err),
+                                    })),
+                                    Task::done(ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::InitSetting {
+                                        global_entrypoint_shortcuts: init.global_entrypoint_shortcuts,
+                                    })),
+                                ])
                             }
+                            Err(err) => Task::done(ManagementAppMsg::HandleBackendError(err)),
                         }
                     }
-                },
-            ),
+                }
+            }),
         ]),
     )
 }
@@ -164,10 +168,12 @@ struct InitSettingsData {
     global_shortcut_error: Option<String>,
     theme: SettingsTheme,
     window_position_mode: WindowPositionMode,
+    global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
 }
 
 async fn init_data(mut backend_api: BackendApi) -> Result<InitSettingsData, BackendApiError> {
     let (global_shortcut, global_shortcut_error) = backend_api.get_global_shortcut().await?;
+    let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
 
     let theme = backend_api.get_theme().await?;
 
@@ -176,6 +182,7 @@ async fn init_data(mut backend_api: BackendApi) -> Result<InitSettingsData, Back
     Ok(InitSettingsData {
         global_shortcut,
         global_shortcut_error,
+        global_entrypoint_shortcuts,
         theme,
         window_position_mode,
     })
@@ -243,12 +250,16 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
             Task::perform(
                 async move {
                     let plugins = backend_api.plugins().await?;
+                    let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
 
-                    Ok(plugins)
+                    Ok((plugins, global_entrypoint_shortcuts))
                 },
                 |result| {
-                    handle_backend_error(result, |plugins| {
-                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(plugins))
+                    handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
+                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(
+                            plugins,
+                            global_entrypoint_shortcuts,
+                        ))
                     })
                 },
             )

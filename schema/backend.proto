@@ -23,6 +23,9 @@ service RpcBackend {
   rpc SetGlobalShortcut (RpcSetGlobalShortcutRequest) returns (RpcSetGlobalShortcutResponse);
   rpc GetGlobalShortcut (RpcGetGlobalShortcutRequest) returns (RpcGetGlobalShortcutResponse);
 
+  rpc SetGlobalEntrypointShortcut (RpcSetGlobalEntrypointShortcutRequest) returns (RpcSetGlobalEntrypointShortcutResponse);
+  rpc GetGlobalEntrypointShortcut (RpcGetGlobalEntrypointShortcutRequest) returns (RpcGetGlobalEntrypointShortcutResponse);
+
   rpc SetTheme (RpcSetThemeRequest) returns (RpcSetThemeResponse);
   rpc GetTheme (RpcGetThemeRequest) returns (RpcGetThemeResponse);
 
@@ -105,6 +108,30 @@ message RpcGetGlobalShortcutRequest {
 message RpcGetGlobalShortcutResponse {
   optional RpcShortcut shortcut = 1;
   optional string error = 2;
+}
+
+message RpcSetGlobalEntrypointShortcutRequest {
+  string plugin_id = 1;
+  string entrypoint_id = 2;
+  optional RpcShortcut shortcut = 3;
+}
+
+message RpcSetGlobalEntrypointShortcutResponse {
+  optional string error = 1;
+}
+
+message RpcGetGlobalEntrypointShortcutRequest {
+}
+
+message RpcGetGlobalEntrypointShortcutResponse {
+  repeated RpcGetGlobalEntrypointShortcut shortcuts = 1;
+}
+
+message RpcGetGlobalEntrypointShortcut {
+  string plugin_id = 1;
+  string entrypoint_id = 2;
+  RpcShortcut shortcut = 3;
+  optional string error = 4;
 }
 
 message RpcSetThemeRequest {

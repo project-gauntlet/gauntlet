@@ -1,6 +1,4 @@
-use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
-use gauntlet_common::model::PluginId;
 use gauntlet_common_ui::physical_key_model;
 use gauntlet_common_ui::shortcut_to_text;
 use iced::advanced::graphics::core::event;
@@ -41,68 +39,56 @@ pub struct ShortcutData {
     pub error: Option<String>,
 }
 
-pub fn shortcut_selector<'a, 'b: 'a, 'c, Message: 'a, Id: 'a, F>(
-    shortcut_id: Id,
+pub fn shortcut_selector<'a, 'b: 'a, 'c, Message: 'a, F>(
     current_shortcut: &'b ShortcutData,
     on_shortcut_captured: F,
     overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
+    in_table: bool,
 ) -> Element<'a, Message>
 where
-    F: 'a + Fn(Id, Option<PhysicalShortcut>) -> Message,
-    Id: Clone,
+    F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
 {
     Element::new(ShortcutSelector::new::<F>(
-        shortcut_id,
         current_shortcut,
         on_shortcut_captured,
         overlay_class,
+        in_table,
     ))
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ShortcutId {
-    Global,
-    Entrypoint {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    },
-}
+pub struct ShortcutSelector<'a, 'b, Message> {
+    on_shortcut_captured: Box<dyn Fn(Option<PhysicalShortcut>) -> Message + 'a>,
 
-pub struct ShortcutSelector<'a, 'b, Message, Id>
-where
-    Id: Clone,
-{
-    on_shortcut_captured: Box<dyn Fn(Id, Option<PhysicalShortcut>) -> Message + 'a>,
-
-    shortcut_id: Id,
     current_shortcut: &'b ShortcutData,
 
     content: Element<'a, Message>,
     popup: Element<'a, Message>,
     overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
+    in_table: bool,
 }
 
-impl<'a, 'b, 'c, Message: 'a, Id> ShortcutSelector<'a, 'b, Message, Id>
-where
-    Id: Clone,
-{
+impl<'a, 'b, 'c, Message: 'a> ShortcutSelector<'a, 'b, Message> {
     pub fn new<F>(
-        shortcut_id: Id,
         current_shortcut: &'b ShortcutData,
         on_shortcut_captured: F,
         overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
+        in_table: bool,
     ) -> Self
     where
-        F: 'a + Fn(Id, Option<PhysicalShortcut>) -> Message,
+        F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
     {
-        let content = render_shortcut(&current_shortcut.shortcut);
+        let content = render_shortcut(&current_shortcut.shortcut, in_table);
 
-        let content = container(content)
+        let mut content = container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .center_x(Length::Fill)
-            .center_y(Length::Fill)
-            .into();
+            .center_y(Length::Fill);
+
+        if !in_table {
+            content = content.center_x(Length::Fill);
+        }
+
+        let content = content.into();
 
         let recording_text: Element<_> = text("Recording shortcut...").into();
 
@@ -126,12 +112,12 @@ where
         Self {
             on_shortcut_captured: Box::new(on_shortcut_captured),
 
-            shortcut_id,
             current_shortcut,
             content,
             popup,
 
             overlay_class,
+            in_table,
         }
     }
 }
@@ -139,12 +125,10 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct State {
     is_capturing: bool,
+    is_hovering: bool,
 }
 
-impl<'a, 'b, Message: 'a, Id> Widget<Message, GauntletSettingsTheme, Renderer> for ShortcutSelector<'a, 'b, Message, Id>
-where
-    Id: Clone,
-{
+impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for ShortcutSelector<'a, 'b, Message> {
     fn size(&self) -> Size<Length> {
         Size {
             width: Length::Fill,
@@ -171,10 +155,19 @@ where
         let style = if state.is_capturing {
             Status::Capturing
         } else {
-            Status::Active
+            if state.is_hovering {
+                Status::Hovered
+            } else {
+                Status::Active
+            }
         };
 
-        let style = Catalog::style(theme, &<GauntletSettingsTheme as Catalog>::default(), style);
+        let style = Catalog::style(
+            theme,
+            &<GauntletSettingsTheme as Catalog>::default(),
+            style,
+            self.in_table,
+        );
 
         draw_background(renderer, &style, layout.bounds());
 
@@ -233,7 +226,7 @@ where
                                         keyboard::key::Code::Backspace if modifiers.is_empty() => {
                                             state.is_capturing = false;
 
-                                            let message = (self.on_shortcut_captured)(self.shortcut_id.clone(), None);
+                                            let message = (self.on_shortcut_captured)(None);
                                             shell.publish(message);
 
                                             event::Status::Ignored
@@ -241,7 +234,7 @@ where
                                         keyboard::key::Code::Escape if modifiers.is_empty() => {
                                             state.is_capturing = false;
 
-                                            let message = (self.on_shortcut_captured)(self.shortcut_id.clone(), None);
+                                            let message = (self.on_shortcut_captured)(None);
                                             shell.publish(message);
 
                                             event::Status::Ignored
@@ -252,10 +245,7 @@ where
                                                 Some(shortcut) => {
                                                     state.is_capturing = false;
 
-                                                    let message = (self.on_shortcut_captured)(
-                                                        self.shortcut_id.clone(),
-                                                        Some(shortcut),
-                                                    );
+                                                    let message = (self.on_shortcut_captured)(Some(shortcut));
                                                     shell.publish(message);
 
                                                     event::Status::Captured
@@ -285,6 +275,11 @@ where
 
                             event::Status::Ignored
                         }
+                    }
+                    mouse::Event::CursorMoved { .. } => {
+                        state.is_hovering = cursor.is_over(layout.bounds());
+
+                        event::Status::Captured
                     }
                     _ => event::Status::Ignored,
                 }
@@ -347,6 +342,7 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
     Active,
+    Hovered,
     Capturing,
 }
 
@@ -355,10 +351,10 @@ pub trait Catalog {
 
     fn default<'a>() -> Self::Class<'a>;
 
-    fn style(&self, class: &Self::Class<'_>, status: Status) -> container::Style;
+    fn style(&self, class: &Self::Class<'_>, status: Status, transparent_background: bool) -> container::Style;
 }
 
-pub fn render_shortcut<'a, Message: 'a>(shortcut: &Option<PhysicalShortcut>) -> Element<'a, Message> {
+pub fn render_shortcut<'a, Message: 'a>(shortcut: &Option<PhysicalShortcut>, in_table: bool) -> Element<'a, Message> {
     let mut content: Vec<Element<Message>> = vec![];
 
     if let Some(current_shortcut) = shortcut {
@@ -382,9 +378,13 @@ pub fn render_shortcut<'a, Message: 'a>(shortcut: &Option<PhysicalShortcut>) -> 
         }
 
         content.push(key_name);
+    } else {
+        if in_table {
+            content.push(text("Record Shortcut").class(TextStyle::Subtitle).into());
+        }
     }
 
-    let content: Element<Message> = row(content).spacing(8.0).into();
+    let content: Element<Message> = row(content).padding(8.0).spacing(8.0).into();
 
     content
 }

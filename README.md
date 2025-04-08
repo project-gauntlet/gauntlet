@@ -9,7 +9,6 @@ Web-first cross-platform application launcher with React-based plugins
 > [!WARNING]
 > Launcher is being developed by single developer in their free time.
 > Changes may be few and far between.
-> If you face any issues they will likely not get fixed unless they become a problem for that developer
 >
 > There will probably be breaking changes which will be documented in [changelog](CHANGELOG.md).
 

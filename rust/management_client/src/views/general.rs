@@ -24,7 +24,6 @@ use iced_fonts::BOOTSTRAP_FONT;
 
 use crate::components::shortcut_selector::shortcut_selector;
 use crate::components::shortcut_selector::ShortcutData;
-use crate::components::shortcut_selector::ShortcutId;
 use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
@@ -39,11 +38,10 @@ pub struct ManagementAppGeneralState {
 
 #[derive(Debug, Clone)]
 pub enum ManagementAppGeneralMsgIn {
-    ShortcutCaptured(ShortcutId, Option<PhysicalShortcut>),
+    ShortcutCaptured(Option<PhysicalShortcut>),
     ThemeChanged(SettingsTheme),
     WindowPositionModeChanged(WindowPositionMode),
     HandleShortcutResponse {
-        id: ShortcutId,
         shortcut: Option<PhysicalShortcut>,
         shortcut_error: Option<String>,
     },
@@ -82,7 +80,7 @@ impl ManagementAppGeneralState {
         };
 
         match message {
-            ManagementAppGeneralMsgIn::ShortcutCaptured(id, shortcut) => {
+            ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut) => {
                 let mut backend_api = backend_api.clone();
 
                 Task::perform(
@@ -97,11 +95,9 @@ impl ManagementAppGeneralState {
                     },
                     move |result| {
                         let shortcut = shortcut.clone();
-                        let id = id.clone();
 
                         handle_backend_error(result, move |shortcut_error| {
                             ManagementAppGeneralMsgOut::Inner(ManagementAppGeneralMsgIn::HandleShortcutResponse {
-                                id,
                                 shortcut,
                                 shortcut_error,
                             })
@@ -158,7 +154,6 @@ impl ManagementAppGeneralState {
                 )
             }
             ManagementAppGeneralMsgIn::HandleShortcutResponse {
-                id,
                 shortcut,
                 shortcut_error,
             } => {
@@ -174,10 +169,10 @@ impl ManagementAppGeneralState {
 
     pub fn view(&self) -> Element<ManagementAppGeneralMsgIn> {
         let global_shortcut_selector = shortcut_selector(
-            ShortcutId::Global,
             &self.current_shortcut,
-            move |id, shortcut| ManagementAppGeneralMsgIn::ShortcutCaptured(id, shortcut),
+            move |shortcut| ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut),
             ContainerStyle::Box,
+            false,
         );
 
         let global_shortcut_field: Element<_> = container(global_shortcut_selector)

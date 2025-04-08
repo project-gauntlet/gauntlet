@@ -126,9 +126,27 @@ impl BackendServer for BackendServerImpl {
             .application_manager
             .get_global_shortcut()
             .await?
+            .map(|(shortcut, error)| (Some(shortcut), error))
             .unwrap_or((None, None));
 
         Ok(result)
+    }
+
+    async fn set_global_entrypoint_shortcut(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()> {
+        self.application_manager
+            .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
+            .await
+    }
+
+    async fn get_global_entrypoint_shortcuts(
+        &self,
+    ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
+        self.application_manager.get_global_entrypoint_shortcut().await
     }
 
     async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()> {

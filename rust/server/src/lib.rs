@@ -256,8 +256,13 @@ async fn handle_request(
 
             BackendResponseData::SetupData { data }
         }
-        BackendRequestData::SetupResponse { global_shortcut_error } => {
-            application_manager.setup_response(global_shortcut_error).await?;
+        BackendRequestData::SetupResponse {
+            global_shortcut_error,
+            global_entrypoint_shortcuts_errors,
+        } => {
+            application_manager
+                .setup_response(global_shortcut_error, global_entrypoint_shortcuts_errors)
+                .await?;
 
             BackendResponseData::Nothing
         }
@@ -358,6 +363,16 @@ async fn handle_request(
             let shortcuts = application_manager.inline_view_shortcuts().await?;
 
             BackendResponseData::InlineViewShortcuts { shortcuts }
+        }
+        BackendRequestData::RunEntrypoint {
+            plugin_id,
+            entrypoint_id,
+        } => {
+            application_manager
+                .run_action(plugin_id, entrypoint_id, ":primary".to_string())
+                .await?;
+
+            BackendResponseData::Nothing
         }
     };
 

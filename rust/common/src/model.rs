@@ -217,6 +217,7 @@ pub struct UiSetupData {
     pub window_position_file: Option<PathBuf>,
     pub theme: UiTheme,
     pub global_shortcut: Option<PhysicalShortcut>,
+    pub global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), PhysicalShortcut>,
     pub close_on_unfocus: bool,
     pub window_position_mode: WindowPositionMode,
 }
@@ -270,6 +271,11 @@ pub enum UiRequestData {
         show: bool,
     },
     SetGlobalShortcut {
+        shortcut: Option<PhysicalShortcut>,
+    },
+    SetGlobalEntrypointShortcut {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
         shortcut: Option<PhysicalShortcut>,
     },
     SetTheme {
@@ -361,6 +367,11 @@ pub enum BackendRequestData {
     InlineViewShortcuts,
     SetupResponse {
         global_shortcut_error: Option<String>,
+        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
+    },
+    RunEntrypoint {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
     },
 }
 

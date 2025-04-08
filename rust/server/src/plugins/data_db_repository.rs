@@ -8,6 +8,7 @@ use futures::future::join_all;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
@@ -215,31 +216,73 @@ pub struct DbPluginActionUserData {
 
 #[derive(sqlx::FromRow)]
 struct DbSettingsDataContainer {
-    #[sqlx(json)]
-    pub global_shortcut: DbSettingsGlobalShortcutData, // separate field because legacy
     // #[sqlx(json)] // https://github.com/launchbadge/sqlx/issues/2849
     pub settings: Option<Json<DbSettings>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DbSettingsGlobalShortcutData {
+pub struct DbSettingsShortcut {
     pub physical_key: String,
     pub modifier_shift: bool,
     pub modifier_control: bool,
     pub modifier_alt: bool,
     pub modifier_meta: bool,
-    #[serde(default)]
-    pub unset: bool,
-    #[serde(default)]
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DbSettingsGlobalShortcutData {
+    pub shortcut: DbSettingsShortcut,
     pub error: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DbSettingsGlobalEntrypointShortcutData {
+    pub plugin_id: String,
+    pub entrypoint_id: String,
+    pub shortcut: DbSettingsGlobalShortcutData,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DbSettings {
     // none means auto-detect
     pub theme: Option<DbTheme>,
-    // none is static
+    // none is static mode
     pub window_position_mode: Option<DbWindowPositionMode>,
+    // none is unset, if whole settings object is unset, it is likely a first start and default shortcut will be used
+    pub global_shortcut: Option<DbSettingsGlobalShortcutData>,
+    pub global_entrypoint_shortcuts: Option<Vec<DbSettingsGlobalEntrypointShortcutData>>,
+}
+
+impl Default for DbSettings {
+    fn default() -> Self {
+        let default_global_shortcut = if cfg!(target_os = "windows") {
+            DbSettingsShortcut {
+                physical_key: PhysicalKey::Space.to_value(),
+                modifier_shift: false,
+                modifier_control: false,
+                modifier_alt: true,
+                modifier_meta: false,
+            }
+        } else {
+            DbSettingsShortcut {
+                physical_key: PhysicalKey::Space.to_value(),
+                modifier_shift: false,
+                modifier_control: false,
+                modifier_alt: false,
+                modifier_meta: true,
+            }
+        };
+
+        DbSettings {
+            theme: None,
+            window_position_mode: None,
+            global_shortcut: Some(DbSettingsGlobalShortcutData {
+                shortcut: default_global_shortcut,
+                error: None,
+            }),
+            global_entrypoint_shortcuts: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -358,15 +401,26 @@ impl DataDbRepository {
             .await
             .context("Unable to open database connection")?;
 
-        // TODO backup before migration? up to 5 backups?
-        MIGRATOR.run(&pool).await.context("Unable apply database migration")?;
-
         let db_repository = Self { pool };
+
+        let _ = db_repository.migrate_global_shortcut_to_settings().await;
+
+        db_repository.run_migrations().await?;
 
         db_repository.apply_uuid_default_value().await?;
         db_repository.remove_legacy_bundled_plugins().await?;
 
         Ok(db_repository)
+    }
+
+    async fn run_migrations(&self) -> anyhow::Result<()> {
+        // TODO backup before migration? up to 5 backups?
+        MIGRATOR
+            .run(&self.pool)
+            .await
+            .context("Unable apply database migration")?;
+
+        Ok(())
     }
 
     async fn apply_uuid_default_value(&self) -> anyhow::Result<()> {
@@ -407,6 +461,71 @@ impl DataDbRepository {
         self.remove_plugin("builtin://applications").await?;
         self.remove_plugin("builtin://calculator").await?;
         self.remove_plugin("builtin://settings").await?;
+
+        Ok(())
+    }
+
+    async fn migrate_global_shortcut_to_settings(&self) -> anyhow::Result<()> {
+        #[derive(sqlx::FromRow)]
+        struct DbSettingsDataOldContainer {
+            #[sqlx(json)]
+            pub global_shortcut: DbSettingsGlobalShortcutOldData,
+            pub settings: Option<Json<DbSettings>>,
+        }
+
+        #[derive(Debug, Deserialize, Serialize)]
+        pub struct DbSettingsGlobalShortcutOldData {
+            pub physical_key: String,
+            pub modifier_shift: bool,
+            pub modifier_control: bool,
+            pub modifier_alt: bool,
+            pub modifier_meta: bool,
+            #[serde(default)]
+            pub unset: bool,
+            #[serde(default)]
+            pub error: Option<String>,
+        }
+
+        // language=SQLite
+        let mut data = sqlx::query_as::<_, DbSettingsDataOldContainer>("SELECT * FROM settings_data")
+            .fetch_one(&self.pool)
+            .await?;
+
+        let shortcut_data = &data.global_shortcut;
+
+        let shortcut = if shortcut_data.unset {
+            None
+        } else {
+            Some(DbSettingsGlobalShortcutData {
+                shortcut: DbSettingsShortcut {
+                    physical_key: shortcut_data.physical_key.clone(),
+                    modifier_shift: shortcut_data.modifier_shift,
+                    modifier_control: shortcut_data.modifier_control,
+                    modifier_alt: shortcut_data.modifier_alt,
+                    modifier_meta: shortcut_data.modifier_meta,
+                },
+                error: None,
+            })
+        };
+
+        if let Some(settings) = &mut data.settings {
+            settings.global_shortcut = shortcut;
+        }
+
+        // language=SQLite
+        let sql = r#"
+            INSERT INTO settings_data (id, global_shortcut, settings)
+                VALUES(?1, ?2, ?3)
+                    ON CONFLICT (id)
+                        DO UPDATE SET settings = ?3
+        "#;
+
+        sqlx::query(sql)
+            .bind(SETTINGS_DATA_ID)
+            .bind(Json(data.global_shortcut))
+            .bind(data.settings)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
@@ -932,85 +1051,9 @@ impl DataDbRepository {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(
-        &self,
-        shortcut: Option<PhysicalShortcut>,
-        error: Option<String>,
-    ) -> anyhow::Result<()> {
-        // language=SQLite
-        let sql = r#"
-            INSERT INTO settings_data (id, global_shortcut)
-                VALUES(?1, ?2)
-                    ON CONFLICT (id)
-                        DO UPDATE SET global_shortcut = ?2
-        "#;
-
-        let shortcut_data = match shortcut {
-            None => {
-                DbSettingsGlobalShortcutData {
-                    physical_key: "".to_string(),
-                    modifier_shift: false,
-                    modifier_control: false,
-                    modifier_alt: false,
-                    modifier_meta: false,
-                    unset: true,
-                    error,
-                }
-            }
-            Some(shortcut) => {
-                DbSettingsGlobalShortcutData {
-                    physical_key: shortcut.physical_key.to_value(),
-                    modifier_shift: shortcut.modifier_shift,
-                    modifier_control: shortcut.modifier_control,
-                    modifier_alt: shortcut.modifier_alt,
-                    modifier_meta: shortcut.modifier_meta,
-                    unset: false,
-                    error,
-                }
-            }
-        };
-
-        sqlx::query(sql)
-            .bind(SETTINGS_DATA_ID)
-            .bind(Json(shortcut_data))
-            .execute(&self.pool)
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
-        // language=SQLite
-        let data = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT * FROM settings_data")
-            .fetch_optional(&self.pool)
-            .await;
-
-        match data {
-            Ok(Some(data)) => {
-                let shortcut_data = data.global_shortcut;
-
-                let shortcut = if shortcut_data.unset {
-                    None
-                } else {
-                    Some(PhysicalShortcut {
-                        physical_key: PhysicalKey::from_value(shortcut_data.physical_key),
-                        modifier_shift: shortcut_data.modifier_shift,
-                        modifier_control: shortcut_data.modifier_control,
-                        modifier_alt: shortcut_data.modifier_alt,
-                        modifier_meta: shortcut_data.modifier_meta,
-                    })
-                };
-
-                Ok(Some((shortcut, shortcut_data.error)))
-            }
-            Ok(None) => Ok(None),
-            Err(err) => Err(anyhow!("Unable to get global shortcut from db: {:?}", err)),
-        }
-    }
-
     pub async fn get_settings(&self) -> anyhow::Result<DbSettings> {
         // language=SQLite
-        let settings = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT * FROM settings_data")
+        let settings = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT settings FROM settings_data")
             .fetch_optional(&self.pool)
             .await?;
 
@@ -1022,31 +1065,14 @@ impl DataDbRepository {
     pub async fn set_settings(&self, value: DbSettings) -> anyhow::Result<()> {
         // language=SQLite
         let sql = r#"
-            INSERT INTO settings_data (id, global_shortcut, settings)
-                VALUES(?1, ?2, ?3)
+            INSERT INTO settings_data (id, settings)
+                VALUES(?1, ?2)
                     ON CONFLICT (id)
-                        DO UPDATE SET settings = ?3
+                        DO UPDATE SET settings = ?2
         "#;
-
-        let data = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT * FROM settings_data")
-            .fetch_optional(&self.pool)
-            .await?
-            .unwrap_or(DbSettingsDataContainer {
-                global_shortcut: DbSettingsGlobalShortcutData {
-                    physical_key: "".to_string(),
-                    modifier_shift: false,
-                    modifier_control: false,
-                    modifier_alt: false,
-                    modifier_meta: false,
-                    unset: true,
-                    error: None,
-                },
-                settings: None,
-            });
 
         sqlx::query(sql)
             .bind(SETTINGS_DATA_ID)
-            .bind(Json(data.global_shortcut))
             .bind(Json(value))
             .execute(&self.pool)
             .await?;

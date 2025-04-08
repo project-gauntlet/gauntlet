@@ -143,7 +143,14 @@ impl ApplicationManager {
     pub async fn setup_data(&self) -> anyhow::Result<UiSetupData> {
         let window_position_file = self.dirs.window_position();
         let theme = self.settings.effective_theme().await?;
-        let global_shortcut = self.settings.effective_global_shortcut().await?;
+        let global_shortcut = self.settings.global_shortcut().await?.map(|(shortcut, _)| shortcut);
+        let global_entrypoint_shortcuts = self
+            .settings
+            .global_entrypoint_shortcuts()
+            .await?
+            .into_iter()
+            .map(|((plugin_id, entrypoint_id), (shortcut, _))| ((plugin_id, entrypoint_id), shortcut))
+            .collect();
         let window_position_mode = self.settings.window_position_mode_setting().await?;
         let close_on_unfocus = self.config_reader.close_on_unfocus();
 
@@ -151,13 +158,24 @@ impl ApplicationManager {
             window_position_file: Some(window_position_file),
             theme,
             global_shortcut,
+            global_entrypoint_shortcuts,
             close_on_unfocus,
             window_position_mode,
         })
     }
 
-    pub async fn setup_response(&self, global_shortcut_error: Option<String>) -> anyhow::Result<()> {
+    pub async fn setup_response(
+        &self,
+        global_shortcut_error: Option<String>,
+        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
+    ) -> anyhow::Result<()> {
         self.settings.set_global_shortcut_error(global_shortcut_error).await?;
+
+        for ((plugin_id, entrypoint_id), error) in global_entrypoint_shortcuts_errors {
+            self.settings
+                .set_global_entrypoint_shortcut_error(plugin_id, entrypoint_id, error)
+                .await?;
+        }
 
         Ok(())
     }
@@ -571,8 +589,25 @@ impl ApplicationManager {
         self.settings.set_global_shortcut(shortcut).await
     }
 
-    pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
+    pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(PhysicalShortcut, Option<String>)>> {
         self.settings.global_shortcut().await
+    }
+
+    pub async fn set_global_entrypoint_shortcut(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()> {
+        self.settings
+            .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
+            .await
+    }
+
+    pub async fn get_global_entrypoint_shortcut(
+        &self,
+    ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
+        self.settings.global_entrypoint_shortcuts().await
     }
 
     pub async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()> {

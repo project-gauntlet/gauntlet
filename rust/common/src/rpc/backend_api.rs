@@ -32,6 +32,7 @@ use crate::rpc::grpc::RpcDownloadPluginRequest;
 use crate::rpc::grpc::RpcDownloadStatus;
 use crate::rpc::grpc::RpcDownloadStatusRequest;
 use crate::rpc::grpc::RpcEntrypointTypeSettings;
+use crate::rpc::grpc::RpcGetGlobalEntrypointShortcutRequest;
 use crate::rpc::grpc::RpcGetGlobalShortcutRequest;
 use crate::rpc::grpc::RpcGetThemeRequest;
 use crate::rpc::grpc::RpcGetWindowPositionModeRequest;
@@ -41,6 +42,7 @@ use crate::rpc::grpc::RpcRemovePluginRequest;
 use crate::rpc::grpc::RpcRunActionRequest;
 use crate::rpc::grpc::RpcSaveLocalPluginRequest;
 use crate::rpc::grpc::RpcSetEntrypointStateRequest;
+use crate::rpc::grpc::RpcSetGlobalEntrypointShortcutRequest;
 use crate::rpc::grpc::RpcSetGlobalShortcutRequest;
 use crate::rpc::grpc::RpcSetPluginStateRequest;
 use crate::rpc::grpc::RpcSetPreferenceValueRequest;
@@ -79,6 +81,8 @@ pub struct BackendForFrontendApi {
     backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
 }
 
+impl BackendForFrontendApi {}
+
 impl BackendForFrontendApi {
     pub fn new(backend_sender: RequestSender<BackendRequestData, BackendResponseData>) -> Self {
         Self { backend_sender }
@@ -97,8 +101,12 @@ impl BackendForFrontendApi {
     pub async fn setup_response(
         &mut self,
         global_shortcut_error: Option<String>,
+        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
     ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SetupResponse { global_shortcut_error };
+        let request = BackendRequestData::SetupResponse {
+            global_shortcut_error,
+            global_entrypoint_shortcuts_errors,
+        };
 
         let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
             unreachable!()
@@ -290,6 +298,23 @@ impl BackendForFrontendApi {
         };
 
         Ok(shortcuts)
+    }
+
+    pub async fn run_entrypoint(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> Result<(), BackendForFrontendApiError> {
+        let request = BackendRequestData::RunEntrypoint {
+            plugin_id,
+            entrypoint_id,
+        };
+
+        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
+            unreachable!()
+        };
+
+        Ok(())
     }
 }
 
@@ -536,6 +561,67 @@ impl BackendApi {
             }),
             response.error,
         ))
+    }
+
+    pub async fn set_global_entrypoint_shortcut(
+        &mut self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> Result<Option<String>, BackendApiError> {
+        let request = RpcSetGlobalEntrypointShortcutRequest {
+            plugin_id: plugin_id.to_string(),
+            entrypoint_id: entrypoint_id.to_string(),
+            shortcut: shortcut.map(|shortcut| {
+                RpcShortcut {
+                    physical_key: shortcut.physical_key.to_value(),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                }
+            }),
+        };
+
+        let error = self
+            .client
+            .set_global_entrypoint_shortcut(request)
+            .await?
+            .into_inner()
+            .error;
+
+        Ok(error)
+    }
+
+    pub async fn get_global_entrypoint_shortcuts(
+        &mut self,
+    ) -> Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>, BackendApiError> {
+        let response = self
+            .client
+            .get_global_entrypoint_shortcut(Request::new(RpcGetGlobalEntrypointShortcutRequest::default()))
+            .await?;
+
+        let response = response
+            .into_inner()
+            .shortcuts
+            .into_iter()
+            .map(|data| {
+                let plugin_id = PluginId::from_string(data.plugin_id);
+                let entrypoint_id = EntrypointId::from_string(data.entrypoint_id);
+                let shortcut = data.shortcut.unwrap();
+                let shortcut = PhysicalShortcut {
+                    physical_key: PhysicalKey::from_value(shortcut.physical_key),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                };
+
+                ((plugin_id, entrypoint_id), (shortcut, data.error))
+            })
+            .collect();
+
+        Ok(response)
     }
 
     pub async fn set_theme(&mut self, theme: SettingsTheme) -> Result<(), BackendApiError> {

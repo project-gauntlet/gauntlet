@@ -163,6 +163,7 @@ async fn request_loop(
                 unreachable!()
             }
             UiRequestData::SetGlobalShortcut { .. }
+            | UiRequestData::SetGlobalEntrypointShortcut { .. }
             | UiRequestData::SetWindowPositionMode { .. }
             | UiRequestData::RequestSearchResultUpdate => {
                 // noop

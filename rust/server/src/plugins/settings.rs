@@ -1,16 +1,22 @@
-use std::env::consts::OS;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 use anyhow::anyhow;
 use dark_light::Mode;
 use gauntlet_common::dirs::Dirs;
+use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_common::model::PluginId;
 use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 
 use crate::plugins::data_db_repository::DataDbRepository;
+use crate::plugins::data_db_repository::DbSettingsGlobalEntrypointShortcutData;
+use crate::plugins::data_db_repository::DbSettingsGlobalShortcutData;
+use crate::plugins::data_db_repository::DbSettingsShortcut;
 use crate::plugins::data_db_repository::DbTheme;
 use crate::plugins::data_db_repository::DbWindowPositionMode;
 use crate::plugins::theme::read_theme_file;
@@ -33,33 +39,22 @@ impl Settings {
         })
     }
 
-    pub async fn effective_global_shortcut(&self) -> anyhow::Result<Option<PhysicalShortcut>> {
-        match self.global_shortcut().await? {
-            None => {
-                if cfg!(target_os = "windows") {
-                    Ok(Some(PhysicalShortcut {
-                        physical_key: PhysicalKey::Space,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: true,
-                        modifier_meta: false,
-                    }))
-                } else {
-                    Ok(Some(PhysicalShortcut {
-                        physical_key: PhysicalKey::Space,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: true,
-                    }))
-                }
-            }
-            Some((shortcut, _)) => Ok(shortcut),
-        }
-    }
+    pub async fn global_shortcut(&self) -> anyhow::Result<Option<(PhysicalShortcut, Option<String>)>> {
+        let settings = self.repository.get_settings().await?;
 
-    pub async fn global_shortcut(&self) -> anyhow::Result<Option<(Option<PhysicalShortcut>, Option<String>)>> {
-        self.repository.get_global_shortcut().await
+        let data = settings.global_shortcut.map(|data| {
+            let shortcut = PhysicalShortcut {
+                physical_key: PhysicalKey::from_value(data.shortcut.physical_key),
+                modifier_shift: data.shortcut.modifier_shift,
+                modifier_control: data.shortcut.modifier_control,
+                modifier_alt: data.shortcut.modifier_alt,
+                modifier_meta: data.shortcut.modifier_meta,
+            };
+
+            (shortcut, data.error)
+        });
+
+        Ok(data)
     }
 
     pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
@@ -67,18 +62,181 @@ impl Settings {
 
         let db_err = err.as_ref().map_err(|err| format!("{:#}", err)).err();
 
-        self.repository.set_global_shortcut(shortcut, db_err).await?;
+        let mut settings = self.repository.get_settings().await?;
+
+        settings.global_shortcut = shortcut.map(|shortcut| {
+            DbSettingsGlobalShortcutData {
+                shortcut: DbSettingsShortcut {
+                    physical_key: shortcut.physical_key.to_value(),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                },
+                error: db_err,
+            }
+        });
+
+        self.repository.set_settings(settings).await?;
 
         err
     }
 
     pub async fn set_global_shortcut_error(&self, error: Option<String>) -> anyhow::Result<()> {
-        match self.repository.get_global_shortcut().await? {
-            None => {}
-            Some((shortcut, _)) => {
-                self.repository.set_global_shortcut(shortcut, error).await?;
+        let mut settings = self.repository.get_settings().await?;
+
+        if let Some(data) = &mut settings.global_shortcut {
+            data.error = error
+        }
+
+        self.repository.set_settings(settings).await?;
+
+        Ok(())
+    }
+
+    pub async fn global_entrypoint_shortcuts(
+        &self,
+    ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
+        let settings = self.repository.get_settings().await?;
+        let data: HashMap<_, _> = settings
+            .global_entrypoint_shortcuts
+            .unwrap_or_default()
+            .into_iter()
+            .map(|data| {
+                let shortcut = data.shortcut.shortcut;
+                let error = data.shortcut.error;
+
+                let shortcut = PhysicalShortcut {
+                    physical_key: PhysicalKey::from_value(shortcut.physical_key),
+                    modifier_shift: shortcut.modifier_shift,
+                    modifier_control: shortcut.modifier_control,
+                    modifier_alt: shortcut.modifier_alt,
+                    modifier_meta: shortcut.modifier_meta,
+                };
+
+                (
+                    (
+                        PluginId::from_string(data.plugin_id),
+                        EntrypointId::from_string(data.entrypoint_id),
+                    ),
+                    (shortcut, error),
+                )
+            })
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn set_global_entrypoint_shortcut(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()> {
+        let err = self
+            .frontend_api
+            .set_global_entrypoint_shortcut(plugin_id.clone(), entrypoint_id.clone(), shortcut.clone())
+            .await;
+
+        let db_err = err.as_ref().map_err(|err| format!("{:#}", err)).err();
+
+        let mut settings = self.repository.get_settings().await?;
+
+        let mut shortcuts: HashMap<_, _> = settings
+            .global_entrypoint_shortcuts
+            .unwrap_or_default()
+            .into_iter()
+            .map(|data| {
+                (
+                    (
+                        PluginId::from_string(data.plugin_id),
+                        EntrypointId::from_string(data.entrypoint_id),
+                    ),
+                    data.shortcut,
+                )
+            })
+            .collect();
+
+        match shortcut {
+            None => {
+                shortcuts.remove(&(plugin_id, entrypoint_id));
             }
+            Some(shortcut) => {
+                shortcuts.insert(
+                    (plugin_id, entrypoint_id),
+                    DbSettingsGlobalShortcutData {
+                        shortcut: DbSettingsShortcut {
+                            physical_key: shortcut.physical_key.to_value(),
+                            modifier_shift: shortcut.modifier_shift,
+                            modifier_control: shortcut.modifier_control,
+                            modifier_alt: shortcut.modifier_alt,
+                            modifier_meta: shortcut.modifier_meta,
+                        },
+                        error: db_err,
+                    },
+                );
+            }
+        }
+
+        let global_entrypoint_shortcuts = shortcuts
+            .into_iter()
+            .map(|((plugin_id, entrypoint_id), data)| {
+                DbSettingsGlobalEntrypointShortcutData {
+                    plugin_id: plugin_id.to_string(),
+                    entrypoint_id: entrypoint_id.to_string(),
+                    shortcut: data,
+                }
+            })
+            .collect();
+
+        settings.global_entrypoint_shortcuts = Some(global_entrypoint_shortcuts);
+
+        self.repository.set_settings(settings).await?;
+
+        err
+    }
+
+    pub async fn set_global_entrypoint_shortcut_error(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        error: Option<String>,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.repository.get_settings().await?;
+
+        let mut shortcuts: HashMap<_, _> = settings
+            .global_entrypoint_shortcuts
+            .unwrap_or_default()
+            .into_iter()
+            .map(|data| {
+                (
+                    (
+                        PluginId::from_string(data.plugin_id),
+                        EntrypointId::from_string(data.entrypoint_id),
+                    ),
+                    data.shortcut,
+                )
+            })
+            .collect();
+
+        if let Some(data) = shortcuts.get_mut(&(plugin_id, entrypoint_id)) {
+            data.error = error;
         };
+
+        let global_entrypoint_shortcuts = shortcuts
+            .into_iter()
+            .map(|((plugin_id, entrypoint_id), data)| {
+                DbSettingsGlobalEntrypointShortcutData {
+                    plugin_id: plugin_id.to_string(),
+                    entrypoint_id: entrypoint_id.to_string(),
+                    shortcut: data,
+                }
+            })
+            .collect();
+
+        settings.global_entrypoint_shortcuts = Some(global_entrypoint_shortcuts);
+
+        self.repository.set_settings(settings).await?;
 
         Ok(())
     }
