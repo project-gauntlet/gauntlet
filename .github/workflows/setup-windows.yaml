@@ -27,7 +27,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - run: choco install protoc
-      - run: dotnet tool install --global wix
+      - run: dotnet tool install --global wix --version 5.0.2
       - run: wix extension add -g WixToolset.Util.wixext/5.0.2
 
       - uses: Swatinem/rust-cache@v2
