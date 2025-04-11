@@ -365,6 +365,7 @@ pub enum AppMsg {
     #[cfg(target_os = "linux")]
     X11ActiveWindowChanged {
         window: u32,
+        wm_name: Option<String>,
     },
     RunEntrypoint {
         plugin_id: PluginId,
@@ -1683,10 +1684,18 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             ])
         }
         #[cfg(target_os = "linux")]
-        AppMsg::X11ActiveWindowChanged { window } => {
+        AppMsg::X11ActiveWindowChanged { window, wm_name } => {
             if state.x11_active_window != Some(window) {
                 state.x11_active_window = Some(window);
-                Task::done(AppMsg::HideWindow)
+                if let Some(wm_name) = &wm_name {
+                    if wm_name != "gauntlet" {
+                        Task::done(AppMsg::HideWindow)
+                    } else {
+                        Task::none()
+                    }
+                } else {
+                    Task::none()
+                }
             } else {
                 Task::none()
             }

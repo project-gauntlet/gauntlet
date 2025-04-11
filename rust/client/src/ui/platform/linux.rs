@@ -31,14 +31,10 @@ pub fn listen_on_x11_active_window_change(sender: Sender<AppMsg>, handle: Handle
                     continue;
                 };
 
-                if let Ok(wm_name) = fetch_app_wm_name(&conn, window) {
-                    if wm_name == "gauntlet" {
-                        continue;
-                    }
-                }
+                let wm_name = fetch_app_wm_name(&conn, window).ok();
 
                 let mut sender = sender.clone();
-                handle.spawn(async move { sender.send(AppMsg::X11ActiveWindowChanged { window }).await });
+                handle.spawn(async move { sender.send(AppMsg::X11ActiveWindowChanged { window, wm_name }).await });
             }
         }
     }
