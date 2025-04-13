@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [18] - 2025-04-13
+
 - Entrypoints can now be assigned a global shortcut in Settings UI
   - On Linux X11 there is a known bug which will cause a crash and prevent server startup if attempted to register global shortcut that is already registered by another application
 - Generated shortcuts are now listed in the Settings UI
