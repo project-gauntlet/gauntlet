@@ -2430,7 +2430,9 @@ impl AppModel {
                 plugin_view_data: PluginViewData { plugin_id, .. },
                 ..
             } => {
-                commands.push(self.close_plugin_view(plugin_id.clone()));
+                if reset_state {
+                    commands.push(self.close_plugin_view(plugin_id.clone()));
+                }
             }
             GlobalState::MainView {
                 focused_search_result, ..
@@ -2477,9 +2479,7 @@ impl AppModel {
             window::change_mode(self.main_window_id, Mode::Windowed),
         ]);
 
-        let commands = vec![open_task];
-
-        Task::batch(commands)
+        open_task
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
