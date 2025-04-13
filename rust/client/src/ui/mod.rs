@@ -2441,6 +2441,10 @@ impl AppModel {
             GlobalState::PendingPluginView { .. } => {}
         }
 
+        if self.pending_window_state_reset {
+            commands.push(self.reset_window_state());
+        }
+
         Task::batch(commands)
     }
 
@@ -2473,11 +2477,7 @@ impl AppModel {
             window::change_mode(self.main_window_id, Mode::Windowed),
         ]);
 
-        let mut commands = vec![open_task];
-
-        if self.pending_window_state_reset {
-            commands.push(self.reset_window_state());
-        }
+        let commands = vec![open_task];
 
         Task::batch(commands)
     }
