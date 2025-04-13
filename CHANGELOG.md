@@ -11,9 +11,11 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [18] - 2025-04-13
 
-- Entrypoints can now be assigned a global shortcut in Settings UI
+### General
+
+- Entrypoints can now be run or opened using global shortcut set Settings UI
   - On Linux X11 there is a known bug which will cause a crash and prevent server startup if attempted to register global shortcut that is already registered by another application
-- Generated shortcuts are now listed in the Settings UI
+- Generated Entrypoints are now listed in the Settings UI
 
 ### Plugins
 - Added authors field to Plugin Manifest
@@ -24,16 +26,16 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
   - Currently, the schema file is located inside the repository at path `https://raw.githubusercontent.com/project-gauntlet/gauntlet/refs/heads/main/docs/schema/plugin_manifest.schema.json` but at some point this will change
 
 ### Themes
-- Tweaked window border color of macOS Dark theme on non-macos platforms not as bright
+- Tweaked window border color of macOS Dark theme on non-macos platforms to be not as bright
 
 ### UI/UX improvements
 - Reworked shortcut selector widget in Setting UI
 
 ### Fixes
 - Fixed window sometimes not being hidden on X11
-- Main view search list is now refreshed when window being hidden instead of when it is shown, to avoid the list being changed after window was opened
+- Main view search list is now refreshed when window being hidden instead of when it is shown, to avoid the list being changed after window was opened (contributed by @BennoCrafter)
 - Fixed plugin view being empty if the window is closed by toggling global shortcut
-- Fixes plugin view not being opened properly if it is created using global shortcut or cli command
+- Fixes plugin view not being opened properly if it is created using global shortcut or cli command (contributed by @BennoCrafter)
 
 ## [17] - 2025-03-15
 - Fixed crash when typing/clicking fast in React-created plugin ui
