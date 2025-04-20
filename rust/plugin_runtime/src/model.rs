@@ -3,6 +3,8 @@ use std::fmt;
 
 use bincode::Decode;
 use bincode::Encode;
+use deno_core::JsBuffer;
+use deno_core::ToJsBuffer;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::Icons;
 use gauntlet_common::model::PluginId;
@@ -174,7 +176,7 @@ pub enum JsRequest {
     },
 }
 
-#[derive(Deserialize, Serialize, Encode, Decode)]
+#[derive(Encode, Decode)]
 pub struct JsGeneratedSearchItem {
     pub entrypoint_name: String,
     pub generator_entrypoint_id: String,
@@ -197,6 +199,28 @@ impl fmt::Debug for JsGeneratedSearchItem {
             .field("entrypoint_accessories", &self.entrypoint_accessories)
             .finish()
     }
+}
+
+#[derive(Serialize)]
+pub struct DenoOutGeneratedSearchItem {
+    pub entrypoint_name: String,
+    pub generator_entrypoint_id: String,
+    pub entrypoint_id: String,
+    pub entrypoint_uuid: String,
+    pub entrypoint_icon: Option<ToJsBuffer>,
+    pub entrypoint_actions: Vec<JsGeneratedSearchItemAction>,
+    pub entrypoint_accessories: Vec<JsGeneratedSearchItemAccessory>,
+}
+
+#[derive(Deserialize)]
+pub struct DenoInGeneratedSearchItem {
+    pub entrypoint_name: String,
+    pub generator_entrypoint_id: String,
+    pub entrypoint_id: String,
+    pub entrypoint_uuid: String,
+    pub entrypoint_icon: Option<JsBuffer>,
+    pub entrypoint_actions: Vec<JsGeneratedSearchItemAction>,
+    pub entrypoint_accessories: Vec<JsGeneratedSearchItemAccessory>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Encode, Decode)]
@@ -236,8 +260,20 @@ pub enum JsGeneratedSearchItemAccessory {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Encode, Decode)]
 pub struct JsClipboardData {
     pub text_data: Option<String>,
     pub png_data: Option<Vec<u8>>,
+}
+
+#[derive(Serialize)]
+pub struct DenoOutClipboardData {
+    pub text_data: Option<String>,
+    pub png_data: Option<ToJsBuffer>,
+}
+
+#[derive(Deserialize)]
+pub struct DenoInClipboardData {
+    pub text_data: Option<String>,
+    pub png_data: Option<JsBuffer>,
 }

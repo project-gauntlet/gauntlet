@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 use deno_core::op2;
 use deno_core::OpState;
+use deno_core::ToJsBuffer;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use gauntlet_common::detached_process::CommandExt;
@@ -267,7 +268,8 @@ fn create_app_entry(desktop_file_path: &Path) -> Option<DesktopApplication> {
             res.inspect_err(|err| tracing::warn!("error processing icon of {:?}: {:?}", desktop_file_path, err))
                 .ok()
         })
-        .flatten();
+        .flatten()
+        .map(|buffer| buffer.into());
 
     Some(DesktopApplication {
         name: name.to_string(),

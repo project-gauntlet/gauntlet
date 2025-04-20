@@ -117,13 +117,11 @@ export function useGauntletContext() {
 }
 
 export async function getAssetData(path: string): Promise<ArrayBuffer> {
-    const vecU8 = await asset_data(path);
-    return new Uint8Array(vecU8).buffer; // FIXME move array creation into rust if possible
+    return await asset_data(path);
 }
 
 export function getAssetDataSync(path: string): ArrayBuffer {
-    const vecU8 = asset_data_blocking(path);
-    return new Uint8Array(vecU8).buffer;
+    return asset_data_blocking(path);
 }
 
 export function getPluginPreferences(): Record<string, any> {

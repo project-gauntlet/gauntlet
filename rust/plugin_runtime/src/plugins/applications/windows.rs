@@ -7,6 +7,7 @@ use std::ptr;
 use anyhow::anyhow;
 use anyhow::Context;
 use deno_core::op2;
+use deno_core::ToJsBuffer;
 use image::RgbaImage;
 use tokio::task::spawn_blocking;
 use windows::core::GUID;
@@ -89,7 +90,7 @@ fn windows_app_from_path_blocking(file_path: String) -> anyhow::Result<Option<De
     }
 }
 
-fn extract_icon(file_path: &str) -> anyhow::Result<Vec<u8>> {
+fn extract_icon(file_path: &str) -> anyhow::Result<ToJsBuffer> {
     unsafe {
         let mut shfileinfow = Shell::SHFILEINFOW::default();
 
@@ -188,7 +189,7 @@ fn extract_icon(file_path: &str) -> anyhow::Result<Vec<u8>> {
 
         let data = resize_icon(data)?;
 
-        Ok(data)
+        Ok(data.into())
     }
 }
 

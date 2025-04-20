@@ -29,7 +29,7 @@ enum_values = [
 
 [[entrypoint]]
 id = 'windows'
-name = 'All Open Windows'
+name = 'Open Windows'
 path = 'src/windows.tsx'
 type = 'view'
 description = 'Show all open windows'

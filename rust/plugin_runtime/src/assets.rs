@@ -43,6 +43,6 @@ pub fn asset_data_blocking(state: Rc<RefCell<OpState>>, #[string] path: String) 
     outer_handle.block_on(async {
         let data = api.get_asset_data(&path).await?;
 
-        Ok(data)
+        Ok(data.into())
     })
 }

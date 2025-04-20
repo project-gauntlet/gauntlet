@@ -18,7 +18,6 @@ export function ListOfWindows({ windows, focus }: { windows: OpenWindowData[], f
                         onAction={(id: string | undefined) => {
                             if (id) {
                                 focus(id)
-                                console.log("focus: " + id)
                                 return { close: true }
                             }
                         }}
@@ -123,9 +122,9 @@ export function applicationAccessories(id: string, experimentalWindowTracking: b
     if (appWindows.length == 0) {
         return []
     } else if (appWindows.length == 1) {
-        return [{ text: "1 window open" }]
+        return [{ text: "1 window" }]
     } else if (appWindows.length > 1) {
-        return [{ text: `${appWindows.length} windows open` }]
+        return [{ text: `${appWindows.length} windows` }]
     } else {
         return []
     }

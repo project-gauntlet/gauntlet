@@ -3,22 +3,16 @@ use std::rc::Rc;
 
 use deno_core::op2;
 use deno_core::OpState;
-use serde::Deserialize;
-use serde::Serialize;
 
 use crate::api::BackendForPluginRuntimeApi;
 use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::model::JsClipboardData;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct JSClipboardData {
-    text_data: Option<String>,
-    png_data: Option<Vec<u8>>,
-}
+use crate::DenoInClipboardData;
+use crate::DenoOutClipboardData;
+use crate::JsClipboardData;
 
 #[op2(async)]
 #[serde]
-pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<JSClipboardData> {
+pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<DenoOutClipboardData> {
     let api = {
         let state = state.borrow();
 
@@ -29,9 +23,9 @@ pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<JSCli
 
     let result = api.clipboard_read().await?;
 
-    Ok(JSClipboardData {
+    Ok(DenoOutClipboardData {
         text_data: result.text_data,
-        png_data: result.png_data,
+        png_data: result.png_data.map(|buffer| buffer.into()),
     })
 }
 
@@ -50,7 +44,7 @@ pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<
 }
 
 #[op2(async)]
-pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: JSClipboardData) -> anyhow::Result<()> {
+pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: DenoInClipboardData) -> anyhow::Result<()> {
     let api = {
         let state = state.borrow();
 
@@ -61,7 +55,7 @@ pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: JSClipb
 
     let clipboard_data = JsClipboardData {
         text_data: data.text_data,
-        png_data: data.png_data,
+        png_data: data.png_data.map(|buffer| buffer.to_vec()),
     };
 
     api.clipboard_write(clipboard_data).await

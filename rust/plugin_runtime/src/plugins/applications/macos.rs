@@ -11,6 +11,7 @@ use cacao::filesystem::FileManager;
 use cacao::filesystem::SearchPathDirectory;
 use cacao::filesystem::SearchPathDomainMask;
 use cacao::url::Url;
+use deno_core::ToJsBuffer;
 use objc2::ClassType;
 use objc2_app_kit::NSBitmapImageRep;
 use objc2_app_kit::NSCalibratedWhiteColorSpace;
@@ -464,7 +465,7 @@ unsafe fn resize_ns_image(source_image: &NSImage, width: NSInteger, height: NSIn
     Some(data.bytes().to_vec())
 }
 
-fn get_application_icon(app_path: &Path) -> anyhow::Result<Vec<u8>> {
+fn get_application_icon(app_path: &Path) -> anyhow::Result<ToJsBuffer> {
     unsafe {
         let workspace = NSWorkspace::sharedWorkspace();
 
@@ -478,7 +479,7 @@ fn get_application_icon(app_path: &Path) -> anyhow::Result<Vec<u8>> {
 
         let bytes = resize_ns_image(&image, 40, 40).ok_or(anyhow!("Unable to resize the image"))?;
 
-        Ok(bytes)
+        Ok(bytes.into())
     }
 }
 

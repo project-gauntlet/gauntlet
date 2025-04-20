@@ -219,8 +219,8 @@ declare module "ext:core/ops" {
     function op_log_error(target: string, message: string): void;
 
     function op_component_model(): Record<string, Component>;
-    function asset_data(path: string): Promise<number[]>;
-    function asset_data_blocking(path: string): number[];
+    function asset_data(path: string): Promise<ArrayBuffer>;
+    function asset_data_blocking(path: string): ArrayBuffer;
 
     function op_inline_view_entrypoint_id(): string | null;
     function op_entrypoint_names(): Record<string, string | undefined>;
@@ -246,9 +246,9 @@ declare module "ext:core/ops" {
 
     function fetch_action_id_for_shortcut(entrypointId: string, key: string, modifierShift: boolean, modifierControl: boolean, modifierAlt: boolean, modifierMeta: boolean): Promise<string | undefined>;
 
-    function clipboard_read(): Promise<{ text_data?: string, png_data?: number[] }>;
+    function clipboard_read(): Promise<{ text_data?: string, png_data?: ArrayBuffer }>;
     function clipboard_read_text(): Promise<string | undefined>;
-    function clipboard_write(data: { text_data?: string, png_data?: number[] }): Promise<void>;
+    function clipboard_write(data: { text_data?: string, png_data?: ArrayBuffer }): Promise<void>;
     function clipboard_write_text(data: string): Promise<void>;
     function clipboard_clear(): Promise<void>;
 

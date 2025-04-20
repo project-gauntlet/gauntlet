@@ -84,7 +84,7 @@ export const Clipboard: Clipboard = {
         }
 
         if (data.png_data) {
-            result["image/png"] = new Uint8Array(data.png_data).buffer;
+            result["image/png"] = data.png_data;
         }
 
         return result
@@ -92,18 +92,18 @@ export const Clipboard: Clipboard = {
     readText: async function (): Promise<string | undefined> {
         return await clipboard_read_text()
     },
-    write: async function (data: { "text/plain"?: string | undefined; "image/png"?: ArrayBuffer | undefined; }): Promise<void> {
+    write: async function (data: { "text/plain"?: string | undefined; "image/png"?: Uint8Array | undefined; }): Promise<void> {
         const text_data = data["text/plain"];
         const png_data = data["image/png"];
 
-        const write_data: { text_data?: string, png_data?: number[] } = {};
+        const write_data: { text_data?: string, png_data?: ArrayBuffer } = {};
 
         if (text_data) {
             write_data.text_data = text_data;
         }
 
         if (png_data) {
-            write_data.png_data = Array.from(new Uint8Array(png_data));
+            write_data.png_data = png_data;
         }
 
         return await clipboard_write(write_data)

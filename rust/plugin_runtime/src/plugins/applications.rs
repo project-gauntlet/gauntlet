@@ -5,6 +5,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use deno_core::op2;
 use deno_core::OpState;
+use deno_core::ToJsBuffer;
 use gauntlet_common::detached_process::CommandExt;
 use image::imageops::FilterType;
 use image::ImageFormat;
@@ -46,7 +47,7 @@ pub enum DesktopPathAction {
 pub struct DesktopApplication {
     name: String,
     desktop_file_path: String,
-    icon: Option<Vec<u8>>,
+    icon: Option<ToJsBuffer>,
     startup_wm_class: Option<String>,
 }
 
@@ -55,7 +56,7 @@ pub struct DesktopApplication {
 pub struct DesktopApplication {
     name: String,
     path: String,
-    icon: Option<Vec<u8>>,
+    icon: Option<ToJsBuffer>,
 }
 
 #[cfg(target_os = "windows")]
@@ -63,7 +64,7 @@ pub struct DesktopApplication {
 pub struct DesktopApplication {
     name: String,
     path: String,
-    icon: Option<Vec<u8>>,
+    icon: Option<ToJsBuffer>,
 }
 
 #[cfg(target_os = "macos")]
@@ -71,7 +72,7 @@ pub struct DesktopApplication {
 pub struct DesktopSettingsPre13Data {
     name: String,
     path: String,
-    icon: Option<Vec<u8>>,
+    icon: Option<ToJsBuffer>,
 }
 
 #[cfg(target_os = "macos")]
@@ -79,7 +80,7 @@ pub struct DesktopSettingsPre13Data {
 pub struct DesktopSettings13AndPostData {
     name: String,
     preferences_id: String,
-    icon: Option<Vec<u8>>,
+    icon: Option<ToJsBuffer>,
 }
 
 #[op2]
