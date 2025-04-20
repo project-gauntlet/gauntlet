@@ -163,7 +163,7 @@ pub enum PluginManifestEntrypointTypes {
     #[schemars(description = "A view-based entrypoint displayed under main search bar")]
     InlineView,
     #[serde(rename = "entrypoint-generator")]
-    #[schemars(description = "Entrypoint that dynamically generatepointsd")]
+    #[schemars(description = "Entrypoint that can dynamically generates endpoints")]
     EntrypointGenerator,
 }
 

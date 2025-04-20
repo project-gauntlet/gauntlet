@@ -350,7 +350,7 @@
           ]
         },
         {
-          "description": "Entrypoint that dynamically generatepointsd",
+          "description": "Entrypoint that can dynamically generates endpoints",
           "type": "string",
           "enum": [
             "entrypoint-generator"
