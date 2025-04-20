@@ -1,0 +1,19 @@
+[gauntlet]
+name = 'Docs Entrypoint Generator FS Events'
+description = ''
+
+# docs-code-segment:start fs-events
+[[entrypoint]]
+id = 'fs-events'
+name = 'FS Events'
+path = 'src/fs-events.tsx'
+type = 'entrypoint-generator'
+description = ''
+
+[permissions.filesystem]
+read = ["/tmp/gauntlet-example"]
+write = ["/tmp/gauntlet-example"]
+
+[[supported_system]]
+os = 'linux'
+# docs-code-segment:end

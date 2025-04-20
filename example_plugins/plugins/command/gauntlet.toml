@@ -1,0 +1,35 @@
+[gauntlet]
+name = 'Docs Command'
+description = ''
+
+# docs-code-segment:start simple
+[[entrypoint]]
+id = 'simple'
+name = 'Simple'
+path = 'src/simple.tsx'
+type = 'command'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start preferences
+[[preferences]]
+id = 'testBool'
+name = 'Test Boolean Preference'
+type = 'bool'
+default = true
+description = ""
+
+[[entrypoint]]
+id = 'preferences'
+name = 'Preferences'
+path = 'src/preferences.tsx'
+type = 'command'
+description = ''
+
+[[entrypoint.preferences]]
+id = 'testStr'
+name = 'Test String Preference'
+type = 'string'
+default = 'test_value'
+description = ""
+# docs-code-segment:end

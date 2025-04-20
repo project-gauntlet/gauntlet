@@ -1,0 +1,17 @@
+{
+  "name": "@project-gauntlet/docs-entrypoint-generator",
+  "private": true,
+  "scripts": {
+    "build": "gauntlet build",
+    "dev": "gauntlet dev"
+  },
+  "dependencies": {
+    "@project-gauntlet/api": "file:../../js/api"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/deno": "*",
+    "@project-gauntlet/tools": "*",
+    "typescript": "*"
+  }
+}

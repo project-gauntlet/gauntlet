@@ -1,0 +1,15 @@
+[gauntlet]
+name = 'Docs Entrypoint Generator Icons'
+description = ''
+
+# docs-code-segment:start icons
+[[entrypoint]]
+id = 'icons'
+name = 'Icons'
+path = 'src/icons.tsx'
+type = 'entrypoint-generator'
+description = ''
+
+[permissions]
+network = ["img.icons8.com"]
+# docs-code-segment:end

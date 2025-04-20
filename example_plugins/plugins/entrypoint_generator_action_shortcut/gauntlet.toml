@@ -1,0 +1,17 @@
+[gauntlet]
+name = 'Docs Entrypoint Generator Action Shortcut'
+description = ''
+
+# docs-code-segment:start action-shortcut
+[[entrypoint]]
+id = 'action-shortcut'
+name = 'Action Shortcut'
+path = 'src/action-shortcut.tsx'
+type = 'entrypoint-generator'
+description = ''
+
+[[entrypoint.actions]]
+id = 'otherAction'
+description = ''
+shortcut = { key = 'g', kind = 'main'}
+# docs-code-segment:end

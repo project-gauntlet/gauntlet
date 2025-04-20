@@ -1,0 +1,12 @@
+[gauntlet]
+name = 'Docs Entrypoint Generator Accessories'
+description = ''
+
+# docs-code-segment:start accessories
+[[entrypoint]]
+id = 'accessories'
+name = 'Accessories'
+path = 'src/accessories.tsx'
+type = 'entrypoint-generator'
+description = ''
+# docs-code-segment:end

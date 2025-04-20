@@ -1,0 +1,12 @@
+[gauntlet]
+name = 'Docs Entrypoint Generator Simple'
+description = ''
+
+# docs-code-segment:start simple
+[[entrypoint]]
+id = 'simple'
+name = 'Simple'
+path = 'src/simple.tsx'
+type = 'entrypoint-generator'
+description = ''
+# docs-code-segment:end
