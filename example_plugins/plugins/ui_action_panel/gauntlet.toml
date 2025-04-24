@@ -1,0 +1,26 @@
+[gauntlet]
+name = 'Docs Action Panel'
+description = ''
+
+# docs-code-segment:start action
+[[entrypoint]]
+id = 'action'
+name = 'Action'
+path = 'src/action.tsx'
+type = 'view'
+description = ''
+
+[[entrypoint.actions]]
+id = 'actionId'
+description = ''
+shortcut = { key = 'g', kind = 'main'}
+# docs-code-segment:end
+
+# docs-code-segment:start section
+[[entrypoint]]
+id = 'section'
+name = 'Section'
+path = 'src/section.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end

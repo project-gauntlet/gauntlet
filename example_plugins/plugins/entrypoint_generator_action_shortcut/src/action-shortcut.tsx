@@ -19,10 +19,10 @@ export default function EntrypointGenerator({ add }: PluginGeneratorContext): vo
                 }
             },
             {
-                ref: "otherAction", // Executed when pressing shortcut specified in Plugin Manifest
-                label: "Other Action",
+                ref: "anotherAction", // Executed when pressing shortcut specified in Plugin Manifest
+                label: "Another Action",
                 run: () => {
-                    console.log('Running the Gauntlet... - Other Action')
+                    console.log('Running the Gauntlet... - Another Action')
                 }
             }
         ],

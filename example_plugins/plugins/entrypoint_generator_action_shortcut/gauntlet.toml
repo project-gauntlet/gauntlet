@@ -11,7 +11,7 @@ type = 'entrypoint-generator'
 description = ''
 
 [[entrypoint.actions]]
-id = 'otherAction'
+id = 'anotherAction'
 description = ''
 shortcut = { key = 'g', kind = 'main'}
 # docs-code-segment:end

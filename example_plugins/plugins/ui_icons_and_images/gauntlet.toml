@@ -1,0 +1,33 @@
+[gauntlet]
+name = 'Docs Icons and Images'
+description = ''
+
+# docs-code-segment:start asset
+[[entrypoint]]
+id = 'asset'
+name = 'Asset'
+path = 'src/asset.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start icon
+[[entrypoint]]
+id = 'icon'
+name = 'Icon'
+path = 'src/icon.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start url
+[[entrypoint]]
+id = 'url'
+name = 'Url'
+path = 'src/url.tsx'
+type = 'view'
+description = ''
+
+[permissions]
+network = ["github.com"]
+# docs-code-segment:end

@@ -81,6 +81,10 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
     const scenarios = path.join(projectRoot, "example_plugins");
     const scenariosOut = path.join(scenarios, "out");
 
+    const showActionPanelForPlugins = [
+        "ui_action_panel"
+    ];
+
     for (const plugin of readdirSync(scenariosOut)) {
         if (expectedPlugin) {
             if (plugin != expectedPlugin) {
@@ -123,6 +127,7 @@ async function runScreenshotGen(expectedPlugin: string | undefined, expectedEntr
                         GAUNTLET_SCREENSHOT_GEN_IN: scenarioFile,
                         GAUNTLET_SCREENSHOT_GEN_OUT: path.join(scenarios, "out_screenshot", plugin, entrypoint, scenarioName + ".png"),
                         GAUNTLET_SCREENSHOT_GEN_NAME: scenarioNameTitle,
+                        GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL: showActionPanelForPlugins.includes(plugin) ? "true" : "false",
                     })
                 });
 

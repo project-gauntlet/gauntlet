@@ -1,0 +1,12 @@
+[gauntlet]
+name = 'Docs Navigation'
+description = ''
+
+# docs-code-segment:start navigation
+[[entrypoint]]
+id = 'navigation'
+name = 'Navigation'
+path = 'src/navigation.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end

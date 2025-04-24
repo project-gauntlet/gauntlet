@@ -628,6 +628,11 @@ fn new(
         let gen_name =
             std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
 
+        let show_action_panel: bool = std::env::var("GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
+            .expect("Unable to read GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
+            .parse()
+            .expect("Unable to parse GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL");
+
         let event: ScenarioFrontendEvent =
             serde_json::from_str(&gen_in).expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
 
@@ -666,6 +671,10 @@ fn new(
                     &entrypoint_id,
                     &entrypoint_name,
                 );
+
+                if show_action_panel {
+                    tasks.push(Task::done(AppMsg::ToggleActionPanel { keyboard: false }))
+                }
 
                 match render_location {
                     UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
