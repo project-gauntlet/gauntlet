@@ -1,5 +1,5 @@
 {
-  "name": "@project-gauntlet/ui-action-panel",
+  "name": "@project-gauntlet/ui-preferences",
   "private": true,
   "scripts": {
     "build": "gauntlet build",
