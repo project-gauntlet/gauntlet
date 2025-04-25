@@ -1,0 +1,12 @@
+[gauntlet]
+name = 'Docs Storage'
+description = ''
+
+# docs-code-segment:start storage
+[[entrypoint]]
+id = 'storage'
+name = 'Storage'
+path = 'src/storage.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end

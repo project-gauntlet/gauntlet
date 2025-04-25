@@ -11,6 +11,15 @@ type = 'command'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start assets
+[[entrypoint]]
+id = 'assets'
+name = 'Assets'
+path = 'src/assets.tsx'
+type = 'command'
+description = ''
+# docs-code-segment:end
+
 # docs-code-segment:start preferences
 [[preferences]]
 id = 'testBool'
