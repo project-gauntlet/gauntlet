@@ -93,12 +93,20 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
-
 # docs-code-segment:start content-horizontal-break
 [[entrypoint]]
 id = 'content-horizontal-break'
 name = 'Grid Content Horizontal Break'
 path = 'src/content-horizontal-break.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start focus
+[[entrypoint]]
+id = 'focus'
+name = 'Grid Focus'
+path = 'src/focus.tsx'
 type = 'view'
 description = ''
 # docs-code-segment:end

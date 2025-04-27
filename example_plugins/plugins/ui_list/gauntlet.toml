@@ -183,6 +183,15 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start focus
+[[entrypoint]]
+id = 'focus'
+name = 'List Focus'
+path = 'src/focus.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
 [permissions]
 network = ["static.wikia.nocookie.net"]
 
