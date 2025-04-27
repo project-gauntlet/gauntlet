@@ -1,0 +1,17 @@
+[gauntlet]
+name = 'Docs Clipboard'
+description = ''
+
+# docs-code-segment:start clipboard
+[[entrypoint]]
+id = 'clipboard'
+name = 'Clipboard'
+path = 'src/clipboard.tsx'
+type = 'view'
+description = ''
+
+[permissions]
+clipboard = ["clear", "read", "write"]
+network = ["raw.githubusercontent.com"]
+# docs-code-segment:end
+

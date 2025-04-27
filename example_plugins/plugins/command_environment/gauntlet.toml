@@ -1,0 +1,13 @@
+[gauntlet]
+name = 'Docs Command Environment'
+description = ''
+
+# docs-code-segment:start environment
+[[entrypoint]]
+id = 'environment'
+name = 'Environment'
+path = 'src/environment.tsx'
+type = 'command'
+description = ''
+
+# docs-code-segment:end

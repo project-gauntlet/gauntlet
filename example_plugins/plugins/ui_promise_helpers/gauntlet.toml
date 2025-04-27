@@ -1,0 +1,112 @@
+[gauntlet]
+name = 'Docs Promise Helpers'
+description = ''
+
+# docs-code-segment:start basic
+[[entrypoint]]
+id = 'basic'
+name = 'Basic'
+path = 'src/basic.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start execute-false
+[[entrypoint]]
+id = 'execute-false'
+name = 'Execute False'
+path = 'src/execute-false.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start revalidate
+[[entrypoint]]
+id = 'revalidate'
+name = 'Revalidate'
+path = 'src/revalidate.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start abortable-revalidate
+[[entrypoint]]
+id = 'abortable-revalidate'
+name = 'Abortable Revalidate'
+path = 'src/abortable-revalidate.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start mutate
+[[entrypoint]]
+id = 'mutate'
+name = 'Mutate'
+path = 'src/mutate.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start mutate-optimistic
+[[entrypoint]]
+id = 'mutate-optimistic'
+name = 'Mutate Optimistic'
+path = 'src/mutate-optimistic.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start mutate-optimistic-rollback
+[[entrypoint]]
+id = 'mutate-optimistic-rollback'
+name = 'Mutate Optimistic Rollback'
+path = 'src/mutate-optimistic-rollback.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start mutate-no-revalidate
+[[entrypoint]]
+id = 'mutate-no-revalidate'
+name = 'Mutate No Revalidate'
+path = 'src/mutate-no-revalidate.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start cached-basic
+[[entrypoint]]
+id = 'cached-basic'
+name = 'Cached Basic'
+path = 'src/cached-basic.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start cached-basic-initial-value
+[[entrypoint]]
+id = 'cached-basic-initial-value'
+name = 'Cached Basic Intial Value'
+path = 'src/cached-basic-initial-value.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start fetch-basic
+[[entrypoint]]
+id = 'fetch-basic'
+name = 'Fetch Basic'
+path = 'src/fetch-basic.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
+# docs-code-segment:start fetch-map
+[[entrypoint]]
+id = 'fetch-map'
+name = 'Fetch Map'
+path = 'src/fetch-map.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+

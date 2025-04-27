@@ -183,7 +183,7 @@ export default function DetailView(): ReactElement {
                     </Detail.Metadata.TagList.Item>
                     <Detail.Metadata.TagList.Item
                         onClick={() => {
-                            readFile("https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/PNG_Test.png/477px-PNG_Test.png?20240527104658")
+                            readFile("https://github.com/project-gauntlet/gauntlet/blob/main/docs/logo.png?raw=true")
                                 .then(image => Clipboard.write({ "text/plain": "Gauntlet Test 1", "image/png": image }));
                         }}
                     >
