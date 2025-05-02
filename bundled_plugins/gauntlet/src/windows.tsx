@@ -6,18 +6,15 @@ import { focusWaylandWindow } from "./window/wayland";
 import { focusX11Window } from "./window/x11";
 
 export default function Windows(): ReactElement {
-    const windows = Object.entries(openWindows)
-        .map(([_, window]) => window)
-
     switch (current_os()) {
         case "linux": {
             if (wayland()) {
                 return (
-                    <ListOfWindows windows={windows} focus={(windowId) => focusWaylandWindow(windowId)}/>
+                    <ListOfWindows windows={openWindows} focusWindow={(windowId) => focusWaylandWindow(windowId)}/>
                 )
             } else {
                 return (
-                    <ListOfWindows windows={windows} focus={(windowId) => focusX11Window(windowId)}/>
+                    <ListOfWindows windows={openWindows} focusWindow={(windowId) => focusX11Window(windowId)}/>
                 )
             }
         }

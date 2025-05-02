@@ -2,13 +2,20 @@ import {
     GeneratedEntrypoint,
     GeneratedEntrypointAccessory,
     GeneratedEntrypointAction,
-    showHud
 } from "@project-gauntlet/api/helpers";
 import { linux_open_application } from "gauntlet:bridge/internal-linux";
 import React from "react";
 import { Action, ActionPanel, List } from "@project-gauntlet/api/components";
 
-export function ListOfWindows({ windows, focus }: { windows: OpenWindowData[], focus: (windowId: string) => void }) {
+export function ListOfWindows({ windows, focusWindow }: {
+    windows: Record<string, OpenWindowData>,
+    focusWindow: (windowId: string) => void
+}) {
+    const knownWindows = readWindowOrder();
+
+    const sortedWindows = Object.keys(windows) // sort windows bases on array stored on storage
+        .sort((a, b) => knownWindows.indexOf(a) - knownWindows.indexOf(b));
+
     return (
         <List
             actions={
@@ -17,7 +24,7 @@ export function ListOfWindows({ windows, focus }: { windows: OpenWindowData[], f
                         label="Focus window"
                         onAction={(id: string | undefined) => {
                             if (id) {
-                                focus(id)
+                                focusAndSort(id, focusWindow)
                                 return { close: true }
                             }
                         }}
@@ -26,7 +33,7 @@ export function ListOfWindows({ windows, focus }: { windows: OpenWindowData[], f
             }
         >
             {
-                windows.map(window => <List.Item key={window.id} id={window.id} title={window.title}/>)
+                sortedWindows.map(window => <List.Item key={window} id={window} title={windows[window]!!.title}/>)
             }
         </List>
     )
@@ -57,12 +64,16 @@ export function applicationActions(
         ]
     }
 
-    const appWindows = Object.entries(openWindows)
-        .filter(([_, windowData]) => windowData.appId == id)
+    const appWindows = Object.fromEntries(
+        Object.entries(openWindows)
+            .filter(([_, windowData]) => windowData.appId == id)
+    )
 
     // TODO ability to close window
 
-    if (appWindows.length == 0) {
+    const windowCount = Object.keys(appWindows).length;
+
+    if (windowCount == 0) {
         return [
             {
                 label: "Open application",
@@ -71,14 +82,13 @@ export function applicationActions(
                 },
             }
         ]
-    } else if (appWindows.length == 1) {
+    } else if (windowCount == 1) {
         return [
             {
                 label: "Focus window",
                 run: () => {
-                    let [appWindow] = appWindows;
-                    let [windowId, _] = appWindow!!;
-                    focusWindow(windowId)
+                    let [windowId] = Object.keys(appWindows);
+                    focusAndSort(windowId!!, focusWindow)
                 },
             },
             {
@@ -88,15 +98,12 @@ export function applicationActions(
                 },
             }
         ]
-    } else if (appWindows.length > 1) {
+    } else if (windowCount > 1) {
         return [
             {
                 label: "Show windows",
                 view: () => {
-                    const appWindowsArr = appWindows
-                        .map(([_, window]) => window);
-
-                    return <ListOfWindows windows={appWindowsArr} focus={windowId => focusWindow(windowId)}/>
+                    return <ListOfWindows windows={appWindows} focusWindow={windowId => focusWindow(windowId)}/>
                 }
             },
             {
@@ -146,6 +153,10 @@ export function addOpenWindow(
             title: windowTitle
         }
 
+        const knownWindows = readWindowOrder();
+        knownWindows.push(windowId);
+        writeWindowOrder(knownWindows)
+
         add(appId, {
             ...generatedEntrypoint,
             actions: applicationActions(appId, true, openApplication, focusWindow),
@@ -167,6 +178,10 @@ export function deleteOpenWindow(
 
         delete openWindows[windowId];
 
+        const knownWindows = readWindowOrder();
+        const newKnownWindows = knownWindows.filter(id => id != windowId)
+        writeWindowOrder(newKnownWindows)
+
         if (generatedEntrypoint) {
             add(openWindow.appId, {
                 ...generatedEntrypoint,
@@ -181,4 +196,29 @@ export function openLinuxApplication(appId: string) {
     return () => {
         linux_open_application(appId)
     }
+}
+
+function focusAndSort(windowId: string, focus: (windowId: string) => void): void {
+    focus(windowId)
+
+    // TODO would probably be better if this is based on os focus events
+    const knownWindows = readWindowOrder();
+    const newKnownWindows = knownWindows.filter(id => id != windowId)
+    newKnownWindows.unshift(windowId);
+    writeWindowOrder(newKnownWindows)
+}
+
+const WINDOW_LIST_STORE_KEY = "opened-window-list";
+
+function readWindowOrder(): string[] {
+    const item = sessionStorage.getItem(WINDOW_LIST_STORE_KEY);
+    if (item == null || item === "") {
+        return []
+    } else {
+        return item.split(",")
+    }
+}
+
+function writeWindowOrder(windowIds: string[]): void {
+    return sessionStorage.setItem(WINDOW_LIST_STORE_KEY, windowIds.join(","));
 }
