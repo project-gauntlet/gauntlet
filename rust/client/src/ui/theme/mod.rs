@@ -536,7 +536,7 @@ impl GauntletComplexTheme {
                 background_color_hovered: background_200,
                 text_color: text_100,
                 text_color_placeholder: text_300,
-                selection_color: background_200,
+                selection_color: background_100,
                 border_radius: content.border.radius,
                 border_width: window.border.width,
                 border_color: background_200,
