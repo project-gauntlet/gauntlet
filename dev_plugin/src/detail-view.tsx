@@ -147,6 +147,7 @@ export default function DetailView(): ReactElement {
                     cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
                     culpa qui officia deserunt mollit anim id est laborum.
                 </Detail.Content.Paragraph>
+                <Detail.Content.Svg source={{ asset: "image.svg" }}/>
             </Detail.Content>
             <Detail.Metadata>
                 <Detail.Metadata.TagList label="Tags 1">

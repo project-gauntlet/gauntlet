@@ -70,6 +70,7 @@ use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
 
 use crate::model::IntermediateUiEvent;
+use crate::plugins::binary_data_gatherer::BinaryDataGatherer;
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::db_entrypoint_from_str;
 use crate::plugins::data_db_repository::DataDbRepository;
@@ -80,7 +81,6 @@ use crate::plugins::data_db_repository::DbPluginPreferenceUserData;
 use crate::plugins::data_db_repository::DbReadPlugin;
 use crate::plugins::data_db_repository::DbReadPluginEntrypoint;
 use crate::plugins::icon_cache::IconCache;
-use crate::plugins::image_gatherer::ImageGatherer;
 use crate::plugins::run_status::RunStatusGuard;
 use crate::search::SearchIndex;
 use crate::search::SearchIndexItem;
@@ -1181,7 +1181,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         top_level_view: bool,
         container: RootWidget,
     ) -> anyhow::Result<()> {
-        let images = ImageGatherer::run_gatherer(&self, &container).await?;
+        let data = BinaryDataGatherer::run_gatherer(&self, &container).await?;
 
         self.frontend_api
             .replace_view(
@@ -1192,7 +1192,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                 render_location,
                 top_level_view,
                 container,
-                images,
+                data,
             )
             .await?;
 

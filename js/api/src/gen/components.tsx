@@ -44,6 +44,9 @@ declare global {
             ["gauntlet:image"]: {
                 source: ImageLike;
             };
+            ["gauntlet:svg"]: {
+                source: DataSource;
+            };
             ["gauntlet:h1"]: {
                 children?: StringComponent;
             };
@@ -70,7 +73,7 @@ declare global {
                 children?: StringComponent;
             };
             ["gauntlet:content"]: {
-                children?: ElementComponent<typeof Paragraph | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
+                children?: ElementComponent<typeof Paragraph | typeof Image | typeof Svg | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
             };
             ["gauntlet:detail"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof Metadata | typeof Content>;
@@ -355,14 +358,14 @@ export enum Icons {
     Indent = "Indent",
     Unindent = "Unindent"
 }
-export type ImageSourceUrl = {
+export type DataSourceUrl = {
     url: string;
 };
-export type ImageSourceAsset = {
+export type DataSourceAsset = {
     asset: string;
 };
-export type ImageSource = ImageSourceUrl | ImageSourceAsset;
-export type ImageLike = ImageSource | Icons;
+export type DataSource = DataSourceUrl | DataSourceAsset;
+export type ImageLike = DataSource | Icons;
 export interface ActionProps {
     id?: string;
     label: string;
@@ -458,6 +461,12 @@ export interface ImageProps {
 export const Image: FC<ImageProps> = (props: ImageProps): ReactNode => {
     return <gauntlet:image source={props.source}></gauntlet:image>;
 };
+export interface SvgProps {
+    source: DataSource;
+}
+export const Svg: FC<SvgProps> = (props: SvgProps): ReactNode => {
+    return <gauntlet:svg source={props.source}></gauntlet:svg>;
+};
 export interface H1Props {
     children?: StringComponent;
 }
@@ -510,11 +519,12 @@ export const Paragraph: FC<ParagraphProps> = (props: ParagraphProps): ReactNode 
     return <gauntlet:paragraph>{props.children}</gauntlet:paragraph>;
 };
 export interface ContentProps {
-    children?: ElementComponent<typeof Paragraph | typeof Image | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
+    children?: ElementComponent<typeof Paragraph | typeof Image | typeof Svg | typeof H1 | typeof H2 | typeof H3 | typeof H4 | typeof H5 | typeof H6 | typeof HorizontalBreak | typeof CodeBlock>;
 }
 export const Content: FC<ContentProps> & {
     Paragraph: typeof Paragraph;
     Image: typeof Image;
+    Svg: typeof Svg;
     H1: typeof H1;
     H2: typeof H2;
     H3: typeof H3;
@@ -528,6 +538,7 @@ export const Content: FC<ContentProps> & {
 };
 Content.Paragraph = Paragraph;
 Content.Image = Image;
+Content.Svg = Svg;
 Content.H1 = H1;
 Content.H2 = H2;
 Content.H3 = H3;

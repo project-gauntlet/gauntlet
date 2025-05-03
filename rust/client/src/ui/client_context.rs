@@ -89,7 +89,7 @@ impl ClientContext {
         &mut self,
         render_location: UiRenderLocation,
         container: Arc<RootWidget>,
-        images: HashMap<UiWidgetId, Vec<u8>>,
+        data: HashMap<UiWidgetId, Vec<u8>>,
         plugin_id: &PluginId,
         plugin_name: &str,
         entrypoint_id: &EntrypointId,
@@ -99,7 +99,7 @@ impl ClientContext {
             UiRenderLocation::InlineView => {
                 self.get_mut_inline_view_container(plugin_id).replace_view(
                     container,
-                    images,
+                    data,
                     plugin_id,
                     plugin_name,
                     entrypoint_id,
@@ -109,7 +109,7 @@ impl ClientContext {
             UiRenderLocation::View => {
                 self.get_mut_view_container().replace_view(
                     container,
-                    images,
+                    data,
                     plugin_id,
                     plugin_name,
                     entrypoint_id,

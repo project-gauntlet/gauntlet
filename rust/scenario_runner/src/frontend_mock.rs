@@ -176,14 +176,14 @@ async fn request_loop(
                 render_location,
                 top_level_view,
                 container,
-                images,
+                data,
             } => {
                 let event = ScenarioFrontendEvent::ReplaceView {
                     entrypoint_id: entrypoint_id.to_string(),
                     render_location: ui_render_location_to_scenario(render_location),
                     top_level_view,
                     container,
-                    images,
+                    data,
                 };
 
                 scenario_sender.send(event).await.expect("send failed")

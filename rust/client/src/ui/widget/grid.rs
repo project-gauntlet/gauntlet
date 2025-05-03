@@ -229,7 +229,7 @@ impl<'b> ComponentWidgets<'b> {
 
         let mut sub_content_right = vec![];
         if let Some(widget) = &widget.content.accessory {
-            sub_content_right.push(render_icon_accessory(self.images, widget));
+            sub_content_right.push(render_icon_accessory(self.data, widget));
         }
 
         let sub_content_left: Element<_> = column(sub_content_left).width(Length::Fill).into();

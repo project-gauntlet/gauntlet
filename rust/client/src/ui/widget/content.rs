@@ -10,6 +10,7 @@ use gauntlet_common::model::H6Widget;
 use gauntlet_common::model::HorizontalBreakWidget;
 use gauntlet_common::model::ImageWidget;
 use gauntlet_common::model::ParagraphWidget;
+use gauntlet_common::model::SvgWidget;
 use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
 use iced::widget::column;
@@ -23,6 +24,7 @@ use crate::ui::theme::ThemableWidget;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::images::render_image;
+use crate::ui::widget::images::render_svg;
 use crate::ui::widget::text::TextRenderType;
 
 impl<'b> ComponentWidgets<'b> {
@@ -44,7 +46,20 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_image_widget<'a>(&self, widget: &ImageWidget, centered: bool) -> Element<'a, ComponentWidgetEvent> {
         // TODO image size, height and width
-        let content: Element<_> = render_image(self.images, widget.__id__, &widget.source, None);
+        let content: Element<_> = render_image(self.data, widget.__id__, &widget.source, None);
+
+        let mut content = container(content).width(Length::Fill);
+
+        if centered {
+            content = content.align_x(Horizontal::Center)
+        }
+
+        content.themed(ContainerStyle::ContentImage)
+    }
+
+    fn render_svg_widget<'a>(&self, widget: &SvgWidget, centered: bool) -> Element<'a, ComponentWidgetEvent> {
+        // TODO svg size, height and width
+        let content: Element<_> = render_svg(self.data, widget.__id__);
 
         let mut content = container(content).width(Length::Fill);
 
@@ -120,6 +135,7 @@ impl<'b> ComponentWidgets<'b> {
                     ContentWidgetOrderedMembers::H6(widget) => self.render_h6_widget(widget),
                     ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.render_horizontal_break_widget(widget),
                     ContentWidgetOrderedMembers::CodeBlock(widget) => self.render_code_block_widget(widget),
+                    ContentWidgetOrderedMembers::Svg(widget) => self.render_svg_widget(widget, centered),
                 }
             })
             .collect();

@@ -198,7 +198,7 @@ impl<'b> ComponentWidgets<'b> {
         let icon: Option<Element<_>> = widget
             .icon
             .as_ref()
-            .map(|icon| render_image(self.images, widget.__id__, icon, None));
+            .map(|icon| render_image(self.data, widget.__id__, icon, None));
 
         let title: Element<_> = text(widget.title.to_string()).shaping(Shaping::Advanced).into();
         let title: Element<_> = container(title).themed(ContainerStyle::ListItemTitle);
@@ -227,8 +227,8 @@ impl<'b> ComponentWidgets<'b> {
                 .iter()
                 .map(|accessory| {
                     match accessory {
-                        ListItemAccessories::_0(widget) => render_text_accessory(self.images, widget),
-                        ListItemAccessories::_1(widget) => render_icon_accessory(self.images, widget),
+                        ListItemAccessories::_0(widget) => render_text_accessory(self.data, widget),
+                        ListItemAccessories::_1(widget) => render_icon_accessory(self.data, widget),
                     }
                 })
                 .collect();

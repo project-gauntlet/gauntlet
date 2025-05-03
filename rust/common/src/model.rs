@@ -248,7 +248,7 @@ pub enum UiRequestData {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-        images: HashMap<UiWidgetId, Vec<u8>>,
+        data: HashMap<UiWidgetId, Vec<u8>>,
     },
     ShowPreferenceRequiredView {
         plugin_id: PluginId,
@@ -470,6 +470,7 @@ pub trait WidgetVisitor {
     async fn image_widget(&mut self, widget: &ImageWidget) {
         self.image(widget.__id__, &widget.source).await
     }
+    async fn svg_widget(&mut self, _widget: &SvgWidget) {}
     async fn h1_widget(&mut self, _widget: &H1Widget) {}
     async fn h2_widget(&mut self, _widget: &H2Widget) {}
     async fn h3_widget(&mut self, _widget: &H3Widget) {}
@@ -492,6 +493,7 @@ pub trait WidgetVisitor {
                 ContentWidgetOrderedMembers::H6(widget) => self.h6_widget(widget).await,
                 ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.horizontal_break_widget(widget).await,
                 ContentWidgetOrderedMembers::CodeBlock(widget) => self.code_block_widget(widget).await,
+                ContentWidgetOrderedMembers::Svg(widget) => self.svg_widget(widget).await,
             }
         }
     }
@@ -612,20 +614,7 @@ pub trait WidgetVisitor {
         if let Some(widget) = &widget.content.accessory {
             self.icon_accessory_widget(widget).await
         }
-        for members in &widget.content.content.content.ordered_members {
-            match members {
-                ContentWidgetOrderedMembers::Paragraph(widget) => self.paragraph_widget(widget).await,
-                ContentWidgetOrderedMembers::Image(widget) => self.image_widget(widget).await,
-                ContentWidgetOrderedMembers::H1(widget) => self.h1_widget(widget).await,
-                ContentWidgetOrderedMembers::H2(widget) => self.h2_widget(widget).await,
-                ContentWidgetOrderedMembers::H3(widget) => self.h3_widget(widget).await,
-                ContentWidgetOrderedMembers::H4(widget) => self.h4_widget(widget).await,
-                ContentWidgetOrderedMembers::H5(widget) => self.h5_widget(widget).await,
-                ContentWidgetOrderedMembers::H6(widget) => self.h6_widget(widget).await,
-                ContentWidgetOrderedMembers::HorizontalBreak(widget) => self.horizontal_break_widget(widget).await,
-                ContentWidgetOrderedMembers::CodeBlock(widget) => self.code_block_widget(widget).await,
-            }
-        }
+        self.content_widget(&widget.content.content).await;
     }
     async fn grid_section_widget(&mut self, widget: &GridSectionWidget) {
         for members in &widget.content.ordered_members {

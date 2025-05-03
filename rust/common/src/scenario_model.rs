@@ -21,7 +21,7 @@ pub enum ScenarioFrontendEvent {
         top_level_view: bool,
         container: RootWidget,
         #[serde(with = "base64")]
-        images: HashMap<UiWidgetId, Vec<u8>>,
+        data: HashMap<UiWidgetId, Vec<u8>>,
     },
     ShowPreferenceRequiredView {
         entrypoint_id: String,

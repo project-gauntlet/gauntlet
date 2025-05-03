@@ -76,13 +76,13 @@ use crate::search::EntrypointDataView;
 use crate::search::PluginDataView;
 use crate::search::SearchIndex;
 
+mod binary_data_gatherer;
 mod clipboard;
 mod config_reader;
 mod data_db_repository;
 mod download_status;
 pub(super) mod frecency;
 mod icon_cache;
-mod image_gatherer;
 pub mod js;
 mod loader;
 pub mod plugin_manifest;

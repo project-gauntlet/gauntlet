@@ -25,7 +25,7 @@ pub struct ComponentWidgetsMut<'b> {
     pub root_widget: &'b mut Option<Arc<RootWidget>>,
     pub state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
     pub plugin_id: PluginId,
-    pub images: &'b HashMap<UiWidgetId, Vec<u8>>,
+    pub data: &'b HashMap<UiWidgetId, Vec<u8>>,
 }
 
 impl<'b> ComponentWidgetsMut<'b> {
@@ -33,13 +33,13 @@ impl<'b> ComponentWidgetsMut<'b> {
         root_widget: &'b mut Option<Arc<RootWidget>>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
         plugin_id: PluginId,
-        images: &'b HashMap<UiWidgetId, Vec<u8>>,
+        data: &'b HashMap<UiWidgetId, Vec<u8>>,
     ) -> ComponentWidgetsMut<'b> {
         Self {
             root_widget,
             state,
             plugin_id,
-            images,
+            data,
         }
     }
 

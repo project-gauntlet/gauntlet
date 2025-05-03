@@ -22,7 +22,7 @@ impl<'b> ComponentWidgets<'b> {
         let image: Option<Element<_>> = widget
             .image
             .as_ref()
-            .map(|image| render_image(self.images, widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
+            .map(|image| render_image(self.data, widget.__id__, image, Some(TextStyle::EmptyViewSubtitle)));
 
         let title: Element<_> = text(widget.title.to_string()).shaping(Shaping::Advanced).into();
 

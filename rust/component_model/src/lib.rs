@@ -544,7 +544,7 @@ fn root(children: &[&Component]) -> Component {
                 },
             ),
             (
-                "ImageSourceUrl".to_owned(),
+                "DataSourceUrl".to_owned(),
                 SharedType::Object {
                     items: {
                         let mut map = IndexMap::new();
@@ -554,7 +554,7 @@ fn root(children: &[&Component]) -> Component {
                 },
             ),
             (
-                "ImageSourceAsset".to_owned(),
+                "DataSourceAsset".to_owned(),
                 SharedType::Object {
                     items: {
                         let mut map = IndexMap::new();
@@ -564,14 +564,14 @@ fn root(children: &[&Component]) -> Component {
                 },
             ),
             (
-                "ImageSource".to_owned(),
+                "DataSource".to_owned(),
                 SharedType::Union {
                     items: vec![
                         PropertyType::SharedTypeRef {
-                            name: "ImageSourceUrl".to_owned(),
+                            name: "DataSourceUrl".to_owned(),
                         },
                         PropertyType::SharedTypeRef {
-                            name: "ImageSourceAsset".to_owned(),
+                            name: "DataSourceAsset".to_owned(),
                         },
                     ],
                 },
@@ -581,7 +581,7 @@ fn root(children: &[&Component]) -> Component {
                 SharedType::Union {
                     items: vec![
                         PropertyType::SharedTypeRef {
-                            name: "ImageSource".to_owned(),
+                            name: "DataSource".to_owned(),
                         },
                         PropertyType::SharedTypeRef {
                             name: "Icons".to_owned(),
@@ -801,6 +801,21 @@ pub fn create_component_model() -> Vec<Component> {
         children_none(),
     );
 
+    let svg_component = component(
+        "svg",
+        mark_doc!("/svg/description.md"),
+        "Svg",
+        [property(
+            "source",
+            mark_doc!("/svg/props/source.md"),
+            false,
+            PropertyType::SharedTypeRef {
+                name: "DataSource".to_owned(),
+            },
+        )],
+        children_none(),
+    );
+
     let h1_component = component(
         "h1",
         mark_doc!("/h1/description.md"),
@@ -895,6 +910,7 @@ pub fn create_component_model() -> Vec<Component> {
                 member("Paragraph", &paragraph_component, Arity::ZeroOrMore),
                 // member("Link", &link_component),
                 member("Image", &image_component, Arity::ZeroOrMore), // TODO color
+                member("Svg", &svg_component, Arity::ZeroOrMore),
                 member("H1", &h1_component, Arity::ZeroOrMore),
                 member("H2", &h2_component, Arity::ZeroOrMore),
                 member("H3", &h3_component, Arity::ZeroOrMore),
@@ -1565,6 +1581,7 @@ pub fn create_component_model() -> Vec<Component> {
         metadata_component,
         // link_component,
         image_component,
+        svg_component,
         h1_component,
         h2_component,
         h3_component,

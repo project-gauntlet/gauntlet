@@ -61,7 +61,7 @@ impl FrontendApi {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-        images: HashMap<UiWidgetId, Vec<u8>>,
+        data: HashMap<UiWidgetId, Vec<u8>>,
     ) -> Result<(), FrontendApiError> {
         let request = UiRequestData::ReplaceView {
             plugin_id,
@@ -71,7 +71,7 @@ impl FrontendApi {
             render_location,
             top_level_view,
             container,
-            images,
+            data,
         };
 
         let UiResponseData::Nothing = self.frontend_sender.send_receive(request).await? else {

@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use gauntlet_common::model::Icons;
 use gauntlet_common::model::ImageLike;
 use gauntlet_common::model::UiWidgetId;
-use iced::advanced::image::Handle;
 use iced::widget::horizontal_space;
 use iced::widget::image;
+use iced::widget::svg;
 use iced::widget::value;
 use iced_fonts::Bootstrap;
 use iced_fonts::BOOTSTRAP_FONT;
@@ -15,15 +15,15 @@ use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
 
 pub fn render_image<'a, T: 'a + Clone>(
-    images: &HashMap<UiWidgetId, Vec<u8>>,
+    data: &HashMap<UiWidgetId, Vec<u8>>,
     widget_id: UiWidgetId,
     image_data: &ImageLike,
     icon_style: Option<TextStyle>,
 ) -> Element<'a, T> {
     match image_data {
-        ImageLike::ImageSource(_) => {
-            match images.get(&widget_id) {
-                Some(bytes) => image(Handle::from_bytes(bytes.clone())).into(),
+        ImageLike::DataSource(_) => {
+            match data.get(&widget_id) {
+                Some(bytes) => image(image::Handle::from_bytes(bytes.clone())).into(),
                 None => horizontal_space().into(),
             }
         }
@@ -33,6 +33,13 @@ pub fn render_image<'a, T: 'a + Clone>(
                 Some(icon_style) => value(icon_to_bootstrap(icon)).font(BOOTSTRAP_FONT).themed(icon_style),
             }
         }
+    }
+}
+
+pub fn render_svg<'a, T: 'a>(data: &HashMap<UiWidgetId, Vec<u8>>, widget_id: UiWidgetId) -> Element<'a, T> {
+    match data.get(&widget_id) {
+        Some(bytes) => svg(svg::Handle::from_memory(bytes.clone())).into(),
+        None => horizontal_space().into(),
     }
 }
 

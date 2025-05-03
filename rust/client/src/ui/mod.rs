@@ -238,7 +238,7 @@ pub enum AppMsg {
         render_location: UiRenderLocation,
         top_level_view: bool,
         container: Arc<RootWidget>,
-        images: HashMap<UiWidgetId, Vec<u8>>,
+        data: HashMap<UiWidgetId, Vec<u8>>,
     },
     HandleRenderPluginUI {
         top_level_view: bool,
@@ -653,7 +653,7 @@ fn new(
                 render_location,
                 top_level_view,
                 container,
-                images,
+                data: images,
             } => {
                 let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
                 let entrypoint_id = EntrypointId::from_string(entrypoint_id);
@@ -961,7 +961,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             render_location,
             top_level_view,
             container,
-            images,
+            data: images,
         } => {
             let has_children = container.content.is_some();
 
@@ -3014,7 +3014,7 @@ async fn request_loop(
                     render_location,
                     top_level_view,
                     container,
-                    images,
+                    data: images,
                 } => {
                     responder.respond(UiResponseData::Nothing);
 
@@ -3026,7 +3026,7 @@ async fn request_loop(
                         render_location,
                         top_level_view,
                         container: Arc::new(container),
-                        images,
+                        data: images,
                     }
                 }
                 UiRequestData::ClearInlineView { plugin_id } => {

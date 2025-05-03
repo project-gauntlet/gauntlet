@@ -21,10 +21,10 @@ use crate::ui::theme::ThemableWidget;
 use crate::ui::widget::images::render_image;
 
 pub fn render_icon_accessory<'a, T: 'a + Clone>(
-    images: &HashMap<UiWidgetId, Vec<u8>>,
+    data: &HashMap<UiWidgetId, Vec<u8>>,
     widget: &IconAccessoryWidget,
 ) -> Element<'a, T> {
-    let icon = render_image(images, widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
+    let icon = render_image(data, widget.__id__, &widget.icon, Some(TextStyle::IconAccessory));
 
     let content = container(icon)
         .align_x(Horizontal::Center)
@@ -42,13 +42,13 @@ pub fn render_icon_accessory<'a, T: 'a + Clone>(
 }
 
 pub fn render_text_accessory<'a, T: 'a + Clone>(
-    images: &HashMap<UiWidgetId, Vec<u8>>,
+    data: &HashMap<UiWidgetId, Vec<u8>>,
     widget: &TextAccessoryWidget,
 ) -> Element<'a, T> {
     let icon: Option<Element<_>> = widget
         .icon
         .as_ref()
-        .map(|icon| render_image(images, widget.__id__, icon, Some(TextStyle::TextAccessory)));
+        .map(|icon| render_image(data, widget.__id__, icon, Some(TextStyle::TextAccessory)));
 
     let text_content: Element<_> = text(widget.text.to_string())
         .shaping(Shaping::Advanced)

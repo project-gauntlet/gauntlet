@@ -11,6 +11,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 - Windows in "Opened windows" view entrypoint are now sorted following "most recently focused on the top" order
 - Plugin manifest property `entrypoint.*.actions.*.shortcut` is now optional
+- Add `Content.Svg` component to display SVG images
+- **BREAKING CHANGE**: Renamed TS types: `ImageSource` to `DataSource`, `ImageSourceUrl` to `DataSourceUrl`, `ImageSourceAsset` to `DataSourceAsset`
 
 ### Fixes
 - Unified `Vec<u8>` usage to `ArrayBuffer` in JS
