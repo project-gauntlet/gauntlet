@@ -175,7 +175,7 @@ pub struct PluginManifestAction {
     #[schemars(description = "Description of what the action does")]
     pub description: String,
     #[schemars(description = "Default keyboard shortcut to trigger the action")]
-    pub shortcut: PluginManifestActionShortcut,
+    pub shortcut: Option<PluginManifestActionShortcut>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -382,7 +382,7 @@ pub enum PluginManifestActionShortcutKey {
 }
 
 impl PluginManifestActionShortcutKey {
-    pub fn to_model(self) -> ActionShortcutKey {
+    pub fn to_model(&self) -> ActionShortcutKey {
         match self {
             PluginManifestActionShortcutKey::Num0 => ActionShortcutKey::Num0,
             PluginManifestActionShortcutKey::Num1 => ActionShortcutKey::Num1,

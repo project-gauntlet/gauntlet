@@ -9,6 +9,13 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Windows in "Opened windows" view entrypoint are now sorted following "most recently focused on the top" order
+- Plugin manifest property `entrypoint.*.actions.*.shortcut` is now optional
+
+### Fixes
+- Unified `Vec<u8>` usage to `ArrayBuffer` in JS
+  - Fixes `icon` in EntrypointGenerator requiring `number[]`
+
 ## [18] - 2025-04-13
 
 ### General

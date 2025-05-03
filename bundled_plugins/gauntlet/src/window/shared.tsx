@@ -13,7 +13,7 @@ export function ListOfWindows({ windows, focusWindow }: {
 }) {
     const knownWindows = readWindowOrder();
 
-    const sortedWindows = Object.keys(windows) // sort windows bases on array stored on storage
+    const sortedWindows = Object.keys(windows) // sort windows based on array stored on storage
         .sort((a, b) => knownWindows.indexOf(a) - knownWindows.indexOf(b));
 
     return (

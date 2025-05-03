@@ -200,8 +200,8 @@ pub enum DbPluginPreferenceUserData {
 pub struct DbPluginAction {
     pub id: String,
     pub description: String,
-    pub key: String,
-    pub kind: DbPluginActionShortcutKind,
+    pub key: Option<String>,
+    pub kind: Option<DbPluginActionShortcutKind>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -722,17 +722,21 @@ impl DataDbRepository {
 
         let action_shortcuts = actions
             .into_iter()
-            .map(|action| {
+            .filter_map(|action| {
                 let id = action.id;
 
                 let shortcut = match actions_user_data.get(&id) {
                     None => {
-                        let (physical_key, modifier_shift) = match ActionShortcutKey::from_value(&action.key) {
-                            Some(key) => key.to_physical_key(),
-                            None => return Err(anyhow!("unknown key: {}", &action.key)),
+                        let (Some(key), Some(kind)) = (action.key, action.kind) else {
+                            return None;
                         };
 
-                        let (modifier_control, modifier_alt, modifier_meta) = match action.kind {
+                        let (physical_key, modifier_shift) = match ActionShortcutKey::from_value(&key) {
+                            Some(key) => key.to_physical_key(),
+                            None => return Some(Err(anyhow!("unknown key: {}", &key))),
+                        };
+
+                        let (modifier_control, modifier_alt, modifier_meta) = match kind {
                             DbPluginActionShortcutKind::Main => {
                                 if cfg!(target_os = "macos") {
                                     (false, false, true)
@@ -762,7 +766,7 @@ impl DataDbRepository {
                     }
                 };
 
-                Ok((id, shortcut))
+                Some(Ok((id, shortcut)))
             })
             .collect::<Result<HashMap<_, _>, _>>()?;
 

@@ -75,8 +75,7 @@
       "type": "object",
       "required": [
         "description",
-        "id",
-        "shortcut"
+        "id"
       ],
       "properties": {
         "description": {
@@ -89,9 +88,12 @@
         },
         "shortcut": {
           "description": "Default keyboard shortcut to trigger the action",
-          "allOf": [
+          "anyOf": [
             {
               "$ref": "#/definitions/PluginManifestActionShortcut"
+            },
+            {
+              "type": "null"
             }
           ]
         }

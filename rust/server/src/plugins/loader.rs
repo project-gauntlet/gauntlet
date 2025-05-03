@@ -401,16 +401,25 @@ impl PluginLoader {
                         .actions
                         .into_iter()
                         .map(|action| {
-                            DbPluginAction {
-                                id: action.id,
-                                description: action.description,
-                                key: action.shortcut.key.to_model().to_value(),
-                                kind: match action.shortcut.kind {
+                            let key = action
+                                .shortcut
+                                .as_ref()
+                                .map(|shortcut| shortcut.key.to_model().to_value());
+
+                            let kind = action.shortcut.as_ref().map(|shortcut| {
+                                match shortcut.kind {
                                     PluginManifestActionShortcutKind::Main => DbPluginActionShortcutKind::Main,
                                     PluginManifestActionShortcutKind::Alternative => {
                                         DbPluginActionShortcutKind::Alternative
                                     }
-                                },
+                                }
+                            });
+
+                            DbPluginAction {
+                                id: action.id,
+                                description: action.description,
+                                key,
+                                kind,
                             }
                         })
                         .collect(),
