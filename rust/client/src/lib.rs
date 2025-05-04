@@ -1,9 +1,9 @@
 use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::BackendRequestData;
-use gauntlet_common::model::BackendResponseData;
-use gauntlet_common::model::UiRequestData;
-use gauntlet_common::model::UiResponseData;
 use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
+use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
+use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_utils::channel::RequestReceiver;
 use gauntlet_utils::channel::RequestSender;
 
@@ -15,8 +15,8 @@ pub(crate) mod ui;
 
 pub fn start_client(
     minimized: bool,
-    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) {
     ui::run(minimized, frontend_receiver, backend_sender);
 }

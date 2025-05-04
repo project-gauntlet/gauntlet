@@ -1,15 +1,16 @@
 use std::fs;
 use std::path::Path;
 
-use gauntlet_common::model::BackendRequestData;
-use gauntlet_common::model::BackendResponseData;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
-use gauntlet_common::model::UiRequestData;
-use gauntlet_common::model::UiResponseData;
 use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiProxy;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
 use gauntlet_common::rpc::backend_server::wait_for_backend_server;
+use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
+use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_to_scenario;
 use gauntlet_common::scenario_model::ScenarioFrontendEvent;
 use gauntlet_utils::channel::RequestReceiver;
@@ -18,8 +19,8 @@ use gauntlet_utils::channel::RequestSender;
 use crate::model::ScenarioBackendEvent;
 
 pub async fn start_scenario_runner_frontend(
-    request_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    request_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) -> anyhow::Result<()> {
     let scenario_dir = std::env::var("GAUNTLET_SCENARIOS_DIR").expect("Unable to read GAUNTLET_SCENARIOS_DIR");
 
@@ -56,7 +57,7 @@ pub async fn start_scenario_runner_frontend(
 
     println!("backend started");
 
-    let mut backend_for_frontend_client = BackendForFrontendApi::new(backend_sender);
+    let mut backend_for_frontend_client = BackendForFrontendApiProxy::new(backend_sender);
     let mut backend_client = BackendApi::new().await?;
 
     println!("saving local plugin");
@@ -145,30 +146,40 @@ fn save_event(scenario_out_dir: &Path, scenario_name: String, event: ScenarioFro
 }
 
 async fn request_loop(
-    mut request_receiver: RequestReceiver<UiRequestData, UiResponseData>,
+    mut request_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
     scenario_sender: tokio::sync::mpsc::Sender<ScenarioFrontendEvent>,
 ) {
     loop {
         let (request_data, responder) = request_receiver.recv().await;
 
         match request_data {
-            UiRequestData::UpdateLoadingBar { .. }
-            | UiRequestData::ShowHud { .. }
-            | UiRequestData::ShowWindow
-            | UiRequestData::HideWindow
-            | UiRequestData::ClearInlineView { .. }
-            | UiRequestData::SetTheme { .. }
-            | UiRequestData::ShowPluginView { .. }
-            | UiRequestData::ShowGeneratedPluginView { .. } => {
+            FrontendApiRequestData::UpdateLoadingBar { .. }
+            | FrontendApiRequestData::ShowHud { .. }
+            | FrontendApiRequestData::ShowWindow {}
+            | FrontendApiRequestData::HideWindow {}
+            | FrontendApiRequestData::ClearInlineView { .. }
+            | FrontendApiRequestData::SetTheme { .. }
+            | FrontendApiRequestData::OpenPluginView { .. }
+            | FrontendApiRequestData::OpenGeneratedPluginView { .. } => {
                 unreachable!()
             }
-            UiRequestData::SetGlobalShortcut { .. }
-            | UiRequestData::SetGlobalEntrypointShortcut { .. }
-            | UiRequestData::SetWindowPositionMode { .. }
-            | UiRequestData::RequestSearchResultUpdate => {
+            FrontendApiRequestData::SetGlobalShortcut { .. } => {
                 // noop
+                responder.respond(Ok(FrontendApiResponseData::SetGlobalShortcut { data: () }));
             }
-            UiRequestData::ReplaceView {
+            FrontendApiRequestData::SetGlobalEntrypointShortcut { .. } => {
+                // noop
+                responder.respond(Ok(FrontendApiResponseData::SetGlobalEntrypointShortcut { data: () }));
+            }
+            FrontendApiRequestData::SetWindowPositionMode { .. } => {
+                // noop
+                responder.respond(Ok(FrontendApiResponseData::SetWindowPositionMode { data: () }));
+            }
+            FrontendApiRequestData::RequestSearchResultsUpdate {} => {
+                // noop
+                responder.respond(Ok(FrontendApiResponseData::RequestSearchResultsUpdate { data: () }));
+            }
+            FrontendApiRequestData::ReplaceView {
                 plugin_id: _,
                 plugin_name: _,
                 entrypoint_id,
@@ -186,9 +197,10 @@ async fn request_loop(
                     data,
                 };
 
-                scenario_sender.send(event).await.expect("send failed")
+                scenario_sender.send(event).await.expect("send failed");
+                responder.respond(Ok(FrontendApiResponseData::ReplaceView { data: () }));
             }
-            UiRequestData::ShowPluginErrorView {
+            FrontendApiRequestData::ShowPluginErrorView {
                 plugin_id: _,
                 entrypoint_id,
                 render_location,
@@ -198,9 +210,10 @@ async fn request_loop(
                     render_location: ui_render_location_to_scenario(render_location),
                 };
 
-                scenario_sender.send(event).await.expect("send failed")
+                scenario_sender.send(event).await.expect("send failed");
+                responder.respond(Ok(FrontendApiResponseData::ShowPluginErrorView { data: () }));
             }
-            UiRequestData::ShowPreferenceRequiredView {
+            FrontendApiRequestData::ShowPreferenceRequiredView {
                 plugin_id: _,
                 entrypoint_id,
                 plugin_preferences_required,
@@ -212,10 +225,9 @@ async fn request_loop(
                     entrypoint_preferences_required,
                 };
 
-                scenario_sender.send(event).await.expect("send failed")
+                scenario_sender.send(event).await.expect("send failed");
+                responder.respond(Ok(FrontendApiResponseData::ShowPreferenceRequiredView { data: () }));
             }
         }
-
-        responder.respond(UiResponseData::Nothing);
     }
 }

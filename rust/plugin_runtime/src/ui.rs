@@ -273,7 +273,7 @@ pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) ->
         api
     };
 
-    api.ui_show_hud(display).await
+    api.ui_show_hud(display).await.map_err(Into::into)
 }
 
 #[op2(async)]
@@ -286,7 +286,7 @@ pub async fn hide_window(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
         api
     };
 
-    api.ui_hide_window().await
+    api.ui_hide_window().await.map_err(Into::into)
 }
 
 #[op2(async)]
@@ -305,6 +305,7 @@ pub async fn update_loading_bar(
 
     api.ui_update_loading_bar(EntrypointId::from_string(entrypoint_id), show)
         .await
+        .map_err(Into::into)
 }
 
 #[allow(unused)]

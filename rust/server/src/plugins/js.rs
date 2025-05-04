@@ -27,6 +27,7 @@ use gauntlet_common::model::UiPropertyValue;
 use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 use gauntlet_common::settings_env_data_to_string;
 use gauntlet_plugin_runtime::handle_proxy_message;
 use gauntlet_plugin_runtime::recv_message;
@@ -50,6 +51,7 @@ use gauntlet_plugin_runtime::JsPluginRuntimeMessage;
 use gauntlet_plugin_runtime::JsPreferenceUserData;
 use gauntlet_plugin_runtime::JsUiPropertyValue;
 use gauntlet_plugin_runtime::JsUiRenderLocation;
+use gauntlet_utils::channel::RequestResult;
 use interprocess::local_socket::tokio::RecvHalf;
 use interprocess::local_socket::tokio::SendHalf;
 use interprocess::local_socket::traits::tokio::Listener;
@@ -100,7 +102,7 @@ pub struct PluginRuntimeData {
     pub db_repository: DataDbRepository,
     pub search_index: SearchIndex,
     pub icon_cache: IconCache,
-    pub frontend_api: FrontendApi,
+    pub frontend_api: FrontendApiProxy,
     pub dirs: Dirs,
     pub clipboard: Clipboard,
 }
@@ -601,7 +603,7 @@ pub struct BackendForPluginRuntimeApiImpl {
     repository: DataDbRepository,
     search_index: SearchIndex,
     clipboard: Clipboard,
-    frontend_api: FrontendApi,
+    frontend_api: FrontendApiProxy,
     plugin_uuid: String,
     plugin_id: PluginId,
     plugin_name: String,
@@ -614,7 +616,7 @@ impl BackendForPluginRuntimeApiImpl {
         repository: DataDbRepository,
         search_index: SearchIndex,
         clipboard: Clipboard,
-        frontend_api: FrontendApi,
+        frontend_api: FrontendApiProxy,
         plugin_uuid: String,
         plugin_id: PluginId,
         plugin_name: String,
@@ -639,7 +641,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         &self,
         generated_entrypoints: Vec<JsGeneratedSearchItem>,
         refresh_search_list: bool,
-    ) -> anyhow::Result<()> {
+    ) -> RequestResult<()> {
         let DbReadPlugin { name, .. } = self
             .repository
             .get_plugin_by_id(&self.plugin_id.to_string())
@@ -745,7 +747,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     entrypoint_generator,
                 })
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<RequestResult<Vec<_>>>()?;
 
         let mut icon_asset_data = HashMap::new();
 
@@ -811,7 +813,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                     DbPluginEntrypointType::EntrypointGenerator | DbPluginEntrypointType::InlineView => Ok(None),
                 }
             })
-            .collect::<anyhow::Result<Vec<_>>>()?
+            .collect::<RequestResult<Vec<_>>>()?
             .into_iter()
             .flat_map(|item| item)
             .collect::<Vec<_>>();
@@ -830,7 +832,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(())
     }
 
-    async fn get_asset_data(&self, path: String) -> anyhow::Result<Vec<u8>> {
+    async fn get_asset_data(&self, path: String) -> RequestResult<Vec<u8>> {
         let data = self
             .repository
             .get_asset_data(&self.plugin_id.to_string(), &path)
@@ -839,7 +841,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(data)
     }
 
-    async fn get_entrypoint_generator_entrypoint_ids(&self) -> anyhow::Result<Vec<String>> {
+    async fn get_entrypoint_generator_entrypoint_ids(&self) -> RequestResult<Vec<String>> {
         let result = self
             .repository
             .get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
@@ -858,7 +860,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(result)
     }
 
-    async fn get_plugin_preferences(&self) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
+    async fn get_plugin_preferences(&self) -> RequestResult<HashMap<String, JsPreferenceUserData>> {
         let DbReadPlugin {
             preferences,
             preferences_user_data,
@@ -871,7 +873,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     async fn get_entrypoint_preferences(
         &self,
         entrypoint_id: EntrypointId,
-    ) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
+    ) -> RequestResult<HashMap<String, JsPreferenceUserData>> {
         let DbReadPluginEntrypoint {
             preferences,
             preferences_user_data,
@@ -884,7 +886,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(preferences_to_js(preferences, preferences_user_data))
     }
 
-    async fn plugin_preferences_required(&self) -> anyhow::Result<bool> {
+    async fn plugin_preferences_required(&self) -> RequestResult<bool> {
         let DbReadPlugin {
             preferences,
             preferences_user_data,
@@ -894,7 +896,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
 
-    async fn entrypoint_preferences_required(&self, entrypoint_id: EntrypointId) -> anyhow::Result<bool> {
+    async fn entrypoint_preferences_required(&self, entrypoint_id: EntrypointId) -> RequestResult<bool> {
         let DbReadPluginEntrypoint {
             preferences,
             preferences_user_data,
@@ -907,67 +909,67 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
 
-    async fn clipboard_read(&self) -> anyhow::Result<JsClipboardData> {
+    async fn clipboard_read(&self) -> RequestResult<JsClipboardData> {
         let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Read);
 
         if !allow {
-            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard").into());
         }
 
         tracing::debug!("Reading from clipboard, plugin id: {:?}", self.plugin_id);
 
-        self.clipboard.read()
+        self.clipboard.read().map_err(Into::into)
     }
 
-    async fn clipboard_read_text(&self) -> anyhow::Result<Option<String>> {
+    async fn clipboard_read_text(&self) -> RequestResult<Option<String>> {
         let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Read);
 
         if !allow {
-            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard"));
+            return Err(anyhow!("Plugin doesn't have 'read' permission for clipboard").into());
         }
 
         tracing::debug!("Reading text from clipboard, plugin id: {:?}", self.plugin_id);
 
-        self.clipboard.read_text()
+        self.clipboard.read_text().map_err(Into::into)
     }
 
-    async fn clipboard_write(&self, data: JsClipboardData) -> anyhow::Result<()> {
+    async fn clipboard_write(&self, data: JsClipboardData) -> RequestResult<()> {
         let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Write);
 
         if !allow {
-            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard").into());
         }
 
         tracing::debug!("Writing to clipboard, plugin id: {:?}", self.plugin_id);
 
-        self.clipboard.write(data)
+        self.clipboard.write(data).map_err(Into::into)
     }
 
-    async fn clipboard_write_text(&self, data: String) -> anyhow::Result<()> {
+    async fn clipboard_write_text(&self, data: String) -> RequestResult<()> {
         let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Write);
 
         if !allow {
-            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard"));
+            return Err(anyhow!("Plugin doesn't have 'write' permission for clipboard").into());
         }
 
         tracing::debug!("Writing text to clipboard, plugin id: {:?}", self.plugin_id);
 
-        self.clipboard.write_text(data)
+        self.clipboard.write_text(data).map_err(Into::into)
     }
 
-    async fn clipboard_clear(&self) -> anyhow::Result<()> {
+    async fn clipboard_clear(&self) -> RequestResult<()> {
         let allow = self.permissions.clipboard.contains(&PluginPermissionsClipboard::Clear);
 
         if !allow {
-            return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard"));
+            return Err(anyhow!("Plugin doesn't have 'clear' permission for clipboard").into());
         }
 
         tracing::debug!("Clearing clipboard, plugin id: {:?}", self.plugin_id);
 
-        self.clipboard.clear()
+        self.clipboard.clear().map_err(Into::into)
     }
 
-    async fn ui_update_loading_bar(&self, entrypoint_id: EntrypointId, show: bool) -> anyhow::Result<()> {
+    async fn ui_update_loading_bar(&self, entrypoint_id: EntrypointId, show: bool) -> RequestResult<()> {
         self.frontend_api
             .update_loading_bar(self.plugin_id.clone(), entrypoint_id, show)
             .await?;
@@ -975,13 +977,13 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(())
     }
 
-    async fn ui_show_hud(&self, display: String) -> anyhow::Result<()> {
+    async fn ui_show_hud(&self, display: String) -> RequestResult<()> {
         self.frontend_api.show_hud(display).await?;
 
         Ok(())
     }
 
-    async fn ui_hide_window(&self) -> anyhow::Result<()> {
+    async fn ui_hide_window(&self) -> RequestResult<()> {
         self.frontend_api.hide_window().await?;
 
         Ok(())
@@ -995,7 +997,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         modifier_control: bool,
         modifier_alt: bool,
         modifier_meta: bool,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> RequestResult<Option<String>> {
         let result = self
             .repository
             .get_action_id_for_shortcut(
@@ -1019,7 +1021,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
-    ) -> anyhow::Result<()> {
+    ) -> RequestResult<()> {
         let data = BinaryDataGatherer::run_gatherer(&self, &container).await?;
 
         let render_location = match render_location {
@@ -1047,7 +1049,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         &self,
         entrypoint_id: EntrypointId,
         render_location: JsUiRenderLocation,
-    ) -> anyhow::Result<()> {
+    ) -> RequestResult<()> {
         let render_location = match render_location {
             JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
             JsUiRenderLocation::View => UiRenderLocation::View,
@@ -1065,7 +1067,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         entrypoint_id: EntrypointId,
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
-    ) -> anyhow::Result<()> {
+    ) -> RequestResult<()> {
         self.frontend_api
             .show_preference_required_view(
                 self.plugin_id.clone(),
@@ -1078,7 +1080,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(())
     }
 
-    async fn ui_clear_inline_view(&self) -> anyhow::Result<()> {
+    async fn ui_clear_inline_view(&self) -> RequestResult<()> {
         self.frontend_api.clear_inline_view(self.plugin_id.clone()).await?;
 
         Ok(())

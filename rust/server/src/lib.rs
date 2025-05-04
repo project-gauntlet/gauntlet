@@ -12,16 +12,17 @@ use std::time::UNIX_EPOCH;
 use gauntlet_client::open_window;
 use gauntlet_client::start_client;
 use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::BackendRequestData;
-use gauntlet_common::model::BackendResponseData;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
-use gauntlet_common::model::UiRequestData;
-use gauntlet_common::model::UiResponseData;
 use gauntlet_common::model::UiTheme;
+use gauntlet_common::rpc::backend_api::handle_proxy_message;
 use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_api::BackendApiError;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
 use gauntlet_common::rpc::backend_server::start_backend_server;
+use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
+use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::settings_env_data_from_string;
 use gauntlet_common::settings_env_data_to_string;
 use gauntlet_common::SettingsEnvData;
@@ -67,8 +68,9 @@ pub fn start(minimized: bool) {
         if is_server_running() {
             open_window()
         } else {
-            let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
-            let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
+            let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
+            let (backend_sender, backend_receiver) =
+                channel::<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>();
 
             thread::Builder::new()
                 .name("gauntlet-server".to_string())
@@ -117,8 +119,9 @@ fn run_scenario_runner() {
 
     match runner_type.as_str() {
         "screenshot_gen" => {
-            let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
-            let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
+            let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
+            let (backend_sender, backend_receiver) =
+                channel::<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>();
 
             std::thread::spawn(|| {
                 let theme = crate::plugins::theme::BundledThemes::new().unwrap();
@@ -129,8 +132,9 @@ fn run_scenario_runner() {
             start_client(false, frontend_receiver, backend_sender);
         }
         "scenario_runner" => {
-            let (frontend_sender, frontend_receiver) = channel::<UiRequestData, UiResponseData>();
-            let (backend_sender, backend_receiver) = channel::<BackendRequestData, BackendResponseData>();
+            let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
+            let (backend_sender, backend_receiver) =
+                channel::<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>();
 
             std::thread::spawn(|| start_server(frontend_sender, backend_receiver));
 
@@ -161,8 +165,8 @@ fn is_server_running() -> bool {
 }
 
 fn start_server(
-    request_sender: RequestSender<UiRequestData, UiResponseData>,
-    backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
+    request_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_receiver: RequestReceiver<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -174,8 +178,8 @@ fn start_server(
 
 #[cfg(feature = "scenario_runner")]
 fn start_mock_server(
-    request_sender: RequestSender<UiRequestData, UiResponseData>,
-    backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
+    request_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_receiver: RequestReceiver<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
     theme: UiTheme,
 ) {
     tokio::runtime::Builder::new_multi_thread()
@@ -190,8 +194,8 @@ fn start_mock_server(
 
 #[cfg(feature = "scenario_runner")]
 fn start_frontend_mock(
-    request_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    request_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -204,8 +208,8 @@ fn start_frontend_mock(
 }
 
 async fn run_server(
-    frontend_sender: RequestSender<UiRequestData, UiResponseData>,
-    mut backend_receiver: RequestReceiver<BackendRequestData, BackendResponseData>,
+    frontend_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
+    mut backend_receiver: RequestReceiver<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) -> anyhow::Result<()> {
     let application_manager = ApplicationManager::create(frontend_sender).await?;
 
@@ -240,143 +244,10 @@ async fn run_server(
     loop {
         let (request_data, responder) = backend_receiver.recv().await;
 
-        let response_data = handle_request(application_manager.clone(), request_data).await?;
+        let response_data = handle_proxy_message(request_data, application_manager.as_ref()).await;
 
         responder.respond(response_data);
     }
-}
-
-async fn handle_request(
-    application_manager: Arc<ApplicationManager>,
-    request_data: BackendRequestData,
-) -> anyhow::Result<BackendResponseData> {
-    let response_data = match request_data {
-        BackendRequestData::Setup => {
-            let data = application_manager.setup_data().await?;
-
-            BackendResponseData::SetupData { data }
-        }
-        BackendRequestData::SetupResponse {
-            global_shortcut_error,
-            global_entrypoint_shortcuts_errors,
-        } => {
-            application_manager
-                .setup_response(global_shortcut_error, global_entrypoint_shortcuts_errors)
-                .await?;
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::Search {
-            text,
-            render_inline_view,
-        } => {
-            let results = application_manager.search(&text, render_inline_view)?;
-
-            BackendResponseData::Search { results }
-        }
-        BackendRequestData::RequestViewRender {
-            plugin_id,
-            entrypoint_id,
-        } => {
-            let shortcuts = application_manager
-                .handle_render_view(plugin_id.clone(), entrypoint_id.clone())
-                .await?;
-
-            BackendResponseData::RequestViewRender { shortcuts }
-        }
-        BackendRequestData::RequestViewClose { plugin_id } => {
-            application_manager.handle_view_close(plugin_id);
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::RequestRunCommand {
-            plugin_id,
-            entrypoint_id,
-        } => {
-            application_manager.handle_run_command(plugin_id, entrypoint_id).await;
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::RequestRunGeneratedEntrypoint {
-            plugin_id,
-            entrypoint_id,
-            action_index,
-        } => {
-            application_manager
-                .handle_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
-                .await;
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::SendViewEvent {
-            plugin_id,
-            widget_id,
-            event_name,
-            event_arguments,
-        } => {
-            application_manager.handle_view_event(plugin_id, widget_id, event_name, event_arguments);
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::SendKeyboardEvent {
-            plugin_id,
-            entrypoint_id,
-            origin,
-            key,
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta,
-        } => {
-            application_manager.handle_keyboard_event(
-                plugin_id,
-                entrypoint_id,
-                origin,
-                key,
-                modifier_shift,
-                modifier_control,
-                modifier_alt,
-                modifier_meta,
-            );
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::SendOpenEvent { plugin_id: _, href } => {
-            application_manager.handle_open(href);
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::OpenSettingsWindow => {
-            application_manager.handle_open_settings_window();
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::OpenSettingsWindowPreferences {
-            plugin_id,
-            entrypoint_id,
-        } => {
-            application_manager.handle_open_settings_window_preferences(plugin_id, entrypoint_id);
-
-            BackendResponseData::Nothing
-        }
-        BackendRequestData::InlineViewShortcuts => {
-            let shortcuts = application_manager.inline_view_shortcuts().await?;
-
-            BackendResponseData::InlineViewShortcuts { shortcuts }
-        }
-        BackendRequestData::RunEntrypoint {
-            plugin_id,
-            entrypoint_id,
-        } => {
-            application_manager
-                .run_action(plugin_id, entrypoint_id, ":primary".to_string())
-                .await?;
-
-            BackendResponseData::Nothing
-        }
-    };
-
-    Ok(response_data)
 }
 
 fn register_panic_hook(plugin_runtime: Option<String>) {

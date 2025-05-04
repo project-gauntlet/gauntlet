@@ -27,12 +27,14 @@ use gauntlet_common::model::SettingsGeneratedEntrypoint;
 use gauntlet_common::model::SettingsPlugin;
 use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::UiPropertyValue;
-use gauntlet_common::model::UiRequestData;
-use gauntlet_common::model::UiResponseData;
 use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
+use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
+use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::settings_env_data_to_string;
 use gauntlet_common::SettingsEnvData;
 use gauntlet_common::SETTINGS_ENV;
@@ -41,6 +43,7 @@ use gauntlet_plugin_runtime::JsPluginPermissions;
 use gauntlet_plugin_runtime::JsPluginPermissionsExec;
 use gauntlet_plugin_runtime::JsPluginPermissionsFileSystem;
 use gauntlet_plugin_runtime::JsPluginPermissionsMainSearchBar;
+use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils::channel::RequestSender;
 use include_dir::include_dir;
 use include_dir::Dir;
@@ -104,15 +107,17 @@ pub struct ApplicationManager {
     plugin_downloader: PluginLoader,
     run_status_holder: RunStatusHolder,
     icon_cache: IconCache,
-    frontend_api: FrontendApi,
+    frontend_api: FrontendApiProxy,
     dirs: Dirs,
     clipboard: Clipboard,
     settings: Settings,
 }
 
 impl ApplicationManager {
-    pub async fn create(frontend_sender: RequestSender<UiRequestData, UiResponseData>) -> anyhow::Result<Self> {
-        let frontend_api = FrontendApi::new(frontend_sender);
+    pub async fn create(
+        frontend_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
+    ) -> anyhow::Result<Self> {
+        let frontend_api = FrontendApiProxy::new(frontend_sender);
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
@@ -1004,6 +1009,137 @@ impl ApplicationManager {
             .collect();
 
         Ok(result)
+    }
+}
+
+impl BackendForFrontendApi for ApplicationManager {
+    async fn setup_data(&self) -> RequestResult<UiSetupData> {
+        let result = self.setup_data().await?;
+
+        Ok(result)
+    }
+
+    async fn setup_response(
+        &self,
+        global_shortcut_error: Option<String>,
+        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
+    ) -> RequestResult<()> {
+        self.setup_response(global_shortcut_error, global_entrypoint_shortcuts_errors)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn search(&self, text: String, render_inline_view: bool) -> RequestResult<Vec<SearchResult>> {
+        let result = self.search(&text, render_inline_view)?;
+
+        Ok(result)
+    }
+
+    async fn request_view_render(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> RequestResult<HashMap<String, PhysicalShortcut>> {
+        let result = self.handle_render_view(plugin_id, entrypoint_id).await?;
+
+        Ok(result)
+    }
+
+    async fn request_view_close(&self, plugin_id: PluginId) -> RequestResult<()> {
+        self.handle_view_close(plugin_id);
+
+        Ok(())
+    }
+
+    async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()> {
+        self.handle_run_command(plugin_id, entrypoint_id).await;
+
+        Ok(())
+    }
+
+    async fn request_run_generated_entrypoint(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        action_index: usize,
+    ) -> RequestResult<()> {
+        self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
+            .await;
+
+        Ok(())
+    }
+
+    async fn send_view_event(
+        &self,
+        plugin_id: PluginId,
+        widget_id: UiWidgetId,
+        event_name: String,
+        event_arguments: Vec<UiPropertyValue>,
+    ) -> RequestResult<()> {
+        self.handle_view_event(plugin_id, widget_id, event_name, event_arguments);
+
+        Ok(())
+    }
+
+    async fn send_keyboard_event(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        origin: KeyboardEventOrigin,
+        key: PhysicalKey,
+        modifier_shift: bool,
+        modifier_control: bool,
+        modifier_alt: bool,
+        modifier_meta: bool,
+    ) -> RequestResult<()> {
+        self.handle_keyboard_event(
+            plugin_id,
+            entrypoint_id,
+            origin,
+            key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        );
+
+        Ok(())
+    }
+
+    async fn send_open_event(&self, _plugin_id: PluginId, href: String) -> RequestResult<()> {
+        self.handle_open(href);
+
+        Ok(())
+    }
+
+    async fn open_settings_window(&self) -> RequestResult<()> {
+        self.handle_open_settings_window();
+
+        Ok(())
+    }
+
+    async fn open_settings_window_preferences(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: Option<EntrypointId>,
+    ) -> RequestResult<()> {
+        self.handle_open_settings_window_preferences(plugin_id, entrypoint_id);
+
+        Ok(())
+    }
+
+    async fn inline_view_shortcuts(&self) -> RequestResult<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
+        let result = self.inline_view_shortcuts().await?;
+
+        Ok(result)
+    }
+
+    async fn run_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()> {
+        self.run_action(plugin_id, entrypoint_id, ":primary".to_string())
+            .await?;
+
+        Ok(())
     }
 }
 

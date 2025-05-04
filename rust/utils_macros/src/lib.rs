@@ -4,16 +4,26 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::FnArg;
 use syn::ItemTrait;
+use syn::Meta;
 use syn::Pat;
 use syn::PathArguments;
 use syn::ReturnType;
 use syn::TraitItem;
 use syn::Type;
 use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
 
 #[proc_macro_attribute]
-pub fn boundary_gen(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn boundary_gen(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemTrait);
+    let args = parse_macro_input!(args with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
+
+    let bincode_enabled = args.iter().any(|arg| {
+        match arg {
+            Meta::Path(path) => path.is_ident("bincode"),
+            _ => false,
+        }
+    });
 
     let ItemTrait { ident, items, .. } = &input;
 
@@ -92,7 +102,7 @@ pub fn boundary_gen(_args: TokenStream, input: TokenStream) -> TokenStream {
                             let ty = match ty.as_ref() {
                                 Type::Path(item) => {
                                     let item = item.path.segments.last().unwrap();
-                                    if &item.ident == "Result" {
+                                    if &item.ident == "RequestResult" {
                                         match &item.arguments {
                                             PathArguments::AngleBracketed(item) => item.args.first(),
                                             _ => return None,
@@ -226,41 +236,41 @@ pub fn boundary_gen(_args: TokenStream, input: TokenStream) -> TokenStream {
         })
         .collect();
 
+    let bincode_derive = if bincode_enabled {
+        Some(quote!(
+           #[derive(bincode::Encode, bincode::Decode)]
+        ))
+    } else {
+        None
+    };
+
     quote!(
         #input
 
-        #[derive(Debug, bincode::Encode, bincode::Decode)]
+        #[derive(Debug)]
+        #bincode_derive
         pub enum #request_enum_name {
             #(#request_enum_items)*
         }
 
-        #[derive(Debug, bincode::Encode, bincode::Decode)]
+        #[derive(Debug)]
+        #bincode_derive
         pub enum #response_enum_name {
             #(#response_enum_items)*
         }
 
         #[derive(Clone)]
         pub struct #proxy_struct_name {
-            request_sender: gauntlet_utils::channel::RequestSender<#request_enum_name, Result<#response_enum_name, String>>,
+            request_sender: gauntlet_utils::channel::RequestSender<#request_enum_name, #response_enum_name>,
         }
 
         impl #proxy_struct_name {
-            pub fn new(request_sender: gauntlet_utils::channel::RequestSender<#request_enum_name, Result<#response_enum_name, String>>) -> Self {
+            pub fn new(request_sender: gauntlet_utils::channel::RequestSender<#request_enum_name, #response_enum_name>) -> Self {
                 Self { request_sender }
             }
 
-            async fn request(&self, request: #request_enum_name) -> anyhow::Result<#response_enum_name> {
-                match self.request_sender.send_receive(request).await {
-                    Ok(ok) => Ok(ok.map_err(|e| anyhow!(e))?),
-                    Err(err) => {
-                        match err {
-                            RequestError::TimeoutError => {
-                                Err(anyhow!("Backend was unable to process message in a timely manner"))
-                            }
-                            RequestError::OtherSideWasDropped => Err(anyhow!("Plugin runtime is being stopped")),
-                        }
-                    }
-                }
+            async fn request(&self, request: #request_enum_name) -> gauntlet_utils::channel::RequestResult<#response_enum_name> {
+                self.request_sender.send_receive(request).await
             }
         }
 

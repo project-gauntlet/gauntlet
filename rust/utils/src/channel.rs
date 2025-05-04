@@ -1,17 +1,22 @@
 use std::time::Duration;
 
+use anyhow::Error;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time::error::Elapsed;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum RequestError {
-    #[error("request timeout")]
+    #[error("The other side has not managed to process request in a timely manner")]
     TimeoutError,
-    #[error("other side was dropped")]
+    #[error("The other side has dropped the oneshot prematurely")]
     OtherSideWasDropped,
+    #[error("Error: {display:?}")]
+    Other { display: String },
 }
+
+pub type RequestResult<V> = Result<V, RequestError>;
 
 impl From<Elapsed> for RequestError {
     fn from(_: Elapsed) -> RequestError {
@@ -19,21 +24,29 @@ impl From<Elapsed> for RequestError {
     }
 }
 
+impl From<anyhow::Error> for RequestError {
+    fn from(error: Error) -> RequestError {
+        RequestError::Other {
+            display: format!("{}", error),
+        }
+    }
+}
+
 pub type Payload<Req, Res> = (Req, Responder<Res>);
 
 #[derive(Debug)]
 pub struct ResponseReceiver<Res> {
-    pub(crate) response_receiver: Option<oneshot::Receiver<Res>>,
+    pub(crate) response_receiver: Option<oneshot::Receiver<anyhow::Result<Res>>>,
 }
 
 impl<Res> ResponseReceiver<Res> {
-    pub(crate) fn new(response_receiver: oneshot::Receiver<Res>) -> Self {
+    pub(crate) fn new(response_receiver: oneshot::Receiver<anyhow::Result<Res>>) -> Self {
         Self {
             response_receiver: Some(response_receiver),
         }
     }
 
-    pub async fn recv(&mut self) -> Res {
+    pub async fn recv(&mut self) -> anyhow::Result<Res> {
         self.response_receiver
             .take()
             .expect("recv was called second time")
@@ -52,8 +65,8 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
         RequestSender { request_sender }
     }
 
-    pub fn send(&self, request: Req) -> Result<ResponseReceiver<Res>, RequestError> {
-        let (response_sender, response_receiver) = oneshot::channel::<Res>();
+    pub fn send(&self, request: Req) -> RequestResult<ResponseReceiver<Res>> {
+        let (response_sender, response_receiver) = oneshot::channel::<anyhow::Result<Res>>();
         let responder = Responder::new(response_sender);
         let payload = (request, responder);
         self.request_sender
@@ -62,12 +75,16 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
         Ok(ResponseReceiver::new(response_receiver))
     }
 
-    pub async fn send_receive(&self, request: Req) -> Result<Res, RequestError> {
+    pub async fn send_receive(&self, request: Req) -> RequestResult<Res> {
         let mut receiver = self.send(request)?;
 
         let duration = Duration::from_secs(30);
 
-        let result = tokio::time::timeout(duration, receiver.recv()).await?;
+        let result = tokio::time::timeout(duration, receiver.recv()).await?.map_err(|err| {
+            RequestError::Other {
+                display: format!("{}", err),
+            }
+        })?;
 
         Ok(result)
     }
@@ -102,18 +119,18 @@ impl<Req, Res> RequestReceiver<Req, Res> {
 }
 
 impl<Res: std::fmt::Debug> Responder<Res> {
-    fn new(response_sender: oneshot::Sender<Res>) -> Self {
+    fn new(response_sender: oneshot::Sender<anyhow::Result<Res>>) -> Self {
         Self { response_sender }
     }
 
-    pub fn respond(self, response: Res) {
+    pub fn respond(self, response: anyhow::Result<Res>) {
         self.response_sender.send(response).expect("the receiver was closed")
     }
 }
 
 #[derive(Debug)]
 pub struct Responder<Res> {
-    response_sender: oneshot::Sender<Res>,
+    response_sender: oneshot::Sender<anyhow::Result<Res>>,
 }
 
 pub fn channel<Req: std::fmt::Debug, Res: std::fmt::Debug>() -> (RequestSender<Req, Res>, RequestReceiver<Req, Res>) {

@@ -18,5 +18,5 @@ pub async fn get_entrypoint_generator_entrypoint_ids(state: Rc<RefCell<OpState>>
         api
     };
 
-    api.get_entrypoint_generator_entrypoint_ids().await
+    api.get_entrypoint_generator_entrypoint_ids().await.map_err(Into::into)
 }

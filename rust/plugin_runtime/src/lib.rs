@@ -100,7 +100,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
 
     let (request_sender, mut request_receiver) = gauntlet_utils::channel::channel::<
         BackendForPluginRuntimeApiRequestData,
-        Result<BackendForPluginRuntimeApiResponseData, String>,
+        BackendForPluginRuntimeApiResponseData,
     >();
     let (event_sender, event_receiver) = channel::<JsEvent>(10);
     let response_oneshot = Mutex::new(None);
@@ -214,7 +214,7 @@ async fn request_loop(
     send: &mut SendHalf,
     request_receiver: &mut RequestReceiver<
         BackendForPluginRuntimeApiRequestData,
-        Result<BackendForPluginRuntimeApiResponseData, String>,
+        BackendForPluginRuntimeApiResponseData,
     >,
     response_oneshot: &Mutex<Option<oneshot::Sender<Result<BackendForPluginRuntimeApiResponseData, String>>>>,
 ) -> anyhow::Result<()> {
@@ -251,7 +251,7 @@ async fn request_loop(
 
     tracing::trace!("Sending response request {:?}", &response);
 
-    responder.respond(response);
+    responder.respond(response.map_err(|err| anyhow::anyhow!("{}", err)));
 
     Ok(())
 }

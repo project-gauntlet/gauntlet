@@ -40,7 +40,7 @@ pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<
         api
     };
 
-    api.clipboard_read_text().await
+    api.clipboard_read_text().await.map_err(Into::into)
 }
 
 #[op2(async)]
@@ -58,7 +58,7 @@ pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: DenoInC
         png_data: data.png_data.map(|buffer| buffer.to_vec()),
     };
 
-    api.clipboard_write(clipboard_data).await
+    api.clipboard_write(clipboard_data).await.map_err(Into::into)
 }
 
 #[op2(async)]
@@ -71,7 +71,7 @@ pub async fn clipboard_write_text(state: Rc<RefCell<OpState>>, #[string] data: S
         api
     };
 
-    api.clipboard_write_text(data).await
+    api.clipboard_write_text(data).await.map_err(Into::into)
 }
 
 #[op2(async)]
@@ -84,5 +84,5 @@ pub async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> 
         api
     };
 
-    api.clipboard_clear().await
+    api.clipboard_clear().await.map_err(Into::into)
 }

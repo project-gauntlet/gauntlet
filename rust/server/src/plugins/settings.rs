@@ -12,6 +12,7 @@ use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::data_db_repository::DbSettingsGlobalEntrypointShortcutData;
@@ -25,12 +26,12 @@ use crate::plugins::theme::BundledThemes;
 pub struct Settings {
     dirs: Dirs,
     repository: DataDbRepository,
-    frontend_api: FrontendApi,
+    frontend_api: FrontendApiProxy,
     themes: BundledThemes,
 }
 
 impl Settings {
-    pub fn new(dirs: Dirs, repository: DataDbRepository, frontend_api: FrontendApi) -> anyhow::Result<Self> {
+    pub fn new(dirs: Dirs, repository: DataDbRepository, frontend_api: FrontendApiProxy) -> anyhow::Result<Self> {
         Ok(Self {
             dirs,
             repository,
@@ -79,7 +80,7 @@ impl Settings {
 
         self.repository.set_settings(settings).await?;
 
-        err
+        err.map_err(Into::into)
     }
 
     pub async fn set_global_shortcut_error(&self, error: Option<String>) -> anyhow::Result<()> {
@@ -193,7 +194,7 @@ impl Settings {
 
         self.repository.set_settings(settings).await?;
 
-        err
+        err.map_err(Into::into)
     }
 
     pub async fn set_global_entrypoint_shortcut_error(

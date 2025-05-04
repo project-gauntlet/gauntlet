@@ -21,7 +21,7 @@ pub async fn asset_data(state: Rc<RefCell<OpState>>, #[string] path: String) -> 
 
     tracing::trace!(target = "renderer_rs", "Fetching asset data {:?}", path);
 
-    api.get_asset_data(path).await
+    api.get_asset_data(path).await.map_err(Into::into)
 }
 
 #[op2]

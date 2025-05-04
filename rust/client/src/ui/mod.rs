@@ -10,8 +10,6 @@ use std::sync::RwLock as StdRwLock;
 
 use anyhow::anyhow;
 use client_context::ClientContext;
-use gauntlet_common::model::BackendRequestData;
-use gauntlet_common::model::BackendResponseData;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::KeyboardEventOrigin;
 use gauntlet_common::model::PhysicalKey;
@@ -24,8 +22,6 @@ use gauntlet_common::model::SearchResultEntrypointAction;
 use gauntlet_common::model::SearchResultEntrypointActionType;
 use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::UiRenderLocation;
-use gauntlet_common::model::UiRequestData;
-use gauntlet_common::model::UiResponseData;
 use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiWidgetId;
@@ -33,11 +29,19 @@ use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiError;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiProxy;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
+use gauntlet_common::rpc::frontend_api::handle_proxy_message;
+use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
+use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
 use gauntlet_common::scenario_model::ScenarioFrontendEvent;
 use gauntlet_common::scenario_model::ScenarioUiRenderLocation;
 use gauntlet_common_ui::physical_key_model;
+use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestReceiver;
+use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils::channel::RequestSender;
 use gauntlet_utils::channel::Responder;
 use global_hotkey::hotkey::HotKey;
@@ -145,11 +149,11 @@ use crate::ui::widget_container::PluginWidgetContainer;
 
 pub struct AppModel {
     // logic
-    backend_api: BackendForFrontendApi,
+    backend_api: BackendForFrontendApiProxy,
     global_hotkey_manager: GlobalHotKeyManager,
     current_global_hotkey: Option<HotKey>,
     current_entrypoint_global_hotkeys: HashMap<(PluginId, EntrypointId), HotKey>,
-    frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
+    frontend_receiver: Arc<TokioRwLock<RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>>>,
     main_window_id: window::Id,
     focused: bool,
     opened: bool,
@@ -285,7 +289,7 @@ pub enum AppMsg {
         save_path: String,
         screenshot: Screenshot,
     },
-    ShowBackendError(BackendForFrontendApiError),
+    ShowBackendError(RequestError),
     ClosePluginView(PluginId),
     OpenPluginView(PluginId, EntrypointId),
     InlineViewShortcuts {
@@ -333,13 +337,13 @@ pub enum AppMsg {
     },
     SetGlobalShortcut {
         shortcut: Option<PhysicalShortcut>,
-        responder: Arc<Mutex<Option<Responder<UiResponseData>>>>,
+        responder: Arc<Mutex<Option<Responder<FrontendApiResponseData>>>>,
     },
     SetGlobalEntrypointShortcut {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         shortcut: Option<PhysicalShortcut>,
-        responder: Arc<Mutex<Option<Responder<UiResponseData>>>>,
+        responder: Arc<Mutex<Option<Responder<FrontendApiResponseData>>>>,
     },
     UpdateLoadingBar {
         plugin_id: PluginId,
@@ -487,8 +491,8 @@ fn open_main_window_wayland(id: window::Id) -> (window::Id, Task<AppMsg>) {
 
 pub fn run(
     minimized: bool,
-    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) {
     #[cfg(target_os = "linux")]
     let result = {
@@ -511,8 +515,8 @@ pub fn run(
 
 fn run_non_wayland(
     minimized: bool,
-    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) -> anyhow::Result<()> {
     iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(title, update, view)
         .settings(Settings {
@@ -533,8 +537,8 @@ fn run_non_wayland(
 #[cfg(target_os = "linux")]
 fn run_wayland(
     minimized: bool,
-    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
 ) -> anyhow::Result<()> {
     iced_layershell::build_pattern::daemon("Gauntlet", update, view, wayland_remove_id_info)
         .layer_settings(iced_layershell::settings::LayerShellSettings {
@@ -555,12 +559,12 @@ fn run_wayland(
 fn wayland_remove_id_info(_state: &mut AppModel, _id: window::Id) {}
 
 fn new(
-    frontend_receiver: RequestReceiver<UiRequestData, UiResponseData>,
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
+    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
+    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
     wayland: bool,
     minimized: bool,
 ) -> (AppModel, Task<AppMsg>) {
-    let mut backend_api = BackendForFrontendApi::new(backend_sender);
+    let mut backend_api = BackendForFrontendApiProxy::new(backend_sender);
 
     let setup_data = futures::executor::block_on(backend_api.setup_data()).expect("Unable to setup frontend");
 
@@ -1234,8 +1238,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             GlobalState::error(
                 &mut state.global_state,
                 match err {
-                    BackendForFrontendApiError::TimeoutError => ErrorViewData::BackendTimeout,
-                    BackendForFrontendApiError::Internal { display } => ErrorViewData::UnknownError { display },
+                    RequestError::TimeoutError => ErrorViewData::BackendTimeout,
+                    RequestError::Other { display } => ErrorViewData::UnknownError { display },
+                    RequestError::OtherSideWasDropped => {
+                        ErrorViewData::UnknownError {
+                            display: "The other side was dropped".to_string(),
+                        }
+                    }
                 },
             )
         }
@@ -1516,11 +1525,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             match error {
                 Ok(()) => {
                     tracing::info!("Successfully registered new global shortcut: {:?}", shortcut);
-                    responder.respond(UiResponseData::Nothing);
+                    responder.respond(Ok(FrontendApiResponseData::SetGlobalShortcut { data: () }));
                 }
                 Err(err) => {
                     tracing::error!("Unable to register new global shortcut {:?}: {:?}", shortcut, err);
-                    responder.respond(UiResponseData::Err(err));
+                    responder.respond(Err(err));
                 }
             }
 
@@ -1564,7 +1573,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         entrypoint_id,
                         shortcut
                     );
-                    responder.respond(UiResponseData::Nothing);
+                    responder.respond(Ok(FrontendApiResponseData::SetGlobalEntrypointShortcut { data: () }));
                 }
                 Err(err) => {
                     tracing::info!(
@@ -1574,7 +1583,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         shortcut,
                         err
                     );
-                    responder.respond(UiResponseData::Err(err));
+                    responder.respond(Err(err));
                 }
             }
 
@@ -2317,11 +2326,15 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
         events_subscription,
         Subscription::run_with_id(
             std::any::TypeId::of::<RequestLoop>(),
-            stream::channel(100, |sender| {
+            stream::channel(100, |mut sender| {
                 async move {
-                    request_loop(frontend_receiver, sender).await;
+                    let mut frontend_receiver = frontend_receiver.write().await;
 
-                    panic!("request_rx was unexpectedly closed")
+                    loop {
+                        let (request_data, responder) = frontend_receiver.recv().await;
+
+                        request_loop(request_data, &mut sender, responder).await;
+                    }
                 }
             }),
         ),
@@ -2989,7 +3002,7 @@ impl AppModel {
     }
 }
 
-fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, convert: impl FnOnce(T) -> AppMsg) -> AppMsg {
+fn handle_backend_error<T>(result: RequestResult<T>, convert: impl FnOnce(T) -> AppMsg) -> AppMsg {
     match result {
         Ok(val) => convert(val),
         Err(err) => AppMsg::ShowBackendError(err),
@@ -2997,167 +3010,163 @@ fn handle_backend_error<T>(result: Result<T, BackendForFrontendApiError>, conver
 }
 
 async fn request_loop(
-    frontend_receiver: Arc<TokioRwLock<RequestReceiver<UiRequestData, UiResponseData>>>,
-    mut sender: futures::channel::mpsc::Sender<AppMsg>,
+    request_data: FrontendApiRequestData,
+    sender: &mut futures::channel::mpsc::Sender<AppMsg>,
+    responder: Responder<FrontendApiResponseData>,
 ) {
-    let mut frontend_receiver = frontend_receiver.write().await;
-    loop {
-        let (request_data, responder) = frontend_receiver.recv().await;
+    let app_msg = {
+        match request_data {
+            FrontendApiRequestData::ReplaceView {
+                plugin_id,
+                plugin_name,
+                entrypoint_id,
+                entrypoint_name,
+                render_location,
+                top_level_view,
+                container,
+                data: images,
+            } => {
+                responder.respond(Ok(FrontendApiResponseData::ReplaceView { data: () }));
 
-        let app_msg = {
-            match request_data {
-                UiRequestData::ReplaceView {
+                AppMsg::RenderPluginUI {
                     plugin_id,
                     plugin_name,
                     entrypoint_id,
                     entrypoint_name,
                     render_location,
                     top_level_view,
-                    container,
+                    container: Arc::new(container),
                     data: images,
-                } => {
-                    responder.respond(UiResponseData::Nothing);
-
-                    AppMsg::RenderPluginUI {
-                        plugin_id,
-                        plugin_name,
-                        entrypoint_id,
-                        entrypoint_name,
-                        render_location,
-                        top_level_view,
-                        container: Arc::new(container),
-                        data: images,
-                    }
                 }
-                UiRequestData::ClearInlineView { plugin_id } => {
-                    responder.respond(UiResponseData::Nothing);
+            }
+            FrontendApiRequestData::ClearInlineView { plugin_id } => {
+                responder.respond(Ok(FrontendApiResponseData::ClearInlineView { data: () }));
 
-                    AppMsg::ClearInlineView { plugin_id }
-                }
-                UiRequestData::ShowWindow => {
-                    responder.respond(UiResponseData::Nothing);
+                AppMsg::ClearInlineView { plugin_id }
+            }
+            FrontendApiRequestData::ShowWindow {} => {
+                responder.respond(Ok(FrontendApiResponseData::ShowWindow { data: () }));
 
-                    AppMsg::ShowWindow
-                }
-                UiRequestData::HideWindow => {
-                    responder.respond(UiResponseData::Nothing);
+                AppMsg::ShowWindow
+            }
+            FrontendApiRequestData::HideWindow {} => {
+                responder.respond(Ok(FrontendApiResponseData::HideWindow { data: () }));
 
-                    AppMsg::HideWindow
-                }
-                UiRequestData::ShowPreferenceRequiredView {
+                AppMsg::HideWindow
+            }
+            FrontendApiRequestData::ShowPreferenceRequiredView {
+                plugin_id,
+                entrypoint_id,
+                plugin_preferences_required,
+                entrypoint_preferences_required,
+            } => {
+                responder.respond(Ok(FrontendApiResponseData::ShowPreferenceRequiredView { data: () }));
+
+                AppMsg::ShowPreferenceRequiredView {
                     plugin_id,
                     entrypoint_id,
                     plugin_preferences_required,
                     entrypoint_preferences_required,
-                } => {
-                    responder.respond(UiResponseData::Nothing);
-
-                    AppMsg::ShowPreferenceRequiredView {
-                        plugin_id,
-                        entrypoint_id,
-                        plugin_preferences_required,
-                        entrypoint_preferences_required,
-                    }
                 }
-                UiRequestData::ShowPluginErrorView {
+            }
+            FrontendApiRequestData::ShowPluginErrorView {
+                plugin_id,
+                entrypoint_id,
+                render_location,
+            } => {
+                responder.respond(Ok(FrontendApiResponseData::ShowPluginErrorView { data: () }));
+
+                AppMsg::ShowPluginErrorView {
                     plugin_id,
                     entrypoint_id,
                     render_location,
-                } => {
-                    responder.respond(UiResponseData::Nothing);
+                }
+            }
+            FrontendApiRequestData::RequestSearchResultsUpdate {} => {
+                responder.respond(Ok(FrontendApiResponseData::RequestSearchResultsUpdate { data: () }));
 
-                    AppMsg::ShowPluginErrorView {
-                        plugin_id,
-                        entrypoint_id,
-                        render_location,
-                    }
-                }
-                UiRequestData::RequestSearchResultUpdate => {
-                    responder.respond(UiResponseData::Nothing);
+                AppMsg::UpdateSearchResults
+            }
+            FrontendApiRequestData::ShowHud { display } => {
+                responder.respond(Ok(FrontendApiResponseData::ShowHud { data: () }));
 
-                    AppMsg::UpdateSearchResults
+                AppMsg::ShowHud { display }
+            }
+            FrontendApiRequestData::SetGlobalShortcut { shortcut } => {
+                AppMsg::SetGlobalShortcut {
+                    shortcut,
+                    responder: Arc::new(Mutex::new(Some(responder))),
                 }
-                UiRequestData::ShowHud { display } => {
-                    responder.respond(UiResponseData::Nothing);
-
-                    AppMsg::ShowHud { display }
-                }
-                UiRequestData::SetGlobalShortcut { shortcut } => {
-                    AppMsg::SetGlobalShortcut {
-                        shortcut,
-                        responder: Arc::new(Mutex::new(Some(responder))),
-                    }
-                }
-                UiRequestData::SetGlobalEntrypointShortcut {
+            }
+            FrontendApiRequestData::SetGlobalEntrypointShortcut {
+                plugin_id,
+                entrypoint_id,
+                shortcut,
+            } => {
+                AppMsg::SetGlobalEntrypointShortcut {
                     plugin_id,
                     entrypoint_id,
                     shortcut,
-                } => {
-                    AppMsg::SetGlobalEntrypointShortcut {
-                        plugin_id,
-                        entrypoint_id,
-                        shortcut,
-                        responder: Arc::new(Mutex::new(Some(responder))),
-                    }
+                    responder: Arc::new(Mutex::new(Some(responder))),
                 }
-                UiRequestData::UpdateLoadingBar {
+            }
+            FrontendApiRequestData::UpdateLoadingBar {
+                plugin_id,
+                entrypoint_id,
+                show,
+            } => {
+                responder.respond(Ok(FrontendApiResponseData::UpdateLoadingBar { data: () }));
+
+                AppMsg::UpdateLoadingBar {
                     plugin_id,
                     entrypoint_id,
                     show,
-                } => {
-                    responder.respond(UiResponseData::Nothing);
-
-                    AppMsg::UpdateLoadingBar {
-                        plugin_id,
-                        entrypoint_id,
-                        show,
-                    }
                 }
-                UiRequestData::SetTheme { theme } => {
-                    responder.respond(UiResponseData::Nothing);
+            }
+            FrontendApiRequestData::SetTheme { theme } => {
+                responder.respond(Ok(FrontendApiResponseData::SetTheme { data: () }));
 
-                    AppMsg::SetTheme { theme }
-                }
-                UiRequestData::SetWindowPositionMode { mode } => {
-                    responder.respond(UiResponseData::Nothing);
+                AppMsg::SetTheme { theme }
+            }
+            FrontendApiRequestData::SetWindowPositionMode { mode } => {
+                responder.respond(Ok(FrontendApiResponseData::SetWindowPositionMode { data: () }));
 
-                    AppMsg::SetWindowPositionMode { mode }
-                }
-                UiRequestData::ShowPluginView {
+                AppMsg::SetWindowPositionMode { mode }
+            }
+            FrontendApiRequestData::OpenPluginView {
+                plugin_id,
+                plugin_name,
+                entrypoint_id,
+                entrypoint_name,
+            } => {
+                responder.respond(Ok(FrontendApiResponseData::OpenPluginView { data: () }));
+
+                AppMsg::ShowNewView {
                     plugin_id,
                     plugin_name,
                     entrypoint_id,
                     entrypoint_name,
-                } => {
-                    responder.respond(UiResponseData::Nothing);
-
-                    AppMsg::ShowNewView {
-                        plugin_id,
-                        plugin_name,
-                        entrypoint_id,
-                        entrypoint_name,
-                    }
                 }
-                UiRequestData::ShowGeneratedPluginView {
+            }
+            FrontendApiRequestData::OpenGeneratedPluginView {
+                plugin_id,
+                plugin_name,
+                entrypoint_id,
+                entrypoint_name,
+                action_index,
+            } => {
+                responder.respond(Ok(FrontendApiResponseData::OpenGeneratedPluginView { data: () }));
+
+                AppMsg::ShowNewGeneratedView {
                     plugin_id,
                     plugin_name,
                     entrypoint_id,
                     entrypoint_name,
                     action_index,
-                } => {
-                    responder.respond(UiResponseData::Nothing);
-
-                    AppMsg::ShowNewGeneratedView {
-                        plugin_id,
-                        plugin_name,
-                        entrypoint_id,
-                        entrypoint_name,
-                        action_index,
-                    }
                 }
             }
-        };
+        }
+    };
 
-        let _ = sender.send(app_msg).await;
-    }
+    let _ = sender.send(app_msg).await;
 }

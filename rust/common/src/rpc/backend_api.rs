@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 
 use gauntlet_utils::channel::RequestError;
-use gauntlet_utils::channel::RequestSender;
+use gauntlet_utils::channel::RequestResult;
+use gauntlet_utils_macros::boundary_gen;
 use thiserror::Error;
 use tonic::transport::Channel;
 use tonic::Code;
 use tonic::Request;
 
-use crate::model::BackendRequestData;
-use crate::model::BackendResponseData;
 use crate::model::DownloadStatus;
 use crate::model::EntrypointId;
 use crate::model::KeyboardEventOrigin;
@@ -55,170 +54,46 @@ use crate::rpc::grpc_convert::plugin_preference_from_rpc;
 use crate::rpc::grpc_convert::plugin_preference_user_data_from_rpc;
 use crate::rpc::grpc_convert::plugin_preference_user_data_to_rpc;
 
-#[derive(Error, Debug, Clone)]
-pub enum BackendForFrontendApiError {
-    #[error("Frontend wasn't able to process request in a timely manner")]
-    TimeoutError,
-    #[error("Internal Error: {display:?}")]
-    Internal { display: String },
-}
+#[allow(async_fn_in_trait)]
+#[boundary_gen]
+pub trait BackendForFrontendApi {
+    async fn setup_data(&self) -> RequestResult<UiSetupData>;
 
-impl From<RequestError> for BackendForFrontendApiError {
-    fn from(error: RequestError) -> BackendForFrontendApiError {
-        match error {
-            RequestError::TimeoutError => BackendForFrontendApiError::TimeoutError,
-            RequestError::OtherSideWasDropped => {
-                BackendForFrontendApiError::Internal {
-                    display: "other side was dropped".to_string(),
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct BackendForFrontendApi {
-    backend_sender: RequestSender<BackendRequestData, BackendResponseData>,
-}
-
-impl BackendForFrontendApi {}
-
-impl BackendForFrontendApi {
-    pub fn new(backend_sender: RequestSender<BackendRequestData, BackendResponseData>) -> Self {
-        Self { backend_sender }
-    }
-
-    pub async fn setup_data(&mut self) -> Result<UiSetupData, BackendForFrontendApiError> {
-        let request = BackendRequestData::Setup;
-
-        let BackendResponseData::SetupData { data } = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(data)
-    }
-
-    pub async fn setup_response(
-        &mut self,
+    async fn setup_response(
+        &self,
         global_shortcut_error: Option<String>,
         global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SetupResponse {
-            global_shortcut_error,
-            global_entrypoint_shortcuts_errors,
-        };
+    ) -> RequestResult<()>;
 
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
+    async fn search(&self, text: String, render_inline_view: bool) -> RequestResult<Vec<SearchResult>>;
 
-        Ok(())
-    }
-
-    pub async fn search(
-        &mut self,
-        text: String,
-        render_inline_view: bool,
-    ) -> Result<Vec<SearchResult>, BackendForFrontendApiError> {
-        let request = BackendRequestData::Search {
-            text,
-            render_inline_view,
-        };
-
-        let BackendResponseData::Search { results } = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(results)
-    }
-
-    pub async fn request_view_render(
-        &mut self,
+    async fn request_view_render(
+        &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-    ) -> Result<HashMap<String, PhysicalShortcut>, BackendForFrontendApiError> {
-        let request = BackendRequestData::RequestViewRender {
-            plugin_id,
-            entrypoint_id,
-        };
+    ) -> RequestResult<HashMap<String, PhysicalShortcut>>;
 
-        let BackendResponseData::RequestViewRender { shortcuts } = self.backend_sender.send_receive(request).await?
-        else {
-            unreachable!()
-        };
+    async fn request_view_close(&self, plugin_id: PluginId) -> RequestResult<()>;
 
-        Ok(shortcuts)
-    }
+    async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()>;
 
-    pub async fn request_view_close(&mut self, plugin_id: PluginId) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::RequestViewClose { plugin_id };
-
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
-
-    pub async fn request_run_command(
-        &mut self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::RequestRunCommand {
-            plugin_id,
-            entrypoint_id,
-        };
-
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
-
-    pub async fn request_run_generated_entrypoint(
-        &mut self,
+    async fn request_run_generated_entrypoint(
+        &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         action_index: usize,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::RequestRunGeneratedEntrypoint {
-            plugin_id,
-            entrypoint_id,
-            action_index,
-        };
+    ) -> RequestResult<()>;
 
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
-
-    pub async fn send_view_event(
-        &mut self,
+    async fn send_view_event(
+        &self,
         plugin_id: PluginId,
         widget_id: UiWidgetId,
         event_name: String,
         event_arguments: Vec<UiPropertyValue>,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SendViewEvent {
-            plugin_id,
-            widget_id,
-            event_name,
-            event_arguments,
-        };
+    ) -> RequestResult<()>;
 
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
-
-    pub async fn send_keyboard_event(
-        &mut self,
+    async fn send_keyboard_event(
+        &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         origin: KeyboardEventOrigin,
@@ -227,95 +102,21 @@ impl BackendForFrontendApi {
         modifier_control: bool,
         modifier_alt: bool,
         modifier_meta: bool,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SendKeyboardEvent {
-            plugin_id,
-            entrypoint_id,
-            origin,
-            key,
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta,
-        };
+    ) -> RequestResult<()>;
 
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
+    async fn send_open_event(&self, plugin_id: PluginId, href: String) -> RequestResult<()>;
 
-        Ok(())
-    }
+    async fn open_settings_window(&self) -> RequestResult<()>;
 
-    pub async fn send_open_event(
-        &mut self,
-        plugin_id: PluginId,
-        href: String,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::SendOpenEvent { plugin_id, href };
-
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
-
-    pub async fn open_settings_window(&mut self) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::OpenSettingsWindow;
-
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
-
-    pub async fn open_settings_window_preferences(
-        &mut self,
+    async fn open_settings_window_preferences(
+        &self,
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::OpenSettingsWindowPreferences {
-            plugin_id,
-            entrypoint_id,
-        };
+    ) -> RequestResult<()>;
 
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
+    async fn inline_view_shortcuts(&self) -> RequestResult<HashMap<PluginId, HashMap<String, PhysicalShortcut>>>;
 
-        Ok(())
-    }
-
-    pub async fn inline_view_shortcuts(
-        &self,
-    ) -> Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>, BackendForFrontendApiError> {
-        let request = BackendRequestData::InlineViewShortcuts;
-
-        let BackendResponseData::InlineViewShortcuts { shortcuts } = self.backend_sender.send_receive(request).await?
-        else {
-            unreachable!()
-        };
-
-        Ok(shortcuts)
-    }
-
-    pub async fn run_entrypoint(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    ) -> Result<(), BackendForFrontendApiError> {
-        let request = BackendRequestData::RunEntrypoint {
-            plugin_id,
-            entrypoint_id,
-        };
-
-        let BackendResponseData::Nothing = self.backend_sender.send_receive(request).await? else {
-            unreachable!()
-        };
-
-        Ok(())
-    }
+    async fn run_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()>;
 }
 
 #[derive(Error, Debug, Clone)]

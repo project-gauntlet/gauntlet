@@ -13,6 +13,7 @@ use gauntlet_common::model::SearchResultEntrypointAction;
 use gauntlet_common::model::SearchResultEntrypointActionType;
 use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
+use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 use tantivy::collector::TopDocs;
 use tantivy::doc;
 use tantivy::query::AllQuery;
@@ -31,7 +32,7 @@ use tantivy::Searcher;
 
 #[derive(Clone)]
 pub struct SearchIndex {
-    frontend_api: FrontendApi,
+    frontend_api: FrontendApiProxy,
     index: Index,
     index_reader: IndexReader,
     index_writer_mutex: Arc<Mutex<()>>,
@@ -118,7 +119,7 @@ pub enum SearchIndexItemActionActionType {
 }
 
 impl SearchIndex {
-    pub fn create_index(frontend_api: FrontendApi) -> tantivy::Result<Self> {
+    pub fn create_index(frontend_api: FrontendApiProxy) -> tantivy::Result<Self> {
         let schema = {
             let mut schema_builder = Schema::builder();
 

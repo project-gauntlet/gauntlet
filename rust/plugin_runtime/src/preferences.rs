@@ -22,7 +22,7 @@ pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<Has
         api
     };
 
-    block_on(async { api.get_plugin_preferences().await })
+    block_on(async { api.get_plugin_preferences().await }).map_err(Into::into)
 }
 
 #[op2]
@@ -43,6 +43,7 @@ pub fn get_entrypoint_preferences(
         api.get_entrypoint_preferences(EntrypointId::from_string(entrypoint_id))
             .await
     })
+    .map_err(Into::into)
 }
 
 #[op2(async)]
@@ -55,7 +56,7 @@ pub async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow:
         api
     };
 
-    api.plugin_preferences_required().await
+    api.plugin_preferences_required().await.map_err(Into::into)
 }
 
 #[op2(async)]
@@ -73,4 +74,5 @@ pub async fn entrypoint_preferences_required(
 
     api.entrypoint_preferences_required(EntrypointId::from_string(entrypoint_id))
         .await
+        .map_err(Into::into)
 }

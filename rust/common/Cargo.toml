@@ -5,6 +5,7 @@ edition.workspace = true
 [dependencies]
 # worspaces
 gauntlet-utils.workspace = true
+gauntlet-utils-macros.workspace = true
 
 # shared
 anyhow.workspace = true
