@@ -92,7 +92,7 @@ export const Clipboard: Clipboard = {
     readText: async function (): Promise<string | undefined> {
         return await clipboard_read_text()
     },
-    write: async function (data: { "text/plain"?: string | undefined; "image/png"?: Uint8Array | undefined; }): Promise<void> {
+    write: async function (data: { "text/plain"?: string | undefined; "image/png"?: ArrayBuffer | undefined; }): Promise<void> {
         const text_data = data["text/plain"];
         const png_data = data["image/png"];
 

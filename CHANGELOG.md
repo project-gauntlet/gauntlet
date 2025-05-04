@@ -18,6 +18,7 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 - Unified `Vec<u8>` usage to `ArrayBuffer` in JS
   - Fixes `icon` in EntrypointGenerator requiring `number[]`
 - Fixed text selection not being visible when selecting text in form view text fields
+- Fixed plugin runtime crash when using `assetDataSync()` function
 
 ## [18] - 2025-04-13
 
