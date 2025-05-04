@@ -111,11 +111,6 @@ pub fn show_plugin_error_view(
         api
     };
 
-    let render_location = match render_location {
-        JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-        JsUiRenderLocation::View => UiRenderLocation::View,
-    };
-
     tokio::spawn(async move {
         api.ui_show_plugin_error_view(EntrypointId::from_string(entrypoint_id), render_location)
             .await
@@ -209,11 +204,6 @@ pub fn op_react_replace_view<'a>(
         let outer_handle = state.borrow::<Handle>().clone();
 
         (api, outer_handle)
-    };
-
-    let render_location = match render_location {
-        JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-        JsUiRenderLocation::View => UiRenderLocation::View,
     };
 
     block_on(async move {

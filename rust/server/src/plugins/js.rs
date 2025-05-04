@@ -28,6 +28,7 @@ use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::settings_env_data_to_string;
+use gauntlet_plugin_runtime::handle_proxy_message;
 use gauntlet_plugin_runtime::recv_message;
 use gauntlet_plugin_runtime::send_message;
 use gauntlet_plugin_runtime::BackendForPluginRuntimeApi;
@@ -47,8 +48,6 @@ use gauntlet_plugin_runtime::JsPluginPermissionsFileSystem;
 use gauntlet_plugin_runtime::JsPluginPermissionsMainSearchBar;
 use gauntlet_plugin_runtime::JsPluginRuntimeMessage;
 use gauntlet_plugin_runtime::JsPreferenceUserData;
-use gauntlet_plugin_runtime::JsRequest;
-use gauntlet_plugin_runtime::JsResponse;
 use gauntlet_plugin_runtime::JsUiPropertyValue;
 use gauntlet_plugin_runtime::JsUiRenderLocation;
 use interprocess::local_socket::tokio::RecvHalf;
@@ -499,7 +498,7 @@ async fn request_loop(
             match message {
                 JsPluginRuntimeMessage::Stopped => Ok(true),
                 JsPluginRuntimeMessage::Request(message) => {
-                    match handle_message(message, api).await {
+                    match handle_proxy_message(message, api).await {
                         Ok(response) => {
                             let mut send = send.lock().await;
 
@@ -521,166 +520,6 @@ async fn request_loop(
                     }
                 }
             }
-        }
-    }
-}
-
-async fn handle_message(message: JsRequest, api: &BackendForPluginRuntimeApiImpl) -> anyhow::Result<JsResponse> {
-    match message {
-        JsRequest::Render {
-            entrypoint_id,
-            entrypoint_name,
-            render_location,
-            top_level_view,
-            container,
-        } => {
-            let render_location = match render_location {
-                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-                JsUiRenderLocation::View => UiRenderLocation::View,
-            };
-
-            api.ui_render(
-                entrypoint_id,
-                entrypoint_name,
-                render_location,
-                top_level_view,
-                container,
-            )
-            .await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ClearInlineView => {
-            api.ui_clear_inline_view().await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ShowPluginErrorView {
-            entrypoint_id,
-            render_location,
-        } => {
-            let render_location = match render_location {
-                JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
-                JsUiRenderLocation::View => UiRenderLocation::View,
-            };
-
-            api.ui_show_plugin_error_view(entrypoint_id, render_location).await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ShowPreferenceRequiredView {
-            entrypoint_id,
-            plugin_preferences_required,
-            entrypoint_preferences_required,
-        } => {
-            api.ui_show_preferences_required_view(
-                entrypoint_id,
-                plugin_preferences_required,
-                entrypoint_preferences_required,
-            )
-            .await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ShowHud { display } => {
-            api.ui_show_hud(display).await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::HideWindow => {
-            api.ui_hide_window().await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::UpdateLoadingBar { entrypoint_id, show } => {
-            api.ui_update_loading_bar(entrypoint_id, show).await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ReloadSearchIndex {
-            generated_entrypoints,
-            refresh_search_list,
-        } => {
-            api.reload_search_index(generated_entrypoints, refresh_search_list)
-                .await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::GetAssetData { path } => {
-            let data = api.get_asset_data(&path).await?;
-
-            Ok(JsResponse::AssetData { data })
-        }
-        JsRequest::GetEntrypointGeneratorEntrypointIds => {
-            let data = api.get_entrypoint_generator_entrypoint_ids().await?;
-
-            Ok(JsResponse::EntrypointGeneratorEntrypointIds { data })
-        }
-        JsRequest::GetPluginPreferences => {
-            let data = api.get_plugin_preferences().await?;
-
-            Ok(JsResponse::PluginPreferences { data })
-        }
-        JsRequest::GetEntrypointPreferences { entrypoint_id } => {
-            let data = api.get_entrypoint_preferences(entrypoint_id).await?;
-
-            Ok(JsResponse::EntrypointPreferences { data })
-        }
-        JsRequest::PluginPreferencesRequired => {
-            let data = api.plugin_preferences_required().await?;
-
-            Ok(JsResponse::PluginPreferencesRequired { data })
-        }
-        JsRequest::EntrypointPreferencesRequired { entrypoint_id } => {
-            let data = api.entrypoint_preferences_required(entrypoint_id).await?;
-
-            Ok(JsResponse::EntrypointPreferencesRequired { data })
-        }
-        JsRequest::ClipboardRead => {
-            let data = api.clipboard_read().await?;
-
-            Ok(JsResponse::ClipboardRead { data })
-        }
-        JsRequest::ClipboardReadText => {
-            let data = api.clipboard_read_text().await?;
-
-            Ok(JsResponse::ClipboardReadText { data })
-        }
-        JsRequest::ClipboardWrite { data } => {
-            api.clipboard_write(data).await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ClipboardWriteText { data } => {
-            api.clipboard_write_text(data).await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::ClipboardClear => {
-            api.clipboard_clear().await?;
-
-            Ok(JsResponse::Nothing)
-        }
-        JsRequest::GetActionIdForShortcut {
-            entrypoint_id,
-            key,
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta,
-        } => {
-            let data = api
-                .ui_get_action_id_for_shortcut(
-                    entrypoint_id,
-                    key,
-                    modifier_shift,
-                    modifier_control,
-                    modifier_alt,
-                    modifier_meta,
-                )
-                .await?;
-
-            Ok(JsResponse::ActionIdForShortcut { data })
         }
     }
 }
@@ -991,7 +830,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(())
     }
 
-    async fn get_asset_data(&self, path: &str) -> anyhow::Result<Vec<u8>> {
+    async fn get_asset_data(&self, path: String) -> anyhow::Result<Vec<u8>> {
         let data = self
             .repository
             .get_asset_data(&self.plugin_id.to_string(), &path)
@@ -1177,11 +1016,16 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         &self,
         entrypoint_id: EntrypointId,
         entrypoint_name: String,
-        render_location: UiRenderLocation,
+        render_location: JsUiRenderLocation,
         top_level_view: bool,
         container: RootWidget,
     ) -> anyhow::Result<()> {
         let data = BinaryDataGatherer::run_gatherer(&self, &container).await?;
+
+        let render_location = match render_location {
+            JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+            JsUiRenderLocation::View => UiRenderLocation::View,
+        };
 
         self.frontend_api
             .replace_view(
@@ -1202,8 +1046,13 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     async fn ui_show_plugin_error_view(
         &self,
         entrypoint_id: EntrypointId,
-        render_location: UiRenderLocation,
+        render_location: JsUiRenderLocation,
     ) -> anyhow::Result<()> {
+        let render_location = match render_location {
+            JsUiRenderLocation::InlineView => UiRenderLocation::InlineView,
+            JsUiRenderLocation::View => UiRenderLocation::View,
+        };
+
         self.frontend_api
             .show_plugin_error_view(self.plugin_id.clone(), entrypoint_id, render_location)
             .await?;

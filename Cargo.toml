@@ -11,6 +11,7 @@ members = [
     "rust/common",
     "rust/common_ui",
     "rust/utils",
+    "rust/utils_macros",
     "rust/cli",
     "rust/component_model",
     "rust/scenario_runner",
@@ -40,6 +41,7 @@ gauntlet-management-client = { path = "./rust/management_client" }
 gauntlet-client = { path = "./rust/client" }
 gauntlet-server = { path = "./rust/server" }
 gauntlet-utils = { path = "./rust/utils" }
+gauntlet-utils-macros = { path = "./rust/utils_macros" }
 gauntlet-plugin-runtime = { path = "./rust/plugin_runtime" }
 gauntlet-component-model = { path = "./rust/component_model" }
 gauntlet-scenario-runner = { path = "./rust/scenario_runner" }

@@ -8,16 +8,17 @@ use deno_core::ToJsBuffer;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::Icons;
 use gauntlet_common::model::PluginId;
-use gauntlet_common::model::RootWidget;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::api::BackendForPluginRuntimeApiRequestData;
+use crate::api::BackendForPluginRuntimeApiResponseData;
 use crate::JsEvent;
 
 #[derive(Debug, Encode, Decode)]
 pub enum JsMessage {
     Event(JsEvent),
-    Response(Result<JsResponse, String>),
+    Response(Result<BackendForPluginRuntimeApiResponseData, String>),
     Stop,
 }
 
@@ -79,101 +80,7 @@ pub enum JsPluginPermissionsMainSearchBar {
 #[derive(Debug, Encode, Decode)]
 pub enum JsPluginRuntimeMessage {
     Stopped,
-    Request(JsRequest),
-}
-
-#[derive(Debug, Encode, Decode)]
-pub enum JsResponse {
-    Nothing,
-    AssetData {
-        data: Vec<u8>,
-    },
-    EntrypointGeneratorEntrypointIds {
-        data: Vec<String>,
-    },
-    PluginPreferences {
-        data: HashMap<String, JsPreferenceUserData>,
-    },
-    EntrypointPreferences {
-        data: HashMap<String, JsPreferenceUserData>,
-    },
-    PluginPreferencesRequired {
-        data: bool,
-    },
-    EntrypointPreferencesRequired {
-        data: bool,
-    },
-    ClipboardRead {
-        data: JsClipboardData,
-    },
-    ClipboardReadText {
-        data: Option<String>,
-    },
-    ActionIdForShortcut {
-        data: Option<String>,
-    },
-}
-
-#[derive(Debug, Encode, Decode)]
-pub enum JsRequest {
-    Render {
-        entrypoint_id: EntrypointId,
-        entrypoint_name: String,
-        render_location: JsUiRenderLocation,
-        top_level_view: bool,
-        container: RootWidget,
-    },
-    ClearInlineView,
-    ShowPluginErrorView {
-        entrypoint_id: EntrypointId,
-        render_location: JsUiRenderLocation,
-    },
-    ShowPreferenceRequiredView {
-        entrypoint_id: EntrypointId,
-        plugin_preferences_required: bool,
-        entrypoint_preferences_required: bool,
-    },
-    ShowHud {
-        display: String,
-    },
-    HideWindow,
-    UpdateLoadingBar {
-        entrypoint_id: EntrypointId,
-        show: bool,
-    },
-    ReloadSearchIndex {
-        generated_entrypoints: Vec<JsGeneratedSearchItem>,
-        refresh_search_list: bool,
-    },
-    GetAssetData {
-        path: String,
-    },
-    GetEntrypointGeneratorEntrypointIds,
-    GetPluginPreferences,
-    GetEntrypointPreferences {
-        entrypoint_id: EntrypointId,
-    },
-    PluginPreferencesRequired,
-    EntrypointPreferencesRequired {
-        entrypoint_id: EntrypointId,
-    },
-    ClipboardRead,
-    ClipboardReadText,
-    ClipboardWrite {
-        data: JsClipboardData,
-    },
-    ClipboardWriteText {
-        data: String,
-    },
-    ClipboardClear,
-    GetActionIdForShortcut {
-        entrypoint_id: EntrypointId,
-        key: String,
-        modifier_shift: bool,
-        modifier_control: bool,
-        modifier_alt: bool,
-        modifier_meta: bool,
-    },
+    Request(BackendForPluginRuntimeApiRequestData),
 }
 
 #[derive(Encode, Decode)]

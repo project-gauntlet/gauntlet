@@ -55,7 +55,7 @@ impl<'a> BinaryDataGatherer<'a> {
 async fn get_data(api: &BackendForPluginRuntimeApiImpl, source: &DataSource) -> anyhow::Result<Vec<u8>> {
     match source {
         DataSource::DataSourceAsset(DataSourceAsset { asset }) => {
-            let bytes = api.get_asset_data(&asset).await?;
+            let bytes = api.get_asset_data(asset.to_owned()).await?;
 
             Ok(bytes)
         }

@@ -63,7 +63,10 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tokio_util::sync::CancellationToken;
 
+pub use crate::api::handle_proxy_message;
 use crate::api::BackendForPluginRuntimeApiProxy;
+use crate::api::BackendForPluginRuntimeApiRequestData;
+use crate::api::BackendForPluginRuntimeApiResponseData;
 use crate::deno::start_js_runtime;
 
 pub fn run_plugin_runtime(socket_name: String) {
@@ -95,8 +98,10 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
 
     let (mut recver, mut sender) = conn.split();
 
-    let (request_sender, mut request_receiver) =
-        gauntlet_utils::channel::channel::<JsRequest, Result<JsResponse, String>>();
+    let (request_sender, mut request_receiver) = gauntlet_utils::channel::channel::<
+        BackendForPluginRuntimeApiRequestData,
+        Result<BackendForPluginRuntimeApiResponseData, String>,
+    >();
     let (event_sender, event_receiver) = channel::<JsEvent>(10);
     let response_oneshot = Mutex::new(None);
 
@@ -207,8 +212,11 @@ async fn run(
 
 async fn request_loop(
     send: &mut SendHalf,
-    request_receiver: &mut RequestReceiver<JsRequest, Result<JsResponse, String>>,
-    response_oneshot: &Mutex<Option<oneshot::Sender<Result<JsResponse, String>>>>,
+    request_receiver: &mut RequestReceiver<
+        BackendForPluginRuntimeApiRequestData,
+        Result<BackendForPluginRuntimeApiResponseData, String>,
+    >,
+    response_oneshot: &Mutex<Option<oneshot::Sender<Result<BackendForPluginRuntimeApiResponseData, String>>>>,
 ) -> anyhow::Result<()> {
     let (request, responder) = request_receiver.recv().await;
 
@@ -223,7 +231,7 @@ async fn request_loop(
             ));
         };
 
-        let (tx, rx) = oneshot::channel::<Result<JsResponse, String>>();
+        let (tx, rx) = oneshot::channel::<Result<BackendForPluginRuntimeApiResponseData, String>>();
 
         *response_oneshot = Some(tx);
 
@@ -251,7 +259,7 @@ async fn request_loop(
 async fn message_loop(
     recv: &mut RecvHalf,
     event_sender: &Sender<JsEvent>,
-    response_oneshot: &Mutex<Option<oneshot::Sender<Result<JsResponse, String>>>>,
+    response_oneshot: &Mutex<Option<oneshot::Sender<Result<BackendForPluginRuntimeApiResponseData, String>>>>,
     stop_token: CancellationToken,
 ) -> anyhow::Result<()> {
     match recv_message::<JsMessage>(JsMessageSide::PluginRuntime, recv).await {
