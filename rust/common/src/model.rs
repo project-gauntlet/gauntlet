@@ -74,7 +74,7 @@ impl Display for EntrypointId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum DownloadStatus {
     InProgress,
     Done,
@@ -87,7 +87,7 @@ pub enum UiRenderLocation {
     View,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct PhysicalShortcut {
     pub physical_key: PhysicalKey,
     pub modifier_shift: bool,
@@ -154,7 +154,7 @@ pub enum UiThemeMode {
     Dark,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
 pub enum WindowPositionMode {
     Static,
     ActiveMonitor,
@@ -519,7 +519,7 @@ pub enum UiPropertyValue {
 
 pub type UiWidgetId = usize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct SettingsEntrypoint {
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
@@ -531,13 +531,13 @@ pub struct SettingsEntrypoint {
     pub generated_entrypoints: HashMap<EntrypointId, SettingsGeneratedEntrypoint>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct SettingsGeneratedEntrypoint {
     pub entrypoint_id: EntrypointId,
     pub entrypoint_name: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub struct SettingsPlugin {
     pub plugin_id: PluginId,
     pub plugin_name: String,
@@ -548,7 +548,7 @@ pub struct SettingsPlugin {
     pub preferences_user_data: HashMap<String, PluginPreferenceUserData>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum SettingsEntrypointType {
     Command,
     View,
@@ -556,7 +556,7 @@ pub enum SettingsEntrypointType {
     EntrypointGenerator,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
 pub enum SettingsTheme {
     AutoDetect,
     ThemeFile,
@@ -582,7 +582,7 @@ impl Display for SettingsTheme {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub enum PluginPreferenceUserData {
     Number { value: Option<f64> },
     String { value: Option<String> },
@@ -594,7 +594,7 @@ pub enum PluginPreferenceUserData {
     // TODO be careful about exposing secrets to logs when adding password type
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum PluginPreference {
     Number {
         name: String,
@@ -635,14 +635,14 @@ pub enum PluginPreference {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub struct PreferenceEnumValue {
     pub label: String,
     pub value: String,
 }
 
 // copy of iced (currently fork) PhysicalKey but without modifiers
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub enum PhysicalKey {
     Backquote,
     Backslash,

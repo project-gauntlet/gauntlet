@@ -26,12 +26,11 @@ use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApiError;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiProxy;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
+use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common::rpc::frontend_api::handle_proxy_message;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
@@ -1238,7 +1237,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             GlobalState::error(
                 &mut state.global_state,
                 match err {
-                    RequestError::TimeoutError => ErrorViewData::BackendTimeout,
+                    RequestError::Timeout => ErrorViewData::BackendTimeout,
                     RequestError::Other { display } => ErrorViewData::UnknownError { display },
                     RequestError::OtherSideWasDropped => {
                         ErrorViewData::UnknownError {

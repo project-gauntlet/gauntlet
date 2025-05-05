@@ -4091,6 +4091,7 @@ dependencies = [
  "anyhow",
  "gauntlet-common",
  "gauntlet-common-ui",
+ "gauntlet-utils",
  "iced",
  "iced_aw",
  "iced_fonts",
@@ -4216,8 +4217,10 @@ name = "gauntlet-utils"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "prost",
  "thiserror 2.0.8",
  "tokio",
+ "tonic",
 ]
 
 [[package]]

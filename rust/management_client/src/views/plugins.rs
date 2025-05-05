@@ -8,11 +8,14 @@ use gauntlet_common::model::PluginId;
 use gauntlet_common::model::PluginPreferenceUserData;
 use gauntlet_common::model::SettingsEntrypointType;
 use gauntlet_common::model::SettingsPlugin;
-use gauntlet_common::rpc::backend_api::BackendApi;
-use gauntlet_common::rpc::backend_api::BackendApiError;
+use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
+use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
+use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common::settings_env_data_from_string;
 use gauntlet_common::SettingsEnvData;
 use gauntlet_common::SETTINGS_ENV;
+use gauntlet_utils::channel::RequestError;
+use gauntlet_utils::channel::RequestResult;
 use iced::alignment;
 use iced::padding;
 use iced::widget::button;
@@ -82,7 +85,7 @@ pub enum ManagementAppPluginMsgOut {
 }
 
 pub struct ManagementAppPluginsState {
-    backend_api: Option<BackendApi>,
+    backend_api: Option<BackendForSettingsApiProxy>,
     table_state: PluginTableState,
     plugin_data: Rc<RefCell<PluginDataContainer>>,
     preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>,
@@ -91,7 +94,7 @@ pub struct ManagementAppPluginsState {
 }
 
 impl ManagementAppPluginsState {
-    pub fn new(backend_api: Option<BackendApi>) -> Self {
+    pub fn new(backend_api: Option<BackendForSettingsApiProxy>) -> Self {
         let settings_env_data = std::env::var(SETTINGS_ENV)
             .ok()
             .filter(|value| !value.is_empty())
@@ -172,7 +175,7 @@ impl ManagementAppPluginsState {
                             plugin_id,
                             entrypoint_id,
                         } => {
-                            let mut backend_client = backend_api.clone();
+                            let backend_client = backend_api.clone();
 
                             Task::perform(
                                 async move {
@@ -890,7 +893,7 @@ impl PluginPreferenceUserDataState {
 }
 
 pub fn handle_backend_error<T>(
-    result: Result<T, BackendApiError>,
+    result: RequestResult<T>,
     convert: impl FnOnce(T) -> ManagementAppPluginMsgOut,
 ) -> ManagementAppPluginMsgOut {
     match result {

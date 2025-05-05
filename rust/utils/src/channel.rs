@@ -5,11 +5,12 @@ use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time::error::Elapsed;
+use tonic::Code;
 
 #[derive(Error, Debug, Clone)]
 pub enum RequestError {
     #[error("The other side has not managed to process request in a timely manner")]
-    TimeoutError,
+    Timeout,
     #[error("The other side has dropped the oneshot prematurely")]
     OtherSideWasDropped,
     #[error("Error: {display:?}")]
@@ -20,12 +21,34 @@ pub type RequestResult<V> = Result<V, RequestError>;
 
 impl From<Elapsed> for RequestError {
     fn from(_: Elapsed) -> RequestError {
-        RequestError::TimeoutError
+        RequestError::Timeout
     }
 }
 
 impl From<anyhow::Error> for RequestError {
     fn from(error: Error) -> RequestError {
+        RequestError::Other {
+            display: format!("{}", error),
+        }
+    }
+}
+
+impl From<tonic::Status> for RequestError {
+    fn from(error: tonic::Status) -> RequestError {
+        match error.code() {
+            Code::Ok => unreachable!(),
+            Code::DeadlineExceeded => RequestError::Timeout,
+            _ => {
+                RequestError::Other {
+                    display: format!("{}", error.message()),
+                }
+            }
+        }
+    }
+}
+
+impl From<prost::UnknownEnumValue> for RequestError {
+    fn from(error: prost::UnknownEnumValue) -> RequestError {
         RequestError::Other {
             display: format!("{}", error),
         }

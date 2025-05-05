@@ -3,7 +3,7 @@ use std::path::Path;
 
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
-use gauntlet_common::rpc::backend_api::BackendApi;
+use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiProxy;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
@@ -58,7 +58,7 @@ pub async fn start_scenario_runner_frontend(
     println!("backend started");
 
     let mut backend_for_frontend_client = BackendForFrontendApiProxy::new(backend_sender);
-    let mut backend_client = BackendApi::new().await?;
+    let mut backend_client = GrpcBackendApi::new().await?;
 
     println!("saving local plugin");
 

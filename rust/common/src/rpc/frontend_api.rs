@@ -13,7 +13,7 @@ use crate::model::UiWidgetId;
 use crate::model::WindowPositionMode;
 
 #[allow(async_fn_in_trait)]
-#[boundary_gen]
+#[boundary_gen(in_process)]
 pub trait FrontendApi {
     async fn request_search_results_update(&self) -> RequestResult<()>;
 

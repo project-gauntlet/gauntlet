@@ -11,7 +11,7 @@ use crate::model::JsPreferenceUserData;
 use crate::JsUiRenderLocation;
 
 #[allow(async_fn_in_trait)]
-#[boundary_gen(bincode)]
+#[boundary_gen(bincode, in_process)]
 pub trait BackendForPluginRuntimeApi {
     async fn reload_search_index(
         &self,

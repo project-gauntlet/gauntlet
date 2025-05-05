@@ -6,3 +6,5 @@ edition.workspace = true
 tokio.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+tonic.workspace = true
+prost.workspace = true

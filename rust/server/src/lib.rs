@@ -16,10 +16,11 @@ use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::rpc::backend_api::handle_proxy_message;
-use gauntlet_common::rpc::backend_api::BackendApi;
-use gauntlet_common::rpc::backend_api::BackendApiError;
+use gauntlet_common::rpc::backend_api::BackendForCliApi;
+use gauntlet_common::rpc::backend_api::BackendForCliApiProxy;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
+use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
@@ -28,6 +29,7 @@ use gauntlet_common::settings_env_data_to_string;
 use gauntlet_common::SettingsEnvData;
 use gauntlet_plugin_runtime::run_plugin_runtime;
 use gauntlet_utils::channel::channel;
+use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestReceiver;
 use gauntlet_utils::channel::RequestSender;
 use vergen_pretty::vergen_pretty_env;
@@ -90,17 +92,25 @@ pub fn run_action(plugin_id: String, entrypoint_id: String, action_id: String) {
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
-            let result = BackendApi::new().await;
+            let result = GrpcBackendApi::new().await;
 
             match result {
-                Ok(mut backend_api) => {
+                Ok(backend_api) => {
+                    let backend_api = BackendForCliApiProxy::new(backend_api);
+
+                    let plugin_id = PluginId::from_string(plugin_id);
+                    let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+
                     if let Err(err) = backend_api.run_action(plugin_id, entrypoint_id, action_id).await {
                         match err {
-                            BackendApiError::Timeout => {
+                            RequestError::Timeout => {
                                 tracing::error!("Timeout occurred when handling command");
                             }
-                            BackendApiError::Internal { display: value } => {
+                            RequestError::Other { display: value } => {
                                 tracing::error!("Error occurred when handling command: {}", value);
+                            }
+                            RequestError::OtherSideWasDropped => {
+                                tracing::error!("Error occurred when handling command: Other side was dropped");
                             }
                         }
                     }
@@ -145,14 +155,16 @@ fn run_scenario_runner() {
 }
 
 fn is_server_running() -> bool {
-    tokio::runtime::Builder::new_multi_thread()
+    tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("unable to start server tokio runtime")
         .block_on(async {
             let test_fn = || {
                 async {
-                    let mut api = BackendApi::new().await?;
+                    let api = GrpcBackendApi::new().await?;
+
+                    let api = BackendForCliApiProxy::new(api);
 
                     api.ping().await?;
 
@@ -238,7 +250,14 @@ async fn run_server(
     tokio::spawn({
         let application_manager = application_manager.clone();
 
-        async move { start_backend_server(Box::new(BackendServerImpl::new(application_manager.clone()))).await }
+        async move {
+            start_backend_server(
+                Box::new(BackendServerImpl::new(application_manager.clone())),
+                Box::new(BackendServerImpl::new(application_manager.clone())),
+                Box::new(BackendServerImpl::new(application_manager.clone())),
+            )
+            .await
+        }
     });
 
     loop {

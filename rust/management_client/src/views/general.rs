@@ -1,8 +1,11 @@
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendApi;
-use gauntlet_common::rpc::backend_api::BackendApiError;
+use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
+use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
+use gauntlet_common::rpc::backend_api::GrpcBackendApi;
+use gauntlet_utils::channel::RequestError;
+use gauntlet_utils::channel::RequestResult;
 use iced::alignment;
 use iced::alignment::Horizontal;
 use iced::widget::column;
@@ -30,7 +33,7 @@ use crate::theme::Element;
 use crate::ui::ManagementAppMsg;
 
 pub struct ManagementAppGeneralState {
-    backend_api: Option<BackendApi>,
+    backend_api: Option<BackendForSettingsApiProxy>,
     theme: SettingsTheme,
     window_position_mode: WindowPositionMode,
     current_shortcut: ShortcutData,
@@ -61,7 +64,7 @@ pub enum ManagementAppGeneralMsgOut {
 }
 
 impl ManagementAppGeneralState {
-    pub fn new(backend_api: Option<BackendApi>) -> Self {
+    pub fn new(backend_api: Option<BackendForSettingsApiProxy>) -> Self {
         Self {
             backend_api,
             theme: SettingsTheme::AutoDetect,
@@ -317,7 +320,7 @@ impl ManagementAppGeneralState {
 }
 
 fn handle_backend_error<T>(
-    result: Result<T, BackendApiError>,
+    result: RequestResult<T>,
     convert: impl FnOnce(T) -> ManagementAppGeneralMsgOut,
 ) -> ManagementAppGeneralMsgOut {
     match result {

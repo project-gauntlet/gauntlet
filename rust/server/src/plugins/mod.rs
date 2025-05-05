@@ -405,7 +405,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn plugins(&self) -> anyhow::Result<Vec<SettingsPlugin>> {
+    pub async fn plugins(&self) -> anyhow::Result<HashMap<PluginId, SettingsPlugin>> {
         let mut generator_data: HashMap<_, _> = self
             .search_index
             .plugin_entrypoint_data()
@@ -497,8 +497,8 @@ impl ApplicationManager {
                     })
                     .collect();
 
-                SettingsPlugin {
-                    plugin_id,
+                let plugin = SettingsPlugin {
+                    plugin_id: plugin_id.clone(),
                     plugin_name: plugin.name,
                     plugin_description: plugin.description,
                     enabled: plugin.enabled,
@@ -516,7 +516,9 @@ impl ApplicationManager {
                         .into_iter()
                         .map(|(key, value)| (key, plugin_preference_user_data_from_db(value)))
                         .collect(),
-                }
+                };
+
+                (plugin_id, plugin)
             })
             .collect();
 

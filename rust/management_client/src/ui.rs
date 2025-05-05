@@ -7,9 +7,12 @@ use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendApi;
-use gauntlet_common::rpc::backend_api::BackendApiError;
+use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
+use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
+use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common_ui::padding;
+use gauntlet_utils::channel::RequestError;
+use gauntlet_utils::channel::RequestResult;
 use iced::advanced::text::Shaping;
 use iced::alignment;
 use iced::font;
@@ -70,7 +73,7 @@ pub fn run() {
 }
 
 struct ManagementAppModel {
-    backend_api: Option<BackendApi>,
+    backend_api: Option<BackendForSettingsApiProxy>,
     error_view: Option<ErrorView>,
     downloads_info: HashMap<PluginId, DownloadInfo>,
     download_info_shown: bool,
@@ -86,7 +89,7 @@ pub enum ManagementAppMsg {
     Plugin(ManagementAppPluginMsgIn),
     SwitchView(SettingsView),
     DownloadStatus { plugins: HashMap<PluginId, DownloadStatus> },
-    HandleBackendError(BackendApiError),
+    HandleBackendError(RequestError),
     CheckDownloadStatus,
     DownloadPlugin { plugin_id: PluginId },
     Noop,
@@ -113,9 +116,11 @@ pub enum DownloadInfo {
 }
 
 fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
-    let backend_api = futures::executor::block_on(async { anyhow::Ok(BackendApi::new().await?) })
-        .inspect_err(|err| tracing::error!("Unable to connect to server: {:?}", err))
-        .ok();
+    let backend_api = futures::executor::block_on(async {
+        anyhow::Ok(BackendForSettingsApiProxy::new(GrpcBackendApi::new().await?))
+    })
+    .inspect_err(|err| tracing::error!("Unable to connect to server: {:?}", err))
+    .ok();
 
     (
         ManagementAppModel {
@@ -171,7 +176,7 @@ struct InitSettingsData {
     global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
 }
 
-async fn init_data(mut backend_api: BackendApi) -> Result<InitSettingsData, BackendApiError> {
+async fn init_data(backend_api: impl BackendForSettingsApi) -> RequestResult<InitSettingsData> {
     let (global_shortcut, global_shortcut_error) = backend_api.get_global_shortcut().await?;
     let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
 
@@ -222,8 +227,13 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
         }
         ManagementAppMsg::HandleBackendError(err) => {
             state.error_view = Some(match err {
-                BackendApiError::Timeout => ErrorView::Timeout,
-                BackendApiError::Internal { display } => ErrorView::UnknownError { display },
+                RequestError::Timeout => ErrorView::Timeout,
+                RequestError::Other { display } => ErrorView::UnknownError { display },
+                RequestError::OtherSideWasDropped => {
+                    ErrorView::UnknownError {
+                        display: "The other side was dropped".to_string(),
+                    }
+                }
             });
 
             Task::none()
@@ -737,7 +747,7 @@ fn subscription(_state: &ManagementAppModel) -> Subscription<ManagementAppMsg> {
 }
 
 pub fn handle_backend_error<T>(
-    result: Result<T, BackendApiError>,
+    result: RequestResult<T>,
     convert: impl FnOnce(T) -> ManagementAppMsg,
 ) -> ManagementAppMsg {
     match result {
