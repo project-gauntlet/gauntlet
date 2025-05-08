@@ -194,7 +194,7 @@ impl Settings {
 
         self.repository.set_settings(settings).await?;
 
-        err.map_err(Into::into)
+        Ok(())
     }
 
     pub async fn set_global_entrypoint_shortcut_error(

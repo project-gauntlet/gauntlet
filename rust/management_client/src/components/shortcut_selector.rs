@@ -18,8 +18,12 @@ use iced::mouse::Button;
 use iced::widget::column;
 use iced::widget::container;
 use iced::widget::container::draw_background;
+use iced::widget::horizontal_space;
 use iced::widget::row;
 use iced::widget::text;
+use iced::widget::tooltip;
+use iced::widget::tooltip::Position;
+use iced::widget::value;
 use iced::Alignment;
 use iced::Event;
 use iced::Length;
@@ -29,7 +33,10 @@ use iced::Rectangle;
 use iced::Renderer;
 use iced::Size;
 use iced::Vector;
+use iced_fonts::Bootstrap;
+use iced_fonts::BOOTSTRAP_FONT;
 
+use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
 use crate::theme::Element;
 use crate::theme::GauntletSettingsTheme;
@@ -77,7 +84,7 @@ impl<'a, 'b, 'c, Message: 'a> ShortcutSelector<'a, 'b, Message> {
     where
         F: 'a + Fn(Option<PhysicalShortcut>) -> Message,
     {
-        let content = render_shortcut(&current_shortcut.shortcut, in_table);
+        let content = render_shortcut(&current_shortcut, in_table);
 
         let mut content = container(content)
             .width(Length::Fill)
@@ -269,7 +276,7 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
                         if cursor.is_over(layout.bounds()) {
                             state.is_capturing = true;
 
-                            event::Status::Captured
+                            event::Status::Ignored
                         } else {
                             state.is_capturing = false;
 
@@ -279,7 +286,7 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
                     mouse::Event::CursorMoved { .. } => {
                         state.is_hovering = cursor.is_over(layout.bounds());
 
-                        event::Status::Captured
+                        event::Status::Ignored
                     }
                     _ => event::Status::Ignored,
                 }
@@ -354,10 +361,10 @@ pub trait Catalog {
     fn style(&self, class: &Self::Class<'_>, status: Status, transparent_background: bool) -> container::Style;
 }
 
-pub fn render_shortcut<'a, Message: 'a>(shortcut: &Option<PhysicalShortcut>, in_table: bool) -> Element<'a, Message> {
+pub fn render_shortcut<'a, Message: 'a>(shortcut: &ShortcutData, in_table: bool) -> Element<'a, Message> {
     let mut content: Vec<Element<Message>> = vec![];
 
-    if let Some(current_shortcut) = shortcut {
+    if let Some(current_shortcut) = &shortcut.shortcut {
         let (key_name, alt_modifier_text, meta_modifier_text, control_modifier_text, shift_modifier_text) =
             shortcut_to_text(current_shortcut);
 
@@ -378,13 +385,44 @@ pub fn render_shortcut<'a, Message: 'a>(shortcut: &Option<PhysicalShortcut>, in_
         }
 
         content.push(key_name);
+
+        if in_table {
+            if let Some(error) = &shortcut.error {
+                content.push(horizontal_space().width(Length::Fill).into());
+                content.push(render_shortcut_error(error.clone()));
+            }
+        }
     } else {
         if in_table {
             content.push(text("Record Shortcut").class(TextStyle::Subtitle).into());
+
+            if let Some(error) = &shortcut.error {
+                content.push(horizontal_space().width(Length::Fill).into());
+                content.push(render_shortcut_error(error.clone()));
+            }
         }
     }
 
     let content: Element<Message> = row(content).padding(8.0).spacing(8.0).into();
+
+    content
+}
+
+pub fn render_shortcut_error<'a, Message: 'a>(current_shortcut_error: String) -> Element<'a, Message> {
+    let error_icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
+        .font(BOOTSTRAP_FONT)
+        .class(TextStyle::Destructive)
+        .into();
+
+    let error_text: Element<_> = text(current_shortcut_error).class(TextStyle::Destructive).into();
+
+    let error_text: Element<_> = container(error_text)
+        .padding(16.0)
+        .max_width(300)
+        .class(ContainerStyle::Box)
+        .into();
+
+    let content: Element<_> = tooltip(error_icon, error_text, Position::Bottom).into();
 
     content
 }
@@ -469,9 +507,5 @@ impl<'a, 'b, Message> overlay::Overlay<Message, GauntletSettingsTheme, Renderer>
             cursor_position,
             &Rectangle::with_size(Size::INFINITY),
         );
-    }
-
-    fn is_over(&self, _layout: Layout<'_>, _renderer: &Renderer, _cursor_position: Point) -> bool {
-        false
     }
 }

@@ -3,8 +3,6 @@ use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
-use gauntlet_common::rpc::backend_api::GrpcBackendApi;
-use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestResult;
 use iced::alignment;
 use iced::alignment::Horizontal;
@@ -14,21 +12,16 @@ use iced::widget::pick_list;
 use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
-use iced::widget::tooltip;
-use iced::widget::tooltip::Position;
-use iced::widget::value;
 use iced::widget::Space;
 use iced::Alignment;
 use iced::Length;
 use iced::Padding;
 use iced::Task;
-use iced_fonts::Bootstrap;
-use iced_fonts::BOOTSTRAP_FONT;
 
+use crate::components::shortcut_selector::render_shortcut_error;
 use crate::components::shortcut_selector::shortcut_selector;
 use crate::components::shortcut_selector::ShortcutData;
 use crate::theme::container::ContainerStyle;
-use crate::theme::text::TextStyle;
 use crate::theme::Element;
 use crate::ui::ManagementAppMsg;
 
@@ -291,22 +284,9 @@ impl ManagementAppGeneralState {
 
     fn shortcut_capture_after(&self) -> Element<ManagementAppGeneralMsgIn> {
         if let Some(current_shortcut_error) = &self.current_shortcut.error {
-            let error_icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
-                .font(BOOTSTRAP_FONT)
-                .class(TextStyle::Destructive)
-                .into();
+            let content = render_shortcut_error(current_shortcut_error.clone());
 
-            let error_text: Element<_> = text(current_shortcut_error).class(TextStyle::Destructive).into();
-
-            let error_text: Element<_> = container(error_text)
-                .padding(16.0)
-                .max_width(300)
-                .class(ContainerStyle::Box)
-                .into();
-
-            let tooltip: Element<_> = tooltip(error_icon, error_text, Position::Bottom).into();
-
-            let content = container(tooltip)
+            let content = container(content)
                 .width(Length::FillPortion(3))
                 .align_y(alignment::Vertical::Center)
                 .padding(Padding::from([0.0, 8.0]))

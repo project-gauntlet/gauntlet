@@ -138,7 +138,7 @@ impl BackendForSettingsApi for BackendServerImpl {
             )
         }
 
-        Ok(result.err().map(|err| format!("{:?}", err)))
+        Ok(result.err().map(|err| format!("{:#}", err)))
     }
 
     async fn get_global_shortcut(&self) -> RequestResult<(Option<PhysicalShortcut>, Option<String>)> {
