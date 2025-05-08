@@ -211,14 +211,14 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
         event: Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        _renderer: &Renderer,
-        _clipboard: &mut dyn Clipboard,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
 
-        match event {
+        match &event {
             Event::Keyboard(event) => {
                 if state.is_capturing {
                     match event {
@@ -235,39 +235,33 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
 
                                             let message = (self.on_shortcut_captured)(None);
                                             shell.publish(message);
-
-                                            event::Status::Ignored
                                         }
                                         keyboard::key::Code::Escape if modifiers.is_empty() => {
                                             state.is_capturing = false;
 
                                             let message = (self.on_shortcut_captured)(None);
                                             shell.publish(message);
-
-                                            event::Status::Ignored
                                         }
                                         _ => {
-                                            match physical_key_model(code, modifiers) {
-                                                None => event::Status::Ignored,
+                                            match physical_key_model(code.clone(), modifiers.clone()) {
+                                                None => {}
                                                 Some(shortcut) => {
                                                     state.is_capturing = false;
 
                                                     let message = (self.on_shortcut_captured)(Some(shortcut));
                                                     shell.publish(message);
 
-                                                    event::Status::Captured
+                                                    return event::Status::Captured;
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                Physical::Unidentified(_) => event::Status::Ignored,
+                                Physical::Unidentified(_) => {}
                             }
                         }
-                        _ => event::Status::Ignored,
+                        _ => {}
                     }
-                } else {
-                    event::Status::Ignored
                 }
             }
             Event::Mouse(event) => {
@@ -275,24 +269,29 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
                     mouse::Event::ButtonReleased(Button::Left) => {
                         if cursor.is_over(layout.bounds()) {
                             state.is_capturing = true;
-
-                            event::Status::Ignored
                         } else {
                             state.is_capturing = false;
-
-                            event::Status::Ignored
                         }
                     }
                     mouse::Event::CursorMoved { .. } => {
                         state.is_hovering = cursor.is_over(layout.bounds());
-
-                        event::Status::Ignored
                     }
-                    _ => event::Status::Ignored,
+                    _ => {}
                 }
             }
-            _ => event::Status::Ignored,
-        }
+            _ => {}
+        };
+
+        self.content.as_widget_mut().on_event(
+            &mut tree.children[0],
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
+        )
     }
 
     fn mouse_interaction(
