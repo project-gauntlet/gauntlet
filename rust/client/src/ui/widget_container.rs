@@ -110,18 +110,19 @@ impl PluginWidgetContainer {
 
     pub fn render_root_widget<'a>(
         &self,
+        plugin_id: PluginId,
         plugin_view_state: &PluginViewState,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.data).render_root_widget(
+        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.data).render_root_widget(
             plugin_view_state,
             self.entrypoint_name.as_ref(),
             action_shortcuts,
         )
     }
 
-    pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.data)
+    pub fn render_inline_root_widget<'a>(&self, plugin_id: PluginId) -> Element<'a, ComponentWidgetEvent> {
+        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.data)
             .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
     }
 

@@ -2021,13 +2021,15 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
             let inline_view = match state.client_context.get_all_inline_view_containers().first() {
                 Some((plugin_id, container)) => {
                     let plugin_id = plugin_id.clone();
-                    container.render_inline_root_widget().map(move |widget_event| {
-                        AppMsg::WidgetEvent {
-                            plugin_id: plugin_id.clone(),
-                            render_location: UiRenderLocation::InlineView,
-                            widget_event,
-                        }
-                    })
+                    container
+                        .render_inline_root_widget(plugin_id.clone())
+                        .map(move |widget_event| {
+                            AppMsg::WidgetEvent {
+                                plugin_id: plugin_id.clone(),
+                                render_location: UiRenderLocation::InlineView,
+                                widget_event,
+                            }
+                        })
                 }
                 None => horizontal_space().into(),
             };
@@ -2260,16 +2262,15 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
             let view_container = state.client_context.get_view_container();
 
-            let container_element =
-                view_container
-                    .render_root_widget(sub_state, action_shortcuts)
-                    .map(|widget_event| {
-                        AppMsg::WidgetEvent {
-                            plugin_id: plugin_id.clone(),
-                            render_location: UiRenderLocation::View,
-                            widget_event,
-                        }
-                    });
+            let container_element = view_container
+                .render_root_widget(plugin_id.clone(), sub_state, action_shortcuts)
+                .map(|widget_event| {
+                    AppMsg::WidgetEvent {
+                        plugin_id: plugin_id.clone(),
+                        render_location: UiRenderLocation::View,
+                        widget_event,
+                    }
+                });
 
             let element: Element<_> = container(container_element)
                 .width(Length::Fill)

@@ -15,6 +15,9 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 - **BREAKING CHANGE**: Renamed TS types: `ImageSource` to `DataSource`, `ImageSourceUrl` to `DataSourceUrl`, `ImageSourceAsset` to `DataSourceAsset`
 
 ### Fixes
+- Fixed crash when closing inline view due to Action being run
+- Fixed shortcut assignment error not being shown for global entrypoint shortcuts
+- Fixed crash on X11 when trying to assign shortcut that is already used by another application
 - Unified `Vec<u8>` usage to `ArrayBuffer` in JS
   - Fixes `icon` in EntrypointGenerator requiring `number[]`
 - Fixed text selection not being visible when selecting text in form view text fields
