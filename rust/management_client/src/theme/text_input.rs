@@ -6,6 +6,7 @@ use iced::Border;
 
 use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
+use crate::theme::BACKGROUND_LIGHTEST;
 use crate::theme::TEXT_DARKER;
 use crate::theme::TEXT_LIGHTEST;
 use crate::theme::TRANSPARENT;
@@ -32,7 +33,7 @@ impl text_input::Catalog for GauntletSettingsTheme {
             icon: TEXT_LIGHTEST.to_iced(),
             placeholder: TEXT_DARKER.to_iced(),
             value: TEXT_LIGHTEST.to_iced(),
-            selection: BACKGROUND_DARKER.to_iced(),
+            selection: BACKGROUND_LIGHTEST.to_iced(),
         };
 
         match status {
