@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [19] - 2025-05-11
+
 ### General
 - It is now possible to assign custom alias to entrypoints which is used for search
 - Windows in "Opened windows" view entrypoint are now sorted following "most recently focused on the top" order
