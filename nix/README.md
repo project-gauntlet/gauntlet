@@ -55,9 +55,8 @@ Once `config.toml` is [supported](../README.md#application-config), Home-Manager
 
 When updating dependencies or bumping the project version, please follow these steps to adjust the relevant values at the top of `./nix/overlay.nix`:
 
-1. If there is a new package release, set `version` to that upcoming version tag.
-2. If `package-lock.json` has changed, set `npmDepsHash` to `""` and rebuild with `nix build`, copying the actual value back into `npmDepsHash`. This is necessary for `fetchNpmDeps` because `importNpmLock` doesn't work with `git://` dependencies like for `@project-gauntlet/tools`.
-3. If `Cargo.lock` has changed, run `nix run .#fetch-rusty-v8-hashes` and replace `RUSTY_V8_ARCHIVE` as instructed if different. Because building `librusty_v8` takes forever, we follow nixpkgs precedent and fetch binaries in a fixed-output-derivation.
+1. If `package-lock.json` has changed, set `npmDepsHash` to `""` and rebuild with `nix build`, copying the actual value back into `npmDepsHash`. This is necessary for `fetchNpmDeps` because `importNpmLock` doesn't work with `git://` dependencies like for `@project-gauntlet/tools`.
+2. If `Cargo.lock` has changed, run `nix run .#fetch-rusty-v8-hashes` and replace `RUSTY_V8_ARCHIVE` as instructed if different. Because building `librusty_v8` takes forever, we follow nixpkgs precedent and fetch binaries in a fixed-output-derivation.
 
 When making any changes to nix code, please format with `nix fmt` when done.
 
