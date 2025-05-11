@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 
+use anyhow::anyhow;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
@@ -30,9 +31,12 @@ use tantivy::IndexWriter;
 use tantivy::ReloadPolicy;
 use tantivy::Searcher;
 
+use crate::plugins::settings::Settings;
+
 #[derive(Clone)]
 pub struct SearchIndex {
     frontend_api: FrontendApiProxy,
+    settings: Settings,
     index: Index,
     index_reader: IndexReader,
     index_writer_mutex: Arc<Mutex<()>>,
@@ -43,6 +47,7 @@ pub struct SearchIndex {
     entrypoint_id: Field,
     plugin_name: Field,
     plugin_id: Field,
+    entrypoint_alias: Field,
 }
 
 struct PluginData {
@@ -58,6 +63,7 @@ struct EntrypointData {
     frecency: f64,
     actions: Vec<EntrypointActionData>,
     accessories: Vec<SearchResultAccessory>,
+    search_alias: Option<String>,
 }
 
 struct EntrypointActionData {
@@ -119,7 +125,7 @@ pub enum SearchIndexItemActionActionType {
 }
 
 impl SearchIndex {
-    pub fn create_index(frontend_api: FrontendApiProxy) -> tantivy::Result<Self> {
+    pub fn create_index(frontend_api: FrontendApiProxy, settings: Settings) -> tantivy::Result<Self> {
         let schema = {
             let mut schema_builder = Schema::builder();
 
@@ -127,6 +133,7 @@ impl SearchIndex {
             schema_builder.add_text_field("entrypoint_id", STRING | STORED);
             schema_builder.add_text_field("plugin_name", TEXT | STORED);
             schema_builder.add_text_field("plugin_id", STRING | STORED);
+            schema_builder.add_text_field("entrypoint_alias", TEXT | STORED);
 
             schema_builder.build()
         };
@@ -139,6 +146,9 @@ impl SearchIndex {
             .expect("entrypoint_id field should exist");
         let plugin_name = schema.get_field("plugin_name").expect("plugin_name field should exist");
         let plugin_id = schema.get_field("plugin_id").expect("plugin_id field should exist");
+        let entrypoint_alias = schema
+            .get_field("entrypoint_alias")
+            .expect("plugin_id field should exist");
 
         let index = Index::create_in_ram(schema.clone());
 
@@ -146,6 +156,7 @@ impl SearchIndex {
 
         Ok(Self {
             frontend_api,
+            settings,
             index,
             index_reader,
             index_writer_mutex: Arc::new(Mutex::new(())),
@@ -154,6 +165,7 @@ impl SearchIndex {
             entrypoint_id,
             plugin_name,
             plugin_id,
+            entrypoint_alias,
         })
     }
 
@@ -176,37 +188,81 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub fn save_for_plugin(
+    pub async fn set_entrypoint_search_alias(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        alias: Option<String>,
+    ) -> anyhow::Result<()> {
+        tracing::debug!(
+            "Updating the entrypoint search alias in search index for plugin {:?} - {:?}",
+            plugin_id,
+            entrypoint_id
+        );
+
+        // writer panics if another writer exists
+        let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
+        let mut plugins = self.entrypoint_data.lock().expect("lock is poisoned");
+
+        let Some(plugin_data) = plugins.get_mut(&plugin_id) else {
+            return Ok(());
+        };
+
+        let Some(entrypoint_data) = plugin_data.entrypoints.get_mut(&entrypoint_id) else {
+            return Ok(());
+        };
+
+        entrypoint_data.search_alias = alias;
+
+        let mut index_writer = self.index.writer::<TantivyDocument>(15_000_000)?;
+        let query = Box::new(BooleanQuery::union(vec![
+            Box::new(TermQuery::new(
+                Term::from_field_text(self.plugin_id, &plugin_id.to_string()),
+                IndexRecordOption::Basic,
+            )),
+            Box::new(TermQuery::new(
+                Term::from_field_text(self.entrypoint_id, &entrypoint_id.to_string()),
+                IndexRecordOption::Basic,
+            )),
+        ]));
+
+        index_writer.delete_query(query)?;
+
+        let mut document = doc!(
+            self.entrypoint_name => entrypoint_data.entrypoint_name.clone(),
+            self.entrypoint_id => entrypoint_id.to_string(),
+            self.plugin_name => plugin_data.plugin_name.clone(),
+            self.plugin_id => plugin_id.to_string(),
+        );
+
+        if let Some(alias) = &entrypoint_data.search_alias {
+            document.add_field_value(self.entrypoint_alias, alias.clone())
+        }
+
+        index_writer.add_document(document)?;
+
+        index_writer.commit()?;
+        self.index_reader.reload()?;
+
+        Ok(())
+    }
+
+    pub async fn save_for_plugin(
         &self,
         plugin_id: PluginId,
         plugin_name: String,
         search_items: Vec<SearchIndexItem>,
         refresh_search_list: bool,
-    ) -> tantivy::Result<()> {
+    ) -> anyhow::Result<()> {
         tracing::debug!("Reloading search index for plugin {:?}", plugin_id);
+
+        let aliases = self.settings.entrypoint_search_aliases().await?;
 
         // writer panics if another writer exists
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");
         let mut entrypoint_data = self.entrypoint_data.lock().expect("lock is poisoned");
 
-        let mut index_writer = self.index.writer::<TantivyDocument>(15_000_000)?;
-
-        index_writer.delete_query(Box::new(TermQuery::new(
-            Term::from_field_text(self.plugin_id, &plugin_id.to_string()),
-            IndexRecordOption::Basic,
-        )))?;
-
-        for search_item in &search_items {
-            index_writer.add_document(doc!(
-                self.entrypoint_name => search_item.entrypoint_name.clone(),
-                self.entrypoint_id => search_item.entrypoint_id.to_string(),
-                self.plugin_name => plugin_name.clone(),
-                self.plugin_id => plugin_id.to_string(),
-            ))?;
-        }
-
-        index_writer.commit()?;
-        self.index_reader.reload()?;
+        let entrypoint_ids: Vec<_> = search_items.iter().map(|item| item.entrypoint_id.clone()).collect();
 
         let data = search_items
             .into_iter()
@@ -235,6 +291,7 @@ impl SearchIndex {
                     frecency: item.entrypoint_frecency,
                     actions,
                     accessories: item.entrypoint_accessories,
+                    search_alias: aliases.get(&(plugin_id.clone(), item.entrypoint_id.clone())).cloned(),
                 };
 
                 (item.entrypoint_id.clone(), data)
@@ -248,6 +305,34 @@ impl SearchIndex {
                 entrypoints: data,
             },
         );
+
+        let mut index_writer = self.index.writer::<TantivyDocument>(15_000_000)?;
+
+        index_writer.delete_query(Box::new(TermQuery::new(
+            Term::from_field_text(self.plugin_id, &plugin_id.to_string()),
+            IndexRecordOption::Basic,
+        )))?;
+
+        for entrypoint_id in entrypoint_ids {
+            let plugin_data = entrypoint_data.get(&plugin_id).unwrap();
+            let entrypoint_data = plugin_data.entrypoints.get(&entrypoint_id).unwrap();
+
+            let mut document = doc!(
+                self.entrypoint_name => entrypoint_data.entrypoint_name.clone(),
+                self.entrypoint_id => entrypoint_id.to_string(),
+                self.plugin_name => plugin_data.plugin_name.clone(),
+                self.plugin_id => plugin_id.to_string(),
+            );
+
+            if let Some(alias) = &entrypoint_data.search_alias {
+                document.add_field_value(self.entrypoint_alias, alias.clone())
+            }
+
+            index_writer.add_document(document)?;
+        }
+
+        index_writer.commit()?;
+        self.index_reader.reload()?;
 
         if refresh_search_list {
             let mut frontend_api = self.frontend_api.clone();
@@ -319,7 +404,12 @@ impl SearchIndex {
 
         let searcher = self.index_reader.searcher();
 
-        let query_parser = QueryParser::new(self.index.tokenizers().clone(), self.entrypoint_name, self.plugin_name);
+        let query_parser = QueryParser::new(
+            self.index.tokenizers().clone(),
+            self.entrypoint_name,
+            self.plugin_name,
+            self.entrypoint_alias,
+        );
 
         let query = query_parser.create_query(query);
 
@@ -367,23 +457,12 @@ impl SearchIndex {
         collector: TopDocs,
         searcher: &Searcher,
     ) -> anyhow::Result<Vec<(SearchResult, f64)>> {
-        let get_str_field = |retrieved_doc: &TantivyDocument, field: Field| -> String {
+        let get_str_field = |retrieved_doc: &TantivyDocument, field: Field| -> Option<String> {
             retrieved_doc
                 .get_first(field)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "there should be a field with name {:?}",
-                        searcher.schema().get_field_name(field)
-                    )
-                })
-                .as_str()
-                .unwrap_or_else(|| {
-                    panic!(
-                        "field with name {:?} should contain string",
-                        searcher.schema().get_field_name(field)
-                    )
-                })
-                .to_owned()
+                .map(|value| value.as_str())
+                .flatten()
+                .map(|value| value.to_owned())
         };
 
         let result = searcher
@@ -394,10 +473,18 @@ impl SearchIndex {
                     .doc::<TantivyDocument>(doc_address)
                     .expect("index should contain just searched results");
 
-                let entrypoint_id = EntrypointId::from_string(get_str_field(&retrieved_doc, self.entrypoint_id));
-                let plugin_id = PluginId::from_string(get_str_field(&retrieved_doc, self.plugin_id));
-                let entrypoint_name = get_str_field(&retrieved_doc, self.entrypoint_name);
-                let plugin_name = get_str_field(&retrieved_doc, self.plugin_name);
+                let entrypoint_id = get_str_field(&retrieved_doc, self.entrypoint_id)
+                    .ok_or(anyhow!("document must contain entrypoint id"))?;
+                let plugin_id =
+                    get_str_field(&retrieved_doc, self.plugin_id).ok_or(anyhow!("document must contain plugin id"))?;
+                let entrypoint_name = get_str_field(&retrieved_doc, self.entrypoint_name)
+                    .ok_or(anyhow!("document must contain entrypoint name"))?;
+                let plugin_name = get_str_field(&retrieved_doc, self.plugin_name)
+                    .ok_or(anyhow!("document must contain plugin name"))?;
+                let entrypoint_alias = get_str_field(&retrieved_doc, self.entrypoint_alias);
+
+                let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+                let plugin_id = PluginId::from_string(plugin_id);
 
                 let entrypoint_data = entrypoint_data
                     .get(&plugin_id)
@@ -436,11 +523,12 @@ impl SearchIndex {
                     plugin_id,
                     entrypoint_actions,
                     entrypoint_accessories,
+                    entrypoint_alias,
                 };
 
-                (result_item, entrypoint_data.frecency)
+                Ok((result_item, entrypoint_data.frecency))
             })
-            .collect::<Vec<_>>();
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         Ok(result)
     }
@@ -450,14 +538,21 @@ struct QueryParser {
     tokenizer_manager: TokenizerManager,
     entrypoint_name: Field,
     plugin_name: Field,
+    entrypoint_alias: Field,
 }
 
 impl QueryParser {
-    fn new(tokenizer_manager: TokenizerManager, entrypoint_name: Field, plugin_name: Field) -> Self {
+    fn new(
+        tokenizer_manager: TokenizerManager,
+        entrypoint_name: Field,
+        plugin_name: Field,
+        entrypoint_alias: Field,
+    ) -> Self {
         Self {
             tokenizer_manager,
             entrypoint_name,
             plugin_name,
+            entrypoint_alias,
         }
     }
 
@@ -486,10 +581,12 @@ impl QueryParser {
 
         let entrypoint_name_terms = terms_fn(self.entrypoint_name);
         let plugin_name_terms = terms_fn(self.plugin_name);
+        let entrypoint_alias_terms = terms_fn(self.entrypoint_alias);
 
         Box::new(BooleanQuery::union(vec![
             Box::new(entrypoint_name_terms),
             Box::new(plugin_name_terms),
+            Box::new(entrypoint_alias_terms),
         ]))
     }
 

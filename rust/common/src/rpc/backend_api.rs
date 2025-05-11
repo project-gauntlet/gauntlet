@@ -142,6 +142,15 @@ pub trait BackendForSettingsApi {
         &self,
     ) -> RequestResult<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>>;
 
+    async fn set_entrypoint_search_alias(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        alias: Option<String>,
+    ) -> RequestResult<()>;
+
+    async fn get_entrypoint_search_aliases(&self) -> RequestResult<HashMap<(PluginId, EntrypointId), String>>;
+
     async fn set_theme(&self, theme: SettingsTheme) -> RequestResult<()>;
 
     async fn get_theme(&self) -> RequestResult<SettingsTheme>;

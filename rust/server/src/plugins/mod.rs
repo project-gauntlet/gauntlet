@@ -91,7 +91,7 @@ mod loader;
 pub mod plugin_manifest;
 mod run_status;
 mod runtime;
-mod settings;
+pub mod settings;
 pub mod theme;
 
 static BUNDLED_PLUGINS: [(&str, Dir); 1] = [(
@@ -124,9 +124,9 @@ impl ApplicationManager {
         let config_reader = ConfigReader::new(dirs.clone(), db_repository.clone());
         let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
-        let search_index = SearchIndex::create_index(frontend_api.clone())?;
         let clipboard = Clipboard::new()?;
         let settings = Settings::new(dirs.clone(), db_repository.clone(), frontend_api.clone())?;
+        let search_index = SearchIndex::create_index(frontend_api.clone(), settings.clone())?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
@@ -615,6 +615,27 @@ impl ApplicationManager {
         &self,
     ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
         self.settings.global_entrypoint_shortcuts().await
+    }
+
+    pub async fn set_entrypoint_search_alias(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        alias: Option<String>,
+    ) -> anyhow::Result<()> {
+        self.settings
+            .set_entrypoint_search_alias(plugin_id.clone(), entrypoint_id.clone(), alias.clone())
+            .await?;
+
+        self.search_index
+            .set_entrypoint_search_alias(plugin_id, entrypoint_id, alias)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
+        self.settings.entrypoint_search_aliases().await
     }
 
     pub async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()> {

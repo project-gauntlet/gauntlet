@@ -6,13 +6,16 @@ use iced::Border;
 
 use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
+use crate::theme::BACKGROUND_LIGHTER;
 use crate::theme::BACKGROUND_LIGHTEST;
+use crate::theme::BUTTON_BORDER_RADIUS;
 use crate::theme::TEXT_DARKER;
 use crate::theme::TEXT_LIGHTEST;
 use crate::theme::TRANSPARENT;
 
 pub enum TextInputStyle {
     FormInput,
+    EntrypointAlias,
 }
 
 impl text_input::Catalog for GauntletSettingsTheme {
@@ -22,7 +25,31 @@ impl text_input::Catalog for GauntletSettingsTheme {
         TextInputStyle::FormInput
     }
 
-    fn style(&self, _class: &Self::Class<'_>, status: Status) -> Style {
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        match class {
+            TextInputStyle::EntrypointAlias => {
+                let border = if let Status::Focused | Status::Hovered = status {
+                    Border {
+                        radius: BUTTON_BORDER_RADIUS.into(),
+                        width: 2.0,
+                        color: BACKGROUND_LIGHTER.to_iced(),
+                    }
+                } else {
+                    Border::default()
+                };
+
+                return Style {
+                    background: Background::Color(TRANSPARENT.to_iced().into()),
+                    border,
+                    icon: TEXT_LIGHTEST.to_iced(),
+                    placeholder: TEXT_DARKER.to_iced(),
+                    value: TEXT_LIGHTEST.to_iced(),
+                    selection: BACKGROUND_LIGHTEST.to_iced(),
+                };
+            }
+            TextInputStyle::FormInput => {}
+        }
+
         let active = Style {
             background: Background::Color(TRANSPARENT.to_iced().into()),
             border: Border {

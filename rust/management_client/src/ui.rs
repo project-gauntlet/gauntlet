@@ -63,7 +63,7 @@ pub fn run() {
         view,
     )
     .window(window::Settings {
-        size: Size::new(1000.0, 600.0),
+        size: Size::new(1150.0, 700.0),
         ..Default::default()
     })
     .subscription(subscription)
@@ -261,16 +261,21 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                 async move {
                     let plugins = backend_api.plugins().await?;
                     let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
+                    let entrypoint_search_aliases = backend_api.get_entrypoint_search_aliases().await?;
 
-                    Ok((plugins, global_entrypoint_shortcuts))
+                    Ok((plugins, global_entrypoint_shortcuts, entrypoint_search_aliases))
                 },
                 |result| {
-                    handle_backend_error(result, |(plugins, global_entrypoint_shortcuts)| {
-                        ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(
-                            plugins,
-                            global_entrypoint_shortcuts,
-                        ))
-                    })
+                    handle_backend_error(
+                        result,
+                        |(plugins, global_entrypoint_shortcuts, entrypoint_search_aliases)| {
+                            ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(
+                                plugins,
+                                global_entrypoint_shortcuts,
+                                entrypoint_search_aliases,
+                            ))
+                        },
+                    )
                 },
             )
         }

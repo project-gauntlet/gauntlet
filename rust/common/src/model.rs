@@ -113,6 +113,7 @@ pub struct SearchResult {
     pub entrypoint_type: SearchResultEntrypointType,
     pub entrypoint_actions: Vec<SearchResultEntrypointAction>,
     pub entrypoint_accessories: Vec<SearchResultAccessory>,
+    pub entrypoint_alias: Option<String>,
 }
 
 #[derive(Debug, Clone)]

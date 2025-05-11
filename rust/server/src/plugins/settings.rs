@@ -1,5 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use dark_light::Mode;
@@ -15,6 +17,7 @@ use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 
 use crate::plugins::data_db_repository::DataDbRepository;
+use crate::plugins::data_db_repository::DbSettingsEntrypointSearchAliasData;
 use crate::plugins::data_db_repository::DbSettingsGlobalEntrypointShortcutData;
 use crate::plugins::data_db_repository::DbSettingsGlobalShortcutData;
 use crate::plugins::data_db_repository::DbSettingsShortcut;
@@ -23,11 +26,12 @@ use crate::plugins::data_db_repository::DbWindowPositionMode;
 use crate::plugins::theme::read_theme_file;
 use crate::plugins::theme::BundledThemes;
 
+#[derive(Clone)]
 pub struct Settings {
     dirs: Dirs,
     repository: DataDbRepository,
     frontend_api: FrontendApiProxy,
-    themes: BundledThemes,
+    themes: Arc<BundledThemes>,
 }
 
 impl Settings {
@@ -36,7 +40,7 @@ impl Settings {
             dirs,
             repository,
             frontend_api,
-            themes: BundledThemes::new()?,
+            themes: Arc::new(BundledThemes::new()?),
         })
     }
 
@@ -236,6 +240,73 @@ impl Settings {
             .collect();
 
         settings.global_entrypoint_shortcuts = Some(global_entrypoint_shortcuts);
+
+        self.repository.set_settings(settings).await?;
+
+        Ok(())
+    }
+
+    pub async fn entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
+        let mut settings = self.repository.get_settings().await?;
+
+        let data: HashMap<_, _> = settings
+            .entrypoint_search_aliases
+            .unwrap_or_default()
+            .into_iter()
+            .map(|data| {
+                (
+                    (
+                        PluginId::from_string(data.plugin_id),
+                        EntrypointId::from_string(data.entrypoint_id),
+                    ),
+                    data.alias,
+                )
+            })
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn set_entrypoint_search_alias(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        alias: Option<String>,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.repository.get_settings().await?;
+
+        let mut alias_data: HashMap<_, _> = settings
+            .entrypoint_search_aliases
+            .unwrap_or_default()
+            .into_iter()
+            .map(|data| {
+                (
+                    (
+                        PluginId::from_string(data.plugin_id),
+                        EntrypointId::from_string(data.entrypoint_id),
+                    ),
+                    data.alias,
+                )
+            })
+            .collect();
+
+        match alias {
+            None => alias_data.remove(&(plugin_id, entrypoint_id)),
+            Some(alias) => alias_data.insert((plugin_id, entrypoint_id), alias),
+        };
+
+        let alias_data = alias_data
+            .into_iter()
+            .map(|((plugin_id, entrypoint_id), alias)| {
+                DbSettingsEntrypointSearchAliasData {
+                    plugin_id: plugin_id.to_string(),
+                    entrypoint_id: entrypoint_id.to_string(),
+                    alias,
+                }
+            })
+            .collect();
+
+        settings.entrypoint_search_aliases = Some(alias_data);
 
         self.repository.set_settings(settings).await?;
 

@@ -393,7 +393,7 @@ pub fn render_shortcut<'a, Message: 'a>(shortcut: &ShortcutData, in_table: bool)
         }
     } else {
         if in_table {
-            content.push(text("Record Shortcut").class(TextStyle::Subtitle).into());
+            content.push(text("Record Shortcut").size(14).class(TextStyle::Subtitle).into());
 
             if let Some(error) = &shortcut.error {
                 content.push(horizontal_space().width(Length::Fill).into());

@@ -17,6 +17,7 @@ use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::scrollable::Id;
 use iced::widget::text;
+use iced::widget::text_input;
 use iced::widget::value;
 use iced::widget::Space;
 use iced::Alignment;
@@ -31,6 +32,8 @@ use crate::components::shortcut_selector::shortcut_selector;
 use crate::components::shortcut_selector::ShortcutData;
 use crate::theme::button::ButtonStyle;
 use crate::theme::container::ContainerStyle;
+use crate::theme::text::TextStyle;
+use crate::theme::text_input::TextInputStyle;
 use crate::theme::Element;
 use crate::theme::GauntletSettingsTheme;
 use crate::views::plugins::PluginDataContainer;
@@ -50,6 +53,7 @@ pub enum PluginTableMsgIn {
         entrypoint_id: EntrypointId,
     },
     ShortcutCaptured(PluginId, EntrypointId, Option<PhysicalShortcut>),
+    AliasChanged(PluginId, EntrypointId, String),
 }
 
 pub enum PluginTableMsgOut {
@@ -71,6 +75,7 @@ pub enum PluginTableMsgOut {
         entrypoint_id: EntrypointId,
     },
     ShortcutCaptured(PluginId, EntrypointId, Option<PhysicalShortcut>),
+    AliasChanged(PluginId, EntrypointId, Option<String>),
 }
 
 pub struct PluginTableState {
@@ -86,6 +91,7 @@ impl PluginTableState {
             columns: vec![
                 Column::new(ColumnKind::Name),
                 Column::new(ColumnKind::Type),
+                Column::new(ColumnKind::Alias),
                 Column::new(ColumnKind::Shortcut),
                 Column::new(ColumnKind::EnableToggle),
             ],
@@ -132,6 +138,12 @@ impl PluginTableState {
             PluginTableMsgIn::ShortcutCaptured(plugin_id, entrypoint_id, shortcut) => {
                 Task::done(PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut))
             }
+            PluginTableMsgIn::AliasChanged(plugin_id, entrypoint_id, alias) => {
+                let alias = alias.trim().to_owned();
+                let alias = if alias.is_empty() { None } else { Some(alias) };
+
+                Task::done(PluginTableMsgOut::AliasChanged(plugin_id, entrypoint_id, alias))
+            }
         }
     }
 
@@ -140,6 +152,7 @@ impl PluginTableState {
         plugin_data: Rc<RefCell<PluginDataContainer>>,
         plugin_refs: Vec<(&SettingsPlugin, &SettingsPluginData)>,
         global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
+        entrypoint_search_aliases: HashMap<(PluginId, EntrypointId), String>,
     ) {
         self.rows = plugin_refs
             .iter()
@@ -162,11 +175,16 @@ impl PluginTableState {
                         let shortcut = global_entrypoint_shortcut.map(|(shortcut, _)| shortcut).cloned();
                         let error = global_entrypoint_shortcut.map(|(_, error)| error).cloned().flatten();
 
+                        let search_alias = entrypoint_search_aliases
+                            .get(&(plugin.plugin_id.clone(), entrypoint.entrypoint_id.clone()))
+                            .cloned();
+
                         let entrypoint_row = Row::Entrypoint {
                             plugin_data: plugin_data.clone(),
                             plugin_id: plugin.plugin_id.clone(),
                             entrypoint_id: entrypoint.entrypoint_id.clone(),
                             shortcut_data: ShortcutData { shortcut, error },
+                            search_alias,
                         };
 
                         result.push(entrypoint_row);
@@ -192,12 +210,17 @@ impl PluginTableState {
                                 let shortcut = global_entrypoint_shortcut.map(|(shortcut, _)| shortcut).cloned();
                                 let error = global_entrypoint_shortcut.map(|(_, error)| error).cloned().flatten();
 
+                                let search_alias = entrypoint_search_aliases
+                                    .get(&(plugin.plugin_id.clone(), data.entrypoint_id.clone()))
+                                    .cloned();
+
                                 let generated_entrypoint_row = Row::GeneratedEntrypoint {
                                     plugin_data: plugin_data.clone(),
                                     plugin_id: plugin.plugin_id.clone(),
                                     generator_entrypoint_id: entrypoint.entrypoint_id.clone(),
                                     generated_entrypoint_id: data.entrypoint_id.clone(),
                                     shortcut_data: ShortcutData { shortcut, error },
+                                    search_alias,
                                 };
 
                                 result.push(generated_entrypoint_row);
@@ -247,6 +270,7 @@ enum Row {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         shortcut_data: ShortcutData,
+        search_alias: Option<String>,
     },
     GeneratedEntrypoint {
         plugin_data: Rc<RefCell<PluginDataContainer>>,
@@ -254,6 +278,7 @@ enum Row {
         generator_entrypoint_id: EntrypointId,
         generated_entrypoint_id: EntrypointId,
         shortcut_data: ShortcutData,
+        search_alias: Option<String>,
     },
 }
 
@@ -261,6 +286,7 @@ enum ColumnKind {
     Name,
     Type,
     Shortcut,
+    Alias,
     EnableToggle,
 }
 
@@ -288,6 +314,12 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
             }
             ColumnKind::Type => {
                 container(text("Type"))
+                    .height(Length::Fixed(30.0))
+                    .align_y(Alignment::Center)
+                    .into()
+            }
+            ColumnKind::Alias => {
+                container(text("Alias"))
                     .height(Length::Fixed(30.0))
                     .align_y(Alignment::Center)
                     .into()
@@ -385,7 +417,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
 
-                        let plugin_name = text(plugin.plugin_name.to_string()).shaping(Shaping::Advanced);
+                        let plugin_name = text(plugin.plugin_name.to_string()).shaping(Shaping::Advanced).size(14);
 
                         container(plugin_name).align_y(Alignment::Center).into()
                     }
@@ -401,6 +433,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
 
                         let text: Element<_> = text(entrypoint.entrypoint_name.to_string())
                             .shaping(Shaping::Advanced)
+                            .size(14)
                             .into();
 
                         let space: Element<_> =
@@ -429,6 +462,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
 
                         let text: Element<_> = text(generated_entrypoint.entrypoint_name.to_string())
                             .shaping(Shaping::Advanced)
+                            .size(14)
                             .into();
 
                         let space: Element<_> = Space::with_width(Length::Fixed(65.0)).into();
@@ -481,7 +515,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
             }
             ColumnKind::Type => {
                 let content: Element<_> = match row_entry {
-                    Row::Plugin { .. } => container(text("Plugin")).align_y(Alignment::Center).into(),
+                    Row::Plugin { .. } => container(text("Plugin").size(14)).align_y(Alignment::Center).into(),
                     Row::Entrypoint {
                         plugin_data,
                         plugin_id,
@@ -499,11 +533,13 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             SettingsEntrypointType::EntrypointGenerator => "Generator",
                         };
 
-                        container(text(entrypoint_type.to_string()))
+                        container(text(entrypoint_type.to_string()).size(14))
                             .align_y(Alignment::Center)
                             .into()
                     }
-                    Row::GeneratedEntrypoint { .. } => container(text("Generated")).align_y(Alignment::Center).into(),
+                    Row::GeneratedEntrypoint { .. } => {
+                        container(text("Generated").size(14)).align_y(Alignment::Center).into()
+                    }
                 };
 
                 let msg = match &row_entry {
@@ -552,6 +588,7 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                         plugin_id,
                         entrypoint_id,
                         shortcut_data,
+                        ..
                     } => {
                         let plugin_data = plugin_data.borrow();
                         let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
@@ -604,6 +641,58 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
                             .height(Length::Fixed(40.0))
                             .width(Length::Fill)
                             .into()
+                    }
+                }
+            }
+            ColumnKind::Alias => {
+                match row_entry {
+                    Row::Plugin { .. } => horizontal_space().into(),
+                    Row::Entrypoint {
+                        plugin_data,
+                        plugin_id,
+                        entrypoint_id,
+                        search_alias,
+                        ..
+                    } => {
+                        let plugin_data = plugin_data.borrow();
+                        let plugin = plugin_data.plugins.get(&plugin_id).unwrap();
+                        let entrypoint = plugin.entrypoints.get(&entrypoint_id).unwrap();
+
+                        if let SettingsEntrypointType::View | SettingsEntrypointType::Command =
+                            entrypoint.entrypoint_type
+                        {
+                            let input = text_input("Add Alias", search_alias.as_deref().unwrap_or(""))
+                                .class(TextInputStyle::EntrypointAlias)
+                                .padding(padding::all(12.0).left(7.0))
+                                .size(14)
+                                .on_input(move |alias| {
+                                    PluginTableMsgIn::AliasChanged(plugin_id.clone(), entrypoint_id.clone(), alias)
+                                });
+
+                            container(input).height(Length::Fixed(40.0)).width(Length::Fill).into()
+                        } else {
+                            horizontal_space().into()
+                        }
+                    }
+                    Row::GeneratedEntrypoint {
+                        plugin_id,
+                        generated_entrypoint_id,
+                        search_alias,
+                        ..
+                    } => {
+                        let input = text_input("Add Alias", search_alias.as_deref().unwrap_or(""))
+                            .class(TextInputStyle::EntrypointAlias)
+                            .padding(padding::all(12.0).left(7.0))
+                            .size(14)
+                            .on_input(move |alias| {
+                                PluginTableMsgIn::AliasChanged(
+                                    plugin_id.clone(),
+                                    generated_entrypoint_id.clone(),
+                                    alias,
+                                )
+                            });
+
+                        container(input).height(Length::Fixed(40.0)).width(Length::Fill).into()
                     }
                 }
             }
@@ -674,7 +763,8 @@ impl<'a> table::Column<'a, PluginTableMsgIn, GauntletSettingsTheme, Renderer> fo
         match self.kind {
             ColumnKind::Name => 300.0,
             ColumnKind::Type => 100.0,
-            ColumnKind::Shortcut => 200.0,
+            ColumnKind::Shortcut => 190.0,
+            ColumnKind::Alias => 120.0,
             ColumnKind::EnableToggle => 75.0,
         }
     }

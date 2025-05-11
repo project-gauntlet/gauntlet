@@ -243,6 +243,13 @@ pub struct DbSettingsGlobalEntrypointShortcutData {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct DbSettingsEntrypointSearchAliasData {
+    pub plugin_id: String,
+    pub entrypoint_id: String,
+    pub alias: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DbSettings {
     // none means auto-detect
     pub theme: Option<DbTheme>,
@@ -251,6 +258,7 @@ pub struct DbSettings {
     // none is unset, if whole settings object is unset, it is likely a first start and default shortcut will be used
     pub global_shortcut: Option<DbSettingsGlobalShortcutData>,
     pub global_entrypoint_shortcuts: Option<Vec<DbSettingsGlobalEntrypointShortcutData>>,
+    pub entrypoint_search_aliases: Option<Vec<DbSettingsEntrypointSearchAliasData>>,
 }
 
 impl Default for DbSettings {
@@ -281,6 +289,7 @@ impl Default for DbSettings {
                 error: None,
             }),
             global_entrypoint_shortcuts: None,
+            entrypoint_search_aliases: None,
         }
     }
 }

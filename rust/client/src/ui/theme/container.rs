@@ -36,6 +36,7 @@ pub enum ContainerStyle {
     Main,
     MainList,
     MainListInner,
+    MainListItemAlias,
     MainListItemIcon,
     MainListItemSubText,
     MainListItemText,
@@ -81,6 +82,7 @@ pub enum ContainerStyleInner {
     ActionShortcutModifier,
     ContentCodeBlockText,
     Main,
+    MainListItemAlias,
     Root,
     ContentImage,
     RootBottomPanel,
@@ -257,6 +259,20 @@ impl container::Catalog for GauntletComplexTheme {
                     shadow: Default::default(),
                 }
             }
+            ContainerStyleInner::MainListItemAlias => {
+                let theme = &self.main_list_item_alias;
+
+                Style {
+                    text_color: None,
+                    background: None,
+                    border: Border {
+                        color: theme.background_color.clone().into(),
+                        width: 2.0,
+                        radius: theme.border_radius.into(),
+                    },
+                    shadow: Default::default(),
+                }
+            }
         }
     }
 }
@@ -334,6 +350,10 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::MainListItemText => self.padding(theme.main_list_item_text.padding.to_iced()),
             ContainerStyle::MainListItemSubText => self.padding(theme.main_list_item_sub_text.padding.to_iced()),
             ContainerStyle::MainListItemIcon => self.padding(theme.main_list_item_icon.padding.to_iced()),
+            ContainerStyle::MainListItemAlias => {
+                self.padding(theme.main_list_item_alias.padding.to_iced())
+                    .class(ContainerStyleInner::MainListItemAlias)
+            }
             ContainerStyle::MainList => self.padding(theme.main_list.padding.to_iced()),
             ContainerStyle::MainListInner => self.padding(theme.main_list_inner.padding.to_iced()),
             ContainerStyle::MainSearchBar => self.padding(theme.main_search_bar.padding.to_iced()),

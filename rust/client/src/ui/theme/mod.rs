@@ -81,6 +81,7 @@ pub struct GauntletComplexTheme {
     main_list: ThemePaddingOnly,
     main_list_inner: ThemePaddingOnly,
     main_list_item: ThemeButton,
+    main_list_item_alias: ThemeEntrypointAlias,
     main_list_item_icon: ThemePaddingOnly,
     main_list_item_sub_text: ThemePaddingTextColor,
     main_list_item_text: ThemePaddingOnly,
@@ -450,6 +451,11 @@ impl GauntletComplexTheme {
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
             },
+            main_list_item_alias: ThemeEntrypointAlias {
+                padding: padding_axis(4.0, 6.0),
+                background_color: background_100,
+                border_radius: content.border.radius,
+            },
             main_list_item_text: ThemePaddingOnly {
                 padding: padding_all(4.0),
             },
@@ -766,6 +772,13 @@ pub struct ThemeDatePicker {
 pub struct ThemePaddingTextColor {
     padding: ThemePadding,
     text_color: Color,
+}
+
+#[derive(Debug, Clone)]
+pub struct ThemeEntrypointAlias {
+    padding: ThemePadding,
+    background_color: Color,
+    border_radius: f32,
 }
 
 #[derive(Debug, Clone)]

@@ -9,17 +9,23 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### General
+- It is now possible to assign custom alias to entrypoints which is used for search
 - Windows in "Opened windows" view entrypoint are now sorted following "most recently focused on the top" order
+
+### Plugins
 - Plugin manifest property `entrypoint.*.actions.*.shortcut` is now optional
-- Add `<Content.Svg/>` component to display SVG images
-- **BREAKING CHANGE**: Renamed TS types: `ImageSource` to `DataSource`, `ImageSourceUrl` to `DataSourceUrl`, `ImageSourceAsset` to `DataSourceAsset`
+- Added `<Content.Svg/>` component to display SVG images
+- **BREAKING CHANGE**: Renamed TypeScript types: `ImageSource` to `DataSource`, `ImageSourceUrl` to `DataSourceUrl`, `ImageSourceAsset` to `DataSourceAsset`
+
+### UI/UX improvements
+- Made font size in the Settings UI a little smaller
 
 ### Fixes
-- Fixed crash when closing inline view due to Action being run
+- Fixed crash when closing inline view due to Action being run, again...
 - Fixed shortcut assignment error not being shown for global entrypoint shortcuts
 - Fixed crash on X11 when trying to assign shortcut that is already used by another application
-- Unified `Vec<u8>` usage to `ArrayBuffer` in JS
-  - Fixes `icon` in EntrypointGenerator requiring `number[]`
+- Fixed `icon` in `EntrypointGenerator` requiring `number[]` instead of declared `ArrayBuffer`
 - Fixed text selection not being visible when selecting text in form view text fields
 - Fixed plugin runtime crash when using `assetDataSync()` function
 

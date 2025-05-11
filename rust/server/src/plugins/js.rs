@@ -827,6 +827,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                 generated_search_items,
                 refresh_search_list,
             )
+            .await
             .context("error when updating search index")?;
 
         Ok(())

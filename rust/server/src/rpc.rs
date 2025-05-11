@@ -173,6 +173,25 @@ impl BackendForSettingsApi for BackendServerImpl {
             .map_err(Into::into)
     }
 
+    async fn set_entrypoint_search_alias(
+        &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+        alias: Option<String>,
+    ) -> RequestResult<()> {
+        self.application_manager
+            .set_entrypoint_search_alias(plugin_id, entrypoint_id, alias)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn get_entrypoint_search_aliases(&self) -> RequestResult<HashMap<(PluginId, EntrypointId), String>> {
+        self.application_manager
+            .get_entrypoint_search_aliases()
+            .await
+            .map_err(Into::into)
+    }
+
     async fn set_theme(&self, theme: SettingsTheme) -> RequestResult<()> {
         self.application_manager.set_theme(theme).await.map_err(Into::into)
     }
