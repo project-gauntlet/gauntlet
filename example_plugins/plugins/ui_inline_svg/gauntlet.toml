@@ -1,0 +1,16 @@
+[gauntlet]
+name = 'Docs Inline Svg'
+description = ''
+
+# docs-code-segment:start main
+[[entrypoint]]
+id = 'main'
+name = 'Main'
+path = 'src/main.tsx'
+type = 'inline-view'
+description = ''
+# docs-code-segment:end
+
+[permissions]
+main_search_bar = ["read"]
+network = ["upload.wikimedia.org"]

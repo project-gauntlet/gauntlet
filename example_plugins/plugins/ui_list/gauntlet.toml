@@ -120,6 +120,15 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
+# docs-code-segment:start content-svg
+[[entrypoint]]
+id = 'content-svg'
+name = 'List Content Svg'
+path = 'src/content-svg.tsx'
+type = 'view'
+description = ''
+# docs-code-segment:end
+
 # docs-code-segment:start metadata
 [[entrypoint]]
 id = 'metadata'
@@ -193,5 +202,4 @@ description = ''
 # docs-code-segment:end
 
 [permissions]
-network = ["static.wikia.nocookie.net"]
-
+network = ["static.wikia.nocookie.net", "upload.wikimedia.org"]
