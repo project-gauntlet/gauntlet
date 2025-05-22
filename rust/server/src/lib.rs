@@ -136,7 +136,7 @@ fn run_scenario_runner() {
             std::thread::spawn(|| {
                 let theme = crate::plugins::theme::BundledThemes::new().unwrap();
 
-                start_mock_server(frontend_sender, backend_receiver, theme.legacy_theme)
+                start_mock_server(frontend_sender, backend_receiver, theme.macos_dark_theme)
             });
 
             start_client(false, frontend_receiver, backend_sender);
