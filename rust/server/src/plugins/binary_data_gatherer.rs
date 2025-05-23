@@ -10,7 +10,7 @@ use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::SvgWidget;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WidgetVisitor;
-use gauntlet_plugin_runtime::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 
 use crate::plugins::js::BackendForPluginRuntimeApiImpl;
 

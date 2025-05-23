@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::PluginId;
-use gauntlet_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
+use gauntlet_common_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
 use include_dir::Dir;
 use itertools::Itertools;
 use once_cell::sync::Lazy;

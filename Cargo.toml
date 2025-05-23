@@ -10,14 +10,15 @@ members = [
     "rust/server",
     "rust/common",
     "rust/common_ui",
+    "rust/common_plugin_runtime",
     "rust/utils",
     "rust/utils_macros",
     "rust/cli",
     "rust/component_model",
     "rust/scenario_runner",
-    "rust/plugin_runtime",
     "rust/manifest_schema",
 ]
+
 [workspace.package]
 edition = "2021"
 
@@ -37,12 +38,12 @@ iced_layershell =  { git = "https://github.com/project-gauntlet/exwlshelleventlo
 # workspaces
 gauntlet-common = { path = "./rust/common" }
 gauntlet-common-ui = { path = "./rust/common_ui" }
+gauntlet-common-plugin-runtime = { path = "./rust/common_plugin_runtime" }
 gauntlet-management-client = { path = "./rust/management_client" }
 gauntlet-client = { path = "./rust/client" }
 gauntlet-server = { path = "./rust/server" }
 gauntlet-utils = { path = "./rust/utils" }
 gauntlet-utils-macros = { path = "./rust/utils_macros" }
-gauntlet-plugin-runtime = { path = "./rust/plugin_runtime" }
 gauntlet-component-model = { path = "./rust/component_model" }
 gauntlet-scenario-runner = { path = "./rust/scenario_runner" }
 
@@ -84,6 +85,3 @@ opt-level = "s"
 lto = "thin"
 strip = true
 
-[patch.crates-io]
-# NOTE https://github.com/ipetkov/crane/issues/336
-libffi-sys = { git = "https://github.com/tov/libffi-rs", rev = "d0704d634b6f3ffef5b6fc7e07fe965a1cff5c7b" }

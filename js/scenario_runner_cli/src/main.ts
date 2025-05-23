@@ -35,7 +35,11 @@ async function runScenarios(expectedPlugin: string | undefined) {
     const scenariosData = path.join(scenarios, "scenarios");
     const scenariosRun = path.join(scenarios, "run");
 
-    console.log("Building server")
+    console.log("Building plugin_runtime")
+    const pluginRuntimeRoot = path.resolve(projectRoot, 'rust', 'plugin_runtime');
+    spawnSync('cargo', ['build', '--features', 'release'], {
+        cwd: pluginRuntimeRoot
+    });
 
     console.log("Building scenario plugins")
     buildScenarioPlugins(projectRoot)

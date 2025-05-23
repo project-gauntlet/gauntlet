@@ -27,7 +27,6 @@ use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::settings_env_data_from_string;
 use gauntlet_common::settings_env_data_to_string;
 use gauntlet_common::SettingsEnvData;
-use gauntlet_plugin_runtime::run_plugin_runtime;
 use gauntlet_utils::channel::channel;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestReceiver;
@@ -50,7 +49,8 @@ pub fn start(minimized: bool) {
     register_panic_hook(std::env::var(PLUGIN_UUID_ENV).ok());
 
     if let Ok(socket_name) = std::env::var(PLUGIN_CONNECT_ENV) {
-        run_plugin_runtime(socket_name);
+        // this is not actually unresolved item, see .cargo/config.toml
+        gauntlet_plugin_runtime::run_plugin_runtime(socket_name);
 
         return;
     }

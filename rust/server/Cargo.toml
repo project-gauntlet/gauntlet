@@ -7,7 +7,7 @@ edition.workspace = true
 gauntlet-common.workspace = true
 gauntlet-utils.workspace = true
 gauntlet-client.workspace = true
-gauntlet-plugin-runtime.workspace = true
+gauntlet-common-plugin-runtime.workspace = true
 gauntlet-scenario-runner = { workspace = true, optional = true }
 
 # shared
@@ -44,8 +44,8 @@ dark-light = "1.1.1"
 schemars = "0.8"
 
 [features]
-release = ["gauntlet-common/release", "gauntlet-plugin-runtime/release"]
-scenario_runner = ["dep:gauntlet-scenario-runner", "gauntlet-common/scenario_runner", "gauntlet-plugin-runtime/scenario_runner"]
+release = ["gauntlet-common/release"]
+scenario_runner = ["dep:gauntlet-scenario-runner", "gauntlet-common/scenario_runner"]
 
 [build-dependencies]
 vergen-gitcl = { version = "1.0", features = ["build", "cargo"] }

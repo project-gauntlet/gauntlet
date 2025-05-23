@@ -1,0 +1,20 @@
+[package]
+name = "gauntlet-common-plugin-runtime"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+# workspaces
+gauntlet-utils.workspace = true
+gauntlet-utils-macros.workspace = true
+gauntlet-common.workspace = true
+
+# shared
+anyhow.workspace = true
+bincode.workspace = true
+serde.workspace = true
+tracing.workspace = true
+interprocess.workspace = true
+tokio.workspace = true
+once_cell.workspace = true
+regex.workspace = true

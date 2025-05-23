@@ -1,0 +1,5 @@
+[build]
+rustflags = """
+--extern gauntlet_plugin_runtime=./rust/plugin_runtime/target/release/libgauntlet_plugin_runtime.rlib
+-L dependency=./rust/plugin_runtime/target/release/deps
+"""

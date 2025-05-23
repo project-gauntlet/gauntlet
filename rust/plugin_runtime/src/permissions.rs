@@ -23,15 +23,12 @@ use deno_runtime::deno_permissions::UnaryPermission;
 use deno_runtime::deno_permissions::WriteDescriptor;
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
 use gauntlet_common::dirs::Dirs;
+use gauntlet_common_plugin_runtime::model::JsPluginPermissions;
+use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
+use gauntlet_common_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use typed_path::Utf8TypedPath;
-
-use crate::JsPluginPermissions;
-use crate::JsPluginPermissionsExec;
-
-pub static PERMISSIONS_VARIABLE_PATTERN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\{(?<namespace>.+?):(?<name>.+?)}").expect("invalid regex"));
 
 pub fn permissions_to_deno(
     fs: FileSystemRc,

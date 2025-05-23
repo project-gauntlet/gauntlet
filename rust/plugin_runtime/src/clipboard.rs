@@ -3,12 +3,12 @@ use std::rc::Rc;
 
 use deno_core::op2;
 use deno_core::OpState;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::model::JsClipboardData;
 
-use crate::api::BackendForPluginRuntimeApi;
-use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::DenoInClipboardData;
-use crate::DenoOutClipboardData;
-use crate::JsClipboardData;
+use crate::model::DenoInClipboardData;
+use crate::model::DenoOutClipboardData;
 
 #[op2(async)]
 #[serde]

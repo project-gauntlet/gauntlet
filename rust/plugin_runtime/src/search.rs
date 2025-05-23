@@ -3,11 +3,11 @@ use std::rc::Rc;
 
 use deno_core::op2;
 use deno_core::OpState;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::model::JsGeneratedSearchItem;
 
-use crate::api::BackendForPluginRuntimeApi;
-use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::DenoInGeneratedSearchItem;
-use crate::JsGeneratedSearchItem;
+use crate::model::DenoInGeneratedSearchItem;
 
 #[op2(async)]
 pub async fn reload_search_index(

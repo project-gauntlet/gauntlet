@@ -6,7 +6,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Error;
 use arboard::ImageData;
-use gauntlet_plugin_runtime::JsClipboardData;
+use gauntlet_common_plugin_runtime::model::JsClipboardData;
 use image::RgbaImage;
 
 #[derive(Clone)]

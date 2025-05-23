@@ -1,4 +1,3 @@
-mod api;
 mod assets;
 mod clipboard;
 mod component_model;
@@ -28,13 +27,19 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Context;
-pub use api::BackendForPluginRuntimeApi;
 use bincode::Decode;
 use bincode::Encode;
 use deno_core::futures::SinkExt;
-pub use events::JsEvent;
-pub use events::JsKeyboardEventOrigin;
-pub use events::JsUiPropertyValue;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiRequestData;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiResponseData;
+use gauntlet_common_plugin_runtime::model::JsEvent;
+use gauntlet_common_plugin_runtime::model::JsInit;
+use gauntlet_common_plugin_runtime::model::JsMessage;
+use gauntlet_common_plugin_runtime::model::JsPluginRuntimeMessage;
+use gauntlet_common_plugin_runtime::recv_message;
+use gauntlet_common_plugin_runtime::send_message;
+use gauntlet_common_plugin_runtime::JsMessageSide;
 use gauntlet_utils::channel::Payload;
 use gauntlet_utils::channel::RequestReceiver;
 use interprocess::local_socket::tokio::prelude::*;
@@ -44,9 +49,7 @@ use interprocess::local_socket::tokio::Stream;
 use interprocess::local_socket::GenericFilePath;
 use interprocess::local_socket::NameType;
 use interprocess::local_socket::ToNsName;
-pub use model::*;
 use once_cell::sync::Lazy;
-pub use permissions::PERMISSIONS_VARIABLE_PATTERN;
 use regex::Regex;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -63,10 +66,6 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tokio_util::sync::CancellationToken;
 
-pub use crate::api::handle_proxy_message;
-use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::api::BackendForPluginRuntimeApiRequestData;
-use crate::api::BackendForPluginRuntimeApiResponseData;
 use crate::deno::start_js_runtime;
 
 pub fn run_plugin_runtime(socket_name: String) {
@@ -309,67 +308,4 @@ async fn message_loop(
             }
         }
     }
-}
-
-#[derive(Debug)]
-pub enum JsMessageSide {
-    PluginRuntime,
-    Backend,
-}
-
-static MESSAGE_ID: AtomicU32 = AtomicU32::new(0);
-
-pub async fn send_message<T: Encode + Debug>(side: JsMessageSide, send: &mut SendHalf, value: T) -> anyhow::Result<()> {
-    let encoded: Vec<u8> = bincode::encode_to_vec(&value, bincode::config::standard())?;
-
-    let message_id = MESSAGE_ID.fetch_add(1, Ordering::SeqCst);
-
-    tracing::trace!(
-        side = debug(&side),
-        "Sending message with id {} and size of {} bytes: {:?}",
-        message_id,
-        encoded.len(),
-        &value
-    );
-
-    send.write_u32(message_id).await?;
-
-    send.write_u32(encoded.len() as u32).await?;
-
-    send.write_all(&encoded[..]).await?;
-
-    tracing::trace!(
-        side = debug(&side),
-        "Message with id {} and size of {} bytes has been sent",
-        message_id,
-        encoded.len()
-    );
-
-    Ok(())
-}
-
-pub async fn recv_message<T: Decode + Debug>(side: JsMessageSide, recv: &mut RecvHalf) -> anyhow::Result<T> {
-    tracing::trace!(side = debug(&side), "Waiting for next message...");
-
-    let message_id = recv.read_u32().await?;
-
-    tracing::trace!(side = debug(&side), "Reading message with id: {}", message_id);
-
-    let buf_size = recv.read_u32().await?;
-
-    let mut buffer = vec![0; buf_size as usize];
-
-    recv.read_exact(&mut buffer).await?;
-
-    let (decoded, _) = bincode::decode_from_slice(&buffer[..], bincode::config::standard())
-        .context(format!("Unable to deserialize message with id: {}", message_id))?;
-
-    tracing::trace!(
-        side = debug(&side),
-        "Received message with id {}: {:?}",
-        message_id,
-        &decoded
-    );
-
-    Ok(decoded)
 }

@@ -3,29 +3,35 @@ name = "gauntlet-plugin-runtime"
 version = "0.1.0"
 edition.workspace = true
 
+[workspace.package]
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
 [dependencies]
 # workspaces
-gauntlet-common.workspace = true
-gauntlet-component-model.workspace = true
-gauntlet-utils.workspace = true
-gauntlet-utils-macros.workspace = true
+gauntlet-common = { path = "../common" }
+gauntlet-component-model = { path = "../component_model" }
+gauntlet-utils = { path = "../utils" }
+gauntlet-common-plugin-runtime = { path = "../common_plugin_runtime" }
 
 # shared
-anyhow.workspace = true
-tokio.workspace = true
-tokio-util.workspace = true
-serde.workspace = true
-tracing.workspace = true
-indexmap.workspace = true
-bincode.workspace = true
-regex.workspace = true
-futures.workspace = true
-image.workspace = true
-once_cell.workspace = true
-bytes.workspace = true
-walkdir.workspace = true
-typed-path.workspace = true
-interprocess.workspace = true
+anyhow = { version = "1", features = ["backtrace"] }
+tracing = { version = "0.1" }
+tokio = { version = "1.42" }
+tokio-util = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+bincode = { version = "2.0.0-rc.3" }
+indexmap = { version = "2.1", features = ["serde"] }
+regex = { version = "1.9.3" }
+futures = { version = "0.3.31" }
+image = { version = "0.25" }
+once_cell = { version = "1.19" }
+bytes = { version = "1.6.0" }
+walkdir = { version = "2.4.0" }
+typed-path = { version = "0.10.0" }
+interprocess = { version = "2.2.2", features = ["tokio"] }
 
 # other
 deno_core = { version = "0.321.0" } # deno 2.1.1
@@ -64,3 +70,7 @@ libc = "0.2"
 [features]
 scenario_runner = []
 release = []
+
+[patch.crates-io]
+# NOTE https://github.com/ipetkov/crane/issues/336
+libffi-sys = { git = "https://github.com/tov/libffi-rs", rev = "d0704d634b6f3ffef5b6fc7e07fe965a1cff5c7b" }

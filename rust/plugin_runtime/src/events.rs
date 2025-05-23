@@ -10,75 +10,10 @@ use deno_core::futures::StreamExt;
 use deno_core::op2;
 use deno_core::OpState;
 use gauntlet_common::model::UiWidgetId;
+use gauntlet_common_plugin_runtime::model::JsEvent;
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::mpsc::Receiver;
-
-use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::BackendForPluginRuntimeApi;
-
-#[derive(Debug, Deserialize, Serialize, Encode, Decode)]
-#[serde(tag = "type")]
-pub enum JsEvent {
-    OpenView {
-        #[serde(rename = "entrypointId")]
-        entrypoint_id: String,
-    },
-    CloseView,
-    RunCommand {
-        #[serde(rename = "entrypointId")]
-        entrypoint_id: String,
-    },
-    RunGeneratedEntrypoint {
-        #[serde(rename = "entrypointId")]
-        entrypoint_id: String,
-        #[serde(rename = "actionIndex")]
-        action_index: usize,
-    },
-    ViewEvent {
-        #[serde(rename = "widgetId")]
-        widget_id: UiWidgetId,
-        #[serde(rename = "eventName")]
-        event_name: String,
-        #[serde(rename = "eventArguments")]
-        event_arguments: Vec<JsUiPropertyValue>,
-    },
-    KeyboardEvent {
-        #[serde(rename = "entrypointId")]
-        entrypoint_id: String,
-        origin: JsKeyboardEventOrigin,
-        key: String,
-        #[serde(rename = "modifierShift")]
-        modifier_shift: bool,
-        #[serde(rename = "modifierControl")]
-        modifier_control: bool,
-        #[serde(rename = "modifierAlt")]
-        modifier_alt: bool,
-        #[serde(rename = "modifierMeta")]
-        modifier_meta: bool,
-    },
-    OpenInlineView {
-        #[serde(rename = "text")]
-        text: String,
-    },
-    RefreshSearchIndex,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, Encode, Decode)]
-pub enum JsKeyboardEventOrigin {
-    MainView,
-    PluginView,
-}
-
-// FIXME this could have been serde_v8::AnyValue but it doesn't support undefined, make a pr?
-#[derive(Debug, Deserialize, Serialize, Encode, Decode)]
-#[serde(tag = "type")]
-pub enum JsUiPropertyValue {
-    String { value: String },
-    Number { value: f64 },
-    Bool { value: bool },
-    Undefined,
-}
 
 pub struct EventReceiver {
     event_stream: Rc<RefCell<Receiver<JsEvent>>>,

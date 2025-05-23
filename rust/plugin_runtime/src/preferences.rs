@@ -6,10 +6,9 @@ use deno_core::futures::executor::block_on;
 use deno_core::op2;
 use deno_core::OpState;
 use gauntlet_common::model::EntrypointId;
-
-use crate::api::BackendForPluginRuntimeApi;
-use crate::api::BackendForPluginRuntimeApiProxy;
-use crate::model::JsPreferenceUserData;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::model::JsPreferenceUserData;
 
 #[op2]
 #[serde]

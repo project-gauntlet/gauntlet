@@ -78,6 +78,9 @@ use gauntlet_common::model::UiPropertyValue;
 use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WidgetVisitor;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::model::JsUiRenderLocation;
 use gauntlet_component_model::Component;
 use gauntlet_component_model::Component::Root;
 use gauntlet_component_model::Property;
@@ -91,10 +94,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use tokio::runtime::Handle;
 
-use crate::api::BackendForPluginRuntimeApi;
-use crate::api::BackendForPluginRuntimeApiProxy;
 use crate::component_model::ComponentModel;
-use crate::model::JsUiRenderLocation;
 use crate::plugin_data::PluginData;
 
 #[op2]

@@ -29,12 +29,15 @@ use deno_runtime::worker::WorkerOptions;
 use deno_runtime::worker::WorkerServiceOptions;
 use deno_runtime::BootstrapOptions;
 use gauntlet_common::model::PluginId;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::model::JsEvent;
+use gauntlet_common_plugin_runtime::model::JsInit;
+use gauntlet_common_plugin_runtime::model::JsPluginCode;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 
-use crate::api::BackendForPluginRuntimeApiProxy;
 use crate::assets::asset_data;
 use crate::assets::asset_data_blocking;
 use crate::clipboard::clipboard_clear;
@@ -50,13 +53,11 @@ use crate::environment::environment_plugin_cache_dir;
 use crate::environment::environment_plugin_data_dir;
 use crate::events::op_plugin_get_pending_event;
 use crate::events::EventReceiver;
-use crate::events::JsEvent;
 use crate::logs::op_log_debug;
 use crate::logs::op_log_error;
 use crate::logs::op_log_info;
 use crate::logs::op_log_trace;
 use crate::logs::op_log_warn;
-use crate::model::JsInit;
 use crate::permissions::permissions_to_deno;
 use crate::plugin_data::PluginData;
 use crate::plugins::applications::current_os;
@@ -81,7 +82,6 @@ use crate::ui::show_hud;
 use crate::ui::show_plugin_error_view;
 use crate::ui::show_preferences_required_view;
 use crate::ui::update_loading_bar;
-use crate::JsPluginCode;
 
 pub struct CustomModuleLoader {
     code: JsPluginCode,

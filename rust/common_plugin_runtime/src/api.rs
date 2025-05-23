@@ -8,7 +8,7 @@ use gauntlet_utils_macros::boundary_gen;
 use crate::model::JsClipboardData;
 use crate::model::JsGeneratedSearchItem;
 use crate::model::JsPreferenceUserData;
-use crate::JsUiRenderLocation;
+use crate::model::JsUiRenderLocation;
 
 #[allow(async_fn_in_trait)]
 #[boundary_gen(bincode, in_process)]
