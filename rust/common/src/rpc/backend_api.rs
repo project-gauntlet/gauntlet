@@ -4,8 +4,8 @@ use std::sync::Arc;
 use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils_macros::boundary_gen;
 use tokio::sync::Mutex;
-use tonic::transport::Channel;
 use tonic::Request;
+use tonic::transport::Channel;
 
 use crate::model::DownloadStatus;
 use crate::model::EntrypointId;
@@ -22,9 +22,9 @@ use crate::model::UiPropertyValue;
 use crate::model::UiSetupData;
 use crate::model::UiWidgetId;
 use crate::model::WindowPositionMode;
-use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 use crate::rpc::grpc::RpcBincode;
 use crate::rpc::grpc::RpcSaveLocalPluginRequest;
+use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 
 #[allow(async_fn_in_trait)]
 #[boundary_gen(in_process)]

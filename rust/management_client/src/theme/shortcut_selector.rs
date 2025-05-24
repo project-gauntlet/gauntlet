@@ -1,12 +1,12 @@
-use iced::widget::container::Style;
 use iced::Border;
+use iced::widget::container::Style;
 
 use crate::components::shortcut_selector;
 use crate::components::shortcut_selector::Status;
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_LIGHTER;
 use crate::theme::BUTTON_BORDER_RADIUS;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::PRIMARY;
 use crate::theme::TRANSPARENT;
 

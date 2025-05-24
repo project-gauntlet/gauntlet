@@ -1,14 +1,14 @@
+use iced::Border;
+use iced::Renderer;
+use iced::widget::Checkbox;
 use iced::widget::checkbox;
 use iced::widget::checkbox::Status;
 use iced::widget::checkbox::Style;
-use iced::widget::Checkbox;
-use iced::Border;
-use iced::Renderer;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
-use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
+use crate::ui::theme::ThemableWidget;
 
 pub enum CheckboxStyle {
     Default,

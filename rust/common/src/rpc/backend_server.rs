@@ -2,21 +2,21 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use tokio::net::TcpStream;
-use tonic::transport::Server;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
+use tonic::transport::Server;
 
-use crate::rpc::backend_api::handle_grpc_request_backend_for_cli_api;
-use crate::rpc::backend_api::handle_grpc_request_backend_for_settings_api;
 use crate::rpc::backend_api::BackendForCliApi;
 use crate::rpc::backend_api::BackendForSettingsApi;
 use crate::rpc::backend_api::BackendForToolsApi;
-use crate::rpc::grpc::rpc_backend_server::RpcBackend;
-use crate::rpc::grpc::rpc_backend_server::RpcBackendServer;
+use crate::rpc::backend_api::handle_grpc_request_backend_for_cli_api;
+use crate::rpc::backend_api::handle_grpc_request_backend_for_settings_api;
 use crate::rpc::grpc::RpcBincode;
 use crate::rpc::grpc::RpcSaveLocalPluginRequest;
 use crate::rpc::grpc::RpcSaveLocalPluginResponse;
+use crate::rpc::grpc::rpc_backend_server::RpcBackend;
+use crate::rpc::grpc::rpc_backend_server::RpcBackendServer;
 
 pub async fn wait_for_backend_server() {
     loop {

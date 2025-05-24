@@ -1,7 +1,7 @@
+use iced::Font;
 use iced::advanced::text::Shaping;
 use iced::font::Weight;
 use iced::widget::text;
-use iced::Font;
 
 use crate::ui::theme::Element;
 use crate::ui::widget::data::ComponentWidgets;

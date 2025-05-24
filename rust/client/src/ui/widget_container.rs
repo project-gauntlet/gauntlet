@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::mem;
 use std::sync::Arc;
 
@@ -11,15 +11,15 @@ use gauntlet_common::model::UiWidgetId;
 use iced::Task;
 
 use crate::model::UiViewEvent;
+use crate::ui::AppMsg;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
 use crate::ui::widget::action_panel::ActionPanel;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::data_mut::ComponentWidgetsMut;
 use crate::ui::widget::events::ComponentWidgetEvent;
-use crate::ui::widget::state::create_state;
 use crate::ui::widget::state::ComponentWidgetState;
-use crate::ui::AppMsg;
+use crate::ui::widget::state::create_state;
 
 pub struct PluginWidgetContainer {
     root_widget: Option<Arc<RootWidget>>,

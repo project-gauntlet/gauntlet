@@ -38,8 +38,8 @@ mod base64 {
     use std::collections::HashMap;
     use std::str::FromStr;
 
-    use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
     use serde::Deserialize;
     use serde::Deserializer;
     use serde::Serialize;

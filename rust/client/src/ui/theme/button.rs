@@ -1,18 +1,18 @@
 use button::Style;
-use iced::widget::button;
-use iced::widget::button::Status;
-use iced::widget::Button;
 use iced::Border;
 use iced::Color;
 use iced::Padding;
 use iced::Renderer;
+use iced::widget::Button;
+use iced::widget::button;
+use iced::widget::button::Status;
 
-use crate::ui::theme::get_theme;
-use crate::ui::theme::padding_all;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
-use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
+use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::get_theme;
+use crate::ui::theme::padding_all;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonStyle {

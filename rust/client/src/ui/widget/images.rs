@@ -7,12 +7,12 @@ use iced::widget::horizontal_space;
 use iced::widget::image;
 use iced::widget::svg;
 use iced::widget::value;
-use iced_fonts::Bootstrap;
 use iced_fonts::BOOTSTRAP_FONT;
+use iced_fonts::Bootstrap;
 
-use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::text::TextStyle;
 
 pub fn render_image<'a, T: 'a + Clone>(
     data: &HashMap<UiWidgetId, Vec<u8>>,

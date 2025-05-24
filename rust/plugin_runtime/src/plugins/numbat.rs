@@ -2,15 +2,15 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use anyhow::anyhow;
-use deno_core::op2;
 use deno_core::OpState;
+use deno_core::op2;
+use numbat::Context;
+use numbat::InterpreterResult;
 use numbat::markup::Formatter;
 use numbat::markup::PlainTextFormatter;
 use numbat::module_importer::BuiltinModuleImporter;
 use numbat::pretty_print::PrettyPrint;
 use numbat::resolver::CodeSource;
-use numbat::Context;
-use numbat::InterpreterResult;
 use serde::Serialize;
 
 #[derive(Clone)]

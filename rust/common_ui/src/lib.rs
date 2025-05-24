@@ -1,14 +1,14 @@
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
+use iced::Element;
+use iced::Padding;
+use iced::Pixels;
 use iced::border::Radius;
 use iced::keyboard::Modifiers;
 use iced::widget::text;
 use iced::widget::value;
-use iced::Element;
-use iced::Padding;
-use iced::Pixels;
-use iced_aw::iced_fonts::Bootstrap;
 use iced_aw::iced_fonts::BOOTSTRAP_FONT;
+use iced_aw::iced_fonts::Bootstrap;
 
 pub fn padding(
     top: impl Into<Pixels>,

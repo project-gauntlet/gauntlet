@@ -1,13 +1,13 @@
 use std::convert;
 use std::time::Duration;
 
+use iced::Point;
+use iced::Size;
+use iced::Task;
 use iced::window;
 use iced::window::Level;
 use iced::window::Position;
 use iced::window::Settings;
-use iced::Point;
-use iced::Size;
-use iced::Task;
 
 use crate::ui::AppMsg;
 

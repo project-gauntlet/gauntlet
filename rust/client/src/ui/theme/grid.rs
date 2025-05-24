@@ -1,10 +1,10 @@
 use iced::Renderer;
 use iced_aw::Grid;
 
-use crate::ui::theme::get_theme;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::get_theme;
 
 pub enum GridStyle {
     Default,

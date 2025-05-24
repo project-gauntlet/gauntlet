@@ -10,6 +10,9 @@ use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common_ui::shortcut_to_text;
+use iced::Alignment;
+use iced::Font;
+use iced::Length;
 use iced::advanced::text::Shaping;
 use iced::font::Weight;
 use iced::widget::button;
@@ -20,18 +23,15 @@ use iced::widget::horizontal_space;
 use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
-use iced::Alignment;
-use iced::Font;
-use iced::Length;
 
 use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::button::ButtonStyle;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::row::RowStyle;
 use crate::ui::theme::rule::RuleStyle;
 use crate::ui::theme::text::TextStyle;
-use crate::ui::theme::Element;
-use crate::ui::theme::ThemableWidget;
 
 #[derive(Debug)]
 pub struct ActionPanel {

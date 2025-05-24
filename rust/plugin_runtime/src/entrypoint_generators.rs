@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use deno_core::op2;
 use deno_core::OpState;
+use deno_core::op2;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 

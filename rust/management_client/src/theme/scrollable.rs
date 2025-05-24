@@ -1,10 +1,10 @@
+use iced::Border;
+use iced::Color;
 use iced::border;
 use iced::widget::container;
 use iced::widget::scrollable;
 use iced::widget::scrollable::Status;
 use iced::widget::scrollable::Style;
-use iced::Border;
-use iced::Color;
 
 use crate::theme::GauntletSettingsTheme;
 use crate::theme::PRIMARY;

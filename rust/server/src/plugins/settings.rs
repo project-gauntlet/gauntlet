@@ -21,8 +21,8 @@ use crate::plugins::data_db_repository::DbSettingsGlobalShortcutData;
 use crate::plugins::data_db_repository::DbSettingsShortcut;
 use crate::plugins::data_db_repository::DbTheme;
 use crate::plugins::data_db_repository::DbWindowPositionMode;
-use crate::plugins::theme::read_theme_file;
 use crate::plugins::theme::BundledThemes;
+use crate::plugins::theme::read_theme_file;
 
 #[derive(Clone)]
 pub struct Settings {

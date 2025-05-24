@@ -1,17 +1,17 @@
-use iced::widget::container;
-use iced::widget::container::Style;
-use iced::widget::Container;
 use iced::Border;
 use iced::Color;
 use iced::Length;
 use iced::Renderer;
 use iced::Shadow;
 use iced::Vector;
+use iced::widget::Container;
+use iced::widget::container;
+use iced::widget::container::Style;
 
-use crate::ui::theme::get_theme;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::get_theme;
 
 pub enum ContainerStyle {
     ActionPanel,

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use gauntlet_common::model::IconAccessoryWidget;
 use gauntlet_common::model::TextAccessoryWidget;
 use gauntlet_common::model::UiWidgetId;
+use iced::Alignment;
 use iced::advanced::text::Shaping;
 use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
@@ -11,13 +12,12 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::tooltip;
 use iced::widget::tooltip::Position;
-use iced::Alignment;
 
+use crate::ui::theme::Element;
+use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::tooltip::TooltipStyle;
-use crate::ui::theme::Element;
-use crate::ui::theme::ThemableWidget;
 use crate::ui::widget::images::render_image;
 
 pub fn render_icon_accessory<'a, T: 'a + Clone>(

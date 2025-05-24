@@ -9,16 +9,16 @@ use gauntlet_common::model::PluginId;
 use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::RootWidgetMembers;
 use gauntlet_common::model::UiWidgetId;
-use iced::widget::text_input;
 use iced::Task;
+use iced::widget::text_input;
 
+use crate::ui::AppMsg;
 use crate::ui::grid_navigation::grid_down_offset;
 use crate::ui::grid_navigation::grid_up_offset;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::state::ComponentWidgetState;
 use crate::ui::widget::state::RootState;
 use crate::ui::widget::state::TextFieldState;
-use crate::ui::AppMsg;
 
 #[derive(Debug)]
 pub struct ComponentWidgetsMut<'b> {

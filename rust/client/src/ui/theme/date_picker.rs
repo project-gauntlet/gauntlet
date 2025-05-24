@@ -1,8 +1,8 @@
 use iced::Color;
-use iced_aw::date_picker::Style;
-use iced_aw::style::date_picker::Catalog;
-use iced_aw::style::Status;
 use iced_aw::DatePicker;
+use iced_aw::date_picker::Style;
+use iced_aw::style::Status;
+use iced_aw::style::date_picker::Catalog;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;

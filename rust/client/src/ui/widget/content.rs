@@ -11,16 +11,16 @@ use gauntlet_common::model::HorizontalBreakWidget;
 use gauntlet_common::model::ImageWidget;
 use gauntlet_common::model::ParagraphWidget;
 use gauntlet_common::model::SvgWidget;
+use iced::Length;
 use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
 use iced::widget::column;
 use iced::widget::container;
 use iced::widget::horizontal_rule;
-use iced::Length;
 
-use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::container::ContainerStyle;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::images::render_image;

@@ -1,9 +1,9 @@
 use gauntlet_common::model::SearchBarWidget;
 use iced::widget::text_input;
 
-use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::state::TextFieldState;

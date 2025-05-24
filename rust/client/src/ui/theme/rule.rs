@@ -1,6 +1,6 @@
+use iced::widget::Rule;
 use iced::widget::rule;
 use iced::widget::rule::Style;
-use iced::widget::Rule;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;

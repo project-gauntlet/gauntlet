@@ -1,10 +1,10 @@
-use iced::widget::Row;
 use iced::Renderer;
+use iced::widget::Row;
 
-use crate::ui::theme::get_theme;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::get_theme;
 
 pub enum RowStyle {
     ActionShortcut,

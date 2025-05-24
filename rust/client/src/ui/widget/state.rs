@@ -9,8 +9,8 @@ use gauntlet_common::model::UiWidgetId;
 use iced::widget::text_input;
 use iced_aw::date_picker::Date;
 
-use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::scroll_handle::ESTIMATED_MAIN_LIST_ITEM_HEIGHT;
+use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::widget::grid::grid_width;
 
 pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWidgetState> {

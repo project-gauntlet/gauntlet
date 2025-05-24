@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use deno_core::OpState;
 use deno_core::futures::executor::block_on;
 use deno_core::op2;
-use deno_core::OpState;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;

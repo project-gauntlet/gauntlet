@@ -1,8 +1,8 @@
 use iced::widget::text;
 use iced::widget::text::Style;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::DANGER_BRIGHT;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::SUCCESS;
 use crate::theme::TEXT_DARKER;
 

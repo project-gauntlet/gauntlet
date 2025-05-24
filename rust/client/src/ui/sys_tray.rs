@@ -1,15 +1,15 @@
 use image::ImageFormat;
 
 pub fn create_tray() -> tray_icon::TrayIcon {
-    use global_hotkey::hotkey::Code;
     use global_hotkey::hotkey::CMD_OR_CTRL;
-    use tray_icon::menu::accelerator::Accelerator;
+    use global_hotkey::hotkey::Code;
+    use tray_icon::TrayIconBuilder;
     use tray_icon::menu::AboutMetadataBuilder;
     use tray_icon::menu::Menu;
     use tray_icon::menu::MenuEvent;
     use tray_icon::menu::MenuItem;
     use tray_icon::menu::PredefinedMenuItem;
-    use tray_icon::TrayIconBuilder;
+    use tray_icon::menu::accelerator::Accelerator;
 
     MenuEvent::set_event_handler(Some(|event: MenuEvent| {
         match event.id().as_ref() {

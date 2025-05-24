@@ -6,7 +6,6 @@ use std::path::Path;
 
 use convert_case::Case;
 use convert_case::Casing;
-use gauntlet_component_model::create_component_model;
 use gauntlet_component_model::Arity;
 use gauntlet_component_model::Children;
 use gauntlet_component_model::Component;
@@ -16,6 +15,7 @@ use gauntlet_component_model::Property;
 use gauntlet_component_model::PropertyKind;
 use gauntlet_component_model::PropertyType;
 use gauntlet_component_model::SharedType;
+use gauntlet_component_model::create_component_model;
 use indexmap::IndexMap;
 use itertools::Itertools;
 

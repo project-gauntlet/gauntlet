@@ -1,5 +1,5 @@
-use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::scroll_handle::ESTIMATED_ACTION_ITEM_HEIGHT;
+use crate::ui::scroll_handle::ScrollHandle;
 
 pub enum MainViewState {
     None,

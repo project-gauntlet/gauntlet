@@ -1,8 +1,8 @@
 use std::convert::Infallible;
 
 use anyhow::anyhow;
-use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
+use iced::futures::channel::mpsc::Sender;
 use tokio::runtime::Handle;
 use x11rb::connection::Connection;
 use x11rb::properties::WmClass;

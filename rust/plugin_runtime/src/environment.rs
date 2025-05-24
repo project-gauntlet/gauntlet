@@ -1,5 +1,5 @@
-use deno_core::op2;
 use deno_core::OpState;
+use deno_core::op2;
 
 use crate::plugin_data::PluginData;
 

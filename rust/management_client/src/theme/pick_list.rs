@@ -1,11 +1,11 @@
+use iced::Border;
 use iced::overlay;
 use iced::widget::pick_list;
-use iced::Border;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_DARKEST;
 use crate::theme::BUTTON_BORDER_RADIUS;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::PRIMARY;
 use crate::theme::PRIMARY_HOVERED;
 use crate::theme::TEXT_DARKEST;

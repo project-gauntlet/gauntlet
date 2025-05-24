@@ -2,12 +2,12 @@ use gauntlet_common::model::PluginId;
 use gauntlet_common::model::UiWidgetId;
 
 use crate::model::UiViewEvent;
+use crate::ui::AppMsg;
 use crate::ui::widget::state::CheckboxState;
 use crate::ui::widget::state::ComponentWidgetState;
 use crate::ui::widget::state::DatePickerState;
 use crate::ui::widget::state::SelectState;
 use crate::ui::widget::state::TextFieldState;
-use crate::ui::AppMsg;
 
 include!(concat!(env!("OUT_DIR"), "/components.rs"));
 

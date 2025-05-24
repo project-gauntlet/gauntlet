@@ -1,19 +1,6 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use iced::advanced::layout::Limits;
-use iced::advanced::layout::Node;
-use iced::advanced::renderer;
-use iced::advanced::widget::tree::State;
-use iced::advanced::widget::tree::Tag;
-use iced::advanced::widget::Tree;
-use iced::advanced::Clipboard;
-use iced::advanced::Layout;
-use iced::advanced::Shell;
-use iced::advanced::Widget;
-use iced::event::Status;
-use iced::mouse::Cursor;
-use iced::window;
 use iced::Border;
 use iced::Color;
 use iced::Element;
@@ -22,6 +9,19 @@ use iced::Length;
 use iced::Rectangle;
 use iced::Shadow;
 use iced::Size;
+use iced::advanced::Clipboard;
+use iced::advanced::Layout;
+use iced::advanced::Shell;
+use iced::advanced::Widget;
+use iced::advanced::layout::Limits;
+use iced::advanced::layout::Node;
+use iced::advanced::renderer;
+use iced::advanced::widget::Tree;
+use iced::advanced::widget::tree::State;
+use iced::advanced::widget::tree::Tag;
+use iced::event::Status;
+use iced::mouse::Cursor;
+use iced::window;
 
 pub struct LoadingBar<'a, Theme>
 where

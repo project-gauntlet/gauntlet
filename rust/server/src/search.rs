@@ -13,6 +13,10 @@ use gauntlet_common::model::SearchResultEntrypointActionType;
 use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
+use tantivy::Index;
+use tantivy::IndexReader;
+use tantivy::ReloadPolicy;
+use tantivy::Searcher;
 use tantivy::collector::TopDocs;
 use tantivy::doc;
 use tantivy::query::AllQuery;
@@ -22,10 +26,6 @@ use tantivy::query::RegexQuery;
 use tantivy::query::TermQuery;
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
-use tantivy::Index;
-use tantivy::IndexReader;
-use tantivy::ReloadPolicy;
-use tantivy::Searcher;
 
 use crate::plugins::settings::Settings;
 

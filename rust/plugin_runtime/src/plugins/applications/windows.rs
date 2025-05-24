@@ -4,15 +4,12 @@ use std::mem::MaybeUninit;
 use std::path::PathBuf;
 use std::ptr;
 
-use anyhow::anyhow;
 use anyhow::Context;
-use deno_core::op2;
+use anyhow::anyhow;
 use deno_core::ToJsBuffer;
+use deno_core::op2;
 use image::RgbaImage;
 use tokio::task::spawn_blocking;
-use windows::core::GUID;
-use windows::core::HSTRING;
-use windows::core::PWSTR;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi;
@@ -22,10 +19,13 @@ use windows::Win32::UI::Controls;
 use windows::Win32::UI::Controls::HIMAGELIST;
 use windows::Win32::UI::Shell;
 use windows::Win32::UI::WindowsAndMessaging;
+use windows::core::GUID;
+use windows::core::HSTRING;
+use windows::core::PWSTR;
 
-use crate::plugins::applications::resize_icon;
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
+use crate::plugins::applications::resize_icon;
 
 deno_core::extension!(
     gauntlet_internal_windows,

@@ -9,11 +9,11 @@ use bincode::Decode;
 use bincode::Encode;
 use gix_url::Scheme;
 use gix_url::Url;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
 pub struct PluginId(Arc<str>);

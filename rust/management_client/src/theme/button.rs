@@ -1,13 +1,13 @@
+use iced::Border;
 use iced::widget::button;
 use iced::widget::button::Status;
 use iced::widget::button::Style;
-use iced::Border;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_LIGHTER;
 use crate::theme::BUTTON_BORDER_RADIUS;
 use crate::theme::DANGER;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::PRIMARY;
 use crate::theme::PRIMARY_HOVERED;
 use crate::theme::SUCCESS;
@@ -52,7 +52,7 @@ fn active(class: &ButtonStyle) -> Style {
                 background: None,
                 text_color: TEXT_LIGHTEST.to_iced(),
                 ..Default::default()
-            }
+            };
         }
         ButtonStyle::ViewSwitcher => {
             return Style {
@@ -63,7 +63,7 @@ fn active(class: &ButtonStyle) -> Style {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
         }
         ButtonStyle::ViewSwitcherSelected => {
             return Style {
@@ -74,7 +74,7 @@ fn active(class: &ButtonStyle) -> Style {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
         }
         ButtonStyle::DownloadInfo => {
             return Style {
@@ -85,7 +85,7 @@ fn active(class: &ButtonStyle) -> Style {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
         }
     };
 
@@ -121,7 +121,7 @@ fn hovered(class: &ButtonStyle) -> Style {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
         }
         ButtonStyle::ViewSwitcherSelected => {
             return Style {
@@ -132,7 +132,7 @@ fn hovered(class: &ButtonStyle) -> Style {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
         }
         ButtonStyle::DownloadInfo => {
             return Style {
@@ -143,7 +143,7 @@ fn hovered(class: &ButtonStyle) -> Style {
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
         }
     };
 

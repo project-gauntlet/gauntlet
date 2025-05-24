@@ -4,25 +4,25 @@ use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
 use gauntlet_utils::channel::RequestResult;
+use iced::Alignment;
+use iced::Length;
+use iced::Padding;
+use iced::Task;
 use iced::alignment;
 use iced::alignment::Horizontal;
+use iced::widget::Space;
 use iced::widget::column;
 use iced::widget::container;
 use iced::widget::pick_list;
 use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
-use iced::widget::Space;
-use iced::Alignment;
-use iced::Length;
-use iced::Padding;
-use iced::Task;
 
+use crate::components::shortcut_selector::ShortcutData;
 use crate::components::shortcut_selector::render_shortcut_error;
 use crate::components::shortcut_selector::shortcut_selector;
-use crate::components::shortcut_selector::ShortcutData;
-use crate::theme::container::ContainerStyle;
 use crate::theme::Element;
+use crate::theme::container::ContainerStyle;
 use crate::ui::ManagementAppMsg;
 
 pub struct ManagementAppGeneralState {

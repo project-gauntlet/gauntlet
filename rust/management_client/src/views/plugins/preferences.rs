@@ -4,6 +4,8 @@ use std::fmt::Display;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::PluginPreference;
+use iced::Length;
+use iced::Padding;
 use iced::padding;
 use iced::widget;
 use iced::widget::button;
@@ -15,16 +17,14 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
 use iced::widget::text_input;
-use iced::Length;
-use iced::Padding;
 use iced_aw::number_input;
-use iced_fonts::Bootstrap;
 use iced_fonts::BOOTSTRAP_FONT;
+use iced_fonts::Bootstrap;
 
+use crate::theme::Element;
 use crate::theme::button::ButtonStyle;
 use crate::theme::container::ContainerStyle;
 use crate::theme::text::TextStyle;
-use crate::theme::Element;
 use crate::views::plugins::PluginPreferenceUserDataState;
 
 #[derive(Debug, Clone)]

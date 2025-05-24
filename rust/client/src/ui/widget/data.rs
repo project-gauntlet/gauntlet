@@ -15,13 +15,14 @@ use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::RootWidgetMembers;
 use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
-use iced::widget::text_input;
 use iced::Task;
+use iced::widget::text_input;
 
+use crate::ui::AppMsg;
 use crate::ui::grid_navigation::GridSectionData;
 use crate::ui::scroll_handle::ScrollHandle;
-use crate::ui::widget::action_panel::convert_action_panel;
 use crate::ui::widget::action_panel::ActionPanel;
+use crate::ui::widget::action_panel::convert_action_panel;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::grid::grid_width;
 use crate::ui::widget::state::CheckboxState;
@@ -30,7 +31,6 @@ use crate::ui::widget::state::DatePickerState;
 use crate::ui::widget::state::RootState;
 use crate::ui::widget::state::SelectState;
 use crate::ui::widget::state::TextFieldState;
-use crate::ui::AppMsg;
 
 #[derive(Debug)]
 pub struct ComponentWidgets<'b> {

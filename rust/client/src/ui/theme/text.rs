@@ -1,12 +1,12 @@
+use iced::Renderer;
+use iced::widget::Text;
 use iced::widget::text;
 use iced::widget::text::Style;
-use iced::widget::Text;
-use iced::Renderer;
 
-use crate::ui::theme::get_theme;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::get_theme;
 
 #[derive(Clone, Default)]
 pub enum TextStyle {

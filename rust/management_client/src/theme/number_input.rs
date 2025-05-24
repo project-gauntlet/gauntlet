@@ -1,5 +1,5 @@
-use iced_aw::number_input::number_input;
 use iced_aw::number_input::Style;
+use iced_aw::number_input::number_input;
 use iced_aw::style::Status;
 
 use crate::theme::GauntletSettingsTheme;

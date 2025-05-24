@@ -7,16 +7,16 @@ use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::SearchResult;
+use iced::Task;
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
-use iced::Task;
 
+use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;
-use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::scroll_handle::ESTIMATED_MAIN_LIST_ITEM_HEIGHT;
+use crate::ui::scroll_handle::ScrollHandle;
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
-use crate::ui::AppMsg;
 
 pub enum GlobalState {
     MainView {

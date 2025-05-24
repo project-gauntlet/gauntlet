@@ -1,14 +1,14 @@
+use iced::Background;
+use iced::Border;
 use iced::widget::text_input;
 use iced::widget::text_input::Status;
 use iced::widget::text_input::Style;
-use iced::Background;
-use iced::Border;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_LIGHTER;
 use crate::theme::BACKGROUND_LIGHTEST;
 use crate::theme::BUTTON_BORDER_RADIUS;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::TEXT_DARKER;
 use crate::theme::TEXT_LIGHTEST;
 use crate::theme::TRANSPARENT;

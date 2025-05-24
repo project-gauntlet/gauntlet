@@ -1,7 +1,7 @@
-use iced::widget::scrollable::scroll_to;
+use iced::Task;
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::scrollable::Id;
-use iced::Task;
+use iced::widget::scrollable::scroll_to;
 
 use crate::ui::AppMsg;
 

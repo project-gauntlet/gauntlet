@@ -1,15 +1,15 @@
-use iced::widget::text_input;
-use iced::widget::text_input::Status;
-use iced::widget::text_input::Style;
-use iced::widget::TextInput;
 use iced::Border;
 use iced::Color;
 use iced::Renderer;
+use iced::widget::TextInput;
+use iced::widget::text_input;
+use iced::widget::text_input::Status;
+use iced::widget::text_input::Style;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
-use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
+use crate::ui::theme::ThemableWidget;
 
 pub enum TextInputStyle {
     ShouldNotBeUsed,

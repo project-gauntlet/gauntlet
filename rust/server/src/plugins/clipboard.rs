@@ -2,9 +2,9 @@ use std::io::Cursor;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Error;
+use anyhow::anyhow;
 use arboard::ImageData;
 use gauntlet_common_plugin_runtime::model::JsClipboardData;
 use image::RgbaImage;

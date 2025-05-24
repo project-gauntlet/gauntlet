@@ -1,15 +1,15 @@
 use gauntlet_common::model::DetailWidget;
+use iced::Length;
 use iced::widget::column;
 use iced::widget::container;
 use iced::widget::horizontal_rule;
 use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::vertical_rule;
-use iced::Length;
 
-use crate::ui::theme::container::ContainerStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::container::ContainerStyle;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 

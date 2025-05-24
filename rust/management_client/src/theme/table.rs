@@ -1,8 +1,8 @@
-use iced::widget::container;
 use iced::Border;
+use iced::widget::container;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::TEXT_LIGHTEST;
 
 impl iced_table::Catalog for GauntletSettingsTheme {

@@ -5,10 +5,10 @@ use arc_swap::Guard;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiThemeColor;
 use gauntlet_common::model::UiThemeMode;
-use iced::application;
-use iced::application::DefaultStyle;
 use iced::Color;
 use iced::Padding;
+use iced::application;
+use iced::application::DefaultStyle;
 
 pub mod button;
 pub mod checkbox;

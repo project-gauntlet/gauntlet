@@ -5,8 +5,8 @@ use std::io::ErrorKind;
 use std::path::Path;
 use std::thread;
 
-use anyhow::anyhow;
 use anyhow::Context;
+use anyhow::anyhow;
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::PluginId;
 use gauntlet_common_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
@@ -18,8 +18,6 @@ use typed_path::Utf8WindowsComponent;
 use typed_path::Utf8WindowsPrefix;
 use walkdir::WalkDir;
 
-use crate::plugins::data_db_repository::db_entrypoint_to_str;
-use crate::plugins::data_db_repository::db_plugin_type_to_str;
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::data_db_repository::DbCode;
 use crate::plugins::data_db_repository::DbPluginAction;
@@ -36,6 +34,8 @@ use crate::plugins::data_db_repository::DbPreferenceEnumValue;
 use crate::plugins::data_db_repository::DbWritePlugin;
 use crate::plugins::data_db_repository::DbWritePluginAssetData;
 use crate::plugins::data_db_repository::DbWritePluginEntrypoint;
+use crate::plugins::data_db_repository::db_entrypoint_to_str;
+use crate::plugins::data_db_repository::db_plugin_type_to_str;
 use crate::plugins::download_status::DownloadStatusHolder;
 use crate::plugins::plugin_manifest::*;
 
@@ -719,7 +719,11 @@ impl PluginLoader {
                         Some(b'/') | None => false,
                         Some(byte) => {
                             // this is done to prohibit "{linux:user-home}test" which for variable "/home/user" would result into "/home/usertest"
-                            Err(anyhow!("Variable should always be followed with a slash or end of string, instead followed with {}, path: {}", byte as char, path))?
+                            Err(anyhow!(
+                                "Variable should always be followed with a slash or end of string, instead followed with {}, path: {}",
+                                byte as char,
+                                path
+                            ))?
                         }
                     };
 
@@ -759,7 +763,10 @@ impl PluginLoader {
             match path {
                 Utf8TypedPath::Unix(path) => {
                     if !supports_macos && !supports_linux {
-                        Err(anyhow!("When using unix-style path in permissions, plugin is required to include \"linux\" or \"macos\" in \"supported_system\" manifest property: {}", path))?
+                        Err(anyhow!(
+                            "When using unix-style path in permissions, plugin is required to include \"linux\" or \"macos\" in \"supported_system\" manifest property: {}",
+                            path
+                        ))?
                     }
 
                     if !path.is_valid() {
@@ -786,7 +793,10 @@ impl PluginLoader {
                 }
                 Utf8TypedPath::Windows(path) => {
                     if !supports_windows {
-                        Err(anyhow!("When using windows-style path in permissions, plugin is required to include \"windows\" in \"supported_system\" manifest property: {}", path))?
+                        Err(anyhow!(
+                            "When using windows-style path in permissions, plugin is required to include \"windows\" in \"supported_system\" manifest property: {}",
+                            path
+                        ))?
                     }
 
                     if !path.is_valid() {

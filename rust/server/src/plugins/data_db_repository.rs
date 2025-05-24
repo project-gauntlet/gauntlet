@@ -1,24 +1,24 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use anyhow::anyhow;
 use anyhow::Context;
-use futures::future::join_all;
+use anyhow::anyhow;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use futures::future::join_all;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use serde::Deserialize;
 use serde::Serialize;
-use sqlx::migrate::Migrator;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::types::Json;
 use sqlx::Executor;
 use sqlx::Pool;
 use sqlx::Row;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
+use sqlx::migrate::Migrator;
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::model::ActionShortcutKey;

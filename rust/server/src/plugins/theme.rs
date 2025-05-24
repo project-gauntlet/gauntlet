@@ -1,8 +1,8 @@
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use anyhow::Context;
+use anyhow::anyhow;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiThemeColor;
 use gauntlet_common::model::UiThemeContent;

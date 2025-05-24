@@ -1,18 +1,27 @@
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common_ui::physical_key_model;
 use gauntlet_common_ui::shortcut_to_text;
+use iced::Alignment;
+use iced::Event;
+use iced::Length;
+use iced::Padding;
+use iced::Point;
+use iced::Rectangle;
+use iced::Renderer;
+use iced::Size;
+use iced::Vector;
+use iced::advanced::Clipboard;
+use iced::advanced::Layout;
+use iced::advanced::Shell;
+use iced::advanced::Widget;
 use iced::advanced::graphics::core::event;
 use iced::advanced::graphics::core::keyboard;
 use iced::advanced::layout;
 use iced::advanced::mouse;
 use iced::advanced::overlay;
 use iced::advanced::renderer;
-use iced::advanced::widget::tree;
 use iced::advanced::widget::Tree;
-use iced::advanced::Clipboard;
-use iced::advanced::Layout;
-use iced::advanced::Shell;
-use iced::advanced::Widget;
+use iced::advanced::widget::tree;
 use iced::keyboard::key::Physical;
 use iced::mouse::Button;
 use iced::widget::column;
@@ -24,22 +33,13 @@ use iced::widget::text;
 use iced::widget::tooltip;
 use iced::widget::tooltip::Position;
 use iced::widget::value;
-use iced::Alignment;
-use iced::Event;
-use iced::Length;
-use iced::Padding;
-use iced::Point;
-use iced::Rectangle;
-use iced::Renderer;
-use iced::Size;
-use iced::Vector;
-use iced_fonts::Bootstrap;
 use iced_fonts::BOOTSTRAP_FONT;
+use iced_fonts::Bootstrap;
 
-use crate::theme::container::ContainerStyle;
-use crate::theme::text::TextStyle;
 use crate::theme::Element;
 use crate::theme::GauntletSettingsTheme;
+use crate::theme::container::ContainerStyle;
+use crate::theme::text::TextStyle;
 
 pub struct ShortcutData {
     pub shortcut: Option<PhysicalShortcut>,

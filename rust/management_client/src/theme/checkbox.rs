@@ -1,12 +1,12 @@
+use iced::Border;
 use iced::widget::checkbox;
 use iced::widget::checkbox::Status;
 use iced::widget::checkbox::Style;
-use iced::Border;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_DARKEST;
 use crate::theme::BACKGROUND_LIGHTER;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::PRIMARY;
 use crate::theme::PRIMARY_HOVERED;
 

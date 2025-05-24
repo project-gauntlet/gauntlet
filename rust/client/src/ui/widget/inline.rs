@@ -1,6 +1,8 @@
 use gauntlet_common::model::InlineSeparatorWidget;
 use gauntlet_common::model::InlineWidget;
 use gauntlet_common::model::InlineWidgetOrderedMembers;
+use iced::Alignment;
+use iced::Length;
 use iced::advanced::text::Shaping;
 use iced::alignment::Horizontal;
 use iced::widget::column;
@@ -9,14 +11,12 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::value;
 use iced::widget::vertical_rule;
-use iced::Alignment;
-use iced::Length;
 use iced_fonts::BOOTSTRAP_FONT;
 
-use crate::ui::theme::container::ContainerStyle;
-use crate::ui::theme::text::TextStyle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::container::ContainerStyle;
+use crate::ui::theme::text::TextStyle;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::images::icon_to_bootstrap;

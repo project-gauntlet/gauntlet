@@ -1,12 +1,12 @@
-use iced::widget::container;
-use iced::widget::container::Style;
 use iced::Border;
 use iced::Color;
+use iced::widget::container;
+use iced::widget::container::Style;
 
-use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_LIGHTER;
 use crate::theme::DANGER;
+use crate::theme::GauntletSettingsTheme;
 use crate::theme::TRANSPARENT;
 
 pub enum ContainerStyle {

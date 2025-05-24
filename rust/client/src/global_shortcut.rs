@@ -3,8 +3,8 @@ use gauntlet_common::model::PhysicalShortcut;
 use global_hotkey::hotkey::Code;
 use global_hotkey::hotkey::HotKey;
 use global_hotkey::hotkey::Modifiers;
-use iced::futures::channel::mpsc::Sender;
 use iced::futures::SinkExt;
+use iced::futures::channel::mpsc::Sender;
 use tokio::runtime::Handle;
 
 use crate::ui::AppMsg;

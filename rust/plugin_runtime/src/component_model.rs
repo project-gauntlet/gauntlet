@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use gauntlet_component_model::create_component_model;
 use gauntlet_component_model::Component;
+use gauntlet_component_model::create_component_model;
 
 pub struct ComponentModel {
     components: HashMap<String, Component>,

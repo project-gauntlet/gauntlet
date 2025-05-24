@@ -1,16 +1,16 @@
 use std::borrow::Borrow;
 
+use iced::Border;
 use iced::overlay;
+use iced::widget::PickList;
 use iced::widget::pick_list;
 use iced::widget::pick_list::Status;
-use iced::widget::PickList;
-use iced::Border;
 
-use crate::ui::theme::get_theme;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
-use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
+use crate::ui::theme::ThemableWidget;
+use crate::ui::theme::get_theme;
 
 #[derive(Clone, Default)]
 pub enum PickListStyle {
