@@ -1,9 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::mem;
-use std::ops::DerefMut;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
@@ -96,7 +94,7 @@ impl PluginWidgetContainer {
         self.root_widget = Some(container);
 
         if first_open {
-            ComponentWidgets::new(&mut self.root_widget, &mut self.state, plugin_id.clone(), &self.data).first_open()
+            ComponentWidgets::new(&mut self.root_widget, &mut self.state, &self.data).first_open()
         } else {
             AppMsg::Noop
         }
@@ -110,72 +108,69 @@ impl PluginWidgetContainer {
 
     pub fn render_root_widget<'a>(
         &self,
-        plugin_id: PluginId,
         plugin_view_state: &PluginViewState,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.data).render_root_widget(
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).render_root_widget(
             plugin_view_state,
             self.entrypoint_name.as_ref(),
             action_shortcuts,
         )
     }
 
-    pub fn render_inline_root_widget<'a>(&self, plugin_id: PluginId) -> Element<'a, ComponentWidgetEvent> {
-        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.data)
+    pub fn render_inline_root_widget<'a>(&self) -> Element<'a, ComponentWidgetEvent> {
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data)
             .render_root_inline_widget(self.plugin_name.as_ref(), self.entrypoint_name.as_ref())
     }
 
     pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).append_text(text)
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).append_text(text)
     }
 
     pub fn backspace_text(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).backspace_text()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).backspace_text()
     }
 
     pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
-        let plugin_id = self.get_plugin_id();
-        ComponentWidgets::new(&self.root_widget, &self.state, plugin_id, &self.data).focus_search_bar(widget_id)
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).focus_search_bar(widget_id)
     }
 
     pub fn toggle_action_panel(&mut self) {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).toggle_action_panel()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).toggle_action_panel()
     }
 
     pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.data).get_action_ids()
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).get_action_ids()
     }
 
     pub fn get_focused_item_id(&self) -> Option<String> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.data).get_focused_item_id()
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).get_focused_item_id()
     }
 
     pub fn get_action_panel(&self, action_shortcuts: &HashMap<String, PhysicalShortcut>) -> Option<ActionPanel> {
-        ComponentWidgets::new(&self.root_widget, &self.state, self.get_plugin_id(), &self.data)
-            .get_action_panel(action_shortcuts)
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).get_action_panel(action_shortcuts)
     }
 
     pub fn focus_up(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).focus_up()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).focus_up()
     }
 
     pub fn focus_down(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).focus_down()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).focus_down()
     }
 
     pub fn focus_left(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).focus_left()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).focus_left()
     }
 
     pub fn focus_right(&mut self) -> Task<AppMsg> {
         let plugin_id = self.get_plugin_id();
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id, &self.data).focus_right()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, plugin_id).focus_right()
     }
 }

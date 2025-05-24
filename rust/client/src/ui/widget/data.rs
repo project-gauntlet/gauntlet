@@ -36,7 +36,6 @@ use crate::ui::AppMsg;
 pub struct ComponentWidgets<'b> {
     pub root_widget: &'b Option<Arc<RootWidget>>,
     pub state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
-    pub plugin_id: PluginId,
     pub data: &'b HashMap<UiWidgetId, Vec<u8>>,
 }
 
@@ -44,13 +43,11 @@ impl<'b> ComponentWidgets<'b> {
     pub fn new(
         root_widget: &'b Option<Arc<RootWidget>>,
         state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
-        plugin_id: PluginId,
         data: &'b HashMap<UiWidgetId, Vec<u8>>,
     ) -> ComponentWidgets<'b> {
         Self {
             root_widget,
             state,
-            plugin_id,
             data,
         }
     }

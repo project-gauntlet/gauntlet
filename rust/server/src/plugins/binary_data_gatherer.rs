@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::io::Read;
 
-use futures::StreamExt;
 use gauntlet_common::model::DataSource;
 use gauntlet_common::model::DataSourceAsset;
 use gauntlet_common::model::DataSourceUrl;

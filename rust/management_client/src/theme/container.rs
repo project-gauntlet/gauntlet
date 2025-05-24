@@ -6,14 +6,12 @@ use iced::Color;
 use crate::theme::GauntletSettingsTheme;
 use crate::theme::BACKGROUND_DARKER;
 use crate::theme::BACKGROUND_LIGHTER;
-use crate::theme::BACKGROUND_LIGHTEST;
 use crate::theme::DANGER;
 use crate::theme::TRANSPARENT;
 
 pub enum ContainerStyle {
     Transparent,
     Box,
-    TextInputLike,
     TextInputMissingValue,
 }
 
@@ -34,17 +32,6 @@ impl container::Catalog for GauntletSettingsTheme {
                         color: BACKGROUND_LIGHTER.to_iced(),
                         radius: 10.0.into(),
                         width: 1.0,
-                    },
-                    ..Default::default()
-                }
-            }
-            ContainerStyle::TextInputLike => {
-                Style {
-                    background: Some(BACKGROUND_LIGHTEST.to_iced().into()),
-                    border: Border {
-                        radius: 4.0.into(),
-                        width: 1.0,
-                        color: BACKGROUND_LIGHTEST.to_iced().into(),
                     },
                     ..Default::default()
                 }

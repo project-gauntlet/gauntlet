@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context;
 use directories::BaseDirs;
 use directories::ProjectDirs;
 

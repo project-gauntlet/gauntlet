@@ -63,18 +63,15 @@ where
     ))
 }
 
-pub struct ShortcutSelector<'a, 'b, Message> {
+pub struct ShortcutSelector<'a, Message> {
     on_shortcut_captured: Box<dyn Fn(Option<PhysicalShortcut>) -> Message + 'a>,
-
-    current_shortcut: &'b ShortcutData,
-
     content: Element<'a, Message>,
     popup: Element<'a, Message>,
     overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
     in_table: bool,
 }
 
-impl<'a, 'b, 'c, Message: 'a> ShortcutSelector<'a, 'b, Message> {
+impl<'a, 'b, 'c, Message: 'a> ShortcutSelector<'a, Message> {
     pub fn new<F>(
         current_shortcut: &'b ShortcutData,
         on_shortcut_captured: F,
@@ -119,7 +116,6 @@ impl<'a, 'b, 'c, Message: 'a> ShortcutSelector<'a, 'b, Message> {
         Self {
             on_shortcut_captured: Box::new(on_shortcut_captured),
 
-            current_shortcut,
             content,
             popup,
 
@@ -135,7 +131,7 @@ struct State {
     is_hovering: bool,
 }
 
-impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for ShortcutSelector<'a, 'b, Message> {
+impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for ShortcutSelector<'a, Message> {
     fn size(&self) -> Size<Length> {
         Size {
             width: Length::Fill,

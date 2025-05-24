@@ -1,29 +1,21 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::LocalSaveData;
-use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::PluginPreferenceUserData;
-use gauntlet_common::model::SearchResult;
 use gauntlet_common::model::SettingsPlugin;
 use gauntlet_common::model::SettingsTheme;
-use gauntlet_common::model::UiPropertyValue;
-use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::backend_api::BackendForCliApi;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
 use gauntlet_common::rpc::backend_api::BackendForToolsApi;
-use gauntlet_common::settings_env_data_to_string;
-use gauntlet_common::SettingsEnvData;
 use gauntlet_utils::channel::RequestResult;
 
 use crate::plugins::ApplicationManager;
-use crate::search::SearchIndex;
 
 pub struct BackendServerImpl {
     pub application_manager: Arc<ApplicationManager>,

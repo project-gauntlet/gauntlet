@@ -7,7 +7,6 @@ use iced::widget::value;
 use iced::Element;
 use iced::Padding;
 use iced::Pixels;
-use iced_aw::iced_fonts::bootstrap;
 use iced_aw::iced_fonts::Bootstrap;
 use iced_aw::iced_fonts::BOOTSTRAP_FONT;
 

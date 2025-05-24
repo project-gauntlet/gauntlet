@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use iced::widget::scrollable::scroll_to;
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::scrollable::Id;

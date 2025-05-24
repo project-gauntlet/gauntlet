@@ -1,9 +1,7 @@
 use std::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
 use std::process::exit;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::thread;
 use std::time::SystemTime;
@@ -14,7 +12,6 @@ use gauntlet_client::start_client;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PluginId;
-use gauntlet_common::model::UiTheme;
 use gauntlet_common::rpc::backend_api::handle_proxy_message;
 use gauntlet_common::rpc::backend_api::BackendForCliApi;
 use gauntlet_common::rpc::backend_api::BackendForCliApiProxy;
@@ -24,9 +21,6 @@ use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
-use gauntlet_common::settings_env_data_from_string;
-use gauntlet_common::settings_env_data_to_string;
-use gauntlet_common::SettingsEnvData;
 use gauntlet_utils::channel::channel;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestReceiver;
@@ -35,7 +29,6 @@ use vergen_pretty::vergen_pretty_env;
 
 use crate::plugins::ApplicationManager;
 use crate::rpc::BackendServerImpl;
-use crate::search::SearchIndex;
 
 pub(crate) mod model;
 pub mod plugins;
@@ -225,7 +218,7 @@ async fn run_server(
 ) -> anyhow::Result<()> {
     let application_manager = ApplicationManager::create(frontend_sender).await?;
 
-    let mut application_manager = Arc::new(application_manager);
+    let application_manager = Arc::new(application_manager);
 
     application_manager.clear_all_icon_cache_dir()?;
 

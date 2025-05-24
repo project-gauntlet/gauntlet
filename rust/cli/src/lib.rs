@@ -1,7 +1,3 @@
-use std::time::Duration;
-
-use anyhow::anyhow;
-use anyhow::Context;
 use clap::Parser;
 use gauntlet_client::open_window;
 use gauntlet_management_client::start_management_client;
@@ -99,6 +95,8 @@ pub fn init() {
 
 #[cfg(target_os = "macos")]
 fn setup_auto_launch_macos() -> anyhow::Result<()> {
+    use anyhow::anyhow;
+    use anyhow::Context;
     let app_path = std::env::current_exe().context("Unable to get current_exe from env")?;
 
     // expect Gauntlet.app in path according to macos app bundle structure
@@ -119,6 +117,8 @@ fn setup_auto_launch_macos() -> anyhow::Result<()> {
 
 #[cfg(target_os = "windows")]
 fn setup_auto_launch_windows() -> anyhow::Result<()> {
+    use anyhow::anyhow;
+    use anyhow::Context;
     let app_path = std::env::current_exe()
         .context("Unable to get current_exe from env")?
         .as_os_str()

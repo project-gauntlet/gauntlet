@@ -49,6 +49,7 @@ impl ClientContext {
             .flatten()
     }
 
+    #[allow(unused)]
     pub fn get_inline_view_container(&self, plugin_id: &PluginId) -> &PluginWidgetContainer {
         self.inline_views
             .iter()

@@ -48,7 +48,7 @@ pub struct RunStatusGuard {
 
 impl RunStatusGuard {
     pub fn stopped(&self) -> WaitForCancellationFutureOwned {
-        let mut running_plugins = self.running_plugins.lock().expect("lock is poisoned");
+        let running_plugins = self.running_plugins.lock().expect("lock is poisoned");
 
         running_plugins
             .get(&self.id)

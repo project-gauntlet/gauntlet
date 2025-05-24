@@ -178,6 +178,7 @@ pub struct ComponentRef {
     pub arity: Arity,
 }
 
+#[allow(unused)]
 fn children_string_or_members<I1, I2>(ordered_members: I1, per_type_members: I2) -> Children
 where
     I1: IntoIterator<Item = (String, ComponentRef)>,

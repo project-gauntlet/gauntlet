@@ -16,6 +16,7 @@ use crate::theme::TEXT_LIGHTEST;
 
 pub enum ButtonStyle {
     Primary,
+    #[allow(unused)]
     Positive,
     Destructive,
     TableRow,

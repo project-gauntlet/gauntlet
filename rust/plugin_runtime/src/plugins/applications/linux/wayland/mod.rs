@@ -3,16 +3,14 @@ use std::rc::Rc;
 use std::thread;
 
 use anyhow::anyhow;
-use deno_core::op2;
 use deno_core::OpState;
+use deno_core::op2;
 use serde::Deserialize;
 use serde::Serialize;
 use smithay_client_toolkit::reexports::calloop;
+use smithay_client_toolkit::reexports::calloop::EventLoop;
 use smithay_client_toolkit::reexports::calloop::channel::Channel;
 use smithay_client_toolkit::reexports::calloop::channel::Event;
-use smithay_client_toolkit::reexports::calloop::EventLoop;
-use smithay_client_toolkit::reexports::calloop::InsertError;
-use smithay_client_toolkit::reexports::calloop::RegistrationToken;
 use smithay_client_toolkit::reexports::calloop_wayland_source::WaylandSource;
 use smithay_client_toolkit::seat::Capability;
 use smithay_client_toolkit::seat::SeatHandler;
@@ -20,18 +18,18 @@ use smithay_client_toolkit::seat::SeatState;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
-use wayland_client::globals::registry_queue_init;
-use wayland_client::globals::GlobalList;
-use wayland_client::globals::GlobalListContents;
-use wayland_client::protocol::wl_registry;
-use wayland_client::protocol::wl_seat::WlSeat;
 use wayland_client::Connection;
 use wayland_client::Dispatch;
 use wayland_client::QueueHandle;
+use wayland_client::globals::GlobalList;
+use wayland_client::globals::GlobalListContents;
+use wayland_client::globals::registry_queue_init;
+use wayland_client::protocol::wl_registry;
+use wayland_client::protocol::wl_seat::WlSeat;
 
-use crate::plugins::applications::linux;
 use crate::plugins::applications::ApplicationContext;
 use crate::plugins::applications::DesktopEnvironment;
+use crate::plugins::applications::linux;
 
 mod cosmic;
 mod wlr;
@@ -98,7 +96,7 @@ impl WaylandState {
     ) -> anyhow::Result<Self> {
         let inner = wlr::WlrWaylandState::new(globals, queue_handle)
             .map(|state| WaylandStateInner::Wlr(state))
-            .or_else(|test| {
+            .or_else(|_| {
                 cosmic::CosmicWaylandState::new(globals, queue_handle).map(|state| WaylandStateInner::Cosmic(state))
             })
             .unwrap_or(WaylandStateInner::None);

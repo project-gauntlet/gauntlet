@@ -1,8 +1,6 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::MutexGuard;
 
 use anyhow::anyhow;
 use gauntlet_common::model::EntrypointId;
@@ -19,7 +17,6 @@ use tantivy::collector::TopDocs;
 use tantivy::doc;
 use tantivy::query::AllQuery;
 use tantivy::query::BooleanQuery;
-use tantivy::query::FuzzyTermQuery;
 use tantivy::query::Query;
 use tantivy::query::RegexQuery;
 use tantivy::query::TermQuery;
@@ -27,7 +24,6 @@ use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
 use tantivy::Index;
 use tantivy::IndexReader;
-use tantivy::IndexWriter;
 use tantivy::ReloadPolicy;
 use tantivy::Searcher;
 
@@ -335,7 +331,7 @@ impl SearchIndex {
         self.index_reader.reload()?;
 
         if refresh_search_list {
-            let mut frontend_api = self.frontend_api.clone();
+            let frontend_api = self.frontend_api.clone();
             tokio::spawn(async move {
                 tracing::info!(
                     "requesting search results update because search index update for plugin: {:?}",

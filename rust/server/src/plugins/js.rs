@@ -1,20 +1,9 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
-use std::hash::Hash;
-use std::io;
-use std::net::SocketAddr;
-use std::path::Path;
-use std::path::PathBuf;
-use std::pin::Pin;
-use std::rc::Rc;
-use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use anyhow::Context;
-use futures::AsyncBufReadExt;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::KeyboardEventOrigin;
@@ -28,7 +17,6 @@ use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
-use gauntlet_common::settings_env_data_to_string;
 use gauntlet_common_plugin_runtime::api::handle_proxy_message;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::model::JsClipboardData;
@@ -58,24 +46,15 @@ use interprocess::local_socket::traits::tokio::Listener;
 use interprocess::local_socket::traits::tokio::Stream;
 use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::ToFsName;
-use interprocess::local_socket::ToNsName;
-use interprocess::TryClone;
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde::Serialize;
-use tokio::io::AsyncRead;
-use tokio::io::AsyncReadExt;
-use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-use tokio::task::spawn_blocking;
-use tokio_util::sync::CancellationToken;
 
 use crate::model::IntermediateUiEvent;
 use crate::plugins::binary_data_gatherer::BinaryDataGatherer;
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::db_entrypoint_from_str;
 use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::data_db_repository::DbPluginClipboardPermissions;
 use crate::plugins::data_db_repository::DbPluginEntrypointType;
 use crate::plugins::data_db_repository::DbPluginPreference;
 use crate::plugins::data_db_repository::DbPluginPreferenceUserData;
@@ -176,7 +155,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     };
 
     let api = BackendForPluginRuntimeApiImpl::new(
-        data.icon_cache.clone(),
         data.db_repository,
         data.search_index,
         data.clipboard,
@@ -188,7 +166,6 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     );
 
     let mut command_receiver = data.command_receiver;
-    let cache = data.icon_cache;
     let plugin_uuid = data.uuid.clone();
     let plugin_id = data.id.clone();
 
@@ -342,7 +319,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
     });
 
     tokio::select! {
-        result = {
+        _ = {
             let sender = sender.clone();
             let plugin_id = plugin_id.clone();
             tokio::task::unconstrained(async move {
@@ -356,7 +333,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         } => {
             tracing::error!("Event loop has been stopped {:?}", plugin_id)
         }
-        result = {
+        _ = {
              tokio::task::unconstrained(async {
                  let sender = sender.clone();
                  loop {
@@ -599,11 +576,11 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
 
 #[derive(Clone)]
 pub struct BackendForPluginRuntimeApiImpl {
-    icon_cache: IconCache,
     repository: DataDbRepository,
     search_index: SearchIndex,
     clipboard: Clipboard,
     frontend_api: FrontendApiProxy,
+    #[allow(unused)]
     plugin_uuid: String,
     plugin_id: PluginId,
     plugin_name: String,
@@ -612,7 +589,6 @@ pub struct BackendForPluginRuntimeApiImpl {
 
 impl BackendForPluginRuntimeApiImpl {
     fn new(
-        icon_cache: IconCache,
         repository: DataDbRepository,
         search_index: SearchIndex,
         clipboard: Clipboard,
@@ -623,7 +599,6 @@ impl BackendForPluginRuntimeApiImpl {
         permissions: PluginRuntimePermissions,
     ) -> Self {
         Self {
-            icon_cache,
             repository,
             search_index,
             clipboard,

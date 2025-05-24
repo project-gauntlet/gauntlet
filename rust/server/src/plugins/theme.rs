@@ -1,11 +1,8 @@
-use std::env::consts::OS;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
 use anyhow::Context;
-use dark_light::Mode;
-use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiThemeColor;
 use gauntlet_common::model::UiThemeContent;
@@ -13,11 +10,8 @@ use gauntlet_common::model::UiThemeContentBorder;
 use gauntlet_common::model::UiThemeMode;
 use gauntlet_common::model::UiThemeWindow;
 use gauntlet_common::model::UiThemeWindowBorder;
-use gauntlet_common::rpc::frontend_api::FrontendApi;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::plugins::data_db_repository::DataDbRepository;
 
 pub struct BundledThemes {
     pub legacy_theme: UiTheme,

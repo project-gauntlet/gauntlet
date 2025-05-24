@@ -7,7 +7,6 @@ use gauntlet_common::model::SearchResultAccessory;
 use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::TextAccessoryWidget;
 use iced::advanced::image::Handle;
-use iced::color;
 use iced::widget::button;
 use iced::widget::column;
 use iced::widget::container;
@@ -15,9 +14,7 @@ use iced::widget::horizontal_space;
 use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
-use iced::widget::text_input;
 use iced::Alignment;
-use iced::Font;
 use iced::Length;
 
 use crate::ui::scroll_handle::ScrollHandle;

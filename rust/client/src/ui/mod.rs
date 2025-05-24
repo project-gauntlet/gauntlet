@@ -2,11 +2,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::Mutex as StdMutex;
 use std::sync::Mutex;
-use std::sync::RwLock as StdRwLock;
 
 use anyhow::anyhow;
 use client_context::ClientContext;
@@ -16,13 +13,10 @@ use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::RootWidget;
-use gauntlet_common::model::RootWidgetMembers;
 use gauntlet_common::model::SearchResult;
-use gauntlet_common::model::SearchResultEntrypointAction;
 use gauntlet_common::model::SearchResultEntrypointActionType;
 use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::UiRenderLocation;
-use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
@@ -30,13 +24,10 @@ use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiProxy;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
-use gauntlet_common::rpc::backend_api::GrpcBackendApi;
-use gauntlet_common::rpc::frontend_api::handle_proxy_message;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
 use gauntlet_common::scenario_model::ScenarioFrontendEvent;
-use gauntlet_common::scenario_model::ScenarioUiRenderLocation;
 use gauntlet_common_ui::physical_key_model;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestReceiver;
@@ -46,20 +37,16 @@ use gauntlet_utils::channel::Responder;
 use global_hotkey::hotkey::HotKey;
 use global_hotkey::GlobalHotKeyManager;
 use iced::advanced::graphics::core::SmolStr;
-use iced::advanced::layout::Limits;
 use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
 use iced::event;
-use iced::executor;
 use iced::font;
 use iced::futures;
 use iced::futures::SinkExt;
 use iced::keyboard;
-use iced::keyboard::key;
 use iced::keyboard::key::Named;
 use iced::keyboard::key::Physical;
 use iced::keyboard::Key;
-use iced::keyboard::Location;
 use iced::keyboard::Modifiers;
 use iced::stream;
 use iced::widget::button;
@@ -67,26 +54,18 @@ use iced::widget::column;
 use iced::widget::container;
 use iced::widget::horizontal_rule;
 use iced::widget::horizontal_space;
-use iced::widget::row;
 use iced::widget::scrollable;
-use iced::widget::scrollable::scroll_to;
-use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::text;
 use iced::widget::text::Shaping;
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
-use iced::widget::Space;
 use iced::window;
 use iced::window::Level;
 use iced::window::Mode;
 use iced::window::Position;
 use iced::window::Screenshot;
-use iced::Alignment;
 use iced::Event;
-use iced::Font;
 use iced::Length;
-use iced::Padding;
-use iced::Pixels;
 use iced::Point;
 use iced::Renderer;
 use iced::Settings;
@@ -94,11 +73,7 @@ use iced::Size;
 use iced::Subscription;
 use iced::Task;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
-use serde::Deserialize;
-use serde_json::map::Entry;
 use tokio::runtime::Handle;
-use tokio::sync::oneshot;
-use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock as TokioRwLock;
 
 use crate::model::UiViewEvent;
@@ -144,7 +119,6 @@ use crate::ui::widget::action_panel::ActionPanel;
 use crate::ui::widget::action_panel::ActionPanelItem;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::root::render_root;
-use crate::ui::widget_container::PluginWidgetContainer;
 
 pub struct AppModel {
     // logic
@@ -189,28 +163,20 @@ mod layer_shell {
 pub enum AppMsg {
     OpenView {
         plugin_id: PluginId,
-        plugin_name: String,
         entrypoint_id: EntrypointId,
-        entrypoint_name: String,
     },
     OpenGeneratedView {
         plugin_id: PluginId,
-        plugin_name: String,
         entrypoint_id: EntrypointId,
-        entrypoint_name: String,
         action_index: usize,
     },
     ShowNewView {
         plugin_id: PluginId,
-        plugin_name: String,
         entrypoint_id: EntrypointId,
-        entrypoint_name: String,
     },
     ShowNewGeneratedView {
         plugin_id: PluginId,
-        plugin_name: String,
         entrypoint_id: EntrypointId,
-        entrypoint_name: String,
         action_index: usize,
     },
     RunCommand {
@@ -563,7 +529,7 @@ fn new(
     wayland: bool,
     minimized: bool,
 ) -> (AppModel, Task<AppMsg>) {
-    let mut backend_api = BackendForFrontendApiProxy::new(backend_sender);
+    let backend_api = BackendForFrontendApiProxy::new(backend_sender);
 
     let setup_data = futures::executor::block_on(backend_api.setup_data()).expect("Unable to setup frontend");
 
@@ -686,9 +652,7 @@ fn new(
                             PluginViewData {
                                 top_level_view,
                                 plugin_id,
-                                plugin_name,
                                 entrypoint_id,
-                                entrypoint_name,
                                 action_shortcuts: Default::default(),
                             },
                             true,
@@ -774,9 +738,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
     match message {
         AppMsg::OpenView {
             plugin_id,
-            plugin_name,
             entrypoint_id,
-            entrypoint_name,
         } => {
             match &mut state.global_state {
                 GlobalState::MainView {
@@ -786,9 +748,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     *pending_plugin_view_data = Some(PluginViewData {
                         top_level_view: true,
                         plugin_id: plugin_id.clone(),
-                        plugin_name,
                         entrypoint_id: entrypoint_id.clone(),
-                        entrypoint_name,
                         action_shortcuts: HashMap::new(),
                     });
 
@@ -804,9 +764,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::OpenGeneratedView {
             plugin_id,
-            plugin_name,
             entrypoint_id,
-            entrypoint_name,
             action_index,
         } => {
             match &mut state.global_state {
@@ -817,9 +775,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     *pending_plugin_view_data = Some(PluginViewData {
                         top_level_view: true,
                         plugin_id: plugin_id.clone(),
-                        plugin_name,
                         entrypoint_id: entrypoint_id.clone(),
-                        entrypoint_name,
                         action_shortcuts: HashMap::new(),
                     });
 
@@ -891,9 +847,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     if action_index == 0 {
                         Task::done(AppMsg::OpenView {
                             plugin_id: search_result.plugin_id.clone(),
-                            plugin_name: search_result.plugin_name.clone(),
                             entrypoint_id: search_result.entrypoint_id.clone(),
-                            entrypoint_name: search_result.entrypoint_name.clone(),
                         })
                     } else {
                         Task::none()
@@ -912,9 +866,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         SearchResultEntrypointActionType::View => {
                             Task::done(AppMsg::OpenGeneratedView {
                                 plugin_id: search_result.plugin_id.clone(),
-                                plugin_name: search_result.plugin_name.clone(),
                                 entrypoint_id: search_result.entrypoint_id.clone(),
-                                entrypoint_name: action.label.clone(),
                                 action_index,
                             })
                         }
@@ -1507,7 +1459,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::SetGlobalShortcut { shortcut, responder } => {
-            let mut responder = responder
+            let responder = responder
                 .lock()
                 .expect("lock is poisoned")
                 .take()
@@ -1540,7 +1492,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             shortcut,
             responder,
         } => {
-            let mut responder = responder
+            let responder = responder
                 .lock()
                 .expect("lock is poisoned")
                 .take()
@@ -1657,9 +1609,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::ShowNewView {
             plugin_id,
-            plugin_name,
             entrypoint_id,
-            entrypoint_name,
         } => {
             Task::batch([
                 GlobalState::pending_plugin(
@@ -1667,9 +1617,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     PluginViewData {
                         top_level_view: true,
                         plugin_id: plugin_id.clone(),
-                        plugin_name,
                         entrypoint_id: entrypoint_id.clone(),
-                        entrypoint_name,
                         action_shortcuts: HashMap::new(),
                     },
                 ),
@@ -1679,9 +1627,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::ShowNewGeneratedView {
             plugin_id,
-            plugin_name,
             entrypoint_id,
-            entrypoint_name,
             action_index,
         } => {
             Task::batch([
@@ -1690,9 +1636,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     PluginViewData {
                         top_level_view: true,
                         plugin_id: plugin_id.clone(),
-                        plugin_name,
                         entrypoint_id: entrypoint_id.clone(),
-                        entrypoint_name,
                         action_shortcuts: HashMap::new(),
                     },
                 ),
@@ -1743,7 +1687,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             plugin_id,
             entrypoint_id,
         } => {
-            let mut backend_client = state.backend_api.clone();
+            let backend_client = state.backend_api.clone();
 
             Task::perform(
                 async move {
@@ -1751,7 +1695,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
                     Ok(result)
                 },
-                |result| handle_backend_error(result, |action_shortcuts| AppMsg::Noop),
+                |result| handle_backend_error(result, |()| AppMsg::Noop),
             )
         }
     }
@@ -2021,15 +1965,13 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
             let inline_view = match state.client_context.get_all_inline_view_containers().first() {
                 Some((plugin_id, container)) => {
                     let plugin_id = plugin_id.clone();
-                    container
-                        .render_inline_root_widget(plugin_id.clone())
-                        .map(move |widget_event| {
-                            AppMsg::WidgetEvent {
-                                plugin_id: plugin_id.clone(),
-                                render_location: UiRenderLocation::InlineView,
-                                widget_event,
-                            }
-                        })
+                    container.render_inline_root_widget().map(move |widget_event| {
+                        AppMsg::WidgetEvent {
+                            plugin_id: plugin_id.clone(),
+                            render_location: UiRenderLocation::InlineView,
+                            widget_event,
+                        }
+                    })
                 }
                 None => horizontal_space().into(),
             };
@@ -2113,7 +2055,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                                 .map(|action| action.label.clone())
                                 .unwrap_or_else(|| label.to_string()); // should never happen, because there is always at least one action
 
-                            let mut actions: Vec<_> = search_item
+                            let actions: Vec<_> = search_item
                                 .entrypoint_actions
                                 .iter()
                                 .enumerate()
@@ -2198,7 +2140,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
                         |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
-                        |widget_id| AppMsg::Noop,
+                        |_widget_id| AppMsg::Noop,
                         || AppMsg::Noop,
                     )
                 }
@@ -2262,15 +2204,16 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
             let view_container = state.client_context.get_view_container();
 
-            let container_element = view_container
-                .render_root_widget(plugin_id.clone(), sub_state, action_shortcuts)
-                .map(|widget_event| {
-                    AppMsg::WidgetEvent {
-                        plugin_id: plugin_id.clone(),
-                        render_location: UiRenderLocation::View,
-                        widget_event,
-                    }
-                });
+            let container_element =
+                view_container
+                    .render_root_widget(sub_state, action_shortcuts)
+                    .map(|widget_event| {
+                        AppMsg::WidgetEvent {
+                            plugin_id: plugin_id.clone(),
+                            render_location: UiRenderLocation::View,
+                            widget_event,
+                        }
+                    });
 
             let element: Element<_> = container(container_element)
                 .width(Length::Fill)
@@ -2395,6 +2338,7 @@ impl AppModel {
         Task::none()
     }
 
+    #[allow(unused)]
     fn on_unfocused(&mut self) -> Task<AppMsg> {
         // for some reason (on both macOS and linux x11 but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
         if self.focused {
@@ -2513,7 +2457,7 @@ impl AppModel {
     }
 
     fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2526,7 +2470,7 @@ impl AppModel {
     }
 
     fn close_plugin_view(&self, plugin_id: PluginId) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2539,7 +2483,7 @@ impl AppModel {
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2557,7 +2501,7 @@ impl AppModel {
         entrypoint_id: EntrypointId,
         action_index: usize,
     ) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2577,7 +2521,7 @@ impl AppModel {
         plugin_id: PluginId,
         render_location: UiRenderLocation,
     ) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         let event = self
             .client_context
@@ -2633,7 +2577,7 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2664,7 +2608,7 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
             (
@@ -2702,7 +2646,7 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let mut backend_client = self.backend_api.clone();
+        let backend_client = self.backend_api.clone();
 
         let (plugin_id, entrypoint_id) = {
             match self.client_context.get_first_inline_view_container() {
@@ -2733,7 +2677,7 @@ impl AppModel {
     }
 
     fn search(&self, new_prompt: String, render_inline_view: bool) -> Task<AppMsg> {
-        let mut backend_api = self.backend_api.clone();
+        let backend_api = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2750,7 +2694,7 @@ impl AppModel {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
     ) -> Task<AppMsg> {
-        let mut backend_api = self.backend_api.clone();
+        let backend_api = self.backend_api.clone();
 
         Task::perform(
             async move {
@@ -2765,7 +2709,7 @@ impl AppModel {
     }
 
     fn inline_view_shortcuts(&self) -> Task<AppMsg> {
-        let mut backend_api = self.backend_api.clone();
+        let backend_api = self.backend_api.clone();
 
         Task::perform(async move { backend_api.inline_view_shortcuts().await }, |result| {
             handle_backend_error(result, |shortcuts| AppMsg::InlineViewShortcuts { shortcuts })
@@ -3135,33 +3079,25 @@ async fn request_loop(
             }
             FrontendApiRequestData::OpenPluginView {
                 plugin_id,
-                plugin_name,
                 entrypoint_id,
-                entrypoint_name,
             } => {
                 responder.respond(Ok(FrontendApiResponseData::OpenPluginView { data: () }));
 
                 AppMsg::ShowNewView {
                     plugin_id,
-                    plugin_name,
                     entrypoint_id,
-                    entrypoint_name,
                 }
             }
             FrontendApiRequestData::OpenGeneratedPluginView {
                 plugin_id,
-                plugin_name,
                 entrypoint_id,
-                entrypoint_name,
                 action_index,
             } => {
                 responder.respond(Ok(FrontendApiResponseData::OpenGeneratedPluginView { data: () }));
 
                 AppMsg::ShowNewGeneratedView {
                     plugin_id,
-                    plugin_name,
                     entrypoint_id,
-                    entrypoint_name,
                     action_index,
                 }
             }

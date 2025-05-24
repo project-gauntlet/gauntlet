@@ -1,28 +1,19 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fs::Metadata;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use deno_core::op2;
 use deno_core::OpState;
-use deno_core::ToJsBuffer;
+use deno_core::op2;
 use freedesktop_entry_parser::parse_entry;
 use freedesktop_icons::lookup;
 use gauntlet_common::detached_process::CommandExt;
-use image::imageops::FilterType;
-use image::ImageFormat;
-use tokio::sync::mpsc::Sender;
 use tokio::task::spawn_blocking;
-use walkdir::WalkDir;
 
 use crate::plugin_data::PluginData;
-use crate::plugins::applications::linux;
-use crate::plugins::applications::resize_icon;
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
+use crate::plugins::applications::resize_icon;
 
 mod wayland;
 mod x11;

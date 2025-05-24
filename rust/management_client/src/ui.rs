@@ -97,7 +97,7 @@ pub enum ManagementAppMsg {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum SettingsView {
+pub enum SettingsView {
     General,
     Plugins,
 }
@@ -255,7 +255,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                 }
             }
 
-            let mut backend_api = backend_api.clone();
+            let backend_api = backend_api.clone();
 
             Task::perform(
                 async move {
@@ -283,7 +283,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
             if state.downloads_info.is_empty() {
                 Task::none()
             } else {
-                let mut backend_client = backend_api.clone();
+                let backend_client = backend_api.clone();
 
                 Task::perform(
                     async move {
@@ -296,7 +296,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
             }
         }
         ManagementAppMsg::DownloadPlugin { plugin_id } => {
-            let mut backend_client = backend_api.clone();
+            let backend_client = backend_api.clone();
 
             let already_downloading = state
                 .downloads_info
@@ -618,10 +618,10 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
     let content: Element<_> = column(vec![top_bar, separator, content]).into();
 
     let download_info_panel: Element<_> = {
-        let downloads: Vec<Element<_>> = state
+        let downloads = state
             .downloads_info
             .iter()
-            .sorted_by_key(|(_, info)| info.clone())
+            .sorted_by_key(|&(_, &ref info)| info)
             .map(|(plugin_id, info)| {
                 match info {
                     DownloadInfo::InProgress => {
@@ -706,9 +706,11 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
                         container(content).width(Length::Fill).into()
                     }
                 }
-            })
-            .intersperse_with(|| horizontal_rule(1).into())
-            .collect();
+            });
+
+        let downloads = Itertools::intersperse_with(downloads, || horizontal_rule(1).into());
+
+        let downloads: Vec<Element<_>> = downloads.collect();
 
         let downloads: Element<_> = column(downloads).into();
 

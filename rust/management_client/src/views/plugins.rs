@@ -10,18 +10,14 @@ use gauntlet_common::model::SettingsEntrypointType;
 use gauntlet_common::model::SettingsPlugin;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
-use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common::settings_env_data_from_string;
 use gauntlet_common::SettingsEnvData;
 use gauntlet_common::SETTINGS_ENV;
-use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestResult;
-use iced::alignment;
 use iced::padding;
 use iced::widget::button;
 use iced::widget::column;
 use iced::widget::container;
-use iced::widget::pane_grid::Edge;
 use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
@@ -77,7 +73,6 @@ pub enum ManagementAppPluginMsgIn {
         plugin_id: PluginId,
     },
     SelectItem(SelectedItem),
-    Noop,
 }
 
 pub enum ManagementAppPluginMsgOut {
@@ -151,7 +146,7 @@ impl ManagementAppPluginsState {
                 self.table_state.update(message).then(move |msg| {
                     match msg {
                         PluginTableMsgOut::SetPluginState { enabled, plugin_id } => {
-                            let mut backend_client = backend_api.clone();
+                            let backend_client = backend_api.clone();
 
                             Task::perform(
                                 async move {
@@ -234,7 +229,7 @@ impl ManagementAppPluginsState {
                             ))
                         }
                         PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut) => {
-                            let mut backend_client = backend_api.clone();
+                            let backend_client = backend_api.clone();
 
                             Task::perform(
                                 async move {
@@ -264,7 +259,7 @@ impl ManagementAppPluginsState {
                             )
                         }
                         PluginTableMsgOut::AliasChanged(plugin_id, entrypoint_id, shortcut) => {
-                            let mut backend_client = backend_api.clone();
+                            let backend_client = backend_api.clone();
 
                             Task::perform(
                                 async move {
@@ -351,7 +346,7 @@ impl ManagementAppPluginsState {
                             user_data.clone(),
                         );
 
-                        let mut backend_api = backend_api.clone();
+                        let backend_api = backend_api.clone();
 
                         Task::perform(
                             async move {
@@ -371,7 +366,7 @@ impl ManagementAppPluginsState {
                 }
             }
             ManagementAppPluginMsgIn::FetchPlugins => {
-                let mut backend_api = backend_api.clone();
+                let backend_api = backend_api.clone();
 
                 Task::perform(
                     async move {
@@ -400,7 +395,7 @@ impl ManagementAppPluginsState {
             ManagementAppPluginMsgIn::RemovePlugin { plugin_id } => {
                 self.selected_item = SelectedItem::None;
 
-                let mut backend_client = backend_api.clone();
+                let backend_client = backend_api.clone();
 
                 Task::perform(
                     async move {
@@ -433,7 +428,6 @@ impl ManagementAppPluginsState {
 
                 Task::none()
             }
-            ManagementAppPluginMsgIn::Noop => Task::none(),
         }
     }
 

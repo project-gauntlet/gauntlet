@@ -32,7 +32,6 @@ use crate::components::shortcut_selector::shortcut_selector;
 use crate::components::shortcut_selector::ShortcutData;
 use crate::theme::button::ButtonStyle;
 use crate::theme::container::ContainerStyle;
-use crate::theme::text::TextStyle;
 use crate::theme::text_input::TextInputStyle;
 use crate::theme::Element;
 use crate::theme::GauntletSettingsTheme;
@@ -248,7 +247,7 @@ impl PluginTableState {
 }
 
 #[derive(Debug, Clone)]
-enum EnabledItem {
+pub enum EnabledItem {
     Plugin {
         enabled: bool,
         plugin_id: PluginId,

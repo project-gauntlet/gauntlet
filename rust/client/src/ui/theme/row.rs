@@ -1,5 +1,4 @@
 use iced::widget::Row;
-use iced::Padding;
 use iced::Renderer;
 
 use crate::ui::theme::get_theme;

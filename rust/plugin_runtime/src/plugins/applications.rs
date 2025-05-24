@@ -1,22 +1,12 @@
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 
-use anyhow::anyhow;
-use deno_core::op2;
 use deno_core::OpState;
 use deno_core::ToJsBuffer;
-use gauntlet_common::detached_process::CommandExt;
-use image::imageops::FilterType;
+use deno_core::op2;
 use image::ImageFormat;
-use serde::Deserialize;
+use image::imageops::FilterType;
 use serde::Serialize;
-use sys_locale::get_locale;
-use tokio::runtime::Handle;
-use tokio::sync::mpsc::Receiver;
-use tokio::task::spawn_blocking;
-
-use crate::plugin_data::PluginData;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -99,6 +89,7 @@ pub fn wayland(state: Rc<RefCell<OpState>>) -> bool {
 pub enum DesktopEnvironment {
     #[cfg(target_os = "linux")]
     Linux(linux::LinuxDesktopEnvironment),
+    #[allow(unused)]
     None,
 }
 
@@ -226,7 +217,7 @@ pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Resu
 #[op2]
 #[string]
 pub fn macos_get_localized_language() -> Option<String> {
-    get_locale()?
+    sys_locale::get_locale()?
         .split("-")
         .collect::<Vec<&str>>()
         .get(0)

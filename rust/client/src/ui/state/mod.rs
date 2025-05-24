@@ -49,9 +49,7 @@ pub enum GlobalState {
 pub struct PluginViewData {
     pub top_level_view: bool,
     pub plugin_id: PluginId,
-    pub plugin_name: String,
     pub entrypoint_id: EntrypointId,
-    pub entrypoint_name: String,
     pub action_shortcuts: HashMap<String, PhysicalShortcut>,
 }
 
@@ -63,7 +61,9 @@ pub enum ErrorViewData {
         entrypoint_preferences_required: bool,
     },
     PluginError {
+        #[allow(unused)]
         plugin_id: PluginId,
+        #[allow(unused)]
         entrypoint_id: EntrypointId,
     },
     BackendTimeout,

@@ -2,14 +2,11 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use anyhow::Context;
-use deno_core::futures::Stream;
-use deno_core::url::Url;
+use anyhow::anyhow;
 use deno_core::FastString;
 use deno_core::ModuleLoadResponse;
 use deno_core::ModuleLoader;
@@ -20,6 +17,8 @@ use deno_core::ModuleType;
 use deno_core::RequestedModuleType;
 use deno_core::ResolutionKind;
 use deno_core::StaticModuleLoader;
+use deno_core::url::Url;
+use deno_runtime::BootstrapOptions;
 use deno_runtime::deno_fs::FileSystem;
 use deno_runtime::deno_fs::RealFs;
 use deno_runtime::deno_io::Stdio;
@@ -27,8 +26,6 @@ use deno_runtime::deno_io::StdioPipe;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use deno_runtime::worker::WorkerServiceOptions;
-use deno_runtime::BootstrapOptions;
-use gauntlet_common::model::PluginId;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::model::JsEvent;
 use gauntlet_common_plugin_runtime::model::JsInit;
@@ -51,8 +48,8 @@ use crate::environment::environment_gauntlet_version;
 use crate::environment::environment_is_development;
 use crate::environment::environment_plugin_cache_dir;
 use crate::environment::environment_plugin_data_dir;
-use crate::events::op_plugin_get_pending_event;
 use crate::events::EventReceiver;
+use crate::events::op_plugin_get_pending_event;
 use crate::logs::op_log_debug;
 use crate::logs::op_log_error;
 use crate::logs::op_log_info;
@@ -60,11 +57,11 @@ use crate::logs::op_log_trace;
 use crate::logs::op_log_warn;
 use crate::permissions::permissions_to_deno;
 use crate::plugin_data::PluginData;
+use crate::plugins::applications::ApplicationContext;
 use crate::plugins::applications::current_os;
 use crate::plugins::applications::wayland;
-use crate::plugins::applications::ApplicationContext;
-use crate::plugins::numbat::run_numbat;
 use crate::plugins::numbat::NumbatContext;
+use crate::plugins::numbat::run_numbat;
 use crate::plugins::settings::open_settings;
 use crate::preferences::entrypoint_preferences_required;
 use crate::preferences::get_entrypoint_preferences;
@@ -86,6 +83,7 @@ use crate::ui::update_loading_bar;
 pub struct CustomModuleLoader {
     code: JsPluginCode,
     static_loader: StaticModuleLoader,
+    #[allow(unused)]
     dev_plugin: bool,
 }
 
@@ -227,7 +225,7 @@ impl ModuleLoader for CustomModuleLoader {
                     "Illegal import with specifier '{}' and referrer '{}'",
                     specifier,
                     referrer
-                ))
+                ));
             }
         };
 

@@ -14,22 +14,10 @@ mod preferences;
 mod search;
 mod ui;
 
-use std::cell::RefCell;
-use std::cell::RefMut;
-use std::convert;
-use std::fmt::Debug;
 use std::ops::Deref;
-use std::ops::DerefMut;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use anyhow::anyhow;
-use anyhow::Context;
-use bincode::Decode;
-use bincode::Encode;
-use deno_core::futures::SinkExt;
+use gauntlet_common_plugin_runtime::JsMessageSide;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiRequestData;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiResponseData;
@@ -39,31 +27,17 @@ use gauntlet_common_plugin_runtime::model::JsMessage;
 use gauntlet_common_plugin_runtime::model::JsPluginRuntimeMessage;
 use gauntlet_common_plugin_runtime::recv_message;
 use gauntlet_common_plugin_runtime::send_message;
-use gauntlet_common_plugin_runtime::JsMessageSide;
-use gauntlet_utils::channel::Payload;
 use gauntlet_utils::channel::RequestReceiver;
-use interprocess::local_socket::tokio::prelude::*;
 use interprocess::local_socket::tokio::RecvHalf;
 use interprocess::local_socket::tokio::SendHalf;
 use interprocess::local_socket::tokio::Stream;
-use interprocess::local_socket::GenericFilePath;
-use interprocess::local_socket::NameType;
-use interprocess::local_socket::ToNsName;
-use once_cell::sync::Lazy;
-use regex::Regex;
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use serde::Serialize;
-use tokio::io::AsyncBufReadExt;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
+use interprocess::local_socket::tokio::prelude::*;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::channel;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::channel;
 use tokio::sync::oneshot;
-use tokio::sync::Mutex;
-use tokio::sync::MutexGuard;
 use tokio_util::sync::CancellationToken;
 
 use crate::deno::start_js_runtime;
@@ -116,7 +90,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
         _ = stop_token.cancelled() => {
             tracing::debug!("Plugin runtime outer loop will be stopped {:?}", plugin_id)
         }
-        result @ _ = {
+        _ = {
              tokio::task::unconstrained(async {
                 loop {
                     if let Err(err) = message_loop(&mut recver, &event_sender, &response_oneshot, stop_token.clone()).await {
@@ -128,7 +102,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
         } => {
             tracing::error!("Message loop has unexpectedly stopped {:?}", plugin_id)
         }
-        result @ _ = {
+        _ = {
              tokio::task::unconstrained(async {
                 loop {
                     if let Err(err) = request_loop(&mut sender, &mut request_receiver, &response_oneshot).await {
@@ -140,7 +114,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
         } => {
             tracing::error!("Request loop has unexpectedly stopped {:?}", plugin_id)
         }
-        result @ _ = {
+        _ = {
             run_new_tokio(handle, stop_token.clone(), init, event_receiver, api)
         } => {
             tracing::error!("Request loop has unexpectedly stopped {:?}", plugin_id)
@@ -283,7 +257,7 @@ async fn message_loop(
                     let mut response_oneshot = response_oneshot.lock().await;
 
                     match response_oneshot.take() {
-                        Some(mut oneshot) => {
+                        Some(oneshot) => {
                             match oneshot.send(response) {
                                 Err(_) => {
                                     tracing::error!("Dropped oneshot receiving side");

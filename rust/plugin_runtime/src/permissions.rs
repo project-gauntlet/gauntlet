@@ -2,12 +2,10 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::path::Path;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use deno_runtime::deno_fs::FileSystemRc;
-use deno_runtime::deno_fs::RealFs;
 use deno_runtime::deno_permissions::AllowRunDescriptor;
 use deno_runtime::deno_permissions::EnvDescriptor;
 use deno_runtime::deno_permissions::EnvQueryDescriptor;
@@ -18,16 +16,12 @@ use deno_runtime::deno_permissions::QueryDescriptor;
 use deno_runtime::deno_permissions::ReadDescriptor;
 use deno_runtime::deno_permissions::RunQueryDescriptor;
 use deno_runtime::deno_permissions::SysDescriptor;
-use deno_runtime::deno_permissions::SysDescriptorParseError;
 use deno_runtime::deno_permissions::UnaryPermission;
 use deno_runtime::deno_permissions::WriteDescriptor;
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
-use gauntlet_common::dirs::Dirs;
+use gauntlet_common_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissions;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
-use gauntlet_common_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use typed_path::Utf8TypedPath;
 
 pub fn permissions_to_deno(

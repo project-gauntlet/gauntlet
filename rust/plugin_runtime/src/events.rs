@@ -1,18 +1,10 @@
 use std::cell::RefCell;
-use std::pin::Pin;
 use std::rc::Rc;
 
 use anyhow::anyhow;
-use bincode::Decode;
-use bincode::Encode;
-use deno_core::futures::Stream;
-use deno_core::futures::StreamExt;
-use deno_core::op2;
 use deno_core::OpState;
-use gauntlet_common::model::UiWidgetId;
+use deno_core::op2;
 use gauntlet_common_plugin_runtime::model::JsEvent;
-use serde::Deserialize;
-use serde::Serialize;
 use tokio::sync::mpsc::Receiver;
 
 pub struct EventReceiver {

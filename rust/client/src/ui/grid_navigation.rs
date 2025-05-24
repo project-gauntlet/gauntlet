@@ -29,7 +29,7 @@ pub struct GridItemOffset {
 }
 
 fn grid_row_data(
-    mut amount_per_section_total: Vec<GridSectionData>,
+    amount_per_section_total: Vec<GridSectionData>,
     current_index: usize,
 ) -> (Option<GridRowData>, GridCurrentRowData, Option<GridRowData>) {
     let mut previous_section_index: Option<usize> = None;

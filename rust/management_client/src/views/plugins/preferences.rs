@@ -60,7 +60,7 @@ pub fn preferences_ui<'a>(
 
     let mut preferences: Vec<_> = preferences.iter().map(|entry| entry).collect();
 
-    preferences.sort_by_key(|(&ref key, _)| key);
+    preferences.sort_by_key(|&(&ref key, _)| key);
 
     for (preference_id, preference) in preferences {
         let plugin_id = plugin_id.clone();

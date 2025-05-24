@@ -16,6 +16,7 @@ use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonStyle {
+    #[allow(unused)]
     ShouldNotBeUsed,
 
     DatePicker,

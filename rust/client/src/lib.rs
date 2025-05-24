@@ -1,4 +1,3 @@
-use gauntlet_common::dirs::Dirs;
 use gauntlet_common::rpc::backend_api::BackendForCliApi;
 use gauntlet_common::rpc::backend_api::BackendForCliApiProxy;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
@@ -8,8 +7,6 @@ use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_utils::channel::RequestReceiver;
 use gauntlet_utils::channel::RequestSender;
-
-use crate::ui::GauntletComplexTheme;
 
 pub mod global_shortcut;
 pub(crate) mod model;

@@ -77,7 +77,7 @@ impl ManagementAppGeneralState {
 
         match message {
             ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut) => {
-                let mut backend_api = backend_api.clone();
+                let backend_api = backend_api.clone();
 
                 Task::perform(
                     {
@@ -120,7 +120,7 @@ impl ManagementAppGeneralState {
             ManagementAppGeneralMsgIn::ThemeChanged(theme) => {
                 self.theme = theme.clone();
 
-                let mut backend_api = backend_api.clone();
+                let backend_api = backend_api.clone();
 
                 Task::perform(
                     async move {
@@ -136,7 +136,7 @@ impl ManagementAppGeneralState {
             ManagementAppGeneralMsgIn::WindowPositionModeChanged(mode) => {
                 self.window_position_mode = mode.clone();
 
-                let mut backend_api = backend_api.clone();
+                let backend_api = backend_api.clone();
 
                 Task::perform(
                     async move {
@@ -184,7 +184,7 @@ impl ManagementAppGeneralState {
 
         let theme_field = self.theme_field();
 
-        let mut content = vec![global_shortcut_field, theme_field];
+        let content = vec![global_shortcut_field, theme_field];
 
         #[cfg(target_os = "macos")]
         {
@@ -242,6 +242,7 @@ impl ManagementAppGeneralState {
         theme_field
     }
 
+    #[allow(unused)]
     fn window_position_mode_field(&self) -> Element<ManagementAppGeneralMsgIn> {
         let items = [WindowPositionMode::Static, WindowPositionMode::ActiveMonitor];
 

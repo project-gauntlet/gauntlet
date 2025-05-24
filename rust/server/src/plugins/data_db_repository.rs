@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 use anyhow::anyhow;
 use anyhow::Context;
@@ -8,29 +7,23 @@ use futures::future::join_all;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use gauntlet_common::dirs::Dirs;
-use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
-use gauntlet_common::model::PluginId;
-use gauntlet_common::model::UiTheme;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::types::Json;
-use sqlx::Error;
 use sqlx::Executor;
 use sqlx::Pool;
 use sqlx::Row;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
-use typed_path::TypedPathBuf;
 use uuid::Uuid;
 
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::FrecencyItemStats;
 use crate::plugins::frecency::FrecencyMetaParams;
-use crate::plugins::plugin_manifest::PluginManifestActionShortcutKey;
 
 static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
@@ -123,6 +116,7 @@ pub enum DbPluginEntrypointType {
 #[derive(Debug, Clone)]
 pub enum DbPluginType {
     Normal,
+    #[allow(unused)]
     Config,
     Bundled,
 }
@@ -384,7 +378,9 @@ pub struct DbWritePendingPlugin {
 
 #[derive(sqlx::FromRow)]
 pub struct DbPluginEntrypointFrecencyStats {
+    #[allow(unused)]
     pub plugin_id: String,
+    #[allow(unused)]
     pub entrypoint_id: String,
 
     pub reference_time: f64,
@@ -1296,6 +1292,7 @@ pub fn db_plugin_type_to_str(value: DbPluginType) -> &'static str {
     }
 }
 
+#[allow(unused)]
 pub fn db_plugin_type_from_str(value: &str) -> DbPluginType {
     match value {
         "normal" => DbPluginType::Normal,

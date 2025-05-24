@@ -3,7 +3,6 @@ use std::ffi::OsStr;
 use std::fs::DirEntry;
 use std::io::ErrorKind;
 use std::path::Path;
-use std::path::PathBuf;
 use std::thread;
 
 use anyhow::anyhow;
@@ -13,19 +12,12 @@ use gauntlet_common::model::PluginId;
 use gauntlet_common_plugin_runtime::PERMISSIONS_VARIABLE_PATTERN;
 use include_dir::Dir;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
-use serde::Deserialize;
-use serde::Serialize;
-use typed_path::TypedPathBuf;
 use typed_path::Utf8TypedPath;
 use typed_path::Utf8UnixComponent;
 use typed_path::Utf8WindowsComponent;
 use typed_path::Utf8WindowsPrefix;
-use typed_path::Utf8WindowsPrefixComponent;
-use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::model::ActionShortcutKey;
 use crate::plugins::data_db_repository::db_entrypoint_to_str;
 use crate::plugins::data_db_repository::db_plugin_type_to_str;
 use crate::plugins::data_db_repository::DataDbRepository;
@@ -39,7 +31,6 @@ use crate::plugins::data_db_repository::DbPluginPermissions;
 use crate::plugins::data_db_repository::DbPluginPermissionsExec;
 use crate::plugins::data_db_repository::DbPluginPermissionsFileSystem;
 use crate::plugins::data_db_repository::DbPluginPreference;
-use crate::plugins::data_db_repository::DbPluginPreferenceUserData;
 use crate::plugins::data_db_repository::DbPluginType;
 use crate::plugins::data_db_repository::DbPreferenceEnumValue;
 use crate::plugins::data_db_repository::DbWritePlugin;
@@ -597,7 +588,6 @@ impl PluginLoader {
             asset_data,
             permissions,
             preferences: plugin_preferences,
-            preferences_user_data: HashMap::new(),
         })
     }
 
@@ -902,5 +892,4 @@ struct PluginDownloadData {
     pub asset_data: Vec<DbWritePluginAssetData>,
     pub permissions: DbPluginPermissions,
     pub preferences: HashMap<String, DbPluginPreference>,
-    pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }

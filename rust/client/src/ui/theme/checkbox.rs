@@ -5,7 +5,6 @@ use iced::widget::Checkbox;
 use iced::Border;
 use iced::Renderer;
 
-use crate::ui::theme::get_theme;
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
 use crate::ui::theme::ThemableWidget;
@@ -22,7 +21,7 @@ impl checkbox::Catalog for GauntletComplexTheme {
         CheckboxStyle::Default
     }
 
-    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+    fn style(&self, _class: &Self::Class<'_>, status: Status) -> Style {
         match status {
             Status::Active { is_checked } => active(self, is_checked),
             Status::Hovered { is_checked } => hovered(self, is_checked),
@@ -90,8 +89,6 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Checkbox<'a, Message, Gaun
     type Kind = CheckboxStyle;
 
     fn themed(self, style: CheckboxStyle) -> Element<'a, Message> {
-        let theme = get_theme();
-
         match style {
             CheckboxStyle::Default => {
                 self.class(style)

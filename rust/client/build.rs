@@ -35,6 +35,7 @@ fn main() -> anyhow::Result<()> {
                     output.push_str("    widget_id: UiWidgetId,\n");
 
                     for arg in arguments {
+                        output.push_str(&"    #[allow(non_snake_case)]\n".to_string());
                         output.push_str(&format!("    {}: {}\n", arg.name, generate_type(&arg, name)));
                     }
 
@@ -48,7 +49,7 @@ fn main() -> anyhow::Result<()> {
                         match arg.property_type {
                             PropertyType::String => {
                                 if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::String({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
+                                    output.push_str(&format!("            {}.map(|#[allow(non_snake_case)] {}| gauntlet_common::model::UiPropertyValue::String({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
                                 } else {
                                     output.push_str(&format!(
                                         "            gauntlet_common::model::UiPropertyValue::String({}),\n",

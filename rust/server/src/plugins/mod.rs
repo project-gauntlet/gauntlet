@@ -1,12 +1,6 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Index;
-use std::sync::Mutex;
-use std::thread;
-use std::time::Duration;
 
 use anyhow::anyhow;
-use anyhow::Context;
 use gauntlet_common::detached_process::CommandExt;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::DownloadStatus;
@@ -47,20 +41,16 @@ use gauntlet_utils::channel::RequestSender;
 use include_dir::include_dir;
 use include_dir::Dir;
 use itertools::Itertools;
-use tokio::runtime::Handle;
 
-use crate::model::ActionShortcutKey;
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::db_entrypoint_from_str;
 use crate::plugins::data_db_repository::DataDbRepository;
-use crate::plugins::data_db_repository::DbPluginActionShortcutKind;
 use crate::plugins::data_db_repository::DbPluginClipboardPermissions;
 use crate::plugins::data_db_repository::DbPluginEntrypointType;
 use crate::plugins::data_db_repository::DbPluginMainSearchBarPermissions;
 use crate::plugins::data_db_repository::DbPluginPreference;
 use crate::plugins::data_db_repository::DbPluginPreferenceUserData;
-use crate::plugins::data_db_repository::DbReadPluginEntrypoint;
 use crate::plugins::icon_cache::IconCache;
 use crate::plugins::js::start_plugin_runtime;
 use crate::plugins::js::AllPluginCommandData;
@@ -120,7 +110,7 @@ impl ApplicationManager {
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone()).await?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
-        let config_reader = ConfigReader::new(dirs.clone(), db_repository.clone());
+        let config_reader = ConfigReader::new(dirs.clone());
         let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
         let clipboard = Clipboard::new()?;
@@ -227,7 +217,7 @@ impl ApplicationManager {
         };
 
         let PluginDataView {
-            plugin_name,
+            plugin_name: _,
             entrypoints,
         } = data;
 
@@ -236,7 +226,7 @@ impl ApplicationManager {
         };
 
         let EntrypointDataView {
-            entrypoint_name,
+            entrypoint_name: _,
             entrypoint_generator: _,
             entrypoint_type,
             actions,
@@ -249,14 +239,7 @@ impl ApplicationManager {
                         self.handle_run_command(plugin_id, entrypoint_id).await;
                     }
                     SearchResultEntrypointType::View => {
-                        self.frontend_api
-                            .open_plugin_view(
-                                plugin_id,
-                                plugin_name.to_string(),
-                                entrypoint_id,
-                                entrypoint_name.to_string(),
-                            )
-                            .await?;
+                        self.frontend_api.open_plugin_view(plugin_id, entrypoint_id).await?;
                     }
                     SearchResultEntrypointType::Generated => {
                         let Some(action_data) = actions.get(0) else {
@@ -271,13 +254,7 @@ impl ApplicationManager {
                             }
                             EntrypointActionType::View => {
                                 self.frontend_api
-                                    .open_generated_plugin_view(
-                                        plugin_id,
-                                        plugin_name.to_string(),
-                                        entrypoint_id,
-                                        entrypoint_name.to_string(),
-                                        0,
-                                    )
+                                    .open_generated_plugin_view(plugin_id, entrypoint_id, 0)
                                     .await?;
                             }
                         }
@@ -305,13 +282,7 @@ impl ApplicationManager {
                             }
                             EntrypointActionType::View => {
                                 self.frontend_api
-                                    .open_generated_plugin_view(
-                                        plugin_id,
-                                        plugin_name.to_string(),
-                                        entrypoint_id,
-                                        entrypoint_name.to_string(),
-                                        1,
-                                    )
+                                    .open_generated_plugin_view(plugin_id, entrypoint_id, 1)
                                     .await?;
                             }
                         }
@@ -349,13 +320,7 @@ impl ApplicationManager {
                                     }
                                     EntrypointActionType::View => {
                                         self.frontend_api
-                                            .open_generated_plugin_view(
-                                                plugin_id,
-                                                plugin_name.to_string(),
-                                                entrypoint_id,
-                                                entrypoint_name.to_string(),
-                                                index,
-                                            )
+                                            .open_generated_plugin_view(plugin_id, entrypoint_id, index)
                                             .await?;
                                     }
                                 }
@@ -421,9 +386,7 @@ impl ApplicationManager {
                             }
                         }
                     })
-                    .chunk_by(|(generator_entrypoint_id, entrypoint_id, entrypoint_data)| {
-                        generator_entrypoint_id.clone()
-                    })
+                    .chunk_by(|(generator_entrypoint_id, _, _)| generator_entrypoint_id.clone())
                     .into_iter()
                     .map(|(generator_id, data)| {
                         let data: HashMap<_, _> = data

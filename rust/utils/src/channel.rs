@@ -94,7 +94,7 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
         let payload = (request, responder);
         self.request_sender
             .send(payload)
-            .map_err(|err| RequestError::OtherSideWasDropped)?;
+            .map_err(|_err| RequestError::OtherSideWasDropped)?;
         Ok(ResponseReceiver::new(response_receiver))
     }
 

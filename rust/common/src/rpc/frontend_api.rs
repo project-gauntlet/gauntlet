@@ -75,17 +75,9 @@ pub trait FrontendApi {
     async fn open_generated_plugin_view(
         &self,
         plugin_id: PluginId,
-        plugin_name: String,
         entrypoint_id: EntrypointId,
-        entrypoint_name: String,
         action_index: usize,
     ) -> RequestResult<()>;
 
-    async fn open_plugin_view(
-        &self,
-        plugin_id: PluginId,
-        plugin_name: String,
-        entrypoint_id: EntrypointId,
-        entrypoint_name: String,
-    ) -> RequestResult<()>;
+    async fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()>;
 }

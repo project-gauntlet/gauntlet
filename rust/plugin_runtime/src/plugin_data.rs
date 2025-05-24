@@ -44,6 +44,7 @@ impl PluginData {
         self.plugin_id.clone()
     }
 
+    #[allow(unused)]
     pub fn plugin_uuid(&self) -> &str {
         &self.plugin_uuid
     }

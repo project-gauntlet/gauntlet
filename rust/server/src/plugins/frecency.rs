@@ -38,6 +38,7 @@ impl FrecencyItemStats {
     }
 
     /// Return the number of half lives passed since the reference time
+    #[allow(unused)]
     pub fn half_lives_passed(&self) -> f64 {
         (current_time_secs() - self.reference_time) / self.half_life
     }
@@ -49,6 +50,7 @@ impl FrecencyItemStats {
     }
 
     /// Change the half life of the item, maintaining the same frecency
+    #[allow(unused)]
     pub fn set_half_life(&mut self, half_life: f64) {
         let secs = current_time_secs();
         self.reset_ref_time(secs);
@@ -84,6 +86,7 @@ impl FrecencyItemStats {
     }
 
     /// Reset the reference time and recalculate the last_accessed time
+    #[allow(unused)]
     pub fn reset_ref_time(&mut self, new_time: f64) {
         let original_frecency = self.get_frecency(current_time_secs());
         let delta = self.reference_time - new_time;
@@ -93,6 +96,7 @@ impl FrecencyItemStats {
     }
 
     /// Timestamp (in nanoseconds since epoch) of the last access
+    #[allow(unused)]
     pub fn last_access(&self) -> f64 {
         self.reference_time + self.last_accessed
     }

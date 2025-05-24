@@ -1,6 +1,4 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -247,7 +245,7 @@ impl Settings {
     }
 
     pub async fn entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
-        let mut settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings().await?;
 
         let data: HashMap<_, _> = settings
             .entrypoint_search_aliases
@@ -343,7 +341,7 @@ impl Settings {
 
         // TODO config
 
-        let mut settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings().await?;
 
         match settings.theme {
             None => Ok(SettingsTheme::AutoDetect),
@@ -385,7 +383,7 @@ impl Settings {
     }
 
     pub async fn window_position_mode_setting(&self) -> anyhow::Result<WindowPositionMode> {
-        let mut settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings().await?;
 
         let window_position_mode = match &settings.window_position_mode {
             None => WindowPositionMode::Static,

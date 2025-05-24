@@ -1,13 +1,12 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::thread;
 
 use anyhow::anyhow;
-use deno_core::op2;
 use deno_core::OpState;
+use deno_core::op2;
 use encoding::DecoderTrap;
 use encoding::Encoding;
 use serde::Deserialize;
@@ -16,27 +15,22 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use x11rb::connection::Connection;
-use x11rb::errors::ConnectionError;
 use x11rb::properties::WmClass;
 use x11rb::properties::WmHints;
+use x11rb::protocol::Event;
 use x11rb::protocol::xproto::Atom;
 use x11rb::protocol::xproto::AtomEnum;
 use x11rb::protocol::xproto::ChangeWindowAttributesAux;
 use x11rb::protocol::xproto::ClientMessageEvent;
-use x11rb::protocol::xproto::ConfigureWindowAux;
 use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::protocol::xproto::EventMask;
-use x11rb::protocol::xproto::InputFocus;
 use x11rb::protocol::xproto::MapState;
-use x11rb::protocol::xproto::StackMode;
 use x11rb::protocol::xproto::Window;
-use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 
-use crate::plugins::applications::linux;
-use crate::plugins::applications::linux::x11;
 use crate::plugins::applications::ApplicationContext;
 use crate::plugins::applications::DesktopEnvironment;
+use crate::plugins::applications::linux;
 
 pub struct X11DesktopEnvironment {
     receiver: Rc<RefCell<Receiver<JsX11ApplicationEvent>>>,
@@ -51,9 +45,9 @@ impl X11DesktopEnvironment {
         thread::Builder::new()
             .name("gauntlet-x11-events".to_string())
             .spawn(move || {
-                if let Err(e) = listen_on_x11_events(handle, sender.clone()) {
-                    tracing::error!("Error while listening on x11 events: {}", e);
-                }
+                let Err(e) = listen_on_x11_events(handle, sender.clone());
+
+                tracing::error!("Error while listening on x11 events: {}", e);
             })
             .expect("failed to spawn thread");
 
@@ -65,7 +59,7 @@ impl X11DesktopEnvironment {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
-enum JsX11ApplicationEvent {
+pub enum JsX11ApplicationEvent {
     Init {
         id: String,
         parent_id: String,
@@ -121,13 +115,13 @@ enum JsX11ApplicationEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-enum JSX11WindowProtocol {
+pub enum JSX11WindowProtocol {
     TakeFocus,
     DeleteWindow,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-enum JSX11WindowType {
+pub enum JSX11WindowType {
     DropdownMenu,
     Dialog,
     Menu,

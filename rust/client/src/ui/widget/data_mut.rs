@@ -25,7 +25,6 @@ pub struct ComponentWidgetsMut<'b> {
     pub root_widget: &'b mut Option<Arc<RootWidget>>,
     pub state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
     pub plugin_id: PluginId,
-    pub data: &'b HashMap<UiWidgetId, Vec<u8>>,
 }
 
 impl<'b> ComponentWidgetsMut<'b> {
@@ -33,16 +32,15 @@ impl<'b> ComponentWidgetsMut<'b> {
         root_widget: &'b mut Option<Arc<RootWidget>>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
         plugin_id: PluginId,
-        data: &'b HashMap<UiWidgetId, Vec<u8>>,
     ) -> ComponentWidgetsMut<'b> {
         Self {
             root_widget,
             state,
             plugin_id,
-            data,
         }
     }
 
+    #[allow(unused)]
     pub fn text_field_state_mut(&mut self, widget_id: UiWidgetId) -> &mut TextFieldState {
         Self::text_field_state_mut_on_state(&mut self.state, widget_id)
     }

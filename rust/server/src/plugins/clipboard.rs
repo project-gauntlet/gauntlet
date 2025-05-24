@@ -88,7 +88,7 @@ impl Clipboard {
         if let Some(png_data) = data.png_data {
             let cursor = Cursor::new(&png_data);
 
-            let mut reader = image::io::Reader::new(cursor);
+            let mut reader = image::ImageReader::new(cursor);
             reader.set_format(image::ImageFormat::Png);
 
             let image = reader

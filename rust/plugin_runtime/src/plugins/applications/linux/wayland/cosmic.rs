@@ -1,29 +1,22 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 use anyhow::anyhow;
 use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1;
 use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_info_v1;
 use cosmic_protocols::toplevel_management::v1::client::zcosmic_toplevel_manager_v1;
-use smithay_client_toolkit::reexports::calloop::channel::Sender;
 use smithay_client_toolkit::seat::SeatState;
-use tokio::runtime::Handle;
-use wayland_client::backend::ObjectId;
-use wayland_client::event_created_child;
-use wayland_client::globals::GlobalList;
-use wayland_client::protocol::wl_seat::WlSeat;
 use wayland_client::Connection;
 use wayland_client::Dispatch;
 use wayland_client::Proxy;
 use wayland_client::QueueHandle;
+use wayland_client::backend::ObjectId;
+use wayland_client::event_created_child;
+use wayland_client::globals::GlobalList;
 
-use crate::plugins::applications::linux::wayland::send_event;
 use crate::plugins::applications::linux::wayland::JsWaylandApplicationEvent;
 use crate::plugins::applications::linux::wayland::WaylandState;
 use crate::plugins::applications::linux::wayland::WaylandStateInner;
+use crate::plugins::applications::linux::wayland::send_event;
 
 pub struct CosmicWaylandState {
     uuid_to_obj_id: HashMap<String, ObjectId>,

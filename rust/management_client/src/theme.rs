@@ -28,14 +28,17 @@ impl DefaultStyle for GauntletSettingsTheme {
 }
 
 // keep colors more or less in sync with main ui
+#[allow(unused)]
 pub const NOT_INTENDED_TO_BE_USED: ThemeColor = ThemeColor::new(0xAF5BFF, 1.0);
 
 pub const TRANSPARENT: ThemeColor = ThemeColor::new(0x000000, 0.0);
+#[allow(unused)]
 pub const BACKGROUND_LIGHTEST: ThemeColor = ThemeColor::new(0x626974, 0.3);
 pub const BACKGROUND_LIGHTER: ThemeColor = ThemeColor::new(0x48505B, 0.5);
 pub const BACKGROUND_DARKER: ThemeColor = ThemeColor::new(0x333a42, 1.0);
 pub const BACKGROUND_DARKEST: ThemeColor = ThemeColor::new(0x2C323A, 1.0);
 pub const TEXT_LIGHTEST: ThemeColor = ThemeColor::new(0xDDDFE1, 1.0);
+#[allow(unused)]
 pub const TEXT_LIGHTER: ThemeColor = ThemeColor::new(0x9AA0A6, 1.0);
 pub const TEXT_DARKER: ThemeColor = ThemeColor::new(0x6B7785, 1.0);
 pub const TEXT_DARKEST: ThemeColor = ThemeColor::new(0x1D242C, 1.0);
