@@ -42,7 +42,6 @@ pub fn start(minimized: bool) {
     register_panic_hook(std::env::var(PLUGIN_UUID_ENV).ok());
 
     if let Ok(socket_name) = std::env::var(PLUGIN_CONNECT_ENV) {
-        // this is not actually unresolved item, see .cargo/config.toml
         gauntlet_plugin_runtime::run_plugin_runtime(socket_name);
 
         return;

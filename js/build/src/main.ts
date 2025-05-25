@@ -205,13 +205,7 @@ function build(projectRoot: string, arch: string, profile: string) {
 }
 
 function buildRust(projectRoot: string, arch: string, profile: string) {
-    console.log("Building rust plugin_runtime...")
-    const pluginRuntimeRoot = path.resolve(projectRoot, 'rust', 'plugin_runtime');
-    spawnWithErrors('cargo', ['build', '--profile', profile, '--features', 'release', '--target', arch], {
-        cwd: pluginRuntimeRoot
-    });
-
-    console.log("Building rust core...")
+    console.log("Building rust...")
     spawnWithErrors('cargo', ['build', '--profile', profile, '--features', 'release', '--target', arch], {
         cwd: projectRoot
     });
