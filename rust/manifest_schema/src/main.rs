@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::path::PathBuf;
 
 use gauntlet_server::plugins::plugin_manifest::PluginManifest;

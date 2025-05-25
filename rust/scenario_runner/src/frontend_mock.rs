@@ -57,8 +57,8 @@ pub async fn start_scenario_runner_frontend(
 
     println!("backend started");
 
-    let mut backend_for_frontend_client = BackendForFrontendApiProxy::new(backend_sender);
-    let mut backend_client = GrpcBackendApi::new().await?;
+    let backend_for_frontend_client = BackendForFrontendApiProxy::new(backend_sender);
+    let backend_client = GrpcBackendApi::new().await?;
 
     println!("saving local plugin");
 
