@@ -43,7 +43,7 @@ impl Settings {
     }
 
     pub async fn global_shortcut(&self) -> anyhow::Result<Option<(PhysicalShortcut, Option<String>)>> {
-        let settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings()?;
 
         let data = settings.global_shortcut.map(|data| {
             let shortcut = PhysicalShortcut {
@@ -65,7 +65,7 @@ impl Settings {
 
         let db_err = err.as_ref().map_err(|err| format!("{:#}", err)).err();
 
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         settings.global_shortcut = shortcut.map(|shortcut| {
             DbSettingsGlobalShortcutData {
@@ -80,19 +80,19 @@ impl Settings {
             }
         });
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         err.map_err(Into::into)
     }
 
     pub async fn set_global_shortcut_error(&self, error: Option<String>) -> anyhow::Result<()> {
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         if let Some(data) = &mut settings.global_shortcut {
             data.error = error
         }
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         Ok(())
     }
@@ -100,7 +100,7 @@ impl Settings {
     pub async fn global_entrypoint_shortcuts(
         &self,
     ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
-        let settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings()?;
         let data: HashMap<_, _> = settings
             .global_entrypoint_shortcuts
             .unwrap_or_default()
@@ -143,7 +143,7 @@ impl Settings {
 
         let db_err = err.as_ref().map_err(|err| format!("{:#}", err)).err();
 
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         let mut shortcuts: HashMap<_, _> = settings
             .global_entrypoint_shortcuts
@@ -194,7 +194,7 @@ impl Settings {
 
         settings.global_entrypoint_shortcuts = Some(global_entrypoint_shortcuts);
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         Ok(())
     }
@@ -205,7 +205,7 @@ impl Settings {
         entrypoint_id: EntrypointId,
         error: Option<String>,
     ) -> anyhow::Result<()> {
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         let mut shortcuts: HashMap<_, _> = settings
             .global_entrypoint_shortcuts
@@ -239,13 +239,13 @@ impl Settings {
 
         settings.global_entrypoint_shortcuts = Some(global_entrypoint_shortcuts);
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         Ok(())
     }
 
     pub async fn entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
-        let settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings()?;
 
         let data: HashMap<_, _> = settings
             .entrypoint_search_aliases
@@ -271,7 +271,7 @@ impl Settings {
         entrypoint_id: EntrypointId,
         alias: Option<String>,
     ) -> anyhow::Result<()> {
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         let mut alias_data: HashMap<_, _> = settings
             .entrypoint_search_aliases
@@ -306,7 +306,7 @@ impl Settings {
 
         settings.entrypoint_search_aliases = Some(alias_data);
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         Ok(())
     }
@@ -318,7 +318,7 @@ impl Settings {
 
         // TODO config
 
-        let settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings()?;
 
         let theme = match &settings.theme {
             None => self.autodetect_theme(),
@@ -341,7 +341,7 @@ impl Settings {
 
         // TODO config
 
-        let settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings()?;
 
         match settings.theme {
             None => Ok(SettingsTheme::AutoDetect),
@@ -352,7 +352,7 @@ impl Settings {
     }
 
     pub async fn set_theme_setting(&self, theme: SettingsTheme) -> anyhow::Result<()> {
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         settings.theme = match theme {
             SettingsTheme::AutoDetect => None,
@@ -375,7 +375,7 @@ impl Settings {
             }
         };
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         self.frontend_api.set_theme(theme).await?;
 
@@ -383,7 +383,7 @@ impl Settings {
     }
 
     pub async fn window_position_mode_setting(&self) -> anyhow::Result<WindowPositionMode> {
-        let settings = self.repository.get_settings().await?;
+        let settings = self.repository.get_settings()?;
 
         let window_position_mode = match &settings.window_position_mode {
             None => WindowPositionMode::Static,
@@ -394,7 +394,7 @@ impl Settings {
     }
 
     pub async fn set_window_position_mode_setting(&self, mode: WindowPositionMode) -> anyhow::Result<()> {
-        let mut settings = self.repository.get_settings().await?;
+        let mut settings = self.repository.get_settings()?;
 
         let window_position_mode = match mode {
             WindowPositionMode::Static => None,
@@ -403,7 +403,7 @@ impl Settings {
 
         settings.window_position_mode = window_position_mode;
 
-        self.repository.set_settings(settings).await?;
+        self.repository.set_settings(settings)?;
 
         self.frontend_api.set_window_position_mode(mode).await?;
 

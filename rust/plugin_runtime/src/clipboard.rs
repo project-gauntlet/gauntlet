@@ -7,12 +7,13 @@ use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::model::JsClipboardData;
 
+use crate::deno::GauntletJsError;
 use crate::model::DenoInClipboardData;
 use crate::model::DenoOutClipboardData;
 
 #[op2(async)]
 #[serde]
-pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<DenoOutClipboardData> {
+pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> Result<DenoOutClipboardData, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -31,7 +32,7 @@ pub async fn clipboard_read(state: Rc<RefCell<OpState>>) -> anyhow::Result<DenoO
 
 #[op2(async)]
 #[string]
-pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<Option<String>> {
+pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> Result<Option<String>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -44,7 +45,10 @@ pub async fn clipboard_read_text(state: Rc<RefCell<OpState>>) -> anyhow::Result<
 }
 
 #[op2(async)]
-pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: DenoInClipboardData) -> anyhow::Result<()> {
+pub async fn clipboard_write(
+    state: Rc<RefCell<OpState>>,
+    #[serde] data: DenoInClipboardData,
+) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -62,7 +66,7 @@ pub async fn clipboard_write(state: Rc<RefCell<OpState>>, #[serde] data: DenoInC
 }
 
 #[op2(async)]
-pub async fn clipboard_write_text(state: Rc<RefCell<OpState>>, #[string] data: String) -> anyhow::Result<()> {
+pub async fn clipboard_write_text(state: Rc<RefCell<OpState>>, #[string] data: String) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -75,7 +79,7 @@ pub async fn clipboard_write_text(state: Rc<RefCell<OpState>>, #[string] data: S
 }
 
 #[op2(async)]
-pub async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+pub async fn clipboard_clear(state: Rc<RefCell<OpState>>) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 

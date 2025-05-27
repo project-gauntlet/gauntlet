@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use anyhow::anyhow;
 use deno_core::OpState;
 use deno_core::op2;
 use deno_core::serde_v8;
@@ -17,6 +18,7 @@ use serde::Deserialize;
 use tokio::runtime::Handle;
 
 use crate::component_model::ComponentModel;
+use crate::deno::GauntletJsError;
 use crate::plugin_data::PluginData;
 
 #[op2]
@@ -24,7 +26,7 @@ pub fn show_plugin_error_view(
     state: Rc<RefCell<OpState>>,
     #[string] entrypoint_id: String,
     #[serde] render_location: JsUiRenderLocation,
-) -> anyhow::Result<()> {
+) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -47,7 +49,7 @@ pub fn show_preferences_required_view(
     #[string] entrypoint_id: String,
     plugin_preferences_required: bool,
     entrypoint_preferences_required: bool,
-) -> anyhow::Result<()> {
+) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -69,7 +71,7 @@ pub fn show_preferences_required_view(
 }
 
 #[op2(fast)]
-pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -108,12 +110,12 @@ pub fn op_react_replace_view<'a>(
     #[string] entrypoint_id: &str,
     #[string] entrypoint_name: &str,
     #[serde] container: serde_v8::Value<'a>,
-) -> anyhow::Result<()> {
+) -> Result<(), GauntletJsError> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
     let mut deserializer = serde_v8::Deserializer::new(scope, container.v8_value, None);
 
-    let container = RootWidget::deserialize(&mut deserializer)?;
+    let container = RootWidget::deserialize(&mut deserializer).map_err(|err| anyhow!(err))?;
 
     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
     let entrypoint_name = entrypoint_name.to_string();
@@ -139,8 +141,10 @@ pub fn op_react_replace_view<'a>(
                     container,
                 )
                 .await
+                .map_err(|err| anyhow!(err))
             })
             .await
+            .map_err(|err| anyhow!(err))
     })??;
 
     Ok(())
@@ -162,7 +166,7 @@ pub async fn fetch_action_id_for_shortcut(
     modifier_control: bool,
     modifier_alt: bool,
     modifier_meta: bool,
-) -> anyhow::Result<Option<String>> {
+) -> Result<Option<String>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -186,7 +190,7 @@ pub async fn fetch_action_id_for_shortcut(
 }
 
 #[op2(async)]
-pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) -> anyhow::Result<()> {
+pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -199,7 +203,7 @@ pub async fn show_hud(state: Rc<RefCell<OpState>>, #[string] display: String) ->
 }
 
 #[op2(async)]
-pub async fn hide_window(state: Rc<RefCell<OpState>>) -> anyhow::Result<()> {
+pub async fn hide_window(state: Rc<RefCell<OpState>>) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -216,7 +220,7 @@ pub async fn update_loading_bar(
     state: Rc<RefCell<OpState>>,
     #[string] entrypoint_id: String,
     show: bool,
-) -> anyhow::Result<()> {
+) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 

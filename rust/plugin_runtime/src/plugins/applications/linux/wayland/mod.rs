@@ -27,6 +27,7 @@ use wayland_client::globals::registry_queue_init;
 use wayland_client::protocol::wl_registry;
 use wayland_client::protocol::wl_seat::WlSeat;
 
+use crate::deno::GauntletJsError;
 use crate::plugins::applications::ApplicationContext;
 use crate::plugins::applications::DesktopEnvironment;
 use crate::plugins::applications::linux;
@@ -164,7 +165,10 @@ fn run_wayland_client(
 }
 
 #[op2(fast)]
-pub fn linux_wayland_focus_window(state: Rc<RefCell<OpState>>, #[string] window_uuid: String) -> anyhow::Result<()> {
+pub fn linux_wayland_focus_window(
+    state: Rc<RefCell<OpState>>,
+    #[string] window_uuid: String,
+) -> Result<(), GauntletJsError> {
     {
         let state = state.borrow();
 
@@ -208,7 +212,7 @@ fn activation_handler(event: Event<String>, _metadata: &mut (), state: &mut Wayl
 #[serde]
 pub async fn application_wayland_pending_event(
     state: Rc<RefCell<OpState>>,
-) -> anyhow::Result<JsWaylandApplicationEvent> {
+) -> Result<JsWaylandApplicationEvent, GauntletJsError> {
     let receiver = {
         let state = state.borrow();
 

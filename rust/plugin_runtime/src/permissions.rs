@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use deno_runtime::deno_fs::FileSystemRc;
 use deno_runtime::deno_permissions::AllowRunDescriptor;
 use deno_runtime::deno_permissions::EnvDescriptor;
 use deno_runtime::deno_permissions::EnvQueryDescriptor;
@@ -25,14 +24,13 @@ use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
 use typed_path::Utf8TypedPath;
 
 pub fn permissions_to_deno(
-    fs: FileSystemRc,
     permissions: &JsPluginPermissions,
     home_dir: &Path,
     plugin_data_dir: &Path,
     plugin_cache_dir: &Path,
 ) -> anyhow::Result<PermissionsContainer> {
     Ok(PermissionsContainer::new(
-        Arc::new(RuntimePermissionDescriptorParser::new(fs)),
+        Arc::new(RuntimePermissionDescriptorParser::new(sys_traits::impls::RealSys)),
         Permissions {
             read: path_permission(
                 &permissions.filesystem.read,

@@ -6,6 +6,7 @@ edition.workspace = true
 # workspaces
 gauntlet-common.workspace = true
 gauntlet-utils.workspace = true
+gauntlet-utils-macros.workspace = true
 gauntlet-client.workspace = true
 gauntlet-common-plugin-runtime.workspace = true
 gauntlet-plugin-runtime.workspace = true
@@ -14,6 +15,7 @@ gauntlet-scenario-runner = { workspace = true, optional = true }
 # shared
 anyhow.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
@@ -33,7 +35,8 @@ toml.workspace = true
 tantivy = "0.22"
 git2 = { version = "0.19", features = ["vendored-libgit2", "vendored-openssl"] }
 tempfile = "3"
-sqlx = { version = "0.8", features = [ "runtime-tokio", "json", "sqlite" ] }
+rusqlite = { version = "0.34.0", features = ["serde_json"] }
+
 include_dir = "0.7"
 open = "5"
 uuid = "1.8"

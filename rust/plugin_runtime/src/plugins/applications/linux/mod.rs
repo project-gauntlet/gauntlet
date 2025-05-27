@@ -3,6 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use anyhow::anyhow;
 use deno_core::OpState;
 use deno_core::op2;
 use freedesktop_entry_parser::parse_entry;
@@ -10,6 +11,7 @@ use freedesktop_icons::lookup;
 use gauntlet_common::detached_process::CommandExt;
 use tokio::task::spawn_blocking;
 
+use crate::deno::GauntletJsError;
 use crate::plugin_data::PluginData;
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
@@ -67,7 +69,7 @@ impl LinuxDesktopEnvironment {
 async fn linux_app_from_path(
     state: Rc<RefCell<OpState>>,
     #[string] path: String,
-) -> anyhow::Result<Option<DesktopPathAction>> {
+) -> Result<Option<DesktopPathAction>, GauntletJsError> {
     let home_dir = {
         let state = state.borrow();
 
@@ -76,7 +78,11 @@ async fn linux_app_from_path(
         home_dir
     };
 
-    Ok(spawn_blocking(|| linux_app_from_path_async(home_dir, PathBuf::from(path))).await?)
+    let result = spawn_blocking(|| linux_app_from_path_async(home_dir, PathBuf::from(path)))
+        .await
+        .map_err(|err| anyhow!(err))?;
+
+    Ok(result)
 }
 
 #[op2]
@@ -97,10 +103,11 @@ fn linux_application_dirs(state: Rc<RefCell<OpState>>) -> Vec<String> {
 }
 
 #[op2(fast)]
-fn linux_open_application(#[string] desktop_file_id: String) -> anyhow::Result<()> {
+fn linux_open_application(#[string] desktop_file_id: String) -> Result<(), GauntletJsError> {
     std::process::Command::new("gtk-launch")
         .args([desktop_file_id])
-        .spawn_detached()?;
+        .spawn_detached()
+        .map_err(|err| anyhow!(err))?;
 
     Ok(())
 }

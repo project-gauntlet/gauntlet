@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::Context;
-use anyhow::anyhow;
 use deno_core::FastString;
 use deno_core::ModuleLoadResponse;
 use deno_core::ModuleLoader;
@@ -17,12 +16,17 @@ use deno_core::ModuleType;
 use deno_core::RequestedModuleType;
 use deno_core::ResolutionKind;
 use deno_core::StaticModuleLoader;
+use deno_core::error::ModuleLoaderError;
+use deno_core::thiserror;
+use deno_core::url::ParseError;
 use deno_core::url::Url;
-use deno_runtime::BootstrapOptions;
-use deno_runtime::deno_fs::FileSystem;
+use deno_error::JsErrorBox;
+use deno_resolver::npm::ByonmInNpmPackageChecker;
+use deno_resolver::npm::ManagedNpmResolver;
 use deno_runtime::deno_fs::RealFs;
 use deno_runtime::deno_io::Stdio;
 use deno_runtime::deno_io::StdioPipe;
+use deno_runtime::deno_node::NodeExtInitServices;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use deno_runtime::worker::WorkerServiceOptions;
@@ -30,8 +34,10 @@ use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::model::JsEvent;
 use gauntlet_common_plugin_runtime::model::JsInit;
 use gauntlet_common_plugin_runtime::model::JsPluginCode;
+use gauntlet_utils::channel::RequestError;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use sys_traits::impls::RealSys;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::Receiver;
 
@@ -104,6 +110,16 @@ impl CustomModuleLoader {
             dev_plugin,
         }
     }
+}
+
+#[derive(Debug, thiserror::Error, deno_error::JsError)]
+pub enum GauntletJsError {
+    #[class(generic)]
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
+    #[class(generic)]
+    #[error(transparent)]
+    Request(#[from] RequestError),
 }
 
 const MODULES: [(&str, &str); 11] = [
@@ -189,7 +205,7 @@ impl ModuleLoader for CustomModuleLoader {
         specifier: &str,
         referrer: &str,
         _kind: ResolutionKind,
-    ) -> Result<ModuleSpecifier, anyhow::Error> {
+    ) -> Result<ModuleSpecifier, ModuleLoaderError> {
         static PLUGIN_ENTRYPOINT_PATTERN: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r"^gauntlet:entrypoint\?(?<entrypoint_id>[a-zA-Z0-9_-]+)$").expect("invalid regex")
         });
@@ -199,12 +215,18 @@ impl ModuleLoader for CustomModuleLoader {
             Lazy::new(|| Regex::new(r"^\./(?<js_module>[a-zA-Z0-9_-]+)\.js$").expect("invalid regex"));
 
         if PLUGIN_ENTRYPOINT_PATTERN.is_match(specifier) {
-            return Ok(specifier.parse()?);
+            return Ok(specifier
+                .parse()
+                .map_err(|err: ParseError| ModuleLoaderError::Core(err.into()))?);
         }
 
         if PLUGIN_ENTRYPOINT_PATTERN.is_match(referrer) || PLUGIN_MODULE_PATTERN.is_match(referrer) {
             if let Some(captures) = PATH_PATTERN.captures(specifier) {
-                return Ok(format!("gauntlet:module?{}", &captures["js_module"]).parse()?);
+                let result = format!("gauntlet:module?{}", &captures["js_module"])
+                    .parse()
+                    .map_err(|err: ParseError| ModuleLoaderError::Core(err.into()))?;
+
+                return Ok(result);
             }
         }
 
@@ -221,15 +243,17 @@ impl ModuleLoader for CustomModuleLoader {
             ("@project-gauntlet/api/hooks", _) => "gauntlet:bridge/hooks",
             ("@project-gauntlet/api/helpers", _) => "gauntlet:bridge/helpers",
             _ => {
-                return Err(anyhow!(
+                let error = JsErrorBox::generic(format!(
                     "Illegal import with specifier '{}' and referrer '{}'",
-                    specifier,
-                    referrer
+                    specifier, referrer
                 ));
+                return Err(error.into());
             }
         };
 
-        Ok(Url::parse(specifier)?)
+        let url = Url::parse(specifier).map_err(|err: ParseError| ModuleLoaderError::Core(err.into()))?;
+
+        Ok(url)
     }
 
     fn load(
@@ -249,13 +273,19 @@ impl ModuleLoader for CustomModuleLoader {
             }
             "gauntlet:entrypoint" | "gauntlet:module" => {
                 match module_specifier.query() {
-                    None => ModuleLoadResponse::Sync(Err(anyhow!("Module specifier doesn't have query part"))),
+                    None => {
+                        let error = JsErrorBox::generic("Module specifier doesn't have query part");
+
+                        ModuleLoadResponse::Sync(Err(error.into()))
+                    }
                     Some(entrypoint_id) => {
                         let result = self
                             .code
                             .js
                             .get(entrypoint_id)
-                            .ok_or(anyhow!("Cannot find JS code path: {:?}", entrypoint_id))
+                            .ok_or_else(|| {
+                                JsErrorBox::generic(format!("Cannot find JS code path: {:?}", entrypoint_id)).into()
+                            })
                             .map(|js| ModuleSourceCode::String(js.clone().into()))
                             .map(|js| ModuleSource::new(ModuleType::JavaScript, js, module_specifier, None));
 
@@ -268,11 +298,13 @@ impl ModuleLoader for CustomModuleLoader {
                     self.static_loader
                         .load(module_specifier, maybe_referrer, is_dyn_import, requested_module_type)
                 } else {
-                    ModuleLoadResponse::Sync(Err(anyhow!(
+                    let error = JsErrorBox::generic(format!(
                         "Module not found: specifier '{}' and referrer '{:?}'",
                         specifier,
                         maybe_referrer.map(|url| url.as_str())
-                    )))
+                    ));
+
+                    ModuleLoadResponse::Sync(Err(error.into()))
                 }
             }
         }
@@ -493,12 +525,9 @@ pub async fn start_js_runtime(
 
     let init_url: ModuleSpecifier = "gauntlet:init".parse().expect("should be valid");
 
-    let fs: Arc<dyn FileSystem> = Arc::new(RealFs);
-
     let home_dir = PathBuf::from(init.home_dir);
 
     let permissions_container = permissions_to_deno(
-        fs.clone(),
         &init.permissions,
         &home_dir,
         Path::new(&init.plugin_data_dir),
@@ -506,13 +535,13 @@ pub async fn start_js_runtime(
     )?;
 
     let gauntlet_esm = if cfg!(feature = "release") && !init.dev_plugin {
-        prod::gauntlet_esm::init_ops_and_esm()
+        prod::gauntlet_esm::init()
     } else {
-        dev::gauntlet_esm::init_ops_and_esm()
+        dev::gauntlet_esm::init()
     };
 
     let mut extensions = vec![
-        gauntlet::init_ops(
+        gauntlet::init(
             EventReceiver::new(event_stream),
             PluginData::new(
                 init.plugin_id.clone(),
@@ -531,7 +560,7 @@ pub async fn start_js_runtime(
     ];
 
     if init.plugin_id.to_string() == "bundled://gauntlet" {
-        extensions.push(gauntlet_internal_all::init_ops_and_esm(
+        extensions.push(gauntlet_internal_all::init(
             NumbatContext::new(),
             ApplicationContext::new()?,
         ));
@@ -540,19 +569,20 @@ pub async fn start_js_runtime(
         extensions.push(gauntlet_internal_macos::init_ops_and_esm());
 
         #[cfg(target_os = "linux")]
-        extensions.push(crate::plugins::applications::gauntlet_internal_linux::init_ops_and_esm());
+        extensions.push(crate::plugins::applications::gauntlet_internal_linux::init());
 
         #[cfg(target_os = "windows")]
         extensions.push(crate::plugins::applications::gauntlet_internal_windows::init_ops_and_esm());
     }
 
     let mut worker = MainWorker::bootstrap_from_options(
-        init_url.clone(),
-        WorkerServiceOptions {
+        &init_url,
+        WorkerServiceOptions::<ByonmInNpmPackageChecker, ManagedNpmResolver<RealSys>, RealSys> {
             blob_store: Arc::new(Default::default()),
             broadcast_channel: Default::default(),
+            deno_rt_native_addon_loader: None,
             feature_checker: Arc::new(Default::default()),
-            fs,
+            fs: Arc::new(RealFs),
             module_loader: Rc::new(CustomModuleLoader::new(init.code, init.dev_plugin)),
             node_services: None,
             npm_process_state_provider: None,
@@ -564,11 +594,6 @@ pub async fn start_js_runtime(
             v8_code_cache: None,
         },
         WorkerOptions {
-            bootstrap: BootstrapOptions {
-                is_stderr_tty: false,
-                is_stdout_tty: false,
-                ..Default::default()
-            },
             extensions,
             maybe_inspector_server: None,
             should_wait_for_inspector_session: false,

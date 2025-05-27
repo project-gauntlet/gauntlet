@@ -28,6 +28,7 @@ use x11rb::protocol::xproto::MapState;
 use x11rb::protocol::xproto::Window;
 use x11rb::rust_connection::RustConnection;
 
+use crate::deno::GauntletJsError;
 use crate::plugins::applications::ApplicationContext;
 use crate::plugins::applications::DesktopEnvironment;
 use crate::plugins::applications::linux;
@@ -136,7 +137,9 @@ pub enum JSX11WindowType {
 
 #[op2(async)]
 #[serde]
-pub async fn application_x11_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsX11ApplicationEvent> {
+pub async fn application_x11_pending_event(
+    state: Rc<RefCell<OpState>>,
+) -> Result<JsX11ApplicationEvent, GauntletJsError> {
     let receiver = {
         let state = state.borrow();
 
@@ -162,7 +165,7 @@ pub async fn application_x11_pending_event(state: Rc<RefCell<OpState>>) -> anyho
 }
 
 #[op2(fast)]
-pub fn linux_x11_focus_window(#[string] x11_window_id: String) -> anyhow::Result<()> {
+pub fn linux_x11_focus_window(#[string] x11_window_id: String) -> Result<(), GauntletJsError> {
     focus_window(x11_window_id)?;
 
     Ok(())

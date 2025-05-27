@@ -6,9 +6,13 @@ use deno_core::op2;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 
+use crate::deno::GauntletJsError;
+
 #[op2(async)]
 #[serde]
-pub async fn get_entrypoint_generator_entrypoint_ids(state: Rc<RefCell<OpState>>) -> anyhow::Result<Vec<String>> {
+pub async fn get_entrypoint_generator_entrypoint_ids(
+    state: Rc<RefCell<OpState>>,
+) -> Result<Vec<String>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 

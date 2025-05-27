@@ -79,7 +79,6 @@ pub mod js;
 mod loader;
 pub mod plugin_manifest;
 mod run_status;
-mod runtime;
 pub mod settings;
 pub mod theme;
 
@@ -339,7 +338,7 @@ impl ApplicationManager {
 
         let plugin_id = self.plugin_downloader.save_local_plugin(path).await?;
 
-        let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string()).await?;
+        let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())?;
 
         self.reload_plugin(plugin_id.clone()).await?;
 
@@ -402,8 +401,7 @@ impl ApplicationManager {
 
         let result = self
             .db_repository
-            .list_plugins_and_entrypoints()
-            .await?
+            .list_plugins_and_entrypoints()?
             .into_iter()
             .map(|(plugin, entrypoints)| {
                 let plugin_id = PluginId::from_string(plugin.id);
@@ -502,9 +500,7 @@ impl ApplicationManager {
 
         match (currently_running, currently_enabled, set_enabled) {
             (false, false, true) => {
-                self.db_repository
-                    .set_plugin_enabled(&plugin_id.to_string(), true)
-                    .await?;
+                self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)?;
 
                 self.start_plugin(plugin_id).await?;
             }
@@ -512,9 +508,7 @@ impl ApplicationManager {
                 self.start_plugin(plugin_id).await?;
             }
             (true, true, false) => {
-                self.db_repository
-                    .set_plugin_enabled(&plugin_id.to_string(), false)
-                    .await?;
+                self.db_repository.set_plugin_enabled(&plugin_id.to_string(), false)?;
 
                 self.stop_plugin(plugin_id.clone()).await;
                 self.search_index.remove_for_plugin(plugin_id)?;
@@ -545,9 +539,11 @@ impl ApplicationManager {
             enabled
         );
 
-        self.db_repository
-            .set_plugin_entrypoint_enabled(&plugin_id.to_string(), &entrypoint_id.to_string(), enabled)
-            .await?;
+        self.db_repository.set_plugin_entrypoint_enabled(
+            &plugin_id.to_string(),
+            &entrypoint_id.to_string(),
+            enabled,
+        )?;
 
         self.reload_plugin(plugin_id.clone()).await?;
 
@@ -633,14 +629,12 @@ impl ApplicationManager {
 
         let user_data = plugin_preference_user_data_to_db(preference_value);
 
-        self.db_repository
-            .set_preference_value(
-                plugin_id.to_string(),
-                entrypoint_id.map(|id| id.to_string()),
-                preference_id,
-                user_data,
-            )
-            .await?;
+        self.db_repository.set_preference_value(
+            plugin_id.to_string(),
+            entrypoint_id.map(|id| id.to_string()),
+            preference_id,
+            user_data,
+        )?;
 
         self.reload_plugin(plugin_id.clone()).await?;
 
@@ -658,7 +652,7 @@ impl ApplicationManager {
 
         self.reload_config().await?;
 
-        for plugin in self.db_repository.list_plugins().await? {
+        for plugin in self.db_repository.list_plugins()? {
             let plugin_id = PluginId::from_string(plugin.id);
             let running = self.run_status_holder.is_plugin_running(&plugin_id);
             match (running, plugin.enabled) {
@@ -683,7 +677,7 @@ impl ApplicationManager {
         if running {
             self.stop_plugin(plugin_id.clone()).await;
         }
-        self.db_repository.remove_plugin(&plugin_id.to_string()).await?;
+        self.db_repository.remove_plugin(&plugin_id.to_string())?;
         self.search_index.remove_for_plugin(plugin_id)?;
         Ok(())
     }
@@ -851,7 +845,7 @@ impl ApplicationManager {
     }
 
     async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> anyhow::Result<bool> {
-        self.db_repository.is_plugin_enabled(&plugin_id.to_string()).await
+        self.db_repository.is_plugin_enabled(&plugin_id.to_string())
     }
 
     async fn action_shortcuts(
@@ -861,7 +855,6 @@ impl ApplicationManager {
     ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         self.db_repository
             .action_shortcuts(&plugin_id.to_string(), &entrypoint_id.to_string())
-            .await
     }
 
     async fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
@@ -869,20 +862,18 @@ impl ApplicationManager {
 
         let plugin_id_str = plugin_id.to_string();
 
-        let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str).await?;
+        let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str)?;
 
         let entrypoint_names = self
             .db_repository
-            .get_entrypoints_by_plugin_id(&plugin_id_str)
-            .await?
+            .get_entrypoints_by_plugin_id(&plugin_id_str)?
             .into_iter()
             .map(|entrypoint| (EntrypointId::from_string(entrypoint.id), entrypoint.name))
             .collect::<HashMap<EntrypointId, String>>();
 
         let inline_view_entrypoint_id = self
             .db_repository
-            .get_inline_view_entrypoint_id_for_plugin(&plugin_id_str)
-            .await?;
+            .get_inline_view_entrypoint_id_for_plugin(&plugin_id_str)?;
 
         let receiver = self.command_broadcaster.subscribe();
 
@@ -970,8 +961,7 @@ impl ApplicationManager {
     async fn mark_entrypoint_frecency(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         let result = self
             .db_repository
-            .mark_entrypoint_frecency(&plugin_id.to_string(), &entrypoint_id.to_string())
-            .await;
+            .mark_entrypoint_frecency(&plugin_id.to_string(), &entrypoint_id.to_string());
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -987,8 +977,7 @@ impl ApplicationManager {
     pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
         let result: HashMap<_, _> = self
             .db_repository
-            .inline_view_shortcuts()
-            .await?
+            .inline_view_shortcuts()?
             .into_iter()
             .map(|(plugin_id, shortcuts)| (PluginId::from_string(plugin_id), shortcuts))
             .collect();

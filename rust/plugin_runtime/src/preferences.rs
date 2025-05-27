@@ -10,9 +10,13 @@ use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::model::JsPreferenceUserData;
 
+use crate::deno::GauntletJsError;
+
 #[op2]
 #[serde]
-pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
+pub fn get_plugin_preferences(
+    state: Rc<RefCell<OpState>>,
+) -> Result<HashMap<String, JsPreferenceUserData>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -29,7 +33,7 @@ pub fn get_plugin_preferences(state: Rc<RefCell<OpState>>) -> anyhow::Result<Has
 pub fn get_entrypoint_preferences(
     state: Rc<RefCell<OpState>>,
     #[string] entrypoint_id: &str,
-) -> anyhow::Result<HashMap<String, JsPreferenceUserData>> {
+) -> Result<HashMap<String, JsPreferenceUserData>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -46,7 +50,7 @@ pub fn get_entrypoint_preferences(
 }
 
 #[op2(async)]
-pub async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow::Result<bool> {
+pub async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> Result<bool, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -62,7 +66,7 @@ pub async fn plugin_preferences_required(state: Rc<RefCell<OpState>>) -> anyhow:
 pub async fn entrypoint_preferences_required(
     state: Rc<RefCell<OpState>>,
     #[string] entrypoint_id: String,
-) -> anyhow::Result<bool> {
+) -> Result<bool, GauntletJsError> {
     let api = {
         let state = state.borrow();
 

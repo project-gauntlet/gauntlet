@@ -7,9 +7,11 @@ use deno_core::op2;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 
+use crate::deno::GauntletJsError;
+
 #[op2(async)]
 #[buffer]
-pub async fn asset_data(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Vec<u8>> {
+pub async fn asset_data(state: Rc<RefCell<OpState>>, #[string] path: String) -> Result<Vec<u8>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 
@@ -25,7 +27,7 @@ pub async fn asset_data(state: Rc<RefCell<OpState>>, #[string] path: String) -> 
 
 #[op2]
 #[buffer]
-pub fn asset_data_blocking(state: Rc<RefCell<OpState>>, #[string] path: String) -> anyhow::Result<Vec<u8>> {
+pub fn asset_data_blocking(state: Rc<RefCell<OpState>>, #[string] path: String) -> Result<Vec<u8>, GauntletJsError> {
     let api = {
         let state = state.borrow();
 

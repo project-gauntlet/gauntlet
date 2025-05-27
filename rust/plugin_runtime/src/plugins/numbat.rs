@@ -13,6 +13,8 @@ use numbat::pretty_print::PrettyPrint;
 use numbat::resolver::CodeSource;
 use serde::Serialize;
 
+use crate::deno::GauntletJsError;
+
 #[derive(Clone)]
 pub struct NumbatContext(Rc<RefCell<Context>>);
 
@@ -40,7 +42,7 @@ struct NumbatResult {
 
 #[op2]
 #[serde]
-pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> anyhow::Result<NumbatResult> {
+pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> Result<NumbatResult, GauntletJsError> {
     let context = {
         let state = state.borrow();
 
@@ -51,7 +53,9 @@ pub fn run_numbat(state: Rc<RefCell<OpState>>, #[string] input: String) -> anyho
 
     let mut context = context.0.borrow_mut();
 
-    let (statements, result) = context.interpret(&input, CodeSource::Text)?;
+    let (statements, result) = context
+        .interpret(&input, CodeSource::Text)
+        .map_err(|err| anyhow!(err))?;
 
     let formatter = PlainTextFormatter;
 

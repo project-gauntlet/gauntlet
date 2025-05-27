@@ -313,7 +313,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
             let mut sender = sender.lock().await;
             if let Err(err) = send_message(JsMessageSide::Backend, &mut sender, JsMessage::Stop).await {
-                tracing::error!("Error when sending stop request to plugin runtime {:?}", err);
+                tracing::error!("Error when sending stop request to plugin runtime: {:?}", err);
             }
         }
     });
@@ -331,7 +331,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                 }
             })
         } => {
-            tracing::error!("Event loop has been stopped {:?}", plugin_id)
+            tracing::error!("Event loop has been stopped: {:?}", plugin_id)
         }
         _ = {
              tokio::task::unconstrained(async {
@@ -345,7 +345,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
                              }
                          }
                          Err(err) => {
-                             tracing::error!("Request loop faced an error {:?}", err);
+                             tracing::error!("Server side of plugin request loop faced an error: {:?}", err);
                              break;
                          }
                      }
@@ -620,28 +620,22 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         let DbReadPlugin { name, .. } = self
             .repository
             .get_plugin_by_id(&self.plugin_id.to_string())
-            .await
             .context("error when getting plugin by id")?;
 
         let entrypoints = self
             .repository
             .get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
-            .await
             .context("error when getting entrypoints by plugin id")?;
 
         let frecency_map = self
             .repository
             .get_frecency_for_plugin(&self.plugin_id.to_string())
-            .await
             .context("error when getting frecency for plugin")?;
 
         let mut shortcuts = HashMap::new();
 
         for DbReadPluginEntrypoint { id, .. } in &entrypoints {
-            let entrypoint_shortcuts = self
-                .repository
-                .action_shortcuts(&self.plugin_id.to_string(), id)
-                .await?;
+            let entrypoint_shortcuts = self.repository.action_shortcuts(&self.plugin_id.to_string(), id)?;
             shortcuts.insert(id.clone(), entrypoint_shortcuts);
         }
 
@@ -730,8 +724,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             if let Some(path_to_asset) = &entrypoint.icon_path {
                 let result = self
                     .repository
-                    .get_asset_data(&self.plugin_id.to_string(), path_to_asset)
-                    .await;
+                    .get_asset_data(&self.plugin_id.to_string(), path_to_asset);
 
                 if let Ok(data) = result {
                     icon_asset_data.insert((entrypoint.id.clone(), path_to_asset.clone()), data);
@@ -809,10 +802,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn get_asset_data(&self, path: String) -> RequestResult<Vec<u8>> {
-        let data = self
-            .repository
-            .get_asset_data(&self.plugin_id.to_string(), &path)
-            .await?;
+        let data = self.repository.get_asset_data(&self.plugin_id.to_string(), &path)?;
 
         Ok(data)
     }
@@ -820,8 +810,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     async fn get_entrypoint_generator_entrypoint_ids(&self) -> RequestResult<Vec<String>> {
         let result = self
             .repository
-            .get_entrypoints_by_plugin_id(&self.plugin_id.to_string())
-            .await?
+            .get_entrypoints_by_plugin_id(&self.plugin_id.to_string())?
             .into_iter()
             .filter(|entrypoint| entrypoint.enabled)
             .filter(|entrypoint| {
@@ -841,7 +830,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             preferences,
             preferences_user_data,
             ..
-        } = self.repository.get_plugin_by_id(&self.plugin_id.to_string()).await?;
+        } = self.repository.get_plugin_by_id(&self.plugin_id.to_string())?;
 
         Ok(preferences_to_js(preferences, preferences_user_data))
     }
@@ -856,8 +845,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             ..
         } = self
             .repository
-            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())
-            .await?;
+            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())?;
 
         Ok(preferences_to_js(preferences, preferences_user_data))
     }
@@ -867,7 +855,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             preferences,
             preferences_user_data,
             ..
-        } = self.repository.get_plugin_by_id(&self.plugin_id.to_string()).await?;
+        } = self.repository.get_plugin_by_id(&self.plugin_id.to_string())?;
 
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
@@ -879,8 +867,7 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
             ..
         } = self
             .repository
-            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())
-            .await?;
+            .get_entrypoint_by_id(&self.plugin_id.to_string(), &entrypoint_id.to_string())?;
 
         Ok(any_preferences_missing_value(preferences, preferences_user_data))
     }
@@ -974,18 +961,15 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> RequestResult<Option<String>> {
-        let result = self
-            .repository
-            .get_action_id_for_shortcut(
-                &self.plugin_id.to_string(),
-                &entrypoint_id.to_string(),
-                PhysicalKey::from_value(key),
-                modifier_shift,
-                modifier_control,
-                modifier_alt,
-                modifier_meta,
-            )
-            .await?;
+        let result = self.repository.get_action_id_for_shortcut(
+            &self.plugin_id.to_string(),
+            &entrypoint_id.to_string(),
+            PhysicalKey::from_value(key),
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        )?;
 
         Ok(result)
     }

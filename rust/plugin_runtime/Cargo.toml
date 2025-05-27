@@ -12,6 +12,7 @@ gauntlet-common-plugin-runtime = { path = "../common_plugin_runtime" }
 
 # shared
 anyhow.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
@@ -27,9 +28,14 @@ walkdir.workspace = true
 typed-path.workspace = true
 interprocess.workspace = true
 
+# deno crates
+deno_core = { version = "0.347.0" } # https://github.com/denoland/deno/blob/v2.3.3
+deno_runtime = { version = "0.213.0", features = ["transpile"] }
+deno_error = { version = "*" }
+deno_resolver = "*"
+sys_traits = "*"
+
 # other
-deno_core = { version = "0.321.0" } # deno 2.1.1
-deno_runtime = { version = "0.188.0" }
 resvg = { version = "0.44.0", default-features = false}
 numbat = "1.14.0"
 which = "7.0.1"

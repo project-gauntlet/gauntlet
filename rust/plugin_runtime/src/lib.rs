@@ -115,7 +115,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
             tracing::error!("Request loop has unexpectedly stopped {:?}", plugin_id)
         }
         _ = {
-            run_new_tokio(handle, stop_token.clone(), init, event_receiver, api)
+            run_new_tokio(handle, stop_token.clone(), init, event_receiver, api.clone())
         } => {
             tracing::error!("Request loop has unexpectedly stopped {:?}", plugin_id)
         }
@@ -130,7 +130,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
 
     tracing::debug!("Plugin runtime outer loop has been stopped {:?}", plugin_id);
 
-    drop((recver, sender));
+    drop((recver, sender, api));
 
     Ok(())
 }

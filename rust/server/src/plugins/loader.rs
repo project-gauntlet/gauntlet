@@ -74,20 +74,18 @@ impl PluginLoader {
 
                     let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id_clone.clone()).await?;
 
-                    data_db_repository
-                        .save_plugin(DbWritePlugin {
-                            id: plugin_data.id,
-                            name: plugin_data.name,
-                            description: plugin_data.description,
-                            enabled: false,
-                            code: plugin_data.code,
-                            entrypoints: plugin_data.entrypoints,
-                            asset_data: plugin_data.asset_data,
-                            permissions: plugin_data.permissions,
-                            plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
-                            preferences: plugin_data.preferences,
-                        })
-                        .await?;
+                    data_db_repository.save_plugin(DbWritePlugin {
+                        id: plugin_data.id,
+                        name: plugin_data.name,
+                        description: plugin_data.description,
+                        enabled: false,
+                        code: plugin_data.code,
+                        entrypoints: plugin_data.entrypoints,
+                        asset_data: plugin_data.asset_data,
+                        permissions: plugin_data.permissions,
+                        plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
+                        preferences: plugin_data.preferences,
+                    })?;
 
                     anyhow::Ok(())
                 });
@@ -119,20 +117,18 @@ impl PluginLoader {
             .await
             .context(format!("Unable to read plugin: {}", &plugin_id.to_string()))?;
 
-        self.db_repository
-            .save_plugin(DbWritePlugin {
-                id: plugin_data.id,
-                name: plugin_data.name,
-                description: plugin_data.description,
-                enabled: true,
-                code: plugin_data.code,
-                entrypoints: plugin_data.entrypoints,
-                asset_data: plugin_data.asset_data,
-                permissions: plugin_data.permissions,
-                plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
-                preferences: plugin_data.preferences,
-            })
-            .await?;
+        self.db_repository.save_plugin(DbWritePlugin {
+            id: plugin_data.id,
+            name: plugin_data.name,
+            description: plugin_data.description,
+            enabled: true,
+            code: plugin_data.code,
+            entrypoints: plugin_data.entrypoints,
+            asset_data: plugin_data.asset_data,
+            permissions: plugin_data.permissions,
+            plugin_type: db_plugin_type_to_str(DbPluginType::Normal).to_owned(),
+            preferences: plugin_data.preferences,
+        })?;
 
         Ok(plugin_id)
     }
@@ -147,20 +143,18 @@ impl PluginLoader {
             .await
             .context(format!("Unable to read plugin: {}", &plugin_id.to_string()))?;
 
-        self.db_repository
-            .save_plugin(DbWritePlugin {
-                id: plugin_data.id,
-                name: plugin_data.name,
-                description: plugin_data.description,
-                enabled: true,
-                code: plugin_data.code,
-                entrypoints: plugin_data.entrypoints,
-                asset_data: plugin_data.asset_data,
-                permissions: plugin_data.permissions,
-                plugin_type: db_plugin_type_to_str(DbPluginType::Bundled).to_owned(),
-                preferences: plugin_data.preferences,
-            })
-            .await?;
+        self.db_repository.save_plugin(DbWritePlugin {
+            id: plugin_data.id,
+            name: plugin_data.name,
+            description: plugin_data.description,
+            enabled: true,
+            code: plugin_data.code,
+            entrypoints: plugin_data.entrypoints,
+            asset_data: plugin_data.asset_data,
+            permissions: plugin_data.permissions,
+            plugin_type: db_plugin_type_to_str(DbPluginType::Bundled).to_owned(),
+            preferences: plugin_data.preferences,
+        })?;
 
         Ok(plugin_id)
     }

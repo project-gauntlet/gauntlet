@@ -7,6 +7,7 @@ use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::model::JsGeneratedSearchItem;
 
+use crate::deno::GauntletJsError;
 use crate::model::DenoInGeneratedSearchItem;
 
 #[op2(async)]
@@ -14,7 +15,7 @@ pub async fn reload_search_index(
     state: Rc<RefCell<OpState>>,
     #[serde] generated_entrypoints: Vec<DenoInGeneratedSearchItem>,
     refresh_search_list: bool,
-) -> anyhow::Result<()> {
+) -> Result<(), GauntletJsError> {
     let api = {
         let state = state.borrow();
 

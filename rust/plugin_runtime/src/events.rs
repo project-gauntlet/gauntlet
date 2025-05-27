@@ -7,6 +7,8 @@ use deno_core::op2;
 use gauntlet_common_plugin_runtime::model::JsEvent;
 use tokio::sync::mpsc::Receiver;
 
+use crate::deno::GauntletJsError;
+
 pub struct EventReceiver {
     event_stream: Rc<RefCell<Receiver<JsEvent>>>,
 }
@@ -21,7 +23,7 @@ impl EventReceiver {
 
 #[op2(async)]
 #[serde]
-pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> anyhow::Result<JsEvent> {
+pub async fn op_plugin_get_pending_event(state: Rc<RefCell<OpState>>) -> Result<JsEvent, GauntletJsError> {
     let event_stream = { state.borrow().borrow::<EventReceiver>().event_stream.clone() };
 
     let mut event_stream = event_stream.borrow_mut();

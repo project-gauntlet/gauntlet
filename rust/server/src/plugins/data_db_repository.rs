@@ -1,57 +1,53 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Context;
 use anyhow::anyhow;
-use futures::StreamExt;
-use futures::TryStreamExt;
-use futures::future::join_all;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
+use gauntlet_utils_macros::RusqliteFromRow;
+use rusqlite::Connection;
+use rusqlite::OptionalExtension;
+use rusqlite::Row;
+use rusqlite::named_params;
 use serde::Deserialize;
 use serde::Serialize;
-use sqlx::Executor;
-use sqlx::Pool;
-use sqlx::Row;
-use sqlx::Sqlite;
-use sqlx::SqlitePool;
-use sqlx::migrate::Migrator;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::types::Json;
 use uuid::Uuid;
 
 use crate::model::ActionShortcutKey;
 use crate::plugins::frecency::FrecencyItemStats;
 use crate::plugins::frecency::FrecencyMetaParams;
 
-static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
+// static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
 #[derive(Clone)]
 pub struct DataDbRepository {
-    pool: Pool<Sqlite>,
+    connection: Arc<Mutex<Connection>>,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(RusqliteFromRow)]
 pub struct DbReadPlugin {
     pub id: String,
     pub uuid: String,
     pub name: String,
     pub description: String,
     pub enabled: bool,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub code: DbCode,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub permissions: DbPluginPermissions,
-    #[sqlx(rename = "type")]
+    #[rusqlite(rename = "type")]
     pub plugin_type: String,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub preferences: HashMap<String, DbPluginPreference>,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(RusqliteFromRow)]
 pub struct DbReadPluginEntrypoint {
     pub id: String,
     pub uuid: String,
@@ -60,15 +56,15 @@ pub struct DbReadPluginEntrypoint {
     pub description: String,
     pub enabled: bool,
     pub icon_path: Option<String>,
-    #[sqlx(rename = "type")]
+    #[rusqlite(rename = "type")]
     pub entrypoint_type: String,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub preferences: HashMap<String, DbPluginPreference>,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub preferences_user_data: HashMap<String, DbPluginPreferenceUserData>,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub actions: Vec<DbPluginAction>,
-    #[sqlx(json)]
+    #[rusqlite(json)]
     pub actions_user_data: Vec<DbPluginActionUserData>,
 }
 
@@ -208,10 +204,10 @@ pub struct DbPluginActionUserData {
     pub modifier_meta: bool,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(RusqliteFromRow)]
 struct DbSettingsDataContainer {
-    // #[sqlx(json)] // https://github.com/launchbadge/sqlx/issues/2849
-    pub settings: Option<Json<DbSettings>>,
+    #[rusqlite(json)]
+    pub settings: Option<DbSettings>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -367,16 +363,7 @@ pub struct DbPreferenceEnumValue {
     pub value: String,
 }
 
-#[derive(sqlx::FromRow)]
-pub struct DbReadPendingPlugin {
-    pub id: String,
-}
-
-pub struct DbWritePendingPlugin {
-    pub id: String,
-}
-
-#[derive(sqlx::FromRow)]
+#[derive(RusqliteFromRow)]
 pub struct DbPluginEntrypointFrecencyStats {
     #[allow(unused)]
     pub plugin_id: String,
@@ -398,307 +385,328 @@ impl DataDbRepository {
 
         std::fs::create_dir_all(&data_db_file.parent().unwrap()).context("Unable to create data directory")?;
 
-        let conn = SqliteConnectOptions::new()
-            .filename(data_db_file)
-            .create_if_missing(true);
+        let connection = Connection::open(&data_db_file).context("Unable to open database connection")?;
 
-        let pool = SqlitePool::connect_with(conn)
-            .await
-            .context("Unable to open database connection")?;
+        let db_repository = Self {
+            connection: Arc::new(Mutex::new(connection)),
+        };
 
-        let db_repository = Self { pool };
-
-        let _ = db_repository.migrate_global_shortcut_to_settings().await;
-
-        db_repository.run_migrations().await?;
-
-        db_repository.apply_uuid_default_value().await?;
-        db_repository.remove_legacy_bundled_plugins().await?;
+        // let _ = db_repository.migrate_global_shortcut_to_settings().await;
+        //
+        // db_repository.run_migrations().await?;
+        //
+        // db_repository.apply_uuid_default_value().await?;
+        // db_repository.remove_legacy_bundled_plugins().await?;
 
         Ok(db_repository)
     }
 
-    async fn run_migrations(&self) -> anyhow::Result<()> {
-        // TODO backup before migration? up to 5 backups?
-        MIGRATOR
-            .run(&self.pool)
-            .await
-            .context("Unable apply database migration")?;
+    // async fn run_migrations(&self) -> anyhow::Result<()> {
+    //     MIGRATOR
+    //         .run(&self.connection)
+    //         .await
+    //         .context("Unable apply database migration")?;
+    //
+    //     Ok(())
+    // }
+    //
+    // async fn apply_uuid_default_value(&self) -> anyhow::Result<()> {
+    //     // language=SQLite
+    //     let mut stream = self
+    //         .connection
+    //         .fetch(sqlx::query("SELECT id FROM plugin WHERE uuid IS NULL"));
+    //     while let Some(row) = stream.next().await {
+    //         let row = row?;
+    //         let id: &str = row.get("id");
+    //
+    //         // language=SQLite
+    //         sqlx::query("UPDATE plugin SET uuid = ?1 WHERE id = ?2")
+    //             .bind(Uuid::new_v4().to_string())
+    //             .bind(id)
+    //             .execute(&self.connection)
+    //             .await?;
+    //     }
+    //
+    //     // language=SQLite
+    //     let mut stream = self
+    //         .connection
+    //         .fetch(sqlx::query("SELECT id FROM plugin_entrypoint WHERE uuid IS NULL"));
+    //     while let Some(row) = stream.next().await {
+    //         let row = row?;
+    //         let id: &str = row.get("id");
+    //
+    //         // language=SQLite
+    //         sqlx::query("UPDATE plugin_entrypoint SET uuid = ?1 WHERE id = ?2")
+    //             .bind(Uuid::new_v4().to_string())
+    //             .bind(id)
+    //             .execute(&self.connection)
+    //             .await?;
+    //     }
+    //
+    //     Ok(())
+    // }
+    //
+    // async fn remove_legacy_bundled_plugins(&self) -> anyhow::Result<()> {
+    //     self.remove_plugin("builtin://applications").await?;
+    //     self.remove_plugin("builtin://calculator").await?;
+    //     self.remove_plugin("builtin://settings").await?;
+    //
+    //     Ok(())
+    // }
+    //
+    // async fn migrate_global_shortcut_to_settings(&self) -> anyhow::Result<()> {
+    //     #[derive(RusqliteModel)]
+    //     struct DbSettingsDataOldContainer {
+    //         #[rusqlite(json)]
+    //         pub global_shortcut: DbSettingsGlobalShortcutOldData,
+    //         pub settings: Option<Json<DbSettings>>,
+    //     }
+    //
+    //     #[derive(Debug, Deserialize, Serialize)]
+    //     pub struct DbSettingsGlobalShortcutOldData {
+    //         pub physical_key: String,
+    //         pub modifier_shift: bool,
+    //         pub modifier_control: bool,
+    //         pub modifier_alt: bool,
+    //         pub modifier_meta: bool,
+    //         #[serde(default)]
+    //         pub unset: bool,
+    //         #[serde(default)]
+    //         pub error: Option<String>,
+    //     }
+    //
+    //     // language=SQLite
+    //     let mut data = sqlx::query_as::<_, DbSettingsDataOldContainer>("SELECT * FROM settings_data")
+    //         .fetch_one(&self.connection)
+    //         .await?;
+    //
+    //     let shortcut_data = &data.global_shortcut;
+    //
+    //     let shortcut = if shortcut_data.unset {
+    //         None
+    //     } else {
+    //         Some(DbSettingsGlobalShortcutData {
+    //             shortcut: DbSettingsShortcut {
+    //                 physical_key: shortcut_data.physical_key.clone(),
+    //                 modifier_shift: shortcut_data.modifier_shift,
+    //                 modifier_control: shortcut_data.modifier_control,
+    //                 modifier_alt: shortcut_data.modifier_alt,
+    //                 modifier_meta: shortcut_data.modifier_meta,
+    //             },
+    //             error: None,
+    //         })
+    //     };
+    //
+    //     if let Some(settings) = &mut data.settings {
+    //         settings.global_shortcut = shortcut;
+    //     }
+    //
+    //     // language=SQLite
+    //     let sql = r#"
+    //         INSERT INTO settings_data (id, global_shortcut, settings)
+    //             VALUES(?1, ?2, ?3)
+    //                 ON CONFLICT (id)
+    //                     DO UPDATE SET settings = ?3
+    //     "#;
+    //
+    //     sqlx::query(sql)
+    //         .bind(SETTINGS_DATA_ID)
+    //         .bind(Json(data.global_shortcut))
+    //         .bind(data.settings)
+    //         .execute(&self.connection)
+    //         .await?;
+    //
+    //     Ok(())
+    // }
 
-        Ok(())
-    }
-
-    async fn apply_uuid_default_value(&self) -> anyhow::Result<()> {
+    pub fn list_plugins(&self) -> anyhow::Result<Vec<DbReadPlugin>> {
         // language=SQLite
-        let mut stream = self.pool.fetch(sqlx::query("SELECT id FROM plugin WHERE uuid IS NULL"));
-        while let Some(row) = stream.next().await {
-            let row = row?;
-            let id: &str = row.get("id");
+        let query = "SELECT * FROM plugin";
 
-            // language=SQLite
-            sqlx::query("UPDATE plugin SET uuid = ?1 WHERE id = ?2")
-                .bind(Uuid::new_v4().to_string())
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
-        }
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
 
-        // language=SQLite
-        let mut stream = self
-            .pool
-            .fetch(sqlx::query("SELECT id FROM plugin_entrypoint WHERE uuid IS NULL"));
-        while let Some(row) = stream.next().await {
-            let row = row?;
-            let id: &str = row.get("id");
-
-            // language=SQLite
-            sqlx::query("UPDATE plugin_entrypoint SET uuid = ?1 WHERE id = ?2")
-                .bind(Uuid::new_v4().to_string())
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    async fn remove_legacy_bundled_plugins(&self) -> anyhow::Result<()> {
-        self.remove_plugin("builtin://applications").await?;
-        self.remove_plugin("builtin://calculator").await?;
-        self.remove_plugin("builtin://settings").await?;
-
-        Ok(())
-    }
-
-    async fn migrate_global_shortcut_to_settings(&self) -> anyhow::Result<()> {
-        #[derive(sqlx::FromRow)]
-        struct DbSettingsDataOldContainer {
-            #[sqlx(json)]
-            pub global_shortcut: DbSettingsGlobalShortcutOldData,
-            pub settings: Option<Json<DbSettings>>,
-        }
-
-        #[derive(Debug, Deserialize, Serialize)]
-        pub struct DbSettingsGlobalShortcutOldData {
-            pub physical_key: String,
-            pub modifier_shift: bool,
-            pub modifier_control: bool,
-            pub modifier_alt: bool,
-            pub modifier_meta: bool,
-            #[serde(default)]
-            pub unset: bool,
-            #[serde(default)]
-            pub error: Option<String>,
-        }
-
-        // language=SQLite
-        let mut data = sqlx::query_as::<_, DbSettingsDataOldContainer>("SELECT * FROM settings_data")
-            .fetch_one(&self.pool)
-            .await?;
-
-        let shortcut_data = &data.global_shortcut;
-
-        let shortcut = if shortcut_data.unset {
-            None
-        } else {
-            Some(DbSettingsGlobalShortcutData {
-                shortcut: DbSettingsShortcut {
-                    physical_key: shortcut_data.physical_key.clone(),
-                    modifier_shift: shortcut_data.modifier_shift,
-                    modifier_control: shortcut_data.modifier_control,
-                    modifier_alt: shortcut_data.modifier_alt,
-                    modifier_meta: shortcut_data.modifier_meta,
-                },
-                error: None,
-            })
-        };
-
-        if let Some(settings) = &mut data.settings {
-            settings.global_shortcut = shortcut;
-        }
-
-        // language=SQLite
-        let sql = r#"
-            INSERT INTO settings_data (id, global_shortcut, settings)
-                VALUES(?1, ?2, ?3)
-                    ON CONFLICT (id)
-                        DO UPDATE SET settings = ?3
-        "#;
-
-        sqlx::query(sql)
-            .bind(SETTINGS_DATA_ID)
-            .bind(Json(data.global_shortcut))
-            .bind(data.settings)
-            .execute(&self.pool)
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn list_plugins(&self) -> anyhow::Result<Vec<DbReadPlugin>> {
-        // language=SQLite
-        let plugins = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin")
-            .fetch_all(&self.pool)
-            .await?;
+        let plugins = connection
+            .prepare(query)?
+            .query_map([], DbReadPlugin::from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(plugins)
     }
 
-    pub async fn list_plugins_and_entrypoints(
-        &self,
-    ) -> anyhow::Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>> {
+    pub fn list_plugins_and_entrypoints(&self) -> anyhow::Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>> {
         // language=SQLite
-        let plugins = self.list_plugins().await?;
+        let plugins = self.list_plugins()?;
 
-        let result = futures::stream::iter(plugins)
-            .then(|plugin| {
-                async move {
-                    let entrypoints = self.get_entrypoints_by_plugin_id(&plugin.id).await?;
+        let result = plugins
+            .into_iter()
+            .map(|plugin| {
+                let entrypoints = self.get_entrypoints_by_plugin_id(&plugin.id)?;
 
-                    Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), anyhow::Error>((plugin, entrypoints))
-                }
+                Ok::<(DbReadPlugin, Vec<DbReadPluginEntrypoint>), anyhow::Error>((plugin, entrypoints))
             })
-            .try_collect::<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>>()
-            .await?;
+            .collect::<Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>, _>>()?;
 
         Ok(result)
     }
 
-    pub async fn get_plugin_by_id(&self, plugin_id: &str) -> anyhow::Result<DbReadPlugin> {
-        self.get_plugin_by_id_with_executor(plugin_id, &self.pool).await
+    pub fn get_plugin_by_id(&self, plugin_id: &str) -> anyhow::Result<DbReadPlugin> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        self.get_plugin_by_id_with_executor(plugin_id, &connection)
     }
 
-    async fn get_plugin_by_id_with_executor<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<DbReadPlugin>
-    where
-        E: Executor<'a, Database = Sqlite>,
-    {
+    fn get_plugin_by_id_with_executor(&self, plugin_id: &str, connection: &Connection) -> anyhow::Result<DbReadPlugin> {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .fetch_one(executor)
-            .await?;
+        let query = "SELECT * FROM plugin WHERE id = :id";
+
+        // todo change into query_one when updating to rusqlite 0.36
+        let result = connection.query_row(
+            query,
+            named_params! {
+                ":id": plugin_id
+            },
+            DbReadPlugin::from_row,
+        )?;
 
         Ok(result)
     }
 
-    pub async fn get_plugin_by_id_option(&self, plugin_id: &str) -> anyhow::Result<Option<DbReadPlugin>> {
-        self.get_plugin_by_id_option_with_executor(plugin_id, &self.pool).await
+    pub fn get_plugin_by_id_option(&self, plugin_id: &str) -> anyhow::Result<Option<DbReadPlugin>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        self.get_plugin_by_id_option_with_executor(plugin_id, &connection)
     }
 
-    async fn get_plugin_by_id_option_with_executor<'a, E>(
+    fn get_plugin_by_id_option_with_executor(
         &self,
         plugin_id: &str,
-        executor: E,
-    ) -> anyhow::Result<Option<DbReadPlugin>>
-    where
-        E: Executor<'a, Database = Sqlite>,
-    {
+        connection: &Connection,
+    ) -> anyhow::Result<Option<DbReadPlugin>> {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPlugin>("SELECT * FROM plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .fetch_optional(executor)
-            .await?;
+        let query = "SELECT * FROM plugin WHERE id = :id";
+
+        let result = connection
+            .query_row(
+                query,
+                named_params! {
+                    ":id": plugin_id
+                },
+                DbReadPlugin::from_row,
+            )
+            .optional()?;
 
         Ok(result)
     }
 
-    pub async fn get_entrypoints_by_plugin_id(&self, plugin_id: &str) -> anyhow::Result<Vec<DbReadPluginEntrypoint>> {
-        self.get_entrypoints_by_plugin_id_with_executor(plugin_id, &self.pool)
-            .await
+    pub fn get_entrypoints_by_plugin_id(&self, plugin_id: &str) -> anyhow::Result<Vec<DbReadPluginEntrypoint>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        self.get_entrypoints_by_plugin_id_with_executor(plugin_id, &connection)
     }
 
-    async fn get_entrypoints_by_plugin_id_with_executor<'a, E>(
+    fn get_entrypoints_by_plugin_id_with_executor(
         &self,
         plugin_id: &str,
-        executor: E,
-    ) -> anyhow::Result<Vec<DbReadPluginEntrypoint>>
-    where
-        E: Executor<'a, Database = Sqlite>,
-    {
+        connection: &Connection,
+    ) -> anyhow::Result<Vec<DbReadPluginEntrypoint>> {
         // language=SQLite
-        let result =
-            sqlx::query_as::<_, DbReadPluginEntrypoint>("SELECT * FROM plugin_entrypoint WHERE plugin_id = ?1")
-                .bind(plugin_id)
-                .fetch_all(executor)
-                .await?;
+        let query = "SELECT * FROM plugin_entrypoint WHERE plugin_id = :id";
+
+        let result = connection
+            .prepare(query)?
+            .query_and_then(
+                named_params! {
+                    ":id": plugin_id
+                },
+                DbReadPluginEntrypoint::from_row,
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(result)
     }
 
-    pub async fn get_entrypoint_by_id(
+    pub fn get_entrypoint_by_id(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<DbReadPluginEntrypoint> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        self.get_entrypoint_by_id_with_executor(plugin_id, entrypoint_id, &connection)
+    }
+
+    fn get_entrypoint_by_id_with_executor(
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
+        connection: &Connection,
     ) -> anyhow::Result<DbReadPluginEntrypoint> {
-        self.get_entrypoint_by_id_with_executor(plugin_id, entrypoint_id, &self.pool)
-            .await
-    }
-
-    async fn get_entrypoint_by_id_with_executor<'a, E>(
-        &self,
-        plugin_id: &str,
-        entrypoint_id: &str,
-        executor: E,
-    ) -> anyhow::Result<DbReadPluginEntrypoint>
-    where
-        E: Executor<'a, Database = Sqlite>,
-    {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>(
-            "SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2",
-        )
-        .bind(entrypoint_id)
-        .bind(plugin_id)
-        .fetch_one(executor)
-        .await?;
+        let query = "SELECT * FROM plugin_entrypoint WHERE id = :id AND plugin_id = :plugin_id";
+
+        // todo change into query_one when updating to rusqlite 0.36
+        let result = connection.query_row(
+            query,
+            named_params! {
+                ":id": entrypoint_id,
+                ":plugin_id": plugin_id,
+            },
+            DbReadPluginEntrypoint::from_row,
+        )?;
 
         Ok(result)
     }
 
-    pub async fn get_entrypoint_by_id_option(
+    pub fn get_entrypoint_by_id_option(
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
     ) -> anyhow::Result<Option<DbReadPluginEntrypoint>> {
-        self.get_entrypoint_by_id_option_with_executor(plugin_id, entrypoint_id, &self.pool)
-            .await
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        self.get_entrypoint_by_id_option_with_executor(plugin_id, entrypoint_id, &connection)
     }
 
-    async fn get_entrypoint_by_id_option_with_executor<'a, E>(
+    fn get_entrypoint_by_id_option_with_executor(
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
-        executor: E,
-    ) -> anyhow::Result<Option<DbReadPluginEntrypoint>>
-    where
-        E: Executor<'a, Database = Sqlite>,
-    {
+        connection: &Connection,
+    ) -> anyhow::Result<Option<DbReadPluginEntrypoint>> {
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginEntrypoint>(
-            "SELECT * FROM plugin_entrypoint WHERE id = ?1 AND plugin_id = ?2",
-        )
-        .bind(entrypoint_id)
-        .bind(plugin_id)
-        .fetch_optional(executor)
-        .await?;
+        let query = "SELECT * FROM plugin_entrypoint WHERE id = :id AND plugin_id = :plugin_id";
+
+        let result = connection
+            .query_row(
+                query,
+                named_params! {
+                    ":id": entrypoint_id,
+                    ":plugin_id": plugin_id,
+                },
+                DbReadPluginEntrypoint::from_row,
+            )
+            .optional()?;
 
         Ok(result)
     }
 
-    pub async fn get_inline_view_entrypoint_id_for_plugin(&self, plugin_id: &str) -> anyhow::Result<Option<String>> {
-        // language=SQLite
-        let entrypoint_id = sqlx::query_as::<_, (String,)>(
-            "SELECT id FROM plugin_entrypoint WHERE plugin_id = ?1 AND type = 'inline-view'",
-        )
-        .bind(plugin_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .map(|result| result.0);
+    pub fn get_inline_view_entrypoint_id_for_plugin(&self, plugin_id: &str) -> anyhow::Result<Option<String>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
 
-        Ok(entrypoint_id)
+        // language=SQLite
+        let query = "SELECT id FROM plugin_entrypoint WHERE plugin_id = :plugin_id AND type = 'inline-view'";
+
+        #[derive(RusqliteFromRow)]
+        struct DbReadInlineViewEntrypoint {
+            pub id: String,
+        }
+
+        let result = connection
+            .query_row(
+                query,
+                named_params! {
+                    ":plugin_id": plugin_id
+                },
+                DbReadInlineViewEntrypoint::from_row,
+            )
+            .optional()?
+            .map(|row| row.id);
+
+        Ok(result)
     }
 
-    pub async fn action_shortcuts(
+    pub fn action_shortcuts(
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
@@ -707,7 +715,7 @@ impl DataDbRepository {
             actions,
             actions_user_data,
             ..
-        } = self.get_entrypoint_by_id(plugin_id, entrypoint_id).await?;
+        } = self.get_entrypoint_by_id(plugin_id, entrypoint_id)?;
 
         let actions_user_data: HashMap<_, _> = actions_user_data
             .into_iter()
@@ -778,7 +786,7 @@ impl DataDbRepository {
         Ok(action_shortcuts)
     }
 
-    pub async fn get_action_id_for_shortcut(
+    pub fn get_action_id_for_shortcut(
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
@@ -788,20 +796,42 @@ impl DataDbRepository {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> anyhow::Result<Option<String>> {
-        // language=SQLite
-        let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions_user_data) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'modifier_shift' = ?4 AND json_each.value ->> 'modifier_control' = ?5 AND json_each.value ->> 'modifier_alt' = ?6 AND json_each.value ->> 'modifier_meta' = ?6"#;
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
 
-        let action_id = sqlx::query_as::<_, (String,)>(sql)
-            .bind(plugin_id)
-            .bind(entrypoint_id)
-            .bind(key.to_value())
-            .bind(modifier_shift)
-            .bind(modifier_control)
-            .bind(modifier_alt)
-            .bind(modifier_meta)
-            .fetch_optional(&self.pool)
-            .await?
-            .map(|result| result.0);
+        // language=SQLite
+        let query = r#"
+            SELECT json_each.value ->> 'id' AS id
+            FROM plugin_entrypoint e, json_each(actions_user_data)
+            WHERE e.plugin_id = :plugin_id
+                AND e.id = :entrypoint_id
+                AND json_each.value ->> 'key' = :key
+                AND json_each.value ->> 'modifier_shift' = :modifier_shift
+                AND json_each.value ->> 'modifier_control' = :modifier_control
+                AND json_each.value ->> 'modifier_alt' = :modifier_alt
+                AND json_each.value ->> 'modifier_meta' = :modifier_meta
+        "#;
+
+        #[derive(RusqliteFromRow)]
+        struct DbReadActionId {
+            pub id: String,
+        }
+
+        let action_id = connection
+            .query_row(
+                query,
+                named_params! {
+                    ":plugin_id": plugin_id,
+                    ":entrypoint_id": entrypoint_id,
+                    ":key": key.to_value(),
+                    ":modifier_shift": modifier_shift,
+                    ":modifier_control": modifier_control,
+                    ":modifier_alt": modifier_alt,
+                    ":modifier_meta": modifier_meta,
+                },
+                DbReadActionId::from_row,
+            )
+            .optional()?
+            .map(|row| row.id);
 
         match action_id {
             Some(action_id) => Ok(Some(action_id)),
@@ -826,143 +856,155 @@ impl DataDbRepository {
                 };
 
                 // language=SQLite
-                let sql = r#"SELECT json_each.value ->> 'id' FROM plugin_entrypoint e, json_each(actions) WHERE e.plugin_id = ?1 AND e.id = ?2  AND json_each.value ->> 'key' = ?3 AND json_each.value ->> 'kind' = ?4"#;
+                let query = r#"
+                    SELECT json_each.value ->> 'id' AS id
+                    FROM plugin_entrypoint e, json_each(actions)
+                    WHERE e.plugin_id = :plugin_id
+                        AND e.id = :entrypoint_id
+                        AND json_each.value ->> 'key' = :key
+                        AND json_each.value ->> 'kind' = :kind
+                "#;
 
                 let Some(logical_key) = ActionShortcutKey::from_physical_key(key, modifier_shift) else {
                     return Ok(None);
                 };
 
-                let action_id = sqlx::query_as::<_, (String,)>(sql)
-                    .bind(plugin_id)
-                    .bind(entrypoint_id)
-                    .bind(logical_key.to_value())
-                    .bind(&kind)
-                    .fetch_optional(&self.pool)
-                    .await?
-                    .map(|result| result.0);
+                let action_id = connection
+                    .query_row(
+                        query,
+                        named_params! {
+                            ":plugin_id": plugin_id,
+                            ":entrypoint_id": entrypoint_id,
+                            ":key": logical_key.to_value(),
+                            ":kind": kind,
+                        },
+                        DbReadActionId::from_row,
+                    )
+                    .optional()?
+                    .map(|row| row.id);
 
                 Ok(action_id)
             }
         }
     }
 
-    pub async fn list_pending_plugins(&self) -> anyhow::Result<Vec<DbReadPendingPlugin>> {
-        // language=SQLite
-        let plugins = sqlx::query_as::<_, DbReadPendingPlugin>("SELECT * FROM pending_plugin")
-            .fetch_all(&self.pool)
-            .await?;
+    pub fn is_plugin_enabled(&self, plugin_id: &str) -> anyhow::Result<bool> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
 
-        Ok(plugins)
-    }
-
-    pub async fn is_plugin_pending(&self, plugin_id: &str) -> anyhow::Result<bool> {
-        // language=SQLite
-        let result = sqlx::query_as::<_, (u8,)>("SELECT 1 FROM pending_plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .fetch_optional(&self.pool)
-            .await?;
-
-        Ok(result.is_some())
-    }
-
-    pub async fn does_plugin_exist(&self, plugin_id: &str) -> anyhow::Result<bool> {
-        // language=SQLite
-        let result = sqlx::query_as::<_, (u8,)>("SELECT 1 FROM plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .fetch_optional(&self.pool)
-            .await?;
-
-        Ok(result.is_some())
-    }
-
-    pub async fn is_plugin_enabled(&self, plugin_id: &str) -> anyhow::Result<bool> {
-        #[derive(sqlx::FromRow)]
+        #[derive(RusqliteFromRow)]
         struct DbReadPluginEnabled {
             pub enabled: bool,
         }
 
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginEnabled>("SELECT enabled FROM plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let query = "SELECT enabled FROM plugin WHERE id = :id";
+
+        // todo change into query_one when updating to rusqlite 0.36
+        let result = connection.query_row(
+            query,
+            named_params! {
+                ":id": plugin_id
+            },
+            DbReadPluginEnabled::from_row,
+        )?;
 
         Ok(result.enabled)
     }
 
-    pub async fn get_asset_data(&self, plugin_id: &str, path: &str) -> anyhow::Result<Vec<u8>> {
-        #[derive(sqlx::FromRow)]
+    pub fn get_asset_data(&self, plugin_id: &str, path: &str) -> anyhow::Result<Vec<u8>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
+        #[derive(RusqliteFromRow)]
         struct DbReadPluginAssetData {
             pub data: Vec<u8>,
         }
 
         // language=SQLite
-        let result = sqlx::query_as::<_, DbReadPluginAssetData>(
-            "SELECT data FROM plugin_asset_data WHERE plugin_id = ?1 and path = ?2",
-        )
-        .bind(plugin_id)
-        .bind(path)
-        .fetch_one(&self.pool)
-        .await?;
+        let query = "SELECT data FROM plugin_asset_data WHERE plugin_id = :plugin_id and path = :path";
+
+        // todo change into query_one when updating to rusqlite 0.36
+        let result = connection.query_row(
+            query,
+            named_params! {
+                ":plugin_id": plugin_id,
+                ":path": path,
+            },
+            DbReadPluginAssetData::from_row,
+        )?;
 
         Ok(result.data)
     }
 
-    async fn get_all_asset_data_paths<'a, E>(&self, plugin_id: &str, executor: E) -> anyhow::Result<HashSet<String>>
-    where
-        E: Executor<'a, Database = Sqlite>,
-    {
+    fn get_all_asset_data_paths(&self, plugin_id: &str, connection: &Connection) -> anyhow::Result<HashSet<String>> {
+        #[derive(RusqliteFromRow)]
+        struct DbReadPluginAssetPaths {
+            pub path: String,
+        }
+
         // language=SQLite
-        let result = sqlx::query_as::<_, (String,)>("SELECT path FROM plugin_asset_data WHERE plugin_id = ?1")
-            .bind(plugin_id)
-            .fetch_all(executor)
-            .await?
+        let query = "SELECT path FROM plugin_asset_data WHERE plugin_id = :plugin_id";
+
+        let result = connection
+            .prepare(query)?
+            .query_and_then(
+                named_params! {
+                    ":plugin_id": plugin_id
+                },
+                DbReadPluginAssetPaths::from_row,
+            )?
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
-            .map(|result| result.0)
+            .map(|row| row.path)
             .collect();
 
         Ok(result)
     }
 
-    pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<String, HashMap<String, PhysicalShortcut>>> {
+    pub fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<String, HashMap<String, PhysicalShortcut>>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
+        #[derive(RusqliteFromRow)]
+        struct DbReadPluginInlineViewShortcuts {
+            pub id: String,
+            pub plugin_id: String,
+        }
+
         // language=SQLite
-        let shortcuts: Vec<_> = sqlx::query_as::<_, (String, String)>(
-            "SELECT id, plugin_id FROM plugin_entrypoint WHERE type = 'inline-view'",
-        )
-        .fetch_all(&self.pool)
-        .await?
-        .into_iter()
-        .map(|(entrypoint_id, plugin_id)| {
-            async move {
-                let shortcuts = self.action_shortcuts(&plugin_id, &entrypoint_id).await?;
+        let query = "SELECT id, plugin_id FROM plugin_entrypoint WHERE type = 'inline-view'";
 
-                Ok((plugin_id, shortcuts))
-            }
-        })
-        .collect();
+        let result = connection
+            .prepare(query)?
+            .query_and_then([], DbReadPluginInlineViewShortcuts::from_row)?
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(|row| {
+                let shortcuts = self.action_shortcuts(&row.plugin_id, &row.id)?;
 
-        join_all(shortcuts).await.into_iter().collect()
+                Ok::<_, anyhow::Error>((row.plugin_id, shortcuts))
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?;
+
+        Ok(result)
     }
 
-    pub async fn mark_entrypoint_frecency(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<()> {
-        let mut tx = self.pool.begin().await?;
+    pub fn mark_entrypoint_frecency(&self, plugin_id: &str, entrypoint_id: &str) -> anyhow::Result<()> {
+        let mut connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        let tx = connection.transaction()?;
 
         // TODO reset time after 5 half lives
         //  https://github.com/camdencheek/fre/blob/6574ee7045061957de24855567e0abf05f2778d9/src/main.rs#L23
         //  why? dunno
 
-        #[derive(sqlx::FromRow)]
+        #[derive(RusqliteFromRow)]
         struct DbFrecencyMetaParams {
             pub reference_time: f64,
             pub half_life: f64,
         }
 
         // language=SQLite
-        let meta_params = sqlx::query_as::<_, DbFrecencyMetaParams>(
-            "SELECT reference_time, half_life FROM plugin_entrypoint_frecency_stats",
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
+        let query = "SELECT reference_time, half_life FROM plugin_entrypoint_frecency_stats";
+
+        let meta_params = tx.query_row(query, [], DbFrecencyMetaParams::from_row).optional()?;
 
         let meta_params = match meta_params {
             None => FrecencyMetaParams::default(),
@@ -975,11 +1017,23 @@ impl DataDbRepository {
         };
 
         // language=SQLite
-        let stats = sqlx::query_as::<_, DbPluginEntrypointFrecencyStats>("SELECT plugin_id, entrypoint_id, reference_time, half_life, last_accessed, frecency, num_accesses FROM plugin_entrypoint_frecency_stats WHERE plugin_id = ?1 and entrypoint_id = ?2")
-            .bind(plugin_id)
-            .bind(entrypoint_id)
-            .fetch_optional(&mut *tx)
-            .await?;
+        let query = r#"
+            SELECT plugin_id, entrypoint_id, reference_time, half_life, last_accessed, frecency, num_accesses
+            FROM plugin_entrypoint_frecency_stats
+            WHERE plugin_id = :plugin_id
+                and entrypoint_id = :entrypoint_id
+        "#;
+
+        let stats = tx
+            .query_row(
+                query,
+                named_params! {
+                    ":plugin_id": plugin_id,
+                    ":entrypoint_id": entrypoint_id,
+                },
+                DbPluginEntrypointFrecencyStats::from_row,
+            )
+            .optional()?;
 
         let mut new_stats = match stats {
             None => FrecencyItemStats::new(meta_params.reference_time, meta_params.half_life),
@@ -997,199 +1051,257 @@ impl DataDbRepository {
         new_stats.mark_used();
 
         // language=SQLite
-        let sql = r#"
+        let query = r#"
             INSERT OR REPLACE INTO plugin_entrypoint_frecency_stats (plugin_id, entrypoint_id, reference_time, half_life, last_accessed, frecency, num_accesses)
-                VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                VALUES(
+                    :plugin_id,
+                    :entrypoint_id,
+                    :reference_time,
+                    :half_life,
+                    :last_accessed,
+                    :frecency,
+                    :num_accesses
+                )
         "#;
 
-        sqlx::query(sql)
-            .bind(plugin_id)
-            .bind(entrypoint_id)
-            .bind(new_stats.reference_time)
-            .bind(new_stats.half_life)
-            .bind(new_stats.last_accessed)
-            .bind(new_stats.frecency)
-            .bind(new_stats.num_accesses)
-            .execute(&mut *tx)
-            .await?;
+        tx.execute(
+            query,
+            named_params! {
+                ":plugin_id": plugin_id,
+                ":entrypoint_id": entrypoint_id,
+                ":reference_time": new_stats.reference_time,
+                ":half_life": new_stats.half_life,
+                ":last_accessed": new_stats.last_accessed,
+                ":frecency": new_stats.frecency,
+                ":num_accesses": new_stats.num_accesses
+            },
+        )?;
 
-        tx.commit().await?;
+        tx.commit()?;
 
         Ok(())
     }
 
-    pub async fn get_frecency_for_plugin(&self, plugin_id: &str) -> anyhow::Result<HashMap<String, f64>> {
+    pub fn get_frecency_for_plugin(&self, plugin_id: &str) -> anyhow::Result<HashMap<String, f64>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
+        #[derive(RusqliteFromRow)]
+        struct DbFrecencyStats {
+            pub entrypoint_id: String,
+            pub frecency: f64,
+        }
+
         // language=SQLite
-        let result = sqlx::query_as::<_, (String, f64)>(
-            "SELECT entrypoint_id, frecency FROM plugin_entrypoint_frecency_stats WHERE plugin_id = ?1",
-        )
-        .bind(plugin_id)
-        .fetch_all(&self.pool)
-        .await?
-        .into_iter()
-        .collect();
+        let query = "SELECT entrypoint_id, frecency FROM plugin_entrypoint_frecency_stats WHERE plugin_id = :plugin_id";
+
+        let result = connection
+            .prepare(query)?
+            .query_and_then(
+                named_params! {
+                    ":plugin_id": plugin_id
+                },
+                DbFrecencyStats::from_row,
+            )?
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(|row| (row.entrypoint_id, row.frecency))
+            .collect::<HashMap<_, _>>();
 
         Ok(result)
     }
 
-    pub async fn set_plugin_enabled(&self, plugin_id: &str, enabled: bool) -> anyhow::Result<()> {
+    pub fn set_plugin_enabled(&self, plugin_id: &str, enabled: bool) -> anyhow::Result<()> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
         // language=SQLite
-        sqlx::query("UPDATE plugin SET enabled = ?1 WHERE id = ?2")
-            .bind(enabled)
-            .bind(plugin_id)
-            .execute(&self.pool)
-            .await?;
+        let query = "UPDATE plugin SET enabled = :enabled WHERE id = :id";
+
+        connection.execute(
+            query,
+            named_params! {
+                ":id": plugin_id,
+                ":enabled": enabled,
+            },
+        )?;
 
         Ok(())
     }
 
-    pub async fn set_plugin_entrypoint_enabled(
+    pub fn set_plugin_entrypoint_enabled(
         &self,
         plugin_id: &str,
         entrypoint_id: &str,
         enabled: bool,
     ) -> anyhow::Result<()> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
         // language=SQLite
-        sqlx::query("UPDATE plugin_entrypoint SET enabled = ?1 WHERE id = ?2 AND plugin_id = ?3")
-            .bind(enabled)
-            .bind(entrypoint_id)
-            .bind(plugin_id)
-            .execute(&self.pool)
-            .await?;
+        let query = "UPDATE plugin_entrypoint SET enabled = :enabled WHERE id = :id AND plugin_id = :plugin_id";
+
+        connection.execute(
+            query,
+            named_params! {
+                ":id": entrypoint_id,
+                ":plugin_id": plugin_id,
+                ":enabled": enabled
+            },
+        )?;
 
         Ok(())
     }
 
-    pub async fn get_settings(&self) -> anyhow::Result<DbSettings> {
+    pub fn get_settings(&self) -> anyhow::Result<DbSettings> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
         // language=SQLite
-        let settings = sqlx::query_as::<_, DbSettingsDataContainer>("SELECT settings FROM settings_data")
-            .fetch_optional(&self.pool)
-            .await?;
+        let query = "SELECT settings FROM settings_data";
+
+        let settings = connection
+            .query_row(query, [], DbSettingsDataContainer::from_row)
+            .optional()?;
 
         let theme = settings.map(|data| data.settings).flatten().unwrap_or_default();
 
-        Ok(theme.0)
+        Ok(theme)
     }
 
-    pub async fn set_settings(&self, value: DbSettings) -> anyhow::Result<()> {
+    pub fn set_settings(&self, value: DbSettings) -> anyhow::Result<()> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
         // language=SQLite
-        let sql = r#"
+        let query = r#"
             INSERT INTO settings_data (id, settings)
-                VALUES(?1, ?2)
+                VALUES(:id, :settings)
                     ON CONFLICT (id)
-                        DO UPDATE SET settings = ?2
+                        DO UPDATE SET settings = :settings
         "#;
 
-        sqlx::query(sql)
-            .bind(SETTINGS_DATA_ID)
-            .bind(Json(value))
-            .execute(&self.pool)
-            .await?;
+        connection.execute(
+            query,
+            named_params! {
+                ":id": SETTINGS_DATA_ID,
+                ":settings": serde_json::to_value(value)?,
+            },
+        )?;
 
         Ok(())
     }
 
-    pub async fn set_preference_value(
+    pub fn set_preference_value(
         &self,
         plugin_id: String,
         entrypoint_id: Option<String>,
         preference_id: String,
         value: DbPluginPreferenceUserData,
     ) -> anyhow::Result<()> {
-        let mut tx = self.pool.begin().await?;
+        let mut connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        let mut tx = connection.transaction()?;
 
         match entrypoint_id {
             None => {
                 let mut user_data = self
-                    .get_plugin_by_id_with_executor(&plugin_id, &mut *tx)
-                    .await?
+                    .get_plugin_by_id_with_executor(&plugin_id, &mut tx)?
                     .preferences_user_data;
 
                 user_data.insert(preference_id, value);
 
                 // language=SQLite
-                sqlx::query("UPDATE plugin SET preferences_user_data = ?1 WHERE id = ?2")
-                    .bind(Json(user_data))
-                    .bind(&plugin_id)
-                    .execute(&mut *tx)
-                    .await?;
+                let query = "UPDATE plugin SET preferences_user_data = :data WHERE id = :id";
+
+                tx.execute(
+                    query,
+                    named_params! {
+                        ":data": serde_json::to_value(user_data)?,
+                        ":id": plugin_id
+                    },
+                )?;
             }
             Some(entrypoint_id) => {
                 let mut user_data = self
-                    .get_entrypoint_by_id_with_executor(&plugin_id, &entrypoint_id, &mut *tx)
-                    .await?
+                    .get_entrypoint_by_id_with_executor(&plugin_id, &entrypoint_id, &mut tx)?
                     .preferences_user_data;
 
                 user_data.insert(preference_id, value);
 
                 // language=SQLite
-                sqlx::query("UPDATE plugin_entrypoint SET preferences_user_data = ?1 WHERE id = ?2 AND plugin_id = ?3")
-                    .bind(Json(user_data))
-                    .bind(&entrypoint_id)
-                    .bind(&plugin_id)
-                    .execute(&mut *tx)
-                    .await?;
+                let query = "UPDATE plugin_entrypoint SET preferences_user_data = :data WHERE id = :id AND plugin_id = :plugin_id";
+
+                tx.execute(
+                    query,
+                    named_params! {
+                        ":data": serde_json::to_value(user_data)?,
+                        ":id": entrypoint_id,
+                        ":plugin_id": plugin_id,
+                    },
+                )?;
             }
         }
 
-        tx.commit().await?;
+        tx.commit()?;
 
         Ok(())
     }
 
-    pub async fn save_pending_plugin(&self, plugin: DbWritePendingPlugin) -> anyhow::Result<()> {
+    pub fn remove_plugin(&self, plugin_id: &str) -> anyhow::Result<()> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+
         // language=SQLite
-        sqlx::query("INSERT INTO pending_plugin VALUES(?1)")
-            .bind(&plugin.id)
-            .execute(&self.pool)
-            .await?;
+        let query = "DELETE FROM plugin WHERE id = :id";
+
+        connection.execute(
+            query,
+            named_params! {
+                ":id": plugin_id
+            },
+        )?;
 
         Ok(())
     }
 
-    pub async fn remove_plugin(&self, plugin_id: &str) -> anyhow::Result<()> {
-        // language=SQLite
-        sqlx::query("DELETE FROM plugin WHERE id = ?1")
-            .bind(plugin_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn save_plugin(&self, new_plugin: DbWritePlugin) -> anyhow::Result<()> {
-        let mut tx = self.pool.begin().await?;
+    pub fn save_plugin(&self, new_plugin: DbWritePlugin) -> anyhow::Result<()> {
+        let mut connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        let mut tx = connection.transaction()?;
 
         let (uuid, enabled, preferences_user_data) = self
-            .get_plugin_by_id_option_with_executor(&new_plugin.id, &mut *tx)
-            .await?
+            .get_plugin_by_id_option_with_executor(&new_plugin.id, &mut tx)?
             .map(|plugin| (plugin.uuid, plugin.enabled, plugin.preferences_user_data))
             .unwrap_or((Uuid::new_v4().to_string(), new_plugin.enabled, HashMap::new()));
 
         // language=SQLite
-        let sql = r#"
+        let query = r#"
             INSERT INTO plugin (id, name, enabled, code, permissions, preferences, preferences_user_data, description, type, uuid)
-                VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                VALUES(:id, :name, :enabled, :code, :permissions, :preferences, :preferences_user_data, :description, :type, :uuid)
                     ON CONFLICT (id)
-                        DO UPDATE SET name = ?2, enabled = ?3, code = ?4, permissions = ?5, preferences = ?6, preferences_user_data = ?7, description = ?8, type = ?9, uuid = ?10
+                        DO UPDATE SET
+                            name = :name,
+                            enabled = :enabled,
+                            code = :code,
+                            permissions = :permissions,
+                            preferences = :preferences,
+                            preferences_user_data = :preferences_user_data ,
+                            description = :description ,
+                            type = :type,
+                            uuid = :uuid
         "#;
 
-        sqlx::query(sql)
-            .bind(&new_plugin.id)
-            .bind(new_plugin.name)
-            .bind(enabled)
-            .bind(Json(new_plugin.code))
-            .bind(Json(new_plugin.permissions))
-            .bind(Json(new_plugin.preferences))
-            .bind(Json(preferences_user_data))
-            .bind(new_plugin.description)
-            .bind(new_plugin.plugin_type)
-            .bind(uuid)
-            .execute(&mut *tx)
-            .await?;
+        tx.execute(
+            query,
+            named_params! {
+                ":id": new_plugin.id,
+                ":name": new_plugin.name,
+                ":enabled": enabled,
+                ":code": serde_json::to_value(&new_plugin.code)?,
+                ":permissions": serde_json::to_value(&new_plugin.permissions)?,
+                ":preferences": serde_json::to_value(&new_plugin.preferences)?,
+                ":preferences_user_data": serde_json::to_value(&preferences_user_data)?,
+                ":description": new_plugin.description,
+                ":type": new_plugin.plugin_type,
+                ":uuid": uuid
+            },
+        )?;
 
         let mut old_entrypoint_ids = self
-            .get_entrypoints_by_plugin_id_with_executor(&new_plugin.id, &mut *tx)
-            .await?
+            .get_entrypoints_by_plugin_id_with_executor(&new_plugin.id, &mut tx)?
             .into_iter()
             .map(|entrypoint| entrypoint.id)
             .collect::<HashSet<_>>();
@@ -1198,8 +1310,7 @@ impl DataDbRepository {
             old_entrypoint_ids.remove(&new_entrypoint.id);
 
             let (uuid, preferences_user_data, actions_user_data, enabled) = self
-                .get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut *tx)
-                .await?
+                .get_entrypoint_by_id_option_with_executor(&new_plugin.id, &new_entrypoint.id, &mut tx)?
                 .map(|entrypoint| {
                     (
                         entrypoint.uuid,
@@ -1211,55 +1322,90 @@ impl DataDbRepository {
                 .unwrap_or((Uuid::new_v4().to_string(), HashMap::new(), vec![], true));
 
             // language=SQLite
-            sqlx::query("INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data, icon_path, uuid) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)")
-                .bind(&new_entrypoint.id)
-                .bind(&new_plugin.id)
-                .bind(new_entrypoint.name)
-                .bind(enabled)
-                .bind(new_entrypoint.entrypoint_type)
-                .bind(Json(new_entrypoint.preferences))
-                .bind(Json(preferences_user_data))
-                .bind(new_entrypoint.description)
-                .bind(Json(new_entrypoint.actions))
-                .bind(Json(actions_user_data))
-                .bind(new_entrypoint.icon_path)
-                .bind(uuid)
-                .execute(&mut *tx)
-                .await?;
+            let query = r#"
+                INSERT OR REPLACE INTO plugin_entrypoint (id, plugin_id, name, enabled, type, preferences, preferences_user_data, description, actions, actions_user_data, icon_path, uuid)
+                    VALUES(
+                        :id,
+                        :plugin_id,
+                        :name,
+                        :enabled,
+                        :type,
+                        :preferences,
+                        :preferences_user_data,
+                        :description,
+                        :actions,
+                        :actions_user_data,
+                        :icon_path,
+                        :uuid
+                    )
+            "#;
+
+            tx.execute(
+                query,
+                named_params! {
+                    ":id": new_entrypoint.id,
+                    ":plugin_id": &new_plugin.id,
+                    ":name": new_entrypoint.name,
+                    ":enabled": enabled,
+                    ":type": new_entrypoint.entrypoint_type,
+                    ":preferences": serde_json::to_value(new_entrypoint.preferences)?,
+                    ":preferences_user_data": serde_json::to_value(preferences_user_data)?,
+                    ":description": new_entrypoint.description,
+                    ":actions": serde_json::to_value(new_entrypoint.actions)?,
+                    ":actions_user_data": serde_json::to_value(actions_user_data)?,
+                    ":icon_path": new_entrypoint.icon_path,
+                    ":uuid": uuid,
+                },
+            )?;
         }
 
         for old_entrypoint_id in old_entrypoint_ids {
             // language=SQLite
-            sqlx::query("DELETE FROM plugin_entrypoint WHERE id = ?1")
-                .bind(&old_entrypoint_id)
-                .execute(&mut *tx)
-                .await?;
+            let query = "DELETE FROM plugin_entrypoint WHERE id = :id";
+
+            tx.execute(
+                query,
+                named_params! {
+                    ":id": old_entrypoint_id
+                },
+            )?;
         }
 
-        let mut old_asset_data_paths = self.get_all_asset_data_paths(&new_plugin.id, &mut *tx).await?;
+        let mut old_asset_data_paths = self.get_all_asset_data_paths(&new_plugin.id, &mut tx)?;
 
         for data in new_plugin.asset_data {
             old_asset_data_paths.remove(&data.path);
 
             // language=SQLite
-            sqlx::query("INSERT OR REPLACE INTO plugin_asset_data (plugin_id, path, data) VALUES(?1, ?2, ?3)")
-                .bind(&new_plugin.id)
-                .bind(&data.path)
-                .bind(&data.data)
-                .execute(&mut *tx)
-                .await?;
+            let query = r#"
+                INSERT OR REPLACE INTO plugin_asset_data (plugin_id, path, data)
+                    VALUES(:plugin_id, :path, :data)
+            "#;
+
+            tx.execute(
+                query,
+                named_params! {
+                    ":plugin_id": new_plugin.id,
+                    ":path": data.path,
+                    ":data": data.data,
+                },
+            )?;
         }
 
         for old_asset_data_path in old_asset_data_paths {
             // language=SQLite
-            sqlx::query("DELETE FROM plugin_asset_data WHERE plugin_id = ?1 AND path = ?2")
-                .bind(&new_plugin.id)
-                .bind(&old_asset_data_path)
-                .execute(&mut *tx)
-                .await?;
+            let query = "DELETE FROM plugin_asset_data WHERE plugin_id = :plugin_id AND path = :path";
+
+            tx.execute(
+                query,
+                named_params! {
+                    ":plugin_id": new_plugin.id,
+                    ":path": old_asset_data_path
+                },
+            )?;
         }
 
-        tx.commit().await?;
+        tx.commit()?;
 
         Ok(())
     }
@@ -1300,4 +1446,10 @@ pub fn db_plugin_type_from_str(value: &str) -> DbPluginType {
         "bundled" => DbPluginType::Bundled,
         _ => panic!("illegal plugin_type: {}", value),
     }
+}
+
+trait RusqliteFromRow {
+    fn from_row(row: &Row<'_>) -> rusqlite::Result<Self>
+    where
+        Self: Sized;
 }
