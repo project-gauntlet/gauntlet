@@ -55,7 +55,7 @@ pub async fn send_message<T: Encode + Debug>(side: JsMessageSide, send: &mut Sen
     Ok(())
 }
 
-pub async fn recv_message<T: Decode + Debug>(side: JsMessageSide, recv: &mut RecvHalf) -> anyhow::Result<T> {
+pub async fn recv_message<T: Decode<()> + Debug>(side: JsMessageSide, recv: &mut RecvHalf) -> anyhow::Result<T> {
     tracing::trace!(side = debug(&side), "Waiting for next message...");
 
     let message_id = recv.read_u32().await?;

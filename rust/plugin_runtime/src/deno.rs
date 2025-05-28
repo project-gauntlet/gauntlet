@@ -26,7 +26,6 @@ use deno_resolver::npm::ManagedNpmResolver;
 use deno_runtime::deno_fs::RealFs;
 use deno_runtime::deno_io::Stdio;
 use deno_runtime::deno_io::StdioPipe;
-use deno_runtime::deno_node::NodeExtInitServices;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use deno_runtime::worker::WorkerServiceOptions;

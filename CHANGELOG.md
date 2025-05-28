@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+- Updated Deno to 2.3.3
+
 ## [19] - 2025-05-11
 
 ### General
