@@ -5,10 +5,10 @@ edition.workspace = true
 
 [dependencies]
 # workspaces
-gauntlet-common = { path = "../common" }
-gauntlet-component-model = { path = "../component_model" }
-gauntlet-utils = { path = "../utils" }
-gauntlet-common-plugin-runtime = { path = "../common_plugin_runtime" }
+gauntlet-common.workspace = true
+gauntlet-component-model.workspace = true
+gauntlet-utils.workspace = true
+gauntlet-common-plugin-runtime.workspace = true
 
 # shared
 anyhow.workspace = true
@@ -31,7 +31,7 @@ interprocess.workspace = true
 # deno crates
 deno_core = { version = "0.347.0" } # https://github.com/denoland/deno/blob/v2.3.3
 deno_runtime = { version = "0.213.0", features = ["transpile"] }
-deno_error = { version = "*" }
+deno_error = "*"
 deno_resolver = "*"
 sys_traits = "*"
 

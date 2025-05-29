@@ -373,6 +373,7 @@ deno_core::extension!(
         outer_handle: Handle
     },
     state = |state, options| {
+        state.put(deno_runtime::ops::bootstrap::SnapshotOptions::default()); // workaround for deno requiring it, I assume by mistake
         state.put(options.event_receiver);
         state.put(options.plugin_data);
         state.put(options.component_model);
@@ -524,16 +525,16 @@ pub async fn start_js_runtime(
 
     let init_url: ModuleSpecifier = "gauntlet:init".parse().expect("should be valid");
 
-    let home_dir = PathBuf::from(init.home_dir);
-
     let permissions_container = permissions_to_deno(
         &init.permissions,
-        &home_dir,
+        Path::new(&init.home_dir),
         Path::new(&init.plugin_data_dir),
         Path::new(&init.plugin_cache_dir),
     )?;
 
-    let gauntlet_esm = if cfg!(feature = "release") && !init.dev_plugin {
+    let prod = cfg!(feature = "release") && !init.dev_plugin;
+
+    let gauntlet_esm = if prod {
         prod::gauntlet_esm::init()
     } else {
         dev::gauntlet_esm::init()
@@ -544,12 +545,12 @@ pub async fn start_js_runtime(
             EventReceiver::new(event_stream),
             PluginData::new(
                 init.plugin_id.clone(),
-                init.plugin_uuid.clone(),
+                init.plugin_uuid,
                 init.plugin_cache_dir,
                 init.plugin_data_dir,
                 init.inline_view_entrypoint_id,
                 init.entrypoint_names,
-                home_dir,
+                PathBuf::from(init.home_dir),
             ),
             ComponentModel::new(),
             api,
@@ -565,13 +566,13 @@ pub async fn start_js_runtime(
         ));
 
         #[cfg(target_os = "macos")]
-        extensions.push(gauntlet_internal_macos::init_ops_and_esm());
+        extensions.push(gauntlet_internal_macos::init());
 
         #[cfg(target_os = "linux")]
         extensions.push(crate::plugins::applications::gauntlet_internal_linux::init());
 
         #[cfg(target_os = "windows")]
-        extensions.push(crate::plugins::applications::gauntlet_internal_windows::init_ops_and_esm());
+        extensions.push(crate::plugins::applications::gauntlet_internal_windows::init());
     }
 
     let mut worker = MainWorker::bootstrap_from_options(

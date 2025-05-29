@@ -17,6 +17,7 @@ members = [
     "rust/component_model",
     "rust/scenario_runner",
     "rust/manifest_schema",
+    "rust/plugin_runtime",
 ]
 
 [workspace.package]
