@@ -121,81 +121,19 @@ pub enum GauntletJsError {
     Request(#[from] RequestError),
 }
 
+#[rustfmt::skip]
 const MODULES: [(&str, &str); 11] = [
-    (
-        "gauntlet:init",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js")),
-    ),
-    (
-        "gauntlet:bridge/components",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-components.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/hooks",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-hooks.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/helpers",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-helpers.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/core",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-core.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/react",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-react.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/react-jsx-runtime",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-react-jsx-runtime.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/internal-all",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-internal-all.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/internal-linux",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-internal-linux.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/internal-macos",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-internal-macos.js"
-        )),
-    ),
-    (
-        "gauntlet:bridge/internal-windows",
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../js/bridge_build/dist/bridge-internal-windows.js"
-        )),
-    ),
+    ("gauntlet:init", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/core/dist/init.js"))),
+    ("gauntlet:bridge/components", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-components.js"))),
+    ("gauntlet:bridge/hooks", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-hooks.js"))),
+    ("gauntlet:bridge/helpers", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-helpers.js"))),
+    ("gauntlet:bridge/core", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-core.js"))),
+    ("gauntlet:bridge/react", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-react.js"))),
+    ("gauntlet:bridge/react-jsx-runtime", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-react-jsx-runtime.js"))),
+    ("gauntlet:bridge/internal-all", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-all.js"))),
+    ("gauntlet:bridge/internal-linux", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-linux.js"))),
+    ("gauntlet:bridge/internal-macos", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-macos.js"))),
+    ("gauntlet:bridge/internal-windows", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../js/bridge_build/dist/bridge-internal-windows.js"))),
 ];
 
 impl ModuleLoader for CustomModuleLoader {

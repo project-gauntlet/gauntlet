@@ -1,3 +1,5 @@
+mod migrations;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -18,10 +20,9 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::model::ActionShortcutKey;
+use crate::plugins::data_db_repository::migrations::setup_migrator;
 use crate::plugins::frecency::FrecencyItemStats;
 use crate::plugins::frecency::FrecencyMetaParams;
-
-// static MIGRATOR: Migrator = sqlx::migrate!("./db_migrations");
 
 #[derive(Clone)]
 pub struct DataDbRepository {
@@ -385,139 +386,16 @@ impl DataDbRepository {
 
         std::fs::create_dir_all(&data_db_file.parent().unwrap()).context("Unable to create data directory")?;
 
-        let connection = Connection::open(&data_db_file).context("Unable to open database connection")?;
+        let mut connection = Connection::open(&data_db_file).context("Unable to open database connection")?;
 
-        let db_repository = Self {
+        setup_migrator()
+            .to_latest(&mut connection)
+            .context("Unable apply database migration")?;
+
+        Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
-        };
-
-        // let _ = db_repository.migrate_global_shortcut_to_settings().await;
-        //
-        // db_repository.run_migrations().await?;
-        //
-        // db_repository.apply_uuid_default_value().await?;
-        // db_repository.remove_legacy_bundled_plugins().await?;
-
-        Ok(db_repository)
+        })
     }
-
-    // async fn run_migrations(&self) -> anyhow::Result<()> {
-    //     MIGRATOR
-    //         .run(&self.connection)
-    //         .await
-    //         .context("Unable apply database migration")?;
-    //
-    //     Ok(())
-    // }
-    //
-    // async fn apply_uuid_default_value(&self) -> anyhow::Result<()> {
-    //     // language=SQLite
-    //     let mut stream = self
-    //         .connection
-    //         .fetch(sqlx::query("SELECT id FROM plugin WHERE uuid IS NULL"));
-    //     while let Some(row) = stream.next().await {
-    //         let row = row?;
-    //         let id: &str = row.get("id");
-    //
-    //         // language=SQLite
-    //         sqlx::query("UPDATE plugin SET uuid = ?1 WHERE id = ?2")
-    //             .bind(Uuid::new_v4().to_string())
-    //             .bind(id)
-    //             .execute(&self.connection)
-    //             .await?;
-    //     }
-    //
-    //     // language=SQLite
-    //     let mut stream = self
-    //         .connection
-    //         .fetch(sqlx::query("SELECT id FROM plugin_entrypoint WHERE uuid IS NULL"));
-    //     while let Some(row) = stream.next().await {
-    //         let row = row?;
-    //         let id: &str = row.get("id");
-    //
-    //         // language=SQLite
-    //         sqlx::query("UPDATE plugin_entrypoint SET uuid = ?1 WHERE id = ?2")
-    //             .bind(Uuid::new_v4().to_string())
-    //             .bind(id)
-    //             .execute(&self.connection)
-    //             .await?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    //
-    // async fn remove_legacy_bundled_plugins(&self) -> anyhow::Result<()> {
-    //     self.remove_plugin("builtin://applications").await?;
-    //     self.remove_plugin("builtin://calculator").await?;
-    //     self.remove_plugin("builtin://settings").await?;
-    //
-    //     Ok(())
-    // }
-    //
-    // async fn migrate_global_shortcut_to_settings(&self) -> anyhow::Result<()> {
-    //     #[derive(RusqliteModel)]
-    //     struct DbSettingsDataOldContainer {
-    //         #[rusqlite(json)]
-    //         pub global_shortcut: DbSettingsGlobalShortcutOldData,
-    //         pub settings: Option<Json<DbSettings>>,
-    //     }
-    //
-    //     #[derive(Debug, Deserialize, Serialize)]
-    //     pub struct DbSettingsGlobalShortcutOldData {
-    //         pub physical_key: String,
-    //         pub modifier_shift: bool,
-    //         pub modifier_control: bool,
-    //         pub modifier_alt: bool,
-    //         pub modifier_meta: bool,
-    //         #[serde(default)]
-    //         pub unset: bool,
-    //         #[serde(default)]
-    //         pub error: Option<String>,
-    //     }
-    //
-    //     // language=SQLite
-    //     let mut data = sqlx::query_as::<_, DbSettingsDataOldContainer>("SELECT * FROM settings_data")
-    //         .fetch_one(&self.connection)
-    //         .await?;
-    //
-    //     let shortcut_data = &data.global_shortcut;
-    //
-    //     let shortcut = if shortcut_data.unset {
-    //         None
-    //     } else {
-    //         Some(DbSettingsGlobalShortcutData {
-    //             shortcut: DbSettingsShortcut {
-    //                 physical_key: shortcut_data.physical_key.clone(),
-    //                 modifier_shift: shortcut_data.modifier_shift,
-    //                 modifier_control: shortcut_data.modifier_control,
-    //                 modifier_alt: shortcut_data.modifier_alt,
-    //                 modifier_meta: shortcut_data.modifier_meta,
-    //             },
-    //             error: None,
-    //         })
-    //     };
-    //
-    //     if let Some(settings) = &mut data.settings {
-    //         settings.global_shortcut = shortcut;
-    //     }
-    //
-    //     // language=SQLite
-    //     let sql = r#"
-    //         INSERT INTO settings_data (id, global_shortcut, settings)
-    //             VALUES(?1, ?2, ?3)
-    //                 ON CONFLICT (id)
-    //                     DO UPDATE SET settings = ?3
-    //     "#;
-    //
-    //     sqlx::query(sql)
-    //         .bind(SETTINGS_DATA_ID)
-    //         .bind(Json(data.global_shortcut))
-    //         .bind(data.settings)
-    //         .execute(&self.connection)
-    //         .await?;
-    //
-    //     Ok(())
-    // }
 
     pub fn list_plugins(&self) -> anyhow::Result<Vec<DbReadPlugin>> {
         // language=SQLite
@@ -1448,7 +1326,7 @@ pub fn db_plugin_type_from_str(value: &str) -> DbPluginType {
     }
 }
 
-trait RusqliteFromRow {
+pub trait RusqliteFromRow {
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self>
     where
         Self: Sized;

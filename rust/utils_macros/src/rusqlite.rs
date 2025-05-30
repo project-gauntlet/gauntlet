@@ -57,8 +57,8 @@ pub fn derive_rusqlite(item: TokenStream) -> TokenStream {
         .collect();
 
     let result = quote! {
-        impl RusqliteFromRow for #struct_name {
-            fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
+        impl crate::plugins::data_db_repository::RusqliteFromRow for #struct_name {
+            fn from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
                 Ok(Self {
                     #(#output)*
                 })
