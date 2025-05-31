@@ -35,7 +35,7 @@ toml.workspace = true
 tantivy = "0.22"
 git2 = { version = "0.19", features = ["vendored-libgit2", "vendored-openssl"] }
 tempfile = "3"
-rusqlite = { version = "0.34.0", features = ["serde_json"] }
+rusqlite = { version = "0.34.0", features = ["serde_json", "bundled"] }
 rusqlite_migration = "2.0.0"
 include_dir = "0.7"
 open = "5"
