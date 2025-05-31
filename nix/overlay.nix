@@ -6,7 +6,7 @@
   flake.overlays.default = final: _: let
     version = "v${builtins.readFile ./../VERSION}";
     # These must be updated following the instructions in ./nix/README.md when dependencies are updated or the version bumped
-    npmDepsHash = "sha256-Ty2mtoftvopyTKryENs+7HW00s0BGoHdgYvpIePieV0=";
+    npmDepsHash = "sha256-AAnbT3B68U+dTqTfCA4eYFo+VQBcY4LTj98Nnq+sIes=";
     RUSTY_V8_ARCHIVE = fetchRustyV8 "130.0.2" {
       aarch64-darwin = "sha256-aWZ/4Q4Wttx37xOdBmTCPGP+eYGhr4CM1UkYq8pC7Qs=";
       aarch64-linux = "sha256-p9+tHmKIM5wBABubHIAstpwfzO19ypPzOuaV4b6loCU=";
