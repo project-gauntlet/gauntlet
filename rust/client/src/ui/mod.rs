@@ -73,7 +73,6 @@ use iced::window::Mode;
 use iced::window::Position;
 use iced::window::Screenshot;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
-use tokio::runtime::Handle;
 use tokio::sync::RwLock as TokioRwLock;
 
 use crate::model::UiViewEvent;
@@ -130,9 +129,10 @@ pub struct AppModel {
     main_window_id: window::Id,
     focused: bool,
     opened: bool,
+    #[cfg(target_os = "linux")]
     wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    tray_icon: tray_icon::TrayIcon,
+    _tray_icon: tray_icon::TrayIcon,
     theme: GauntletComplexTheme,
     window_position_mode: WindowPositionMode,
     close_on_unfocus: bool,
@@ -494,7 +494,15 @@ fn run_non_wayland(
         })
         .subscription(subscription)
         .theme(|state, _| state.theme.clone())
-        .run_with(move || new(frontend_receiver, backend_sender, false, minimized))?;
+        .run_with(move || {
+            new(
+                frontend_receiver,
+                backend_sender,
+                #[cfg(target_os = "linux")]
+                false,
+                minimized,
+            )
+        })?;
 
     Ok(())
 }
@@ -526,7 +534,7 @@ fn wayland_remove_id_info(_state: &mut AppModel, _id: window::Id) {}
 fn new(
     frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
     backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-    wayland: bool,
+    #[cfg(target_os = "linux")] wayland: bool,
     minimized: bool,
 ) -> (AppModel, Task<AppMsg>) {
     let backend_api = BackendForFrontendApiProxy::new(backend_sender);
@@ -701,9 +709,10 @@ fn new(
             main_window_id,
             focused: false,
             opened: !minimized,
+            #[cfg(target_os = "linux")]
             wayland,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
-            tray_icon: sys_tray::create_tray(),
+            _tray_icon: sys_tray::create_tray(),
             theme,
             window_position_mode: setup_data.window_position_mode,
             close_on_unfocus: setup_data.close_on_unfocus,
@@ -2236,6 +2245,7 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
 
     struct RequestLoop;
     struct GlobalShortcutListener;
+    #[cfg(target_os = "linux")]
     struct X11ActiveWindowListener;
 
     let events_subscription = event::listen_with(|event, status, window_id| {
@@ -2253,6 +2263,7 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
         }
     });
 
+    #[allow(unused_mut)]
     let mut subscriptions = vec![
         Subscription::run_with_id(
             std::any::TypeId::of::<GlobalShortcutListener>(),
@@ -2285,7 +2296,7 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
 
     #[cfg(target_os = "linux")]
     if !state.wayland {
-        let handle = Handle::current();
+        let handle = tokio::runtime::Handle::current();
 
         let subscription = Subscription::run_with_id(
             std::any::TypeId::of::<X11ActiveWindowListener>(),

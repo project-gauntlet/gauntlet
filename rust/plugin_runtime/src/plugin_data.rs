@@ -65,6 +65,7 @@ impl PluginData {
         &self.entrypoint_names
     }
 
+    #[allow(unused)]
     pub fn home_dir(&self) -> PathBuf {
         self.home_dir.clone()
     }

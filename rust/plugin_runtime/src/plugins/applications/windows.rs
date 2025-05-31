@@ -1,6 +1,4 @@
 use std::io::Cursor;
-use std::mem;
-use std::mem::MaybeUninit;
 use std::path::PathBuf;
 use std::ptr;
 
@@ -16,13 +14,13 @@ use windows::Win32::Graphics::Gdi;
 use windows::Win32::Graphics::Gdi::HDC;
 use windows::Win32::Storage::FileSystem;
 use windows::Win32::UI::Controls;
-use windows::Win32::UI::Controls::HIMAGELIST;
 use windows::Win32::UI::Shell;
 use windows::Win32::UI::WindowsAndMessaging;
 use windows::core::GUID;
 use windows::core::HSTRING;
 use windows::core::PWSTR;
 
+use crate::deno::GauntletJsError;
 use crate::plugins::applications::DesktopApplication;
 use crate::plugins::applications::DesktopPathAction;
 use crate::plugins::applications::resize_icon;
@@ -58,16 +56,19 @@ fn windows_application_dirs() -> Vec<String> {
 
 #[op2]
 #[serde]
-fn windows_open_application(#[string] file_path: String) -> anyhow::Result<()> {
-    open::that_detached(file_path)?;
+fn windows_open_application(#[string] file_path: String) -> Result<(), GauntletJsError> {
+    open::that_detached(file_path).map_err(|err| anyhow!(err))?;
 
     Ok(())
 }
 
 #[op2(async)]
 #[serde]
-async fn windows_app_from_path(#[string] file_path: String) -> anyhow::Result<Option<DesktopPathAction>> {
-    spawn_blocking(|| windows_app_from_path_blocking(file_path)).await?
+async fn windows_app_from_path(#[string] file_path: String) -> Result<Option<DesktopPathAction>, GauntletJsError> {
+    Ok(
+        spawn_blocking(|| windows_app_from_path_blocking(file_path)).await
+            .map_err(|err| anyhow!(err))??
+    )
 }
 
 fn windows_app_from_path_blocking(file_path: String) -> anyhow::Result<Option<DesktopPathAction>> {

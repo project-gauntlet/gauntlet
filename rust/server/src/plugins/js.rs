@@ -41,7 +41,6 @@ use gauntlet_common_plugin_runtime::recv_message;
 use gauntlet_common_plugin_runtime::send_message;
 use gauntlet_utils::channel::RequestResult;
 use interprocess::local_socket::ListenerOptions;
-use interprocess::local_socket::ToFsName;
 use interprocess::local_socket::tokio::RecvHalf;
 use interprocess::local_socket::tokio::SendHalf;
 use interprocess::local_socket::traits::tokio::Listener;
@@ -198,6 +197,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     let home_dir = data.dirs.home_dir();
     let local_storage_dir = data.dirs.plugin_local_storage(&plugin_uuid);
+    #[cfg(unix)]
     let uds_socket_file = data.dirs.plugin_uds_socket(&plugin_uuid);
     let plugin_cache_dir = data.dirs.plugin_cache(&plugin_uuid)?;
     let plugin_data_dir = data.dirs.plugin_data(&plugin_uuid)?;
@@ -210,14 +210,20 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
 
     // namespaced, removed when both client and server disconnect
     #[cfg(target_os = "windows")]
-    let name = name_str
-        .clone()
-        .to_ns_name::<interprocess::local_socket::GenericNamespaced>()?;
+    let name = {
+        use interprocess::local_socket::ToNsName;
+
+        name_str
+            .clone()
+            .to_ns_name::<interprocess::local_socket::GenericNamespaced>()?
+    };
 
     // not namespaced, needs to be cleaned up manually,
     // by using close-behind semantics and additionally removing it before creating a new runtime
     #[cfg(unix)]
     let name = {
+        use interprocess::local_socket::ToFsName;
+
         let uds_socket_file = uds_socket_file.clone();
 
         // manually remove in case of unexpected situation where removing after connection did not work properly
@@ -240,6 +246,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         .context("non-uft8 paths are not supported")?
         .to_string();
 
+    #[cfg(unix)]
     let uds_socket_file = uds_socket_file
         .to_str()
         .context("non-uft8 paths are not supported")?
