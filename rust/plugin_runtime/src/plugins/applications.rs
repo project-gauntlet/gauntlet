@@ -23,12 +23,16 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::gauntlet_internal_windows;
 
+#[allow(unused)]
+use crate::deno::GauntletJsError;
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum DesktopPathAction {
     #[serde(rename = "add")]
     Add { id: String, data: DesktopApplication },
     #[serde(rename = "remove")]
+    #[allow(unused)]
     Remove { id: String },
 }
 
@@ -137,8 +141,16 @@ pub fn macos_major_version() -> u8 {
 pub async fn macos_app_from_path(
     #[string] path: String,
     #[string] lang: Option<String>,
-) -> anyhow::Result<Option<DesktopPathAction>> {
-    Ok(spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path), lang)).await?)
+) -> Result<Option<DesktopPathAction>, GauntletJsError> {
+    use std::path::PathBuf;
+
+    use tokio::task::spawn_blocking;
+
+    let result = spawn_blocking(|| macos::macos_app_from_path(&PathBuf::from(path), lang))
+        .await
+        .map_err(|err| anyhow::anyhow!(err))?;
+
+    Ok(result)
 }
 
 #[cfg(target_os = "macos")]
@@ -147,8 +159,16 @@ pub async fn macos_app_from_path(
 pub async fn macos_app_from_arbitrary_path(
     #[string] path: String,
     #[string] lang: Option<String>,
-) -> anyhow::Result<Option<DesktopPathAction>> {
-    Ok(spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path), lang)).await?)
+) -> Result<Option<DesktopPathAction>, GauntletJsError> {
+    use std::path::PathBuf;
+
+    use tokio::task::spawn_blocking;
+
+    let result = spawn_blocking(|| macos::macos_app_from_arbitrary_path(PathBuf::from(path), lang))
+        .await
+        .map_err(|err| anyhow::anyhow!(err))?;
+
+    Ok(result)
 }
 
 #[cfg(target_os = "macos")]
@@ -173,8 +193,12 @@ pub fn macos_application_dirs() -> Vec<String> {
 
 #[cfg(target_os = "macos")]
 #[op2(fast)]
-pub fn macos_open_application(#[string] app_path: String) -> anyhow::Result<()> {
-    std::process::Command::new("open").args([app_path]).spawn_detached()?;
+pub fn macos_open_application(#[string] app_path: String) -> Result<(), GauntletJsError> {
+    use gauntlet_common::detached_process::CommandExt;
+    std::process::Command::new("open")
+        .args([app_path])
+        .spawn_detached()
+        .map_err(|err| anyhow::anyhow!(err))?;
 
     Ok(())
 }
@@ -195,20 +219,24 @@ pub fn macos_settings_13_and_post(#[string] lang: Option<String>) -> Vec<Desktop
 
 #[cfg(target_os = "macos")]
 #[op2(fast)]
-pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> anyhow::Result<()> {
+pub fn macos_open_setting_13_and_post(#[string] preferences_id: String) -> Result<(), GauntletJsError> {
+    use gauntlet_common::detached_process::CommandExt;
     std::process::Command::new("open")
         .args([format!("x-apple.systempreferences:{}", preferences_id)])
-        .spawn_detached()?;
+        .spawn_detached()
+        .map_err(|err| anyhow::anyhow!(err))?;
 
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 #[op2(fast)]
-pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> anyhow::Result<()> {
+pub fn macos_open_setting_pre_13(#[string] setting_path: String) -> Result<(), GauntletJsError> {
+    use gauntlet_common::detached_process::CommandExt;
     std::process::Command::new("open")
         .args(["-b", "com.apple.systempreferences", &setting_path])
-        .spawn_detached()?;
+        .spawn_detached()
+        .map_err(|err| anyhow::anyhow!(err))?;
 
     Ok(())
 }
@@ -224,6 +252,7 @@ pub fn macos_get_localized_language() -> Option<String> {
         .map(|s| s.to_string())
 }
 
+#[allow(unused)]
 pub(in crate::plugins::applications) fn resize_icon(data: Vec<u8>) -> anyhow::Result<Vec<u8>> {
     let data = image::load_from_memory_with_format(&data, ImageFormat::Png)?;
     let data = image::imageops::resize(&data, 48, 48, FilterType::Lanczos3);

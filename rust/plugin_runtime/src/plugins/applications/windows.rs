@@ -65,10 +65,11 @@ fn windows_open_application(#[string] file_path: String) -> Result<(), GauntletJ
 #[op2(async)]
 #[serde]
 async fn windows_app_from_path(#[string] file_path: String) -> Result<Option<DesktopPathAction>, GauntletJsError> {
-    Ok(
-        spawn_blocking(|| windows_app_from_path_blocking(file_path)).await
-            .map_err(|err| anyhow!(err))??
-    )
+    let result = spawn_blocking(|| windows_app_from_path_blocking(file_path))
+        .await
+        .map_err(|err| anyhow!(err))??;
+
+    Ok(result)
 }
 
 fn windows_app_from_path_blocking(file_path: String) -> anyhow::Result<Option<DesktopPathAction>> {

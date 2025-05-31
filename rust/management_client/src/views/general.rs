@@ -184,7 +184,8 @@ impl ManagementAppGeneralState {
 
         let theme_field = self.theme_field();
 
-        let content = vec![global_shortcut_field, theme_field];
+        #[allow(unused_mut)]
+        let mut content = vec![global_shortcut_field, theme_field];
 
         #[cfg(target_os = "macos")]
         {

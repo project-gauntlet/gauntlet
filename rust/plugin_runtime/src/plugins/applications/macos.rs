@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::ffi::OsStr;
-use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -10,11 +8,9 @@ use anyhow::anyhow;
 use cacao::filesystem::FileManager;
 use cacao::filesystem::SearchPathDirectory;
 use cacao::filesystem::SearchPathDomainMask;
-use cacao::url::Url;
 use deno_core::ToJsBuffer;
 use objc2::ClassType;
 use objc2_app_kit::NSBitmapImageRep;
-use objc2_app_kit::NSCalibratedWhiteColorSpace;
 use objc2_app_kit::NSCompositeCopy;
 use objc2_app_kit::NSDeviceRGBColorSpace;
 use objc2_app_kit::NSGraphicsContext;
@@ -22,8 +18,6 @@ use objc2_app_kit::NSImage;
 use objc2_app_kit::NSPNGFileType;
 use objc2_app_kit::NSWorkspace;
 use objc2_foundation::CGFloat;
-use objc2_foundation::CGPoint;
-use objc2_foundation::CGRect;
 use objc2_foundation::NSDictionary;
 use objc2_foundation::NSInteger;
 use objc2_foundation::NSPoint;
@@ -31,8 +25,6 @@ use objc2_foundation::NSRect;
 use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::NSZeroRect;
-use plist::Dictionary;
-use plist::Value;
 use regex::Regex;
 use serde::Deserialize;
 
@@ -335,6 +327,7 @@ fn get_pref_panes_with_kind(
     })
 }
 
+#[allow(unused)]
 fn get_applications_with_kind(
     file_manager: &FileManager,
     directory: SearchPathDirectory,
@@ -428,41 +421,43 @@ fn get_items_in_dir(path: PathBuf, extension: &str) -> Vec<PathBuf> {
 
 // from https://stackoverflow.com/a/38442746 and https://stackoverflow.com/a/29162536
 unsafe fn resize_ns_image(source_image: &NSImage, width: NSInteger, height: NSInteger) -> Option<Vec<u8>> {
-    let new_size = NSSize::new(width as CGFloat, height as CGFloat);
+    unsafe {
+        let new_size = NSSize::new(width as CGFloat, height as CGFloat);
 
-    let bitmap_image_rep = NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
-        NSBitmapImageRep::alloc(),
-        std::ptr::null_mut::<*mut _>(),
-        width,
-        height,
-        8,
-        4,
-        true,
-        false,
-        NSDeviceRGBColorSpace,
-        0,
-        0,
-    )?;
+        let bitmap_image_rep = NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
+            NSBitmapImageRep::alloc(),
+            std::ptr::null_mut::<*mut _>(),
+            width,
+            height,
+            8,
+            4,
+            true,
+            false,
+            NSDeviceRGBColorSpace,
+            0,
+            0,
+        )?;
 
-    bitmap_image_rep.setSize(new_size);
+        bitmap_image_rep.setSize(new_size);
 
-    NSGraphicsContext::saveGraphicsState_class();
+        NSGraphicsContext::saveGraphicsState_class();
 
-    let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&bitmap_image_rep)
-        .expect("should be present because just saved");
+        let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&bitmap_image_rep)
+            .expect("should be present because just saved");
 
-    NSGraphicsContext::setCurrentContext(Some(&context));
+        NSGraphicsContext::setCurrentContext(Some(&context));
 
-    let rect = NSRect::new(NSPoint::new(0.0, 0.0), new_size);
-    source_image.drawInRect_fromRect_operation_fraction(rect, NSZeroRect, NSCompositeCopy, 1.0);
+        let rect = NSRect::new(NSPoint::new(0.0, 0.0), new_size);
+        source_image.drawInRect_fromRect_operation_fraction(rect, NSZeroRect, NSCompositeCopy, 1.0);
 
-    NSGraphicsContext::restoreGraphicsState_class();
+        NSGraphicsContext::restoreGraphicsState_class();
 
-    // TODO i guess this doesn't work for 2x image
+        // TODO i guess this doesn't work for 2x image
 
-    let data = bitmap_image_rep.representationUsingType_properties(NSPNGFileType, &NSDictionary::dictionary())?;
+        let data = bitmap_image_rep.representationUsingType_properties(NSPNGFileType, &NSDictionary::dictionary())?;
 
-    Some(data.bytes().to_vec())
+        Some(data.bytes().to_vec())
+    }
 }
 
 fn get_application_icon(app_path: &Path) -> anyhow::Result<ToJsBuffer> {
@@ -495,8 +490,10 @@ struct Info {
 
     // macOS only icon fields
     #[serde(rename = "CFBundleIconFile")]
+    #[allow(unused)]
     bundle_icon_file: Option<String>,
     #[serde(rename = "CFBundleIconName")]
+    #[allow(unused)]
     bundle_icon_name: Option<String>,
 }
 
@@ -523,6 +520,11 @@ struct SystemVersion {
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum SidebarSection {
-    Content { content: Vec<String> },
-    Title { title: String },
+    Content {
+        content: Vec<String>,
+    },
+    Title {
+        #[allow(unused)]
+        title: String,
+    },
 }
