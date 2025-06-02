@@ -589,11 +589,21 @@ impl DataDbRepository {
         plugin_id: &str,
         entrypoint_id: &str,
     ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
+        let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
+        self.action_shortcuts_with_executor(plugin_id, entrypoint_id, &connection)
+    }
+
+    fn action_shortcuts_with_executor(
+        &self,
+        plugin_id: &str,
+        entrypoint_id: &str,
+        connection: &Connection,
+    ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         let DbReadPluginEntrypoint {
             actions,
             actions_user_data,
             ..
-        } = self.get_entrypoint_by_id(plugin_id, entrypoint_id)?;
+        } = self.get_entrypoint_by_id_with_executor(plugin_id, entrypoint_id, connection)?;
 
         let actions_user_data: HashMap<_, _> = actions_user_data
             .into_iter()
@@ -856,7 +866,7 @@ impl DataDbRepository {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .map(|row| {
-                let shortcuts = self.action_shortcuts(&row.plugin_id, &row.id)?;
+                let shortcuts = self.action_shortcuts_with_executor(&row.plugin_id, &row.id, &connection)?;
 
                 Ok::<_, anyhow::Error>((row.plugin_id, shortcuts))
             })
