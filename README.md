@@ -88,13 +88,13 @@ Main window can be opened using global shortcut or CLI command:
 
 ### Install plugin
 
-Plugins are installed in Settings UI. Use Git repository url of the plugin to install it, e.g. `https://github.com/project-gauntlet/readme-demo-plugin.git` 
+Plugins are installed in Settings UI. Use Git repository url of the plugin to install it, e.g. `https://github.com/project-gauntlet/readme-demo-plugin.git`
+
+![](docs/settings_ui.png)
 
 ### Create your own plugin
 
 See [Getting started with plugin development](https://gauntlet.sh/docs/plugin-development/getting-started)
-
-![](docs/settings_ui.png)
 
 ## Theming
 
