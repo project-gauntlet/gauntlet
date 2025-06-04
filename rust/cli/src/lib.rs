@@ -75,7 +75,10 @@ pub fn init() {
                 }
             }
 
-            start(cli.minimized)
+            start(
+                #[cfg(not(feature = "scenario_runner"))]
+                cli.minimized,
+            )
         }
         Some(command) => {
             match command {

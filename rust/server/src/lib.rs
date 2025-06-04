@@ -3,11 +3,9 @@ use std::fs::File;
 use std::io::Write;
 use std::process::exit;
 use std::sync::Arc;
-use std::thread;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-use gauntlet_client::open_window;
 use gauntlet_client::start_client;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::EntrypointId;
@@ -38,7 +36,7 @@ pub(crate) mod search;
 const PLUGIN_CONNECT_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_CONNECT__";
 const PLUGIN_UUID_ENV: &'static str = "__GAUNTLET_INTERNAL_PLUGIN_UUID__";
 
-pub fn start(minimized: bool) {
+pub fn start(#[cfg(not(feature = "scenario_runner"))] minimized: bool) {
     register_panic_hook(std::env::var(PLUGIN_UUID_ENV).ok());
 
     if let Ok(socket_name) = std::env::var(PLUGIN_CONNECT_ENV) {
@@ -60,7 +58,7 @@ pub fn start(minimized: bool) {
     #[cfg(not(feature = "scenario_runner"))]
     {
         if is_server_running() {
-            open_window()
+            gauntlet_client::open_window()
         } else {
             let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
             let (backend_sender, backend_receiver) =
@@ -146,6 +144,7 @@ fn run_scenario_runner() {
     }
 }
 
+#[cfg(not(feature = "scenario_runner"))]
 fn is_server_running() -> bool {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -184,7 +183,7 @@ fn start_server(
 fn start_mock_server(
     request_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
     backend_receiver: RequestReceiver<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-    theme: UiTheme,
+    theme: gauntlet_common::model::UiTheme,
 ) {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()

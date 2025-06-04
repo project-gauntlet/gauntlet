@@ -49,8 +49,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::Mutex;
 
-use crate::PLUGIN_CONNECT_ENV;
-use crate::PLUGIN_UUID_ENV;
 use crate::model::IntermediateUiEvent;
 use crate::plugins::binary_data_gatherer::BinaryDataGatherer;
 use crate::plugins::clipboard::Clipboard;
@@ -287,14 +285,16 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         stderr_file,
     };
 
-    let current_exe = std::env::current_exe().context("unable to get current_exe")?;
-
     #[cfg(not(feature = "scenario_runner"))]
-    let mut runtime_process = std::process::Command::new(current_exe)
-        .env(PLUGIN_CONNECT_ENV, name_str)
-        .env(PLUGIN_UUID_ENV, plugin_uuid.clone())
-        .spawn()
-        .context("start plugin runtime process")?;
+    let mut runtime_process = {
+        let current_exe = std::env::current_exe().context("unable to get current_exe")?;
+
+        std::process::Command::new(current_exe)
+            .env(crate::PLUGIN_CONNECT_ENV, name_str)
+            .env(crate::PLUGIN_UUID_ENV, plugin_uuid.clone())
+            .spawn()
+            .context("start plugin runtime process")?;
+    };
 
     // use only for debugging and scenario_runner, only works if only one plugin is enabled
     #[cfg(feature = "scenario_runner")]
