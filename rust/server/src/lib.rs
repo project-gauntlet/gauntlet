@@ -64,7 +64,7 @@ pub fn start(#[cfg(not(feature = "scenario_runner"))] minimized: bool) {
             let (backend_sender, backend_receiver) =
                 channel::<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>();
 
-            thread::Builder::new()
+            std::thread::Builder::new()
                 .name("gauntlet-server".to_string())
                 .spawn(|| {
                     start_server(frontend_sender, backend_receiver);

@@ -293,7 +293,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
             .env(crate::PLUGIN_CONNECT_ENV, name_str)
             .env(crate::PLUGIN_UUID_ENV, plugin_uuid.clone())
             .spawn()
-            .context("start plugin runtime process")?;
+            .context("start plugin runtime process")?
     };
 
     // use only for debugging and scenario_runner, only works if only one plugin is enabled
