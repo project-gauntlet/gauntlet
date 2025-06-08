@@ -115,7 +115,8 @@ pub fn op_react_replace_view<'a>(
 
     let mut deserializer = serde_v8::Deserializer::new(scope, container.v8_value, None);
 
-    let container = RootWidget::deserialize(&mut deserializer).map_err(|err| anyhow!(err))?;
+    let container = RootWidget::deserialize(&mut deserializer)
+        .map_err(|err| anyhow!("Unable to deserialize root widget: {:#}", err))?;
 
     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
     let entrypoint_name = entrypoint_name.to_string();

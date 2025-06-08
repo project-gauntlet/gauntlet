@@ -25,16 +25,12 @@ edition = "2024"
 
 [workspace.dependencies]
 # iced
-#iced = { version = "0.13.99", features = ["tiny-skia", "wgpu", "tokio", "lazy", "advanced", "image", "web-colors", "svg"] }
-iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13", default-features = false, features = ["tiny-skia", "wgpu", "tokio", "advanced", "image", "web-colors", "svg"] }
-#iced_aw = { version = "0.11.99", features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
-iced_aw = { git = "https://github.com/project-gauntlet/iced_aw.git", branch = "gauntlet-0.13", default-features = false, features = ["date_picker", "wrap", "number_input", "grid", "spinner"] }
-#iced_table = "0.13.99"
-iced_table =  { git = "https://github.com/project-gauntlet/iced_table.git", branch = "gauntlet-0.13" }
-#iced_fonts = { version = "0.1.99", features = ["bootstrap"] }
-iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13", features = ["bootstrap"] }
+#iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image", "svg"] }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13.1", features = ["tokio", "lazy", "advanced", "image", "svg"] }
+#iced_fonts = { version = "0.2.99", features = ["bootstrap"] }
+iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13.1", features = ["bootstrap"] }
 #iced_layershell = "0.13.99"
-iced_layershell =  { git = "https://github.com/project-gauntlet/exwlshelleventloop.git", branch = "gauntlet-0.13" }
+iced_layershell =  { git = "https://github.com/project-gauntlet/exwlshelleventloop.git", branch = "gauntlet-0.13.1" }
 
 # workspaces
 gauntlet-common = { path = "./rust/common" }
@@ -86,3 +82,20 @@ inherits = "release"
 opt-level = "s"
 lto = "thin"
 strip = true
+
+#[patch.crates-io]
+#iced_fonts = { path = "../../../RustroverProjects/iced_fonts_fork" }
+#iced = { path = "../../../RustroverProjects/iced-fork" }
+#iced_debug = { path = "../../../RustroverProjects/iced-fork/debug" }
+#iced_devtools = { path = "../../../RustroverProjects/iced-fork/devtools" }
+#iced_program = { path = "../../../RustroverProjects/iced-fork/program" }
+#iced_core = { path = "../../../RustroverProjects/iced-fork/core" }
+#iced_futures = { path = "../../../RustroverProjects/iced-fork/futures" }
+#iced_graphics = { path = "../../../RustroverProjects/iced-fork/graphics" }
+#iced_renderer = { path = "../../../RustroverProjects/iced-fork/renderer" }
+#iced_runtime = { path = "../../../RustroverProjects/iced-fork/runtime" }
+#iced_tiny_skia = { path = "../../../RustroverProjects/iced-fork/tiny_skia" }
+#iced_wgpu = { path = "../../../RustroverProjects/iced-fork/wgpu" }
+#iced_widget = { path = "../../../RustroverProjects/iced-fork/widget" }
+#iced_winit = { path = "../../../RustroverProjects/iced-fork/winit" }
+#iced_layershell = { path = "../../../RustroverProjects/exwlshelleventloop/iced_layershell" }

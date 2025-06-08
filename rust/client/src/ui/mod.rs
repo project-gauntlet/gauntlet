@@ -3,9 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Mutex;
 
-use anyhow::anyhow;
 use client_context::ClientContext;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::KeyboardEventOrigin;
@@ -29,13 +27,14 @@ use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
 use gauntlet_common::scenario_model::ScenarioFrontendEvent;
 use gauntlet_common_ui::physical_key_model;
+use gauntlet_server::plugins::ApplicationManager;
+use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutAction;
+use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
+use gauntlet_server::plugins::settings::global_shortcut::register_listener;
 use gauntlet_utils::channel::RequestError;
-use gauntlet_utils::channel::RequestReceiver;
 use gauntlet_utils::channel::RequestResult;
-use gauntlet_utils::channel::RequestSender;
 use gauntlet_utils::channel::Responder;
-use global_hotkey::GlobalHotKeyManager;
-use global_hotkey::hotkey::HotKey;
+use gauntlet_utils::channel::channel;
 use iced::Event;
 use iced::Length;
 use iced::Point;
@@ -51,6 +50,7 @@ use iced::event;
 use iced::font;
 use iced::futures;
 use iced::futures::SinkExt;
+use iced::futures::StreamExt;
 use iced::keyboard;
 use iced::keyboard::Key;
 use iced::keyboard::Modifiers;
@@ -100,8 +100,6 @@ mod platform;
 
 pub use theme::GauntletComplexTheme;
 
-use crate::global_shortcut::convert_physical_shortcut_to_hotkey;
-use crate::global_shortcut::register_listener;
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::hud::show_hud_window;
 #[cfg(target_os = "linux")]
@@ -121,11 +119,8 @@ use crate::ui::widget::root::render_root;
 
 pub struct AppModel {
     // logic
+    application_manager: Arc<ApplicationManager>,
     backend_api: BackendForFrontendApiProxy,
-    global_hotkey_manager: GlobalHotKeyManager,
-    current_global_hotkey: Option<HotKey>,
-    current_entrypoint_global_hotkeys: HashMap<(PluginId, EntrypointId), HotKey>,
-    frontend_receiver: Arc<TokioRwLock<RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>>>,
     main_window_id: window::Id,
     focused: bool,
     opened: bool,
@@ -225,7 +220,7 @@ pub enum AppMsg {
     ShowWindow,
     HideWindow,
     ToggleWindow,
-    HandleGlobalShortcut(u32),
+    HandleGlobalShortcut(GlobalShortcutPressedEvent),
     ToggleActionPanel {
         keyboard: bool,
     },
@@ -245,7 +240,6 @@ pub enum AppMsg {
     ShowPluginErrorView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
-        render_location: UiRenderLocation,
     },
     Screenshot {
         save_path: String,
@@ -293,22 +287,10 @@ pub enum AppMsg {
     OnAnyActionMainViewSearchResultPanelMouse {
         widget_id: UiWidgetId,
     },
-    OnPrimaryActionMainViewActionPanelMouse {
-        widget_id: UiWidgetId,
-    },
+    OnPrimaryActionMainViewActionPanelMouse,
     ResetMainViewState,
     OnAnyActionMainViewNoPanelKeyboardAtIndex {
         index: usize,
-    },
-    SetGlobalShortcut {
-        shortcut: Option<PhysicalShortcut>,
-        responder: Arc<Mutex<Option<Responder<FrontendApiResponseData>>>>,
-    },
-    SetGlobalEntrypointShortcut {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        shortcut: Option<PhysicalShortcut>,
-        responder: Arc<Mutex<Option<Responder<FrontendApiResponseData>>>>,
     },
     UpdateLoadingBar {
         plugin_id: PluginId,
@@ -343,9 +325,9 @@ pub enum AppMsg {
 }
 
 #[cfg(target_os = "linux")]
-impl TryInto<iced_layershell::actions::LayershellCustomActionsWithId> for AppMsg {
+impl TryInto<iced_layershell::actions::LayershellCustomActionWithId> for AppMsg {
     type Error = Self;
-    fn try_into(self) -> Result<iced_layershell::actions::LayershellCustomActionsWithId, Self::Error> {
+    fn try_into(self) -> Result<iced_layershell::actions::LayershellCustomActionWithId, Self::Error> {
         match self {
             Self::LayerShell(msg) => msg.try_into().map_err(|msg| Self::LayerShell(msg)),
             _ => Err(self),
@@ -409,6 +391,7 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
         exclusive_zone: Some(0),
         size: Some((WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)),
         use_last_output: false,
+        namespace: None,
     }
 }
 
@@ -436,7 +419,7 @@ fn open_main_window_non_wayland(minimized: bool, window_position_file: Option<&P
         Task::batch([
             open_task.map(|_| AppMsg::Noop),
             window::gain_focus(main_window_id),
-            window::change_level(main_window_id, Level::AlwaysOnTop),
+            window::set_level(main_window_id, Level::AlwaysOnTop),
         ]),
     )
 }
@@ -454,11 +437,7 @@ fn open_main_window_wayland(id: window::Id) -> (window::Id, Task<AppMsg>) {
     )
 }
 
-pub fn run(
-    minimized: bool,
-    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
-    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-) {
+pub fn run(minimized: bool) {
     #[cfg(target_os = "linux")]
     let result = {
         let wayland = std::env::var("WAYLAND_DISPLAY")
@@ -466,24 +445,29 @@ pub fn run(
             .is_ok();
 
         if wayland {
-            run_wayland(minimized, frontend_receiver, backend_sender)
+            run_wayland(minimized)
         } else {
-            run_non_wayland(minimized, frontend_receiver, backend_sender)
+            run_non_wayland(minimized)
         }
     };
 
     #[cfg(not(target_os = "linux"))]
-    let result = run_non_wayland(minimized, frontend_receiver, backend_sender);
+    let result = run_non_wayland(minimized);
 
     result.expect("Unable to start application")
 }
 
-fn run_non_wayland(
-    minimized: bool,
-    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
-    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-) -> anyhow::Result<()> {
-    iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(title, update, view)
+fn run_non_wayland(minimized: bool) -> anyhow::Result<()> {
+    let boot = move || {
+        new(
+            #[cfg(target_os = "linux")]
+            false,
+            minimized,
+        )
+    };
+
+    iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(boot, update, view)
+        .title(title)
         .settings(Settings {
             #[cfg(target_os = "macos")]
             platform_specific: iced::settings::PlatformSpecific {
@@ -494,26 +478,16 @@ fn run_non_wayland(
         })
         .subscription(subscription)
         .theme(|state, _| state.theme.clone())
-        .run_with(move || {
-            new(
-                frontend_receiver,
-                backend_sender,
-                #[cfg(target_os = "linux")]
-                false,
-                minimized,
-            )
-        })?;
+        .run()?;
 
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
-fn run_wayland(
-    minimized: bool,
-    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
-    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-) -> anyhow::Result<()> {
-    iced_layershell::build_pattern::daemon("Gauntlet", update, view, wayland_remove_id_info)
+fn run_wayland(minimized: bool) -> anyhow::Result<()> {
+    let boot = move || new(true, minimized);
+
+    iced_layershell::build_pattern::daemon(boot, "Gauntlet", update, view)
         .layer_settings(iced_layershell::settings::LayerShellSettings {
             start_mode: iced_layershell::settings::StartMode::Background,
             events_transparent: true,
@@ -522,54 +496,39 @@ fn run_wayland(
             ..Default::default()
         })
         .subscription(subscription)
-        .theme(|state| state.theme.clone())
-        .run_with(move || new(frontend_receiver, backend_sender, true, minimized))?;
+        .theme(|state, _| state.theme.clone())
+        .run()?;
 
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
-fn wayland_remove_id_info(_state: &mut AppModel, _id: window::Id) {}
+fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel, Task<AppMsg>) {
+    let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
+    let (backend_sender, backend_receiver) =
+        channel::<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>();
 
-fn new(
-    frontend_receiver: RequestReceiver<FrontendApiRequestData, FrontendApiResponseData>,
-    backend_sender: RequestSender<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-    #[cfg(target_os = "linux")] wayland: bool,
-    minimized: bool,
-) -> (AppModel, Task<AppMsg>) {
+    let frontend_receiver = Arc::new(TokioRwLock::new(frontend_receiver));
+    let application_manager = ApplicationManager::create(frontend_sender).expect("Unable to setup application manager");
+    let application_manager = Arc::new(application_manager);
+
+    tokio::spawn({
+        let application_manager = application_manager.clone();
+
+        async move { application_manager.run_grpc_server().await }
+    });
+
+    tokio::spawn({
+        let application_manager = application_manager.clone();
+
+        async move { application_manager.run_message_loop(backend_receiver).await }
+    });
+
     let backend_api = BackendForFrontendApiProxy::new(backend_sender);
 
-    let setup_data = futures::executor::block_on(backend_api.setup_data()).expect("Unable to setup frontend");
+    let setup_data = application_manager.setup().expect("Unable to setup");
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
-
     GauntletComplexTheme::set_global(theme.clone());
-
-    let global_hotkey_manager = GlobalHotKeyManager::new().expect("unable to create global hot key manager");
-
-    // let current_global_hotkey = None;
-    // let global_assignment_result = anyhow::Ok(());
-    let (current_global_hotkey, global_assignment_result) =
-        assign_global_shortcut(&global_hotkey_manager, None, setup_data.global_shortcut);
-
-    let mut global_entrypoint_assignment_results = HashMap::new();
-    let mut current_entrypoint_global_hotkeys = HashMap::new();
-    for ((plugin_id, entrypoint_id), shortcut) in setup_data.global_entrypoint_shortcuts {
-        let (global_hotkey, result) = assign_global_shortcut(&global_hotkey_manager, None, Some(shortcut));
-        if let Some(global_hotkey) = global_hotkey {
-            current_entrypoint_global_hotkeys.insert((plugin_id.clone(), entrypoint_id.clone()), global_hotkey);
-        }
-        global_entrypoint_assignment_results.insert(
-            (plugin_id, entrypoint_id),
-            result.map_err(|err| format!("{:#}", err)).err(),
-        );
-    }
-
-    futures::executor::block_on(backend_api.setup_response(
-        global_assignment_result.map_err(|err| format!("{:#}", err)).err(),
-        global_entrypoint_assignment_results,
-    ))
-    .expect("Unable to setup frontend");
 
     let mut tasks = vec![font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)];
 
@@ -591,109 +550,22 @@ fn new(
 
     tasks.push(open_task);
 
+    tasks.push(Task::stream(stream::channel(100, |mut sender| {
+        async move {
+            let mut frontend_receiver = frontend_receiver.write().await;
+
+            loop {
+                let (request_data, responder) = frontend_receiver.recv().await;
+
+                request_loop(request_data, &mut sender, responder).await;
+            }
+        }
+    })));
+
     let mut client_context = ClientContext::new();
 
     let global_state = if cfg!(feature = "scenario_runner") {
-        let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
-
-        println!("Reading scenario file at: {}", gen_in);
-
-        let gen_in = fs::read_to_string(gen_in).expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
-
-        let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
-
-        let gen_name =
-            std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
-
-        let show_action_panel: bool = std::env::var("GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
-            .expect("Unable to read GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
-            .parse()
-            .expect("Unable to parse GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL");
-
-        let event: ScenarioFrontendEvent =
-            serde_json::from_str(&gen_in).expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
-
-        tasks.push(Task::perform(
-            async {
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-            },
-            move |_| {
-                AppMsg::Screenshot {
-                    save_path: gen_out.clone(),
-                }
-            },
-        ));
-
-        match event {
-            ScenarioFrontendEvent::ReplaceView {
-                entrypoint_id,
-                render_location,
-                top_level_view,
-                container,
-                data: images,
-            } => {
-                let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
-                let entrypoint_id = EntrypointId::from_string(entrypoint_id);
-                let plugin_name = "Screenshot Plugin".to_string();
-                let entrypoint_name = gen_name;
-
-                let render_location = ui_render_location_from_scenario(render_location);
-
-                let _ = client_context.render_ui(
-                    render_location,
-                    Arc::new(container),
-                    images,
-                    &plugin_id,
-                    &plugin_name,
-                    &entrypoint_id,
-                    &entrypoint_name,
-                );
-
-                if show_action_panel {
-                    tasks.push(Task::done(AppMsg::ToggleActionPanel { keyboard: false }))
-                }
-
-                match render_location {
-                    UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
-                    UiRenderLocation::View => {
-                        GlobalState::new_plugin(
-                            PluginViewData {
-                                top_level_view,
-                                plugin_id,
-                                entrypoint_id,
-                                action_shortcuts: Default::default(),
-                            },
-                            true,
-                        )
-                    }
-                }
-            }
-            ScenarioFrontendEvent::ShowPreferenceRequiredView {
-                entrypoint_id,
-                plugin_preferences_required,
-                entrypoint_preferences_required,
-            } => {
-                let error_view = ErrorViewData::PreferenceRequired {
-                    plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
-                    entrypoint_id: EntrypointId::from_string(entrypoint_id),
-                    plugin_preferences_required,
-                    entrypoint_preferences_required,
-                };
-
-                GlobalState::new_error(error_view)
-            }
-            ScenarioFrontendEvent::ShowPluginErrorView {
-                entrypoint_id,
-                render_location: _,
-            } => {
-                let error_view = ErrorViewData::PluginError {
-                    plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
-                    entrypoint_id: EntrypointId::from_string(entrypoint_id),
-                };
-
-                GlobalState::new_error(error_view)
-            }
-        }
+        scenario_runner_global_state(&mut tasks, &mut client_context)
     } else {
         GlobalState::new(text_input::Id::unique())
     };
@@ -701,11 +573,8 @@ fn new(
     (
         AppModel {
             // logic
+            application_manager,
             backend_api,
-            global_hotkey_manager,
-            current_global_hotkey,
-            current_entrypoint_global_hotkeys,
-            frontend_receiver: Arc::new(TokioRwLock::new(frontend_receiver)),
             main_window_id,
             focused: false,
             opened: !minimized,
@@ -733,6 +602,108 @@ fn new(
         },
         Task::batch(tasks),
     )
+}
+
+fn scenario_runner_global_state(tasks: &mut Vec<Task<AppMsg>>, client_context: &mut ClientContext) -> GlobalState {
+    let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
+
+    println!("Reading scenario file at: {}", gen_in);
+
+    let gen_in = fs::read_to_string(gen_in).expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
+
+    let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
+
+    let gen_name = std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
+
+    let show_action_panel: bool = std::env::var("GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
+        .expect("Unable to read GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
+        .parse()
+        .expect("Unable to parse GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL");
+
+    let event: ScenarioFrontendEvent =
+        serde_json::from_str(&gen_in).expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
+
+    tasks.push(Task::perform(
+        async {
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        },
+        move |_| {
+            AppMsg::Screenshot {
+                save_path: gen_out.clone(),
+            }
+        },
+    ));
+
+    match event {
+        ScenarioFrontendEvent::ReplaceView {
+            entrypoint_id,
+            render_location,
+            top_level_view,
+            container,
+            data: images,
+        } => {
+            let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
+            let entrypoint_id = EntrypointId::from_string(entrypoint_id);
+            let plugin_name = "Screenshot Plugin".to_string();
+            let entrypoint_name = gen_name;
+
+            let render_location = ui_render_location_from_scenario(render_location);
+
+            let _ = client_context.render_ui(
+                render_location,
+                Arc::new(container),
+                images,
+                &plugin_id,
+                &plugin_name,
+                &entrypoint_id,
+                &entrypoint_name,
+            );
+
+            if show_action_panel {
+                tasks.push(Task::done(AppMsg::ToggleActionPanel { keyboard: false }))
+            }
+
+            match render_location {
+                UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
+                UiRenderLocation::View => {
+                    GlobalState::new_plugin(
+                        PluginViewData {
+                            top_level_view,
+                            plugin_id,
+                            entrypoint_id,
+                            action_shortcuts: Default::default(),
+                        },
+                        true,
+                    )
+                }
+            }
+        }
+        ScenarioFrontendEvent::ShowPreferenceRequiredView {
+            entrypoint_id,
+            plugin_preferences_required,
+            entrypoint_preferences_required,
+        } => {
+            let error_view = ErrorViewData::PreferenceRequired {
+                plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
+                entrypoint_id: EntrypointId::from_string(entrypoint_id),
+                plugin_preferences_required,
+                entrypoint_preferences_required,
+            };
+
+            GlobalState::new_error(error_view)
+        }
+        ScenarioFrontendEvent::ShowPluginErrorView {
+            entrypoint_id,
+            render_location: _,
+        } => {
+            let error_view = ErrorViewData::PluginError {
+                plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
+                entrypoint_id: EntrypointId::from_string(entrypoint_id),
+            };
+
+            GlobalState::new_error(error_view)
+        }
+    }
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
@@ -1184,7 +1155,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::ShowPluginErrorView {
             plugin_id,
             entrypoint_id,
-            ..
         } => {
             GlobalState::error(
                 &mut state.global_state,
@@ -1364,8 +1334,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }),
             ])
         }
-        AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id: _ } => {
-            // widget_id here is always 0
+        AppMsg::OnPrimaryActionMainViewActionPanelMouse => {
             match &state.global_state {
                 GlobalState::MainView {
                     focused_search_result, ..
@@ -1466,88 +1435,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 GlobalState::PluginView { .. } => Task::none(),
                 GlobalState::PendingPluginView { .. } => Task::none(),
             }
-        }
-        AppMsg::SetGlobalShortcut { shortcut, responder } => {
-            let responder = responder
-                .lock()
-                .expect("lock is poisoned")
-                .take()
-                .expect("there should always be a responder here");
-
-            let (hotkey, error) = assign_global_shortcut(
-                &state.global_hotkey_manager,
-                state.current_global_hotkey,
-                shortcut.clone(),
-            );
-
-            state.current_global_hotkey = hotkey;
-
-            match error {
-                Ok(()) => {
-                    tracing::info!("Successfully registered new global shortcut: {:?}", shortcut);
-                    responder.respond(Ok(FrontendApiResponseData::SetGlobalShortcut { data: () }));
-                }
-                Err(err) => {
-                    tracing::error!("Unable to register new global shortcut {:?}: {:?}", shortcut, err);
-                    responder.respond(Err(err));
-                }
-            }
-
-            Task::none()
-        }
-        AppMsg::SetGlobalEntrypointShortcut {
-            plugin_id,
-            entrypoint_id,
-            shortcut,
-            responder,
-        } => {
-            let responder = responder
-                .lock()
-                .expect("lock is poisoned")
-                .take()
-                .expect("there should always be a responder here");
-
-            let current_global_hotkey = state
-                .current_entrypoint_global_hotkeys
-                .get(&(plugin_id.clone(), entrypoint_id.clone()))
-                .cloned();
-
-            let (hotkey, error) =
-                assign_global_shortcut(&state.global_hotkey_manager, current_global_hotkey, shortcut.clone());
-
-            if let Some(hotkey) = hotkey {
-                state
-                    .current_entrypoint_global_hotkeys
-                    .insert((plugin_id.clone(), entrypoint_id.clone()), hotkey);
-            } else {
-                state
-                    .current_entrypoint_global_hotkeys
-                    .remove(&(plugin_id.clone(), entrypoint_id.clone()));
-            };
-
-            match error {
-                Ok(()) => {
-                    tracing::info!(
-                        "Successfully registered new global shortcut for plugin '{:?}' and entrypoint '{:?}' : {:?}",
-                        plugin_id,
-                        entrypoint_id,
-                        shortcut
-                    );
-                    responder.respond(Ok(FrontendApiResponseData::SetGlobalEntrypointShortcut { data: () }));
-                }
-                Err(err) => {
-                    tracing::info!(
-                        "Unable to register new global shortcut for plugin '{:?}' and entrypoint '{:?}' - {:?}: {:?}",
-                        plugin_id,
-                        entrypoint_id,
-                        shortcut,
-                        err
-                    );
-                    responder.respond(Err(err));
-                }
-            }
-
-            Task::none()
         }
         AppMsg::UpdateLoadingBar {
             plugin_id,
@@ -1670,27 +1557,29 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::none()
             }
         }
-        AppMsg::HandleGlobalShortcut(id) => {
-            if let Some(hotkey) = state.current_global_hotkey {
-                if hotkey.id == id {
-                    return Task::done(AppMsg::ToggleWindow);
+        AppMsg::HandleGlobalShortcut(event) => {
+            match state.application_manager.handle_global_shortcut_event(event) {
+                Ok(action) => {
+                    match action {
+                        GlobalShortcutAction::ToggleWindow => Task::done(AppMsg::ToggleWindow),
+                        GlobalShortcutAction::RunEntrypoint {
+                            plugin_id,
+                            entrypoint_id,
+                        } => {
+                            Task::done(AppMsg::RunEntrypoint {
+                                plugin_id,
+                                entrypoint_id,
+                            })
+                        }
+                        GlobalShortcutAction::Noop => Task::none(),
+                    }
+                }
+                Err(err) => {
+                    tracing::error!("Error happened while handling global shortcut: {:?}", err);
+
+                    Task::none()
                 }
             }
-
-            let ids = state
-                .current_entrypoint_global_hotkeys
-                .iter()
-                .find(|(_, hotkey)| hotkey.id == id)
-                .map(|(ids, _)| ids);
-
-            if let Some((plugin_id, entrypoint_id)) = ids {
-                return Task::done(AppMsg::RunEntrypoint {
-                    plugin_id: plugin_id.clone(),
-                    entrypoint_id: entrypoint_id.clone(),
-                });
-            };
-
-            Task::none()
         }
         AppMsg::RunEntrypoint {
             plugin_id,
@@ -2148,7 +2037,10 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         None::<&ScrollHandle>,
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
-                        |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
+                        |_widget_id| {
+                            // widget_id here is always 0
+                            AppMsg::OnPrimaryActionMainViewActionPanelMouse
+                        },
                         |_widget_id| AppMsg::Noop,
                         || AppMsg::Noop,
                     )
@@ -2167,7 +2059,10 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         Some(focused_action_item),
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
-                        |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
+                        |_widget_id| {
+                            // widget_id here is always 0
+                            AppMsg::OnPrimaryActionMainViewActionPanelMouse
+                        },
                         |widget_id| AppMsg::OnAnyActionMainViewSearchResultPanelMouse { widget_id },
                         || AppMsg::Noop,
                     )
@@ -2186,7 +2081,10 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         Some(focused_action_item),
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
-                        |widget_id| AppMsg::OnPrimaryActionMainViewActionPanelMouse { widget_id },
+                        |_widget_id| {
+                            // widget_id here is always 0
+                            AppMsg::OnPrimaryActionMainViewActionPanelMouse
+                        },
                         |widget_id| AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id },
                         || AppMsg::Noop,
                     )
@@ -2241,13 +2139,6 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 }
 
 fn subscription(state: &AppModel) -> Subscription<AppMsg> {
-    let frontend_receiver = state.frontend_receiver.clone();
-
-    struct RequestLoop;
-    struct GlobalShortcutListener;
-    #[cfg(target_os = "linux")]
-    struct X11ActiveWindowListener;
-
     let events_subscription = event::listen_with(|event, status, window_id| {
         match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
@@ -2265,82 +2156,37 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
 
     #[allow(unused_mut)]
     let mut subscriptions = vec![
-        Subscription::run_with_id(
-            std::any::TypeId::of::<GlobalShortcutListener>(),
-            stream::channel(10, |sender| {
-                async move {
-                    register_listener(sender.clone());
+        Subscription::run(|| {
+            stream::channel(10, async move |sender| {
+                register_listener(sender.clone());
 
-                    std::future::pending::<()>().await;
+                std::future::pending::<()>().await;
 
-                    unreachable!()
-                }
-            }),
-        ),
+                unreachable!()
+            })
+            .map(AppMsg::HandleGlobalShortcut)
+        }),
         events_subscription,
-        Subscription::run_with_id(
-            std::any::TypeId::of::<RequestLoop>(),
-            stream::channel(100, |mut sender| {
-                async move {
-                    let mut frontend_receiver = frontend_receiver.write().await;
-
-                    loop {
-                        let (request_data, responder) = frontend_receiver.recv().await;
-
-                        request_loop(request_data, &mut sender, responder).await;
-                    }
-                }
-            }),
-        ),
     ];
 
     #[cfg(target_os = "linux")]
     if !state.wayland {
-        let handle = tokio::runtime::Handle::current();
+        let subscription = Subscription::run(|| {
+            stream::channel(100, async move |sender| {
+                let handle = tokio::runtime::Handle::current();
 
-        let subscription = Subscription::run_with_id(
-            std::any::TypeId::of::<X11ActiveWindowListener>(),
-            stream::channel(100, |sender| {
-                async move {
-                    let err = tokio::task::spawn_blocking(|| listen_on_x11_active_window_change(sender, handle)).await;
+                let err = tokio::task::spawn_blocking(|| listen_on_x11_active_window_change(sender, handle)).await;
 
-                    if let Err(err) = err {
-                        tracing::error!("error occurred when listening on x11 events: {:?}", err);
-                    }
+                if let Err(err) = err {
+                    tracing::error!("error occurred when listening on x11 events: {:?}", err);
                 }
-            }),
-        );
+            })
+        });
 
         subscriptions.push(subscription)
     }
 
     Subscription::batch(subscriptions)
-}
-
-fn assign_global_shortcut(
-    global_hotkey_manager: &GlobalHotKeyManager,
-    current_hotkey: Option<HotKey>,
-    new_shortcut: Option<PhysicalShortcut>,
-) -> (Option<HotKey>, anyhow::Result<()>) {
-    if let Some(current_hotkey) = current_hotkey {
-        if let Err(err) = global_hotkey_manager.unregister(current_hotkey.clone()) {
-            tracing::warn!(
-                "error occurred when unregistering global shortcut {:?}: {:?}",
-                current_hotkey,
-                err
-            )
-        }
-    }
-
-    if let Some(new_shortcut) = new_shortcut {
-        let hotkey = convert_physical_shortcut_to_hotkey(new_shortcut);
-        match global_hotkey_manager.register(hotkey) {
-            Ok(()) => (Some(hotkey), Ok(())),
-            Err(err) => (None, Err(anyhow!(err))),
-        }
-    } else {
-        (None, Ok(()))
-    }
 }
 
 impl AppModel {
@@ -2385,7 +2231,7 @@ impl AppModel {
                 layer_shell::LayerShellAppMsg::RemoveWindow(self.main_window_id),
             )));
         } else {
-            commands.push(window::change_mode(self.main_window_id, Mode::Hidden));
+            commands.push(window::set_mode(self.main_window_id, Mode::Hidden));
         };
 
         #[cfg(not(target_os = "linux"))]
@@ -2441,7 +2287,7 @@ impl AppModel {
         } else {
             Task::batch([
                 window::gain_focus(self.main_window_id),
-                window::change_mode(self.main_window_id, Mode::Windowed),
+                window::set_mode(self.main_window_id, Mode::Windowed),
             ])
         };
 
@@ -2754,7 +2600,7 @@ impl AppModel {
                                 modifier_alt: false,
                                 modifier_meta: cfg!(target_os = "macos"),
                             }) => {
-                                crate::open_settings_window();
+                                self.application_manager.handle_open_settings_window();
 
                                 Task::none()
                             }
@@ -3027,14 +2873,13 @@ async fn request_loop(
             FrontendApiRequestData::ShowPluginErrorView {
                 plugin_id,
                 entrypoint_id,
-                render_location,
+                render_location: _,
             } => {
                 responder.respond(Ok(FrontendApiResponseData::ShowPluginErrorView { data: () }));
 
                 AppMsg::ShowPluginErrorView {
                     plugin_id,
                     entrypoint_id,
-                    render_location,
                 }
             }
             FrontendApiRequestData::RequestSearchResultsUpdate {} => {
@@ -3046,24 +2891,6 @@ async fn request_loop(
                 responder.respond(Ok(FrontendApiResponseData::ShowHud { data: () }));
 
                 AppMsg::ShowHud { display }
-            }
-            FrontendApiRequestData::SetGlobalShortcut { shortcut } => {
-                AppMsg::SetGlobalShortcut {
-                    shortcut,
-                    responder: Arc::new(Mutex::new(Some(responder))),
-                }
-            }
-            FrontendApiRequestData::SetGlobalEntrypointShortcut {
-                plugin_id,
-                entrypoint_id,
-                shortcut,
-            } => {
-                AppMsg::SetGlobalEntrypointShortcut {
-                    plugin_id,
-                    entrypoint_id,
-                    shortcut,
-                    responder: Arc::new(Mutex::new(Some(responder))),
-                }
             }
             FrontendApiRequestData::UpdateLoadingBar {
                 plugin_id,

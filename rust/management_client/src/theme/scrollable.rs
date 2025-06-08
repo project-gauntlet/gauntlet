@@ -27,7 +27,7 @@ impl scrollable::Catalog for GauntletSettingsTheme {
         };
 
         match status {
-            Status::Active => {
+            Status::Active { .. } => {
                 Style {
                     container: container::Style::default(),
                     vertical_rail: scrollbar,
@@ -38,6 +38,7 @@ impl scrollable::Catalog for GauntletSettingsTheme {
             Status::Hovered {
                 is_horizontal_scrollbar_hovered,
                 is_vertical_scrollbar_hovered,
+                ..
             } => {
                 let hovered_scrollbar = scrollable::Rail {
                     scroller: scrollable::Scroller {
@@ -65,6 +66,7 @@ impl scrollable::Catalog for GauntletSettingsTheme {
             Status::Dragged {
                 is_horizontal_scrollbar_dragged,
                 is_vertical_scrollbar_dragged,
+                ..
             } => {
                 let dragged_scrollbar = scrollable::Rail {
                     scroller: scrollable::Scroller {

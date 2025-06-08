@@ -19,10 +19,8 @@ use iced::widget::mouse_area;
 use iced::widget::row;
 use iced::widget::stack;
 use iced::widget::text;
-use iced::widget::value;
 use iced::widget::vertical_rule;
-use iced_fonts::BOOTSTRAP_FONT;
-use iced_fonts::Bootstrap;
+use iced_fonts::bootstrap::arrow_left;
 
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::scroll_handle::ScrollHandle;
@@ -127,7 +125,7 @@ impl<'b> ComponentWidgets<'b> {
     }
 
     fn render_top_panel<'a>(&self, search_bar: &Option<SearchBarWidget>) -> Element<'a, ComponentWidgetEvent> {
-        let icon = value(Bootstrap::ArrowLeft).font(BOOTSTRAP_FONT);
+        let icon = arrow_left();
 
         let back_button: Element<_> = button(icon)
             .on_press(ComponentWidgetEvent::PreviousView)

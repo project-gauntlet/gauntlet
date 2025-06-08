@@ -64,12 +64,6 @@ export default function FormView(): ReactElement {
                 <Form.Select.Item value={"select_item_3"}>Select Item 3</Form.Select.Item>
                 <Form.Select.Item value={"select_item_4"}>Select Item 4</Form.Select.Item>
             </Form.Select>
-            <Form.DatePicker
-                label={"What is your birthday?"}
-                onChange={value => {
-                    console.log(`uncontrolled value: ${value}`)
-                }}
-            />
             <Form.Separator/>
             {/* controlled */}
             <Form.TextField
@@ -105,12 +99,6 @@ export default function FormView(): ReactElement {
                 <Form.Select.Item value={"default_selected_item"}>Default Select Item</Form.Select.Item>
                 <Form.Select.Item value={"select_item_4"}>Select Item 4</Form.Select.Item>
             </Form.Select>
-            <Form.DatePicker
-                value={"2024-03-22"}
-                onChange={value => {
-                    console.log(`controlled value: ${value}`)
-                }}
-            />
         </Form>
     );
 };

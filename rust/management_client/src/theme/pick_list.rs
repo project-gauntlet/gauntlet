@@ -27,12 +27,12 @@ fn pick_list_appearance(status: pick_list::Status) -> pick_list::Style {
     use iced::widget::pick_list::Status;
 
     let background_color = match status {
-        Status::Active | Status::Opened => PRIMARY.to_iced(),
+        Status::Active | Status::Opened { is_hovered: _ } => PRIMARY.to_iced(),
         Status::Hovered => PRIMARY_HOVERED.to_iced(),
     };
 
     let text_color = match status {
-        Status::Active | Status::Opened => TEXT_DARKEST.to_iced(),
+        Status::Active | Status::Opened { is_hovered: _ } => TEXT_DARKEST.to_iced(),
         Status::Hovered => TEXT_DARKEST.to_iced(),
     };
 

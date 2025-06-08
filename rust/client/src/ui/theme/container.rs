@@ -118,6 +118,7 @@ impl container::Catalog for GauntletComplexTheme {
                         offset: Vector::new(0.0, 5.0),
                         blur_radius: 25.0,
                     },
+                    snap: false,
                 }
             }
             ContainerStyleInner::ActionShortcutModifier => {
@@ -134,6 +135,7 @@ impl container::Catalog for GauntletComplexTheme {
                         color: border_color.clone().into(),
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
             ContainerStyleInner::ContentCodeBlockText => {
@@ -150,6 +152,7 @@ impl container::Catalog for GauntletComplexTheme {
                         color: border_color.clone().into(),
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
             ContainerStyleInner::Main => {
@@ -165,6 +168,7 @@ impl container::Catalog for GauntletComplexTheme {
                         color: theme.border_color,
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
             ContainerStyleInner::Root => {
@@ -180,6 +184,7 @@ impl container::Catalog for GauntletComplexTheme {
                         color: theme.border_color,
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
             ContainerStyleInner::Tooltip => {
@@ -196,6 +201,7 @@ impl container::Catalog for GauntletComplexTheme {
                         color: theme.border_color,
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
             ContainerStyleInner::ContentImage => {
@@ -257,6 +263,7 @@ impl container::Catalog for GauntletComplexTheme {
                         color: theme.border_color,
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
             ContainerStyleInner::MainListItemAlias => {
@@ -271,6 +278,7 @@ impl container::Catalog for GauntletComplexTheme {
                         radius: theme.border_radius.into(),
                     },
                     shadow: Default::default(),
+                    snap: false,
                 }
             }
         }

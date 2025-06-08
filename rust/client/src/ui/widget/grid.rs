@@ -9,17 +9,14 @@ use gauntlet_common::model::GridWidgetOrderedMembers;
 use gauntlet_common::model::PhysicalShortcut;
 use iced::Length;
 use iced::advanced::text::Shaping;
-use iced::alignment::Vertical;
 use iced::widget::button;
 use iced::widget::column;
 use iced::widget::container;
+use iced::widget::grid;
 use iced::widget::horizontal_space;
 use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
-use iced_aw::GridRow;
-use iced_aw::grid;
-use iced_aw::grid_row;
 use itertools::Itertools;
 
 use crate::ui::state::PluginViewState;
@@ -264,25 +261,17 @@ impl<'b> ComponentWidgets<'b> {
         //     Some(value) => panic!("unsupported aspect_ratio {:?}", value)
         // };
 
-        let grid_width = grid_width(columns);
+        let columns = grid_width(columns);
 
-        let rows: Vec<GridRow<_, _, _>> = items
+        let rows: Vec<Element<_>> = items
             .iter()
-            .map(|widget| self.render_grid_item_widget(widget, item_focus_index, index_counter, grid_width))
-            .chunks(grid_width)
+            .map(|widget| self.render_grid_item_widget(widget, item_focus_index, index_counter, columns))
+            .chunks(columns)
             .into_iter()
-            .map(|row_items| {
-                let mut row_items: Vec<_> = row_items.collect();
-                row_items.resize_with(grid_width, || horizontal_space().into());
-
-                grid_row(row_items).into()
-            })
+            .flat_map(|row_items| row_items)
             .collect();
 
-        let grid: Element<_> = grid(rows)
-            .width(Length::Fill)
-            .vertical_alignment(Vertical::Top)
-            .themed(GridStyle::Default);
+        let grid = grid(rows).columns(columns).themed(GridStyle::Default);
 
         grid
     }

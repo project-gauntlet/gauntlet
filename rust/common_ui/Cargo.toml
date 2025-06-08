@@ -8,5 +8,4 @@ gauntlet-common.workspace = true
 
 # shared
 iced.workspace = true
-iced_aw.workspace = true
 iced_fonts.workspace = true

@@ -30,13 +30,6 @@ export default function MainExample(): ReactElement {
 
             <Form.Separator/>
 
-            <Form.DatePicker
-                label="Date"
-                value={"2024-03-22"}
-                onChange={value => {
-                    console.log(`value: ${value}`)
-                }}
-            />
             <Form.Checkbox
                 title="I acknowledge the Galactic Code and agree to abide by its regulations."
                 value={false}

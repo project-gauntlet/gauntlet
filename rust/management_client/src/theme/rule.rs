@@ -17,6 +17,7 @@ impl rule::Catalog for GauntletSettingsTheme {
             width: 1,
             radius: 0.0.into(),
             fill_mode: rule::FillMode::Full,
+            snap: false,
         }
     }
 }

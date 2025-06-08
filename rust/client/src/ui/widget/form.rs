@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use gauntlet_common::model::CheckboxWidget;
-use gauntlet_common::model::DatePickerWidget;
 use gauntlet_common::model::FormWidget;
 use gauntlet_common::model::FormWidgetOrderedMembers;
 use gauntlet_common::model::PasswordFieldWidget;
@@ -16,7 +15,6 @@ use iced::Length;
 use iced::advanced::text::Shaping;
 use iced::alignment::Horizontal;
 use iced::widget::Space;
-use iced::widget::button;
 use iced::widget::checkbox;
 use iced::widget::column;
 use iced::widget::container;
@@ -26,20 +24,17 @@ use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
 use iced::widget::text_input;
-use iced_aw::date_picker;
 
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::container::ContainerStyle;
-use crate::ui::theme::date_picker::DatePickerStyle;
 use crate::ui::theme::pick_list::PickListStyle;
 use crate::ui::theme::row::RowStyle;
 use crate::ui::theme::text_input::TextInputStyle;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::state::CheckboxState;
-use crate::ui::widget::state::DatePickerState;
 use crate::ui::widget::state::RootState;
 use crate::ui::widget::state::SelectState;
 use crate::ui::widget::state::TextFieldState;
@@ -71,38 +66,6 @@ impl<'b> ComponentWidgets<'b> {
         checkbox(widget.title.as_deref().unwrap_or_default(), state_value.to_owned())
             .on_toggle(move |value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
             .into()
-    }
-
-    fn render_date_picker_widget<'a>(&self, widget: &DatePickerWidget) -> Element<'a, ComponentWidgetEvent> {
-        let widget_id = widget.__id__;
-        let DatePickerState {
-            state_value,
-            show_picker,
-        } = self.date_picker_state(widget.__id__);
-
-        let button_text = text(state_value.to_string()).shaping(Shaping::Advanced);
-
-        let button = button(button_text).on_press(ComponentWidgetEvent::ToggleDatePicker {
-            widget_id: widget.__id__,
-        });
-
-        // TODO unable to customize buttons here, split to separate button styles
-        //     DatePickerUnderlay,
-        //     DatePickerOverlay,
-
-        date_picker(
-            show_picker.to_owned(),
-            state_value.to_owned(),
-            button,
-            ComponentWidgetEvent::CancelDatePicker { widget_id },
-            move |date| {
-                ComponentWidgetEvent::SubmitDatePicker {
-                    widget_id,
-                    value: date.to_string(),
-                }
-            },
-        )
-        .themed(DatePickerStyle::Default)
     }
 
     fn render_select_widget<'a>(&self, widget: &SelectWidget) -> Element<'a, ComponentWidgetEvent> {
@@ -199,9 +162,6 @@ impl<'b> ComponentWidgets<'b> {
                     }
                     FormWidgetOrderedMembers::Checkbox(widget) => {
                         render_field(self.render_checkbox_widget(widget), &widget.label)
-                    }
-                    FormWidgetOrderedMembers::DatePicker(widget) => {
-                        render_field(self.render_date_picker_widget(widget), &widget.label)
                     }
                     FormWidgetOrderedMembers::Select(widget) => {
                         render_field(self.render_select_widget(widget), &widget.label)

@@ -6,9 +6,11 @@ use iced::Pixels;
 use iced::border::Radius;
 use iced::keyboard::Modifiers;
 use iced::widget::text;
-use iced::widget::value;
-use iced_aw::iced_fonts::BOOTSTRAP_FONT;
-use iced_aw::iced_fonts::Bootstrap;
+use iced_fonts::BOOTSTRAP_FONT;
+use iced_fonts::bootstrap::arrow_return_left;
+use iced_fonts::bootstrap::command;
+use iced_fonts::bootstrap::option;
+use iced_fonts::bootstrap::shift;
 
 pub fn padding(
     top: impl Into<Pixels>,
@@ -49,7 +51,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
     let (key_name, show_shift) = match shortcut.physical_key {
         PhysicalKey::Enter => {
             let key_name = if cfg!(target_os = "macos") {
-                value(Bootstrap::ArrowReturnLeft).font(BOOTSTRAP_FONT).into()
+                arrow_return_left().into()
             } else {
                 text("Enter").into()
             };
@@ -67,7 +69,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let alt_modifier_text = if shortcut.modifier_alt {
         if cfg!(target_os = "macos") {
-            Some(value(Bootstrap::Option).font(BOOTSTRAP_FONT).into())
+            Some(option().into())
         } else {
             Some(text("Alt").into())
         }
@@ -77,7 +79,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let meta_modifier_text = if shortcut.modifier_meta {
         if cfg!(target_os = "macos") {
-            Some(value(Bootstrap::Command).font(BOOTSTRAP_FONT).into())
+            Some(command().into())
         } else if cfg!(target_os = "windows") {
             Some(
                 text("Win") // is it possible to have shortcuts that use win?
@@ -94,7 +96,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
         if cfg!(target_os = "macos") {
             Some(
                 text("^") // TODO bootstrap doesn't have proper macos ctrl icon
-                    .font(BOOTSTRAP_FONT)
+                    .font(BOOTSTRAP_FONT) // todo replace
                     .into(),
             )
         } else {
@@ -106,7 +108,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let shift_modifier_text = if show_shift && shortcut.modifier_shift {
         if cfg!(target_os = "macos") {
-            Some(value(Bootstrap::Shift).font(BOOTSTRAP_FONT).into())
+            Some(shift().into())
         } else {
             Some(text("Shift").into())
         }

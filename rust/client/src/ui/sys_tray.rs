@@ -13,8 +13,8 @@ pub fn create_tray() -> tray_icon::TrayIcon {
 
     MenuEvent::set_event_handler(Some(|event: MenuEvent| {
         match event.id().as_ref() {
-            "GAUNTLET_OPEN_MAIN_WINDOW" => crate::open_window(),
-            "GAUNTLET_OPEN_SETTING_WINDOW" => crate::open_settings_window(),
+            "GAUNTLET_OPEN_MAIN_WINDOW" => gauntlet_common::cli::open_window(),
+            "GAUNTLET_OPEN_SETTING_WINDOW" => gauntlet_common::cli::open_settings_window(),
             _ => {}
         }
     }));

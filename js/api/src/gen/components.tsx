@@ -95,11 +95,6 @@ declare global {
                 value?: boolean;
                 onChange?: (value: boolean) => void;
             };
-            ["gauntlet:date_picker"]: {
-                label?: string;
-                value?: string;
-                onChange?: (value: string | undefined) => void;
-            };
             ["gauntlet:select_item"]: {
                 children?: StringComponent;
                 value: string;
@@ -112,7 +107,7 @@ declare global {
             };
             ["gauntlet:separator"]: {};
             ["gauntlet:form"]: {
-                children?: ElementComponent<typeof ActionPanel | typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+                children?: ElementComponent<typeof ActionPanel | typeof TextField | typeof PasswordField | typeof Checkbox | typeof Select | typeof Separator>;
                 isLoading?: boolean;
             };
             ["gauntlet:inline_separator"]: {
@@ -585,14 +580,6 @@ export interface CheckboxProps {
 export const Checkbox: FC<CheckboxProps> = (props: CheckboxProps): ReactNode => {
     return <gauntlet:checkbox label={props.label} title={props.title} value={props.value} onChange={props.onChange}></gauntlet:checkbox>;
 };
-export interface DatePickerProps {
-    label?: string;
-    value?: string;
-    onChange?: (value: string | undefined) => void;
-}
-export const DatePicker: FC<DatePickerProps> = (props: DatePickerProps): ReactNode => {
-    return <gauntlet:date_picker label={props.label} value={props.value} onChange={props.onChange}></gauntlet:date_picker>;
-};
 export interface SelectItemProps {
     children?: StringComponent;
     value: string;
@@ -616,7 +603,7 @@ export const Separator: FC = (): ReactNode => {
     return <gauntlet:separator></gauntlet:separator>;
 };
 export interface FormProps {
-    children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof DatePicker | typeof Select | typeof Separator>;
+    children?: ElementComponent<typeof TextField | typeof PasswordField | typeof Checkbox | typeof Select | typeof Separator>;
     isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
 }
@@ -624,7 +611,6 @@ export const Form: FC<FormProps> & {
     TextField: typeof TextField;
     PasswordField: typeof PasswordField;
     Checkbox: typeof Checkbox;
-    DatePicker: typeof DatePicker;
     Select: typeof Select;
     Separator: typeof Separator;
 } = (props: FormProps): ReactNode => {
@@ -633,7 +619,6 @@ export const Form: FC<FormProps> & {
 Form.TextField = TextField;
 Form.PasswordField = PasswordField;
 Form.Checkbox = Checkbox;
-Form.DatePicker = DatePicker;
 Form.Select = Select;
 Form.Separator = Separator;
 export interface InlineSeparatorProps {

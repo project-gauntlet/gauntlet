@@ -4,7 +4,6 @@ use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils_macros::boundary_gen;
 
 use crate::model::EntrypointId;
-use crate::model::PhysicalShortcut;
 use crate::model::PluginId;
 use crate::model::RootWidget;
 use crate::model::UiRenderLocation;
@@ -57,15 +56,6 @@ pub trait FrontendApi {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         show: bool,
-    ) -> RequestResult<()>;
-
-    async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> RequestResult<()>;
-
-    async fn set_global_entrypoint_shortcut(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        shortcut: Option<PhysicalShortcut>,
     ) -> RequestResult<()>;
 
     async fn set_theme(&self, theme: UiTheme) -> RequestResult<()>;

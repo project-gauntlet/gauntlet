@@ -217,8 +217,6 @@ pub struct UiTheme {
 pub struct UiSetupData {
     pub window_position_file: Option<PathBuf>,
     pub theme: UiTheme,
-    pub global_shortcut: Option<PhysicalShortcut>,
-    pub global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), PhysicalShortcut>,
     pub close_on_unfocus: bool,
     pub window_position_mode: WindowPositionMode,
 }
@@ -366,7 +364,6 @@ pub trait WidgetVisitor {
     async fn text_field_widget(&mut self, _widget: &TextFieldWidget) {}
     async fn password_field_widget(&mut self, _widget: &PasswordFieldWidget) {}
     async fn checkbox_widget(&mut self, _widget: &CheckboxWidget) {}
-    async fn date_picker_widget(&mut self, _widget: &DatePickerWidget) {}
     async fn select_item_widget(&mut self, _widget: &SelectItemWidget) {}
     async fn select_widget(&mut self, widget: &SelectWidget) {
         for members in &widget.content.ordered_members {
@@ -385,7 +382,6 @@ pub trait WidgetVisitor {
                 FormWidgetOrderedMembers::TextField(widget) => self.text_field_widget(widget).await,
                 FormWidgetOrderedMembers::PasswordField(widget) => self.password_field_widget(widget).await,
                 FormWidgetOrderedMembers::Checkbox(widget) => self.checkbox_widget(widget).await,
-                FormWidgetOrderedMembers::DatePicker(widget) => self.date_picker_widget(widget).await,
                 FormWidgetOrderedMembers::Select(widget) => self.select_widget(widget).await,
                 FormWidgetOrderedMembers::Separator(widget) => self.separator_widget(widget).await,
             }

@@ -381,7 +381,7 @@ pub struct DbPluginEntrypointFrecencyStats {
 const SETTINGS_DATA_ID: &str = "settings_data"; // only one row in the table
 
 impl DataDbRepository {
-    pub async fn new(dirs: Dirs) -> anyhow::Result<Self> {
+    pub fn new(dirs: Dirs) -> anyhow::Result<Self> {
         let data_db_file = dirs.data_db_file()?;
 
         std::fs::create_dir_all(&data_db_file.parent().unwrap()).context("Unable to create data directory")?;
@@ -1053,7 +1053,7 @@ impl DataDbRepository {
         Ok(theme)
     }
 
-    pub fn set_settings(&self, value: DbSettings) -> anyhow::Result<()> {
+    fn set_settings(&self, value: &DbSettings) -> anyhow::Result<()> {
         let connection = self.connection.lock().map_err(|_| anyhow!("lock is poisoned"))?;
 
         // language=SQLite
@@ -1073,6 +1073,19 @@ impl DataDbRepository {
         )?;
 
         Ok(())
+    }
+
+    pub fn mutate_settings(
+        &self,
+        mutate: impl FnOnce(DbSettings) -> anyhow::Result<DbSettings>,
+    ) -> anyhow::Result<DbSettings> {
+        let settings = self.get_settings()?;
+
+        let settings = mutate(settings)?;
+
+        self.set_settings(&settings)?;
+
+        Ok(settings)
     }
 
     pub fn set_preference_value(

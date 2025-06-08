@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+pub mod cli;
 pub mod detached_process;
 pub mod dirs;
 pub mod model;

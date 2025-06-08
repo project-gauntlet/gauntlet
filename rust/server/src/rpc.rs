@@ -61,7 +61,7 @@ impl BackendForCliApi for BackendServerImpl {
 #[tonic::async_trait]
 impl BackendForToolsApi for BackendServerImpl {
     async fn save_local_plugin(&self, path: String) -> RequestResult<LocalSaveData> {
-        let result = self.application_manager.save_local_plugin(&path).await?;
+        let result = self.application_manager.save_local_plugin(&path)?;
 
         Ok(result)
     }
@@ -70,7 +70,7 @@ impl BackendForToolsApi for BackendServerImpl {
 #[tonic::async_trait]
 impl BackendForSettingsApi for BackendServerImpl {
     async fn plugins(&self) -> RequestResult<HashMap<PluginId, SettingsPlugin>> {
-        let result = self.application_manager.plugins().await;
+        let result = self.application_manager.plugins();
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -84,7 +84,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn set_plugin_state(&self, plugin_id: PluginId, enabled: bool) -> RequestResult<()> {
-        let result = self.application_manager.set_plugin_state(plugin_id, enabled).await;
+        let result = self.application_manager.set_plugin_state(plugin_id, enabled);
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -136,8 +136,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     async fn get_global_shortcut(&self) -> RequestResult<(Option<PhysicalShortcut>, Option<String>)> {
         let result = self
             .application_manager
-            .get_global_shortcut()
-            .await?
+            .get_global_shortcut()?
             .map(|(shortcut, error)| (Some(shortcut), error))
             .unwrap_or((None, None));
 
@@ -161,7 +160,6 @@ impl BackendForSettingsApi for BackendServerImpl {
     ) -> RequestResult<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
         self.application_manager
             .get_global_entrypoint_shortcut()
-            .await
             .map_err(Into::into)
     }
 
@@ -200,10 +198,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn get_window_position_mode(&self) -> RequestResult<WindowPositionMode> {
-        self.application_manager
-            .get_window_position_mode()
-            .await
-            .map_err(Into::into)
+        self.application_manager.get_window_position_mode().map_err(Into::into)
     }
 
     async fn set_preference_value(
@@ -213,10 +208,9 @@ impl BackendForSettingsApi for BackendServerImpl {
         preference_id: String,
         preference_value: PluginPreferenceUserData,
     ) -> RequestResult<()> {
-        let result = self
-            .application_manager
-            .set_preference_value(plugin_id, entrypoint_id, preference_id, preference_value)
-            .await;
+        let result =
+            self.application_manager
+                .set_preference_value(plugin_id, entrypoint_id, preference_id, preference_value);
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -230,7 +224,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn download_plugin(&self, plugin_id: PluginId) -> RequestResult<()> {
-        let result = self.application_manager.download_plugin(plugin_id).await;
+        let result = self.application_manager.download_plugin(plugin_id);
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -248,7 +242,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn remove_plugin(&self, plugin_id: PluginId) -> RequestResult<()> {
-        let result = self.application_manager.remove_plugin(plugin_id).await;
+        let result = self.application_manager.remove_plugin(plugin_id);
 
         if let Err(err) = &result {
             tracing::warn!(

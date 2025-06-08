@@ -7,13 +7,13 @@ use gauntlet_common::model::UiThemeColor;
 use gauntlet_common::model::UiThemeMode;
 use iced::Color;
 use iced::Padding;
-use iced::application;
-use iced::application::DefaultStyle;
+use iced::theme::Base;
+use iced::theme::Palette;
+use iced::theme::Style;
 
 pub mod button;
 pub mod checkbox;
 pub mod container;
-pub mod date_picker;
 pub mod grid;
 pub mod image;
 mod loading_bar;
@@ -35,6 +35,7 @@ pub struct GauntletComplexTheme {
     root: ThemeRoot,
     popup: ThemeRoot,
     action: ThemeButton,
+    default_button: ThemeButton,
     action_panel: ThemePaddingBackgroundColor,
     action_panel_title: ThemePaddingTextColor,
     action_section_title: ThemePaddingTextColor,
@@ -53,8 +54,6 @@ pub struct GauntletComplexTheme {
     form_inner: ThemePaddingOnly,
     form_input: ThemePaddingOnly,
     form_input_label: ThemePaddingOnly,
-    form_input_date_picker: ThemeDatePicker,
-    form_input_date_picker_buttons: ThemeButton,
     form_input_checkbox: ThemeCheckbox,
     form_input_select: ThemeSelect,
     form_input_select_menu: ThemeSelectMenu,
@@ -183,6 +182,17 @@ impl GauntletComplexTheme {
                 border_radius: window.border.radius,
                 border_width: window.border.width,
                 border_color: to_iced(&window.border.color),
+            },
+            default_button: ThemeButton {
+                padding: padding_all(8.0),
+                background_color: background_200,
+                background_color_focused: background_100,
+                background_color_hovered: background_100,
+                text_color: text_100,
+                text_color_hovered: text_100,
+                border_radius: content.border.radius,
+                border_width: 0.0,
+                border_color: Color::TRANSPARENT,
             },
             action_panel: ThemePaddingBackgroundColor {
                 padding: padding_all(8.0),
@@ -489,27 +499,6 @@ impl GauntletComplexTheme {
                 text_color_hovered: text_200,
             },
             empty_view_subtitle: ThemeTextColor { text_color: text_300 },
-            form_input_date_picker: ThemeDatePicker {
-                background_color: background_400,
-                text_color: text_100,
-                text_color_selected: text_300,
-                text_color_hovered: text_300,
-                text_attenuated_color: text_300,
-                day_background_color: background_200,
-                day_background_color_selected: background_200,
-                day_background_color_hovered: background_200,
-            },
-            form_input_date_picker_buttons: ThemeButton {
-                padding: padding_all(8.0),
-                background_color: background_200,
-                background_color_focused: background_100,
-                background_color_hovered: background_100,
-                text_color: text_100,
-                text_color_hovered: text_100,
-                border_radius: content.border.radius,
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-            },
             form_input_checkbox: ThemeCheckbox {
                 background_color_checked: text_200,
                 background_color_unchecked: Color::TRANSPARENT,
@@ -754,21 +743,6 @@ pub struct ThemeInline {
 }
 
 #[derive(Debug, Clone)]
-pub struct ThemeDatePicker {
-    background_color: Color,
-
-    text_color: Color,
-    text_color_selected: Color,
-    text_color_hovered: Color,
-
-    text_attenuated_color: Color,
-
-    day_background_color: Color,
-    day_background_color_selected: Color,
-    day_background_color_hovered: Color,
-}
-
-#[derive(Debug, Clone)]
 pub struct ThemePaddingTextColor {
     padding: ThemePadding,
     text_color: Color,
@@ -920,25 +894,17 @@ pub trait ThemableWidget<'a, Message> {
     fn themed(self, name: Self::Kind) -> Element<'a, Message>;
 }
 
-impl DefaultStyle for GauntletComplexTheme {
-    fn default_style(&self) -> application::Appearance {
+impl Base for GauntletComplexTheme {
+    fn base(&self) -> Style {
         let theme = get_theme();
 
-        application::Appearance {
+        Style {
             background_color: Color::TRANSPARENT,
             text_color: theme.text,
         }
     }
-}
 
-#[cfg(target_os = "linux")]
-impl iced_layershell::DefaultStyle for GauntletComplexTheme {
-    fn default_style(&self) -> iced_layershell::Appearance {
-        let theme = get_theme();
-
-        iced_layershell::Appearance {
-            background_color: Color::TRANSPARENT,
-            text_color: theme.text,
-        }
+    fn palette(&self) -> Option<Palette> {
+        Some(Palette::FERRA)
     }
 }

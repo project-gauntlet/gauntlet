@@ -36,14 +36,15 @@ use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::stack;
 use iced::widget::text;
-use iced::widget::value;
 use iced::window;
-use iced_aw::Spinner;
-use iced_fonts::BOOTSTRAP_FONT;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
-use iced_fonts::Bootstrap;
+use iced_fonts::bootstrap::exclamation_triangle_fill;
+use iced_fonts::bootstrap::gear_fill;
+use iced_fonts::bootstrap::patch_check_fill;
+use iced_fonts::bootstrap::puzzle_fill;
 use itertools::Itertools;
 
+use crate::components::spinner::Spinner;
 use crate::theme::Element;
 use crate::theme::GauntletSettingsTheme;
 use crate::theme::button::ButtonStyle;
@@ -57,19 +58,16 @@ use crate::views::plugins::ManagementAppPluginMsgOut;
 use crate::views::plugins::ManagementAppPluginsState;
 
 pub fn run() {
-    iced::application::<ManagementAppModel, ManagementAppMsg, GauntletSettingsTheme, Renderer>(
-        "Gauntlet Settings",
-        update,
-        view,
-    )
-    .window(window::Settings {
-        size: Size::new(1150.0, 700.0),
-        ..Default::default()
-    })
-    .subscription(subscription)
-    .theme(|_| GauntletSettingsTheme::default())
-    .run_with(new)
-    .expect("Unable to start settings application");
+    iced::application::<ManagementAppModel, ManagementAppMsg, GauntletSettingsTheme, Renderer>(new, update, view)
+        .title("Gauntlet Settings")
+        .window(window::Settings {
+            size: Size::new(1150.0, 700.0),
+            ..Default::default()
+        })
+        .subscription(subscription)
+        .theme(|_| GauntletSettingsTheme::default())
+        .run()
+        .expect("Unable to start settings application");
 }
 
 struct ManagementAppModel {
@@ -414,8 +412,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
         SettingsView::Plugins => state.plugins_state.view().map(|msg| ManagementAppMsg::Plugin(msg)),
     };
 
-    let icon_general: Element<_> = value(Bootstrap::GearFill)
-        .font(BOOTSTRAP_FONT)
+    let icon_general: Element<_> = gear_fill()
         .height(Length::Fill)
         .width(Length::Fill)
         .align_y(alignment::Vertical::Center)
@@ -449,8 +446,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
 
     let general_button: Element<_> = container(general_button).padding(8.0).into();
 
-    let icon_plugins: Element<_> = value(Bootstrap::PuzzleFill)
-        .font(BOOTSTRAP_FONT)
+    let icon_plugins: Element<_> = puzzle_fill()
         .height(Length::Fill)
         .width(Length::Fill)
         .align_y(alignment::Vertical::Center)
@@ -529,10 +525,9 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
             download_info_icons.push(spinner);
         }
         if successful_count > 0 {
-            let icon: Element<_> = value(Bootstrap::PatchCheckFill)
+            let icon: Element<_> = patch_check_fill()
                 .size(16)
                 .align_y(alignment::Vertical::Center)
-                .font(BOOTSTRAP_FONT)
                 .height(Length::Fill)
                 .class(TextStyle::Positive)
                 .into();
@@ -549,8 +544,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
             download_info_icons.push(icon);
         }
         if error_count > 0 {
-            let icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
-                .font(BOOTSTRAP_FONT)
+            let icon: Element<_> = exclamation_triangle_fill()
                 .height(Length::Fill)
                 .align_y(alignment::Vertical::Center)
                 .size(16)
@@ -658,8 +652,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
                             .size(14)
                             .into();
 
-                        let icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
-                            .font(BOOTSTRAP_FONT)
+                        let icon: Element<_> = exclamation_triangle_fill()
                             .align_y(alignment::Vertical::Center)
                             .size(32)
                             .class(TextStyle::Destructive)
@@ -690,10 +683,9 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
 
                         let plugin_id: Element<_> = container(plugin_id).padding(padding::bottom(16)).into();
 
-                        let icon: Element<_> = value(Bootstrap::PatchCheckFill)
+                        let icon: Element<_> = patch_check_fill()
                             .size(32)
                             .align_y(alignment::Vertical::Center)
-                            .font(BOOTSTRAP_FONT)
                             .class(TextStyle::Positive)
                             .into();
 

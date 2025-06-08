@@ -14,7 +14,6 @@ use iced::advanced::Clipboard;
 use iced::advanced::Layout;
 use iced::advanced::Shell;
 use iced::advanced::Widget;
-use iced::advanced::graphics::core::event;
 use iced::advanced::graphics::core::keyboard;
 use iced::advanced::layout;
 use iced::advanced::mouse;
@@ -32,9 +31,7 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::tooltip;
 use iced::widget::tooltip::Position;
-use iced::widget::value;
-use iced_fonts::BOOTSTRAP_FONT;
-use iced_fonts::Bootstrap;
+use iced_fonts::bootstrap::exclamation_triangle_fill;
 
 use crate::theme::Element;
 use crate::theme::GauntletSettingsTheme;
@@ -46,7 +43,7 @@ pub struct ShortcutData {
     pub error: Option<String>,
 }
 
-pub fn shortcut_selector<'a, 'b: 'a, 'c, Message: 'a, F>(
+pub fn shortcut_selector<'a, 'b, Message: 'a, F>(
     current_shortcut: &'b ShortcutData,
     on_shortcut_captured: F,
     overlay_class: <GauntletSettingsTheme as container::Catalog>::Class<'a>,
@@ -201,17 +198,17 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
         tree.diff_children(&[self.content.as_widget(), self.popup.as_widget()]);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree.state.downcast_mut::<State>();
 
         match &event {
@@ -246,8 +243,7 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
 
                                                     let message = (self.on_shortcut_captured)(Some(shortcut));
                                                     shell.publish(message);
-
-                                                    return event::Status::Captured;
+                                                    shell.capture_event();
                                                 }
                                             }
                                         }
@@ -271,6 +267,7 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
                     }
                     mouse::Event::CursorMoved { .. } => {
                         state.is_hovering = cursor.is_over(layout.bounds());
+                        shell.request_redraw();
                     }
                     _ => {}
                 }
@@ -278,7 +275,7 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
             _ => {}
         };
 
-        self.content.as_widget_mut().on_event(
+        self.content.as_widget_mut().update(
             &mut tree.children[0],
             event,
             layout,
@@ -287,7 +284,7 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
             clipboard,
             shell,
             viewport,
-        )
+        );
     }
 
     fn mouse_interaction(
@@ -308,18 +305,19 @@ impl<'a, 'b, Message: 'a> Widget<Message, GauntletSettingsTheme, Renderer> for S
     fn overlay<'c>(
         &'c mut self,
         tree: &'c mut Tree,
-        layout: Layout<'_>,
+        layout: Layout<'c>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'c, Message, GauntletSettingsTheme, Renderer>> {
         let state = tree.state.downcast_ref::<State>();
 
         let mut children = tree.children.iter_mut();
 
-        let content = self
-            .content
-            .as_widget_mut()
-            .overlay(children.next().unwrap(), layout, renderer, translation);
+        let content =
+            self.content
+                .as_widget_mut()
+                .overlay(children.next().unwrap(), layout, renderer, viewport, translation);
 
         let popup = if state.is_capturing {
             Some(overlay::Element::new(Box::new(Overlay {
@@ -404,10 +402,7 @@ pub fn render_shortcut<'a, Message: 'a>(shortcut: &ShortcutData, in_table: bool)
 }
 
 pub fn render_shortcut_error<'a, Message: 'a>(current_shortcut_error: String) -> Element<'a, Message> {
-    let error_icon: Element<_> = value(Bootstrap::ExclamationTriangleFill)
-        .font(BOOTSTRAP_FONT)
-        .class(TextStyle::Destructive)
-        .into();
+    let error_icon: Element<_> = exclamation_triangle_fill().class(TextStyle::Destructive).into();
 
     let error_text: Element<_> = text(current_shortcut_error).class(TextStyle::Destructive).into();
 

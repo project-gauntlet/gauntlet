@@ -9,9 +9,7 @@ use iced::widget::column;
 use iced::widget::container;
 use iced::widget::row;
 use iced::widget::text;
-use iced::widget::value;
 use iced::widget::vertical_rule;
-use iced_fonts::BOOTSTRAP_FONT;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
@@ -30,10 +28,7 @@ impl<'b> ComponentWidgets<'b> {
 
                 let top_rule = container(top_rule).align_x(Horizontal::Center).into();
 
-                let icon = value(icon_to_bootstrap(icon))
-                    .font(BOOTSTRAP_FONT)
-                    .size(45)
-                    .themed(TextStyle::InlineSeparator);
+                let icon = icon_to_bootstrap(icon).size(45).themed(TextStyle::InlineSeparator);
 
                 let bot_rule: Element<_> = vertical_rule(1).into();
 

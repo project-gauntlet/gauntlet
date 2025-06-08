@@ -8,12 +8,12 @@ gauntlet-common.workspace = true
 gauntlet-common-ui.workspace = true
 gauntlet-utils.workspace = true
 gauntlet-component-model.workspace = true
+gauntlet-server.workspace = true
 
 # shared
 tokio.workspace = true
 anyhow.workspace = true
 iced.workspace = true
-iced_aw.workspace = true
 iced_fonts.workspace = true
 tracing.workspace = true
 itertools.workspace = true
@@ -23,7 +23,6 @@ image.workspace = true
 once_cell.workspace = true
 
 # other
-global-hotkey = "0.7.0"
 arc-swap = "1.7.1"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]

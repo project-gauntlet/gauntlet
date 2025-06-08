@@ -27,10 +27,8 @@ use iced::widget::scrollable;
 use iced::widget::text;
 use iced::widget::text::Shaping;
 use iced::widget::text_input;
-use iced::widget::value;
 use iced::widget::vertical_rule;
-use iced_fonts::BOOTSTRAP_FONT;
-use iced_fonts::Bootstrap;
+use iced_fonts::bootstrap::plus;
 
 use crate::theme::Element;
 use crate::theme::button::ButtonStyle;
@@ -793,7 +791,7 @@ impl ManagementAppPluginsState {
         let top_button_text = if plugin_url.is_some() {
             text("Download plugin")
         } else {
-            value(Bootstrap::Plus).font(BOOTSTRAP_FONT)
+            plus()
         };
 
         let top_button_text_container: Element<_> = container(top_button_text)
@@ -825,6 +823,9 @@ impl ManagementAppPluginsState {
             .into();
 
         let separator: Element<_> = vertical_rule(1).into();
+
+        let table = container(table).width(Length::FillPortion(7)).into();
+        let sidebar = container(sidebar).width(Length::FillPortion(3)).into();
 
         let content: Element<_> = row(vec![table, separator, sidebar]).into();
 
@@ -888,6 +889,7 @@ struct SettingsGeneratorData {
 pub enum PluginPreferenceUserDataState {
     Number {
         value: Option<f64>,
+        new_value: Option<String>,
     },
     String {
         value: Option<String>,
@@ -904,7 +906,7 @@ pub enum PluginPreferenceUserDataState {
     },
     ListOfNumbers {
         value: Option<Vec<f64>>,
-        new_value: f64,
+        new_value: Option<String>,
     },
     ListOfEnums {
         value: Option<Vec<String>>,
@@ -915,7 +917,9 @@ pub enum PluginPreferenceUserDataState {
 impl PluginPreferenceUserDataState {
     pub fn from_user_data(value: PluginPreferenceUserData) -> Self {
         match value {
-            PluginPreferenceUserData::Number { value } => PluginPreferenceUserDataState::Number { value },
+            PluginPreferenceUserData::Number { value } => {
+                PluginPreferenceUserDataState::Number { value, new_value: None }
+            }
             PluginPreferenceUserData::String { value } => PluginPreferenceUserDataState::String { value },
             PluginPreferenceUserData::Enum { value } => PluginPreferenceUserDataState::Enum { value },
             PluginPreferenceUserData::Bool { value } => PluginPreferenceUserDataState::Bool { value },
@@ -926,7 +930,7 @@ impl PluginPreferenceUserDataState {
                 }
             }
             PluginPreferenceUserData::ListOfNumbers { value } => {
-                PluginPreferenceUserDataState::ListOfNumbers { value, new_value: 0.0 }
+                PluginPreferenceUserDataState::ListOfNumbers { value, new_value: None }
             }
             PluginPreferenceUserData::ListOfEnums { value } => {
                 PluginPreferenceUserDataState::ListOfEnums { value, new_value: None }
@@ -936,7 +940,7 @@ impl PluginPreferenceUserDataState {
 
     pub fn to_user_data(self) -> PluginPreferenceUserData {
         match self {
-            PluginPreferenceUserDataState::Number { value } => PluginPreferenceUserData::Number { value },
+            PluginPreferenceUserDataState::Number { value, .. } => PluginPreferenceUserData::Number { value },
             PluginPreferenceUserDataState::String { value } => PluginPreferenceUserData::String { value },
             PluginPreferenceUserDataState::Enum { value } => PluginPreferenceUserData::Enum { value },
             PluginPreferenceUserDataState::Bool { value } => PluginPreferenceUserData::Bool { value },

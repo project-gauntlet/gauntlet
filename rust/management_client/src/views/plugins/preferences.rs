@@ -7,7 +7,6 @@ use gauntlet_common::model::PluginPreference;
 use iced::Length;
 use iced::Padding;
 use iced::padding;
-use iced::widget;
 use iced::widget::button;
 use iced::widget::checkbox;
 use iced::widget::column;
@@ -17,9 +16,8 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
 use iced::widget::text_input;
-use iced_aw::number_input;
-use iced_fonts::BOOTSTRAP_FONT;
-use iced_fonts::Bootstrap;
+use iced_fonts::bootstrap::dash;
+use iced_fonts::bootstrap::plus;
 
 use crate::theme::Element;
 use crate::theme::button::ButtonStyle;
@@ -104,34 +102,46 @@ pub fn preferences_ui<'a>(
 
         let input_field: Element<_> = match preference {
             PluginPreference::Number { default, .. } => {
-                let value = match user_data {
-                    None => None,
-                    Some(PluginPreferenceUserDataState::Number { value }) => value.to_owned(),
+                let (value, new_value) = match user_data {
+                    None => (None, None),
+                    Some(PluginPreferenceUserDataState::Number { value, new_value }) => {
+                        (value.to_owned(), new_value.to_owned())
+                    }
                     Some(_) => unreachable!(),
                 };
 
+                let invalid_value = new_value
+                    .as_ref()
+                    .map(|value| value.parse::<f64>().is_err())
+                    .unwrap_or(false);
                 let missing = value.as_ref().or(default.as_ref()).is_none();
+                let invalid = missing || invalid_value;
 
-                let value = value.or(default.to_owned()).unwrap_or_default();
+                let value = new_value
+                    .clone()
+                    .or(default.map(|value| value.to_string()))
+                    .unwrap_or_default();
 
-                let input_field: Element<_> = number_input(value, f64::MIN..f64::MAX, std::convert::identity)
+                let input_field: Element<_> = text_input("Enter number...", &value)
+                    .on_input(move |value| {
+                        PluginPreferencesMsg::UpdatePreferenceValue {
+                            plugin_id: plugin_id.clone(),
+                            entrypoint_id: entrypoint_id.clone(),
+                            id: preference_id.to_owned(),
+                            user_data: PluginPreferenceUserDataState::Number {
+                                value: value.parse().ok(),
+                                new_value: Some(value.clone()),
+                            },
+                        }
+                    })
                     .width(Length::Fill)
                     .into();
-
-                let input_field = input_field.map(Box::new(move |value| {
-                    PluginPreferencesMsg::UpdatePreferenceValue {
-                        plugin_id: plugin_id.clone(),
-                        entrypoint_id: entrypoint_id.clone(),
-                        id: preference_id.to_owned(),
-                        user_data: PluginPreferenceUserDataState::Number { value: Some(value) },
-                    }
-                }));
 
                 let input_field = container(input_field)
                     .width(Length::Fill)
                     .padding(Padding::from([4.0, 8.0]))
                     .class(
-                        if missing {
+                        if invalid {
                             ContainerStyle::TextInputMissingValue
                         } else {
                             ContainerStyle::Transparent
@@ -295,7 +305,7 @@ pub fn preferences_ui<'a>(
                             .padding(Padding::new(4.0))
                             .into();
 
-                        let remove_icon = widget::value(Bootstrap::Dash).font(BOOTSTRAP_FONT);
+                        let remove_icon = dash();
 
                         let remove_button: Element<_> = button(remove_icon)
                             .class(ButtonStyle::Primary)
@@ -344,7 +354,7 @@ pub fn preferences_ui<'a>(
                     })
                 };
 
-                let add_icon: Element<_> = widget::value(Bootstrap::Plus).font(BOOTSTRAP_FONT).into();
+                let add_icon: Element<_> = plus().into();
 
                 let add_button: Element<_> = button(add_icon)
                     .class(ButtonStyle::Primary)
@@ -391,7 +401,7 @@ pub fn preferences_ui<'a>(
             }
             PluginPreference::ListOfNumbers { default, .. } => {
                 let (value, new_value) = match user_data {
-                    None => (None, 0.0),
+                    None => (None, None),
                     Some(PluginPreferenceUserDataState::ListOfNumbers { value, new_value }) => {
                         (value.to_owned(), new_value.to_owned())
                     }
@@ -416,7 +426,7 @@ pub fn preferences_ui<'a>(
                             .padding(Padding::new(4.0))
                             .into();
 
-                        let remove_icon = widget::value(Bootstrap::Dash).font(BOOTSTRAP_FONT);
+                        let remove_icon = dash();
 
                         let remove_button: Element<_> = button(remove_icon)
                             .class(ButtonStyle::Primary)
@@ -442,16 +452,21 @@ pub fn preferences_ui<'a>(
                     })
                     .collect();
 
+                let save_new_value = new_value
+                    .as_ref()
+                    .map(|value| value.parse().ok())
+                    .flatten()
+                    .unwrap_or_default();
                 let save_value = match &value {
-                    None => vec![new_value.clone()],
+                    None => vec![save_new_value],
                     Some(value) => {
                         let mut save_value = value.clone();
-                        save_value.push(new_value.clone());
+                        save_value.push(save_new_value);
                         save_value
                     }
                 };
 
-                let add_icon: Element<_> = widget::value(Bootstrap::Plus).font(BOOTSTRAP_FONT).into();
+                let add_icon: Element<_> = plus().into();
 
                 let add_button: Element<_> = button(add_icon)
                     .class(ButtonStyle::Primary)
@@ -461,7 +476,7 @@ pub fn preferences_ui<'a>(
                         id: preference_id.to_owned(),
                         user_data: PluginPreferenceUserDataState::ListOfNumbers {
                             value: Some(save_value),
-                            new_value: 0.0,
+                            new_value: None,
                         },
                     })
                     .padding(Padding::from([5.0, 7.0]))
@@ -469,21 +484,20 @@ pub fn preferences_ui<'a>(
 
                 let add_button: Element<_> = container(add_button).padding(padding::bottom(8.0)).into();
 
-                let add_number_input: Element<_> = number_input(new_value, f64::MIN..f64::MAX, std::convert::identity)
+                let add_number_input: Element<_> = text_input("Enter number...", &new_value.unwrap_or_default())
+                    .on_input(move |new_value| {
+                        PluginPreferencesMsg::UpdatePreferenceValue {
+                            plugin_id: plugin_id.clone(),
+                            entrypoint_id: entrypoint_id.clone(),
+                            id: preference_id.to_owned(),
+                            user_data: PluginPreferenceUserDataState::ListOfNumbers {
+                                value: value.clone(),
+                                new_value: Some(new_value),
+                            },
+                        }
+                    })
                     .width(Length::Fill)
                     .into();
-
-                let add_number_input = add_number_input.map(Box::new(move |new_value| {
-                    PluginPreferencesMsg::UpdatePreferenceValue {
-                        plugin_id: plugin_id.clone(),
-                        entrypoint_id: entrypoint_id.clone(),
-                        id: preference_id.to_owned(),
-                        user_data: PluginPreferenceUserDataState::ListOfNumbers {
-                            value: value.clone(),
-                            new_value,
-                        },
-                    }
-                }));
 
                 let add_item: Element<_> = row([add_number_input, add_button]).into();
 
@@ -535,7 +549,7 @@ pub fn preferences_ui<'a>(
                             .padding(Padding::new(4.0))
                             .into();
 
-                        let remove_icon = widget::value(Bootstrap::Dash).font(BOOTSTRAP_FONT);
+                        let remove_icon = dash();
 
                         let remove_button: Element<_> = button(remove_icon)
                             .class(ButtonStyle::Primary)
@@ -585,7 +599,7 @@ pub fn preferences_ui<'a>(
                     }
                 };
 
-                let add_icon: Element<_> = widget::value(Bootstrap::Plus).font(BOOTSTRAP_FONT).into();
+                let add_icon: Element<_> = plus().into();
 
                 let add_button: Element<_> = button(add_icon)
                     .class(ButtonStyle::Primary)

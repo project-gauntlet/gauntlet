@@ -17,7 +17,7 @@ impl ConfigReader {
         }
     }
 
-    pub async fn reload_config(&self) -> anyhow::Result<()> {
+    pub fn reload_config(&self) -> anyhow::Result<()> {
         let config = self.read_config();
 
         self.close_on_unfocus.store(

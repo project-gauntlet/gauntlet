@@ -19,7 +19,6 @@ use crate::model::SearchResult;
 use crate::model::SettingsPlugin;
 use crate::model::SettingsTheme;
 use crate::model::UiPropertyValue;
-use crate::model::UiSetupData;
 use crate::model::UiWidgetId;
 use crate::model::WindowPositionMode;
 use crate::rpc::grpc::RpcBincode;
@@ -29,14 +28,6 @@ use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
 #[allow(async_fn_in_trait)]
 #[boundary_gen(in_process)]
 pub trait BackendForFrontendApi {
-    async fn setup_data(&self) -> RequestResult<UiSetupData>;
-
-    async fn setup_response(
-        &self,
-        global_shortcut_error: Option<String>,
-        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
-    ) -> RequestResult<()>;
-
     async fn search(&self, text: String, render_inline_view: bool) -> RequestResult<Vec<SearchResult>>;
 
     async fn request_view_render(

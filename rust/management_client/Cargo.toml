@@ -11,8 +11,6 @@ gauntlet-utils.workspace = true
 # shared
 anyhow.workspace = true
 iced.workspace = true
-iced_aw.workspace = true
-iced_table.workspace = true
 iced_fonts.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

@@ -1,6 +1,3 @@
-use std::time::Duration;
-use std::time::Instant;
-
 use iced::Border;
 use iced::Color;
 use iced::Element;
@@ -9,6 +6,7 @@ use iced::Length;
 use iced::Rectangle;
 use iced::Shadow;
 use iced::Size;
+use iced::Vector;
 use iced::advanced::Clipboard;
 use iced::advanced::Layout;
 use iced::advanced::Shell;
@@ -20,69 +18,54 @@ use iced::advanced::widget::Tree;
 use iced::advanced::widget::tree::State;
 use iced::advanced::widget::tree::Tag;
 use iced::mouse::Cursor;
+use iced::time::Duration;
+use iced::time::Instant;
 use iced::window;
 
-pub struct LoadingBar<'a, Theme>
-where
-    Theme: Catalog,
-{
+pub struct Spinner {
     width: Length,
-    segment_width: f32,
     height: Length,
     rate: Duration,
-    class: <Theme as Catalog>::Class<'a>,
+    circle_radius: f32,
 }
 
-impl<'a, Theme> Default for LoadingBar<'a, Theme>
-where
-    Theme: Catalog,
-{
+impl Default for Spinner {
     fn default() -> Self {
         Self {
-            width: Length::Fill,
-            segment_width: 200.0,
-            height: Length::Fixed(1.0),
+            width: Length::Fixed(20.0),
+            height: Length::Fixed(20.0),
             rate: Duration::from_secs_f32(1.0),
-            class: <Theme as Catalog>::Class::default(),
+            circle_radius: 2.0,
         }
     }
 }
 
-impl<'a, Theme> LoadingBar<'a, Theme>
-where
-    Theme: Catalog,
-{
+impl Spinner {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     #[must_use]
-    pub fn width(mut self, width: Length) -> Self {
-        self.width = width;
+    pub fn width(mut self, width: impl Into<Length>) -> Self {
+        self.width = width.into();
         self
     }
 
     #[must_use]
-    pub fn segment_width(mut self, segment_width: f32) -> Self {
-        self.segment_width = segment_width;
+    pub fn height(mut self, height: impl Into<Length>) -> Self {
+        self.height = height.into();
         self
     }
 
     #[must_use]
-    pub fn height(mut self, height: Length) -> Self {
-        self.height = height;
-        self
-    }
-
-    #[must_use]
-    pub fn class(mut self, class: <Theme as Catalog>::Class<'a>) -> Self {
-        self.class = class;
+    pub fn circle_radius(mut self, radius: f32) -> Self {
+        self.circle_radius = radius;
         self
     }
 }
 
-struct LoadingBarState {
+struct SpinnerState {
     last_update: Instant,
     t: f32,
 }
@@ -91,10 +74,32 @@ fn is_visible(bounds: &Rectangle) -> bool {
     bounds.width > 0.0 && bounds.height > 0.0
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for LoadingBar<'a, Theme>
+fn fill_circle(renderer: &mut impl renderer::Renderer, position: Vector, radius: f32, color: Color) {
+    if radius > 0. {
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: position.x,
+                    y: position.y,
+                    width: radius * 2.0,
+                    height: radius * 2.0,
+                },
+                border: Border {
+                    radius: radius.into(),
+                    width: 0.0,
+                    color: Color::TRANSPARENT,
+                },
+                shadow: Shadow::default(),
+                snap: false,
+            },
+            color,
+        );
+    }
+}
+
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Spinner
 where
     Renderer: renderer::Renderer,
-    Theme: Catalog,
 {
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
@@ -112,8 +117,8 @@ where
         &self,
         state: &Tree,
         renderer: &mut Renderer,
-        theme: &Theme,
-        _style: &renderer::Style,
+        _theme: &Theme,
+        style: &renderer::Style,
         layout: Layout<'_>,
         _cursor: Cursor,
         _viewport: &Rectangle,
@@ -124,50 +129,29 @@ where
             return;
         }
 
-        let position = bounds.position();
-        let size = bounds.size();
-        let styling = Catalog::style(theme, &self.class);
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: position.x,
-                    y: position.y,
-                    width: size.width,
-                    height: size.height,
-                },
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: false,
-            },
-            styling.background_color,
+        let size = if bounds.width < bounds.height {
+            bounds.width
+        } else {
+            bounds.height
+        } / 2.0;
+        let state = state.state.downcast_ref::<SpinnerState>();
+        let center = bounds.center();
+        let distance_from_center = size - self.circle_radius;
+        let (y, x) = (state.t * std::f32::consts::PI * 2.0).sin_cos();
+        let position = Vector::new(
+            center.x + x * distance_from_center - self.circle_radius,
+            center.y + y * distance_from_center - self.circle_radius,
         );
 
-        let state = state.state.downcast_ref::<LoadingBarState>();
-
-        // works but quick and hacky
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: position.x + (size.width * state.t * 1.3) - self.segment_width,
-                    y: position.y,
-                    width: self.segment_width,
-                    height: size.height,
-                },
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: false,
-            },
-            styling.loading_bar_color,
-        );
+        fill_circle(renderer, position, self.circle_radius, style.text_color);
     }
 
     fn tag(&self) -> Tag {
-        Tag::of::<LoadingBarState>()
+        Tag::of::<SpinnerState>()
     }
 
     fn state(&self) -> State {
-        State::new(LoadingBarState {
+        State::new(SpinnerState {
             last_update: Instant::now(),
             t: 0.0,
         })
@@ -190,7 +174,7 @@ where
 
         if let Event::Window(window::Event::RedrawRequested(now)) = event {
             if is_visible(&bounds) {
-                let state = state.state.downcast_mut::<LoadingBarState>();
+                let state = state.state.downcast_mut::<SpinnerState>();
                 let duration = (*now - state.last_update).as_secs_f32();
                 let increment = if self.rate == Duration::ZERO {
                     0.0
@@ -208,33 +192,17 @@ where
                     *now + Duration::from_millis(1000 / FRAMES_PER_SECOND),
                 ));
                 state.last_update = now.clone();
-
                 shell.capture_event();
             }
         }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Style {
-    pub background_color: Color,
-    pub loading_bar_color: Color,
-}
-
-pub trait Catalog {
-    type Class<'a>: Default;
-
-    fn default<'a>() -> Self::Class<'a>;
-
-    fn style(&self, class: &Self::Class<'_>) -> Style;
-}
-
-impl<'a, Message, Theme, Renderer> From<LoadingBar<'a, Theme>> for Element<'a, Message, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> From<Spinner> for Element<'a, Message, Theme, Renderer>
 where
     Renderer: renderer::Renderer + 'a,
-    Theme: 'a + Catalog,
 {
-    fn from(loading_bar: LoadingBar<'a, Theme>) -> Self {
-        Self::new(loading_bar)
+    fn from(spinner: Spinner) -> Self {
+        Self::new(spinner)
     }
 }

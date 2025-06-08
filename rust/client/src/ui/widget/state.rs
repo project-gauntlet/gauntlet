@@ -7,7 +7,6 @@ use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::RootWidgetMembers;
 use gauntlet_common::model::UiWidgetId;
 use iced::widget::text_input;
-use iced_aw::date_picker::Date;
 
 use crate::ui::scroll_handle::ESTIMATED_MAIN_LIST_ITEM_HEIGHT;
 use crate::ui::scroll_handle::ScrollHandle;
@@ -36,9 +35,6 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
                             }
                             FormWidgetOrderedMembers::Checkbox(widget) => {
                                 result.insert(widget.__id__, ComponentWidgetState::checkbox(&widget.value));
-                            }
-                            FormWidgetOrderedMembers::DatePicker(widget) => {
-                                result.insert(widget.__id__, ComponentWidgetState::date_picker(&widget.value));
                             }
                             FormWidgetOrderedMembers::Select(widget) => {
                                 result.insert(widget.__id__, ComponentWidgetState::select(&widget.value));
@@ -112,7 +108,6 @@ pub fn create_state(root_widget: &RootWidget) -> HashMap<UiWidgetId, ComponentWi
 pub enum ComponentWidgetState {
     TextField(TextFieldState),
     Checkbox(CheckboxState),
-    DatePicker(DatePickerState),
     Select(SelectState),
     Root(RootState),
 }
@@ -126,12 +121,6 @@ pub struct TextFieldState {
 #[derive(Debug, Clone)]
 pub struct CheckboxState {
     pub state_value: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct DatePickerState {
-    pub show_picker: bool,
-    pub state_value: Date,
 }
 
 #[derive(Debug, Clone)]
@@ -166,41 +155,9 @@ impl ComponentWidgetState {
         })
     }
 
-    fn date_picker(value: &Option<String>) -> ComponentWidgetState {
-        let value = value
-            .to_owned()
-            .map(|value| parse_date(&value))
-            .flatten()
-            .map(|(year, month, day)| Date::from_ymd(year, month, day))
-            .unwrap_or(Date::today());
-
-        ComponentWidgetState::DatePicker(DatePickerState {
-            state_value: value,
-            show_picker: false,
-        })
-    }
-
     fn select(value: &Option<String>) -> ComponentWidgetState {
         ComponentWidgetState::Select(SelectState {
             state_value: value.to_owned(),
         })
-    }
-}
-
-fn parse_date(value: &str) -> Option<(i32, u32, u32)> {
-    let ymd: Vec<_> = value.split("-").collect();
-
-    match ymd[..] {
-        [year, month, day] => {
-            let year = year.parse::<i32>();
-            let month = month.parse::<u32>();
-            let day = day.parse::<u32>();
-
-            match (year, month, day) {
-                (Ok(year), Ok(month), Ok(day)) => Some((year, month, day)),
-                _ => None,
-            }
-        }
-        _ => None,
     }
 }

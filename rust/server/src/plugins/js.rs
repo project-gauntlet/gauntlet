@@ -232,6 +232,8 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         uds_socket_file.to_fs_name::<interprocess::os::unix::local_socket::FilesystemUdSocket>()?
     };
 
+    tracing::info!("Starting plugin {:?} - {:?}", &plugin_id, &data.uuid);
+
     let listener = ListenerOptions::new().name(name).reclaim_name(false).create_tokio()?;
 
     let home_dir = home_dir

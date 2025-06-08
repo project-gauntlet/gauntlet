@@ -36,12 +36,12 @@ impl pick_list::Catalog for GauntletComplexTheme {
         let theme = &theme.form_input_select;
 
         let background_color = match status {
-            Status::Active | Status::Opened => theme.background_color,
+            Status::Active | Status::Opened { is_hovered: _ } => theme.background_color,
             Status::Hovered => theme.background_color_hovered,
         };
 
         let text_color = match status {
-            Status::Active | Status::Opened => theme.text_color,
+            Status::Active | Status::Opened { is_hovered: _ } => theme.text_color,
             Status::Hovered => theme.text_color_hovered,
         };
 

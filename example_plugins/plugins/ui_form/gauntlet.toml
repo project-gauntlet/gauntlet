@@ -12,15 +12,6 @@ type = 'view'
 description = ''
 # docs-code-segment:end
 
-# docs-code-segment:start date-picker
-[[entrypoint]]
-id = 'date-picker'
-name = 'Date Picker'
-path = 'src/date-picker.tsx'
-type = 'view'
-description = ''
-# docs-code-segment:end
-
 # docs-code-segment:start main
 [[entrypoint]]
 id = 'main'

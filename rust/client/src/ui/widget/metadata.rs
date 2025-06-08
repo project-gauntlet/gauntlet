@@ -20,9 +20,7 @@ use iced::widget::scrollable;
 use iced::widget::text;
 use iced::widget::tooltip;
 use iced::widget::tooltip::Position;
-use iced::widget::value;
-use iced_fonts::BOOTSTRAP_FONT;
-use iced_fonts::Bootstrap;
+use iced_fonts::bootstrap::box_arrow_up_right;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
@@ -78,7 +76,7 @@ impl<'b> ComponentWidgets<'b> {
     ) -> Element<'a, ComponentWidgetEvent> {
         let content: Element<_> = self.render_text(&widget.content.text, TextRenderType::None);
 
-        let icon: Element<_> = value(Bootstrap::BoxArrowUpRight).font(BOOTSTRAP_FONT).size(16).into();
+        let icon: Element<_> = box_arrow_up_right().size(16).into();
 
         let icon = container(icon).themed(ContainerStyle::MetadataLinkIcon);
 
@@ -117,10 +115,7 @@ impl<'b> ComponentWidgets<'b> {
         widget: &MetadataIconWidget,
         is_in_list: bool,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let value = value(icon_to_bootstrap(&widget.icon))
-            .font(BOOTSTRAP_FONT)
-            .size(26)
-            .into();
+        let value = icon_to_bootstrap(&widget.icon).size(26).into();
 
         render_metadata_item(&widget.label, value, is_in_list).into()
     }

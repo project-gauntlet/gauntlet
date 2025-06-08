@@ -30,7 +30,7 @@ impl text_input::Catalog for GauntletComplexTheme {
         match status {
             Status::Active => active(self, class),
             Status::Hovered => focused(self, class), // TODO proper style
-            Status::Focused => focused(self, class),
+            Status::Focused { is_hovered: _ } => focused(self, class), // TODO proper style
             Status::Disabled => disabled(),
         }
     }

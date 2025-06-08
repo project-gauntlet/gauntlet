@@ -56,7 +56,7 @@ impl PluginLoader {
         self.download_status_holder.download_status()
     }
 
-    pub async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         let download_status_guard = self.download_status_holder.download_started(plugin_id.clone());
 
         let data_db_repository = self.db_repository.clone();
@@ -72,7 +72,7 @@ impl PluginLoader {
 
                     PluginLoader::download(temp_dir.path(), plugin_id_clone.clone())?;
 
-                    let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id_clone.clone()).await?;
+                    let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id_clone.clone())?;
 
                     data_db_repository.save_plugin(DbWritePlugin {
                         id: plugin_data.id,
@@ -108,13 +108,12 @@ impl PluginLoader {
         Ok(())
     }
 
-    pub async fn save_local_plugin(&self, path: &str) -> anyhow::Result<PluginId> {
+    pub fn save_local_plugin(&self, path: &str) -> anyhow::Result<PluginId> {
         let plugin_id = PluginId::from_string(format!("file://{}", &path));
 
         let plugin_dir = plugin_id.try_to_path()?.join("dist");
 
         let plugin_data = PluginLoader::read_plugin_dir(&plugin_dir, plugin_id.clone())
-            .await
             .context(format!("Unable to read plugin: {}", &plugin_id.to_string()))?;
 
         self.db_repository.save_plugin(DbWritePlugin {
@@ -133,14 +132,13 @@ impl PluginLoader {
         Ok(plugin_id)
     }
 
-    pub async fn save_bundled_plugin(&self, id: &str, dir: &Dir<'_>) -> anyhow::Result<PluginId> {
+    pub fn save_bundled_plugin(&self, id: &str, dir: &Dir<'_>) -> anyhow::Result<PluginId> {
         let plugin_id = PluginId::from_string(format!("bundled://{id}"));
         let temp_dir = tempfile::tempdir()?;
 
         dir.extract(&temp_dir)?;
 
         let plugin_data = PluginLoader::read_plugin_dir(temp_dir.path(), plugin_id.clone())
-            .await
             .context(format!("Unable to read plugin: {}", &plugin_id.to_string()))?;
 
         self.db_repository.save_plugin(DbWritePlugin {
@@ -169,7 +167,7 @@ impl PluginLoader {
         Ok(())
     }
 
-    async fn read_plugin_dir(plugin_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PluginDownloadData> {
+    fn read_plugin_dir(plugin_dir: &Path, plugin_id: PluginId) -> anyhow::Result<PluginDownloadData> {
         let js_dir = plugin_dir.join("js");
         let assets = plugin_dir.join("assets");
 

@@ -16,6 +16,7 @@ mod ui;
 
 use std::ops::Deref;
 
+use anyhow::Context;
 use anyhow::anyhow;
 use gauntlet_common_plugin_runtime::JsMessageSide;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
@@ -59,6 +60,8 @@ pub fn run_plugin_runtime(socket_name: String) {
 async fn run_outer(socket_name: String) -> anyhow::Result<()> {
     tracing::info!("Starting plugin runtime at socket: {}", &socket_name);
 
+    let debug_socket_name = socket_name.clone();
+
     let stop_token = CancellationToken::new();
 
     #[cfg(target_os = "windows")]
@@ -67,7 +70,7 @@ async fn run_outer(socket_name: String) -> anyhow::Result<()> {
     #[cfg(unix)]
     let name = socket_name.to_fs_name::<interprocess::os::unix::local_socket::FilesystemUdSocket>()?;
 
-    let conn = Stream::connect(name).await?;
+    let conn = Stream::connect(name).await.context(debug_socket_name)?;
 
     let (mut recver, mut sender) = conn.split();
 

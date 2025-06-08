@@ -1,9 +1,20 @@
+use std::backtrace::Backtrace;
+use std::fs::File;
+use std::io::Write;
+use std::process::exit;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+
 use clap::Parser;
-use gauntlet_client::open_window;
+use gauntlet_common::cli::is_server_running;
+use gauntlet_common::cli::open_window;
+use gauntlet_common::cli::run_action;
+use gauntlet_common::dirs::Dirs;
 use gauntlet_management_client::start_management_client;
-use gauntlet_server::run_action;
-use gauntlet_server::start;
+use gauntlet_server::PLUGIN_CONNECT_ENV;
+use gauntlet_server::PLUGIN_UUID_ENV;
 use tracing_subscriber::EnvFilter;
+use vergen_pretty::vergen_pretty_env;
 
 /// Gauntlet CLI
 ///
@@ -75,10 +86,32 @@ pub fn init() {
                 }
             }
 
-            start(
-                #[cfg(not(feature = "scenario_runner"))]
-                cli.minimized,
-            )
+            register_panic_hook(std::env::var(PLUGIN_UUID_ENV).ok());
+
+            if let Ok(socket_name) = std::env::var(PLUGIN_CONNECT_ENV) {
+                gauntlet_plugin_runtime::run_plugin_runtime(socket_name);
+
+                return;
+            }
+
+            tracing::info!("Gauntlet Build Information:");
+            for (name, value) in vergen_pretty_env!() {
+                if let Some(value) = value {
+                    tracing::info!("{}: {}", name, value);
+                }
+            }
+
+            #[cfg(feature = "scenario_runner")]
+            run_scenario_runner();
+
+            #[cfg(not(feature = "scenario_runner"))]
+            {
+                if is_server_running() {
+                    open_window()
+                } else {
+                    gauntlet_client::run_app(cli.minimized)
+                }
+            }
         }
         Some(command) => {
             match command {
@@ -142,4 +175,55 @@ fn setup_auto_launch(app_path: String) -> anyhow::Result<()> {
         .and_then(|auto| auto.enable())?;
 
     Ok(())
+}
+
+fn register_panic_hook(plugin_runtime: Option<String>) {
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "full");
+    };
+
+    let dirs = Dirs::new();
+
+    let crash_file = match plugin_runtime {
+        None => dirs.server_crash_log_file(),
+        Some(plugin_uuid) => dirs.plugin_crash_log_file(&plugin_uuid),
+    };
+
+    let _ = std::fs::remove_file(&crash_file);
+
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let payload = panic_info.payload();
+
+        let payload = if let Some(&s) = payload.downcast_ref::<&'static str>() {
+            s
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.as_str()
+        } else {
+            "Box<dyn Any>"
+        };
+
+        let location = panic_info.location().map(|l| l.to_string());
+        let backtrace = Backtrace::capture();
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|duration| duration.as_millis().to_string())
+            .unwrap_or("Unknown".to_string());
+
+        let content = format!(
+            "Panic on {}\nPayload: {}\nLocation: {:?}\nBacktrace:\n{}",
+            now, payload, location, backtrace
+        );
+
+        let crash_file = File::options().create(true).append(true).open(&crash_file);
+
+        if let Ok(mut crash_file) = crash_file {
+            let _ = crash_file.write_all(content.as_bytes());
+        }
+
+        eprintln!("{}", content);
+
+        exit(101); // poor man's abort on panic because actual setting makes v8 linking fail
+    }));
 }

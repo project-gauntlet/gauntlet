@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use gauntlet_common::SETTINGS_ENV;
@@ -27,6 +28,10 @@ use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
+use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
+use gauntlet_common::rpc::backend_api::handle_proxy_message;
+use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
@@ -36,6 +41,7 @@ use gauntlet_common_plugin_runtime::model::JsPluginCode;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsFileSystem;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsMainSearchBar;
+use gauntlet_utils::channel::RequestReceiver;
 use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils::channel::RequestSender;
 use include_dir::Dir;
@@ -61,7 +67,10 @@ use crate::plugins::js::PluginRuntimeData;
 use crate::plugins::js::start_plugin_runtime;
 use crate::plugins::loader::PluginLoader;
 use crate::plugins::run_status::RunStatusHolder;
-use crate::plugins::settings::Settings;
+pub(crate) use crate::plugins::settings::Settings;
+use crate::plugins::settings::global_shortcut::GlobalShortcutAction;
+use crate::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
+use crate::rpc::BackendServerImpl;
 use crate::search::EntrypointActionDataView;
 use crate::search::EntrypointActionType;
 use crate::search::EntrypointDataView;
@@ -102,12 +111,12 @@ pub struct ApplicationManager {
 }
 
 impl ApplicationManager {
-    pub async fn create(
+    pub fn create(
         frontend_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
     ) -> anyhow::Result<Self> {
         let frontend_api = FrontendApiProxy::new(frontend_sender);
         let dirs = Dirs::new();
-        let db_repository = DataDbRepository::new(dirs.clone()).await?;
+        let db_repository = DataDbRepository::new(dirs.clone())?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
         let config_reader = ConfigReader::new(dirs.clone());
         let icon_cache = IconCache::new(dirs.clone());
@@ -118,7 +127,9 @@ impl ApplicationManager {
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
 
-        Ok(Self {
+        icon_cache.clear_all_icon_cache_dir()?;
+
+        let application_manager = Self {
             config_reader,
             search_index,
             command_broadcaster,
@@ -130,57 +141,63 @@ impl ApplicationManager {
             clipboard,
             settings,
             dirs,
-        })
+        };
+
+        #[cfg(not(feature = "scenario_runner"))]
+        if let Err(err) = application_manager.load_bundled_plugins() {
+            tracing::error!("error loading bundled plugin(s): {:?}", err);
+        }
+
+        #[cfg(not(any(feature = "scenario_runner", feature = "release")))]
+        if let Err(err) = application_manager.save_local_dev_plugin() {
+            tracing::error!("error loading dev plugin: {:?}", err);
+        }
+
+        application_manager.reload_all_plugins()?;
+
+        Ok(application_manager)
     }
 
-    pub async fn setup_data(&self) -> anyhow::Result<UiSetupData> {
+    pub async fn run_grpc_server(self: &Arc<Self>) {
+        start_backend_server(
+            Box::new(BackendServerImpl::new(self.clone())),
+            Box::new(BackendServerImpl::new(self.clone())),
+            Box::new(BackendServerImpl::new(self.clone())),
+        )
+        .await
+    }
+
+    pub async fn run_message_loop(
+        self: &Arc<Self>,
+        mut backend_receiver: RequestReceiver<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
+    ) {
+        loop {
+            let (request_data, responder) = backend_receiver.recv().await;
+
+            let response_data = handle_proxy_message(request_data, self.as_ref()).await;
+
+            responder.respond(response_data);
+        }
+    }
+
+    pub fn setup(&self) -> anyhow::Result<UiSetupData> {
+        self.settings.setup()?;
+
         let window_position_file = self.dirs.window_position();
-        let theme = self.settings.effective_theme().await?;
-        let global_shortcut = self.settings.global_shortcut().await?.map(|(shortcut, _)| shortcut);
-        let global_entrypoint_shortcuts = self
-            .settings
-            .global_entrypoint_shortcuts()
-            .await?
-            .into_iter()
-            .map(|((plugin_id, entrypoint_id), (shortcut, _))| ((plugin_id, entrypoint_id), shortcut))
-            .collect();
-        let window_position_mode = self.settings.window_position_mode_setting().await?;
+        let theme = self.settings.effective_theme()?;
+        let window_position_mode = self.settings.window_position_mode_setting()?;
         let close_on_unfocus = self.config_reader.close_on_unfocus();
 
         Ok(UiSetupData {
             window_position_file: Some(window_position_file),
             theme,
-            global_shortcut,
-            global_entrypoint_shortcuts,
             close_on_unfocus,
             window_position_mode,
         })
     }
 
-    pub async fn setup_response(
-        &self,
-        global_shortcut_error: Option<String>,
-        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
-    ) -> anyhow::Result<()> {
-        self.settings.set_global_shortcut_error(global_shortcut_error).await?;
-
-        for ((plugin_id, entrypoint_id), error) in global_entrypoint_shortcuts_errors {
-            self.settings
-                .set_global_entrypoint_shortcut_error(plugin_id, entrypoint_id, error)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    pub fn clear_all_icon_cache_dir(&self) -> anyhow::Result<()> {
-        tracing::debug!("clearing all icon cache");
-
-        self.icon_cache.clear_all_icon_cache_dir()
-    }
-
-    pub async fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
-        self.plugin_downloader.download_plugin(plugin_id).await
+    pub fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+        self.plugin_downloader.download_plugin(plugin_id)
     }
 
     pub fn download_status(&self) -> HashMap<PluginId, DownloadStatus> {
@@ -333,14 +350,14 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn save_local_plugin(&self, path: &str) -> anyhow::Result<LocalSaveData> {
+    pub fn save_local_plugin(&self, path: &str) -> anyhow::Result<LocalSaveData> {
         tracing::info!(target = "plugin", "Saving local plugin at path: {:?}", path);
 
-        let plugin_id = self.plugin_downloader.save_local_plugin(path).await?;
+        let plugin_id = self.plugin_downloader.save_local_plugin(path)?;
 
         let plugin = self.db_repository.get_plugin_by_id(&plugin_id.to_string())?;
 
-        self.reload_plugin(plugin_id.clone()).await?;
+        self.reload_plugin(plugin_id.clone())?;
 
         let (stdout_file_path, stderr_file_path) = self.dirs.plugin_log_files(&plugin.uuid);
 
@@ -356,19 +373,26 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn load_bundled_plugins(&self) -> anyhow::Result<()> {
+    pub fn load_bundled_plugins(&self) -> anyhow::Result<()> {
         for (id, dir) in &BUNDLED_PLUGINS {
             tracing::info!(target = "plugin", "Saving builtin plugin with id: {:?}", id);
 
-            let plugin_id = self.plugin_downloader.save_bundled_plugin(id, dir).await?;
+            let plugin_id = self.plugin_downloader.save_bundled_plugin(id, dir)?;
 
-            self.reload_plugin(plugin_id).await?;
+            self.reload_plugin(plugin_id)?;
         }
 
         Ok(())
     }
 
-    pub async fn plugins(&self) -> anyhow::Result<HashMap<PluginId, SettingsPlugin>> {
+    pub fn handle_global_shortcut_event(
+        &self,
+        event: GlobalShortcutPressedEvent,
+    ) -> anyhow::Result<GlobalShortcutAction> {
+        self.settings.handle_global_shortcut_event(event)
+    }
+
+    pub fn plugins(&self) -> anyhow::Result<HashMap<PluginId, SettingsPlugin>> {
         let mut generator_data: HashMap<_, _> = self
             .search_index
             .plugin_entrypoint_data()
@@ -485,9 +509,9 @@ impl ApplicationManager {
         Ok(result)
     }
 
-    pub async fn set_plugin_state(&self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
+    pub fn set_plugin_state(&self, plugin_id: PluginId, set_enabled: bool) -> anyhow::Result<()> {
         let currently_running = self.run_status_holder.is_plugin_running(&plugin_id);
-        let currently_enabled = self.is_plugin_enabled(&plugin_id).await?;
+        let currently_enabled = self.is_plugin_enabled(&plugin_id)?;
 
         tracing::info!(
             target = "plugin",
@@ -502,15 +526,15 @@ impl ApplicationManager {
             (false, false, true) => {
                 self.db_repository.set_plugin_enabled(&plugin_id.to_string(), true)?;
 
-                self.start_plugin(plugin_id).await?;
+                self.start_plugin(plugin_id)?;
             }
             (false, true, true) => {
-                self.start_plugin(plugin_id).await?;
+                self.start_plugin(plugin_id)?;
             }
             (true, true, false) => {
                 self.db_repository.set_plugin_enabled(&plugin_id.to_string(), false)?;
 
-                self.stop_plugin(plugin_id.clone()).await;
+                self.stop_plugin(plugin_id.clone());
                 self.search_index.remove_for_plugin(plugin_id)?;
             }
             (true, false, _) => {
@@ -545,7 +569,7 @@ impl ApplicationManager {
             enabled,
         )?;
 
-        self.reload_plugin(plugin_id.clone()).await?;
+        self.reload_plugin(plugin_id.clone())?;
 
         Ok(())
     }
@@ -554,8 +578,8 @@ impl ApplicationManager {
         self.settings.set_global_shortcut(shortcut).await
     }
 
-    pub async fn get_global_shortcut(&self) -> anyhow::Result<Option<(PhysicalShortcut, Option<String>)>> {
-        self.settings.global_shortcut().await
+    pub fn get_global_shortcut(&self) -> anyhow::Result<Option<(PhysicalShortcut, Option<String>)>> {
+        self.settings.global_shortcut()
     }
 
     pub async fn set_global_entrypoint_shortcut(
@@ -569,10 +593,10 @@ impl ApplicationManager {
             .await
     }
 
-    pub async fn get_global_entrypoint_shortcut(
+    pub fn get_global_entrypoint_shortcut(
         &self,
     ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
-        self.settings.global_entrypoint_shortcuts().await
+        self.settings.global_entrypoint_shortcuts()
     }
 
     pub async fn set_entrypoint_search_alias(
@@ -608,11 +632,11 @@ impl ApplicationManager {
         self.settings.set_window_position_mode_setting(mode).await
     }
 
-    pub async fn get_window_position_mode(&self) -> anyhow::Result<WindowPositionMode> {
-        self.settings.window_position_mode_setting().await
+    pub fn get_window_position_mode(&self) -> anyhow::Result<WindowPositionMode> {
+        self.settings.window_position_mode_setting()
     }
 
-    pub async fn set_preference_value(
+    pub fn set_preference_value(
         &self,
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
@@ -636,31 +660,31 @@ impl ApplicationManager {
             user_data,
         )?;
 
-        self.reload_plugin(plugin_id.clone()).await?;
+        self.reload_plugin(plugin_id.clone())?;
 
         Ok(())
     }
 
-    pub async fn reload_config(&self) -> anyhow::Result<()> {
-        self.config_reader.reload_config().await?;
+    pub fn reload_config(&self) -> anyhow::Result<()> {
+        self.config_reader.reload_config()?;
 
         Ok(())
     }
 
-    pub async fn reload_all_plugins(&self) -> anyhow::Result<()> {
+    pub fn reload_all_plugins(&self) -> anyhow::Result<()> {
         tracing::info!("Reloading all plugins");
 
-        self.reload_config().await?;
+        self.reload_config()?;
 
         for plugin in self.db_repository.list_plugins()? {
             let plugin_id = PluginId::from_string(plugin.id);
             let running = self.run_status_holder.is_plugin_running(&plugin_id);
             match (running, plugin.enabled) {
                 (false, true) => {
-                    self.start_plugin(plugin_id).await?;
+                    self.start_plugin(plugin_id)?;
                 }
                 (true, false) => {
-                    self.stop_plugin(plugin_id.clone()).await;
+                    self.stop_plugin(plugin_id.clone());
                     self.search_index.remove_for_plugin(plugin_id)?;
                 }
                 _ => {}
@@ -670,12 +694,22 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub fn save_local_dev_plugin(&self) -> anyhow::Result<()> {
+        let plugin_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev_plugin").to_owned();
+        let plugin_path = std::fs::canonicalize(plugin_path).expect("valid path");
+        let plugin_path = plugin_path.to_str().expect("valid utf8");
+
+        self.save_local_plugin(plugin_path)?;
+
+        Ok(())
+    }
+
+    pub fn remove_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Removing plugin with id: {:?}", plugin_id);
 
         let running = self.run_status_holder.is_plugin_running(&plugin_id);
         if running {
-            self.stop_plugin(plugin_id.clone()).await;
+            self.stop_plugin(plugin_id.clone());
         }
         self.db_repository.remove_plugin(&plugin_id.to_string())?;
         self.search_index.remove_for_plugin(plugin_id)?;
@@ -829,22 +863,22 @@ impl ApplicationManager {
             .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by more recent compilation
     }
 
-    async fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Reloading plugin with id: {:?}", plugin_id);
 
         let running = self.run_status_holder.is_plugin_running(&plugin_id);
         if running {
-            self.stop_plugin(plugin_id.clone()).await;
+            self.stop_plugin(plugin_id.clone());
         }
 
-        if self.is_plugin_enabled(&plugin_id).await? {
-            self.start_plugin(plugin_id).await?;
+        if self.is_plugin_enabled(&plugin_id)? {
+            self.start_plugin(plugin_id)?;
         }
 
         Ok(())
     }
 
-    async fn is_plugin_enabled(&self, plugin_id: &PluginId) -> anyhow::Result<bool> {
+    fn is_plugin_enabled(&self, plugin_id: &PluginId) -> anyhow::Result<bool> {
         self.db_repository.is_plugin_enabled(&plugin_id.to_string())
     }
 
@@ -857,9 +891,7 @@ impl ApplicationManager {
             .action_shortcuts(&plugin_id.to_string(), &entrypoint_id.to_string())
     }
 
-    async fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
-        tracing::info!(target = "plugin", "Starting plugin with id: {:?}", plugin_id);
-
+    fn start_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         let plugin_id_str = plugin_id.to_string();
 
         let plugin = self.db_repository.get_plugin_by_id(&plugin_id_str)?;
@@ -937,7 +969,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    async fn stop_plugin(&self, plugin_id: PluginId) {
+    fn stop_plugin(&self, plugin_id: PluginId) {
         tracing::info!(target = "plugin", "Stopping plugin with id: {:?}", plugin_id);
 
         self.run_status_holder.stop_plugin(&plugin_id)
@@ -987,23 +1019,6 @@ impl ApplicationManager {
 }
 
 impl BackendForFrontendApi for ApplicationManager {
-    async fn setup_data(&self) -> RequestResult<UiSetupData> {
-        let result = self.setup_data().await?;
-
-        Ok(result)
-    }
-
-    async fn setup_response(
-        &self,
-        global_shortcut_error: Option<String>,
-        global_entrypoint_shortcuts_errors: HashMap<(PluginId, EntrypointId), Option<String>>,
-    ) -> RequestResult<()> {
-        self.setup_response(global_shortcut_error, global_entrypoint_shortcuts_errors)
-            .await?;
-
-        Ok(())
-    }
-
     async fn search(&self, text: String, render_inline_view: bool) -> RequestResult<Vec<SearchResult>> {
         let result = self.search(&text, render_inline_view)?;
 

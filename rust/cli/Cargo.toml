@@ -7,14 +7,22 @@ edition.workspace = true
 gauntlet-management-client.workspace = true
 gauntlet-client.workspace = true
 gauntlet-server.workspace = true
+gauntlet-plugin-runtime.workspace = true
+gauntlet-common.workspace = true
+gauntlet-utils.workspace = true
 
 # shared
+tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
 
 # other
 clap = { version = "4.5", features = ["derive"] }
+vergen-pretty = "0.3"
+
+[build-dependencies]
+vergen-gitcl = { version = "1.0", features = ["build", "cargo"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 auto-launch = "0.5.0"

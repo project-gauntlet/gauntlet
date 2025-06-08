@@ -30,8 +30,6 @@ pub async fn run_scenario_runner_mock_server(
         data: UiSetupData {
             window_position_file: None,
             theme,
-            global_shortcut: None,
-            global_entrypoint_shortcuts: Default::default(),
             close_on_unfocus: false,
             window_position_mode: WindowPositionMode::Static,
         },

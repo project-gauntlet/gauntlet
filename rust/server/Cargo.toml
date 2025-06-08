@@ -7,7 +7,6 @@ edition.workspace = true
 gauntlet-common.workspace = true
 gauntlet-utils.workspace = true
 gauntlet-utils-macros.workspace = true
-gauntlet-client.workspace = true
 gauntlet-common-plugin-runtime.workspace = true
 gauntlet-plugin-runtime.workspace = true
 gauntlet-scenario-runner = { workspace = true, optional = true }
@@ -32,6 +31,7 @@ interprocess.workspace = true
 toml.workspace = true
 
 # other
+global-hotkey = "0.7.0"
 tantivy = "0.22"
 git2 = { version = "0.19", features = ["vendored-libgit2", "vendored-openssl"] }
 tempfile = "3"
@@ -43,7 +43,6 @@ uuid = "1.8"
 arboard = { version = "3.4", features = ["wayland-data-control"] }
 url = "2.5"
 ureq = "2.10"
-vergen-pretty = "0.3"
 dark-light = "1.1.1"
 schemars = "0.8"
 
@@ -51,5 +50,3 @@ schemars = "0.8"
 release = ["gauntlet-common/release", "gauntlet-plugin-runtime/release"]
 scenario_runner = ["dep:gauntlet-scenario-runner", "gauntlet-common/scenario_runner", "gauntlet-plugin-runtime/scenario_runner"]
 
-[build-dependencies]
-vergen-gitcl = { version = "1.0", features = ["build", "cargo"] }

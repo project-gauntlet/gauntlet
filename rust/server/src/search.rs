@@ -27,7 +27,7 @@ use tantivy::query::TermQuery;
 use tantivy::schema::*;
 use tantivy::tokenizer::TokenizerManager;
 
-use crate::plugins::settings::Settings;
+use crate::plugins::Settings;
 
 #[derive(Clone)]
 pub struct SearchIndex {

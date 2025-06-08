@@ -1047,32 +1047,32 @@ pub fn create_component_model() -> Vec<Component> {
         children_none(),
     );
 
-    let date_picker_component = component(
-        "date_picker",
-        mark_doc!("/date_picker/description.md"),
-        "DatePicker",
-        [
-            property(
-                "label",
-                mark_doc!("/date_picker/props/label.md"),
-                true,
-                PropertyType::String,
-            ),
-            property(
-                "value",
-                mark_doc!("/date_picker/props/value.md"),
-                true,
-                PropertyType::String,
-            ),
-            event(
-                "onChange",
-                mark_doc!("/date_picker/props/onChange.md"),
-                true,
-                [property("value", "".to_string(), true, PropertyType::String)],
-            ),
-        ],
-        children_none(),
-    );
+    // let date_picker_component = component(
+    //     "date_picker",
+    //     mark_doc!("/date_picker/description.md"),
+    //     "DatePicker",
+    //     [
+    //         property(
+    //             "label",
+    //             mark_doc!("/date_picker/props/label.md"),
+    //             true,
+    //             PropertyType::String,
+    //         ),
+    //         property(
+    //             "value",
+    //             mark_doc!("/date_picker/props/value.md"),
+    //             true,
+    //             PropertyType::String,
+    //         ),
+    //         event(
+    //             "onChange",
+    //             mark_doc!("/date_picker/props/onChange.md"),
+    //             true,
+    //             [property("value", "".to_string(), true, PropertyType::String)],
+    //         ),
+    //     ],
+    //     children_none(),
+    // );
 
     let select_item_component = component(
         "select_item",
@@ -1143,7 +1143,7 @@ pub fn create_component_model() -> Vec<Component> {
                 member("PasswordField", &password_field_component, Arity::ZeroOrMore),
                 // member("TextArea", &text_area_component),
                 member("Checkbox", &checkbox_component, Arity::ZeroOrMore),
-                member("DatePicker", &date_picker_component, Arity::ZeroOrMore),
+                // member("DatePicker", &date_picker_component, Arity::ZeroOrMore),
                 member("Select", &select_component, Arity::ZeroOrMore),
                 // member("MultiSelect", &multi_select_component),
                 member("Separator", &separator_component, Arity::ZeroOrMore),
@@ -1599,7 +1599,7 @@ pub fn create_component_model() -> Vec<Component> {
         password_field_component,
         // text_area_component,
         checkbox_component,
-        date_picker_component,
+        // date_picker_component,
         select_item_component,
         select_component,
         // multi_select_component,

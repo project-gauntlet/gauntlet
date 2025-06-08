@@ -1,15 +1,14 @@
-use iced::application::Appearance;
-use iced::application::DefaultStyle;
+use iced::theme;
+use iced::theme::Palette;
+use iced::theme::Style;
 
 pub mod button;
 pub mod checkbox;
 pub mod container;
-pub mod number_input;
 pub mod pick_list;
 pub mod rule;
 pub mod scrollable;
 pub mod shortcut_selector;
-pub mod table;
 pub mod text;
 pub mod text_input;
 
@@ -18,12 +17,16 @@ pub type Element<'a, Message> = iced::Element<'a, Message, GauntletSettingsTheme
 #[derive(Default)]
 pub struct GauntletSettingsTheme;
 
-impl DefaultStyle for GauntletSettingsTheme {
-    fn default_style(&self) -> Appearance {
-        Appearance {
+impl theme::Base for GauntletSettingsTheme {
+    fn base(&self) -> Style {
+        Style {
             background_color: BACKGROUND_DARKEST.to_iced(),
             text_color: TEXT_LIGHTEST.to_iced(),
         }
+    }
+
+    fn palette(&self) -> Option<Palette> {
+        Some(Palette::FERRA)
     }
 }
 

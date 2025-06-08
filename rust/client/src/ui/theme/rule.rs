@@ -27,6 +27,7 @@ impl rule::Catalog for GauntletComplexTheme {
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Full,
+                    snap: false,
                 }
             }
             RuleStyle::ActionPanel => {
@@ -35,6 +36,7 @@ impl rule::Catalog for GauntletComplexTheme {
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Percent(96.0),
+                    snap: false,
                 }
             }
             RuleStyle::PrimaryActionSeparator => {
@@ -43,6 +45,7 @@ impl rule::Catalog for GauntletComplexTheme {
                     width: 1,
                     radius: 0.0.into(),
                     fill_mode: rule::FillMode::Percent(70.0),
+                    snap: false,
                 }
             }
         }

@@ -9,17 +9,13 @@ use iced::widget::button::Status;
 
 use crate::ui::theme::Element;
 use crate::ui::theme::GauntletComplexTheme;
-use crate::ui::theme::NOT_INTENDED_TO_BE_USED;
 use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::get_theme;
 use crate::ui::theme::padding_all;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonStyle {
-    #[allow(unused)]
-    ShouldNotBeUsed,
-
-    DatePicker,
+    Default,
 
     Action,
     ActionFocused,
@@ -81,8 +77,7 @@ impl ButtonStyle {
                 let theme = &theme.metadata_tag_item_button;
                 theme.padding.to_iced()
             }
-            ButtonStyle::ShouldNotBeUsed => padding_all(5.0).to_iced(),
-            ButtonStyle::DatePicker => padding_all(5.0).to_iced(),
+            ButtonStyle::Default => padding_all(5.0).to_iced(),
         }
     }
 
@@ -253,20 +248,8 @@ impl ButtonStyle {
                     &theme.border_color,
                 )
             }
-            ButtonStyle::ShouldNotBeUsed => {
-                (
-                    Some(&NOT_INTENDED_TO_BE_USED),
-                    Some(&NOT_INTENDED_TO_BE_USED),
-                    Some(&NOT_INTENDED_TO_BE_USED),
-                    &NOT_INTENDED_TO_BE_USED,
-                    &NOT_INTENDED_TO_BE_USED,
-                    &0.0,
-                    &1.0,
-                    &Color::TRANSPARENT,
-                )
-            }
-            ButtonStyle::DatePicker => {
-                let theme = &theme.form_input_date_picker_buttons;
+            ButtonStyle::Default => {
+                let theme = &theme.default_button;
                 (
                     Some(&theme.background_color),
                     Some(&theme.background_color_hovered),
@@ -309,7 +292,8 @@ impl ButtonStyle {
             }
             Status::Disabled => {
                 Style {
-                    background: Some(NOT_INTENDED_TO_BE_USED.into()),
+                    // iced currently has a bug where this is shown when the button is not actually disabled
+                    // background: Some(NOT_INTENDED_TO_BE_USED.into()),
                     ..active
                 }
             }
@@ -321,9 +305,7 @@ impl button::Catalog for GauntletComplexTheme {
     type Class<'a> = ButtonStyle;
 
     fn default<'a>() -> Self::Class<'a> {
-        // TODO Not supposed to be default but unable to customize datepicker buttons right now
-        // ButtonStyle::ShouldNotBeUsed
-        ButtonStyle::DatePicker
+        ButtonStyle::Default
     }
 
     fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {

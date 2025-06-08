@@ -27,7 +27,6 @@ use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::grid::grid_width;
 use crate::ui::widget::state::CheckboxState;
 use crate::ui::widget::state::ComponentWidgetState;
-use crate::ui::widget::state::DatePickerState;
 use crate::ui::widget::state::RootState;
 use crate::ui::widget::state::SelectState;
 use crate::ui::widget::state::TextFieldState;
@@ -72,18 +71,6 @@ impl<'b> ComponentWidgets<'b> {
 
         match state {
             ComponentWidgetState::Checkbox(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state),
-        }
-    }
-
-    pub fn date_picker_state(&self, widget_id: UiWidgetId) -> &DatePickerState {
-        let state = self.state.get(&widget_id).expect(&format!(
-            "requested state should always be present for id: {}",
-            widget_id
-        ));
-
-        match state {
-            ComponentWidgetState::DatePicker(state) => state,
             _ => panic!("TextFieldState expected, {:?} found", state),
         }
     }

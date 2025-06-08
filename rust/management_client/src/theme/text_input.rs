@@ -28,7 +28,7 @@ impl text_input::Catalog for GauntletSettingsTheme {
     fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
         match class {
             TextInputStyle::EntrypointAlias => {
-                let border = if let Status::Focused | Status::Hovered = status {
+                let border = if let Status::Focused { is_hovered: _ } | Status::Hovered = status {
                     Border {
                         radius: BUTTON_BORDER_RADIUS.into(),
                         width: 2.0,
@@ -71,7 +71,7 @@ impl text_input::Catalog for GauntletSettingsTheme {
                     ..active
                 }
             }
-            Status::Focused => {
+            Status::Focused { is_hovered: _ } => {
                 Style {
                     background: Background::Color(BACKGROUND_DARKER.to_iced().into()),
                     ..active
