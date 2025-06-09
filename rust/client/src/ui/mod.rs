@@ -150,6 +150,14 @@ pub struct AppModel {
     search_results: Vec<SearchResult>,
     loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
     hud_display: Option<String>,
+
+    // Track whether the Alt key is currently pressed. This is necessary because
+    // on some platforms (or depending on the focussed widget) the `alt` flag in
+    // `keyboard::Modifiers` can be lost for the subsequent character key
+    // event, which prevents Alt+<key> shortcuts from being detected. Keeping
+    // explicit state allows us to reliably detect combinations such as
+    // Alt+K even when the text input widget has already captured the event.
+    alt_pressed: bool,
 }
 
 #[cfg(target_os = "linux")]
@@ -730,6 +738,9 @@ fn new(
             search_results: vec![],
             loading_bar_state: HashMap::new(),
             hud_display: None,
+
+            // modifier state
+            alt_pressed: false,
         },
         Task::batch(tasks),
     )
@@ -884,26 +895,35 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::PromptChanged(mut new_prompt) => {
-            match &mut state.global_state {
-                GlobalState::MainView {
-                    focused_search_result,
-                    sub_state,
-                    ..
-                } => {
-                    new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
+            // When the Alt key is pressed (for instance as part of an Alt+K
+            // shortcut) the `TextInput` widget still emits a `PromptChanged`
+            // message containing the character associated with the key. We
+            // want to ignore such updates so that the prompt does not get
+            // polluted with an unintended trailing "k".
+            if state.alt_pressed {
+                Task::none()
+            } else {
+                match &mut state.global_state {
+                    GlobalState::MainView {
+                        focused_search_result,
+                        sub_state,
+                        ..
+                    } => {
+                        new_prompt.truncate(100); // search query uses regex so just to be safe truncate the prompt
 
-                    state.prompt = new_prompt.clone();
+                        state.prompt = new_prompt.clone();
 
-                    focused_search_result.reset(true);
+                        focused_search_result.reset(true);
 
-                    MainViewState::initial(sub_state);
+                        MainViewState::initial(sub_state);
+                    }
+                    GlobalState::ErrorView { .. } => {}
+                    GlobalState::PluginView { .. } => {}
+                    GlobalState::PendingPluginView { .. } => {}
                 }
-                GlobalState::ErrorView { .. } => {}
-                GlobalState::PluginView { .. } => {}
-                GlobalState::PendingPluginView { .. } => {}
-            }
 
-            state.search(new_prompt, true)
+                state.search(new_prompt, true)
+            }
         }
         AppMsg::UpdateSearchResults => {
             match &state.global_state {
@@ -1023,6 +1043,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     text,
                     ..
                 } => {
+                    // Keep the `alt_pressed` state in sync with the most recent
+                    // modifiers information received from Iced.
+                    // This needs to happen before we handle the key so that the
+                    // subsequent logic can make use of the updated state.
+                    state.alt_pressed = modifiers.alt();
                     tracing::debug!(
                         "Key pressed: {:?}. shift: {:?} control: {:?} alt: {:?} meta: {:?}",
                         key,
@@ -1096,6 +1121,14 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         }
                         _ => state.handle_shortcut_key(physical_key, modifiers, text),
                     }
+                }
+                keyboard::Event::KeyReleased { modifiers, .. } => {
+                    // Update modifier state when the Alt key is released so that
+                    // we do not treat subsequent character input as part of an
+                    // Alt combination.
+                    state.alt_pressed = modifiers.alt();
+
+                    Task::none()
                 }
                 _ => Task::none(),
             }
@@ -2253,10 +2286,18 @@ fn subscription(state: &AppModel) -> Subscription<AppMsg> {
             event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
             event::Status::Captured => {
                 match &event {
+                    // Always forward Escape so we can close panels with it
                     Event::Keyboard(keyboard::Event::KeyPressed {
                         key: Key::Named(Named::Escape),
                         ..
                     }) => Some(AppMsg::IcedEvent(window_id, event)),
+                    // Forward "k" key presses as well. We will later decide
+                    // whether they form part of an Alt+K shortcut based on the
+                    // stored modifier state.
+                    Event::Keyboard(keyboard::Event::KeyPressed {
+                        key: Key::Character(c),
+                        ..
+                    }) if c.as_str() == "k" => Some(AppMsg::IcedEvent(window_id, event)),
                     _ => None,
                 }
             }
@@ -2736,6 +2777,23 @@ impl AppModel {
         let Physical::Code(physical_key) = physical_key else {
             return Task::none();
         };
+
+        // Effective Alt status taking into account the stored `alt_pressed`
+        // flag. The latter is required because when a `TextInput` widget has
+        // focus Iced sometimes loses the `alt` flag for the subsequent
+        // `KeyPressed` event that corresponds to the character key.
+        let alt_active = modifiers.alt() || self.alt_pressed;
+
+        // Detect Alt+K early so that we can toggle the Action Panel even when
+        // the `alt` modifier flag is missing from the event.
+        if physical_key == iced::keyboard::key::Code::KeyK
+            && alt_active
+            && !modifiers.shift()
+            && !modifiers.control()
+            && !modifiers.logo()
+        {
+            return Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true });
+        }
 
         match &mut self.global_state {
             GlobalState::MainView {
