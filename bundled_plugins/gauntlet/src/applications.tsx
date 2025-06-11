@@ -196,7 +196,7 @@ export default async function Applications(context: GeneratorContext<object, Ent
                 }),
                 add,
                 remove,
-                { exts: ["app"], maxDepth: 2 }
+                { exts: ["app"], maxDepth: 2, followSymlinks: true, }
             );
         }
         case "windows": {
