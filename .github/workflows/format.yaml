@@ -1,12 +1,19 @@
 name: format
 on: [push, pull_request]
 jobs:
-  all:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
       - uses: actions/checkout@v4
-      - name: Check format
-        run: cargo +nightly fmt --all -- --check --verbose
+      - name: rustfmt
+        run: cargo +nightly fmt --all -- --check
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v4
+      - name: alejandra
+        run: nix shell nixpkgs#alejandra -c alejandra -c .
