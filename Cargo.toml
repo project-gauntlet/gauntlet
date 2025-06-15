@@ -25,8 +25,8 @@ edition = "2024"
 
 [workspace.dependencies]
 # iced
-#iced = { version = "0.13.99", features = ["tokio", "lazy", "advanced", "image", "svg"] }
-iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13.1", features = ["tokio", "lazy", "advanced", "image", "svg"] }
+#iced = { version = "0.13.99", features = ["wgpu", "tiny-skia", "web-colors", "tokio", "lazy", "advanced", "image", "svg"] }
+iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13.1", features = ["wgpu", "tiny-skia", "web-colors", "tokio", "lazy", "advanced", "image", "svg"] }
 #iced_fonts = { version = "0.2.99", features = ["bootstrap"] }
 iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13.1", features = ["bootstrap"] }
 #iced_layershell = "0.13.99"
