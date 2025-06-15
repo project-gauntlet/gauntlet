@@ -3533,7 +3533,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.8",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -5835,7 +5835,7 @@ dependencies = [
 [[package]]
 name = "iced_fonts"
 version = "0.2.99"
-source = "git+https://github.com/project-gauntlet/iced_fonts.git?branch=gauntlet-0.13.1#d8d4a6f256465473d9099b6ec1da2424151d16d2"
+source = "git+https://github.com/project-gauntlet/iced_fonts.git?branch=gauntlet-0.13.1#60d04a578a83ad8c4ff7c67f6c92190cf99b4da8"
 dependencies = [
  "iced_core",
  "iced_fonts_macros",
@@ -5845,10 +5845,8 @@ dependencies = [
 [[package]]
 name = "iced_fonts_macros"
 version = "0.2.99"
-source = "git+https://github.com/project-gauntlet/iced_fonts.git?branch=gauntlet-0.13.1#d8d4a6f256465473d9099b6ec1da2424151d16d2"
+source = "git+https://github.com/project-gauntlet/iced_fonts.git?branch=gauntlet-0.13.1#60d04a578a83ad8c4ff7c67f6c92190cf99b4da8"
 dependencies = [
- "iced_core",
- "iced_widget",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -7613,7 +7611,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.3.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
