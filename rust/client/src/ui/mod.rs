@@ -470,8 +470,8 @@ fn run_non_wayland(minimized: bool) -> anyhow::Result<()> {
         .title(title)
         .settings(Settings {
             #[cfg(target_os = "macos")]
-            platform_specific: iced::settings::PlatformSpecific {
-                activation_policy: iced::settings::ActivationPolicy::Accessory,
+            platform_specific: iced::PlatformSpecific {
+                activation_policy: iced::ActivationPolicy::Accessory,
                 activate_ignoring_other_apps: true,
             },
             ..Default::default()
@@ -2138,7 +2138,10 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
     }
 }
 
-fn subscription(state: &AppModel) -> Subscription<AppMsg> {
+fn subscription(
+    #[allow(unused)]
+    state: &AppModel
+) -> Subscription<AppMsg> {
     let events_subscription = event::listen_with(|event, status, window_id| {
         match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
@@ -2235,7 +2238,7 @@ impl AppModel {
         };
 
         #[cfg(not(target_os = "linux"))]
-        commands.push(window::change_mode(self.main_window_id, Mode::Hidden));
+        commands.push(window::set_mode(self.main_window_id, Mode::Hidden));
 
         #[cfg(target_os = "macos")]
         unsafe {
@@ -2299,7 +2302,7 @@ impl AppModel {
                 WindowPositionMode::Static => Task::none(),
                 WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(self.main_window_id),
             },
-            window::change_mode(self.main_window_id, Mode::Windowed),
+            window::set_mode(self.main_window_id, Mode::Windowed),
         ]);
 
         open_task
