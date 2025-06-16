@@ -9,78 +9,16 @@ use tonic::transport::Channel;
 
 use crate::model::DownloadStatus;
 use crate::model::EntrypointId;
-use crate::model::KeyboardEventOrigin;
 use crate::model::LocalSaveData;
-use crate::model::PhysicalKey;
 use crate::model::PhysicalShortcut;
 use crate::model::PluginId;
 use crate::model::PluginPreferenceUserData;
-use crate::model::SearchResult;
 use crate::model::SettingsPlugin;
 use crate::model::SettingsTheme;
-use crate::model::UiPropertyValue;
-use crate::model::UiWidgetId;
 use crate::model::WindowPositionMode;
 use crate::rpc::grpc::RpcBincode;
 use crate::rpc::grpc::RpcSaveLocalPluginRequest;
 use crate::rpc::grpc::rpc_backend_client::RpcBackendClient;
-
-#[allow(async_fn_in_trait)]
-#[boundary_gen(in_process)]
-pub trait BackendForFrontendApi {
-    async fn search(&self, text: String, render_inline_view: bool) -> RequestResult<Vec<SearchResult>>;
-
-    async fn request_view_render(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    ) -> RequestResult<HashMap<String, PhysicalShortcut>>;
-
-    async fn request_view_close(&self, plugin_id: PluginId) -> RequestResult<()>;
-
-    async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()>;
-
-    async fn request_run_generated_entrypoint(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        action_index: usize,
-    ) -> RequestResult<()>;
-
-    async fn send_view_event(
-        &self,
-        plugin_id: PluginId,
-        widget_id: UiWidgetId,
-        event_name: String,
-        event_arguments: Vec<UiPropertyValue>,
-    ) -> RequestResult<()>;
-
-    async fn send_keyboard_event(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        origin: KeyboardEventOrigin,
-        key: PhysicalKey,
-        modifier_shift: bool,
-        modifier_control: bool,
-        modifier_alt: bool,
-        modifier_meta: bool,
-    ) -> RequestResult<()>;
-
-    async fn send_open_event(&self, plugin_id: PluginId, href: String) -> RequestResult<()>;
-
-    async fn open_settings_window(&self) -> RequestResult<()>;
-
-    async fn open_settings_window_preferences(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: Option<EntrypointId>,
-    ) -> RequestResult<()>;
-
-    async fn inline_view_shortcuts(&self) -> RequestResult<HashMap<PluginId, HashMap<String, PhysicalShortcut>>>;
-
-    async fn run_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()>;
-}
 
 #[boundary_gen(bincode, grpc)]
 #[tonic::async_trait]

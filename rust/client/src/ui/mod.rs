@@ -18,10 +18,6 @@ use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApiProxy;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
@@ -32,7 +28,6 @@ use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutAction;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
 use gauntlet_server::plugins::settings::global_shortcut::register_listener;
 use gauntlet_utils::channel::RequestError;
-use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils::channel::Responder;
 use gauntlet_utils::channel::channel;
 use iced::Event;
@@ -120,7 +115,6 @@ use crate::ui::widget::root::render_root;
 pub struct AppModel {
     // logic
     application_manager: Arc<ApplicationManager>,
-    backend_api: BackendForFrontendApiProxy,
     main_window_id: window::Id,
     focused: bool,
     opened: bool,
@@ -504,8 +498,6 @@ fn run_wayland(minimized: bool) -> anyhow::Result<()> {
 
 fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel, Task<AppMsg>) {
     let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
-    let (backend_sender, backend_receiver) =
-        channel::<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>();
 
     let frontend_receiver = Arc::new(TokioRwLock::new(frontend_receiver));
     let application_manager = ApplicationManager::create(frontend_sender).expect("Unable to setup application manager");
@@ -516,14 +508,6 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
 
         async move { application_manager.run_grpc_server().await }
     });
-
-    tokio::spawn({
-        let application_manager = application_manager.clone();
-
-        async move { application_manager.run_message_loop(backend_receiver).await }
-    });
-
-    let backend_api = BackendForFrontendApiProxy::new(backend_sender);
 
     let setup_data = application_manager.setup().expect("Unable to setup");
 
@@ -574,7 +558,6 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
         AppModel {
             // logic
             application_manager,
-            backend_api,
             main_window_id,
             focused: false,
             opened: !minimized,
@@ -1585,16 +1568,15 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             plugin_id,
             entrypoint_id,
         } => {
-            let backend_client = state.backend_api.clone();
+            let application_manager = state.application_manager.clone();
 
-            Task::perform(
-                async move {
-                    let result = backend_client.run_entrypoint(plugin_id, entrypoint_id).await?;
-
-                    Ok(result)
-                },
-                |result| handle_backend_error(result, |()| AppMsg::Noop),
-            )
+            Task::future(async move {
+                application_manager
+                    .run_action(plugin_id, entrypoint_id, ":primary".to_string())
+                    .await
+                    .map(|()| AppMsg::Noop)
+                    .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()))
+            })
         }
     }
 }
@@ -2138,10 +2120,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
     }
 }
 
-fn subscription(
-    #[allow(unused)]
-    state: &AppModel
-) -> Subscription<AppMsg> {
+fn subscription(#[allow(unused)] state: &AppModel) -> Subscription<AppMsg> {
     let events_subscription = event::listen_with(|event, status, window_id| {
         match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
@@ -2317,42 +2296,25 @@ impl AppModel {
     }
 
     fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
+        let msg = self
+            .application_manager
+            .request_render_view(plugin_id, entrypoint_id)
+            .map(|action_shortcuts| AppMsg::OnOpenView { action_shortcuts })
+            .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
 
-        Task::perform(
-            async move {
-                let result = backend_client.request_view_render(plugin_id, entrypoint_id).await?;
-
-                Ok(result)
-            },
-            |result| handle_backend_error(result, |action_shortcuts| AppMsg::OnOpenView { action_shortcuts }),
-        )
+        Task::done(msg)
     }
 
     fn close_plugin_view(&self, plugin_id: PluginId) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
+        self.application_manager.request_view_close(plugin_id);
 
-        Task::perform(
-            async move {
-                backend_client.request_view_close(plugin_id).await?;
-
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
+        self.application_manager.run_command(plugin_id, entrypoint_id);
 
-        Task::perform(
-            async move {
-                backend_client.request_run_command(plugin_id, entrypoint_id).await?;
-
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn run_generated_entrypoint(
@@ -2361,18 +2323,10 @@ impl AppModel {
         entrypoint_id: EntrypointId,
         action_index: usize,
     ) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
+        self.application_manager
+            .request_run_generated_entrypoint(plugin_id, entrypoint_id, action_index);
 
-        Task::perform(
-            async move {
-                backend_client
-                    .request_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
-                    .await?;
-
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn handle_plugin_event(
@@ -2381,7 +2335,7 @@ impl AppModel {
         plugin_id: PluginId,
         render_location: UiRenderLocation,
     ) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
+        let application_manager = self.application_manager.clone();
 
         let event = self
             .client_context
@@ -2399,26 +2353,14 @@ impl AppModel {
                         _ => AppMsg::Noop,
                     };
 
-                    Task::perform(
-                        async move {
-                            backend_client
-                                .send_view_event(plugin_id, widget_id, event_name, event_arguments)
-                                .await?;
+                    application_manager.send_view_event(plugin_id, widget_id, event_name, event_arguments);
 
-                            Ok(msg)
-                        },
-                        |result| handle_backend_error(result, |msg| msg),
-                    )
+                    Task::done(msg)
                 }
                 UiViewEvent::Open { href } => {
-                    Task::perform(
-                        async move {
-                            backend_client.send_open_event(plugin_id, href).await?;
+                    application_manager.handle_open(href);
 
-                            Ok(AppMsg::Noop)
-                        },
-                        |result| handle_backend_error(result, |msg| msg),
-                    )
+                    Task::none()
                 }
                 UiViewEvent::AppEvent { event } => Task::done(event),
             }
@@ -2437,27 +2379,18 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
+        self.application_manager.handle_keyboard_event(
+            plugin_id,
+            entrypoint_id,
+            KeyboardEventOrigin::MainView,
+            physical_key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        );
 
-        Task::perform(
-            async move {
-                backend_client
-                    .send_keyboard_event(
-                        plugin_id,
-                        entrypoint_id,
-                        KeyboardEventOrigin::MainView,
-                        physical_key,
-                        modifier_shift,
-                        modifier_control,
-                        modifier_alt,
-                        modifier_meta,
-                    )
-                    .await?;
-
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn handle_plugin_view_keyboard_event(
@@ -2468,8 +2401,6 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
-
         let (plugin_id, entrypoint_id) = {
             (
                 self.client_context.get_view_plugin_id(),
@@ -2477,25 +2408,18 @@ impl AppModel {
             )
         };
 
-        Task::perform(
-            async move {
-                backend_client
-                    .send_keyboard_event(
-                        plugin_id,
-                        entrypoint_id,
-                        KeyboardEventOrigin::PluginView,
-                        physical_key,
-                        modifier_shift,
-                        modifier_control,
-                        modifier_alt,
-                        modifier_meta,
-                    )
-                    .await?;
+        self.application_manager.handle_keyboard_event(
+            plugin_id,
+            entrypoint_id,
+            KeyboardEventOrigin::PluginView,
+            physical_key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        );
 
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn handle_inline_plugin_view_keyboard_event(
@@ -2506,8 +2430,6 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let backend_client = self.backend_api.clone();
-
         let (plugin_id, entrypoint_id) = {
             match self.client_context.get_first_inline_view_container() {
                 None => return Task::none(),
@@ -2515,38 +2437,28 @@ impl AppModel {
             }
         };
 
-        Task::perform(
-            async move {
-                backend_client
-                    .send_keyboard_event(
-                        plugin_id,
-                        entrypoint_id,
-                        KeyboardEventOrigin::PluginView,
-                        physical_key,
-                        modifier_shift,
-                        modifier_control,
-                        modifier_alt,
-                        modifier_meta,
-                    )
-                    .await?;
+        self.application_manager.handle_keyboard_event(
+            plugin_id,
+            entrypoint_id,
+            KeyboardEventOrigin::PluginView,
+            physical_key,
+            modifier_shift,
+            modifier_control,
+            modifier_alt,
+            modifier_meta,
+        );
 
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn search(&self, new_prompt: String, render_inline_view: bool) -> Task<AppMsg> {
-        let backend_api = self.backend_api.clone();
+        let msg = self
+            .application_manager
+            .search(&new_prompt, render_inline_view)
+            .map(|search_result| AppMsg::SetSearchResults(search_result))
+            .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
 
-        Task::perform(
-            async move {
-                let search_results = backend_api.search(new_prompt, render_inline_view).await?;
-
-                Ok(search_results)
-            },
-            |result| handle_backend_error(result, |search_results| AppMsg::SetSearchResults(search_results)),
-        )
+        Task::done(msg)
     }
 
     fn open_settings_window_preferences(
@@ -2554,26 +2466,20 @@ impl AppModel {
         plugin_id: PluginId,
         entrypoint_id: Option<EntrypointId>,
     ) -> Task<AppMsg> {
-        let backend_api = self.backend_api.clone();
+        self.application_manager
+            .open_settings_window_preferences(plugin_id, entrypoint_id);
 
-        Task::perform(
-            async move {
-                backend_api
-                    .open_settings_window_preferences(plugin_id, entrypoint_id)
-                    .await?;
-
-                Ok(())
-            },
-            |result| handle_backend_error(result, |()| AppMsg::Noop),
-        )
+        Task::none()
     }
 
     fn inline_view_shortcuts(&self) -> Task<AppMsg> {
-        let backend_api = self.backend_api.clone();
+        let result = self
+            .application_manager
+            .inline_view_shortcuts()
+            .map(|shortcuts| AppMsg::InlineViewShortcuts { shortcuts })
+            .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
 
-        Task::perform(async move { backend_api.inline_view_shortcuts().await }, |result| {
-            handle_backend_error(result, |shortcuts| AppMsg::InlineViewShortcuts { shortcuts })
-        })
+        Task::done(result)
     }
 
     fn handle_shortcut_key(
@@ -2803,13 +2709,6 @@ impl AppModel {
         *prompt = chars.as_str().to_owned();
 
         focus(search_field_id.clone())
-    }
-}
-
-fn handle_backend_error<T>(result: RequestResult<T>, convert: impl FnOnce(T) -> AppMsg) -> AppMsg {
-    match result {
-        Ok(val) => convert(val),
-        Err(err) => AppMsg::ShowBackendError(err),
     }
 }
 

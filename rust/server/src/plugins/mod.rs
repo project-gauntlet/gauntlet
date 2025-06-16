@@ -27,10 +27,6 @@ use gauntlet_common::model::UiPropertyValue;
 use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApi;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApiRequestData;
-use gauntlet_common::rpc::backend_api::BackendForFrontendApiResponseData;
-use gauntlet_common::rpc::backend_api::handle_proxy_message;
 use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
@@ -41,8 +37,6 @@ use gauntlet_common_plugin_runtime::model::JsPluginCode;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsFileSystem;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsMainSearchBar;
-use gauntlet_utils::channel::RequestReceiver;
-use gauntlet_utils::channel::RequestResult;
 use gauntlet_utils::channel::RequestSender;
 use include_dir::Dir;
 use include_dir::include_dir;
@@ -167,19 +161,6 @@ impl ApplicationManager {
         .await
     }
 
-    pub async fn run_message_loop(
-        self: &Arc<Self>,
-        mut backend_receiver: RequestReceiver<BackendForFrontendApiRequestData, BackendForFrontendApiResponseData>,
-    ) {
-        loop {
-            let (request_data, responder) = backend_receiver.recv().await;
-
-            let response_data = handle_proxy_message(request_data, self.as_ref()).await;
-
-            responder.respond(response_data);
-        }
-    }
-
     pub fn setup(&self) -> anyhow::Result<UiSetupData> {
         self.settings.setup()?;
 
@@ -252,7 +233,7 @@ impl ApplicationManager {
             ":primary" => {
                 match entrypoint_type {
                     SearchResultEntrypointType::Command => {
-                        self.handle_run_command(plugin_id, entrypoint_id).await;
+                        self.run_command(plugin_id, entrypoint_id);
                     }
                     SearchResultEntrypointType::View => {
                         self.frontend_api.open_plugin_view(plugin_id, entrypoint_id).await?;
@@ -266,7 +247,7 @@ impl ApplicationManager {
 
                         match action_type {
                             EntrypointActionType::Command => {
-                                self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, 0).await;
+                                self.request_run_generated_entrypoint(plugin_id, entrypoint_id, 0);
                             }
                             EntrypointActionType::View => {
                                 self.frontend_api
@@ -294,7 +275,7 @@ impl ApplicationManager {
 
                         match action_type {
                             EntrypointActionType::Command => {
-                                self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, 1).await;
+                                self.request_run_generated_entrypoint(plugin_id, entrypoint_id, 1);
                             }
                             EntrypointActionType::View => {
                                 self.frontend_api
@@ -331,8 +312,7 @@ impl ApplicationManager {
 
                                 match action_data.action_type {
                                     EntrypointActionType::Command => {
-                                        self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, index)
-                                            .await;
+                                        self.request_run_generated_entrypoint(plugin_id, entrypoint_id, index);
                                     }
                                     EntrypointActionType::View => {
                                         self.frontend_api
@@ -722,7 +702,7 @@ impl ApplicationManager {
         })
     }
 
-    pub async fn handle_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    pub fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
             data: OnePluginCommandData::RunCommand {
@@ -730,10 +710,10 @@ impl ApplicationManager {
             },
         });
 
-        self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
+        self.mark_entrypoint_frecency(plugin_id, entrypoint_id)
     }
 
-    pub async fn handle_run_generated_entrypoint(
+    pub fn request_run_generated_entrypoint(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -747,10 +727,10 @@ impl ApplicationManager {
             },
         });
 
-        self.mark_entrypoint_frecency(plugin_id, entrypoint_id).await
+        self.mark_entrypoint_frecency(plugin_id, entrypoint_id)
     }
 
-    pub async fn handle_render_view(
+    pub fn request_render_view(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -762,22 +742,21 @@ impl ApplicationManager {
             },
         });
 
-        self.mark_entrypoint_frecency(plugin_id.clone(), entrypoint_id.clone())
-            .await;
+        self.mark_entrypoint_frecency(plugin_id.clone(), entrypoint_id.clone());
 
-        let shortcuts = self.action_shortcuts(plugin_id, entrypoint_id).await?;
+        let shortcuts = self.action_shortcuts(plugin_id, entrypoint_id)?;
 
         Ok(shortcuts)
     }
 
-    pub fn handle_view_close(&self, plugin_id: PluginId) {
+    pub fn request_view_close(&self, plugin_id: PluginId) {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::CloseView,
         })
     }
 
-    pub fn handle_view_event(
+    pub fn send_view_event(
         &self,
         plugin_id: PluginId,
         widget_id: UiWidgetId,
@@ -842,7 +821,7 @@ impl ApplicationManager {
             .expect("failed to execute settings process");
     }
 
-    pub fn handle_open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) {
+    pub fn open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) {
         let data = if let Some(entrypoint_id) = entrypoint_id {
             SettingsEnvData::OpenEntrypointPreferences {
                 plugin_id: plugin_id.to_string(),
@@ -882,7 +861,7 @@ impl ApplicationManager {
         self.db_repository.is_plugin_enabled(&plugin_id.to_string())
     }
 
-    async fn action_shortcuts(
+    fn action_shortcuts(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -990,7 +969,7 @@ impl ApplicationManager {
         let _ = self.command_broadcaster.send(command);
     }
 
-    async fn mark_entrypoint_frecency(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+    fn mark_entrypoint_frecency(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
         let result = self
             .db_repository
             .mark_entrypoint_frecency(&plugin_id.to_string(), &entrypoint_id.to_string());
@@ -1006,7 +985,7 @@ impl ApplicationManager {
         self.request_search_index_refresh(plugin_id);
     }
 
-    pub async fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
+    pub fn inline_view_shortcuts(&self) -> anyhow::Result<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
         let result: HashMap<_, _> = self
             .db_repository
             .inline_view_shortcuts()?
@@ -1015,120 +994,6 @@ impl ApplicationManager {
             .collect();
 
         Ok(result)
-    }
-}
-
-impl BackendForFrontendApi for ApplicationManager {
-    async fn search(&self, text: String, render_inline_view: bool) -> RequestResult<Vec<SearchResult>> {
-        let result = self.search(&text, render_inline_view)?;
-
-        Ok(result)
-    }
-
-    async fn request_view_render(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-    ) -> RequestResult<HashMap<String, PhysicalShortcut>> {
-        let result = self.handle_render_view(plugin_id, entrypoint_id).await?;
-
-        Ok(result)
-    }
-
-    async fn request_view_close(&self, plugin_id: PluginId) -> RequestResult<()> {
-        self.handle_view_close(plugin_id);
-
-        Ok(())
-    }
-
-    async fn request_run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()> {
-        self.handle_run_command(plugin_id, entrypoint_id).await;
-
-        Ok(())
-    }
-
-    async fn request_run_generated_entrypoint(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        action_index: usize,
-    ) -> RequestResult<()> {
-        self.handle_run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
-            .await;
-
-        Ok(())
-    }
-
-    async fn send_view_event(
-        &self,
-        plugin_id: PluginId,
-        widget_id: UiWidgetId,
-        event_name: String,
-        event_arguments: Vec<UiPropertyValue>,
-    ) -> RequestResult<()> {
-        self.handle_view_event(plugin_id, widget_id, event_name, event_arguments);
-
-        Ok(())
-    }
-
-    async fn send_keyboard_event(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        origin: KeyboardEventOrigin,
-        key: PhysicalKey,
-        modifier_shift: bool,
-        modifier_control: bool,
-        modifier_alt: bool,
-        modifier_meta: bool,
-    ) -> RequestResult<()> {
-        self.handle_keyboard_event(
-            plugin_id,
-            entrypoint_id,
-            origin,
-            key,
-            modifier_shift,
-            modifier_control,
-            modifier_alt,
-            modifier_meta,
-        );
-
-        Ok(())
-    }
-
-    async fn send_open_event(&self, _plugin_id: PluginId, href: String) -> RequestResult<()> {
-        self.handle_open(href);
-
-        Ok(())
-    }
-
-    async fn open_settings_window(&self) -> RequestResult<()> {
-        self.handle_open_settings_window();
-
-        Ok(())
-    }
-
-    async fn open_settings_window_preferences(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: Option<EntrypointId>,
-    ) -> RequestResult<()> {
-        self.handle_open_settings_window_preferences(plugin_id, entrypoint_id);
-
-        Ok(())
-    }
-
-    async fn inline_view_shortcuts(&self) -> RequestResult<HashMap<PluginId, HashMap<String, PhysicalShortcut>>> {
-        let result = self.inline_view_shortcuts().await?;
-
-        Ok(result)
-    }
-
-    async fn run_entrypoint(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()> {
-        self.run_action(plugin_id, entrypoint_id, ":primary".to_string())
-            .await?;
-
-        Ok(())
     }
 }
 
