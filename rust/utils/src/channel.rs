@@ -28,7 +28,7 @@ impl From<Elapsed> for RequestError {
 impl From<anyhow::Error> for RequestError {
     fn from(error: Error) -> RequestError {
         RequestError::Other {
-            display: format!("{}", error),
+            display: format!("{:#}", error),
         }
     }
 }
@@ -50,7 +50,7 @@ impl From<tonic::Status> for RequestError {
 impl From<prost::UnknownEnumValue> for RequestError {
     fn from(error: prost::UnknownEnumValue) -> RequestError {
         RequestError::Other {
-            display: format!("{}", error),
+            display: format!("{:#}", error),
         }
     }
 }
@@ -105,7 +105,7 @@ impl<Req: std::fmt::Debug, Res: std::fmt::Debug> RequestSender<Req, Res> {
 
         let result = tokio::time::timeout(duration, receiver.recv()).await?.map_err(|err| {
             RequestError::Other {
-                display: format!("{}", err),
+                display: format!("{:#}", err),
             }
         })?;
 
