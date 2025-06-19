@@ -184,7 +184,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub async fn set_entrypoint_search_alias(
+    pub fn set_entrypoint_search_alias(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -243,7 +243,7 @@ impl SearchIndex {
         Ok(())
     }
 
-    pub async fn save_for_plugin(
+    pub fn save_for_plugin(
         &self,
         plugin_id: PluginId,
         plugin_name: String,
@@ -252,7 +252,7 @@ impl SearchIndex {
     ) -> anyhow::Result<()> {
         tracing::debug!("Reloading search index for plugin {:?}", plugin_id);
 
-        let aliases = self.settings.entrypoint_search_aliases().await?;
+        let aliases = self.settings.entrypoint_search_aliases()?;
 
         // writer panics if another writer exists
         let _guard = self.index_writer_mutex.lock().expect("lock is poisoned");

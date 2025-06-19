@@ -14,6 +14,7 @@ use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
+use global_hotkey::GlobalHotKeyManager;
 
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::data_db_repository::DbSettingsEntrypointSearchAliasData;
@@ -45,8 +46,8 @@ impl Settings {
         })
     }
 
-    pub fn setup(&self) -> anyhow::Result<()> {
-        self.global_hotkey_settings.setup()?;
+    pub fn setup(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<()> {
+        self.global_hotkey_settings.setup(global_hotkey_manager)?;
 
         Ok(())
     }
@@ -62,8 +63,13 @@ impl Settings {
         self.global_hotkey_settings.global_shortcut()
     }
 
-    pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
-        self.global_hotkey_settings.set_global_shortcut(shortcut)
+    pub fn set_global_shortcut(
+        &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()> {
+        self.global_hotkey_settings
+            .set_global_shortcut(global_hotkey_manager, shortcut)
     }
 
     pub fn global_entrypoint_shortcuts(
@@ -72,17 +78,22 @@ impl Settings {
         self.global_hotkey_settings.global_entrypoint_shortcuts()
     }
 
-    pub async fn set_global_entrypoint_shortcut(
+    pub fn set_global_entrypoint_shortcut(
         &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         shortcut: Option<PhysicalShortcut>,
     ) -> anyhow::Result<()> {
-        self.global_hotkey_settings
-            .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
+        self.global_hotkey_settings.set_global_entrypoint_shortcut(
+            global_hotkey_manager,
+            plugin_id,
+            entrypoint_id,
+            shortcut,
+        )
     }
 
-    pub async fn entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
+    pub fn entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
         let settings = self.repository.get_settings()?;
 
         let data: HashMap<_, _> = settings
@@ -103,7 +114,7 @@ impl Settings {
         Ok(data)
     }
 
-    pub async fn set_entrypoint_search_alias(
+    pub fn set_entrypoint_search_alias(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -172,7 +183,7 @@ impl Settings {
         Ok(theme)
     }
 
-    pub async fn theme_setting(&self) -> anyhow::Result<SettingsTheme> {
+    pub fn theme_setting(&self) -> anyhow::Result<SettingsTheme> {
         if let Some(_) = read_theme_file(self.dirs.theme_file()) {
             return Ok(SettingsTheme::ThemeFile);
         };

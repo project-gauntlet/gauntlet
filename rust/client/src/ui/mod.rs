@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
+use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use client_context::ClientContext;
 use gauntlet_common::model::EntrypointId;
@@ -20,13 +22,18 @@ use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
+use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiProxy;
+use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiRequestData;
+use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
 use gauntlet_common::scenario_model::ScenarioFrontendEvent;
 use gauntlet_common_ui::physical_key_model;
+use gauntlet_server::global_hotkey::GlobalHotKeyManager;
 use gauntlet_server::plugins::ApplicationManager;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutAction;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
 use gauntlet_server::plugins::settings::global_shortcut::register_listener;
+use gauntlet_server::rpc::run_grpc_server;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::Responder;
 use gauntlet_utils::channel::channel;
@@ -43,9 +50,9 @@ use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
 use iced::event;
 use iced::font;
-use iced::futures;
 use iced::futures::SinkExt;
 use iced::futures::StreamExt;
+use iced::futures::channel::mpsc;
 use iced::keyboard;
 use iced::keyboard::Key;
 use iced::keyboard::Modifiers;
@@ -115,6 +122,7 @@ use crate::ui::widget::root::render_root;
 pub struct AppModel {
     // logic
     application_manager: Arc<ApplicationManager>,
+    global_hotkey_manager: GlobalHotKeyManager,
     main_window_id: window::Id,
     focused: bool,
     opened: bool,
@@ -316,6 +324,10 @@ pub enum AppMsg {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
+    HandleServerRequest {
+        request_data: Arc<ServerGrpcApiRequestData>,
+        responder: Arc<Mutex<Option<Responder<ServerGrpcApiResponseData>>>>,
+    },
 }
 
 #[cfg(target_os = "linux")]
@@ -498,18 +510,21 @@ fn run_wayland(minimized: bool) -> anyhow::Result<()> {
 
 fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel, Task<AppMsg>) {
     let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
+    let (server_grpc_sender, server_grpc_receiver) = channel::<ServerGrpcApiRequestData, ServerGrpcApiResponseData>();
+
+    let application_manager = ApplicationManager::create(frontend_sender).expect("Unable to setup application manager");
+    let global_hotkey_manager = GlobalHotKeyManager::new().expect("Unable to setup shortcut manager");
+    let grpc_api = ServerGrpcApiProxy::new(server_grpc_sender);
 
     let frontend_receiver = Arc::new(TokioRwLock::new(frontend_receiver));
-    let application_manager = ApplicationManager::create(frontend_sender).expect("Unable to setup application manager");
+    let server_grpc_receiver = Arc::new(TokioRwLock::new(server_grpc_receiver));
     let application_manager = Arc::new(application_manager);
 
-    tokio::spawn({
-        let application_manager = application_manager.clone();
+    tokio::spawn(async move { run_grpc_server(grpc_api).await });
 
-        async move { application_manager.run_grpc_server().await }
-    });
-
-    let setup_data = application_manager.setup().expect("Unable to setup");
+    let setup_data = application_manager
+        .setup(&global_hotkey_manager)
+        .expect("Unable to setup");
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
@@ -534,7 +549,7 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
 
     tasks.push(open_task);
 
-    tasks.push(Task::stream(stream::channel(100, |mut sender| {
+    tasks.push(Task::stream(stream::channel(10, |mut sender| {
         async move {
             let mut frontend_receiver = frontend_receiver.write().await;
 
@@ -542,6 +557,23 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
                 let (request_data, responder) = frontend_receiver.recv().await;
 
                 request_loop(request_data, &mut sender, responder).await;
+            }
+        }
+    })));
+
+    tasks.push(Task::stream(stream::channel(10, |mut sender: mpsc::Sender<AppMsg>| {
+        async move {
+            let mut server_grpc_receiver = server_grpc_receiver.write().await;
+
+            loop {
+                let (request_data, responder) = server_grpc_receiver.recv().await;
+
+                let app_msg = AppMsg::HandleServerRequest {
+                    request_data: Arc::new(request_data),
+                    responder: Arc::new(Mutex::new(Some(responder))),
+                };
+
+                let _ = sender.send(app_msg).await;
             }
         }
     })));
@@ -558,6 +590,7 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
         AppModel {
             // logic
             application_manager,
+            global_hotkey_manager,
             main_window_id,
             focused: false,
             opened: !minimized,
@@ -1578,6 +1611,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()))
             })
         }
+        AppMsg::HandleServerRequest {
+            request_data,
+            responder,
+        } => handle_server_message(state, request_data, responder),
     }
 }
 
@@ -2714,7 +2751,7 @@ impl AppModel {
 
 async fn request_loop(
     request_data: FrontendApiRequestData,
-    sender: &mut futures::channel::mpsc::Sender<AppMsg>,
+    sender: &mut mpsc::Sender<AppMsg>,
     responder: Responder<FrontendApiResponseData>,
 ) {
     let app_msg = {
@@ -2845,4 +2882,265 @@ async fn request_loop(
     };
 
     let _ = sender.send(app_msg).await;
+}
+
+fn handle_server_message(
+    state: &mut AppModel,
+    request_data: Arc<ServerGrpcApiRequestData>,
+    responder: Arc<Mutex<Option<Responder<ServerGrpcApiResponseData>>>>,
+) -> Task<AppMsg> {
+    let responder = responder
+        .lock()
+        .expect("lock is poisoned")
+        .take()
+        .expect("there should always be a responder here");
+
+    match request_data.deref() {
+        ServerGrpcApiRequestData::ShowWindow {} => {
+            responder.respond(Ok(ServerGrpcApiResponseData::ShowWindow { data: () }));
+
+            state.show_window()
+        }
+        ServerGrpcApiRequestData::ShowSettingsWindow {} => {
+            responder.respond(Ok(ServerGrpcApiResponseData::ShowSettingsWindow { data: () }));
+
+            state.application_manager.handle_open_settings_window();
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::RunAction {
+            plugin_id,
+            entrypoint_id,
+            action_id,
+        } => {
+            let application_manager = state.application_manager.clone();
+            let plugin_id = plugin_id.clone();
+            let entrypoint_id = entrypoint_id.clone();
+            let action_id = action_id.clone();
+
+            Task::future(async move {
+                let result = application_manager
+                    .run_action(plugin_id, entrypoint_id, action_id)
+                    .await
+                    .map(|data| ServerGrpcApiResponseData::RunAction { data });
+
+                responder.respond(result);
+
+                AppMsg::Noop
+            })
+        }
+        ServerGrpcApiRequestData::SaveLocalPlugin { path } => {
+            let result = state
+                .application_manager
+                .save_local_plugin(&path)
+                .map(|data| ServerGrpcApiResponseData::SaveLocalPlugin { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::Plugins {} => {
+            let result = state
+                .application_manager
+                .plugins()
+                .map(|data| ServerGrpcApiResponseData::Plugins { data });
+
+            responder.respond(result.into());
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetPluginState { plugin_id, enabled } => {
+            let result = state
+                .application_manager
+                .set_plugin_state(plugin_id.clone(), *enabled)
+                .map(|data| ServerGrpcApiResponseData::SetPluginState { data });
+
+            responder.respond(result.into());
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetEntrypointState {
+            plugin_id,
+            entrypoint_id,
+            enabled,
+        } => {
+            let result = state
+                .application_manager
+                .set_entrypoint_state(plugin_id.clone(), entrypoint_id.clone(), *enabled)
+                .map(|data| ServerGrpcApiResponseData::SetEntrypointState { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetGlobalShortcut { shortcut } => {
+            let result = state
+                .application_manager
+                .set_global_shortcut(&state.global_hotkey_manager, shortcut.clone());
+
+            responder.respond(Ok(ServerGrpcApiResponseData::SetGlobalShortcut { data: result }));
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::GetGlobalShortcut {} => {
+            let result = state
+                .application_manager
+                .get_global_shortcut()
+                .map(|data| ServerGrpcApiResponseData::GetGlobalShortcut { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetGlobalEntrypointShortcut {
+            plugin_id,
+            entrypoint_id,
+            shortcut,
+        } => {
+            let result = state
+                .application_manager
+                .set_global_entrypoint_shortcut(
+                    &state.global_hotkey_manager,
+                    plugin_id.clone(),
+                    entrypoint_id.clone(),
+                    shortcut.clone(),
+                )
+                .map(|data| ServerGrpcApiResponseData::SetGlobalEntrypointShortcut { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::GetGlobalEntrypointShortcuts {} => {
+            let result = state
+                .application_manager
+                .get_global_entrypoint_shortcut()
+                .map(|data| ServerGrpcApiResponseData::GetGlobalEntrypointShortcuts { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetEntrypointSearchAlias {
+            plugin_id,
+            entrypoint_id,
+            alias,
+        } => {
+            let result = state
+                .application_manager
+                .set_entrypoint_search_alias(plugin_id.clone(), entrypoint_id.clone(), alias.clone())
+                .map(|data| ServerGrpcApiResponseData::SetEntrypointSearchAlias { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::GetEntrypointSearchAliases {} => {
+            let result = state
+                .application_manager
+                .get_entrypoint_search_aliases()
+                .map(|data| ServerGrpcApiResponseData::GetEntrypointSearchAliases { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetTheme { theme } => {
+            let application_manager = state.application_manager.clone();
+            let theme = theme.clone();
+
+            Task::future(async move {
+                let result = application_manager
+                    .set_theme(theme)
+                    .await
+                    .map(|data| ServerGrpcApiResponseData::SetTheme { data });
+
+                responder.respond(result);
+
+                AppMsg::Noop
+            })
+        }
+        ServerGrpcApiRequestData::GetTheme {} => {
+            let result = state
+                .application_manager
+                .get_theme()
+                .map(|data| ServerGrpcApiResponseData::GetTheme { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetWindowPositionMode { mode } => {
+            let application_manager = state.application_manager.clone();
+            let mode = mode.clone();
+
+            Task::future(async move {
+                let result = application_manager
+                    .set_window_position_mode(mode)
+                    .await
+                    .map(|data| ServerGrpcApiResponseData::SetWindowPositionMode { data });
+
+                responder.respond(result);
+
+                AppMsg::Noop
+            })
+        }
+        ServerGrpcApiRequestData::GetWindowPositionMode {} => {
+            let result = state
+                .application_manager
+                .get_window_position_mode()
+                .map(|data| ServerGrpcApiResponseData::GetWindowPositionMode { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::SetPreferenceValue {
+            plugin_id,
+            entrypoint_id,
+            preference_id,
+            preference_value,
+        } => {
+            let result = state
+                .application_manager
+                .set_preference_value(
+                    plugin_id.clone(),
+                    entrypoint_id.clone(),
+                    preference_id.clone(),
+                    preference_value.clone(),
+                )
+                .map(|data| ServerGrpcApiResponseData::SetPreferenceValue { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::DownloadPlugin { plugin_id } => {
+            let result = state
+                .application_manager
+                .download_plugin(plugin_id.clone())
+                .map(|data| ServerGrpcApiResponseData::DownloadPlugin { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::DownloadStatus {} => {
+            let data = state.application_manager.download_status();
+
+            responder.respond(Ok(ServerGrpcApiResponseData::DownloadStatus { data }));
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::RemovePlugin { plugin_id } => {
+            let result = state
+                .application_manager
+                .remove_plugin(plugin_id.clone())
+                .map(|data| ServerGrpcApiResponseData::RemovePlugin { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+    }
 }

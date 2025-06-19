@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
@@ -13,18 +12,30 @@ use gauntlet_common::model::WindowPositionMode;
 use gauntlet_common::rpc::backend_api::BackendForCliApi;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
 use gauntlet_common::rpc::backend_api::BackendForToolsApi;
+use gauntlet_common::rpc::backend_server::start_backend_server;
+use gauntlet_common::rpc::server_grpc_api::ServerGrpcApi;
+use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiProxy;
 use gauntlet_utils::channel::RequestResult;
 
-use crate::plugins::ApplicationManager;
-
 pub struct BackendServerImpl {
-    pub application_manager: Arc<ApplicationManager>,
+    pub proxy: ServerGrpcApiProxy,
 }
 
 impl BackendServerImpl {
-    pub fn new(application_manager: Arc<ApplicationManager>) -> Self {
-        Self { application_manager }
+    pub fn new(application_manager: ServerGrpcApiProxy) -> Self {
+        Self {
+            proxy: application_manager,
+        }
     }
+}
+
+pub async fn run_grpc_server(grpc_api: ServerGrpcApiProxy) {
+    start_backend_server(
+        Box::new(BackendServerImpl::new(grpc_api.clone())),
+        Box::new(BackendServerImpl::new(grpc_api.clone())),
+        Box::new(BackendServerImpl::new(grpc_api.clone())),
+    )
+    .await
 }
 
 #[tonic::async_trait]
@@ -35,11 +46,13 @@ impl BackendForCliApi for BackendServerImpl {
     }
 
     async fn show_window(&self) -> RequestResult<()> {
-        self.application_manager.show_window().await.map_err(Into::into)
+        self.proxy.show_window().await?;
+
+        Ok(())
     }
 
     async fn show_settings_window(&self) -> RequestResult<()> {
-        self.application_manager.handle_open_settings_window();
+        self.proxy.show_settings_window().await?;
 
         Ok(())
     }
@@ -50,9 +63,7 @@ impl BackendForCliApi for BackendServerImpl {
         entrypoint_id: EntrypointId,
         action_id: String,
     ) -> RequestResult<()> {
-        self.application_manager
-            .run_action(plugin_id, entrypoint_id, action_id)
-            .await?;
+        self.proxy.run_action(plugin_id, entrypoint_id, action_id).await?;
 
         Ok(())
     }
@@ -61,7 +72,7 @@ impl BackendForCliApi for BackendServerImpl {
 #[tonic::async_trait]
 impl BackendForToolsApi for BackendServerImpl {
     async fn save_local_plugin(&self, path: String) -> RequestResult<LocalSaveData> {
-        let result = self.application_manager.save_local_plugin(&path)?;
+        let result = self.proxy.save_local_plugin(path).await?;
 
         Ok(result)
     }
@@ -70,21 +81,11 @@ impl BackendForToolsApi for BackendServerImpl {
 #[tonic::async_trait]
 impl BackendForSettingsApi for BackendServerImpl {
     async fn plugins(&self) -> RequestResult<HashMap<PluginId, SettingsPlugin>> {
-        let result = self.application_manager.plugins();
-
-        if let Err(err) = &result {
-            tracing::warn!(
-                target = "rpc",
-                "error occurred when handling 'plugins' request {:?}",
-                err
-            )
-        }
-
-        result.map_err(Into::into)
+        self.proxy.plugins().await
     }
 
     async fn set_plugin_state(&self, plugin_id: PluginId, enabled: bool) -> RequestResult<()> {
-        let result = self.application_manager.set_plugin_state(plugin_id, enabled);
+        let result = self.proxy.set_plugin_state(plugin_id, enabled).await;
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -103,10 +104,7 @@ impl BackendForSettingsApi for BackendServerImpl {
         entrypoint_id: EntrypointId,
         enabled: bool,
     ) -> RequestResult<()> {
-        let result = self
-            .application_manager
-            .set_entrypoint_state(plugin_id, entrypoint_id, enabled)
-            .await;
+        let result = self.proxy.set_entrypoint_state(plugin_id, entrypoint_id, enabled).await;
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -120,7 +118,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> RequestResult<Option<String>> {
-        let result = self.application_manager.set_global_shortcut(shortcut).await;
+        let result = self.proxy.set_global_shortcut(shortcut).await;
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -130,13 +128,14 @@ impl BackendForSettingsApi for BackendServerImpl {
             )
         }
 
-        Ok(result.err().map(|err| format!("{:#}", err)))
+        result
     }
 
     async fn get_global_shortcut(&self) -> RequestResult<(Option<PhysicalShortcut>, Option<String>)> {
         let result = self
-            .application_manager
-            .get_global_shortcut()?
+            .proxy
+            .get_global_shortcut()
+            .await?
             .map(|(shortcut, error)| (Some(shortcut), error))
             .unwrap_or((None, None));
 
@@ -149,18 +148,26 @@ impl BackendForSettingsApi for BackendServerImpl {
         entrypoint_id: EntrypointId,
         shortcut: Option<PhysicalShortcut>,
     ) -> RequestResult<()> {
-        self.application_manager
+        let result = self
+            .proxy
             .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
-            .await
-            .map_err(Into::into)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(
+                target = "rpc",
+                "error occurred when handling 'set_global_entrypoint_shortcut' request {:?}",
+                err
+            )
+        }
+
+        result
     }
 
     async fn get_global_entrypoint_shortcuts(
         &self,
     ) -> RequestResult<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
-        self.application_manager
-            .get_global_entrypoint_shortcut()
-            .map_err(Into::into)
+        self.proxy.get_global_entrypoint_shortcuts().await
     }
 
     async fn set_entrypoint_search_alias(
@@ -169,36 +176,40 @@ impl BackendForSettingsApi for BackendServerImpl {
         entrypoint_id: EntrypointId,
         alias: Option<String>,
     ) -> RequestResult<()> {
-        self.application_manager
+        let result = self
+            .proxy
             .set_entrypoint_search_alias(plugin_id, entrypoint_id, alias)
-            .await
-            .map_err(Into::into)
+            .await;
+
+        if let Err(err) = &result {
+            tracing::warn!(
+                target = "rpc",
+                "error occurred when handling 'set_entrypoint_search_alias' request {:?}",
+                err
+            )
+        }
+
+        result
     }
 
     async fn get_entrypoint_search_aliases(&self) -> RequestResult<HashMap<(PluginId, EntrypointId), String>> {
-        self.application_manager
-            .get_entrypoint_search_aliases()
-            .await
-            .map_err(Into::into)
+        self.proxy.get_entrypoint_search_aliases().await
     }
 
     async fn set_theme(&self, theme: SettingsTheme) -> RequestResult<()> {
-        self.application_manager.set_theme(theme).await.map_err(Into::into)
+        self.proxy.set_theme(theme).await
     }
 
     async fn get_theme(&self) -> RequestResult<SettingsTheme> {
-        self.application_manager.get_theme().await.map_err(Into::into)
+        self.proxy.get_theme().await
     }
 
     async fn set_window_position_mode(&self, mode: WindowPositionMode) -> RequestResult<()> {
-        self.application_manager
-            .set_window_position_mode(mode)
-            .await
-            .map_err(Into::into)
+        self.proxy.set_window_position_mode(mode).await
     }
 
     async fn get_window_position_mode(&self) -> RequestResult<WindowPositionMode> {
-        self.application_manager.get_window_position_mode().map_err(Into::into)
+        self.proxy.get_window_position_mode().await
     }
 
     async fn set_preference_value(
@@ -208,9 +219,10 @@ impl BackendForSettingsApi for BackendServerImpl {
         preference_id: String,
         preference_value: PluginPreferenceUserData,
     ) -> RequestResult<()> {
-        let result =
-            self.application_manager
-                .set_preference_value(plugin_id, entrypoint_id, preference_id, preference_value);
+        let result = self
+            .proxy
+            .set_preference_value(plugin_id, entrypoint_id, preference_id, preference_value)
+            .await;
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -224,7 +236,7 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn download_plugin(&self, plugin_id: PluginId) -> RequestResult<()> {
-        let result = self.application_manager.download_plugin(plugin_id);
+        let result = self.proxy.download_plugin(plugin_id).await;
 
         if let Err(err) = &result {
             tracing::warn!(
@@ -238,11 +250,11 @@ impl BackendForSettingsApi for BackendServerImpl {
     }
 
     async fn download_status(&self) -> RequestResult<HashMap<PluginId, DownloadStatus>> {
-        Ok(self.application_manager.download_status())
+        self.proxy.download_status().await
     }
 
     async fn remove_plugin(&self, plugin_id: PluginId) -> RequestResult<()> {
-        let result = self.application_manager.remove_plugin(plugin_id);
+        let result = self.proxy.remove_plugin(plugin_id).await;
 
         if let Err(err) = &result {
             tracing::warn!(

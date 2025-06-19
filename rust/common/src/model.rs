@@ -565,7 +565,7 @@ pub enum SettingsTheme {
 }
 
 impl Display for SettingsTheme {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let label = match self {
             SettingsTheme::AutoDetect => "Auto-detect",
             SettingsTheme::ThemeFile => "Theme file present",

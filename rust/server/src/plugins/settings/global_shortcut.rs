@@ -24,7 +24,6 @@ use crate::plugins::data_db_repository::DbSettingsShortcut;
 #[derive(Clone)]
 pub struct GlobalShortcutSettings {
     repository: DataDbRepository,
-    global_hotkey_manager: Arc<GlobalHotKeyManager>,
     state: Arc<Mutex<GlobalShortcutSettingsState>>,
 }
 
@@ -37,7 +36,6 @@ impl GlobalShortcutSettings {
     pub fn new(db_repository: DataDbRepository) -> anyhow::Result<GlobalShortcutSettings> {
         Ok(Self {
             repository: db_repository,
-            global_hotkey_manager: Arc::new(GlobalHotKeyManager::new()?),
             state: Arc::new(Mutex::new(GlobalShortcutSettingsState {
                 current_global_hotkey: None,
                 current_entrypoint_global_hotkeys: HashMap::new(),
@@ -45,7 +43,7 @@ impl GlobalShortcutSettings {
         })
     }
 
-    pub fn setup(&self) -> anyhow::Result<()> {
+    pub fn setup(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<()> {
         let global_shortcut = self.global_shortcut()?.map(|(shortcut, _)| shortcut);
         let global_entrypoint_shortcuts = self
             .global_entrypoint_shortcuts()?
@@ -53,10 +51,11 @@ impl GlobalShortcutSettings {
             .map(|((plugin_id, entrypoint_id), (shortcut, _))| ((plugin_id, entrypoint_id), shortcut))
             .collect();
 
-        let (hotkeys, errors) = self.setup_shortcuts(global_shortcut);
+        let (hotkeys, errors) = self.setup_shortcuts(global_hotkey_manager, global_shortcut);
         self.set_global_shortcut_error(errors)?;
 
-        let (entrypoint_hotkeys, entrypoint_errors) = self.setup_entrypoint_shortcuts(global_entrypoint_shortcuts);
+        let (entrypoint_hotkeys, entrypoint_errors) =
+            self.setup_entrypoint_shortcuts(global_hotkey_manager, global_entrypoint_shortcuts);
         for ((plugin_id, entrypoint_id), error) in entrypoint_errors {
             self.set_global_entrypoint_shortcut_error(plugin_id, entrypoint_id, error)?;
         }
@@ -87,10 +86,15 @@ impl GlobalShortcutSettings {
         Ok(data)
     }
 
-    pub fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
+    pub fn set_global_shortcut(
+        &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> anyhow::Result<()> {
         let mut state = self.state.lock().map_err(|_| anyhow!("lock is poisoned"))?;
 
-        let (hotkey, err) = self.assign_global_shortcut(state.current_global_hotkey, shortcut.clone());
+        let (hotkey, err) =
+            self.assign_global_shortcut(global_hotkey_manager, state.current_global_hotkey, shortcut.clone());
 
         state.current_global_hotkey = hotkey;
 
@@ -171,6 +175,7 @@ impl GlobalShortcutSettings {
 
     pub fn set_global_entrypoint_shortcut(
         &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         shortcut: Option<PhysicalShortcut>,
@@ -182,7 +187,7 @@ impl GlobalShortcutSettings {
             .get(&(plugin_id.clone(), entrypoint_id.clone()))
             .cloned();
 
-        let (hotkey, err) = self.assign_global_shortcut(current_global_hotkey, shortcut.clone());
+        let (hotkey, err) = self.assign_global_shortcut(global_hotkey_manager, current_global_hotkey, shortcut.clone());
 
         if let Some(hotkey) = hotkey {
             state
@@ -319,11 +324,12 @@ impl GlobalShortcutSettings {
 
     fn assign_global_shortcut(
         &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
         current_hotkey: Option<HotKey>,
         new_shortcut: Option<PhysicalShortcut>,
     ) -> (Option<HotKey>, anyhow::Result<()>) {
         if let Some(current_hotkey) = current_hotkey {
-            if let Err(err) = self.global_hotkey_manager.unregister(current_hotkey.clone()) {
+            if let Err(err) = global_hotkey_manager.unregister(current_hotkey.clone()) {
                 tracing::warn!(
                     "error occurred when unregistering global shortcut {:?}: {:?}",
                     current_hotkey,
@@ -334,7 +340,7 @@ impl GlobalShortcutSettings {
 
         if let Some(new_shortcut) = new_shortcut {
             let hotkey = convert_physical_shortcut_to_hotkey(new_shortcut);
-            match self.global_hotkey_manager.register(hotkey) {
+            match global_hotkey_manager.register(hotkey) {
                 Ok(()) => (Some(hotkey), Ok(())),
                 Err(err) => (None, Err(anyhow!(err))),
             }
@@ -343,8 +349,12 @@ impl GlobalShortcutSettings {
         }
     }
 
-    fn setup_shortcuts(&self, global_shortcut: Option<PhysicalShortcut>) -> (Option<HotKey>, Option<String>) {
-        let (current_global_hotkey, result) = self.assign_global_shortcut(None, global_shortcut);
+    fn setup_shortcuts(
+        &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
+        global_shortcut: Option<PhysicalShortcut>,
+    ) -> (Option<HotKey>, Option<String>) {
+        let (current_global_hotkey, result) = self.assign_global_shortcut(global_hotkey_manager, None, global_shortcut);
 
         let result = result.map_err(|err| format!("{:#}", err)).err();
 
@@ -353,6 +363,7 @@ impl GlobalShortcutSettings {
 
     fn setup_entrypoint_shortcuts(
         &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
         global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), PhysicalShortcut>,
     ) -> (
         HashMap<(PluginId, EntrypointId), HotKey>,
@@ -362,7 +373,7 @@ impl GlobalShortcutSettings {
         let mut current_entrypoint_global_hotkeys = HashMap::new();
 
         for ((plugin_id, entrypoint_id), shortcut) in global_entrypoint_shortcuts {
-            let (global_hotkey, result) = self.assign_global_shortcut(None, Some(shortcut));
+            let (global_hotkey, result) = self.assign_global_shortcut(global_hotkey_manager, None, Some(shortcut));
 
             if let Some(global_hotkey) = global_hotkey {
                 current_entrypoint_global_hotkeys.insert((plugin_id.clone(), entrypoint_id.clone()), global_hotkey);

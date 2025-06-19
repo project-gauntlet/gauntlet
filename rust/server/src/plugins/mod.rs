@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use anyhow::anyhow;
 use gauntlet_common::SETTINGS_ENV;
@@ -27,7 +26,6 @@ use gauntlet_common::model::UiPropertyValue;
 use gauntlet_common::model::UiSetupData;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_server::start_backend_server;
 use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
@@ -38,6 +36,7 @@ use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsFileSystem;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsMainSearchBar;
 use gauntlet_utils::channel::RequestSender;
+use global_hotkey::GlobalHotKeyManager;
 use include_dir::Dir;
 use include_dir::include_dir;
 use itertools::Itertools;
@@ -64,7 +63,6 @@ use crate::plugins::run_status::RunStatusHolder;
 pub(crate) use crate::plugins::settings::Settings;
 use crate::plugins::settings::global_shortcut::GlobalShortcutAction;
 use crate::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
-use crate::rpc::BackendServerImpl;
 use crate::search::EntrypointActionDataView;
 use crate::search::EntrypointActionType;
 use crate::search::EntrypointDataView;
@@ -152,17 +150,8 @@ impl ApplicationManager {
         Ok(application_manager)
     }
 
-    pub async fn run_grpc_server(self: &Arc<Self>) {
-        start_backend_server(
-            Box::new(BackendServerImpl::new(self.clone())),
-            Box::new(BackendServerImpl::new(self.clone())),
-            Box::new(BackendServerImpl::new(self.clone())),
-        )
-        .await
-    }
-
-    pub fn setup(&self) -> anyhow::Result<UiSetupData> {
-        self.settings.setup()?;
+    pub fn setup(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<UiSetupData> {
+        self.settings.setup(global_hotkey_manager)?;
 
         let window_position_file = self.dirs.window_position();
         let theme = self.settings.effective_theme()?;
@@ -529,7 +518,7 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn set_entrypoint_state(
+    pub fn set_entrypoint_state(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
@@ -554,23 +543,30 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub async fn set_global_shortcut(&self, shortcut: Option<PhysicalShortcut>) -> anyhow::Result<()> {
-        self.settings.set_global_shortcut(shortcut).await
+    pub fn set_global_shortcut(
+        &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
+        shortcut: Option<PhysicalShortcut>,
+    ) -> Option<String> {
+        self.settings
+            .set_global_shortcut(global_hotkey_manager, shortcut)
+            .err()
+            .map(|err| format!("{:#}", err))
     }
 
     pub fn get_global_shortcut(&self) -> anyhow::Result<Option<(PhysicalShortcut, Option<String>)>> {
         self.settings.global_shortcut()
     }
 
-    pub async fn set_global_entrypoint_shortcut(
+    pub fn set_global_entrypoint_shortcut(
         &self,
+        global_hotkey_manager: &GlobalHotKeyManager,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         shortcut: Option<PhysicalShortcut>,
     ) -> anyhow::Result<()> {
         self.settings
-            .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
-            .await
+            .set_global_entrypoint_shortcut(global_hotkey_manager, plugin_id, entrypoint_id, shortcut)
     }
 
     pub fn get_global_entrypoint_shortcut(
@@ -579,33 +575,31 @@ impl ApplicationManager {
         self.settings.global_entrypoint_shortcuts()
     }
 
-    pub async fn set_entrypoint_search_alias(
+    pub fn set_entrypoint_search_alias(
         &self,
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         alias: Option<String>,
     ) -> anyhow::Result<()> {
         self.settings
-            .set_entrypoint_search_alias(plugin_id.clone(), entrypoint_id.clone(), alias.clone())
-            .await?;
+            .set_entrypoint_search_alias(plugin_id.clone(), entrypoint_id.clone(), alias.clone())?;
 
         self.search_index
-            .set_entrypoint_search_alias(plugin_id, entrypoint_id, alias)
-            .await?;
+            .set_entrypoint_search_alias(plugin_id, entrypoint_id, alias)?;
 
         Ok(())
     }
 
-    pub async fn get_entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
-        self.settings.entrypoint_search_aliases().await
+    pub fn get_entrypoint_search_aliases(&self) -> anyhow::Result<HashMap<(PluginId, EntrypointId), String>> {
+        self.settings.entrypoint_search_aliases()
     }
 
     pub async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()> {
         self.settings.set_theme_setting(theme).await
     }
 
-    pub async fn get_theme(&self) -> anyhow::Result<SettingsTheme> {
-        self.settings.theme_setting().await
+    pub fn get_theme(&self) -> anyhow::Result<SettingsTheme> {
+        self.settings.theme_setting()
     }
 
     pub async fn set_window_position_mode(&self, mode: WindowPositionMode) -> anyhow::Result<()> {
@@ -943,7 +937,13 @@ impl ApplicationManager {
             clipboard: self.clipboard.clone(),
         };
 
-        self.start_plugin_runtime(data);
+        let run_status_guard = self.run_status_holder.start_block(data.id.clone());
+
+        tokio::spawn(async {
+            start_plugin_runtime(data, run_status_guard)
+                .await
+                .expect("failed to start plugin runtime")
+        });
 
         Ok(())
     }
@@ -952,16 +952,6 @@ impl ApplicationManager {
         tracing::info!(target = "plugin", "Stopping plugin with id: {:?}", plugin_id);
 
         self.run_status_holder.stop_plugin(&plugin_id)
-    }
-
-    fn start_plugin_runtime(&self, data: PluginRuntimeData) {
-        let run_status_guard = self.run_status_holder.start_block(data.id.clone());
-
-        tokio::spawn(async {
-            start_plugin_runtime(data, run_status_guard)
-                .await
-                .expect("failed to start plugin runtime")
-        });
     }
 
     fn send_command(&self, command: PluginCommand) {

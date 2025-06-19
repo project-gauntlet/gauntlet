@@ -51,6 +51,10 @@ pub fn boundary_gen(args: TokenStream, input: TokenStream) -> TokenStream {
     );
 
     let proxy_struct_name = syn::Ident::new(&format!("{}Proxy", ident.to_string()), proc_macro2::Span::call_site());
+    let proxy_handler_name = syn::Ident::new(
+        &format!("handle_proxy_message_{}", ident.to_string().to_case(Case::Snake)),
+        proc_macro2::Span::call_site(),
+    );
 
     let request_enum_items: Vec<_> = items
         .into_iter()
@@ -197,7 +201,7 @@ pub fn boundary_gen(args: TokenStream, input: TokenStream) -> TokenStream {
                 #(#impl_fns)*
             }
 
-            pub async fn handle_proxy_message(message: #request_enum_name, api: &impl #ident) -> anyhow::Result<#response_enum_name> {
+            pub async fn #proxy_handler_name(message: #request_enum_name, api: &impl #ident) -> anyhow::Result<#response_enum_name> {
                 match message {
                     #(#handle_impl_fns)*
                 }

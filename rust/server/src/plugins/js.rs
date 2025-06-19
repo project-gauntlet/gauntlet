@@ -19,7 +19,7 @@ use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 use gauntlet_common_plugin_runtime::JsMessageSide;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
-use gauntlet_common_plugin_runtime::api::handle_proxy_message;
+use gauntlet_common_plugin_runtime::api::handle_proxy_message_backend_for_plugin_runtime_api;
 use gauntlet_common_plugin_runtime::model::JsClipboardData;
 use gauntlet_common_plugin_runtime::model::JsEvent;
 use gauntlet_common_plugin_runtime::model::JsGeneratedSearchItem;
@@ -486,7 +486,7 @@ async fn request_loop(
             match message {
                 JsPluginRuntimeMessage::Stopped => Ok(true),
                 JsPluginRuntimeMessage::Request(message) => {
-                    match handle_proxy_message(message, api).await {
+                    match handle_proxy_message_backend_for_plugin_runtime_api(message, api).await {
                         Ok(response) => {
                             let mut send = send.lock().await;
 
@@ -804,7 +804,6 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                 generated_search_items,
                 refresh_search_list,
             )
-            .await
             .context("error when updating search index")?;
 
         Ok(())
