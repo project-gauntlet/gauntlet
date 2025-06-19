@@ -64,8 +64,12 @@ impl<'b> ComponentWidgets<'b> {
                     }
                     GridWidgetOrderedMembers::GridSection(widget) => {
                         if !pending.is_empty() {
-                            let content =
-                                self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
+                            let content = self.render_grid_section(
+                                &pending,
+                                &grid_widget.columns,
+                                focused_item.index,
+                                index_counter,
+                            );
 
                             items.push(content);
 
@@ -85,7 +89,8 @@ impl<'b> ComponentWidgets<'b> {
             }
 
             if !pending.is_empty() {
-                let content = self.render_grid(&pending, &grid_widget.columns, focused_item.index, index_counter);
+                let content =
+                    self.render_grid_section(&pending, &grid_widget.columns, focused_item.index, index_counter);
 
                 items.push(content);
             }
@@ -138,7 +143,7 @@ impl<'b> ComponentWidgets<'b> {
             })
             .collect();
 
-        let content = self.render_grid(&items, &widget.columns, item_focus_index, index_counter);
+        let content = self.render_grid_section(&items, &widget.columns, item_focus_index, index_counter);
 
         let section_title_style = if first_section {
             RowStyle::GridFirstSectionTitle
@@ -240,7 +245,7 @@ impl<'b> ComponentWidgets<'b> {
         content
     }
 
-    fn render_grid<'a>(
+    fn render_grid_section<'a>(
         &self,
         items: &[&GridItemWidget],
         /*aspect_ratio: Option<&str>,*/
@@ -272,6 +277,8 @@ impl<'b> ComponentWidgets<'b> {
             .collect();
 
         let grid = grid(rows).columns(columns).themed(GridStyle::Default);
+
+        let grid = container(grid).themed(ContainerStyle::GridSection);
 
         grid
     }

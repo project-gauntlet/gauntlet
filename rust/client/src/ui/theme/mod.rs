@@ -65,6 +65,7 @@ pub struct GauntletComplexTheme {
     grid_item: ThemeButton,
     grid_item_title: ThemePaddingTextColor,
     grid_item_subtitle: ThemeTextColor,
+    grid_section: ThemePaddingOnly,
     grid_section_title: ThemePaddingTextColorSpacing,
     grid_section_subtitle: ThemeTextColor,
     inline: ThemePaddingOnly,
@@ -438,8 +439,11 @@ impl GauntletComplexTheme {
                 spacing: 8.0,
             },
             list_section_subtitle: ThemeTextColor { text_color: text_300 },
+            grid_section: ThemePaddingOnly {
+                padding: padding(0.0, 0.0, 16.0, 0.0),
+            },
             grid_section_title: ThemePaddingTextColorSpacing {
-                padding: padding(12.0, 0.0, 4.0, 0.0),
+                padding: padding(4.0, 0.0, 4.0, 0.0),
                 text_color: text_200,
                 spacing: 8.0,
             },

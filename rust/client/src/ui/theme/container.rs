@@ -61,6 +61,7 @@ pub enum ContainerStyle {
     RootTopPanel,
     Grid,
     GridInner,
+    GridSection,
     List,
     ListInner,
     TextAccessory,
@@ -377,6 +378,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::FormInner => self.padding(theme.form_inner.padding.to_iced()),
             ContainerStyle::GridInner => self.padding(theme.grid_inner.padding.to_iced()),
             ContainerStyle::Grid => self.padding(theme.grid.padding.to_iced()),
+            ContainerStyle::GridSection => self.padding(theme.grid_section.padding.to_iced()),
             ContainerStyle::List => self.padding(theme.list.padding.to_iced()),
             ContainerStyle::ListInner => self.padding(theme.list_inner.padding.to_iced()),
             ContainerStyle::RootBottomPanelActionToggleText => {
