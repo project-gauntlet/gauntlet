@@ -387,7 +387,7 @@ pub fn hide_window(#[cfg(target_os = "linux")] wayland: bool, main_window_id: wi
 fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
     iced_layershell::reexport::NewLayerShellSettings {
         layer: iced_layershell::reexport::Layer::Overlay,
-        keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::Exclusive,
+        keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::OnDemand,
         events_transparent: false,
         anchor: iced_layershell::reexport::Anchor::empty(),
         margin: Default::default(),
