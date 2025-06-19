@@ -29,10 +29,10 @@ typed-path.workspace = true
 interprocess.workspace = true
 
 # deno crates
-deno_core = { version = "0.347.0" } # https://github.com/denoland/deno/blob/v2.3.3
-deno_runtime = { version = "0.213.0", features = ["transpile"] }
-deno_error = "*"
-deno_resolver = "*"
+deno_core = { version = "=0.347.0" } # https://github.com/denoland/deno/blob/v2.3.3
+deno_runtime = { version = "=0.213.0", features = ["transpile"] }
+deno_error = "=0.5.6"
+deno_resolver = "=0.36.0"
 sys_traits = "*"
 
 # other
