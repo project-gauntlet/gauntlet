@@ -1,4 +1,3 @@
-use std::convert;
 use std::time::Duration;
 
 use iced::Point;
@@ -9,12 +8,13 @@ use iced::window::Level;
 use iced::window::Position;
 use iced::window::Settings;
 
-use crate::ui::AppMsg;
+use crate::ui::windows::WindowActionMsg;
+use crate::ui::windows::layer_shell;
 
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
 
-pub fn show_hud_window(#[cfg(target_os = "linux")] wayland: bool) -> Task<AppMsg> {
+pub fn show_hud_window(#[cfg(target_os = "linux")] wayland: bool) -> Task<WindowActionMsg> {
     #[cfg(target_os = "linux")]
     if wayland {
         open_wayland()
@@ -26,7 +26,7 @@ pub fn show_hud_window(#[cfg(target_os = "linux")] wayland: bool) -> Task<AppMsg
     open_non_wayland()
 }
 
-fn open_non_wayland() -> Task<AppMsg> {
+fn open_non_wayland() -> Task<WindowActionMsg> {
     let settings = Settings {
         size: Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT),
         position: Position::SpecificWith(|window, screen| {
@@ -56,17 +56,17 @@ fn open_non_wayland() -> Task<AppMsg> {
 }
 
 #[cfg(target_os = "linux")]
-fn open_wayland() -> Task<AppMsg> {
+fn open_wayland() -> Task<WindowActionMsg> {
     let id = window::Id::unique();
     let settings = layer_shell_settings();
 
     Task::batch([
-        Task::done(AppMsg::LayerShell(
-            crate::ui::layer_shell::LayerShellAppMsg::NewLayerShell { id, settings },
+        Task::done(WindowActionMsg::LayerShell(
+            layer_shell::LayerShellAppMsg::NewLayerShell { id, settings },
         )),
         sleep_for_2_seconds(id).then(|id| {
-            Task::done(AppMsg::LayerShell(
-                crate::ui::layer_shell::LayerShellAppMsg::RemoveWindow(id),
+            Task::done(WindowActionMsg::LayerShell(
+                layer_shell::LayerShellAppMsg::RemoveWindow(id),
             ))
         }),
     ])
@@ -88,12 +88,8 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
 }
 
 fn sleep_for_2_seconds(id: window::Id) -> Task<window::Id> {
-    Task::perform(
-        async move {
-            tokio::time::sleep(Duration::from_secs(2)).await;
-
-            id
-        },
-        convert::identity,
-    )
+    Task::future(async {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    })
+    .then(move |_| Task::done(id))
 }

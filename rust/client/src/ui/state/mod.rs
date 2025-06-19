@@ -17,6 +17,7 @@ use crate::ui::scroll_handle::ESTIMATED_MAIN_LIST_ITEM_HEIGHT;
 use crate::ui::scroll_handle::ScrollHandle;
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
+use crate::ui::windows::WindowActionMsg;
 
 pub enum GlobalState {
     MainView {
@@ -286,7 +287,7 @@ impl Focus<SearchResult> for GlobalState {
         match self {
             GlobalState::MainView { sub_state, .. } => {
                 match sub_state {
-                    MainViewState::None => Task::done(AppMsg::HideWindow),
+                    MainViewState::None => Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
                     MainViewState::SearchResultActionPanel { .. } => {
                         MainViewState::initial(sub_state);
                         Task::none()
@@ -316,7 +317,7 @@ impl Focus<SearchResult> for GlobalState {
                             if *close_window_on_esc {
                                 Task::batch([
                                     Task::done(AppMsg::ClosePluginView(plugin_id)),
-                                    Task::done(AppMsg::HideWindow),
+                                    Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
                                 ])
                             } else {
                                 Task::batch([
@@ -333,7 +334,7 @@ impl Focus<SearchResult> for GlobalState {
                     PluginViewState::ActionPanel { .. } => Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                 }
             }
-            GlobalState::ErrorView { .. } => Task::done(AppMsg::HideWindow),
+            GlobalState::ErrorView { .. } => Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
             GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }

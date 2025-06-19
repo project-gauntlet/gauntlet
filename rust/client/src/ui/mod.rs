@@ -39,17 +39,14 @@ use gauntlet_utils::channel::Responder;
 use gauntlet_utils::channel::channel;
 use iced::Event;
 use iced::Length;
-use iced::Point;
 use iced::Renderer;
 use iced::Settings;
-use iced::Size;
 use iced::Subscription;
 use iced::Task;
 use iced::advanced::graphics::core::SmolStr;
 use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
 use iced::event;
-use iced::font;
 use iced::futures::SinkExt;
 use iced::futures::StreamExt;
 use iced::futures::channel::mpsc;
@@ -70,9 +67,6 @@ use iced::widget::text::Shaping;
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
 use iced::window;
-use iced::window::Level;
-use iced::window::Mode;
-use iced::window::Position;
 use iced::window::Screenshot;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 use tokio::sync::RwLock as TokioRwLock;
@@ -88,7 +82,6 @@ use crate::ui::theme::text_input::TextInputStyle;
 mod client_context;
 mod custom_widgets;
 mod grid_navigation;
-mod hud;
 mod scroll_handle;
 mod search_list;
 mod state;
@@ -98,14 +91,13 @@ mod theme;
 mod widget;
 mod widget_container;
 
-mod platform;
+mod windows;
 
 pub use theme::GauntletComplexTheme;
+#[cfg(target_os = "linux")]
+use windows::x11_focus::listen_on_x11_active_window_change;
 
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
-use crate::ui::hud::show_hud_window;
-#[cfg(target_os = "linux")]
-use crate::ui::platform::linux::listen_on_x11_active_window_change;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::ErrorViewData;
 use crate::ui::state::Focus;
@@ -118,6 +110,11 @@ use crate::ui::widget::action_panel::ActionPanel;
 use crate::ui::widget::action_panel::ActionPanelItem;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::root::render_root;
+use crate::ui::windows::WindowActionMsg;
+use crate::ui::windows::create_window;
+use crate::ui::windows::hide_window;
+use crate::ui::windows::hud::show_hud_window;
+use crate::ui::windows::show_window;
 
 pub struct AppModel {
     // logic
@@ -147,13 +144,6 @@ pub struct AppModel {
     search_results: Vec<SearchResult>,
     loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
     hud_display: Option<String>,
-}
-
-#[cfg(target_os = "linux")]
-mod layer_shell {
-    #[iced_layershell::to_layer_message(multi)]
-    #[derive(Debug, Clone)]
-    pub enum LayerShellAppMsg {}
 }
 
 #[derive(Debug, Clone)]
@@ -218,9 +208,6 @@ pub enum AppMsg {
         widget_event: ComponentWidgetEvent,
     },
     Noop,
-    ShowWindow,
-    HideWindow,
-    ToggleWindow,
     HandleGlobalShortcut(GlobalShortcutPressedEvent),
     ToggleActionPanel {
         keyboard: bool,
@@ -254,9 +241,6 @@ pub enum AppMsg {
     OpenPluginView(PluginId, EntrypointId),
     InlineViewShortcuts {
         shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
-    },
-    ShowHud {
-        display: String,
     },
     OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus,
     OnPrimaryActionMainViewNoPanel {
@@ -303,21 +287,11 @@ pub enum AppMsg {
     FocusPluginViewSearchBar {
         widget_id: UiWidgetId,
     },
-    #[cfg(target_os = "linux")]
-    LayerShell(layer_shell::LayerShellAppMsg),
     ClearInlineView {
         plugin_id: PluginId,
     },
     SetTheme {
         theme: UiTheme,
-    },
-    SetWindowPositionMode {
-        mode: WindowPositionMode,
-    },
-    #[cfg(target_os = "linux")]
-    X11ActiveWindowChanged {
-        window: u32,
-        wm_name: Option<String>,
     },
     RunEntrypoint {
         plugin_id: PluginId,
@@ -327,119 +301,7 @@ pub enum AppMsg {
         request_data: Arc<ServerGrpcApiRequestData>,
         responder: Arc<Mutex<Option<Responder<ServerGrpcApiResponseData>>>>,
     },
-}
-
-#[cfg(target_os = "linux")]
-impl TryInto<iced_layershell::actions::LayershellCustomActionWithId> for AppMsg {
-    type Error = Self;
-    fn try_into(self) -> Result<iced_layershell::actions::LayershellCustomActionWithId, Self::Error> {
-        match self {
-            Self::LayerShell(msg) => msg.try_into().map_err(|msg| Self::LayerShell(msg)),
-            _ => Err(self),
-        }
-    }
-}
-
-const WINDOW_WIDTH: f32 = 750.0;
-const WINDOW_HEIGHT: f32 = 450.0;
-
-#[cfg(not(target_os = "macos"))]
-fn window_settings(visible: bool, position: Position) -> window::Settings {
-    window::Settings {
-        size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-        position,
-        resizable: false,
-        decorations: false,
-        visible,
-        transparent: true,
-        closeable: false,
-        minimizable: false,
-        #[cfg(target_os = "linux")]
-        platform_specific: window::settings::PlatformSpecific {
-            application_id: "gauntlet".to_string(),
-            ..Default::default()
-        },
-        ..Default::default()
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn window_settings(visible: bool, position: Position) -> window::Settings {
-    window::Settings {
-        size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-        position,
-        resizable: false,
-        decorations: true,
-        visible,
-        transparent: false,
-        closeable: false,
-        minimizable: false,
-        platform_specific: window::settings::PlatformSpecific {
-            window_kind: window::settings::WindowKind::Popup,
-            fullsize_content_view: true,
-            title_hidden: true,
-            titlebar_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
-    iced_layershell::reexport::NewLayerShellSettings {
-        layer: iced_layershell::reexport::Layer::Overlay,
-        keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::Exclusive,
-        events_transparent: false,
-        anchor: iced_layershell::reexport::Anchor::empty(),
-        margin: Default::default(),
-        exclusive_zone: Some(0),
-        size: Some((WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)),
-        use_last_output: false,
-        namespace: None,
-    }
-}
-
-fn open_main_window_non_wayland(minimized: bool, window_position_file: Option<&PathBuf>) -> (window::Id, Task<AppMsg>) {
-    let position = window_position_file
-        .map(|window_position_file| fs::read_to_string(window_position_file).ok())
-        .flatten()
-        .map(|data| {
-            if let Some((x, y)) = data.split_once(":") {
-                match (x.parse(), y.parse()) {
-                    (Ok(x), Ok(y)) => Some(Position::Specific(Point::new(x, y))),
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        })
-        .unwrap_or(None)
-        .unwrap_or(Position::Centered);
-
-    let (main_window_id, open_task) = window::open(window_settings(!minimized, position));
-
-    (
-        main_window_id,
-        Task::batch([
-            open_task.map(|_| AppMsg::Noop),
-            window::gain_focus(main_window_id),
-            window::set_level(main_window_id, Level::AlwaysOnTop),
-        ]),
-    )
-}
-
-#[cfg(target_os = "linux")]
-fn open_main_window_wayland(id: window::Id) -> (window::Id, Task<AppMsg>) {
-    let settings = layer_shell_settings();
-
-    (
-        id,
-        Task::done(AppMsg::LayerShell(layer_shell::LayerShellAppMsg::NewLayerShell {
-            id,
-            settings,
-        })),
-    )
+    WindowAction(WindowActionMsg),
 }
 
 pub fn run(minimized: bool) {
@@ -529,25 +391,16 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
 
-    let mut tasks = vec![];
+    let mut tasks: Vec<Task<AppMsg>> = vec![];
 
-    #[cfg(target_os = "linux")]
-    let (main_window_id, open_task) = if wayland {
-        let id = window::Id::unique();
+    let (main_window_id, open_task) = create_window(
+        #[cfg(target_os = "linux")]
+        wayland,
+        minimized,
+        setup_data.window_position_file.as_ref(),
+    );
 
-        if minimized {
-            (id, Task::none())
-        } else {
-            open_main_window_wayland(id)
-        }
-    } else {
-        open_main_window_non_wayland(minimized, setup_data.window_position_file.as_ref())
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    let (main_window_id, open_task) = open_main_window_non_wayland(minimized, setup_data.window_position_file.as_ref());
-
-    tasks.push(open_task);
+    tasks.push(open_task.map(AppMsg::WindowAction));
 
     tasks.push(Task::stream(stream::channel(10, |mut sender| {
         async move {
@@ -1145,9 +998,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             render_location,
         } => state.handle_plugin_event(widget_event, plugin_id, render_location),
         AppMsg::Noop => Task::none(),
-        AppMsg::ToggleWindow => state.toggle_window(),
-        AppMsg::ShowWindow => state.show_window(),
-        AppMsg::HideWindow => state.hide_window(true),
         AppMsg::ShowPreferenceRequiredView {
             plugin_id,
             entrypoint_id,
@@ -1428,14 +1278,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
-        AppMsg::ShowHud { display } => {
-            state.hud_display = Some(display);
-
-            show_hud_window(
-                #[cfg(target_os = "linux")]
-                state.wayland,
-            )
-        }
         AppMsg::ResetMainViewState => {
             match &mut state.global_state {
                 GlobalState::MainView { sub_state, .. } => {
@@ -1493,10 +1335,48 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::FocusPluginViewSearchBar { widget_id } => state.client_context.focus_search_bar(widget_id),
-        #[cfg(target_os = "linux")]
-        AppMsg::LayerShell(_) => {
-            // handled by library
-            Task::none()
+        AppMsg::WindowAction(action) => {
+            match action {
+                #[cfg(target_os = "linux")]
+                WindowActionMsg::LayerShell(_) => {
+                    // handled by library
+                    Task::none()
+                }
+                WindowActionMsg::SetWindowPositionMode { mode } => {
+                    state.window_position_mode = mode;
+
+                    Task::none()
+                }
+                #[cfg(target_os = "linux")]
+                WindowActionMsg::X11ActiveWindowChanged { window, wm_name } => {
+                    if state.x11_active_window != Some(window) {
+                        state.x11_active_window = Some(window);
+                        if let Some(wm_name) = &wm_name {
+                            if wm_name != "gauntlet" {
+                                Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow))
+                            } else {
+                                Task::none()
+                            }
+                        } else {
+                            Task::none()
+                        }
+                    } else {
+                        Task::none()
+                    }
+                }
+                WindowActionMsg::ToggleWindow => state.toggle_window(),
+                WindowActionMsg::ShowWindow => state.show_window(),
+                WindowActionMsg::HideWindow => state.hide_window(true),
+                WindowActionMsg::ShowHud { display } => {
+                    state.hud_display = Some(display);
+
+                    show_hud_window(
+                        #[cfg(target_os = "linux")]
+                        state.wayland,
+                    )
+                    .map(AppMsg::WindowAction)
+                }
+            }
         }
         AppMsg::ClearInlineView { plugin_id } => {
             state.client_context.clear_inline_view(&plugin_id);
@@ -1507,11 +1387,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             state.theme = GauntletComplexTheme::new(theme);
 
             GauntletComplexTheme::update_global(state.theme.clone());
-
-            Task::none()
-        }
-        AppMsg::SetWindowPositionMode { mode } => {
-            state.window_position_mode = mode;
 
             Task::none()
         }
@@ -1530,7 +1405,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     },
                 ),
                 Task::done(AppMsg::OpenPluginView(plugin_id, entrypoint_id)),
-                Task::done(AppMsg::ShowWindow),
+                Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)),
             ])
         }
         AppMsg::ShowNewGeneratedView {
@@ -1549,31 +1424,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     },
                 ),
                 state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
-                Task::done(AppMsg::ShowWindow),
+                Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)),
             ])
-        }
-        #[cfg(target_os = "linux")]
-        AppMsg::X11ActiveWindowChanged { window, wm_name } => {
-            if state.x11_active_window != Some(window) {
-                state.x11_active_window = Some(window);
-                if let Some(wm_name) = &wm_name {
-                    if wm_name != "gauntlet" {
-                        Task::done(AppMsg::HideWindow)
-                    } else {
-                        Task::none()
-                    }
-                } else {
-                    Task::none()
-                }
-            } else {
-                Task::none()
-            }
         }
         AppMsg::HandleGlobalShortcut(event) => {
             match state.application_manager.handle_global_shortcut_event(event) {
                 Ok(action) => {
                     match action {
-                        GlobalShortcutAction::ToggleWindow => Task::done(AppMsg::ToggleWindow),
+                        GlobalShortcutAction::ToggleWindow => {
+                            Task::done(AppMsg::WindowAction(WindowActionMsg::ToggleWindow))
+                        }
                         GlobalShortcutAction::RunEntrypoint {
                             plugin_id,
                             entrypoint_id,
@@ -1740,7 +1600,9 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
                     let button_label: Element<_> = text("Close").into();
 
-                    let button: Element<_> = button(button_label).on_press(AppMsg::HideWindow).into();
+                    let button: Element<_> = button(button_label)
+                        .on_press(AppMsg::WindowAction(WindowActionMsg::HideWindow))
+                        .into();
 
                     let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
@@ -1781,7 +1643,9 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
                     let button_label: Element<_> = text("Close").into();
 
-                    let button: Element<_> = button(button_label).on_press(AppMsg::HideWindow).into();
+                    let button: Element<_> = button(button_label)
+                        .on_press(AppMsg::WindowAction(WindowActionMsg::HideWindow))
+                        .into();
 
                     let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
@@ -1814,7 +1678,9 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
                     let button_label: Element<_> = text("Close").into();
 
-                    let button: Element<_> = button(button_label).on_press(AppMsg::HideWindow).into();
+                    let button: Element<_> = button(button_label)
+                        .on_press(AppMsg::WindowAction(WindowActionMsg::HideWindow))
+                        .into();
 
                     let button = container(button).width(Length::Fill).align_x(Horizontal::Center).into();
 
@@ -2240,28 +2106,14 @@ impl AppModel {
 
         self.pending_window_state_reset = reset_state;
 
-        #[cfg(target_os = "linux")]
-        if self.wayland {
-            commands.push(Task::done(AppMsg::LayerShell(
-                layer_shell::LayerShellAppMsg::RemoveWindow(self.main_window_id),
-            )));
-        } else {
-            commands.push(window::set_mode(self.main_window_id, Mode::Hidden));
-        };
-
-        #[cfg(not(target_os = "linux"))]
-        commands.push(window::set_mode(self.main_window_id, Mode::Hidden));
-
-        #[cfg(target_os = "macos")]
-        unsafe {
-            // when closing NSPanel current active application doesn't automatically become key window
-            // is there a proper way? without doing this manually
-            let app = objc2_app_kit::NSWorkspace::sharedWorkspace().menuBarOwningApplication();
-
-            if let Some(app) = app {
-                app.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
-            }
-        }
+        commands.push(
+            hide_window(
+                #[cfg(target_os = "linux")]
+                self.wayland,
+                self.main_window_id,
+            )
+            .map(AppMsg::WindowAction),
+        );
 
         match &self.global_state {
             GlobalState::PluginView {
@@ -2295,29 +2147,14 @@ impl AppModel {
 
         self.opened = true;
 
-        #[cfg(target_os = "linux")]
-        let open_task = if self.wayland {
-            let (_, open_task) = open_main_window_wayland(self.main_window_id);
-            open_task
-        } else {
-            Task::batch([
-                window::gain_focus(self.main_window_id),
-                window::set_mode(self.main_window_id, Mode::Windowed),
-            ])
-        };
-
-        #[cfg(not(target_os = "linux"))]
-        let open_task = Task::batch([
-            window::gain_focus(self.main_window_id),
+        show_window(
+            self.main_window_id,
+            #[cfg(target_os = "linux")]
+            self.wayland,
             #[cfg(target_os = "macos")]
-            match self.window_position_mode {
-                WindowPositionMode::Static => Task::none(),
-                WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(self.main_window_id),
-            },
-            window::set_mode(self.main_window_id, Mode::Windowed),
-        ]);
-
-        open_task
+            self.window_position_mode,
+        )
+        .map(AppMsg::WindowAction)
     }
 
     fn reset_window_state(&mut self) -> Task<AppMsg> {
@@ -2783,12 +2620,12 @@ async fn request_loop(
             FrontendApiRequestData::ShowWindow {} => {
                 responder.respond(Ok(FrontendApiResponseData::ShowWindow { data: () }));
 
-                AppMsg::ShowWindow
+                AppMsg::WindowAction(WindowActionMsg::ShowWindow)
             }
             FrontendApiRequestData::HideWindow {} => {
                 responder.respond(Ok(FrontendApiResponseData::HideWindow { data: () }));
 
-                AppMsg::HideWindow
+                AppMsg::WindowAction(WindowActionMsg::HideWindow)
             }
             FrontendApiRequestData::ShowPreferenceRequiredView {
                 plugin_id,
@@ -2825,7 +2662,7 @@ async fn request_loop(
             FrontendApiRequestData::ShowHud { display } => {
                 responder.respond(Ok(FrontendApiResponseData::ShowHud { data: () }));
 
-                AppMsg::ShowHud { display }
+                AppMsg::WindowAction(WindowActionMsg::ShowHud { display })
             }
             FrontendApiRequestData::UpdateLoadingBar {
                 plugin_id,
@@ -2848,7 +2685,7 @@ async fn request_loop(
             FrontendApiRequestData::SetWindowPositionMode { mode } => {
                 responder.respond(Ok(FrontendApiResponseData::SetWindowPositionMode { data: () }));
 
-                AppMsg::SetWindowPositionMode { mode }
+                AppMsg::WindowAction(WindowActionMsg::SetWindowPositionMode { mode })
             }
             FrontendApiRequestData::OpenPluginView {
                 plugin_id,

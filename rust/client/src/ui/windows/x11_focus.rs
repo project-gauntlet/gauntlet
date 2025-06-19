@@ -14,6 +14,7 @@ use x11rb::protocol::xproto::Window;
 use x11rb::rust_connection::RustConnection;
 
 use crate::ui::AppMsg;
+use crate::ui::windows::WindowActionMsg;
 
 pub fn listen_on_x11_active_window_change(sender: Sender<AppMsg>, handle: Handle) -> anyhow::Result<Infallible> {
     let (conn, screen_num) = RustConnection::connect(None)?;
@@ -34,7 +35,14 @@ pub fn listen_on_x11_active_window_change(sender: Sender<AppMsg>, handle: Handle
                 let wm_name = fetch_app_wm_name(&conn, window).ok();
 
                 let mut sender = sender.clone();
-                handle.spawn(async move { sender.send(AppMsg::X11ActiveWindowChanged { window, wm_name }).await });
+                handle.spawn(async move {
+                    sender
+                        .send(AppMsg::WindowAction(WindowActionMsg::X11ActiveWindowChanged {
+                            window,
+                            wm_name,
+                        }))
+                        .await
+                });
             }
         }
     }
