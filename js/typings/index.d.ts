@@ -142,6 +142,10 @@ type GeneratedSearchItemAction = {
     label: string,
 }
 
+declare module "gauntlet:core" {
+    export function runPluginLoop(): Promise<void>;
+}
+
 declare module "gauntlet:bridge/internal-all" {
     function open_settings(): void
     function run_numbat(input: string): { left: string, right: string }
@@ -178,6 +182,13 @@ declare module "gauntlet:bridge/internal-windows" {
     function windows_application_dirs(): string[]
     function windows_open_application(path: string): void
     function windows_app_from_path(path: string): Promise<undefined | DesktopPathAction<WindowsDesktopApplicationData>>
+}
+
+declare module "ext:gauntlet/renderer.js" {
+    import { ReactNode } from "react";
+
+    export const render: (entrypointId: string, entrypointName: string, renderLocation: RenderLocation, component: ReactNode) => UiWidget;
+    export const clearRenderer: () => void;
 }
 
 declare module "ext:core/ops" {
