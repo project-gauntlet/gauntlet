@@ -6,7 +6,6 @@ use iced::Pixels;
 use iced::border::Radius;
 use iced::keyboard::Modifiers;
 use iced::widget::text;
-use iced_fonts::BOOTSTRAP_FONT;
 use iced_fonts::bootstrap::arrow_return_left;
 use iced_fonts::bootstrap::command;
 use iced_fonts::bootstrap::option;
@@ -96,7 +95,6 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
         if cfg!(target_os = "macos") {
             Some(
                 text("^") // TODO bootstrap doesn't have proper macos ctrl icon
-                    .font(BOOTSTRAP_FONT) // todo replace
                     .into(),
             )
         } else {

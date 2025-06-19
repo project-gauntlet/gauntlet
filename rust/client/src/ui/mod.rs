@@ -218,7 +218,6 @@ pub enum AppMsg {
         widget_event: ComponentWidgetEvent,
     },
     Noop,
-    FontLoaded(Result<(), font::Error>),
     ShowWindow,
     HideWindow,
     ToggleWindow,
@@ -482,6 +481,7 @@ fn run_non_wayland(minimized: bool) -> anyhow::Result<()> {
             },
             ..Default::default()
         })
+        .font(BOOTSTRAP_FONT_BYTES)
         .subscription(subscription)
         .theme(|state, _| state.theme.clone())
         .run()?;
@@ -529,7 +529,7 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
 
-    let mut tasks = vec![font::load(BOOTSTRAP_FONT_BYTES).map(AppMsg::FontLoaded)];
+    let mut tasks = vec![];
 
     #[cfg(target_os = "linux")]
     let (main_window_id, open_task) = if wayland {
@@ -1145,10 +1145,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             render_location,
         } => state.handle_plugin_event(widget_event, plugin_id, render_location),
         AppMsg::Noop => Task::none(),
-        AppMsg::FontLoaded(result) => {
-            result.expect("unable to load font");
-            Task::none()
-        }
         AppMsg::ToggleWindow => state.toggle_window(),
         AppMsg::ShowWindow => state.show_window(),
         AppMsg::HideWindow => state.hide_window(true),
