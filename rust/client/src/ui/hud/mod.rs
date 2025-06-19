@@ -83,7 +83,7 @@ fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
         margin: Default::default(),
         exclusive_zone: Some(0),
         size: Some((HUD_WINDOW_WIDTH as u32, HUD_WINDOW_HEIGHT as u32)),
-        namespace: None,
+        namespace: Some("gauntlet-hud".to_string()),
     }
 }
 

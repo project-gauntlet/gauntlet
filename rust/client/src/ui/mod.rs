@@ -493,7 +493,7 @@ fn run_non_wayland(minimized: bool) -> anyhow::Result<()> {
 fn run_wayland(minimized: bool) -> anyhow::Result<()> {
     let boot = move || new(true, minimized);
 
-    iced_layershell::build_pattern::daemon(boot, "Gauntlet", update, view)
+    iced_layershell::build_pattern::daemon(boot, "gauntlet", update, view)
         .layer_settings(iced_layershell::settings::LayerShellSettings {
             start_mode: iced_layershell::settings::StartMode::Background,
             events_transparent: true,
