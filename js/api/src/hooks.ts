@@ -302,7 +302,8 @@ function useWebStorage<T>(
 
     useEffect(() => {
         if (value === undefined) {
-            return storageObject.removeItem(key)
+            storageObject.removeItem(key)
+            return
         }
         storageObject.setItem(key, JSON.stringify(value))
     }, [key, value, storageObject])
