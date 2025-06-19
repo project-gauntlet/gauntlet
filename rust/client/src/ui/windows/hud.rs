@@ -9,7 +9,6 @@ use iced::window::Position;
 use iced::window::Settings;
 
 use crate::ui::windows::WindowActionMsg;
-use crate::ui::windows::layer_shell;
 
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
@@ -51,12 +50,13 @@ fn open_non_wayland() -> Task<WindowActionMsg> {
 
     window::open(settings)
         .1
-        .then(|id| sleep_for_2_seconds(id))
-        .then(|id| window::close(id))
+        .then(|id| sleep_for_2_seconds(id).then(|id| window::close(id)))
 }
 
 #[cfg(target_os = "linux")]
 fn open_wayland() -> Task<WindowActionMsg> {
+    use crate::ui::windows::layer_shell;
+
     let id = window::Id::unique();
     let settings = layer_shell_settings();
 

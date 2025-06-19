@@ -11,10 +11,208 @@ use iced::window::Mode;
 use iced::window::Position;
 
 use crate::ui::AppMsg;
+use crate::ui::windows::hud::show_hud_window;
 
 pub mod hud;
 #[cfg(target_os = "linux")]
 pub mod x11_focus;
+
+pub struct WindowState {
+    pub main_window_id: window::Id,
+    focused: bool,
+    opened: bool,
+    #[cfg(target_os = "linux")]
+    pub wayland: bool,
+    window_position_mode: WindowPositionMode,
+    close_on_unfocus: bool,
+    window_position_file: Option<PathBuf>,
+    #[cfg(target_os = "linux")]
+    x11_active_window: Option<u32>,
+}
+
+impl WindowState {
+    pub fn new(
+        main_window_id: window::Id,
+        minimized: bool,
+        window_position_file: Option<PathBuf>,
+        close_on_unfocus: bool,
+        window_position_mode: WindowPositionMode,
+        #[cfg(target_os = "linux")] wayland: bool,
+    ) -> WindowState {
+        Self {
+            main_window_id,
+            focused: false,
+            opened: !minimized,
+            #[cfg(target_os = "linux")]
+            wayland,
+            window_position_mode,
+            close_on_unfocus,
+            window_position_file,
+            #[cfg(target_os = "linux")]
+            x11_active_window: None,
+        }
+    }
+}
+
+impl WindowState {
+    pub fn handle_action(&mut self, action: WindowActionMsg) -> Task<AppMsg> {
+        match action {
+            #[cfg(target_os = "linux")]
+            WindowActionMsg::LayerShell(_) => {
+                // handled by library
+                Task::none()
+            }
+            WindowActionMsg::SetWindowPositionMode { mode } => {
+                self.window_position_mode = mode;
+
+                Task::none()
+            }
+            #[cfg(target_os = "linux")]
+            WindowActionMsg::X11ActiveWindowChanged { window, wm_name } => {
+                if self.x11_active_window != Some(window) {
+                    self.x11_active_window = Some(window);
+                    if let Some(wm_name) = &wm_name {
+                        if wm_name != "gauntlet" {
+                            Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow))
+                        } else {
+                            Task::none()
+                        }
+                    } else {
+                        Task::none()
+                    }
+                } else {
+                    Task::none()
+                }
+            }
+            WindowActionMsg::ToggleWindow => self.toggle_window(),
+            WindowActionMsg::ShowWindow => self.show_window(),
+            WindowActionMsg::HideWindow => self.hide_window(true),
+            WindowActionMsg::ShowHud { display } => {
+                let show_hud = show_hud_window(
+                    #[cfg(target_os = "linux")]
+                    self.wayland,
+                )
+                .map(AppMsg::WindowAction);
+
+                Task::batch([Task::done(AppMsg::SetHudDisplay { display }), show_hud])
+            }
+        }
+    }
+    pub fn handle_unfocused_event(&mut self, window_id: window::Id) -> Task<AppMsg> {
+        if !self.close_on_unfocus {
+            return Task::none();
+        }
+
+        if window_id != self.main_window_id {
+            return Task::none();
+        }
+
+        #[cfg(target_os = "linux")]
+        if self.wayland {
+            self.hide_window(true)
+        } else {
+            // x11 uses separate mechanism based on _NET_ACTIVE_WINDOW property
+            Task::none()
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        self.on_unfocused()
+    }
+
+    pub fn handle_focused_event(&mut self, window_id: window::Id) -> Task<AppMsg> {
+        if !self.close_on_unfocus {
+            return Task::none();
+        }
+
+        if window_id != self.main_window_id {
+            return Task::none();
+        }
+
+        self.on_focused()
+    }
+
+    pub fn handle_move_event(&mut self, window_id: window::Id, point: Point) -> Task<AppMsg> {
+        if window_id != self.main_window_id {
+            return Task::none();
+        }
+
+        if let Some(window_position_file) = &self.window_position_file {
+            let _ = fs::create_dir_all(window_position_file.parent().unwrap());
+            let _ = fs::write(&window_position_file, format!("{}:{}", point.x, point.y));
+        }
+
+        Task::none()
+    }
+
+    fn on_focused(&mut self) -> Task<AppMsg> {
+        self.focused = true;
+        Task::none()
+    }
+
+    #[allow(unused)]
+    fn on_unfocused(&mut self) -> Task<AppMsg> {
+        // for some reason (on both macOS and linux x11 but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
+        if self.focused {
+            self.hide_window(true)
+        } else {
+            Task::none()
+        }
+    }
+
+    fn toggle_window(&mut self) -> Task<AppMsg> {
+        if self.opened {
+            self.hide_window(false)
+        } else {
+            self.show_window()
+        }
+    }
+
+    fn hide_window(&mut self, reset_state: bool) -> Task<AppMsg> {
+        if !self.opened {
+            return Task::none();
+        }
+
+        self.focused = false;
+        self.opened = false;
+
+        let mut commands = vec![];
+
+        commands.push(
+            hide_window(
+                #[cfg(target_os = "linux")]
+                self.wayland,
+                self.main_window_id,
+            )
+            .map(AppMsg::WindowAction),
+        );
+
+        if reset_state {
+            commands.push(Task::done(AppMsg::ClosePluginView));
+            commands.push(Task::done(AppMsg::ResetWindowState));
+        }
+
+        commands.push(Task::done(AppMsg::ResetMainWindowScroll));
+
+        Task::batch(commands)
+    }
+
+    fn show_window(&mut self) -> Task<AppMsg> {
+        if self.opened {
+            return Task::none();
+        }
+
+        self.opened = true;
+
+        show_window(
+            self.main_window_id,
+            #[cfg(target_os = "linux")]
+            self.wayland,
+            #[cfg(target_os = "macos")]
+            &self.window_position_mode,
+        )
+        .map(AppMsg::WindowAction)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum WindowActionMsg {
@@ -129,7 +327,7 @@ pub fn create_window(
 pub fn show_window(
     main_window_id: window::Id,
     #[cfg(target_os = "linux")] wayland: bool,
-    #[cfg(target_os = "macos")] window_position_mode: WindowPositionMode,
+    #[cfg(target_os = "macos")] window_position_mode: &WindowPositionMode,
 ) -> Task<WindowActionMsg> {
     #[cfg(target_os = "linux")]
     let open_task = if wayland {

@@ -1,8 +1,10 @@
 use std::convert::Infallible;
 
 use anyhow::anyhow;
+use iced::Subscription;
 use iced::futures::SinkExt;
 use iced::futures::channel::mpsc::Sender;
+use iced::stream;
 use tokio::runtime::Handle;
 use x11rb::connection::Connection;
 use x11rb::properties::WmClass;
@@ -16,7 +18,21 @@ use x11rb::rust_connection::RustConnection;
 use crate::ui::AppMsg;
 use crate::ui::windows::WindowActionMsg;
 
-pub fn listen_on_x11_active_window_change(sender: Sender<AppMsg>, handle: Handle) -> anyhow::Result<Infallible> {
+pub fn x11_linux_focus_change_subscription() -> Subscription<AppMsg> {
+    Subscription::run(|| {
+        stream::channel(100, async move |sender| {
+            let handle = Handle::current();
+
+            let err = tokio::task::spawn_blocking(|| listen_on_x11_active_window_change(sender, handle)).await;
+
+            if let Err(err) = err {
+                tracing::error!("error occurred when listening on x11 events: {:?}", err);
+            }
+        })
+    })
+}
+
+fn listen_on_x11_active_window_change(sender: Sender<AppMsg>, handle: Handle) -> anyhow::Result<Infallible> {
     let (conn, screen_num) = RustConnection::connect(None)?;
     let screen = &conn.setup().roots[screen_num];
     let atoms = atoms::Atoms::new(&conn)?.reply()?;

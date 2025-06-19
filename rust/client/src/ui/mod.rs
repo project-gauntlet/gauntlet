@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::ops::Deref;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -19,10 +17,6 @@ use gauntlet_common::model::SearchResultEntrypointType;
 use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiWidgetId;
-use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
-use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
-use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiProxy;
 use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiRequestData;
 use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiResponseData;
 use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
@@ -33,10 +27,8 @@ use gauntlet_server::plugins::ApplicationManager;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutAction;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
 use gauntlet_server::plugins::settings::global_shortcut::register_listener;
-use gauntlet_server::rpc::run_grpc_server;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::Responder;
-use gauntlet_utils::channel::channel;
 use iced::Event;
 use iced::Length;
 use iced::Renderer;
@@ -47,9 +39,7 @@ use iced::advanced::graphics::core::SmolStr;
 use iced::alignment::Horizontal;
 use iced::alignment::Vertical;
 use iced::event;
-use iced::futures::SinkExt;
 use iced::futures::StreamExt;
-use iced::futures::channel::mpsc;
 use iced::keyboard;
 use iced::keyboard::Key;
 use iced::keyboard::Modifiers;
@@ -69,7 +59,6 @@ use iced::widget::text_input::focus;
 use iced::window;
 use iced::window::Screenshot;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
-use tokio::sync::RwLock as TokioRwLock;
 
 use crate::model::UiViewEvent;
 use crate::ui::search_list::search_list;
@@ -91,14 +80,14 @@ mod theme;
 mod widget;
 mod widget_container;
 
+mod server;
 mod windows;
 
 pub use theme::GauntletComplexTheme;
-#[cfg(target_os = "linux")]
-use windows::x11_focus::listen_on_x11_active_window_change;
 
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::server::handle_server_message;
 use crate::ui::state::ErrorViewData;
 use crate::ui::state::Focus;
 use crate::ui::state::GlobalState;
@@ -111,29 +100,19 @@ use crate::ui::widget::action_panel::ActionPanelItem;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::root::render_root;
 use crate::ui::windows::WindowActionMsg;
+use crate::ui::windows::WindowState;
 use crate::ui::windows::create_window;
-use crate::ui::windows::hide_window;
-use crate::ui::windows::hud::show_hud_window;
-use crate::ui::windows::show_window;
+#[cfg(target_os = "linux")]
+use crate::ui::windows::x11_focus::x11_linux_focus_change_subscription;
 
 pub struct AppModel {
     // logic
     application_manager: Arc<ApplicationManager>,
     global_hotkey_manager: GlobalHotKeyManager,
-    main_window_id: window::Id,
-    focused: bool,
-    opened: bool,
-    #[cfg(target_os = "linux")]
-    wayland: bool,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     _tray_icon: tray_icon::TrayIcon,
     theme: GauntletComplexTheme,
-    window_position_mode: WindowPositionMode,
-    close_on_unfocus: bool,
-    window_position_file: Option<PathBuf>,
-    #[cfg(target_os = "linux")]
-    x11_active_window: Option<u32>,
-    pending_window_state_reset: bool,
+    window: WindowState,
 
     // ephemeral state
     prompt: String,
@@ -237,7 +216,7 @@ pub enum AppMsg {
         screenshot: Screenshot,
     },
     ShowBackendError(RequestError),
-    ClosePluginView(PluginId),
+    ClosePluginView,
     OpenPluginView(PluginId, EntrypointId),
     InlineViewShortcuts {
         shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
@@ -302,6 +281,11 @@ pub enum AppMsg {
         responder: Arc<Mutex<Option<Responder<ServerGrpcApiResponseData>>>>,
     },
     WindowAction(WindowActionMsg),
+    ResetWindowState,
+    ResetMainWindowScroll,
+    SetHudDisplay {
+        display: String,
+    },
 }
 
 pub fn run(minimized: bool) {
@@ -371,27 +355,10 @@ fn run_wayland(minimized: bool) -> anyhow::Result<()> {
 }
 
 fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel, Task<AppMsg>) {
-    let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
-    let (server_grpc_sender, server_grpc_receiver) = channel::<ServerGrpcApiRequestData, ServerGrpcApiResponseData>();
-
-    let application_manager = ApplicationManager::create(frontend_sender).expect("Unable to setup application manager");
-    let global_hotkey_manager = GlobalHotKeyManager::new().expect("Unable to setup shortcut manager");
-    let grpc_api = ServerGrpcApiProxy::new(server_grpc_sender);
-
-    let frontend_receiver = Arc::new(TokioRwLock::new(frontend_receiver));
-    let server_grpc_receiver = Arc::new(TokioRwLock::new(server_grpc_receiver));
-    let application_manager = Arc::new(application_manager);
-
-    tokio::spawn(async move { run_grpc_server(grpc_api).await });
-
-    let setup_data = application_manager
-        .setup(&global_hotkey_manager)
-        .expect("Unable to setup");
+    let (application_manager, global_hotkey_manager, setup_data, setup_task) = server::setup();
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
-
-    let mut tasks: Vec<Task<AppMsg>> = vec![];
 
     let (main_window_id, open_task) = create_window(
         #[cfg(target_os = "linux")]
@@ -400,36 +367,9 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
         setup_data.window_position_file.as_ref(),
     );
 
+    let mut tasks: Vec<Task<AppMsg>> = vec![];
     tasks.push(open_task.map(AppMsg::WindowAction));
-
-    tasks.push(Task::stream(stream::channel(10, |mut sender| {
-        async move {
-            let mut frontend_receiver = frontend_receiver.write().await;
-
-            loop {
-                let (request_data, responder) = frontend_receiver.recv().await;
-
-                request_loop(request_data, &mut sender, responder).await;
-            }
-        }
-    })));
-
-    tasks.push(Task::stream(stream::channel(10, |mut sender: mpsc::Sender<AppMsg>| {
-        async move {
-            let mut server_grpc_receiver = server_grpc_receiver.write().await;
-
-            loop {
-                let (request_data, responder) = server_grpc_receiver.recv().await;
-
-                let app_msg = AppMsg::HandleServerRequest {
-                    request_data: Arc::new(request_data),
-                    responder: Arc::new(Mutex::new(Some(responder))),
-                };
-
-                let _ = sender.send(app_msg).await;
-            }
-        }
-    })));
+    tasks.push(setup_task);
 
     let mut client_context = ClientContext::new();
 
@@ -439,25 +379,25 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
         GlobalState::new(text_input::Id::unique())
     };
 
+    let window = WindowState::new(
+        main_window_id,
+        minimized,
+        setup_data.window_position_file,
+        setup_data.close_on_unfocus,
+        setup_data.window_position_mode,
+        #[cfg(target_os = "linux")]
+        wayland,
+    );
+
     (
         AppModel {
             // logic
             application_manager,
             global_hotkey_manager,
-            main_window_id,
-            focused: false,
-            opened: !minimized,
-            #[cfg(target_os = "linux")]
-            wayland,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             _tray_icon: sys_tray::create_tray(),
             theme,
-            window_position_mode: setup_data.window_position_mode,
-            close_on_unfocus: setup_data.close_on_unfocus,
-            window_position_file: setup_data.window_position_file,
-            #[cfg(target_os = "linux")]
-            x11_active_window: None,
-            pending_window_state_reset: false,
+            window,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -576,7 +516,7 @@ fn scenario_runner_global_state(tasks: &mut Vec<Task<AppMsg>>, client_context: &
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
-    if window == state.main_window_id {
+    if window == state.window.main_window_id {
         "Gauntlet".to_owned()
     } else {
         "Gauntlet HUD".to_owned()
@@ -641,14 +581,19 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::RunCommand {
             plugin_id,
             entrypoint_id,
-        } => Task::batch([state.hide_window(true), state.run_command(plugin_id, entrypoint_id)]),
+        } => {
+            Task::batch([
+                Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
+                state.run_command(plugin_id, entrypoint_id),
+            ])
+        }
         AppMsg::RunGeneratedEntrypoint {
             plugin_id,
             entrypoint_id,
             action_index,
         } => {
             Task::batch([
-                state.hide_window(true),
+                Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
                 state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
             ])
         }
@@ -663,7 +608,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             match render_location {
                 UiRenderLocation::InlineView => {
                     Task::batch([
-                        state.hide_window(true),
+                        Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
                         Task::done(AppMsg::WidgetEvent {
                             widget_event,
                             plugin_id,
@@ -851,7 +796,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Keyboard(event)) => {
-            if window_id != state.main_window_id {
+            if window_id != state.window.main_window_id {
                 return Task::none();
             }
 
@@ -941,47 +886,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Focused)) => {
-            if !state.close_on_unfocus {
-                return Task::none();
-            }
-
-            if window_id != state.main_window_id {
-                return Task::none();
-            }
-
-            state.on_focused()
+            state.window.handle_focused_event(window_id)
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Unfocused)) => {
-            if !state.close_on_unfocus {
-                return Task::none();
-            }
-
-            if window_id != state.main_window_id {
-                return Task::none();
-            }
-
-            #[cfg(target_os = "linux")]
-            if state.wayland {
-                state.hide_window(true)
-            } else {
-                // x11 uses separate mechanism based on _NET_ACTIVE_WINDOW property
-                Task::none()
-            }
-
-            #[cfg(not(target_os = "linux"))]
-            state.on_unfocused()
+            state.window.handle_unfocused_event(window_id)
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Moved(point))) => {
-            if window_id != state.main_window_id {
-                return Task::none();
-            }
-
-            if let Some(window_position_file) = &state.window_position_file {
-                let _ = fs::create_dir_all(window_position_file.parent().unwrap());
-                let _ = fs::write(&window_position_file, format!("{}:{}", point.x, point.y));
-            }
-
-            Task::none()
+            state.window.handle_move_event(window_id, point)
         }
         AppMsg::IcedEvent(_, _) => Task::none(),
         AppMsg::WidgetEvent {
@@ -1072,7 +983,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             fs::create_dir_all(Path::new(&save_path).parent().expect("no parent?"))
                 .expect("unable to create scenario out directories");
 
-            window::screenshot(state.main_window_id).map(move |screenshot| {
+            window::screenshot(state.window.main_window_id).map(move |screenshot| {
                 AppMsg::ScreenshotDone {
                     save_path: save_path.clone(),
                     screenshot,
@@ -1272,7 +1183,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             })
         }
         AppMsg::OpenPluginView(plugin_id, entrypoint_id) => state.open_plugin_view(plugin_id, entrypoint_id),
-        AppMsg::ClosePluginView(plugin_id) => state.close_plugin_view(plugin_id),
+        AppMsg::ClosePluginView => {
+            if let GlobalState::PluginView { plugin_view_data, .. } = &state.global_state {
+                state.close_plugin_view(plugin_view_data.plugin_id.clone())
+            } else {
+                Task::none()
+            }
+        }
         AppMsg::InlineViewShortcuts { shortcuts } => {
             state.client_context.set_inline_view_shortcuts(shortcuts);
 
@@ -1335,49 +1252,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::FocusPluginViewSearchBar { widget_id } => state.client_context.focus_search_bar(widget_id),
-        AppMsg::WindowAction(action) => {
-            match action {
-                #[cfg(target_os = "linux")]
-                WindowActionMsg::LayerShell(_) => {
-                    // handled by library
-                    Task::none()
-                }
-                WindowActionMsg::SetWindowPositionMode { mode } => {
-                    state.window_position_mode = mode;
-
-                    Task::none()
-                }
-                #[cfg(target_os = "linux")]
-                WindowActionMsg::X11ActiveWindowChanged { window, wm_name } => {
-                    if state.x11_active_window != Some(window) {
-                        state.x11_active_window = Some(window);
-                        if let Some(wm_name) = &wm_name {
-                            if wm_name != "gauntlet" {
-                                Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow))
-                            } else {
-                                Task::none()
-                            }
-                        } else {
-                            Task::none()
-                        }
-                    } else {
-                        Task::none()
-                    }
-                }
-                WindowActionMsg::ToggleWindow => state.toggle_window(),
-                WindowActionMsg::ShowWindow => state.show_window(),
-                WindowActionMsg::HideWindow => state.hide_window(true),
-                WindowActionMsg::ShowHud { display } => {
-                    state.hud_display = Some(display);
-
-                    show_hud_window(
-                        #[cfg(target_os = "linux")]
-                        state.wayland,
-                    )
-                    .map(AppMsg::WindowAction)
-                }
-            }
-        }
+        AppMsg::WindowAction(action) => state.window.handle_action(action),
         AppMsg::ClearInlineView { plugin_id } => {
             state.client_context.clear_inline_view(&plugin_id);
 
@@ -1471,11 +1346,27 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             request_data,
             responder,
         } => handle_server_message(state, request_data, responder),
+        AppMsg::ResetWindowState => state.reset_window_state(),
+        AppMsg::ResetMainWindowScroll => {
+            if let GlobalState::MainView {
+                focused_search_result, ..
+            } = &state.global_state
+            {
+                focused_search_result.scroll_to(0)
+            } else {
+                Task::none()
+            }
+        }
+        AppMsg::SetHudDisplay { display } => {
+            state.hud_display = Some(display);
+
+            Task::none()
+        }
     }
 }
 
 fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
-    if window != state.main_window_id {
+    if window != state.window.main_window_id {
         view_hud(state)
     } else {
         view_main(state)
@@ -2051,112 +1942,14 @@ fn subscription(#[allow(unused)] state: &AppModel) -> Subscription<AppMsg> {
     ];
 
     #[cfg(target_os = "linux")]
-    if !state.wayland {
-        let subscription = Subscription::run(|| {
-            stream::channel(100, async move |sender| {
-                let handle = tokio::runtime::Handle::current();
-
-                let err = tokio::task::spawn_blocking(|| listen_on_x11_active_window_change(sender, handle)).await;
-
-                if let Err(err) = err {
-                    tracing::error!("error occurred when listening on x11 events: {:?}", err);
-                }
-            })
-        });
-
-        subscriptions.push(subscription)
+    if !state.window.wayland {
+        subscriptions.push(x11_linux_focus_change_subscription())
     }
 
     Subscription::batch(subscriptions)
 }
 
 impl AppModel {
-    fn on_focused(&mut self) -> Task<AppMsg> {
-        self.focused = true;
-        Task::none()
-    }
-
-    #[allow(unused)]
-    fn on_unfocused(&mut self) -> Task<AppMsg> {
-        // for some reason (on both macOS and linux x11 but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
-        if self.focused {
-            self.hide_window(true)
-        } else {
-            Task::none()
-        }
-    }
-
-    fn toggle_window(&mut self) -> Task<AppMsg> {
-        if self.opened {
-            self.hide_window(false)
-        } else {
-            self.show_window()
-        }
-    }
-
-    fn hide_window(&mut self, reset_state: bool) -> Task<AppMsg> {
-        if !self.opened {
-            return Task::none();
-        }
-
-        self.focused = false;
-        self.opened = false;
-
-        let mut commands = vec![];
-
-        self.pending_window_state_reset = reset_state;
-
-        commands.push(
-            hide_window(
-                #[cfg(target_os = "linux")]
-                self.wayland,
-                self.main_window_id,
-            )
-            .map(AppMsg::WindowAction),
-        );
-
-        match &self.global_state {
-            GlobalState::PluginView {
-                plugin_view_data: PluginViewData { plugin_id, .. },
-                ..
-            } => {
-                if reset_state {
-                    commands.push(self.close_plugin_view(plugin_id.clone()));
-                }
-            }
-            GlobalState::MainView {
-                focused_search_result, ..
-            } => {
-                commands.push(focused_search_result.scroll_to(0));
-            }
-            GlobalState::ErrorView { .. } => {}
-            GlobalState::PendingPluginView { .. } => {}
-        }
-
-        if self.pending_window_state_reset {
-            commands.push(self.reset_window_state());
-        }
-
-        Task::batch(commands)
-    }
-
-    fn show_window(&mut self) -> Task<AppMsg> {
-        if self.opened {
-            return Task::none();
-        }
-
-        self.opened = true;
-
-        show_window(
-            self.main_window_id,
-            #[cfg(target_os = "linux")]
-            self.wayland,
-            #[cfg(target_os = "macos")]
-            self.window_position_mode,
-        )
-        .map(AppMsg::WindowAction)
-    }
-
     fn reset_window_state(&mut self) -> Task<AppMsg> {
         self.prompt = "".to_string();
 
@@ -2579,401 +2372,5 @@ impl AppModel {
         *prompt = chars.as_str().to_owned();
 
         focus(search_field_id.clone())
-    }
-}
-
-async fn request_loop(
-    request_data: FrontendApiRequestData,
-    sender: &mut mpsc::Sender<AppMsg>,
-    responder: Responder<FrontendApiResponseData>,
-) {
-    let app_msg = {
-        match request_data {
-            FrontendApiRequestData::ReplaceView {
-                plugin_id,
-                plugin_name,
-                entrypoint_id,
-                entrypoint_name,
-                render_location,
-                top_level_view,
-                container,
-                data: images,
-            } => {
-                responder.respond(Ok(FrontendApiResponseData::ReplaceView { data: () }));
-
-                AppMsg::RenderPluginUI {
-                    plugin_id,
-                    plugin_name,
-                    entrypoint_id,
-                    entrypoint_name,
-                    render_location,
-                    top_level_view,
-                    container: Arc::new(container),
-                    data: images,
-                }
-            }
-            FrontendApiRequestData::ClearInlineView { plugin_id } => {
-                responder.respond(Ok(FrontendApiResponseData::ClearInlineView { data: () }));
-
-                AppMsg::ClearInlineView { plugin_id }
-            }
-            FrontendApiRequestData::ShowWindow {} => {
-                responder.respond(Ok(FrontendApiResponseData::ShowWindow { data: () }));
-
-                AppMsg::WindowAction(WindowActionMsg::ShowWindow)
-            }
-            FrontendApiRequestData::HideWindow {} => {
-                responder.respond(Ok(FrontendApiResponseData::HideWindow { data: () }));
-
-                AppMsg::WindowAction(WindowActionMsg::HideWindow)
-            }
-            FrontendApiRequestData::ShowPreferenceRequiredView {
-                plugin_id,
-                entrypoint_id,
-                plugin_preferences_required,
-                entrypoint_preferences_required,
-            } => {
-                responder.respond(Ok(FrontendApiResponseData::ShowPreferenceRequiredView { data: () }));
-
-                AppMsg::ShowPreferenceRequiredView {
-                    plugin_id,
-                    entrypoint_id,
-                    plugin_preferences_required,
-                    entrypoint_preferences_required,
-                }
-            }
-            FrontendApiRequestData::ShowPluginErrorView {
-                plugin_id,
-                entrypoint_id,
-                render_location: _,
-            } => {
-                responder.respond(Ok(FrontendApiResponseData::ShowPluginErrorView { data: () }));
-
-                AppMsg::ShowPluginErrorView {
-                    plugin_id,
-                    entrypoint_id,
-                }
-            }
-            FrontendApiRequestData::RequestSearchResultsUpdate {} => {
-                responder.respond(Ok(FrontendApiResponseData::RequestSearchResultsUpdate { data: () }));
-
-                AppMsg::UpdateSearchResults
-            }
-            FrontendApiRequestData::ShowHud { display } => {
-                responder.respond(Ok(FrontendApiResponseData::ShowHud { data: () }));
-
-                AppMsg::WindowAction(WindowActionMsg::ShowHud { display })
-            }
-            FrontendApiRequestData::UpdateLoadingBar {
-                plugin_id,
-                entrypoint_id,
-                show,
-            } => {
-                responder.respond(Ok(FrontendApiResponseData::UpdateLoadingBar { data: () }));
-
-                AppMsg::UpdateLoadingBar {
-                    plugin_id,
-                    entrypoint_id,
-                    show,
-                }
-            }
-            FrontendApiRequestData::SetTheme { theme } => {
-                responder.respond(Ok(FrontendApiResponseData::SetTheme { data: () }));
-
-                AppMsg::SetTheme { theme }
-            }
-            FrontendApiRequestData::SetWindowPositionMode { mode } => {
-                responder.respond(Ok(FrontendApiResponseData::SetWindowPositionMode { data: () }));
-
-                AppMsg::WindowAction(WindowActionMsg::SetWindowPositionMode { mode })
-            }
-            FrontendApiRequestData::OpenPluginView {
-                plugin_id,
-                entrypoint_id,
-            } => {
-                responder.respond(Ok(FrontendApiResponseData::OpenPluginView { data: () }));
-
-                AppMsg::ShowNewView {
-                    plugin_id,
-                    entrypoint_id,
-                }
-            }
-            FrontendApiRequestData::OpenGeneratedPluginView {
-                plugin_id,
-                entrypoint_id,
-                action_index,
-            } => {
-                responder.respond(Ok(FrontendApiResponseData::OpenGeneratedPluginView { data: () }));
-
-                AppMsg::ShowNewGeneratedView {
-                    plugin_id,
-                    entrypoint_id,
-                    action_index,
-                }
-            }
-        }
-    };
-
-    let _ = sender.send(app_msg).await;
-}
-
-fn handle_server_message(
-    state: &mut AppModel,
-    request_data: Arc<ServerGrpcApiRequestData>,
-    responder: Arc<Mutex<Option<Responder<ServerGrpcApiResponseData>>>>,
-) -> Task<AppMsg> {
-    let responder = responder
-        .lock()
-        .expect("lock is poisoned")
-        .take()
-        .expect("there should always be a responder here");
-
-    match request_data.deref() {
-        ServerGrpcApiRequestData::ShowWindow {} => {
-            responder.respond(Ok(ServerGrpcApiResponseData::ShowWindow { data: () }));
-
-            state.show_window()
-        }
-        ServerGrpcApiRequestData::ShowSettingsWindow {} => {
-            responder.respond(Ok(ServerGrpcApiResponseData::ShowSettingsWindow { data: () }));
-
-            state.application_manager.handle_open_settings_window();
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::RunAction {
-            plugin_id,
-            entrypoint_id,
-            action_id,
-        } => {
-            let application_manager = state.application_manager.clone();
-            let plugin_id = plugin_id.clone();
-            let entrypoint_id = entrypoint_id.clone();
-            let action_id = action_id.clone();
-
-            Task::future(async move {
-                let result = application_manager
-                    .run_action(plugin_id, entrypoint_id, action_id)
-                    .await
-                    .map(|data| ServerGrpcApiResponseData::RunAction { data });
-
-                responder.respond(result);
-
-                AppMsg::Noop
-            })
-        }
-        ServerGrpcApiRequestData::SaveLocalPlugin { path } => {
-            let result = state
-                .application_manager
-                .save_local_plugin(&path)
-                .map(|data| ServerGrpcApiResponseData::SaveLocalPlugin { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::Plugins {} => {
-            let result = state
-                .application_manager
-                .plugins()
-                .map(|data| ServerGrpcApiResponseData::Plugins { data });
-
-            responder.respond(result.into());
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetPluginState { plugin_id, enabled } => {
-            let result = state
-                .application_manager
-                .set_plugin_state(plugin_id.clone(), *enabled)
-                .map(|data| ServerGrpcApiResponseData::SetPluginState { data });
-
-            responder.respond(result.into());
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetEntrypointState {
-            plugin_id,
-            entrypoint_id,
-            enabled,
-        } => {
-            let result = state
-                .application_manager
-                .set_entrypoint_state(plugin_id.clone(), entrypoint_id.clone(), *enabled)
-                .map(|data| ServerGrpcApiResponseData::SetEntrypointState { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetGlobalShortcut { shortcut } => {
-            let result = state
-                .application_manager
-                .set_global_shortcut(&state.global_hotkey_manager, shortcut.clone());
-
-            responder.respond(Ok(ServerGrpcApiResponseData::SetGlobalShortcut { data: result }));
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::GetGlobalShortcut {} => {
-            let result = state
-                .application_manager
-                .get_global_shortcut()
-                .map(|data| ServerGrpcApiResponseData::GetGlobalShortcut { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetGlobalEntrypointShortcut {
-            plugin_id,
-            entrypoint_id,
-            shortcut,
-        } => {
-            let result = state
-                .application_manager
-                .set_global_entrypoint_shortcut(
-                    &state.global_hotkey_manager,
-                    plugin_id.clone(),
-                    entrypoint_id.clone(),
-                    shortcut.clone(),
-                )
-                .map(|data| ServerGrpcApiResponseData::SetGlobalEntrypointShortcut { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::GetGlobalEntrypointShortcuts {} => {
-            let result = state
-                .application_manager
-                .get_global_entrypoint_shortcut()
-                .map(|data| ServerGrpcApiResponseData::GetGlobalEntrypointShortcuts { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetEntrypointSearchAlias {
-            plugin_id,
-            entrypoint_id,
-            alias,
-        } => {
-            let result = state
-                .application_manager
-                .set_entrypoint_search_alias(plugin_id.clone(), entrypoint_id.clone(), alias.clone())
-                .map(|data| ServerGrpcApiResponseData::SetEntrypointSearchAlias { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::GetEntrypointSearchAliases {} => {
-            let result = state
-                .application_manager
-                .get_entrypoint_search_aliases()
-                .map(|data| ServerGrpcApiResponseData::GetEntrypointSearchAliases { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetTheme { theme } => {
-            let application_manager = state.application_manager.clone();
-            let theme = theme.clone();
-
-            Task::future(async move {
-                let result = application_manager
-                    .set_theme(theme)
-                    .await
-                    .map(|data| ServerGrpcApiResponseData::SetTheme { data });
-
-                responder.respond(result);
-
-                AppMsg::Noop
-            })
-        }
-        ServerGrpcApiRequestData::GetTheme {} => {
-            let result = state
-                .application_manager
-                .get_theme()
-                .map(|data| ServerGrpcApiResponseData::GetTheme { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetWindowPositionMode { mode } => {
-            let application_manager = state.application_manager.clone();
-            let mode = mode.clone();
-
-            Task::future(async move {
-                let result = application_manager
-                    .set_window_position_mode(mode)
-                    .await
-                    .map(|data| ServerGrpcApiResponseData::SetWindowPositionMode { data });
-
-                responder.respond(result);
-
-                AppMsg::Noop
-            })
-        }
-        ServerGrpcApiRequestData::GetWindowPositionMode {} => {
-            let result = state
-                .application_manager
-                .get_window_position_mode()
-                .map(|data| ServerGrpcApiResponseData::GetWindowPositionMode { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::SetPreferenceValue {
-            plugin_id,
-            entrypoint_id,
-            preference_id,
-            preference_value,
-        } => {
-            let result = state
-                .application_manager
-                .set_preference_value(
-                    plugin_id.clone(),
-                    entrypoint_id.clone(),
-                    preference_id.clone(),
-                    preference_value.clone(),
-                )
-                .map(|data| ServerGrpcApiResponseData::SetPreferenceValue { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::DownloadPlugin { plugin_id } => {
-            let result = state
-                .application_manager
-                .download_plugin(plugin_id.clone())
-                .map(|data| ServerGrpcApiResponseData::DownloadPlugin { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::DownloadStatus {} => {
-            let data = state.application_manager.download_status();
-
-            responder.respond(Ok(ServerGrpcApiResponseData::DownloadStatus { data }));
-
-            Task::none()
-        }
-        ServerGrpcApiRequestData::RemovePlugin { plugin_id } => {
-            let result = state
-                .application_manager
-                .remove_plugin(plugin_id.clone())
-                .map(|data| ServerGrpcApiResponseData::RemovePlugin { data });
-
-            responder.respond(result);
-
-            Task::none()
-        }
     }
 }
