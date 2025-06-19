@@ -14,7 +14,7 @@ on:
 
 jobs:
   run-on-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
       - run: sudo apt-get update

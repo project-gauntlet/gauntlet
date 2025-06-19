@@ -25,7 +25,7 @@ on:
 
 jobs:
   publish-init:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       github-release-id: ${{ steps.init-step.outputs.github-release-id }}
     steps:

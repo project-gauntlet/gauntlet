@@ -2,7 +2,7 @@ name: format
 on: [push, pull_request]
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: dtolnay/rust-toolchain@nightly
         with:
@@ -11,7 +11,7 @@ jobs:
       - name: rustfmt
         run: cargo +nightly fmt --all -- --check
   nix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: cachix/install-nix-action@v31
       - uses: actions/checkout@v4
