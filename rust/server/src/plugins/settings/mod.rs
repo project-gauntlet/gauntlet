@@ -183,6 +183,11 @@ impl Settings {
         Ok(theme)
     }
 
+    #[cfg(feature = "scenario_runner")]
+    pub fn scenarios_theme(&self) -> UiTheme {
+        self.themes.macos_dark_theme.clone()
+    }
+
     pub fn theme_setting(&self) -> anyhow::Result<SettingsTheme> {
         if let Some(_) = read_theme_file(self.dirs.theme_file()) {
             return Ok(SettingsTheme::ThemeFile);

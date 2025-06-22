@@ -427,7 +427,9 @@ pub enum GlobalShortcutAction {
 #[derive(Debug, Clone)]
 pub struct GlobalShortcutPressedEvent(u32);
 
-pub fn register_listener<S: Sink<GlobalShortcutPressedEvent> + Unpin + Send + Sync + Debug + Clone + 'static>(
+pub fn register_global_shortcut_listener<
+    S: Sink<GlobalShortcutPressedEvent> + Unpin + Send + Sync + Debug + Clone + 'static,
+>(
     pressed_events: S,
 ) where
     <S as Sink<GlobalShortcutPressedEvent>>::Error: Debug,

@@ -21,6 +21,7 @@ serde.workspace = true
 serde_json.workspace = true
 image.workspace = true
 once_cell.workspace = true
+futures.workspace = true
 
 # other
 arc-swap = "1.7.1"
@@ -30,7 +31,7 @@ tray-icon = { version = "0.19.2", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 iced_layershell.workspace = true
-x11rb = { version = "0.13", features = ["extra-traits"] }
+x11rb-async.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.2.2", features = ["NSWorkspace"] }
@@ -41,4 +42,4 @@ anyhow.workspace = true
 convert_case = "0.6.0"
 
 [features]
-scenario_runner = []
+scenario_runner = ["gauntlet-server/scenario_runner"]

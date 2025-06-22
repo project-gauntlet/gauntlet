@@ -94,23 +94,17 @@ pub fn init() {
                 return;
             }
 
-            tracing::info!("Gauntlet Build Information:");
-            for (name, value) in vergen_pretty_env!() {
-                if let Some(value) = value {
-                    tracing::info!("{}: {}", name, value);
+            if is_server_running() {
+                open_window()
+            } else {
+                tracing::info!("Gauntlet Build Information:");
+                for (name, value) in vergen_pretty_env!() {
+                    if let Some(value) = value {
+                        tracing::info!("{}: {}", name, value);
+                    }
                 }
-            }
 
-            #[cfg(feature = "scenario_runner")]
-            run_scenario_runner();
-
-            #[cfg(not(feature = "scenario_runner"))]
-            {
-                if is_server_running() {
-                    open_window()
-                } else {
-                    gauntlet_client::run_app(cli.minimized)
-                }
+                gauntlet_client::run_app(cli.minimized)
             }
         }
         Some(command) => {

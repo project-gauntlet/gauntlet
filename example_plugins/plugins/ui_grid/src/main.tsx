@@ -28,7 +28,7 @@ const items = [
     },
     {
         title: "Dantooine",
-        image: "https://static.wikia.nocookie.net/starwars/images/a/a5/Dantooine_Resistance.jpg/revision/latest/scale-to-width-down/150?cb=20200120190043"
+        image: "https://static.wikia.nocookie.net/starwars/images/9/9b/Dantooine-RebuildingTheResistance.jpg/revision/latest/scale-to-width-down/150?cb=20200120190043"
     },
 ]
 

@@ -35,13 +35,13 @@ pub fn setup() -> (Arc<ApplicationManager>, GlobalHotKeyManager, UiSetupData, Ta
     let server_grpc_receiver = Arc::new(TokioRwLock::new(server_grpc_receiver));
     let application_manager = Arc::new(application_manager);
 
-    tokio::spawn(async move { run_grpc_server(grpc_api).await });
-
     let setup_data = application_manager
         .setup(&global_hotkey_manager)
         .expect("Unable to setup");
 
     let mut tasks = vec![];
+
+    tasks.push(Task::future(async move { run_grpc_server(grpc_api).await }).discard());
 
     tasks.push(Task::stream(stream::channel(10, |mut sender| {
         async move {

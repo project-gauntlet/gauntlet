@@ -27,6 +27,7 @@ bytes.workspace = true
 walkdir.workspace = true
 typed-path.workspace = true
 interprocess.workspace = true
+x11rb.workspace = true
 
 # deno crates
 deno_core = { version = "=0.347.0" } # https://github.com/denoland/deno/blob/v2.3.3
@@ -50,7 +51,6 @@ wayland-protocols-wlr = { version = "0.3.5", features = ["client"] }
 cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols.git" }
 wayland-client = "0.31.7"
 smithay-client-toolkit = "0.19.2"
-x11rb = { version = "0.13", features = ["extra-traits"] }
 encoding = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]

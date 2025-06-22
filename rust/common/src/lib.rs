@@ -6,8 +6,6 @@ pub mod detached_process;
 pub mod dirs;
 pub mod model;
 pub mod rpc;
-pub mod scenario_convert;
-pub mod scenario_model;
 
 pub const SETTINGS_ENV: &'static str = "__GAUNTLET_INTERNAL_SETTINGS__";
 

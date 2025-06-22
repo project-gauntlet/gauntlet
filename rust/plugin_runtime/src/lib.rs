@@ -45,6 +45,7 @@ use crate::deno::start_js_runtime;
 
 pub fn run_plugin_runtime(socket_name: String) {
     #[cfg(target_os = "linux")]
+    #[cfg(not(feature = "scenario_runner"))]
     unsafe {
         libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL);
     }

@@ -29,4 +29,3 @@ auto-launch = "0.5.0"
 
 [features]
 release = ["gauntlet-server/release"]
-scenario_runner = ["gauntlet-server/scenario_runner", "gauntlet-client/scenario_runner"]

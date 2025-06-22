@@ -145,6 +145,7 @@ impl ApplicationManager {
             tracing::error!("error loading dev plugin: {:?}", err);
         }
 
+        #[cfg(not(feature = "scenario_runner"))]
         application_manager.reload_all_plugins()?;
 
         Ok(application_manager)
@@ -596,6 +597,11 @@ impl ApplicationManager {
 
     pub async fn set_theme(&self, theme: SettingsTheme) -> anyhow::Result<()> {
         self.settings.set_theme_setting(theme).await
+    }
+
+    #[cfg(feature = "scenario_runner")]
+    pub fn get_scenarios_theme(&self) -> gauntlet_common::model::UiTheme {
+        self.settings.scenarios_theme()
     }
 
     pub fn get_theme(&self) -> anyhow::Result<SettingsTheme> {

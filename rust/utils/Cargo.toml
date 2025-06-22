@@ -8,3 +8,5 @@ thiserror.workspace = true
 anyhow.workspace = true
 tonic.workspace = true
 prost.workspace = true
+x11rb-protocol.workspace = true
+x11rb-async.workspace = true

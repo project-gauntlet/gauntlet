@@ -1,4 +1,4 @@
 {
-  "type": "Search",
+  "type": "InlineView",
   "text": "1 + 2"
 }

@@ -4543,6 +4543,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "convert_case 0.6.0",
+ "futures",
  "gauntlet-common",
  "gauntlet-common-ui",
  "gauntlet-component-model",
@@ -4560,7 +4561,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tray-icon",
- "x11rb",
+ "x11rb-async",
 ]
 
 [[package]]
@@ -4707,11 +4708,9 @@ name = "gauntlet-scenario-runner"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "gauntlet-common",
- "gauntlet-utils",
- "serde",
- "serde_json",
- "tokio",
+ "gauntlet-client",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4726,7 +4725,6 @@ dependencies = [
  "gauntlet-common",
  "gauntlet-common-plugin-runtime",
  "gauntlet-plugin-runtime",
- "gauntlet-scenario-runner",
  "gauntlet-utils",
  "gauntlet-utils-macros",
  "git2",
@@ -4766,6 +4764,8 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tonic",
+ "x11rb-async",
+ "x11rb-protocol",
 ]
 
 [[package]]
@@ -13633,6 +13633,22 @@ dependencies = [
  "libloading 0.8.8",
  "once_cell",
  "rustix 0.38.44",
+ "x11rb-protocol",
+]
+
+[[package]]
+name = "x11rb-async"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e550c5f8d07207e35f6b40288ac2debae694395926fb8554542963aeeaa95007"
+dependencies = [
+ "async-io",
+ "async-lock",
+ "blocking",
+ "event-listener 5.4.0",
+ "futures-lite",
+ "tracing",
+ "x11rb",
  "x11rb-protocol",
 ]
 

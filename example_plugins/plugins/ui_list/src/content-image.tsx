@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
 import { List } from "@project-gauntlet/api/components";
 
-const imgUrl = "https://static.wikia.nocookie.net/starwars/images/e/e4/Ezaraa.png/revision/latest/scale-to-width-down/200?cb=20170511082800"
+const imgUrl = "https://static.wikia.nocookie.net/starwars/images/9/9f/Ezaraa-TheScreamingCitadel1.png/revision/latest/scale-to-width-down/200?cb=20170511082800"
 
 export default function ContentImageExample(): ReactElement {
     return (

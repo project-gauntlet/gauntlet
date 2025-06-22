@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -19,14 +17,12 @@ use gauntlet_common::model::UiTheme;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiRequestData;
 use gauntlet_common::rpc::server_grpc_api::ServerGrpcApiResponseData;
-use gauntlet_common::scenario_convert::ui_render_location_from_scenario;
-use gauntlet_common::scenario_model::ScenarioFrontendEvent;
 use gauntlet_common_ui::physical_key_model;
 use gauntlet_server::global_hotkey::GlobalHotKeyManager;
 use gauntlet_server::plugins::ApplicationManager;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutAction;
 use gauntlet_server::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
-use gauntlet_server::plugins::settings::global_shortcut::register_listener;
+use gauntlet_server::plugins::settings::global_shortcut::register_global_shortcut_listener;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::Responder;
 use iced::Event;
@@ -57,7 +53,6 @@ use iced::widget::text::Shaping;
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
 use iced::window;
-use iced::window::Screenshot;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 
 use crate::model::UiViewEvent;
@@ -80,12 +75,16 @@ mod theme;
 mod widget;
 mod widget_container;
 
+pub mod scenario_runner;
 mod server;
 mod windows;
 
 pub use theme::GauntletComplexTheme;
 
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
+use crate::ui::scenario_runner::ScenarioRunnerData;
+use crate::ui::scenario_runner::ScenarioRunnerMsg;
+use crate::ui::scenario_runner::handle_scenario_runner_msg;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::server::handle_server_message;
 use crate::ui::state::ErrorViewData;
@@ -208,13 +207,6 @@ pub enum AppMsg {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
-    Screenshot {
-        save_path: String,
-    },
-    ScreenshotDone {
-        save_path: String,
-        screenshot: Screenshot,
-    },
     ShowBackendError(RequestError),
     ClosePluginView,
     OpenPluginView(PluginId, EntrypointId),
@@ -286,9 +278,10 @@ pub enum AppMsg {
     SetHudDisplay {
         display: String,
     },
+    HandleScenario(ScenarioRunnerMsg),
 }
 
-pub fn run(minimized: bool) {
+pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
     #[cfg(target_os = "linux")]
     let result = {
         let wayland = std::env::var("WAYLAND_DISPLAY")
@@ -296,24 +289,29 @@ pub fn run(minimized: bool) {
             .is_ok();
 
         if wayland {
-            run_wayland(minimized)
+            run_wayland(minimized, scenario_runner_data)
         } else {
-            run_non_wayland(minimized)
+            run_non_wayland(minimized, scenario_runner_data)
         }
     };
 
     #[cfg(not(target_os = "linux"))]
-    let result = run_non_wayland(minimized);
+    let result = run_non_wayland(
+        minimized,
+        #[cfg(feature = "scenario_runner")]
+        scenario_runner_data,
+    );
 
     result.expect("Unable to start application")
 }
 
-fn run_non_wayland(minimized: bool) -> anyhow::Result<()> {
+fn run_non_wayland(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) -> anyhow::Result<()> {
     let boot = move || {
         new(
             #[cfg(target_os = "linux")]
             false,
             minimized,
+            scenario_runner_data.clone(),
         )
     };
 
@@ -336,8 +334,8 @@ fn run_non_wayland(minimized: bool) -> anyhow::Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn run_wayland(minimized: bool) -> anyhow::Result<()> {
-    let boot = move || new(true, minimized);
+fn run_wayland(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) -> anyhow::Result<()> {
+    let boot = move || new(true, minimized, scenario_runner_data.clone());
 
     iced_layershell::build_pattern::daemon(boot, "gauntlet", update, view)
         .layer_settings(iced_layershell::settings::LayerShellSettings {
@@ -354,7 +352,11 @@ fn run_wayland(minimized: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel, Task<AppMsg>) {
+fn new(
+    #[cfg(target_os = "linux")] wayland: bool,
+    minimized: bool,
+    #[allow(unused)] scenario_runner_data: Option<ScenarioRunnerData>,
+) -> (AppModel, Task<AppMsg>) {
     let (application_manager, global_hotkey_manager, setup_data, setup_task) = server::setup();
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
@@ -371,14 +373,14 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
     tasks.push(open_task.map(AppMsg::WindowAction));
     tasks.push(setup_task);
 
-    let mut client_context = ClientContext::new();
+    #[cfg(feature = "scenario_runner")]
+    tasks.push(scenario_runner::run_scenario(
+        scenario_runner_data.unwrap(),
+        application_manager.get_scenarios_theme(),
+    ));
 
-    let global_state = if cfg!(feature = "scenario_runner") {
-        scenario_runner_global_state(&mut tasks, &mut client_context)
-    } else {
-        GlobalState::new(text_input::Id::unique())
-    };
-
+    let client_context = ClientContext::new();
+    let global_state = GlobalState::new(text_input::Id::unique());
     let window = WindowState::new(
         main_window_id,
         minimized,
@@ -411,108 +413,6 @@ fn new(#[cfg(target_os = "linux")] wayland: bool, minimized: bool) -> (AppModel,
         },
         Task::batch(tasks),
     )
-}
-
-fn scenario_runner_global_state(tasks: &mut Vec<Task<AppMsg>>, client_context: &mut ClientContext) -> GlobalState {
-    let gen_in = std::env::var("GAUNTLET_SCREENSHOT_GEN_IN").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_IN");
-
-    println!("Reading scenario file at: {}", gen_in);
-
-    let gen_in = fs::read_to_string(gen_in).expect("Unable to read file at GAUNTLET_SCREENSHOT_GEN_IN");
-
-    let gen_out = std::env::var("GAUNTLET_SCREENSHOT_GEN_OUT").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_OUT");
-
-    let gen_name = std::env::var("GAUNTLET_SCREENSHOT_GEN_NAME").expect("Unable to read GAUNTLET_SCREENSHOT_GEN_NAME");
-
-    let show_action_panel: bool = std::env::var("GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
-        .expect("Unable to read GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL")
-        .parse()
-        .expect("Unable to parse GAUNTLET_SCREENSHOT_SHOW_ACTION_PANEL");
-
-    let event: ScenarioFrontendEvent =
-        serde_json::from_str(&gen_in).expect("GAUNTLET_SCREENSHOT_GEN_IN is not valid json");
-
-    tasks.push(Task::perform(
-        async {
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        },
-        move |_| {
-            AppMsg::Screenshot {
-                save_path: gen_out.clone(),
-            }
-        },
-    ));
-
-    match event {
-        ScenarioFrontendEvent::ReplaceView {
-            entrypoint_id,
-            render_location,
-            top_level_view,
-            container,
-            data: images,
-        } => {
-            let plugin_id = PluginId::from_string("__SCREENSHOT_GEN___");
-            let entrypoint_id = EntrypointId::from_string(entrypoint_id);
-            let plugin_name = "Screenshot Plugin".to_string();
-            let entrypoint_name = gen_name;
-
-            let render_location = ui_render_location_from_scenario(render_location);
-
-            let _ = client_context.render_ui(
-                render_location,
-                Arc::new(container),
-                images,
-                &plugin_id,
-                &plugin_name,
-                &entrypoint_id,
-                &entrypoint_name,
-            );
-
-            if show_action_panel {
-                tasks.push(Task::done(AppMsg::ToggleActionPanel { keyboard: false }))
-            }
-
-            match render_location {
-                UiRenderLocation::InlineView => GlobalState::new(text_input::Id::unique()),
-                UiRenderLocation::View => {
-                    GlobalState::new_plugin(
-                        PluginViewData {
-                            top_level_view,
-                            plugin_id,
-                            entrypoint_id,
-                            action_shortcuts: Default::default(),
-                        },
-                        true,
-                    )
-                }
-            }
-        }
-        ScenarioFrontendEvent::ShowPreferenceRequiredView {
-            entrypoint_id,
-            plugin_preferences_required,
-            entrypoint_preferences_required,
-        } => {
-            let error_view = ErrorViewData::PreferenceRequired {
-                plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
-                entrypoint_id: EntrypointId::from_string(entrypoint_id),
-                plugin_preferences_required,
-                entrypoint_preferences_required,
-            };
-
-            GlobalState::new_error(error_view)
-        }
-        ScenarioFrontendEvent::ShowPluginErrorView {
-            entrypoint_id,
-            render_location: _,
-        } => {
-            let error_view = ErrorViewData::PluginError {
-                plugin_id: PluginId::from_string("__SCREENSHOT_GEN___"),
-                entrypoint_id: EntrypointId::from_string(entrypoint_id),
-            };
-
-            GlobalState::new_error(error_view)
-        }
-    }
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
@@ -977,40 +877,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
-        AppMsg::Screenshot { save_path } => {
-            println!("Creating screenshot at: {}", save_path);
-
-            fs::create_dir_all(Path::new(&save_path).parent().expect("no parent?"))
-                .expect("unable to create scenario out directories");
-
-            window::screenshot(state.window.main_window_id).map(move |screenshot| {
-                AppMsg::ScreenshotDone {
-                    save_path: save_path.clone(),
-                    screenshot,
-                }
-            })
-        }
-        AppMsg::ScreenshotDone { save_path, screenshot } => {
-            println!("Saving screenshot at: {}", save_path);
-
-            let save_dir = Path::new(&save_path);
-
-            let save_parent_dir = save_dir.parent().expect("save_path has no parent");
-
-            fs::create_dir_all(save_parent_dir).expect("unable to create save_parent_dir");
-
-            image::save_buffer_with_format(
-                &save_path,
-                &screenshot.bytes,
-                screenshot.size.width,
-                screenshot.size.height,
-                image::ColorType::Rgba8,
-                image::ImageFormat::Png,
-            )
-            .expect("Unable to save screenshot");
-
-            std::process::exit(0);
-        }
         AppMsg::ToggleActionPanel { keyboard } => {
             match &mut state.global_state {
                 GlobalState::MainView {
@@ -1361,6 +1227,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             state.hud_display = Some(display);
 
             Task::none()
+        }
+        AppMsg::HandleScenario(msg) => {
+            handle_scenario_runner_msg(msg, state.application_manager.clone(), state.window.main_window_id)
+                .map(AppMsg::HandleScenario)
         }
     }
 }
@@ -1930,7 +1800,7 @@ fn subscription(#[allow(unused)] state: &AppModel) -> Subscription<AppMsg> {
     let mut subscriptions = vec![
         Subscription::run(|| {
             stream::channel(10, async move |sender| {
-                register_listener(sender.clone());
+                register_global_shortcut_listener(sender.clone());
 
                 std::future::pending::<()>().await;
 

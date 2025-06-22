@@ -4,12 +4,12 @@ edition.workspace = true
 
 [dependencies]
 # workspaces
-gauntlet-common.workspace = true
-gauntlet-utils.workspace = true
+gauntlet-client.workspace = true
 
 # shared
-tokio.workspace = true
 anyhow.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
+[features]
+scenario_runner = ["gauntlet-client/scenario_runner"]
