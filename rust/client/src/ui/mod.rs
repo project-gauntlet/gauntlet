@@ -296,10 +296,7 @@ pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
     };
 
     #[cfg(not(target_os = "linux"))]
-    let result = run_non_wayland(
-        minimized,
-        scenario_runner_data,
-    );
+    let result = run_non_wayland(minimized, scenario_runner_data);
 
     result.expect("Unable to start application")
 }
