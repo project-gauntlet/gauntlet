@@ -298,7 +298,6 @@ pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
     #[cfg(not(target_os = "linux"))]
     let result = run_non_wayland(
         minimized,
-        #[cfg(feature = "scenario_runner")]
         scenario_runner_data,
     );
 
