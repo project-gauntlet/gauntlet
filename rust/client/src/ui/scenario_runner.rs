@@ -44,7 +44,7 @@ pub enum ScenarioRunnerMsg {
 pub fn handle_scenario_runner_msg(
     msg: ScenarioRunnerMsg,
     application_manager: Arc<ApplicationManager>,
-    main_window_id: window::Id,
+    main_window_id: Option<window::Id>,
 ) -> Task<ScenarioRunnerMsg> {
     match msg {
         ScenarioRunnerMsg::AddScenarioPlugin { plugin_path } => {
@@ -55,7 +55,8 @@ pub fn handle_scenario_runner_msg(
             Task::none()
         }
         ScenarioRunnerMsg::Screenshot { save_path } => {
-            window::screenshot(main_window_id).map(move |screenshot| {
+            let id = main_window_id.expect("Main window should be open at the time of making screenshot");
+            window::screenshot(id).map(move |screenshot| {
                 ScenarioRunnerMsg::ScreenshotDone {
                     save_path: save_path.clone(),
                     screenshot,

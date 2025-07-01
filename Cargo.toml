@@ -29,8 +29,6 @@ edition = "2024"
 iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13.1", features = ["wgpu", "tiny-skia", "web-colors", "tokio", "lazy", "advanced", "image", "svg"] }
 #iced_fonts = { version = "0.2.99", features = ["bootstrap"] }
 iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13.1", features = ["bootstrap"] }
-#iced_layershell = "0.13.99"
-iced_layershell =  { git = "https://github.com/project-gauntlet/exwlshelleventloop.git", branch = "gauntlet-0.13.1" }
 
 # workspaces
 gauntlet-common = { path = "./rust/common" }
@@ -89,7 +87,6 @@ strip = true
 #iced_fonts = { path = "../../../RustroverProjects/iced_fonts_fork" }
 #iced = { path = "../../../RustroverProjects/iced-fork" }
 #iced_debug = { path = "../../../RustroverProjects/iced-fork/debug" }
-#iced_devtools = { path = "../../../RustroverProjects/iced-fork/devtools" }
 #iced_program = { path = "../../../RustroverProjects/iced-fork/program" }
 #iced_core = { path = "../../../RustroverProjects/iced-fork/core" }
 #iced_futures = { path = "../../../RustroverProjects/iced-fork/futures" }
@@ -100,4 +97,4 @@ strip = true
 #iced_wgpu = { path = "../../../RustroverProjects/iced-fork/wgpu" }
 #iced_widget = { path = "../../../RustroverProjects/iced-fork/widget" }
 #iced_winit = { path = "../../../RustroverProjects/iced-fork/winit" }
-#iced_layershell = { path = "../../../RustroverProjects/exwlshelleventloop/iced_layershell" }
+#winit = { path = "../../../RustroverProjects/winit" }

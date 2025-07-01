@@ -7,7 +7,6 @@ use iced::Size;
 use iced::Task;
 use iced::window;
 use iced::window::Level;
-use iced::window::Mode;
 use iced::window::Position;
 
 use crate::ui::AppMsg;
@@ -18,9 +17,8 @@ pub mod hud;
 pub mod x11_focus;
 
 pub struct WindowState {
-    pub main_window_id: window::Id,
+    pub main_window_id: Option<window::Id>,
     focused: bool,
-    opened: bool,
     #[cfg(target_os = "linux")]
     pub wayland: bool,
     window_position_mode: WindowPositionMode,
@@ -28,21 +26,36 @@ pub struct WindowState {
     window_position_file: Option<PathBuf>,
     #[cfg(target_os = "linux")]
     x11_active_window: Option<u32>,
+    open_position: Position,
 }
 
 impl WindowState {
     pub fn new(
-        main_window_id: window::Id,
-        minimized: bool,
         window_position_file: Option<PathBuf>,
         close_on_unfocus: bool,
         window_position_mode: WindowPositionMode,
         #[cfg(target_os = "linux")] wayland: bool,
     ) -> WindowState {
+        let open_position = window_position_file
+            .as_ref()
+            .map(|window_position_file| fs::read_to_string(window_position_file).ok())
+            .flatten()
+            .map(|data| {
+                if let Some((x, y)) = data.split_once(":") {
+                    match (x.parse(), y.parse()) {
+                        (Ok(x), Ok(y)) => Some(Position::Specific(Point::new(x, y))),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(None)
+            .unwrap_or(Position::Centered);
+
         Self {
-            main_window_id,
+            main_window_id: None,
             focused: false,
-            opened: !minimized,
             #[cfg(target_os = "linux")]
             wayland,
             window_position_mode,
@@ -50,6 +63,7 @@ impl WindowState {
             window_position_file,
             #[cfg(target_os = "linux")]
             x11_active_window: None,
+            open_position,
         }
     }
 }
@@ -57,11 +71,6 @@ impl WindowState {
 impl WindowState {
     pub fn handle_action(&mut self, action: WindowActionMsg) -> Task<AppMsg> {
         match action {
-            #[cfg(target_os = "linux")]
-            WindowActionMsg::LayerShell(_) => {
-                // handled by library
-                Task::none()
-            }
             WindowActionMsg::SetWindowPositionMode { mode } => {
                 self.window_position_mode = mode;
 
@@ -96,6 +105,10 @@ impl WindowState {
 
                 Task::batch([Task::done(AppMsg::SetHudDisplay { display }), show_hud])
             }
+            WindowActionMsg::SetMainWindowId(id) => {
+                self.main_window_id = id;
+                Task::none()
+            }
         }
     }
     pub fn handle_unfocused_event(&mut self, window_id: window::Id) -> Task<AppMsg> {
@@ -103,7 +116,11 @@ impl WindowState {
             return Task::none();
         }
 
-        if window_id != self.main_window_id {
+        let Some(main_window_id) = self.main_window_id else {
+            return Task::none();
+        };
+
+        if window_id != main_window_id {
             return Task::none();
         }
 
@@ -124,7 +141,11 @@ impl WindowState {
             return Task::none();
         }
 
-        if window_id != self.main_window_id {
+        let Some(main_window_id) = self.main_window_id else {
+            return Task::none();
+        };
+
+        if window_id != main_window_id {
             return Task::none();
         }
 
@@ -132,7 +153,11 @@ impl WindowState {
     }
 
     pub fn handle_move_event(&mut self, window_id: window::Id, point: Point) -> Task<AppMsg> {
-        if window_id != self.main_window_id {
+        let Some(main_window_id) = self.main_window_id else {
+            return Task::none();
+        };
+
+        if window_id != main_window_id {
             return Task::none();
         }
 
@@ -140,6 +165,8 @@ impl WindowState {
             let _ = fs::create_dir_all(window_position_file.parent().unwrap());
             let _ = fs::write(&window_position_file, format!("{}:{}", point.x, point.y));
         }
+
+        self.open_position = Position::Specific(Point::new(point.x, point.y));
 
         Task::none()
     }
@@ -151,7 +178,7 @@ impl WindowState {
 
     #[allow(unused)]
     fn on_unfocused(&mut self) -> Task<AppMsg> {
-        // for some reason (on both macOS and linux x11 but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
+        // for some reason (on both macOS and linux x11, but x11 now uses separate impl) duplicate Unfocused fires right before Focus event
         if self.focused {
             self.hide_window(true)
         } else {
@@ -160,31 +187,23 @@ impl WindowState {
     }
 
     fn toggle_window(&mut self) -> Task<AppMsg> {
-        if self.opened {
-            self.hide_window(false)
-        } else {
-            self.show_window()
+        match self.main_window_id {
+            Some(_) => self.hide_window(false),
+            None => self.show_window(),
         }
     }
 
     fn hide_window(&mut self, reset_state: bool) -> Task<AppMsg> {
-        if !self.opened {
+        let Some(main_window_id) = self.main_window_id else {
             return Task::none();
-        }
+        };
 
         self.focused = false;
-        self.opened = false;
 
         let mut commands = vec![];
 
-        commands.push(
-            hide_window(
-                #[cfg(target_os = "linux")]
-                self.wayland,
-                self.main_window_id,
-            )
-            .map(AppMsg::WindowAction),
-        );
+        commands.push(window::close(main_window_id));
+        commands.push(Task::done(AppMsg::WindowAction(WindowActionMsg::SetMainWindowId(None))));
 
         if reset_state {
             commands.push(Task::done(AppMsg::ClosePluginView));
@@ -193,31 +212,40 @@ impl WindowState {
 
         commands.push(Task::done(AppMsg::ResetMainWindowScroll));
 
+        #[cfg(target_os = "macos")]
+        macos_focus_previous_app();
+
         Task::batch(commands)
     }
 
     fn show_window(&mut self) -> Task<AppMsg> {
-        if self.opened {
+        if let Some(_) = self.main_window_id {
             return Task::none();
-        }
+        };
 
-        self.opened = true;
-
-        show_window(
-            self.main_window_id,
+        let (main_window_id, open_task) = window::open(window_settings(
             #[cfg(target_os = "linux")]
             self.wayland,
+            self.open_position,
+        ));
+
+        Task::batch([
+            open_task.map(|id| WindowActionMsg::SetMainWindowId(Some(id))),
             #[cfg(target_os = "macos")]
-            &self.window_position_mode,
-        )
+            match self.window_position_mode {
+                WindowPositionMode::Static => Task::none(),
+                WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(main_window_id),
+            },
+            window::gain_focus(main_window_id),
+            window::set_level(main_window_id, Level::AlwaysOnTop),
+        ])
         .map(AppMsg::WindowAction)
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum WindowActionMsg {
-    #[cfg(target_os = "linux")]
-    LayerShell(layer_shell::LayerShellAppMsg),
+    SetMainWindowId(Option<window::Id>),
     SetWindowPositionMode {
         mode: WindowPositionMode,
     },
@@ -234,44 +262,28 @@ pub enum WindowActionMsg {
     },
 }
 
-#[cfg(target_os = "linux")]
-mod layer_shell {
-    #[iced_layershell::to_layer_message(multi)]
-    #[derive(Debug, Clone)]
-    pub enum LayerShellAppMsg {}
-}
-
-#[cfg(target_os = "linux")]
-impl TryInto<iced_layershell::actions::LayershellCustomActionWithId> for AppMsg {
-    type Error = Self;
-    fn try_into(self) -> Result<iced_layershell::actions::LayershellCustomActionWithId, Self::Error> {
-        match self {
-            Self::WindowAction(WindowActionMsg::LayerShell(msg)) => {
-                msg.try_into()
-                    .map_err(|msg| Self::WindowAction(WindowActionMsg::LayerShell(msg)))
-            }
-            _ => Err(self),
-        }
-    }
-}
-
 const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
 #[cfg(not(target_os = "macos"))]
-fn window_settings(visible: bool, position: Position) -> window::Settings {
+fn window_settings(#[cfg(target_os = "linux")] wayland: bool, position: Position) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position,
         resizable: false,
         decorations: false,
-        visible,
+        visible: true,
         transparent: true,
         closeable: false,
         minimizable: false,
         #[cfg(target_os = "linux")]
         platform_specific: window::settings::PlatformSpecific {
             application_id: "gauntlet".to_string(),
+            layer_shell: if wayland {
+                layer_shell_settings()
+            } else {
+                Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -279,13 +291,13 @@ fn window_settings(visible: bool, position: Position) -> window::Settings {
 }
 
 #[cfg(target_os = "macos")]
-fn window_settings(visible: bool, position: Position) -> window::Settings {
+fn window_settings(position: Position) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position,
         resizable: false,
         decorations: true,
-        visible,
+        visible: true,
         transparent: false,
         closeable: false,
         minimizable: false,
@@ -300,76 +312,8 @@ fn window_settings(visible: bool, position: Position) -> window::Settings {
     }
 }
 
-pub fn create_window(
-    #[cfg(target_os = "linux")] wayland: bool,
-    minimized: bool,
-    window_position_file: Option<&PathBuf>,
-) -> (window::Id, Task<WindowActionMsg>) {
-    #[cfg(target_os = "linux")]
-    let (main_window_id, open_task) = if wayland {
-        let id = window::Id::unique();
-
-        if minimized {
-            (id, Task::none())
-        } else {
-            open_main_window_wayland(id)
-        }
-    } else {
-        open_main_window_non_wayland(minimized, window_position_file)
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    let (main_window_id, open_task) = open_main_window_non_wayland(minimized, window_position_file);
-
-    (main_window_id, open_task)
-}
-
-pub fn show_window(
-    main_window_id: window::Id,
-    #[cfg(target_os = "linux")] wayland: bool,
-    #[cfg(target_os = "macos")] window_position_mode: &WindowPositionMode,
-) -> Task<WindowActionMsg> {
-    #[cfg(target_os = "linux")]
-    let open_task = if wayland {
-        let (_, open_task) = open_main_window_wayland(main_window_id);
-        open_task
-    } else {
-        Task::batch([
-            window::gain_focus(main_window_id),
-            window::set_mode(main_window_id, Mode::Windowed),
-        ])
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    let open_task = Task::batch([
-        window::gain_focus(main_window_id),
-        #[cfg(target_os = "macos")]
-        match window_position_mode {
-            WindowPositionMode::Static => Task::none(),
-            WindowPositionMode::ActiveMonitor => window::move_to_active_monitor(main_window_id),
-        },
-        window::set_mode(main_window_id, Mode::Windowed),
-    ]);
-
-    open_task
-}
-
-pub fn hide_window(#[cfg(target_os = "linux")] wayland: bool, main_window_id: window::Id) -> Task<WindowActionMsg> {
-    let mut commands = vec![];
-
-    #[cfg(target_os = "linux")]
-    if wayland {
-        commands.push(Task::done(WindowActionMsg::LayerShell(
-            layer_shell::LayerShellAppMsg::RemoveWindow(main_window_id),
-        )));
-    } else {
-        commands.push(window::set_mode(main_window_id, Mode::Hidden));
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    commands.push(window::set_mode(main_window_id, Mode::Hidden));
-
-    #[cfg(target_os = "macos")]
+#[cfg(target_os = "macos")]
+pub fn macos_focus_previous_app() -> Task<WindowActionMsg> {
     unsafe {
         // when closing NSPanel current active application doesn't automatically become key window
         // is there a proper way? without doing this manually
@@ -379,65 +323,18 @@ pub fn hide_window(#[cfg(target_os = "linux")] wayland: bool, main_window_id: wi
             app.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
         }
     }
-
-    Task::batch(commands)
 }
 
 #[cfg(target_os = "linux")]
-fn layer_shell_settings() -> iced_layershell::reexport::NewLayerShellSettings {
-    iced_layershell::reexport::NewLayerShellSettings {
-        layer: iced_layershell::reexport::Layer::Overlay,
-        keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::OnDemand,
-        events_transparent: false,
-        anchor: iced_layershell::reexport::Anchor::empty(),
-        margin: Default::default(),
+fn layer_shell_settings() -> window::settings::LayerShellSettings {
+    window::settings::LayerShellSettings {
+        layer: Some(window::settings::Layer::Top),
+        anchor: None,
+        output: None,
         exclusive_zone: Some(0),
-        size: Some((WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)),
-        use_last_output: false,
-        namespace: None,
+        margin: None,
+        input_region: None,
+        keyboard_interactivity: Some(window::settings::KeyboardInteractivity::OnDemand),
+        namespace: Some("gauntlet".to_string()),
     }
-}
-
-fn open_main_window_non_wayland(
-    minimized: bool,
-    window_position_file: Option<&PathBuf>,
-) -> (window::Id, Task<WindowActionMsg>) {
-    let position = window_position_file
-        .map(|window_position_file| fs::read_to_string(window_position_file).ok())
-        .flatten()
-        .map(|data| {
-            if let Some((x, y)) = data.split_once(":") {
-                match (x.parse(), y.parse()) {
-                    (Ok(x), Ok(y)) => Some(Position::Specific(Point::new(x, y))),
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        })
-        .unwrap_or(None)
-        .unwrap_or(Position::Centered);
-
-    let (main_window_id, open_task) = window::open(window_settings(!minimized, position));
-
-    (
-        main_window_id,
-        Task::batch([
-            open_task.discard(),
-            window::gain_focus(main_window_id),
-            window::set_level(main_window_id, Level::AlwaysOnTop),
-        ]),
-    )
-}
-
-#[cfg(target_os = "linux")]
-fn open_main_window_wayland(id: window::Id) -> (window::Id, Task<WindowActionMsg>) {
-    let settings = layer_shell_settings();
-
-    (
-        id,
-        Task::done(WindowActionMsg::LayerShell(
-            layer_shell::LayerShellAppMsg::NewLayerShell { id, settings },
-        )),
-    )
 }

@@ -157,6 +157,3 @@ If you'd like to help build Gauntlet you can do it in more ways than just contri
 
 For simple problems feel free to open an issue or PR and tackle it yourself. 
 For more significant changes please contact creators on Discord (invite link on top of README) and discuss first.
-
-All and any contributions are welcome.
-

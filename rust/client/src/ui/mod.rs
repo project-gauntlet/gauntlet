@@ -100,7 +100,6 @@ use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::root::render_root;
 use crate::ui::windows::WindowActionMsg;
 use crate::ui::windows::WindowState;
-use crate::ui::windows::create_window;
 #[cfg(target_os = "linux")]
 use crate::ui::windows::x11_focus::x11_linux_focus_change_subscription;
 
@@ -282,34 +281,7 @@ pub enum AppMsg {
 }
 
 pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
-    #[cfg(target_os = "linux")]
-    let result = {
-        let wayland = std::env::var("WAYLAND_DISPLAY")
-            .or_else(|_| std::env::var("WAYLAND_SOCKET"))
-            .is_ok();
-
-        if wayland {
-            run_wayland(minimized, scenario_runner_data)
-        } else {
-            run_non_wayland(minimized, scenario_runner_data)
-        }
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    let result = run_non_wayland(minimized, scenario_runner_data);
-
-    result.expect("Unable to start application")
-}
-
-fn run_non_wayland(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) -> anyhow::Result<()> {
-    let boot = move || {
-        new(
-            #[cfg(target_os = "linux")]
-            false,
-            minimized,
-            scenario_runner_data.clone(),
-        )
-    };
+    let boot = move || new(minimized, scenario_runner_data.clone());
 
     iced::daemon::<AppModel, AppMsg, GauntletComplexTheme, Renderer>(boot, update, view)
         .title(title)
@@ -324,50 +296,28 @@ fn run_non_wayland(minimized: bool, scenario_runner_data: Option<ScenarioRunnerD
         .font(BOOTSTRAP_FONT_BYTES)
         .subscription(subscription)
         .theme(|state, _| state.theme.clone())
-        .run()?;
-
-    Ok(())
+        .run()
+        .expect("Unable to start scenario application");
 }
 
-#[cfg(target_os = "linux")]
-fn run_wayland(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) -> anyhow::Result<()> {
-    let boot = move || new(true, minimized, scenario_runner_data.clone());
-
-    iced_layershell::build_pattern::daemon(boot, "gauntlet", update, view)
-        .layer_settings(iced_layershell::settings::LayerShellSettings {
-            start_mode: iced_layershell::settings::StartMode::Background,
-            events_transparent: true,
-            keyboard_interactivity: iced_layershell::reexport::KeyboardInteractivity::None,
-            size: None,
-            ..Default::default()
-        })
-        .subscription(subscription)
-        .theme(|state, _| state.theme.clone())
-        .run()?;
-
-    Ok(())
-}
-
-fn new(
-    #[cfg(target_os = "linux")] wayland: bool,
-    minimized: bool,
-    #[allow(unused)] scenario_runner_data: Option<ScenarioRunnerData>,
-) -> (AppModel, Task<AppMsg>) {
+fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRunnerData>) -> (AppModel, Task<AppMsg>) {
     let (application_manager, global_hotkey_manager, setup_data, setup_task) = server::setup();
+
+    #[cfg(target_os = "linux")]
+    let wayland = std::env::var("WAYLAND_DISPLAY")
+        .or_else(|_| std::env::var("WAYLAND_SOCKET"))
+        .is_ok(); // todo add config value for layer shell
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
 
-    let (main_window_id, open_task) = create_window(
-        #[cfg(target_os = "linux")]
-        wayland,
-        minimized,
-        setup_data.window_position_file.as_ref(),
-    );
-
     let mut tasks: Vec<Task<AppMsg>> = vec![];
-    tasks.push(open_task.map(AppMsg::WindowAction));
+
     tasks.push(setup_task);
+
+    if !minimized {
+        tasks.push(Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)));
+    }
 
     #[cfg(feature = "scenario_runner")]
     tasks.push(scenario_runner::run_scenario(
@@ -378,8 +328,6 @@ fn new(
     let client_context = ClientContext::new();
     let global_state = GlobalState::new(text_input::Id::unique());
     let window = WindowState::new(
-        main_window_id,
-        minimized,
         setup_data.window_position_file,
         setup_data.close_on_unfocus,
         setup_data.window_position_mode,
@@ -412,7 +360,7 @@ fn new(
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
-    if window == state.window.main_window_id {
+    if Some(window) == state.window.main_window_id {
         "Gauntlet".to_owned()
     } else {
         "Gauntlet HUD".to_owned()
@@ -692,7 +640,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Keyboard(event)) => {
-            if window_id != state.window.main_window_id {
+            let Some(main_window_id) = state.window.main_window_id else {
+                return Task::none();
+            };
+
+            if window_id != main_window_id {
                 return Task::none();
             }
 
@@ -1232,10 +1184,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 }
 
 fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
-    if window != state.window.main_window_id {
-        view_hud(state)
-    } else {
+    if Some(window) == state.window.main_window_id {
         view_main(state)
+    } else {
+        view_hud(state)
     }
 }
 

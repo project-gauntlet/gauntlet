@@ -1238,37 +1238,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "calloop"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10929724661d1c43856fd87c7a127ae944ec55579134fb485e4136fb6a46fdcb"
-dependencies = [
- "bitflags 2.9.1",
- "polling",
- "rustix 0.38.44",
- "slab",
- "tracing",
-]
-
-[[package]]
 name = "calloop-wayland-source"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95a66a987056935f7efce4ab5668920b5d0dac4a7c99991a67395f13702ddd20"
 dependencies = [
- "calloop 0.13.0",
- "rustix 0.38.44",
- "wayland-backend",
- "wayland-client",
-]
-
-[[package]]
-name = "calloop-wayland-source"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876a7a1dbbe026a55ef47a500b123af5a9a0914520f061d467914cf21be95daf"
-dependencies = [
- "calloop 0.14.2",
+ "calloop",
  "rustix 0.38.44",
  "wayland-backend",
  "wayland-client",
@@ -3536,7 +3511,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.8",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -4551,7 +4526,6 @@ dependencies = [
  "gauntlet-utils",
  "iced",
  "iced_fonts",
- "iced_layershell",
  "image",
  "itertools 0.13.0",
  "objc2-app-kit 0.2.2",
@@ -5786,7 +5760,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -5802,7 +5776,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -5820,32 +5794,10 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "iced_core",
  "iced_futures",
- "log",
-]
-
-[[package]]
-name = "iced_devtools"
-version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
-dependencies = [
- "iced_debug",
- "iced_program",
- "iced_widget",
- "log",
-]
-
-[[package]]
-name = "iced_exdevtools"
-version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13.1#1f14198177efc2139f09d1b3bd6294c3f4673925"
-dependencies = [
- "iced_debug",
- "iced_program",
- "iced_widget",
  "log",
 ]
 
@@ -5873,7 +5825,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "futures",
  "iced_core",
@@ -5887,7 +5839,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -5905,46 +5857,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "iced_layershell"
-version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13.1#1f14198177efc2139f09d1b3bd6294c3f4673925"
-dependencies = [
- "enumflags2",
- "futures",
- "iced",
- "iced_core",
- "iced_debug",
- "iced_devtools",
- "iced_exdevtools",
- "iced_futures",
- "iced_graphics",
- "iced_layershell_macros",
- "iced_program",
- "iced_renderer",
- "iced_runtime",
- "layershellev",
- "log",
- "thiserror 2.0.12",
- "tracing",
- "window_clipboard",
-]
-
-[[package]]
-name = "iced_layershell_macros"
-version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13.1#1f14198177efc2139f09d1b3bd6294c3f4673925"
-dependencies = [
- "darling",
- "manyhow",
- "proc-macro2",
- "quote",
- "syn 2.0.103",
-]
-
-[[package]]
 name = "iced_program"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -5953,7 +5868,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -5965,7 +5880,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "bytes",
  "iced_core",
@@ -5978,7 +5893,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -5995,7 +5910,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -6015,7 +5930,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -6030,7 +5945,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#39f56309f4624c20218b812a70d6a7c0e7e698e8"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#f249e3e1ff3a544de441e1665dab81030485f84c"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -6671,27 +6586,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layershellev"
-version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13.1#1f14198177efc2139f09d1b3bd6294c3f4673925"
-dependencies = [
- "bitflags 2.9.1",
- "calloop 0.14.2",
- "calloop-wayland-source 0.4.0",
- "log",
- "raw-window-handle",
- "tempfile",
- "thiserror 2.0.12",
- "waycrate_xkbkeycode",
- "wayland-backend",
- "wayland-client",
- "wayland-cursor",
- "wayland-protocols",
- "wayland-protocols-misc",
- "wayland-protocols-wlr",
-]
-
-[[package]]
 name = "lazy-regex"
 version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7014,30 +6908,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "manyhow"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b33efb3ca6d3b07393750d4030418d594ab1139cee518f0dc88db70fec873587"
-dependencies = [
- "darling_core",
- "manyhow-macros",
- "proc-macro2",
- "quote",
- "syn 2.0.103",
-]
-
-[[package]]
-name = "manyhow-macros"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46fce34d199b78b6e6073abf984c9cf5fd3e9330145a93ee0738a7443e371495"
-dependencies = [
- "proc-macro-utils",
- "proc-macro2",
- "quote",
 ]
 
 [[package]]
@@ -7628,7 +7498,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.3.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.103",
@@ -8855,17 +8725,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.103",
-]
-
-[[package]]
-name = "proc-macro-utils"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eeaf08a13de400bc215877b5bdc088f241b12eb42f0a548d3390dc1c56bb7071"
-dependencies = [
- "proc-macro2",
- "quote",
- "smallvec",
 ]
 
 [[package]]
@@ -10410,8 +10269,8 @@ checksum = "3457dea1f0eb631b4034d61d4d8c32074caa6cd1ab2d59f2327bd8461e2c0016"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
- "calloop 0.13.0",
- "calloop-wayland-source 0.3.0",
+ "calloop",
+ "calloop-wayland-source",
  "cursor-icon",
  "libc",
  "log",
@@ -11830,7 +11689,6 @@ version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
- "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -12572,21 +12430,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "waycrate_xkbkeycode"
-version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/exwlshelleventloop.git?branch=gauntlet-0.13.1#1f14198177efc2139f09d1b3bd6294c3f4673925"
-dependencies = [
- "bitflags 2.9.1",
- "calloop 0.14.2",
- "log",
- "memmap2 0.9.5",
- "smol_str",
- "wayland-backend",
- "wayland-client",
- "xkbcommon-dl",
-]
-
-[[package]]
 name = "wayland-backend"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12645,19 +12488,6 @@ dependencies = [
  "wayland-client",
  "wayland-scanner",
  "wayland-server",
-]
-
-[[package]]
-name = "wayland-protocols-misc"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "635cf2968bd88599445b25a2eeef655d463bb04f9aed04e4bf8c2018f3d4fc41"
-dependencies = [
- "bitflags 2.9.1",
- "wayland-backend",
- "wayland-client",
- "wayland-protocols",
- "wayland-scanner",
 ]
 
 [[package]]
@@ -12972,7 +12802,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -13460,7 +13290,7 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 [[package]]
 name = "winit"
 version = "0.30.99"
-source = "git+https://github.com/project-gauntlet/winit.git?rev=49690da86351375d2e2ebe8b891cdb90a019b996#49690da86351375d2e2ebe8b891cdb90a019b996"
+source = "git+https://github.com/project-gauntlet/winit.git?rev=e9023f4f0434ba86dae50b1e92e53e565bef82ab#e9023f4f0434ba86dae50b1e92e53e565bef82ab"
 dependencies = [
  "ahash 0.8.12",
  "android-activity",
@@ -13468,7 +13298,7 @@ dependencies = [
  "bitflags 2.9.1",
  "block2 0.5.1",
  "bytemuck",
- "calloop 0.13.0",
+ "calloop",
  "cfg_aliases",
  "concurrent-queue",
  "core-foundation 0.9.4",
