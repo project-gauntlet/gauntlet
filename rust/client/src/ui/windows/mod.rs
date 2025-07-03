@@ -313,7 +313,7 @@ fn window_settings(position: Position) -> window::Settings {
 }
 
 #[cfg(target_os = "macos")]
-pub fn macos_focus_previous_app() -> Task<WindowActionMsg> {
+pub fn macos_focus_previous_app() {
     unsafe {
         // when closing NSPanel current active application doesn't automatically become key window
         // is there a proper way? without doing this manually

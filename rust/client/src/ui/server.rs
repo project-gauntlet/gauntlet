@@ -115,10 +115,10 @@ async fn request_loop(
 
                 AppMsg::ClearInlineView { plugin_id }
             }
-            FrontendApiRequestData::ShowWindow {} => {
-                responder.respond(Ok(FrontendApiResponseData::ShowWindow { data: () }));
+            FrontendApiRequestData::ToggleWindow {} => {
+                responder.respond(Ok(FrontendApiResponseData::ToggleWindow { data: () }));
 
-                AppMsg::WindowAction(WindowActionMsg::ShowWindow)
+                AppMsg::WindowAction(WindowActionMsg::ToggleWindow)
             }
             FrontendApiRequestData::HideWindow {} => {
                 responder.respond(Ok(FrontendApiResponseData::HideWindow { data: () }));

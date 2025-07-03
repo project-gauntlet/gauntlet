@@ -30,7 +30,7 @@ pub trait FrontendApi {
 
     async fn clear_inline_view(&self, plugin_id: PluginId) -> RequestResult<()>;
 
-    async fn show_window(&self) -> RequestResult<()>;
+    async fn toggle_window(&self) -> RequestResult<()>;
 
     async fn hide_window(&self) -> RequestResult<()>;
 

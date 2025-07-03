@@ -297,7 +297,7 @@ pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
         .subscription(subscription)
         .theme(|state, _| state.theme.clone())
         .run()
-        .expect("Unable to start scenario application");
+        .expect("Unable to start application");
 }
 
 fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRunnerData>) -> (AppModel, Task<AppMsg>) {

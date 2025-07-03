@@ -185,12 +185,6 @@ impl ApplicationManager {
         result
     }
 
-    pub async fn show_window(&self) -> anyhow::Result<()> {
-        self.frontend_api.show_window().await?;
-
-        Ok(())
-    }
-
     pub async fn run_action(
         &self,
         plugin_id: PluginId,
