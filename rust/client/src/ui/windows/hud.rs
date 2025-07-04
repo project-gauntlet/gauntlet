@@ -13,7 +13,7 @@ use crate::ui::windows::WindowActionMsg;
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
 
-pub fn show_hud_window(#[cfg(target_os = "linux")] wayland: bool) -> Task<WindowActionMsg> {
+pub fn show_hud_window(#[cfg(target_os = "linux")] layer_shell: bool) -> Task<WindowActionMsg> {
     let settings = Settings {
         size: Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT),
         position: Position::SpecificWith(|window, screen| {
@@ -34,7 +34,7 @@ pub fn show_hud_window(#[cfg(target_os = "linux")] wayland: bool) -> Task<Window
         },
         #[cfg(target_os = "linux")]
         platform_specific: window::settings::PlatformSpecific {
-            layer_shell: if wayland {
+            layer_shell: if layer_shell {
                 layer_shell_settings()
             } else {
                 Default::default()

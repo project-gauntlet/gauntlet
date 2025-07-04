@@ -77,6 +77,8 @@ mod widget_container;
 
 pub mod scenario_runner;
 mod server;
+#[cfg(target_os = "linux")]
+mod wayland;
 mod windows;
 
 pub use theme::GauntletComplexTheme;
@@ -306,7 +308,10 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
     #[cfg(target_os = "linux")]
     let wayland = std::env::var("WAYLAND_DISPLAY")
         .or_else(|_| std::env::var("WAYLAND_SOCKET"))
-        .is_ok(); // todo add config value for layer shell
+        .is_ok();
+
+    #[cfg(target_os = "linux")]
+    let layer_shell = wayland && setup_data.layer_shell;
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
@@ -333,6 +338,8 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
         setup_data.window_position_mode,
         #[cfg(target_os = "linux")]
         wayland,
+        #[cfg(target_os = "linux")]
+        layer_shell,
     );
 
     (

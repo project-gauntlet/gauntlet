@@ -219,6 +219,7 @@ pub struct UiSetupData {
     pub theme: UiTheme,
     pub close_on_unfocus: bool,
     pub window_position_mode: WindowPositionMode,
+    pub layer_shell: bool,
 }
 
 #[derive(Debug)]

@@ -1,3 +1,6 @@
 
 #[main_window]
 #close_on_unfocus = false
+
+#[main_window.wayland]
+#mode = "normal"

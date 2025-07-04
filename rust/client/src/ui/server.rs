@@ -21,13 +21,21 @@ use tokio::sync::RwLock as TokioRwLock;
 
 use crate::ui::AppModel;
 use crate::ui::AppMsg;
+#[cfg(target_os = "linux")]
+use crate::ui::wayland::layer_shell_supported;
 use crate::ui::windows::WindowActionMsg;
 
 pub fn setup() -> (Arc<ApplicationManager>, GlobalHotKeyManager, UiSetupData, Task<AppMsg>) {
     let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
     let (server_grpc_sender, server_grpc_receiver) = channel::<ServerGrpcApiRequestData, ServerGrpcApiResponseData>();
 
-    let application_manager = ApplicationManager::create(frontend_sender).expect("Unable to setup application manager");
+    #[cfg(target_os = "linux")]
+    let layer_shell_supported = layer_shell_supported();
+    #[cfg(not(target_os = "linux"))]
+    let layer_shell_supported = false;
+
+    let application_manager = ApplicationManager::create(frontend_sender, layer_shell_supported)
+        .expect("Unable to setup application manager");
     let global_hotkey_manager = GlobalHotKeyManager::new().expect("Unable to setup shortcut manager");
     let grpc_api = ServerGrpcApiProxy::new(server_grpc_sender);
 

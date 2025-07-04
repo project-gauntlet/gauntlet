@@ -50,7 +50,7 @@ freedesktop-icons = "0.2"
 wayland-protocols-wlr = { version = "0.3.5", features = ["client"] }
 cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols.git" }
 wayland-client = "0.31.7"
-smithay-client-toolkit = "0.19.2"
+smithay-client-toolkit.workspace = true
 encoding = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]

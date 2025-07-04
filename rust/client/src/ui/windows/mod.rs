@@ -21,6 +21,8 @@ pub struct WindowState {
     focused: bool,
     #[cfg(target_os = "linux")]
     pub wayland: bool,
+    #[cfg(target_os = "linux")]
+    pub layer_shell: bool,
     window_position_mode: WindowPositionMode,
     close_on_unfocus: bool,
     window_position_file: Option<PathBuf>,
@@ -35,6 +37,7 @@ impl WindowState {
         close_on_unfocus: bool,
         window_position_mode: WindowPositionMode,
         #[cfg(target_os = "linux")] wayland: bool,
+        #[cfg(target_os = "linux")] layer_shell: bool,
     ) -> WindowState {
         let open_position = window_position_file
             .as_ref()
@@ -56,6 +59,8 @@ impl WindowState {
         Self {
             main_window_id: None,
             focused: false,
+            #[cfg(target_os = "linux")]
+            layer_shell,
             #[cfg(target_os = "linux")]
             wayland,
             window_position_mode,
@@ -99,7 +104,7 @@ impl WindowState {
             WindowActionMsg::ShowHud { display } => {
                 let show_hud = show_hud_window(
                     #[cfg(target_os = "linux")]
-                    self.wayland,
+                    self.layer_shell,
                 )
                 .map(AppMsg::WindowAction);
 
@@ -225,7 +230,7 @@ impl WindowState {
 
         let (main_window_id, open_task) = window::open(window_settings(
             #[cfg(target_os = "linux")]
-            self.wayland,
+            self.layer_shell,
             self.open_position,
         ));
 
@@ -266,7 +271,7 @@ const WINDOW_WIDTH: f32 = 750.0;
 const WINDOW_HEIGHT: f32 = 450.0;
 
 #[cfg(not(target_os = "macos"))]
-fn window_settings(#[cfg(target_os = "linux")] wayland: bool, position: Position) -> window::Settings {
+fn window_settings(#[cfg(target_os = "linux")] layer_shell: bool, position: Position) -> window::Settings {
     window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position,
@@ -279,7 +284,7 @@ fn window_settings(#[cfg(target_os = "linux")] wayland: bool, position: Position
         #[cfg(target_os = "linux")]
         platform_specific: window::settings::PlatformSpecific {
             application_id: "gauntlet".to_string(),
-            layer_shell: if wayland {
+            layer_shell: if layer_shell {
                 layer_shell_settings()
             } else {
                 Default::default()

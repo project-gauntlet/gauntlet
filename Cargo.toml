@@ -70,6 +70,7 @@ toml = "0.8"
 x11rb = { version = "0.13", features = ["extra-traits"] }
 x11rb-async = { version = "0.13", features = ["extra-traits"] }
 x11rb-protocol = { version = "0.13" }
+smithay-client-toolkit = { version = "0.19.2" }
 
 [dependencies]
 gauntlet-cli = { path = "rust/cli" }

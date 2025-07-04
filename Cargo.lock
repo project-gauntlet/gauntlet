@@ -4532,6 +4532,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "smithay-client-toolkit",
  "tokio",
  "tracing",
  "tray-icon",

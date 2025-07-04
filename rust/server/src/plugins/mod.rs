@@ -42,7 +42,6 @@ use include_dir::include_dir;
 use itertools::Itertools;
 
 use crate::plugins::clipboard::Clipboard;
-use crate::plugins::config_reader::ConfigReader;
 use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::data_db_repository::DbPluginClipboardPermissions;
 use crate::plugins::data_db_repository::DbPluginEntrypointType;
@@ -71,7 +70,6 @@ use crate::search::SearchIndex;
 
 mod binary_data_gatherer;
 mod clipboard;
-mod config_reader;
 mod data_db_repository;
 mod download_status;
 pub(super) mod frecency;
@@ -89,7 +87,6 @@ static BUNDLED_PLUGINS: [(&str, Dir); 1] = [(
 )];
 
 pub struct ApplicationManager {
-    config_reader: ConfigReader,
     search_index: SearchIndex,
     command_broadcaster: tokio::sync::broadcast::Sender<PluginCommand>,
     db_repository: DataDbRepository,
@@ -105,16 +102,21 @@ pub struct ApplicationManager {
 impl ApplicationManager {
     pub fn create(
         frontend_sender: RequestSender<FrontendApiRequestData, FrontendApiResponseData>,
+        layer_shell_supported: bool,
     ) -> anyhow::Result<Self> {
         let frontend_api = FrontendApiProxy::new(frontend_sender);
         let dirs = Dirs::new();
         let db_repository = DataDbRepository::new(dirs.clone())?;
         let plugin_downloader = PluginLoader::new(db_repository.clone());
-        let config_reader = ConfigReader::new(dirs.clone());
         let icon_cache = IconCache::new(dirs.clone());
         let run_status_holder = RunStatusHolder::new();
         let clipboard = Clipboard::new()?;
-        let settings = Settings::new(dirs.clone(), db_repository.clone(), frontend_api.clone())?;
+        let settings = Settings::new(
+            dirs.clone(),
+            db_repository.clone(),
+            frontend_api.clone(),
+            layer_shell_supported,
+        )?;
         let search_index = SearchIndex::create_index(frontend_api.clone(), settings.clone())?;
 
         let (command_broadcaster, _) = tokio::sync::broadcast::channel::<PluginCommand>(100);
@@ -122,7 +124,6 @@ impl ApplicationManager {
         icon_cache.clear_all_icon_cache_dir()?;
 
         let application_manager = Self {
-            config_reader,
             search_index,
             command_broadcaster,
             db_repository,
@@ -157,13 +158,15 @@ impl ApplicationManager {
         let window_position_file = self.dirs.window_position();
         let theme = self.settings.effective_theme()?;
         let window_position_mode = self.settings.window_position_mode_setting()?;
-        let close_on_unfocus = self.config_reader.close_on_unfocus();
+        let close_on_unfocus = self.settings.close_on_unfocus();
+        let layer_shell = self.settings.layer_shell();
 
         Ok(UiSetupData {
             window_position_file: Some(window_position_file),
             theme,
             close_on_unfocus,
             window_position_mode,
+            layer_shell,
         })
     }
 
@@ -639,16 +642,8 @@ impl ApplicationManager {
         Ok(())
     }
 
-    pub fn reload_config(&self) -> anyhow::Result<()> {
-        self.config_reader.reload_config()?;
-
-        Ok(())
-    }
-
     pub fn reload_all_plugins(&self) -> anyhow::Result<()> {
         tracing::info!("Reloading all plugins");
-
-        self.reload_config()?;
 
         for plugin in self.db_repository.list_plugins()? {
             let plugin_id = PluginId::from_string(plugin.id);

@@ -1,3 +1,5 @@
+mod config;
+pub mod config_reader;
 pub mod global_shortcut;
 
 use std::collections::HashMap;
@@ -20,6 +22,10 @@ use crate::plugins::data_db_repository::DataDbRepository;
 use crate::plugins::data_db_repository::DbSettingsEntrypointSearchAliasData;
 use crate::plugins::data_db_repository::DbTheme;
 use crate::plugins::data_db_repository::DbWindowPositionMode;
+use crate::plugins::settings::config::ApplicationConfig;
+use crate::plugins::settings::config::EffectiveConfig;
+use crate::plugins::settings::config::WaylandLayerShellConfig;
+use crate::plugins::settings::config_reader::ConfigReader;
 use crate::plugins::settings::global_shortcut::GlobalShortcutAction;
 use crate::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
 use crate::plugins::settings::global_shortcut::GlobalShortcutSettings;
@@ -31,17 +37,28 @@ pub struct Settings {
     dirs: Dirs,
     repository: DataDbRepository,
     frontend_api: FrontendApiProxy,
+    config: Arc<EffectiveConfig>,
     global_hotkey_settings: GlobalShortcutSettings,
     themes: Arc<BundledThemes>,
 }
 
 impl Settings {
-    pub fn new(dirs: Dirs, repository: DataDbRepository, frontend_api: FrontendApiProxy) -> anyhow::Result<Self> {
+    pub fn new(
+        dirs: Dirs,
+        repository: DataDbRepository,
+        frontend_api: FrontendApiProxy,
+        layer_shell_supported: bool,
+    ) -> anyhow::Result<Self> {
+        let config_reader = ConfigReader::new(dirs.clone());
+
+        let config = config_reader.read_config();
+
         Ok(Self {
-            dirs,
+            dirs: dirs.clone(),
             repository: repository.clone(),
             frontend_api,
             global_hotkey_settings: GlobalShortcutSettings::new(repository)?,
+            config: Arc::new(effective_config(config, layer_shell_supported)),
             themes: Arc::new(BundledThemes::new()?),
         })
     }
@@ -270,5 +287,37 @@ impl Settings {
             Mode::Light => self.themes.macos_light_theme.clone(),
             Mode::Default => self.themes.macos_dark_theme.clone(),
         }
+    }
+
+    pub fn close_on_unfocus(&self) -> bool {
+        self.config.close_on_unfocus
+    }
+
+    pub fn layer_shell(&self) -> bool {
+        self.config.layer_shell
+    }
+}
+
+fn effective_config(config: ApplicationConfig, layer_shell_supported: bool) -> EffectiveConfig {
+    let main_window = config.main_window.unwrap_or_default();
+
+    let close_on_unfocus = main_window.close_on_unfocus.unwrap_or(true);
+
+    let layer_shell = main_window
+        .wayland
+        .unwrap_or_default()
+        .mode
+        .map(|mode| {
+            match mode {
+                WaylandLayerShellConfig::PreferLayerShell => layer_shell_supported,
+                WaylandLayerShellConfig::Normal => false,
+                WaylandLayerShellConfig::LayerShell => true,
+            }
+        })
+        .unwrap_or(layer_shell_supported);
+
+    EffectiveConfig {
+        close_on_unfocus,
+        layer_shell,
     }
 }
