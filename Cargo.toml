@@ -85,17 +85,17 @@ lto = "thin"
 strip = true
 
 #[patch.crates-io]
-#iced_fonts = { path = "../../../RustroverProjects/iced_fonts_fork" }
-#iced = { path = "../../../RustroverProjects/iced-fork" }
-#iced_debug = { path = "../../../RustroverProjects/iced-fork/debug" }
-#iced_program = { path = "../../../RustroverProjects/iced-fork/program" }
-#iced_core = { path = "../../../RustroverProjects/iced-fork/core" }
-#iced_futures = { path = "../../../RustroverProjects/iced-fork/futures" }
-#iced_graphics = { path = "../../../RustroverProjects/iced-fork/graphics" }
-#iced_renderer = { path = "../../../RustroverProjects/iced-fork/renderer" }
-#iced_runtime = { path = "../../../RustroverProjects/iced-fork/runtime" }
-#iced_tiny_skia = { path = "../../../RustroverProjects/iced-fork/tiny_skia" }
-#iced_wgpu = { path = "../../../RustroverProjects/iced-fork/wgpu" }
-#iced_widget = { path = "../../../RustroverProjects/iced-fork/widget" }
-#iced_winit = { path = "../../../RustroverProjects/iced-fork/winit" }
-#winit = { path = "../../../RustroverProjects/winit" }
+#iced_fonts = { path = "../iced_fonts" }
+#iced = { path = "../iced" }
+#iced_debug = { path = "../iced/debug" }
+#iced_program = { path = "../iced/program" }
+#iced_core = { path = "../iced/core" }
+#iced_futures = { path = "../iced/futures" }
+#iced_graphics = { path = "../iced/graphics" }
+#iced_renderer = { path = "../iced/renderer" }
+#iced_runtime = { path = "../iced/runtime" }
+#iced_tiny_skia = { path = "../iced/tiny_skia" }
+#iced_wgpu = { path = "../iced/wgpu" }
+#iced_widget = { path = "../iced/widget" }
+#iced_winit = { path = "../iced/winit" }
+#winit = { path = "../winit" }
