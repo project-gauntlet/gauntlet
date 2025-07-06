@@ -801,7 +801,12 @@ impl ApplicationManager {
         }
     }
 
-    pub fn handle_open_settings_window(&self) {
+    pub async fn open_window(&self) {
+        self.frontend_api.toggle_window().await
+            .expect("failed to toggle window");
+    }
+
+    pub fn open_settings_window(&self) {
         let current_exe = std::env::current_exe().expect("unable to get current_exe");
 
         std::process::Command::new(current_exe)

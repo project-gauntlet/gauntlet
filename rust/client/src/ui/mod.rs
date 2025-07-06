@@ -345,10 +345,10 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
     (
         AppModel {
             // logic
-            application_manager,
+            application_manager: application_manager.clone(),
             global_hotkey_manager,
             #[cfg(any(target_os = "macos", target_os = "windows"))]
-            _tray_icon: sys_tray::create_tray(),
+            _tray_icon: sys_tray::create_tray(application_manager.clone()),
             theme,
             window,
 
@@ -1997,7 +1997,7 @@ impl AppModel {
                                 modifier_alt: false,
                                 modifier_meta: cfg!(target_os = "macos"),
                             }) => {
-                                self.application_manager.handle_open_settings_window();
+                                self.application_manager.open_settings_window();
 
                                 Task::none()
                             }

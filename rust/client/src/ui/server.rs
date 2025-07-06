@@ -243,7 +243,7 @@ pub fn handle_server_message(
         ServerGrpcApiRequestData::ShowSettingsWindow {} => {
             responder.respond(Ok(ServerGrpcApiResponseData::ShowSettingsWindow { data: () }));
 
-            state.application_manager.handle_open_settings_window();
+            state.application_manager.open_settings_window();
 
             Task::none()
         }

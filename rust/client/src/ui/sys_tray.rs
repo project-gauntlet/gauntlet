@@ -1,6 +1,9 @@
+use std::sync::Arc;
 use image::ImageFormat;
+use tokio::runtime::Handle;
+use gauntlet_server::plugins::ApplicationManager;
 
-pub fn create_tray() -> tray_icon::TrayIcon {
+pub fn create_tray(application_manager: Arc<ApplicationManager>) -> tray_icon::TrayIcon {
     use tray_icon::TrayIconBuilder;
     use tray_icon::menu::AboutMetadataBuilder;
     use tray_icon::menu::Menu;
@@ -11,10 +14,21 @@ pub fn create_tray() -> tray_icon::TrayIcon {
     use tray_icon::menu::accelerator::CMD_OR_CTRL;
     use tray_icon::menu::accelerator::Code;
 
-    MenuEvent::set_event_handler(Some(|event: MenuEvent| {
+    let handle = Handle::current();
+
+    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
         match event.id().as_ref() {
-            "GAUNTLET_OPEN_MAIN_WINDOW" => gauntlet_common::cli::open_window(),
-            "GAUNTLET_OPEN_SETTING_WINDOW" => gauntlet_common::cli::open_settings_window(),
+            "GAUNTLET_OPEN_MAIN_WINDOW" => {
+                handle.spawn({
+                    let application_manager = application_manager.clone();
+                    async move {
+                        application_manager.open_window().await;
+                    }
+                });
+            },
+            "GAUNTLET_OPEN_SETTING_WINDOW" => {
+                application_manager.open_settings_window();
+            },
             _ => {}
         }
     }));
