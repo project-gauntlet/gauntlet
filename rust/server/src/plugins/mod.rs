@@ -802,7 +802,9 @@ impl ApplicationManager {
     }
 
     pub async fn open_window(&self) {
-        self.frontend_api.toggle_window().await
+        self.frontend_api
+            .toggle_window()
+            .await
             .expect("failed to toggle window");
     }
 

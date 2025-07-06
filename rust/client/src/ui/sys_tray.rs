@@ -1,7 +1,8 @@
 use std::sync::Arc;
+
+use gauntlet_server::plugins::ApplicationManager;
 use image::ImageFormat;
 use tokio::runtime::Handle;
-use gauntlet_server::plugins::ApplicationManager;
 
 pub fn create_tray(application_manager: Arc<ApplicationManager>) -> tray_icon::TrayIcon {
     use tray_icon::TrayIconBuilder;
@@ -25,10 +26,10 @@ pub fn create_tray(application_manager: Arc<ApplicationManager>) -> tray_icon::T
                         application_manager.open_window().await;
                     }
                 });
-            },
+            }
             "GAUNTLET_OPEN_SETTING_WINDOW" => {
                 application_manager.open_settings_window();
-            },
+            }
             _ => {}
         }
     }));
