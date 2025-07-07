@@ -9,7 +9,35 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+### General
+
+- Linux Gnome Wayland support
+  - `zwlr_layer_shell_v1` Wayland protocol is no longer required. It is still preferred, but if not supported application falls back to regular `xdg_shell` window
+  - Added `wayland.main_window_surface` config option to allow customization of this behavior
+- Linux Wayland LayerShell improvements
+  - **BREAKING CHANGE**: Changed LayerShell surface namespace from `Gauntlet` to `gauntlet` for main window, and set namespace to `gauntlet-hud` for hud window
+  - Migrated to yet another LayerShell implementation
+    - Fixes event/keystroke duplication after suspend
+- Disabled global shortcuts by default on Linux Wayland
+  - Added `wayland.global_shortcuts_api` config option to allow usage of legacy x11 api if supported by given environment
+  - Global Shortcuts XDG Portal is not and will not be supported until there will be major changes to it
+- Input Method Editor (IME) support for input fields
+- Changed action panel shortcut from <kbd>ALT</kbd> + <kbd>K</kbd> to <kbd>CTRL</kbd> + <kbd>K</kbd> (Windows/Linux) and <kbd>CMD</kbd> + <kbd>K</kbd> (macOS), to match similar pattern in other apps
+- `gauntlet open` CLI command now hides window when executed while window is open, matching behavior of global shortcut
+- Lots of internal dependency updates
+
+### Plugins
 - Updated Deno to 2.3.3
+- **BREAKING CHANGE**: Remove `<DatePicker/>` component
+  - It caused difficulties when updating dependencies and needs a complete rework
+
+### Fixes
+- Reduced glibc requirement from 2.38 to 2.35
+- Fixed systray open main and settings windows actions causing deadlock
+- Fixed LayerShell window taking exclusive keyboard focus preventing any desktop interactions while window was open
+- Fixed `useStorage` and `useCache` hooks crashing plugin runtime when closing the view
+- Fixed `npm run dev` not showing full error cause (contributed by @Gabrielbdd)
+- Fixed nix applications not being detected on macOS by following links inside `/Applications` (contributed by @deadbaed)
 
 ## [19] - 2025-05-11
 
