@@ -85,4 +85,6 @@ pub trait ServerGrpcApi {
     async fn download_status(&self) -> RequestResult<HashMap<PluginId, DownloadStatus>>;
 
     async fn remove_plugin(&self, plugin_id: PluginId) -> RequestResult<()>;
+
+    async fn wayland_global_shortcuts_enabled(&self) -> RequestResult<bool>;
 }

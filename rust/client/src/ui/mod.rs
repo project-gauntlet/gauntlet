@@ -108,7 +108,7 @@ use crate::ui::windows::x11_focus::x11_linux_focus_change_subscription;
 pub struct AppModel {
     // logic
     application_manager: Arc<ApplicationManager>,
-    global_hotkey_manager: GlobalHotKeyManager,
+    global_hotkey_manager: Option<GlobalHotKeyManager>,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     _tray_icon: tray_icon::TrayIcon,
     theme: GauntletComplexTheme,
@@ -303,12 +303,15 @@ pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
 }
 
 fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRunnerData>) -> (AppModel, Task<AppMsg>) {
-    let (application_manager, global_hotkey_manager, setup_data, setup_task) = server::setup();
-
     #[cfg(target_os = "linux")]
     let wayland = std::env::var("WAYLAND_DISPLAY")
         .or_else(|_| std::env::var("WAYLAND_SOCKET"))
         .is_ok();
+
+    let (application_manager, global_hotkey_manager, setup_data, setup_task) = server::setup(
+        #[cfg(target_os = "linux")]
+        wayland,
+    );
 
     #[cfg(target_os = "linux")]
     let layer_shell = wayland && setup_data.layer_shell;

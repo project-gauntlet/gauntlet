@@ -48,6 +48,7 @@ mod table;
 pub enum ManagementAppPluginMsgIn {
     InitSetting {
         global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
+        show_global_shortcuts: bool,
     },
     PluginTableMsg(PluginTableMsgIn),
     PluginPreferenceMsg(PluginPreferencesMsg),
@@ -135,8 +136,10 @@ impl ManagementAppPluginsState {
         match message {
             ManagementAppPluginMsgIn::InitSetting {
                 global_entrypoint_shortcuts,
+                show_global_shortcuts,
             } => {
                 self.global_entrypoint_shortcuts = global_entrypoint_shortcuts;
+                self.table_state.show_global_shortcuts = show_global_shortcuts;
 
                 Task::none()
             }

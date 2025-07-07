@@ -5,11 +5,13 @@ use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
 use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
 use gauntlet_utils::channel::RequestResult;
 use iced::Alignment;
+use iced::Font;
 use iced::Length;
 use iced::Padding;
 use iced::Task;
 use iced::alignment;
 use iced::alignment::Horizontal;
+use iced::font::Style;
 use iced::widget::Space;
 use iced::widget::column;
 use iced::widget::container;
@@ -30,6 +32,7 @@ pub struct ManagementAppGeneralState {
     theme: SettingsTheme,
     window_position_mode: WindowPositionMode,
     current_shortcut: ShortcutData,
+    global_shortcuts_unsupported: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +49,7 @@ pub enum ManagementAppGeneralMsgIn {
         window_position_mode: WindowPositionMode,
         shortcut: Option<PhysicalShortcut>,
         shortcut_error: Option<String>,
+        global_shortcuts_unsupported: bool,
     },
     Noop,
 }
@@ -66,6 +70,7 @@ impl ManagementAppGeneralState {
                 shortcut: None,
                 error: None,
             },
+            global_shortcuts_unsupported: false,
         }
     }
 
@@ -107,6 +112,7 @@ impl ManagementAppGeneralState {
                 window_position_mode,
                 shortcut,
                 shortcut_error,
+                global_shortcuts_unsupported,
             } => {
                 self.theme = theme;
                 self.window_position_mode = window_position_mode;
@@ -114,6 +120,7 @@ impl ManagementAppGeneralState {
                     shortcut,
                     error: shortcut_error,
                 };
+                self.global_shortcuts_unsupported = global_shortcuts_unsupported;
 
                 Task::none()
             }
@@ -164,12 +171,27 @@ impl ManagementAppGeneralState {
     }
 
     pub fn view(&self) -> Element<ManagementAppGeneralMsgIn> {
-        let global_shortcut_selector = shortcut_selector(
-            &self.current_shortcut,
-            move |shortcut| ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut),
-            ContainerStyle::Box,
-            false,
-        );
+        let global_shortcut_selector: Element<_> = if self.global_shortcuts_unsupported {
+            let text = text("Not supported").font(Font {
+                style: Style::Italic,
+                ..Font::DEFAULT
+            });
+
+            container(text)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center(Length::Fill)
+                .class(ContainerStyle::Box)
+                .into()
+        } else {
+            shortcut_selector(
+                &self.current_shortcut,
+                move |shortcut| ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut),
+                ContainerStyle::Box,
+                false,
+            )
+            .into()
+        };
 
         let global_shortcut_field: Element<_> = container(global_shortcut_selector)
             .width(Length::Fill)

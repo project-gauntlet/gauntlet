@@ -80,6 +80,10 @@ impl BackendForToolsApi for BackendServerImpl {
 
 #[tonic::async_trait]
 impl BackendForSettingsApi for BackendServerImpl {
+    async fn wayland_global_shortcuts_enabled(&self) -> RequestResult<bool> {
+        self.proxy.wayland_global_shortcuts_enabled().await
+    }
+
     async fn plugins(&self) -> RequestResult<HashMap<PluginId, SettingsPlugin>> {
         self.proxy.plugins().await
     }

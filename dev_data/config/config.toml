@@ -2,5 +2,7 @@
 #[main_window]
 #close_on_unfocus = false
 
-#[main_window.wayland]
-#mode = "normal"
+[wayland]
+#main_window_surface = "xdg_shell"
+global_shortcuts_api = "legacy_x11_api"
+#global_shortcuts_api = "none"

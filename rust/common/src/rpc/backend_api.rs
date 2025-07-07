@@ -45,6 +45,8 @@ pub trait BackendForToolsApi {
 #[boundary_gen(bincode, grpc)]
 #[tonic::async_trait]
 pub trait BackendForSettingsApi {
+    async fn wayland_global_shortcuts_enabled(&self) -> RequestResult<bool>;
+
     async fn plugins(&self) -> RequestResult<HashMap<PluginId, SettingsPlugin>>;
 
     async fn set_plugin_state(&self, plugin_id: PluginId, enabled: bool) -> RequestResult<()>;

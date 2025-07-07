@@ -2,6 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use anyhow::anyhow;
 use gauntlet_common::model::UiSetupData;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
@@ -25,7 +26,14 @@ use crate::ui::AppMsg;
 use crate::ui::wayland::layer_shell_supported;
 use crate::ui::windows::WindowActionMsg;
 
-pub fn setup() -> (Arc<ApplicationManager>, GlobalHotKeyManager, UiSetupData, Task<AppMsg>) {
+pub fn setup(
+    #[cfg(target_os = "linux")] wayland: bool,
+) -> (
+    Arc<ApplicationManager>,
+    Option<GlobalHotKeyManager>,
+    UiSetupData,
+    Task<AppMsg>,
+) {
     let (frontend_sender, frontend_receiver) = channel::<FrontendApiRequestData, FrontendApiResponseData>();
     let (server_grpc_sender, server_grpc_receiver) = channel::<ServerGrpcApiRequestData, ServerGrpcApiResponseData>();
 
@@ -36,16 +44,30 @@ pub fn setup() -> (Arc<ApplicationManager>, GlobalHotKeyManager, UiSetupData, Ta
 
     let application_manager = ApplicationManager::create(frontend_sender, layer_shell_supported)
         .expect("Unable to setup application manager");
-    let global_hotkey_manager = GlobalHotKeyManager::new().expect("Unable to setup shortcut manager");
-    let grpc_api = ServerGrpcApiProxy::new(server_grpc_sender);
 
+    let grpc_api = ServerGrpcApiProxy::new(server_grpc_sender);
     let frontend_receiver = Arc::new(TokioRwLock::new(frontend_receiver));
     let server_grpc_receiver = Arc::new(TokioRwLock::new(server_grpc_receiver));
     let application_manager = Arc::new(application_manager);
 
-    let setup_data = application_manager
-        .setup(&global_hotkey_manager)
-        .expect("Unable to setup");
+    let setup_data = application_manager.config().expect("Unable to setup");
+
+    #[cfg(target_os = "linux")]
+    let enable_global_hotkey_manager = !wayland || setup_data.wayland_use_legacy_x11_api;
+    #[cfg(not(target_os = "linux"))]
+    let enable_global_hotkey_manager = true;
+
+    let global_hotkey_manager = if enable_global_hotkey_manager {
+        let global_hotkey_manager = GlobalHotKeyManager::new().expect("Unable to setup shortcut manager");
+
+        application_manager
+            .setup_global_shortcuts(&global_hotkey_manager)
+            .expect("Unable to setup");
+
+        Some(global_hotkey_manager)
+    } else {
+        None
+    };
 
     let mut tasks = vec![];
 
@@ -313,9 +335,14 @@ pub fn handle_server_message(
             Task::none()
         }
         ServerGrpcApiRequestData::SetGlobalShortcut { shortcut } => {
+            let Some(global_hotkey_manager) = &state.global_hotkey_manager else {
+                responder.respond(Err(anyhow!("Global hotkey manager is disabled")));
+                return Task::none();
+            };
+
             let result = state
                 .application_manager
-                .set_global_shortcut(&state.global_hotkey_manager, shortcut.clone());
+                .set_global_shortcut(global_hotkey_manager, shortcut.clone());
 
             responder.respond(Ok(ServerGrpcApiResponseData::SetGlobalShortcut { data: result }));
 
@@ -336,10 +363,15 @@ pub fn handle_server_message(
             entrypoint_id,
             shortcut,
         } => {
+            let Some(global_hotkey_manager) = &state.global_hotkey_manager else {
+                responder.respond(Err(anyhow!("Global hotkey manager is disabled")));
+                return Task::none();
+            };
+
             let result = state
                 .application_manager
                 .set_global_entrypoint_shortcut(
-                    &state.global_hotkey_manager,
+                    global_hotkey_manager,
                     plugin_id.clone(),
                     entrypoint_id.clone(),
                     shortcut.clone(),
@@ -476,6 +508,17 @@ pub fn handle_server_message(
                 .application_manager
                 .remove_plugin(plugin_id.clone())
                 .map(|data| ServerGrpcApiResponseData::RemovePlugin { data });
+
+            responder.respond(result);
+
+            Task::none()
+        }
+        ServerGrpcApiRequestData::WaylandGlobalShortcutsEnabled {} => {
+            let result = state.application_manager.config().map(|data| {
+                ServerGrpcApiResponseData::WaylandGlobalShortcutsEnabled {
+                    data: data.wayland_use_legacy_x11_api,
+                }
+            });
 
             responder.respond(result);
 

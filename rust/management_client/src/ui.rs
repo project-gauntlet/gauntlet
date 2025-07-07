@@ -120,6 +120,14 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
     .inspect_err(|err| tracing::error!("Unable to connect to server: {:?}", err))
     .ok();
 
+    let wayland = if cfg!(target_os = "linux") {
+        std::env::var("WAYLAND_DISPLAY")
+            .or_else(|_| std::env::var("WAYLAND_SOCKET"))
+            .is_ok()
+    } else {
+        false
+    };
+
     (
         ManagementAppModel {
             backend_api: backend_api.clone(),
@@ -139,7 +147,7 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
                     None => None,
                 }
             })
-            .then(|init_data| {
+            .then(move |init_data| {
                 match init_data {
                     None => Task::done(ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop)),
                     Some(init) => {
@@ -151,9 +159,11 @@ fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
                                         window_position_mode: init.window_position_mode,
                                         shortcut: init.global_shortcut,
                                         shortcut_error: init.global_shortcut_error,
+                                        global_shortcuts_unsupported: wayland && !init.wayland_global_shortcuts_enabled,
                                     })),
                                     Task::done(ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::InitSetting {
                                         global_entrypoint_shortcuts: init.global_entrypoint_shortcuts,
+                                        show_global_shortcuts: !wayland || init.wayland_global_shortcuts_enabled,
                                     })),
                                 ])
                             }
@@ -172,6 +182,7 @@ struct InitSettingsData {
     theme: SettingsTheme,
     window_position_mode: WindowPositionMode,
     global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
+    wayland_global_shortcuts_enabled: bool,
 }
 
 async fn init_data(backend_api: impl BackendForSettingsApi) -> RequestResult<InitSettingsData> {
@@ -181,6 +192,7 @@ async fn init_data(backend_api: impl BackendForSettingsApi) -> RequestResult<Ini
     let theme = backend_api.get_theme().await?;
 
     let window_position_mode = backend_api.get_window_position_mode().await?;
+    let wayland_global_shortcuts_enabled = backend_api.wayland_global_shortcuts_enabled().await?;
 
     Ok(InitSettingsData {
         global_shortcut,
@@ -188,6 +200,7 @@ async fn init_data(backend_api: impl BackendForSettingsApi) -> RequestResult<Ini
         global_entrypoint_shortcuts,
         theme,
         window_position_mode,
+        wayland_global_shortcuts_enabled,
     })
 }
 

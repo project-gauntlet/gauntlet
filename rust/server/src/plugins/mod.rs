@@ -152,14 +152,17 @@ impl ApplicationManager {
         Ok(application_manager)
     }
 
-    pub fn setup(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<UiSetupData> {
-        self.settings.setup(global_hotkey_manager)?;
+    pub fn setup_global_shortcuts(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<()> {
+        Ok(self.settings.setup_global_shortcuts(global_hotkey_manager)?)
+    }
 
+    pub fn config(&self) -> anyhow::Result<UiSetupData> {
         let window_position_file = self.dirs.window_position();
         let theme = self.settings.effective_theme()?;
         let window_position_mode = self.settings.window_position_mode_setting()?;
-        let close_on_unfocus = self.settings.close_on_unfocus();
-        let layer_shell = self.settings.layer_shell();
+        let close_on_unfocus = self.settings.config().close_on_unfocus;
+        let layer_shell = self.settings.config().layer_shell;
+        let wayland_use_legacy_x11_api = self.settings.config().wayland_use_legacy_x11_api;
 
         Ok(UiSetupData {
             window_position_file: Some(window_position_file),
@@ -167,6 +170,7 @@ impl ApplicationManager {
             close_on_unfocus,
             window_position_mode,
             layer_shell,
+            wayland_use_legacy_x11_api,
         })
     }
 

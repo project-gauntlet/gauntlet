@@ -74,11 +74,15 @@ pub enum PluginTableMsgOut {
 
 pub struct PluginTableState {
     rows: Vec<Row>,
+    pub show_global_shortcuts: bool,
 }
 
 impl PluginTableState {
     pub fn new() -> Self {
-        Self { rows: vec![] }
+        Self {
+            rows: vec![],
+            show_global_shortcuts: false,
+        }
     }
 
     pub fn update(&mut self, message: PluginTableMsgIn) -> Task<PluginTableMsgOut> {
@@ -229,7 +233,11 @@ impl PluginTableState {
                     style,
                     name_cell(row_item),
                     type_cell(row_item),
-                    shortcut_cell(row_item),
+                    if self.show_global_shortcuts {
+                        Some(shortcut_cell(row_item))
+                    } else {
+                        None
+                    },
                     alias_cell(row_item),
                     enable_cell(row_item),
                 )
@@ -240,8 +248,12 @@ impl PluginTableState {
             ContainerStyle::TableEvenRow,
             header_cell("Name", true),
             header_cell("Type", false),
+            if self.show_global_shortcuts {
+                Some(header_cell("Shortcut", false))
+            } else {
+                None
+            },
             header_cell("Alias", false),
-            header_cell("Shortcut", false),
             header_cell("Enabled", false),
         );
 
@@ -290,21 +302,20 @@ enum Row {
 
 fn table_row<'a>(
     style: ContainerStyle,
-    first_cell: Element<'a, PluginTableMsgIn>,
-    second_cell: Element<'a, PluginTableMsgIn>,
-    third_cell: Element<'a, PluginTableMsgIn>,
-    fourth_cell: Element<'a, PluginTableMsgIn>,
-    fifth_cell: Element<'a, PluginTableMsgIn>,
+    name_cell: Element<'a, PluginTableMsgIn>,
+    type_cell: Element<'a, PluginTableMsgIn>,
+    shortcut_cell: Option<Element<'a, PluginTableMsgIn>>,
+    alias_cell: Element<'a, PluginTableMsgIn>,
+    enable_cell: Element<'a, PluginTableMsgIn>,
 ) -> Element<'a, PluginTableMsgIn> {
-    container(row([
-        container(first_cell).width(Length::FillPortion(38)).into(),
-        container(second_cell).width(Length::FillPortion(12)).into(),
-        container(third_cell).width(Length::FillPortion(24)).into(),
-        container(fourth_cell).width(Length::FillPortion(15)).into(),
-        container(fifth_cell).width(Length::FillPortion(10)).into(),
-    ]))
-    .class(style)
-    .into()
+    let content = row([])
+        .push(container(name_cell).width(Length::FillPortion(38)))
+        .push(container(type_cell).width(Length::FillPortion(12)))
+        .push_maybe(shortcut_cell.map(|item| container(item).width(Length::FillPortion(24))))
+        .push(container(alias_cell).width(Length::FillPortion(15)))
+        .push(container(enable_cell).width(Length::FillPortion(10)));
+
+    container(content).class(style).into()
 }
 
 fn header_cell<'a>(value: &str, first: bool) -> Element<'a, PluginTableMsgIn> {

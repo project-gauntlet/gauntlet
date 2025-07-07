@@ -220,6 +220,7 @@ pub struct UiSetupData {
     pub close_on_unfocus: bool,
     pub window_position_mode: WindowPositionMode,
     pub layer_shell: bool,
+    pub wayland_use_legacy_x11_api: bool,
 }
 
 #[derive(Debug)]

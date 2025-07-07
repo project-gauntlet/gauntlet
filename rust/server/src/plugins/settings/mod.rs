@@ -24,7 +24,8 @@ use crate::plugins::data_db_repository::DbTheme;
 use crate::plugins::data_db_repository::DbWindowPositionMode;
 use crate::plugins::settings::config::ApplicationConfig;
 use crate::plugins::settings::config::EffectiveConfig;
-use crate::plugins::settings::config::WaylandLayerShellConfig;
+use crate::plugins::settings::config::WaylandGlobalShortcutConfig;
+use crate::plugins::settings::config::WaylandMainWindowConfig;
 use crate::plugins::settings::config_reader::ConfigReader;
 use crate::plugins::settings::global_shortcut::GlobalShortcutAction;
 use crate::plugins::settings::global_shortcut::GlobalShortcutPressedEvent;
@@ -63,7 +64,7 @@ impl Settings {
         })
     }
 
-    pub fn setup(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<()> {
+    pub fn setup_global_shortcuts(&self, global_hotkey_manager: &GlobalHotKeyManager) -> anyhow::Result<()> {
         self.global_hotkey_settings.setup(global_hotkey_manager)?;
 
         Ok(())
@@ -289,35 +290,39 @@ impl Settings {
         }
     }
 
-    pub fn close_on_unfocus(&self) -> bool {
-        self.config.close_on_unfocus
-    }
-
-    pub fn layer_shell(&self) -> bool {
-        self.config.layer_shell
+    pub fn config(&self) -> Arc<EffectiveConfig> {
+        self.config.clone()
     }
 }
 
 fn effective_config(config: ApplicationConfig, layer_shell_supported: bool) -> EffectiveConfig {
-    let main_window = config.main_window.unwrap_or_default();
+    let window_config = config.main_window.unwrap_or_default();
+    let wayland_config = config.wayland.unwrap_or_default();
 
-    let close_on_unfocus = main_window.close_on_unfocus.unwrap_or(true);
+    let close_on_unfocus = window_config.close_on_unfocus.unwrap_or(true);
 
-    let layer_shell = main_window
-        .wayland
-        .unwrap_or_default()
-        .mode
-        .map(|mode| {
-            match mode {
-                WaylandLayerShellConfig::PreferLayerShell => layer_shell_supported,
-                WaylandLayerShellConfig::Normal => false,
-                WaylandLayerShellConfig::LayerShell => true,
-            }
-        })
-        .unwrap_or(layer_shell_supported);
+    let main_window_surface = wayland_config
+        .main_window_surface
+        .unwrap_or(WaylandMainWindowConfig::PreferLayerShell);
+
+    let layer_shell = match main_window_surface {
+        WaylandMainWindowConfig::PreferLayerShell => layer_shell_supported,
+        WaylandMainWindowConfig::XdgShell => false,
+        WaylandMainWindowConfig::LayerShell => true,
+    };
+
+    let main_window_surface = wayland_config
+        .global_shortcuts_api
+        .unwrap_or(WaylandGlobalShortcutConfig::None);
+
+    let wayland_use_legacy_x11_api = match main_window_surface {
+        WaylandGlobalShortcutConfig::None => false,
+        WaylandGlobalShortcutConfig::LegacyX11Api => true,
+    };
 
     EffectiveConfig {
         close_on_unfocus,
         layer_shell,
+        wayland_use_legacy_x11_api,
     }
 }
