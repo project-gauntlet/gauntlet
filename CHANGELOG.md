@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [20] - 2025-07-07
+
 ### General
 
 - Linux Gnome Wayland support
