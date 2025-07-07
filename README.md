@@ -63,7 +63,6 @@ https://github.com/user-attachments/assets/19964ed6-9cd9-48d4-9835-6be04de14b66
 
 ##### Best-effort
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/linux.svg" width="18" height="18" /> Linux Wayland
-  - Gnome Wayland is not yet supported, see [#40](https://github.com/project-gauntlet/gauntlet/issues/40)
 - <img src="https://img.icons8.com/windows/32/windows-11.png" width="18" height="18" /> Windows
 - <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@develop/icons/apple.svg" width="18" height="18" /> macOS Intel
 
