@@ -1996,7 +1996,7 @@ impl AppModel {
                             Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::Comma,
                                 modifier_shift: false,
-                                modifier_control: cfg!(any(target_os = "linux", target_os = "windows")),
+                                modifier_control: cfg!(not(target_os = "macos")),
                                 modifier_alt: false,
                                 modifier_meta: cfg!(target_os = "macos"),
                             }) => {
@@ -2007,10 +2007,10 @@ impl AppModel {
                             Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::KeyK,
                                 modifier_shift: false,
-                                modifier_control: false,
-                                modifier_alt: true,
-                                modifier_meta: false,
-                            }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                                modifier_control: cfg!(not(target_os = "macos")),
+                                modifier_alt: false,
+                                modifier_meta: cfg!(target_os = "macos"),
+                            }) => Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                             Some(PhysicalShortcut {
                                 physical_key,
                                 modifier_shift,
@@ -2054,9 +2054,9 @@ impl AppModel {
                             Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::KeyK,
                                 modifier_shift: false,
-                                modifier_control: false,
-                                modifier_alt: true,
-                                modifier_meta: false,
+                                modifier_control: cfg!(not(target_os = "macos")),
+                                modifier_alt: false,
+                                modifier_meta: cfg!(target_os = "macos"),
                             }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
                             Some(PhysicalShortcut {
                                 physical_key,
@@ -2095,10 +2095,10 @@ impl AppModel {
                             Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::KeyK,
                                 modifier_shift: false,
-                                modifier_control: false,
-                                modifier_alt: true,
-                                modifier_meta: false,
-                            }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                                modifier_control: cfg!(not(target_os = "macos")),
+                                modifier_alt: false,
+                                modifier_meta: cfg!(target_os = "macos"),
+                            }) => Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                             Some(PhysicalShortcut {
                                 physical_key,
                                 modifier_shift,
@@ -2129,10 +2129,10 @@ impl AppModel {
                     Some(PhysicalShortcut {
                         physical_key: PhysicalKey::KeyK,
                         modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: true,
-                        modifier_meta: false,
-                    }) => Task::perform(async {}, |_| AppMsg::ToggleActionPanel { keyboard: true }),
+                        modifier_control: cfg!(not(target_os = "macos")),
+                        modifier_alt: false,
+                        modifier_meta: cfg!(target_os = "macos"),
+                    }) => Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                     Some(PhysicalShortcut {
                         physical_key,
                         modifier_shift,

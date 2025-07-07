@@ -306,9 +306,9 @@ pub fn render_root<'a, T: 'a + Clone>(
             let shortcut = render_shortcut(&PhysicalShortcut {
                 physical_key: PhysicalKey::KeyK,
                 modifier_shift: false,
-                modifier_control: false,
-                modifier_alt: true,
-                modifier_meta: false,
+                modifier_control: !cfg!(target_os = "macos"),
+                modifier_alt: false,
+                modifier_meta: cfg!(target_os = "macos"),
             });
 
             let mut bottom_panel_content = vec![entrypoint_name];
