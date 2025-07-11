@@ -6,12 +6,12 @@
   flake.overlays.default = final: _: let
     version = "v${builtins.readFile ./../VERSION}";
     # These must be updated following the instructions in ./nix/README.md when dependencies are updated or the version bumped
-    npmDepsHash = "sha256-AAnbT3B68U+dTqTfCA4eYFo+VQBcY4LTj98Nnq+sIes=";
-    RUSTY_V8_ARCHIVE = fetchRustyV8 "130.0.2" {
-      aarch64-darwin = "sha256-aWZ/4Q4Wttx37xOdBmTCPGP+eYGhr4CM1UkYq8pC7Qs=";
-      aarch64-linux = "sha256-p9+tHmKIM5wBABubHIAstpwfzO19ypPzOuaV4b6loCU=";
-      x86_64-darwin = "sha256-zNC0DAkMbbFM1M+t6rgKtN0QAm4ONEbCi6Sxivhf8dk=";
-      x86_64-linux = "sha256-ew2WZhdsHfffRQtif076AWAlFohwPo/RbmW/6D3LzkU=";
+    npmDepsHash = "sha256-CrQeEFpyKiYOTuNg6lZz7HwF1EEM4zV2iXse5UcKSFY=";
+    RUSTY_V8_ARCHIVE = fetchRustyV8 "137.2.0" {
+      aarch64-darwin = "sha256-fgmFCBPeD7u9qXcVjgCO1oTr1mXLrtvqy4rMftZO0iE=";
+      aarch64-linux = "sha256-0+2QcsjAx80Ethrulnp0nDQRphkuaDfuaW5GkIxWmb8=";
+      x86_64-darwin = "sha256-p+B1tpPImRJt9R+TJpuUhiX7Q8dh7emf/Hca8K18Zh8=";
+      x86_64-linux = "sha256-9M67FZ4TzjoiGL73B8Jtwn38lW521yCLIqyvGzYCc50=";
     };
 
     inherit
