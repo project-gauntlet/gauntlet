@@ -98,14 +98,18 @@ impl ClientContext {
     ) -> AppMsg {
         match render_location {
             UiRenderLocation::InlineView => {
-                self.get_mut_inline_view_container(plugin_id).replace_view(
-                    container,
-                    data,
-                    plugin_id,
-                    plugin_name,
-                    entrypoint_id,
-                    entrypoint_name,
-                )
+                if let Some(_) = container.content {
+                    self.get_mut_inline_view_container(plugin_id).replace_view(
+                        container,
+                        data,
+                        plugin_id,
+                        plugin_name,
+                        entrypoint_id,
+                        entrypoint_name,
+                    )
+                } else {
+                    AppMsg::ClosePluginView(plugin_id.clone())
+                }
             }
             UiRenderLocation::View => {
                 self.get_mut_view_container().replace_view(

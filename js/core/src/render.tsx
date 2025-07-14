@@ -1,29 +1,35 @@
 import {
-    clear_inline_view,
     fetch_action_id_for_shortcut,
-    op_log_debug,
     op_log_trace,
     hide_window
 } from "ext:core/ops";
-import { clearRenderer, render } from "ext:gauntlet/renderer.js";
+import { clearRenderer, rerender, render } from "ext:gauntlet/renderer.js";
 import type { FC } from "react";
 
 let latestRootUiWidget: UiWidget | undefined = undefined
+let latestRootUiRenderLocation: RenderLocation | undefined = undefined
 
 export function renderView(entrypointId: string, entrypointName: string, View: FC) {
+    latestRootUiRenderLocation = "View";
     latestRootUiWidget = render(entrypointId, entrypointName, "View", <View/>);
 }
 
 export function renderInlineView(entrypointId: string, entrypointName: string, Handler: FC<{ text: string }>, text: string) {
-    latestRootUiWidget = render(entrypointId, entrypointName, "InlineView", <Handler text={text}/>);
-
-    if (latestRootUiWidget.widgetChildren.length === 0) {
-        op_log_debug("plugin_loop", `Inline view rendered no children, clearing inline view...`)
-        clear_inline_view()
+    switch (latestRootUiRenderLocation) {
+        case "InlineView": {
+            rerender(<Handler text={text}/>);
+            break
+        }
+        default: {
+            latestRootUiRenderLocation = "InlineView";
+            latestRootUiWidget = render(entrypointId, entrypointName, "InlineView", <Handler text={text}/>);
+            break
+        }
     }
 }
 
 export function closeView() {
+    latestRootUiRenderLocation = undefined;
     clearRenderer()
 }
 

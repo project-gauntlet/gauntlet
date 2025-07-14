@@ -211,7 +211,7 @@ impl WindowState {
         commands.push(Task::done(AppMsg::WindowAction(WindowActionMsg::SetMainWindowId(None))));
 
         if reset_state {
-            commands.push(Task::done(AppMsg::ClosePluginView));
+            commands.push(Task::done(AppMsg::CloseAllReactViews));
             commands.push(Task::done(AppMsg::ResetWindowState));
         }
 

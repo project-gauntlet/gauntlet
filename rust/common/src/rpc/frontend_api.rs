@@ -28,8 +28,6 @@ pub trait FrontendApi {
         data: HashMap<UiWidgetId, Vec<u8>>,
     ) -> RequestResult<()>;
 
-    async fn clear_inline_view(&self, plugin_id: PluginId) -> RequestResult<()>;
-
     async fn toggle_window(&self) -> RequestResult<()>;
 
     async fn hide_window(&self) -> RequestResult<()>;

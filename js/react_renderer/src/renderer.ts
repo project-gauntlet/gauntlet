@@ -441,6 +441,10 @@ export function clearRenderer() {
     gauntletContextValue.clear()
 }
 
+export function rerender(view: ReactNode) {
+    gauntletContextValue.rerender(view)
+}
+
 export function render(entrypointId: string, entrypointName: string, renderLocation: RenderLocation, view: ReactNode): UiWidget {
     const hostConfig = createHostConfig();
 

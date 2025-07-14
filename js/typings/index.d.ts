@@ -188,6 +188,7 @@ declare module "ext:gauntlet/renderer.js" {
     import { ReactNode } from "react";
 
     export const render: (entrypointId: string, entrypointName: string, renderLocation: RenderLocation, component: ReactNode) => UiWidget;
+    export const rerender: (component: ReactNode) => void;
     export const clearRenderer: () => void;
 }
 
@@ -235,7 +236,6 @@ declare module "ext:core/ops" {
 
     function op_inline_view_entrypoint_id(): string | null;
     function op_entrypoint_names(): Record<string, string | undefined>;
-    function clear_inline_view(): void;
     function op_plugin_get_pending_event(): Promise<PluginEvent>;
     function hide_window(): void;
 

@@ -1047,12 +1047,6 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
 
         Ok(())
     }
-
-    async fn ui_clear_inline_view(&self) -> RequestResult<()> {
-        self.frontend_api.clear_inline_view(self.plugin_id.clone()).await?;
-
-        Ok(())
-    }
 }
 
 fn preferences_to_js(

@@ -314,11 +314,14 @@ impl Focus<SearchResult> for GlobalState {
                         if *top_level_view {
                             if *close_window_on_esc {
                                 Task::batch([
-                                    Task::done(AppMsg::ClosePluginView),
+                                    Task::done(AppMsg::ClosePluginView(plugin_id.clone())),
                                     Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
                                 ])
                             } else {
-                                Task::batch([Task::done(AppMsg::ClosePluginView), GlobalState::initial(self)])
+                                Task::batch([
+                                    Task::done(AppMsg::ClosePluginView(plugin_id.clone())),
+                                    GlobalState::initial(self),
+                                ])
                             }
                         } else {
                             let plugin_id = plugin_id.clone();

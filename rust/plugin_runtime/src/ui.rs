@@ -70,21 +70,6 @@ pub fn show_preferences_required_view(
     Ok(())
 }
 
-#[op2(fast)]
-pub fn clear_inline_view(state: Rc<RefCell<OpState>>) -> Result<(), GauntletJsError> {
-    let api = {
-        let state = state.borrow();
-
-        let api = state.borrow::<BackendForPluginRuntimeApiProxy>().clone();
-
-        api
-    };
-
-    tokio::spawn(async move { api.ui_clear_inline_view().await });
-
-    Ok(())
-}
-
 #[op2]
 #[string]
 pub fn op_inline_view_entrypoint_id(state: Rc<RefCell<OpState>>) -> Option<String> {

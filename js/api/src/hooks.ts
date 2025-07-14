@@ -171,6 +171,8 @@ function usePromiseInternal<Return, Args extends unknown[], R = unknown>(
                     abortable.current = undefined;
                 }
 
+                console.error("Error happened when executing promise: ", error)
+
                 onError?.(error);
             }
             return

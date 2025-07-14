@@ -209,7 +209,8 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
     },
     ShowBackendError(RequestError),
-    ClosePluginView,
+    CloseAllReactViews,
+    ClosePluginView(PluginId),
     OpenPluginView(PluginId, EntrypointId),
     InlineViewShortcuts {
         shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
@@ -258,9 +259,6 @@ pub enum AppMsg {
     ShowPluginViewLoadingBar,
     FocusPluginViewSearchBar {
         widget_id: UiWidgetId,
-    },
-    ClearInlineView {
-        plugin_id: PluginId,
     },
     SetTheme {
         theme: UiTheme,
@@ -1007,12 +1005,24 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             })
         }
         AppMsg::OpenPluginView(plugin_id, entrypoint_id) => state.open_plugin_view(plugin_id, entrypoint_id),
-        AppMsg::ClosePluginView => {
+        AppMsg::CloseAllReactViews => {
             if let GlobalState::PluginView { plugin_view_data, .. } = &state.global_state {
-                state.close_plugin_view(plugin_view_data.plugin_id.clone())
-            } else {
-                Task::none()
+                let plugin_id = plugin_view_data.plugin_id.clone();
+                state.application_manager.request_view_close(plugin_id);
             }
+
+            for (plugin_id, _) in state.client_context.get_all_inline_view_containers() {
+                state.application_manager.request_view_close(plugin_id.clone());
+            }
+            state.client_context.clear_all_inline_views();
+
+            Task::none()
+        }
+        AppMsg::ClosePluginView(plugin_id) => {
+            state.application_manager.request_view_close(plugin_id.clone());
+            state.client_context.clear_inline_view(&plugin_id);
+
+            Task::none()
         }
         AppMsg::InlineViewShortcuts { shortcuts } => {
             state.client_context.set_inline_view_shortcuts(shortcuts);
@@ -1077,11 +1087,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::FocusPluginViewSearchBar { widget_id } => state.client_context.focus_search_bar(widget_id),
         AppMsg::WindowAction(action) => state.window.handle_action(action),
-        AppMsg::ClearInlineView { plugin_id } => {
-            state.client_context.clear_inline_view(&plugin_id);
-
-            Task::none()
-        }
         AppMsg::SetTheme { theme } => {
             state.theme = GauntletComplexTheme::new(theme);
 
@@ -1794,12 +1799,6 @@ impl AppModel {
             .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
 
         Task::done(msg)
-    }
-
-    fn close_plugin_view(&self, plugin_id: PluginId) -> Task<AppMsg> {
-        self.application_manager.request_view_close(plugin_id);
-
-        Task::none()
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {

@@ -73,7 +73,6 @@ use crate::preferences::get_entrypoint_preferences;
 use crate::preferences::get_plugin_preferences;
 use crate::preferences::plugin_preferences_required;
 use crate::search::reload_search_index;
-use crate::ui::clear_inline_view;
 use crate::ui::fetch_action_id_for_shortcut;
 use crate::ui::hide_window;
 use crate::ui::op_component_model;
@@ -273,7 +272,6 @@ deno_core::extension!(
         op_inline_view_entrypoint_id,
         op_entrypoint_names,
         show_plugin_error_view,
-        clear_inline_view,
         show_preferences_required_view,
         op_component_model,
         fetch_action_id_for_shortcut,

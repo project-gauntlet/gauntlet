@@ -140,11 +140,6 @@ async fn request_loop(
                     data: images,
                 }
             }
-            FrontendApiRequestData::ClearInlineView { plugin_id } => {
-                responder.respond(Ok(FrontendApiResponseData::ClearInlineView { data: () }));
-
-                AppMsg::ClearInlineView { plugin_id }
-            }
             FrontendApiRequestData::ToggleWindow {} => {
                 responder.respond(Ok(FrontendApiResponseData::ToggleWindow { data: () }));
 

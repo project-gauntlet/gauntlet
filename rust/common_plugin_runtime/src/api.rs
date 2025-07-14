@@ -63,5 +63,4 @@ pub trait BackendForPluginRuntimeApi {
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
     ) -> RequestResult<()>;
-    async fn ui_clear_inline_view(&self) -> RequestResult<()>;
 }
