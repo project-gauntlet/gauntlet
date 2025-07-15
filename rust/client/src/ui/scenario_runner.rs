@@ -165,6 +165,7 @@ pub fn run_scenario(data: ScenarioRunnerData, theme: UiTheme) -> Task<AppMsg> {
             chain = chain
                 .chain(wait_for(1500))
                 .chain(Task::done(do_screenshot))
+                .chain(wait_for(100))
                 .chain(Task::done(close_window))
                 .chain(wait_for(500))
         }
