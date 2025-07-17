@@ -75,7 +75,7 @@ impl<'b> ComponentWidgetsMut<'b> {
 
         match state {
             ComponentWidgetState::Root(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state),
+            _ => panic!("RootState expected, {:?} found", state),
         }
     }
 }

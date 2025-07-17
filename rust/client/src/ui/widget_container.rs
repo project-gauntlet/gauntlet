@@ -80,7 +80,11 @@ impl PluginWidgetContainer {
         for (key, value) in old_state.into_iter() {
             match self.state.entry(key) {
                 Entry::Occupied(mut entry) => {
-                    entry.insert(value);
+                    // copy over old value, but only if type of the widget didn't change
+                    // if it did change, the widget state is reset
+                    if mem::discriminant(entry.get()) == mem::discriminant(&value) {
+                        entry.insert(value);
+                    }
                 }
                 Entry::Vacant(_) => {}
             }

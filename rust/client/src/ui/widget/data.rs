@@ -71,7 +71,7 @@ impl<'b> ComponentWidgets<'b> {
 
         match state {
             ComponentWidgetState::Checkbox(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state),
+            _ => panic!("CheckboxState expected, {:?} found", state),
         }
     }
 
@@ -83,7 +83,7 @@ impl<'b> ComponentWidgets<'b> {
 
         match state {
             ComponentWidgetState::Select(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state),
+            _ => panic!("SelectState expected, {:?} found", state),
         }
     }
 
@@ -95,7 +95,7 @@ impl<'b> ComponentWidgets<'b> {
 
         match state {
             ComponentWidgetState::Root(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state),
+            _ => panic!("RootState expected, {:?} found", state),
         }
     }
 }
