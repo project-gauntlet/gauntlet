@@ -94,11 +94,11 @@ pub fn op_react_replace_view<'a>(
     top_level_view: bool,
     #[string] entrypoint_id: &str,
     #[string] entrypoint_name: &str,
-    #[serde] container: serde_v8::Value<'a>,
+    container: v8::Local<v8::Value>,
 ) -> Result<(), GauntletJsError> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
-    let mut deserializer = serde_v8::Deserializer::new(scope, container.v8_value, None);
+    let mut deserializer = serde_v8::Deserializer::new(scope, container, None);
 
     let container = RootWidget::deserialize(&mut deserializer)
         .map_err(|err| anyhow!("Unable to deserialize root widget: {:#}", err))?;

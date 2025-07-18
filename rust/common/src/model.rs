@@ -12,7 +12,6 @@ use gix_url::Url;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
-use serde::Serializer;
 use serde::de::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
@@ -232,21 +231,6 @@ pub struct UiSetupResponse {
 pub enum KeyboardEventOrigin {
     MainView,
     PluginView,
-}
-
-fn option_to_array<S, V>(value: &Option<V>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    V: Serialize,
-    S: Serializer,
-{
-    let value = match value {
-        None => vec![],
-        Some(value) => vec![value],
-    };
-
-    let res = Vec::<&V>::serialize(&value, serializer)?;
-
-    Ok(res)
 }
 
 fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error>

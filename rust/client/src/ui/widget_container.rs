@@ -98,7 +98,7 @@ impl PluginWidgetContainer {
         self.root_widget = Some(container);
 
         if first_open {
-            ComponentWidgets::new(&mut self.root_widget, &mut self.state, &self.data).first_open()
+            ComponentWidgets::new(&self.root_widget, &self.state, &self.data).first_open()
         } else {
             AppMsg::Noop
         }
