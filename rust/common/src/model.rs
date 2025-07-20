@@ -10,9 +10,7 @@ use bincode::Encode;
 use gix_url::Scheme;
 use gix_url::Url;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
-use serde::de::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode)]
 pub struct PluginId(Arc<str>);
@@ -233,26 +231,7 @@ pub enum KeyboardEventOrigin {
     PluginView,
 }
 
-fn array_to_option<'de, D, V>(deserializer: D) -> Result<Option<V>, D::Error>
-where
-    D: Deserializer<'de>,
-    V: Deserialize<'de>,
-{
-    let res = Option::<Vec<V>>::deserialize(deserializer)?;
-
-    match res {
-        None => Ok(None),
-        Some(mut res) => {
-            match res.len() {
-                0 => Ok(None),
-                1 => Ok(Some(res.remove(0))),
-                _ => Err(Error::custom("only zero or one allowed")),
-            }
-        }
-    }
-}
-
-include!(concat!(env!("OUT_DIR"), "/components.rs"));
+gauntlet_utils_macros::widget_model_gen!();
 
 // TODO generate this
 #[allow(async_fn_in_trait)]

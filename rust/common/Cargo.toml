@@ -22,21 +22,14 @@ bytes.workspace = true
 gix-url = { version = "0.28.1" }
 base64 = "0.22"
 directories = "5.0"
+strum = { version = "0.27", features = ["derive"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = "0.2"
 
 [build-dependencies]
-# workspaces
-gauntlet-component-model.workspace = true
-
 # shared
-itertools.workspace = true
-indexmap.workspace = true
 tonic-build.workspace = true
-
-# other
-convert_case = "0.6.0"
 
 [features]
 release = []

@@ -380,23 +380,21 @@ export const createHostConfig = (): HostConfig<
 });
 
 
-function convertComponents(widget: UiWidget): any  {
-    const component: any = {
-        __id__: widget.widgetId,
-        __type__: widget.widgetType,
-        ...widget.widgetProperties
-    }
+function convertComponents(widget: UiWidget): any {
+    const widgetProperties = Object.fromEntries(
+        Object.entries(widget.widgetProperties)
+            .filter(([_, value]) => typeof value !== "function")
+    );
 
-    for (const [name, value] of Object.entries(component)) {
-        if (typeof value === "function") {
-            delete component[name]
-        }
-    }
-
-    component.content = widget.widgetChildren
+    const widgetChildren = widget.widgetChildren
         .map(child => convertComponents(child))
 
-    return component
+    return {
+        widgetId: widget.widgetId,
+        widgetType: widget.widgetType,
+        widgetProperties: widgetProperties,
+        widgetChildren: widgetChildren,
+    }
 }
 
 function shallowDiff(oldObj: Record<string, any>, newObj: Record<string, any>): string[] | null {
@@ -418,7 +416,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
 
             return function _noop(...args: any[]) {
                 console.log('MethodTrace Stub:', propKey, ...args.map(function (arg) {
-                    return Deno.inspect(arg, {depth: 1});
+                    return Deno.inspect(arg, { depth: 1 });
                 }));
             }
         }
@@ -426,7 +424,7 @@ const createTracedHostConfig = (hostConfig: any) => new Proxy(hostConfig, {
         if (typeof f === 'function') {
             return function _traced(this: any, ...args: any[]) {
                 console.log('MethodTrace:', propKey, ...args.map(function (arg) {
-                    return Deno.inspect(arg, {depth: 1});
+                    return Deno.inspect(arg, { depth: 1 });
                 }));
 
                 return f.apply(this, args);

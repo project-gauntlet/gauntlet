@@ -8,6 +8,7 @@ edition.workspace = true
 gauntlet-common.workspace = true
 gauntlet-component-model.workspace = true
 gauntlet-utils.workspace = true
+gauntlet-utils-macros.workspace = true
 gauntlet-common-plugin-runtime.workspace = true
 
 # shared

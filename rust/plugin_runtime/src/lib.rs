@@ -7,6 +7,7 @@ mod environment;
 mod events;
 mod logs;
 mod model;
+mod model_deserialization;
 mod permissions;
 mod plugin_data;
 mod plugins;

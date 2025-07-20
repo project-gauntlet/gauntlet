@@ -5,20 +5,18 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use deno_core::OpState;
 use deno_core::op2;
-use deno_core::serde_v8;
 use deno_core::v8;
 use futures::executor::block_on;
 use gauntlet_common::model::EntrypointId;
-use gauntlet_common::model::RootWidget;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
 use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 use gauntlet_common_plugin_runtime::model::JsUiRenderLocation;
 use gauntlet_component_model::Component;
-use serde::Deserialize;
 use tokio::runtime::Handle;
 
 use crate::component_model::ComponentModel;
 use crate::deno::GauntletJsError;
+use crate::model_deserialization::deserialize_root_widget;
 use crate::plugin_data::PluginData;
 
 #[op2]
@@ -98,10 +96,8 @@ pub fn op_react_replace_view<'a>(
 ) -> Result<(), GauntletJsError> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
 
-    let mut deserializer = serde_v8::Deserializer::new(scope, container, None);
-
-    let container = RootWidget::deserialize(&mut deserializer)
-        .map_err(|err| anyhow!("Unable to deserialize root widget: {:#}", err))?;
+    let container = deserialize_root_widget(scope, container)
+        .map_err(|err| anyhow!("Unable to deserialize component tree: {:#}", err))?;
 
     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
     let entrypoint_name = entrypoint_name.to_string();
