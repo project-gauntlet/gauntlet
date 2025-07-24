@@ -91,6 +91,9 @@ export function handleEvent(event: ViewEvent) {
                                 case "Undefined": {
                                     return undefined
                                 }
+                                case "Null": {
+                                    return null
+                                }
                                 case "String": {
                                     return arg.value
                                 }

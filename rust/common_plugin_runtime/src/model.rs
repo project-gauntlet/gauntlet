@@ -74,6 +74,7 @@ pub enum JsUiPropertyValue {
     Number { value: f64 },
     Bool { value: bool },
     Undefined,
+    Null,
 }
 
 #[derive(Debug, Encode, Decode)]

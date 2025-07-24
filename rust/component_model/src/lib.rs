@@ -61,9 +61,19 @@ pub enum Component {
 pub struct Property {
     pub name: String,
     pub description: String,
-    pub optional: bool,
+    pub optional: OptionalKind,
     #[serde(rename = "type")]
     pub property_type: PropertyType,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum OptionalKind {
+    #[serde(rename = "no")]
+    No,
+    #[serde(rename = "yes")]
+    Yes,
+    #[serde(rename = "yes_but_complicated")]
+    YesButComplicated, // distinguish between null and undefined
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -275,7 +285,7 @@ fn text_part() -> Component {
         props: vec![Property {
             name: "value".into(),
             description: "".to_string(),
-            optional: false,
+            optional: OptionalKind::No,
             property_type: PropertyType::String,
         }],
     }
@@ -594,7 +604,7 @@ fn root(children: &[&Component]) -> Component {
     }
 }
 
-fn event<I>(name: impl Into<String>, description: String, optional: bool, arguments: I) -> Property
+fn event<I>(name: impl Into<String>, description: String, optional: OptionalKind, arguments: I) -> Property
 where
     I: IntoIterator<Item = Property>,
 {
@@ -608,7 +618,12 @@ where
     }
 }
 
-fn property(name: impl Into<String>, description: String, optional: bool, property_type: PropertyType) -> Property {
+fn property(
+    name: impl Into<String>,
+    description: String,
+    optional: OptionalKind,
+    property_type: PropertyType,
+) -> Property {
     Property {
         name: name.into(),
         description,
@@ -623,18 +638,23 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/action/description.md"),
         "Action",
         [
-            property("id", mark_doc!("/action/props/id.md"), true, PropertyType::String),
+            property(
+                "id",
+                mark_doc!("/action/props/id.md"),
+                OptionalKind::Yes,
+                PropertyType::String,
+            ),
             property(
                 "label",
                 mark_doc!("/action/props/label.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             event(
                 "onAction",
                 mark_doc!("/action/props/onAction.md"),
-                false,
-                [property("id", "".to_string(), true, PropertyType::String)],
+                OptionalKind::No,
+                [property("id", "".to_string(), OptionalKind::Yes, PropertyType::String)],
             ),
         ],
         children_none(),
@@ -647,7 +667,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "title",
             mark_doc!("/action_panel_section/props/title.md"),
-            true,
+            OptionalKind::Yes,
             PropertyType::String,
         )],
         children_members([member("Action", &action_component, Arity::ZeroOrMore)], []),
@@ -660,7 +680,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "title",
             mark_doc!("/action_panel/props/title.md"),
-            true,
+            OptionalKind::Yes,
             PropertyType::String,
         )],
         children_members(
@@ -680,13 +700,13 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "label",
                 mark_doc!("/metadata_link/props/label.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             property(
                 "href",
                 mark_doc!("/metadata_link/props/href.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
         ],
@@ -699,7 +719,12 @@ pub fn create_component_model() -> Vec<Component> {
         "MetadataTagItem",
         [
             // property("color", true, PropertyType::String),
-            event("onClick", mark_doc!("/metadata_tag_item/props/onClick.md"), true, []),
+            event(
+                "onClick",
+                mark_doc!("/metadata_tag_item/props/onClick.md"),
+                OptionalKind::Yes,
+                [],
+            ),
         ],
         children_string(mark_doc!("/metadata_tag_item/props/children.md")),
     );
@@ -711,7 +736,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "label",
             mark_doc!("/metadata_tag_list/props/label.md"),
-            false,
+            OptionalKind::No,
             PropertyType::String,
         )],
         children_members([member("Item", &metadata_tag_item_component, Arity::ZeroOrMore)], []),
@@ -733,7 +758,7 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "icon",
                 mark_doc!("/metadata_icon/props/icon.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::SharedTypeRef {
                     name: "Icons".to_owned(),
                 },
@@ -741,7 +766,7 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "label",
                 mark_doc!("/metadata_icon/props/label.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
         ],
@@ -755,7 +780,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "label",
             mark_doc!("/metadata_value/props/label.md"),
-            false,
+            OptionalKind::No,
             PropertyType::String,
         )],
         children_string(mark_doc!("/metadata_value/props/children.md")),
@@ -794,7 +819,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "source",
             mark_doc!("/image/props/source.md"),
-            false,
+            OptionalKind::No,
             PropertyType::SharedTypeRef {
                 name: "ImageLike".to_owned(),
             },
@@ -809,7 +834,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "source",
             mark_doc!("/svg/props/source.md"),
-            false,
+            OptionalKind::No,
             PropertyType::SharedTypeRef {
                 name: "DataSource".to_owned(),
             },
@@ -934,13 +959,13 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "isLoading",
                 mark_doc!("/list/props/isLoading.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
             property(
                 "actions",
                 mark_doc!("/detail/props/actions.md"),
-                true,
+                OptionalKind::Yes,
                 component_ref(&action_panel_component, Arity::ZeroOrOne),
             ),
         ],
@@ -961,20 +986,25 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "label",
                 mark_doc!("/text_field/props/label.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "value",
                 mark_doc!("/text_field/props/value.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             event(
                 "onChange",
                 mark_doc!("/text_field/props/onChange.md"),
-                true,
-                [property("value", "".to_string(), true, PropertyType::String)],
+                OptionalKind::Yes,
+                [property(
+                    "value",
+                    "".to_string(),
+                    OptionalKind::No,
+                    PropertyType::String,
+                )],
             ),
         ],
         children_none(),
@@ -988,20 +1018,25 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "label",
                 mark_doc!("/password_field/props/label.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "value",
                 mark_doc!("/password_field/props/value.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             event(
                 "onChange",
                 mark_doc!("/password_field/props/onChange.md"),
-                true,
-                [property("value", "".to_string(), true, PropertyType::String)],
+                OptionalKind::Yes,
+                [property(
+                    "value",
+                    "".to_string(),
+                    OptionalKind::No,
+                    PropertyType::String,
+                )],
             ),
         ],
         children_none(),
@@ -1022,26 +1057,31 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "label",
                 mark_doc!("/checkbox/props/label.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "title",
                 mark_doc!("/checkbox/props/title.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "value",
                 mark_doc!("/checkbox/props/value.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
             event(
                 "onChange",
                 mark_doc!("/checkbox/props/onChange.md"),
-                true,
-                [property("value", "".to_string(), false, PropertyType::Boolean)],
+                OptionalKind::Yes,
+                [property(
+                    "value",
+                    "".to_string(),
+                    OptionalKind::No,
+                    PropertyType::Boolean,
+                )],
             ),
         ],
         children_none(),
@@ -1081,7 +1121,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "value",
             mark_doc!("/select_item/props/value.md"),
-            false,
+            OptionalKind::No,
             PropertyType::String,
         )],
         children_string(mark_doc!("/select_item/props/children.md")),
@@ -1092,13 +1132,28 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/select/description.md"),
         "Select",
         [
-            property("label", mark_doc!("/select/props/label.md"), true, PropertyType::String),
-            property("value", mark_doc!("/select/props/value.md"), true, PropertyType::String),
+            property(
+                "label",
+                mark_doc!("/select/props/label.md"),
+                OptionalKind::Yes,
+                PropertyType::String,
+            ),
+            property(
+                "value",
+                mark_doc!("/select/props/value.md"),
+                OptionalKind::Yes,
+                PropertyType::String,
+            ),
             event(
                 "onChange",
                 mark_doc!("/select/props/onChange.md"),
-                true,
-                [property("value", "".to_string(), true, PropertyType::String)],
+                OptionalKind::Yes,
+                [property(
+                    "value",
+                    "".to_string(),
+                    OptionalKind::No,
+                    PropertyType::String,
+                )],
             ),
         ],
         children_members([member("Item", &select_item_component, Arity::ZeroOrMore)], []),
@@ -1127,13 +1182,13 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "isLoading",
                 mark_doc!("/list/props/isLoading.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
             property(
                 "actions",
                 mark_doc!("/form/props/actions.md"),
-                true,
+                OptionalKind::Yes,
                 component_ref(&action_panel_component, Arity::ZeroOrOne),
             ),
         ],
@@ -1159,7 +1214,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "icon",
             mark_doc!("/inline_separator/props/icon.md"),
-            true,
+            OptionalKind::Yes,
             PropertyType::SharedTypeRef {
                 name: "Icons".to_owned(),
             },
@@ -1174,7 +1229,7 @@ pub fn create_component_model() -> Vec<Component> {
         [property(
             "actions",
             mark_doc!("/inline/props/actions.md"),
-            true,
+            OptionalKind::Yes,
             component_ref(&action_panel_component, Arity::ZeroOrOne),
         )],
         children_members(
@@ -1196,19 +1251,19 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "title",
                 mark_doc!("/empty_view/props/title.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             property(
                 "description",
                 mark_doc!("/empty_view/props/description.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "image",
                 mark_doc!("/empty_view/props/image.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::SharedTypeRef {
                     name: "ImageLike".to_owned(),
                 },
@@ -1225,13 +1280,13 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "text",
                 mark_doc!("/accessory_text/props/text.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             property(
                 "icon",
                 mark_doc!("/accessory_text/props/icon.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::SharedTypeRef {
                     name: "ImageLike".to_owned(),
                 },
@@ -1239,7 +1294,7 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "tooltip",
                 mark_doc!("/accessory_text/props/tooltip.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
         ],
@@ -1254,7 +1309,7 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "icon",
                 mark_doc!("/accessory_icon/props/icon.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::SharedTypeRef {
                     name: "ImageLike".to_owned(),
                 },
@@ -1262,7 +1317,7 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "tooltip",
                 mark_doc!("/accessory_icon/props/tooltip.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
         ],
@@ -1277,20 +1332,25 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "value",
                 mark_doc!("/search_bar/props/value.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "placeholder",
                 mark_doc!("/search_bar/props/placeholder.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             event(
                 "onChange",
                 mark_doc!("/search_bar/props/onChange.md"),
-                true,
-                [property("value", "".to_string(), true, PropertyType::String)],
+                OptionalKind::Yes,
+                [property(
+                    "value",
+                    "".to_string(),
+                    OptionalKind::No,
+                    PropertyType::String,
+                )],
             ),
         ],
         children_none(),
@@ -1301,23 +1361,28 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/list_item/description.md"),
         "ListItem",
         [
-            property("id", mark_doc!("/list_item/props/id.md"), false, PropertyType::String),
+            property(
+                "id",
+                mark_doc!("/list_item/props/id.md"),
+                OptionalKind::No,
+                PropertyType::String,
+            ),
             property(
                 "title",
                 mark_doc!("/list_item/props/title.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             property(
                 "subtitle",
                 mark_doc!("/list_item/props/subtitle.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "icon",
                 mark_doc!("/list_item/props/icon.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::SharedTypeRef {
                     name: "ImageLike".to_owned(),
                 },
@@ -1325,7 +1390,7 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "accessories",
                 mark_doc!("/list_item/props/accessories.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Array {
                     item: Box::new(PropertyType::Union {
                         items: vec![
@@ -1347,13 +1412,13 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "title",
                 mark_doc!("/list_section/props/title.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             property(
                 "subtitle",
                 mark_doc!("/list_section/props/subtitle.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
         ],
@@ -1368,20 +1433,25 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "actions",
                 mark_doc!("/list/props/actions.md"),
-                true,
+                OptionalKind::Yes,
                 component_ref(&action_panel_component, Arity::ZeroOrOne),
             ),
             property(
                 "isLoading",
                 mark_doc!("/list/props/isLoading.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
             event(
                 "onItemFocusChange",
                 mark_doc!("/list/props/onItemFocusChange.md"),
-                true,
-                [property("itemId", "".to_string(), true, PropertyType::String)],
+                OptionalKind::Yes,
+                [property(
+                    "itemId",
+                    "".to_string(),
+                    OptionalKind::Yes,
+                    PropertyType::String,
+                )],
             ),
         ],
         children_members(
@@ -1402,23 +1472,28 @@ pub fn create_component_model() -> Vec<Component> {
         mark_doc!("/grid_item/description.md"),
         "GridItem",
         [
-            property("id", mark_doc!("/list_item/props/id.md"), false, PropertyType::String),
+            property(
+                "id",
+                mark_doc!("/list_item/props/id.md"),
+                OptionalKind::No,
+                PropertyType::String,
+            ),
             property(
                 "title",
                 mark_doc!("/grid_item/props/title.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "subtitle",
                 mark_doc!("/grid_item/props/subtitle.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             property(
                 "accessory",
                 mark_doc!("/grid_item/props/accessory.md"),
-                true,
+                OptionalKind::Yes,
                 component_ref(&accessory_icon_component, Arity::ZeroOrOne),
             ),
         ],
@@ -1433,20 +1508,20 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "title",
                 mark_doc!("/grid_section/props/title.md"),
-                false,
+                OptionalKind::No,
                 PropertyType::String,
             ),
             property(
                 "subtitle",
                 mark_doc!("/grid_section/props/subtitle.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::String,
             ),
             // property("aspectRatio", true, PropertyType::String),
             property(
                 "columns",
                 mark_doc!("/grid_section/props/columns.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Number,
             ), // fit
                // inset
@@ -1462,20 +1537,20 @@ pub fn create_component_model() -> Vec<Component> {
             property(
                 "isLoading",
                 mark_doc!("/list/props/isLoading.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
             property(
                 "actions",
                 mark_doc!("/grid/props/actions.md"),
-                true,
+                OptionalKind::Yes,
                 component_ref(&action_panel_component, Arity::ZeroOrOne),
             ),
             // property("aspectRatio", true, PropertyType::String),
             property(
                 "columns",
                 mark_doc!("/grid/props/columns.md"),
-                true,
+                OptionalKind::Yes,
                 PropertyType::Number,
             ), // TODO default
             // fit
@@ -1483,8 +1558,13 @@ pub fn create_component_model() -> Vec<Component> {
             event(
                 "onItemFocusChange",
                 mark_doc!("/grid/props/onItemFocusChange.md"),
-                true,
-                [property("itemId", "".to_string(), true, PropertyType::String)],
+                OptionalKind::Yes,
+                [property(
+                    "itemId",
+                    "".to_string(),
+                    OptionalKind::Yes,
+                    PropertyType::String,
+                )],
             ),
         ],
         children_members(

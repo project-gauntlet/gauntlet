@@ -4,6 +4,7 @@ use gauntlet_component_model::Arity;
 use gauntlet_component_model::Children;
 use gauntlet_component_model::Component;
 use gauntlet_component_model::ComponentRef;
+use gauntlet_component_model::OptionalKind;
 use gauntlet_component_model::PropertyKind;
 use gauntlet_component_model::PropertyType;
 use gauntlet_component_model::SharedType;
@@ -135,23 +136,47 @@ pub fn widget_deserialization_gen() -> TokenStream {
                                         }
                                     };
 
-                                    if prop.optional {
-                                        quote! {
-                                            keys.retain(|item| *item != #prop_name);
-                                            let #prop_var_name = match extract_object_value(scope, widget_properties, #prop_name) {
-                                                Some(property_value) => Some(#deserialize_prop),
-                                                None => None,
-                                            };
+                                    match prop.optional {
+                                        OptionalKind::No => {
+                                            quote! {
+                                                keys.retain(|item| *item != #prop_name);
+                                                let #prop_var_name = match extract_object_value(scope, widget_properties, #prop_name) {
+                                                    Some(property_value) => #deserialize_prop,
+                                                    None => {
+                                                        return Err(Error::required_prop(#prop_name))
+                                                    },
+                                                };
+                                            }
                                         }
-                                    } else {
-                                        quote! {
-                                            keys.retain(|item| *item != #prop_name);
-                                            let #prop_var_name = match extract_object_value(scope, widget_properties, #prop_name) {
-                                                Some(property_value) => #deserialize_prop,
-                                                None => {
-                                                    return Err(Error::required_prop(#prop_name))
-                                                },
-                                            };
+                                        OptionalKind::Yes => {
+                                            quote! {
+                                                keys.retain(|item| *item != #prop_name);
+                                                let #prop_var_name = match extract_object_value(scope, widget_properties, #prop_name) {
+                                                    Some(property_value) => Some(#deserialize_prop),
+                                                    None => None,
+                                                };
+                                            }
+                                        }
+                                        OptionalKind::YesButComplicated => {
+                                            quote! {
+                                                keys.retain(|item| *item != #prop_name);
+
+                                                let key = v8::String::new(scope, #prop_name).unwrap();
+                                                let value = widget_properties.get(scope, key.into());
+
+                                                let #prop_var_name = match value {
+                                                    Some(property_value) => {
+                                                        if property_value.is_undefined() {
+                                                            JsOption::Undefined
+                                                        } else if property_value.is_null() {
+                                                            JsOption::Null
+                                                        } else {
+                                                            JsOption::Value(#deserialize_prop)
+                                                        }
+                                                    }
+                                                    None => JsOption::Undefined
+                                                };
+                                            }
                                         }
                                     }
                                 }

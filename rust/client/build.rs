@@ -7,6 +7,7 @@ use convert_case::Case;
 use convert_case::Casing;
 use gauntlet_component_model::Component;
 use gauntlet_component_model::ComponentName;
+use gauntlet_component_model::OptionalKind;
 use gauntlet_component_model::Property;
 use gauntlet_component_model::PropertyType;
 use gauntlet_component_model::create_component_model;
@@ -48,33 +49,51 @@ fn main() -> anyhow::Result<()> {
                     for arg in arguments {
                         match arg.property_type {
                             PropertyType::String => {
-                                if arg.optional {
-                                    output.push_str(&format!("            {}.map(|#[allow(non_snake_case)] {}| gauntlet_common::model::UiPropertyValue::String({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
-                                } else {
-                                    output.push_str(&format!(
-                                        "            gauntlet_common::model::UiPropertyValue::String({}),\n",
-                                        arg.name
-                                    ));
+                                match arg.optional {
+                                    OptionalKind::No => {
+                                        output.push_str(&format!(
+                                            "            gauntlet_common::model::UiPropertyValue::String({}),\n",
+                                            arg.name
+                                        ));
+                                    }
+                                    OptionalKind::Yes => {
+                                        output.push_str(&format!("            {}.map(|#[allow(non_snake_case)] {}| gauntlet_common::model::UiPropertyValue::String({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Null),\n", arg.name, arg.name, arg.name));
+                                    }
+                                    OptionalKind::YesButComplicated => {
+                                        todo!()
+                                    }
                                 }
                             }
                             PropertyType::Number => {
-                                if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Number({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
-                                } else {
-                                    output.push_str(&format!(
-                                        "            gauntlet_common::model::UiPropertyValue::Number({}),\n",
-                                        arg.name
-                                    ));
+                                match arg.optional {
+                                    OptionalKind::No => {
+                                        output.push_str(&format!(
+                                            "            gauntlet_common::model::UiPropertyValue::Number({}),\n",
+                                            arg.name
+                                        ));
+                                    }
+                                    OptionalKind::Yes => {
+                                        output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Number({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Null),\n", arg.name, arg.name, arg.name));
+                                    }
+                                    OptionalKind::YesButComplicated => {
+                                        todo!()
+                                    }
                                 }
                             }
                             PropertyType::Boolean => {
-                                if arg.optional {
-                                    output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Bool({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Undefined),\n", arg.name, arg.name, arg.name));
-                                } else {
-                                    output.push_str(&format!(
-                                        "            gauntlet_common::model::UiPropertyValue::Bool({}),\n",
-                                        arg.name
-                                    ));
+                                match arg.optional {
+                                    OptionalKind::No => {
+                                        output.push_str(&format!(
+                                            "            gauntlet_common::model::UiPropertyValue::Bool({}),\n",
+                                            arg.name
+                                        ));
+                                    }
+                                    OptionalKind::Yes => {
+                                        output.push_str(&format!("            {}.map(|{}| gauntlet_common::model::UiPropertyValue::Bool({})).unwrap_or_else(|| gauntlet_common::model::UiPropertyValue::Null),\n", arg.name, arg.name, arg.name));
+                                    }
+                                    OptionalKind::YesButComplicated => {
+                                        todo!()
+                                    }
                                 }
                             }
                             _ => {
@@ -105,17 +124,20 @@ fn generate_file<P: AsRef<Path>>(path: P, text: &str) -> std::io::Result<()> {
 
 fn generate_type(property: &Property, name: &ComponentName) -> String {
     match property.optional {
-        true => {
+        OptionalKind::No => {
+            generate_required_type(
+                &property.property_type,
+                Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))),
+            )
+        }
+        OptionalKind::Yes => {
             generate_optional_type(
                 &property.property_type,
                 format!("{}{}", name, &property.name.to_case(Case::Pascal)),
             )
         }
-        false => {
-            generate_required_type(
-                &property.property_type,
-                Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))),
-            )
+        OptionalKind::YesButComplicated => {
+            todo!()
         }
     }
 }

@@ -233,6 +233,13 @@ pub enum KeyboardEventOrigin {
 
 gauntlet_utils_macros::widget_model_gen!();
 
+#[derive(Debug, Encode, Decode)]
+pub enum JsOption<T> {
+    Undefined,
+    Null,
+    Value(T),
+}
+
 // TODO generate this
 #[allow(async_fn_in_trait)]
 pub trait WidgetVisitor {
@@ -476,6 +483,7 @@ pub enum UiPropertyValue {
     Bytes(bytes::Bytes),
     Array(Vec<UiPropertyValue>),
     Object(HashMap<String, UiPropertyValue>),
+    Null,
     Undefined,
 }
 

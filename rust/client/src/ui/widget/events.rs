@@ -98,7 +98,7 @@ impl ComponentWidgetEvent {
 
                 *state_value = Some(value.clone());
 
-                Some(create_select_on_change_event(widget_id, Some(value)))
+                Some(create_select_on_change_event(widget_id, value))
             }
             ComponentWidgetEvent::OnChangeTextField { widget_id, value } => {
                 let Some(state) = state else {
@@ -111,7 +111,7 @@ impl ComponentWidgetEvent {
 
                 *state_value = value.clone();
 
-                Some(create_text_field_on_change_event(widget_id, Some(value)))
+                Some(create_text_field_on_change_event(widget_id, value))
             }
             ComponentWidgetEvent::OnChangePasswordField { widget_id, value } => {
                 let Some(state) = state else {
@@ -124,7 +124,7 @@ impl ComponentWidgetEvent {
 
                 *state_value = value.clone();
 
-                Some(create_password_field_on_change_event(widget_id, Some(value)))
+                Some(create_password_field_on_change_event(widget_id, value))
             }
             ComponentWidgetEvent::OnChangeSearchBar { widget_id, value } => {
                 let Some(state) = state else {
@@ -137,7 +137,7 @@ impl ComponentWidgetEvent {
 
                 *state_value = value.clone();
 
-                Some(create_search_bar_on_change_event(widget_id, Some(value)))
+                Some(create_search_bar_on_change_event(widget_id, value))
             }
             ComponentWidgetEvent::ToggleActionPanel { .. } => {
                 Some(UiViewEvent::AppEvent {

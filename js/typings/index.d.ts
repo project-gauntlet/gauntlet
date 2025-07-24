@@ -98,11 +98,12 @@ type RefreshSearchIndex = {
     type: "RefreshSearchIndex"
 }
 
-type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined
+type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined | PropertyValueNull
 type PropertyValueString = { type: "String", value: string }
 type PropertyValueNumber = { type: "Number", value: number }
 type PropertyValueBool = { type: "Bool", value: boolean }
 type PropertyValueUndefined = { type: "Undefined" }
+type PropertyValueNull = { type: "Null" }
 
 type UiWidget = {
     widgetId: number,
@@ -312,7 +313,7 @@ type TextPartComponent = {
 
 type Property = {
     name: string
-    optional: boolean
+    optional: "no" | "yes" | "yes_but_complicated"
     type: PropertyType
 }
 type Children = ChildrenMembers | ChildrenString | ChildrenNone | ChildrenStringOrMembers

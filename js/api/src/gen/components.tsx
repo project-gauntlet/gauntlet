@@ -6,7 +6,7 @@ declare global {
             ["gauntlet:action"]: {
                 id?: string;
                 label: string;
-                onAction: (id: string | undefined) => void;
+                onAction: (id: string | null) => void;
             };
             ["gauntlet:action_panel_section"]: {
                 children?: ElementComponent<typeof Action>;
@@ -82,12 +82,12 @@ declare global {
             ["gauntlet:text_field"]: {
                 label?: string;
                 value?: string;
-                onChange?: (value: string | undefined) => void;
+                onChange?: (value: string) => void;
             };
             ["gauntlet:password_field"]: {
                 label?: string;
                 value?: string;
-                onChange?: (value: string | undefined) => void;
+                onChange?: (value: string) => void;
             };
             ["gauntlet:checkbox"]: {
                 label?: string;
@@ -103,7 +103,7 @@ declare global {
                 children?: ElementComponent<typeof SelectItem>;
                 label?: string;
                 value?: string;
-                onChange?: (value: string | undefined) => void;
+                onChange?: (value: string) => void;
             };
             ["gauntlet:separator"]: {};
             ["gauntlet:form"]: {
@@ -133,7 +133,7 @@ declare global {
             ["gauntlet:search_bar"]: {
                 value?: string;
                 placeholder?: string;
-                onChange?: (value: string | undefined) => void;
+                onChange?: (value: string) => void;
             };
             ["gauntlet:list_item"]: {
                 children?: ElementComponent<typeof TextAccessory | typeof IconAccessory>;
@@ -150,7 +150,7 @@ declare global {
             ["gauntlet:list"]: {
                 children?: ElementComponent<typeof ActionPanel | typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
                 isLoading?: boolean;
-                onItemFocusChange?: (itemId: string | undefined) => void;
+                onItemFocusChange?: (itemId: string | null) => void;
             };
             ["gauntlet:grid_item"]: {
                 children?: ElementComponent<typeof IconAccessory | typeof Content>;
@@ -168,7 +168,7 @@ declare global {
                 children?: ElementComponent<typeof ActionPanel | typeof GridItem | typeof GridSection | typeof SearchBar | typeof EmptyView>;
                 isLoading?: boolean;
                 columns?: number;
-                onItemFocusChange?: (itemId: string | undefined) => void;
+                onItemFocusChange?: (itemId: string | null) => void;
             };
         }
     }
@@ -364,7 +364,7 @@ export type ImageLike = DataSource | Icons;
 export interface ActionProps {
     id?: string;
     label: string;
-    onAction: (id: string | undefined) => void;
+    onAction: (id: string | null) => void;
 }
 export const Action: FC<ActionProps> = (props: ActionProps): ReactNode => {
     return <gauntlet:action id={props.id} label={props.label} onAction={props.onAction}></gauntlet:action>;
@@ -558,7 +558,7 @@ Detail.Content = Content;
 export interface TextFieldProps {
     label?: string;
     value?: string;
-    onChange?: (value: string | undefined) => void;
+    onChange?: (value: string) => void;
 }
 export const TextField: FC<TextFieldProps> = (props: TextFieldProps): ReactNode => {
     return <gauntlet:text_field label={props.label} value={props.value} onChange={props.onChange}></gauntlet:text_field>;
@@ -566,7 +566,7 @@ export const TextField: FC<TextFieldProps> = (props: TextFieldProps): ReactNode 
 export interface PasswordFieldProps {
     label?: string;
     value?: string;
-    onChange?: (value: string | undefined) => void;
+    onChange?: (value: string) => void;
 }
 export const PasswordField: FC<PasswordFieldProps> = (props: PasswordFieldProps): ReactNode => {
     return <gauntlet:password_field label={props.label} value={props.value} onChange={props.onChange}></gauntlet:password_field>;
@@ -591,7 +591,7 @@ export interface SelectProps {
     children?: ElementComponent<typeof SelectItem>;
     label?: string;
     value?: string;
-    onChange?: (value: string | undefined) => void;
+    onChange?: (value: string) => void;
 }
 export const Select: FC<SelectProps> & {
     Item: typeof SelectItem;
@@ -669,7 +669,7 @@ export const TextAccessory: FC<TextAccessoryProps> = (props: TextAccessoryProps)
 export interface SearchBarProps {
     value?: string;
     placeholder?: string;
-    onChange?: (value: string | undefined) => void;
+    onChange?: (value: string) => void;
 }
 export const SearchBar: FC<SearchBarProps> = (props: SearchBarProps): ReactNode => {
     return <gauntlet:search_bar value={props.value} placeholder={props.placeholder} onChange={props.onChange}></gauntlet:search_bar>;
@@ -699,7 +699,7 @@ export interface ListProps {
     children?: ElementComponent<typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
     actions?: ElementComponent<typeof ActionPanel>;
     isLoading?: boolean;
-    onItemFocusChange?: (itemId: string | undefined) => void;
+    onItemFocusChange?: (itemId: string | null) => void;
 }
 export const List: FC<ListProps> & {
     Item: typeof ListItem;
@@ -745,7 +745,7 @@ export interface GridProps {
     isLoading?: boolean;
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
-    onItemFocusChange?: (itemId: string | undefined) => void;
+    onItemFocusChange?: (itemId: string | null) => void;
 }
 export const Grid: FC<GridProps> & {
     Item: typeof GridItem;

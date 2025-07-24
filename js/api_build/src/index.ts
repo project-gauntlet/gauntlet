@@ -270,7 +270,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                                     undefined,
                                     ts.factory.createIdentifier(propName),
                                     undefined,
-                                    makeType(type)
+                                    makeType(type, "no")
                                 )
                             })
                         )
@@ -285,7 +285,7 @@ function makeComponents(modelInput: Component[]): ts.SourceFile {
                         ts.factory.createIdentifier(name),
                         undefined,
                         ts.factory.createUnionTypeNode(
-                            sharedType.items.map(type => makeType(type))
+                            sharedType.items.map(type => makeType(type, "no"))
                         )
                     )
 
@@ -541,8 +541,8 @@ function makePropertyTypes(component: StandardComponent, componentPropsInChildre
             return ts.factory.createPropertySignature(
                 undefined,
                 ts.factory.createIdentifier(property.name),
-                !property.optional ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
-                makeType(property.type)
+                property.optional == "no" ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+                makeType(property.type, property.optional)
             )
         });
 
@@ -633,37 +633,46 @@ function makeChildrenType(type: Children, additionalComponentRefs: ComponentRef[
 }
 
 
-function makeType(type: PropertyType): ts.TypeNode {
+function makeType(type: PropertyType, optional: Property["optional"]): ts.TypeNode {
+    let result: ts.TypeNode
     switch (type.type) {
         case "boolean": {
-            return ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
+            result = ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
+            break;
         }
         case "number": {
-            return ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            result = ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            break;
         }
         case "string": {
-            return ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+            result = ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+            break;
         }
         case "function": {
             const params = type.arguments.map(arg => {
+                if (arg.optional != "no" && arg.optional != "yes") {
+                    throw new Error("following optional type is not supported here: " + arg.optional)
+                }
+
                 return ts.factory.createParameterDeclaration(
                     undefined,
                     undefined,
                     ts.factory.createIdentifier(arg.name),
                     undefined,
-                    !arg.optional ? makeType(arg.type) : ts.factory.createUnionTypeNode([makeType(arg.type), ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword)]),
+                    arg.optional == "no" ? makeType(arg.type, "no") : ts.factory.createUnionTypeNode([makeType(arg.type, arg.optional), ts.factory.createLiteralTypeNode(ts.factory.createNull())]),
                     undefined
                 )
             });
 
-            return ts.factory.createFunctionTypeNode(
+            result = ts.factory.createFunctionTypeNode(
                 undefined,
                 params,
                 ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
             )
+            break;
         }
         case "component": {
-            return ts.factory.createTypeReferenceNode(
+            result = ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier("ElementComponent"),
                 [
                     ts.factory.createTypeQueryNode(
@@ -672,24 +681,33 @@ function makeType(type: PropertyType): ts.TypeNode {
                     )
                 ]
             )
+            break;
         }
         case "array": {
-            return ts.factory.createArrayTypeNode(makeType(type.item))
+            result = ts.factory.createArrayTypeNode(makeType(type.item, "no"))
+            break;
         }
         case "shared_type_ref": {
-            return ts.factory.createTypeReferenceNode(
+            result = ts.factory.createTypeReferenceNode(
                 ts.factory.createIdentifier(type.name),
                 undefined
             )
+            break;
         }
         case "union": {
-            return ts.factory.createUnionTypeNode(type.items.map(value => makeType(value)))
+            result = ts.factory.createUnionTypeNode(type.items.map(value => makeType(value, "no")))
+            break
         }
         default: {
             throw new Error(`unsupported type ${JSON.stringify(type)}`)
         }
     }
 
+    if (optional == "yes_but_complicated") {
+        return ts.factory.createUnionTypeNode([result, ts.factory.createLiteralTypeNode(ts.factory.createNull())]);
+    } else {
+        return result
+    }
 }
 
 function isInProperty(propertyType: PropertyType) {

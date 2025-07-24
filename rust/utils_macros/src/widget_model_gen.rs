@@ -6,6 +6,7 @@ use gauntlet_component_model::Arity;
 use gauntlet_component_model::Children;
 use gauntlet_component_model::Component;
 use gauntlet_component_model::ComponentName;
+use gauntlet_component_model::OptionalKind;
 use gauntlet_component_model::Property;
 use gauntlet_component_model::PropertyKind;
 use gauntlet_component_model::PropertyType;
@@ -422,19 +423,30 @@ pub fn widget_model_gen() -> TokenStream {
 
 fn generate_type(property: &Property, name: &ComponentName) -> proc_macro2::TokenStream {
     match property.optional {
-        true => {
-            generate_optional_type(
-                &property.property_type,
-                format!("{}{}", name, &property.name.to_case(Case::Pascal)),
-            )
-        }
-        false => {
+        OptionalKind::No => {
             generate_required_type(
                 &property.property_type,
                 Some(format!("{}{}", name, &property.name.to_case(Case::Pascal))),
             )
         }
+        OptionalKind::Yes => {
+            generate_optional_type(
+                &property.property_type,
+                format!("{}{}", name, &property.name.to_case(Case::Pascal)),
+            )
+        }
+        OptionalKind::YesButComplicated => {
+            generate_complicated_optional_type(
+                &property.property_type,
+                format!("{}{}", name, &property.name.to_case(Case::Pascal)),
+            )
+        }
     }
+}
+
+fn generate_complicated_optional_type(property_type: &PropertyType, union_name: String) -> proc_macro2::TokenStream {
+    let inner_type = generate_required_type(property_type, Some(union_name));
+    quote!(JsOption<#inner_type>)
 }
 
 fn generate_optional_type(property_type: &PropertyType, union_name: String) -> proc_macro2::TokenStream {
