@@ -30,7 +30,7 @@ export default function ListView(): ReactElement {
     )
 }
 
-function pushPrimaryAction(id: string | undefined, pushView: (component: ReactNode) => void) {
+function pushPrimaryAction(id: string | null, pushView: (component: ReactNode) => void) {
     switch (id) {
         case "UsePromiseTestBasic": {
             pushView(<UsePromiseTestBasic/>)

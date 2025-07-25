@@ -5,7 +5,7 @@ import { Environment } from "@project-gauntlet/api/helpers";
 export default function ListView(): ReactElement {
     const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-    const onClick = (id: string | undefined) => {
+    const onClick = (id: string | null) => {
         if (id == "print-env") {
             console.log(Environment.gauntletVersion);
             console.log(Environment.isDevelopment);

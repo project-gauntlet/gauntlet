@@ -22,7 +22,7 @@ export function ListOfWindows({ windows, focusWindow }: {
                 <ActionPanel>
                     <Action
                         label="Focus window"
-                        onAction={(id: string | undefined) => {
+                        onAction={id => {
                             if (id) {
                                 focusAndSort(id, focusWindow)
                                 return { close: true }
