@@ -11,7 +11,7 @@ export default function Main(): ReactElement {
     );
     
     return (
-        <Grid onItemFocusChange={(id: string | undefined) => console.log("onItemFocusChange", id)}>
+        <Grid onItemFocusChange={(id: string | null) => console.log("onItemFocusChange", id)}>
             <Grid.Item id="adarian" title="Adarian">{content}</Grid.Item>
             <Grid.Item id="aruzan" title="Aruzan">{content}</Grid.Item>
             <Grid.Item id="blutopian" title="Blutopian">{content}</Grid.Item>

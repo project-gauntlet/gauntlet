@@ -2,7 +2,7 @@ import { ReactElement, useState } from "react";
 import { List } from "@project-gauntlet/api/components";
 
 export default function FocusExample(): ReactElement {
-    const [id, setId] = useState<string | undefined>(undefined);
+    const [id, setId] = useState<string | null>(null);
 
     return (
         <List onItemFocusChange={setId}>

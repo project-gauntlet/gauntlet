@@ -2,7 +2,7 @@ import { ReactElement, useState } from "react";
 import { Grid } from "@project-gauntlet/api/components";
 
 export default function FocusExample(): ReactElement {
-    const [id, setId] = useState<string | undefined>(undefined);
+    const [id, setId] = useState<string | null>(null);
 
     const content = (text: string) => (
         <Grid.Item.Content>
