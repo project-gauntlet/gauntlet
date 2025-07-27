@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::SettingsTheme;
 use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
-use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
+use gauntlet_server::global_hotkey::GlobalHotKeyManager;
+use gauntlet_server::plugins::ApplicationManager;
 use gauntlet_utils::channel::RequestResult;
 use iced::Alignment;
 use iced::Font;
@@ -20,15 +22,15 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
 
-use crate::components::shortcut_selector::ShortcutData;
-use crate::components::shortcut_selector::render_shortcut_error;
-use crate::components::shortcut_selector::shortcut_selector;
-use crate::theme::Element;
-use crate::theme::container::ContainerStyle;
-use crate::ui::ManagementAppMsg;
+use crate::ui::settings::components::shortcut_selector::ShortcutData;
+use crate::ui::settings::components::shortcut_selector::render_shortcut_error;
+use crate::ui::settings::components::shortcut_selector::shortcut_selector;
+use crate::ui::settings::theme::Element;
+use crate::ui::settings::theme::container::ContainerStyle;
+use crate::ui::settings::ui::SettingsMsg;
 
-pub struct ManagementAppGeneralState {
-    backend_api: Option<BackendForSettingsApiProxy>,
+pub struct SettingsGeneralState {
+    application_manager: Arc<ApplicationManager>,
     theme: SettingsTheme,
     window_position_mode: WindowPositionMode,
     current_shortcut: ShortcutData,
@@ -36,7 +38,7 @@ pub struct ManagementAppGeneralState {
 }
 
 #[derive(Debug, Clone)]
-pub enum ManagementAppGeneralMsgIn {
+pub enum SettingsGeneralMsgIn {
     ShortcutCaptured(Option<PhysicalShortcut>),
     ThemeChanged(SettingsTheme),
     WindowPositionModeChanged(WindowPositionMode),
@@ -51,19 +53,18 @@ pub enum ManagementAppGeneralMsgIn {
         shortcut_error: Option<String>,
         global_shortcuts_unsupported: bool,
     },
-    Noop,
 }
 
 #[derive(Debug, Clone)]
-pub enum ManagementAppGeneralMsgOut {
-    Inner(ManagementAppGeneralMsgIn),
-    Outer(ManagementAppMsg),
+pub enum SettingsGeneralMsgOut {
+    Inner(SettingsGeneralMsgIn),
+    Outer(SettingsMsg),
 }
 
-impl ManagementAppGeneralState {
-    pub fn new(backend_api: Option<BackendForSettingsApiProxy>) -> Self {
+impl SettingsGeneralState {
+    pub fn new(application_manager: Arc<ApplicationManager>) -> Self {
         Self {
-            backend_api,
+            application_manager,
             theme: SettingsTheme::AutoDetect,
             window_position_mode: WindowPositionMode::Static,
             current_shortcut: ShortcutData {
@@ -74,40 +75,29 @@ impl ManagementAppGeneralState {
         }
     }
 
-    pub fn update(&mut self, message: ManagementAppGeneralMsgIn) -> Task<ManagementAppGeneralMsgOut> {
-        let backend_api = match &self.backend_api {
-            Some(backend_api) => backend_api.clone(),
-            None => return Task::none(),
-        };
-
+    pub fn update(
+        &mut self,
+        global_hotkey_manager: &Option<GlobalHotKeyManager>,
+        message: SettingsGeneralMsgIn,
+    ) -> Task<SettingsGeneralMsgOut> {
         match message {
-            ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut) => {
-                let backend_api = backend_api.clone();
+            SettingsGeneralMsgIn::ShortcutCaptured(shortcut) => {
+                let Some(global_hotkey_manager) = &global_hotkey_manager else {
+                    return Task::none();
+                };
 
-                Task::perform(
-                    {
-                        let shortcut = shortcut.clone();
+                let error = self
+                    .application_manager
+                    .set_global_shortcut(global_hotkey_manager, shortcut.clone());
 
-                        async move {
-                            let error = backend_api.set_global_shortcut(shortcut).await?;
-
-                            Ok(error)
-                        }
+                Task::done(SettingsGeneralMsgOut::Inner(
+                    SettingsGeneralMsgIn::HandleShortcutResponse {
+                        shortcut,
+                        shortcut_error: error,
                     },
-                    move |result| {
-                        let shortcut = shortcut.clone();
-
-                        handle_backend_error(result, move |shortcut_error| {
-                            ManagementAppGeneralMsgOut::Inner(ManagementAppGeneralMsgIn::HandleShortcutResponse {
-                                shortcut,
-                                shortcut_error,
-                            })
-                        })
-                    },
-                )
+                ))
             }
-            ManagementAppGeneralMsgIn::Noop => Task::none(),
-            ManagementAppGeneralMsgIn::InitSetting {
+            SettingsGeneralMsgIn::InitSetting {
                 theme,
                 window_position_mode,
                 shortcut,
@@ -124,39 +114,35 @@ impl ManagementAppGeneralState {
 
                 Task::none()
             }
-            ManagementAppGeneralMsgIn::ThemeChanged(theme) => {
+            SettingsGeneralMsgIn::ThemeChanged(theme) => {
                 self.theme = theme.clone();
 
-                let backend_api = backend_api.clone();
+                let application_manager = self.application_manager.clone();
 
                 Task::perform(
                     async move {
-                        backend_api.set_theme(theme).await?;
+                        application_manager.set_theme(theme).await?;
 
                         Ok(())
                     },
-                    |result| {
-                        handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Outer(ManagementAppMsg::Noop))
-                    },
+                    |result| handle_backend_error(result, |()| SettingsGeneralMsgOut::Outer(SettingsMsg::Noop)),
                 )
             }
-            ManagementAppGeneralMsgIn::WindowPositionModeChanged(mode) => {
+            SettingsGeneralMsgIn::WindowPositionModeChanged(mode) => {
                 self.window_position_mode = mode.clone();
 
-                let backend_api = backend_api.clone();
+                let application_manager = self.application_manager.clone();
 
                 Task::perform(
                     async move {
-                        backend_api.set_window_position_mode(mode).await?;
+                        application_manager.set_window_position_mode(mode).await?;
 
                         Ok(())
                     },
-                    |result| {
-                        handle_backend_error(result, |()| ManagementAppGeneralMsgOut::Outer(ManagementAppMsg::Noop))
-                    },
+                    |result| handle_backend_error(result, |()| SettingsGeneralMsgOut::Outer(SettingsMsg::Noop)),
                 )
             }
-            ManagementAppGeneralMsgIn::HandleShortcutResponse {
+            SettingsGeneralMsgIn::HandleShortcutResponse {
                 shortcut,
                 shortcut_error,
             } => {
@@ -170,7 +156,7 @@ impl ManagementAppGeneralState {
         }
     }
 
-    pub fn view(&self) -> Element<ManagementAppGeneralMsgIn> {
+    pub fn view(&self) -> Element<SettingsGeneralMsgIn> {
         let global_shortcut_selector: Element<_> = if self.global_shortcuts_unsupported {
             let text = text("Not supported").font(Font {
                 style: Style::Italic,
@@ -186,7 +172,7 @@ impl ManagementAppGeneralState {
         } else {
             shortcut_selector(
                 &self.current_shortcut,
-                move |shortcut| ManagementAppGeneralMsgIn::ShortcutCaptured(shortcut),
+                move |shortcut| SettingsGeneralMsgIn::ShortcutCaptured(shortcut),
                 ContainerStyle::Box,
                 false,
             )
@@ -221,7 +207,7 @@ impl ManagementAppGeneralState {
         content
     }
 
-    fn theme_field(&self) -> Element<ManagementAppGeneralMsgIn> {
+    fn theme_field(&self) -> Element<SettingsGeneralMsgIn> {
         let theme_field = match &self.theme {
             SettingsTheme::ThemeFile => {
                 let theme_field: Element<_> = text("Unable to change because theme config file is present ")
@@ -250,7 +236,7 @@ impl ManagementAppGeneralState {
                 ];
 
                 let theme_field: Element<_> = pick_list(theme_items, Some(self.theme.clone()), move |item| {
-                    ManagementAppGeneralMsgIn::ThemeChanged(item)
+                    SettingsGeneralMsgIn::ThemeChanged(item)
                 })
                 .into();
 
@@ -266,11 +252,11 @@ impl ManagementAppGeneralState {
     }
 
     #[allow(unused)]
-    fn window_position_mode_field(&self) -> Element<ManagementAppGeneralMsgIn> {
+    fn window_position_mode_field(&self) -> Element<SettingsGeneralMsgIn> {
         let items = [WindowPositionMode::Static, WindowPositionMode::ActiveMonitor];
 
         let field: Element<_> = pick_list(items, Some(self.window_position_mode.clone()), move |item| {
-            ManagementAppGeneralMsgIn::WindowPositionModeChanged(item)
+            SettingsGeneralMsgIn::WindowPositionModeChanged(item)
         })
         .into();
 
@@ -284,9 +270,9 @@ impl ManagementAppGeneralState {
     fn view_field<'a>(
         &'a self,
         label: &'a str,
-        input: Element<'a, ManagementAppGeneralMsgIn>,
-        after: Option<Element<'a, ManagementAppGeneralMsgIn>>,
-    ) -> Element<'a, ManagementAppGeneralMsgIn> {
+        input: Element<'a, SettingsGeneralMsgIn>,
+        after: Option<Element<'a, SettingsGeneralMsgIn>>,
+    ) -> Element<'a, SettingsGeneralMsgIn> {
         let label: Element<_> = text(label)
             .shaping(Shaping::Advanced)
             .align_x(Horizontal::Right)
@@ -306,7 +292,7 @@ impl ManagementAppGeneralState {
         row
     }
 
-    fn shortcut_capture_after(&self) -> Element<ManagementAppGeneralMsgIn> {
+    fn shortcut_capture_after(&self) -> Element<SettingsGeneralMsgIn> {
         if let Some(current_shortcut_error) = &self.current_shortcut.error {
             let content = render_shortcut_error(current_shortcut_error.clone());
 
@@ -325,10 +311,10 @@ impl ManagementAppGeneralState {
 
 fn handle_backend_error<T>(
     result: RequestResult<T>,
-    convert: impl FnOnce(T) -> ManagementAppGeneralMsgOut,
-) -> ManagementAppGeneralMsgOut {
+    convert: impl FnOnce(T) -> SettingsGeneralMsgOut,
+) -> SettingsGeneralMsgOut {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppGeneralMsgOut::Outer(ManagementAppMsg::HandleBackendError(err)),
+        Err(err) => SettingsGeneralMsgOut::Outer(SettingsMsg::HandleBackendError(err)),
     }
 }

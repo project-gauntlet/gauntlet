@@ -412,7 +412,6 @@ impl DataDbRepository {
     }
 
     pub fn list_plugins_and_entrypoints(&self) -> anyhow::Result<Vec<(DbReadPlugin, Vec<DbReadPluginEntrypoint>)>> {
-        // language=SQLite
         let plugins = self.list_plugins()?;
 
         let result = plugins

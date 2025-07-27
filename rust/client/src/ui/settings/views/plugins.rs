@@ -1,18 +1,16 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
-use gauntlet_common::SETTINGS_ENV;
-use gauntlet_common::SettingsEnvData;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::PluginPreferenceUserData;
 use gauntlet_common::model::SettingsEntrypointType;
 use gauntlet_common::model::SettingsPlugin;
-use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
-use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
-use gauntlet_common::settings_env_data_from_string;
+use gauntlet_server::global_hotkey::GlobalHotKeyManager;
+use gauntlet_server::plugins::ApplicationManager;
 use gauntlet_utils::channel::RequestResult;
 use iced::Alignment;
 use iced::Length;
@@ -30,22 +28,22 @@ use iced::widget::text_input;
 use iced::widget::vertical_rule;
 use iced_fonts::bootstrap::plus;
 
-use crate::theme::Element;
-use crate::theme::button::ButtonStyle;
-use crate::theme::text::TextStyle;
-use crate::ui::ManagementAppMsg;
-use crate::views::plugins::preferences::PluginPreferencesMsg;
-use crate::views::plugins::preferences::SelectItem;
-use crate::views::plugins::preferences::preferences_ui;
-use crate::views::plugins::table::PluginTableMsgIn;
-use crate::views::plugins::table::PluginTableMsgOut;
-use crate::views::plugins::table::PluginTableState;
+use crate::ui::settings::theme::Element;
+use crate::ui::settings::theme::button::ButtonStyle;
+use crate::ui::settings::theme::text::TextStyle;
+use crate::ui::settings::ui::SettingsMsg;
+use crate::ui::settings::views::plugins::preferences::PluginPreferencesMsg;
+use crate::ui::settings::views::plugins::preferences::SelectItem;
+use crate::ui::settings::views::plugins::preferences::preferences_ui;
+use crate::ui::settings::views::plugins::table::PluginTableMsgIn;
+use crate::ui::settings::views::plugins::table::PluginTableMsgOut;
+use crate::ui::settings::views::plugins::table::PluginTableState;
 
 mod preferences;
 mod table;
 
 #[derive(Debug, Clone)]
-pub enum ManagementAppPluginMsgIn {
+pub enum SettingsPluginMsgIn {
     InitSetting {
         global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
         show_global_shortcuts: bool,
@@ -74,13 +72,13 @@ pub enum ManagementAppPluginMsgIn {
     SelectItem(SelectedItem),
 }
 
-pub enum ManagementAppPluginMsgOut {
-    Inner(ManagementAppPluginMsgIn),
-    Outer(ManagementAppMsg),
+pub enum SettingsPluginMsgOut {
+    Inner(SettingsPluginMsgIn),
+    Outer(SettingsMsg),
 }
 
-pub struct ManagementAppPluginsState {
-    backend_api: Option<BackendForSettingsApiProxy>,
+pub struct SettingsPluginsState {
+    application_manager: Arc<ApplicationManager>,
     table_state: PluginTableState,
     plugin_data: Rc<RefCell<PluginDataContainer>>,
     preference_user_data: HashMap<(PluginId, Option<EntrypointId>, String), PluginPreferenceUserDataState>,
@@ -89,52 +87,27 @@ pub struct ManagementAppPluginsState {
     entrypoint_search_aliases: HashMap<(PluginId, EntrypointId), String>,
 }
 
-impl ManagementAppPluginsState {
-    pub fn new(backend_api: Option<BackendForSettingsApiProxy>) -> Self {
-        let settings_env_data = std::env::var(SETTINGS_ENV)
-            .ok()
-            .filter(|value| !value.is_empty())
-            .map(|val| settings_env_data_from_string(val));
-
-        let select_item = match settings_env_data {
-            None => SelectedItem::None,
-            Some(SettingsEnvData::OpenEntrypointPreferences {
-                plugin_id,
-                entrypoint_id,
-            }) => {
-                SelectedItem::Entrypoint {
-                    plugin_id: PluginId::from_string(plugin_id),
-                    entrypoint_id: EntrypointId::from_string(entrypoint_id),
-                }
-            }
-            Some(SettingsEnvData::OpenPluginPreferences { plugin_id }) => {
-                SelectedItem::Plugin {
-                    plugin_id: PluginId::from_string(plugin_id),
-                }
-            }
-        };
-
-        tracing::debug!("Opening selected item: {:?}", select_item);
-
+impl SettingsPluginsState {
+    pub fn new(application_manager: Arc<ApplicationManager>) -> Self {
         Self {
-            backend_api: backend_api.clone(),
+            application_manager: application_manager.clone(),
             plugin_data: Rc::new(RefCell::new(PluginDataContainer::new())),
             preference_user_data: HashMap::new(),
-            selected_item: select_item,
+            selected_item: SelectedItem::None,
             table_state: PluginTableState::new(),
             global_entrypoint_shortcuts: HashMap::new(),
             entrypoint_search_aliases: HashMap::new(),
         }
     }
 
-    pub fn update(&mut self, message: ManagementAppPluginMsgIn) -> Task<ManagementAppPluginMsgOut> {
-        let backend_api = match &self.backend_api {
-            Some(backend_api) => backend_api.clone(),
-            None => return Task::none(),
-        };
-
+    pub fn update(
+        &mut self,
+        global_hotkey_manager: &Option<GlobalHotKeyManager>,
+        message: SettingsPluginMsgIn,
+    ) -> Task<SettingsPluginMsgOut> {
+        let application_manager = self.application_manager.clone();
         match message {
-            ManagementAppPluginMsgIn::InitSetting {
+            SettingsPluginMsgIn::InitSetting {
                 global_entrypoint_shortcuts,
                 show_global_shortcuts,
             } => {
@@ -143,156 +116,162 @@ impl ManagementAppPluginsState {
 
                 Task::none()
             }
-            ManagementAppPluginMsgIn::PluginTableMsg(message) => {
-                self.table_state.update(message).then(move |msg| {
-                    match msg {
-                        PluginTableMsgOut::SetPluginState { enabled, plugin_id } => {
-                            let backend_client = backend_api.clone();
+            SettingsPluginMsgIn::PluginTableMsg(message) => {
+                let application_manager = application_manager.clone();
+                match self.table_state.update(message) {
+                    PluginTableMsgOut::SetPluginState { enabled, plugin_id } => {
+                        let application_manager = application_manager.clone();
 
-                            Task::perform(
-                                async move {
-                                    backend_client.set_plugin_state(plugin_id, enabled).await?;
+                        Task::perform(
+                            async move {
+                                application_manager.set_plugin_state(plugin_id, enabled)?;
 
-                                    let plugins = backend_client.plugins().await?;
-                                    let global_entrypoint_shortcuts =
-                                        backend_client.get_global_entrypoint_shortcuts().await?;
-                                    let entrypoint_aliases = backend_client.get_entrypoint_search_aliases().await?;
+                                let plugins = application_manager.plugins()?;
+                                let global_entrypoint_shortcuts =
+                                    application_manager.get_global_entrypoint_shortcuts()?;
+                                let entrypoint_aliases = application_manager.get_entrypoint_search_aliases()?;
 
-                                    Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
-                                },
-                                |result| {
-                                    handle_backend_error(
-                                        result,
-                                        |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
-                                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
-                                                plugins,
-                                                global_entrypoint_shortcuts,
-                                                entrypoint_aliases,
-                                            ))
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                        PluginTableMsgOut::SetEntrypointState {
-                            enabled,
+                                Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
+                            },
+                            |result| {
+                                handle_backend_error(
+                                    result,
+                                    |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
+                                        SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::PluginsReloaded(
+                                            plugins,
+                                            global_entrypoint_shortcuts,
+                                            entrypoint_aliases,
+                                        ))
+                                    },
+                                )
+                            },
+                        )
+                    }
+                    PluginTableMsgOut::SetEntrypointState {
+                        enabled,
+                        plugin_id,
+                        entrypoint_id,
+                    } => {
+                        let application_manager = application_manager.clone();
+
+                        Task::perform(
+                            async move {
+                                application_manager.set_entrypoint_state(plugin_id, entrypoint_id, enabled)?;
+
+                                let plugins = application_manager.plugins()?;
+                                let global_entrypoint_shortcuts =
+                                    application_manager.get_global_entrypoint_shortcuts()?;
+                                let entrypoint_aliases = application_manager.get_entrypoint_search_aliases()?;
+
+                                Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
+                            },
+                            |result| {
+                                handle_backend_error(
+                                    result,
+                                    |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
+                                        SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::PluginsReloaded(
+                                            plugins,
+                                            global_entrypoint_shortcuts,
+                                            entrypoint_aliases,
+                                        ))
+                                    },
+                                )
+                            },
+                        )
+                    }
+                    PluginTableMsgOut::SelectItem(selected_item) => {
+                        Task::done(SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::SelectItem(
+                            selected_item,
+                        )))
+                    }
+                    PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
+                        Task::done(SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::ToggleShowEntrypoint {
                             plugin_id,
-                            entrypoint_id,
-                        } => {
-                            let backend_client = backend_api.clone();
+                        }))
+                    }
+                    PluginTableMsgOut::ToggleShowGeneratedEntrypoints {
+                        plugin_id,
+                        entrypoint_id,
+                    } => {
+                        Task::done(SettingsPluginMsgOut::Inner(
+                            SettingsPluginMsgIn::ToggleShowGeneratedEntrypoint {
+                                plugin_id,
+                                entrypoint_id,
+                            },
+                        ))
+                    }
+                    PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut) => {
+                        let Some(global_hotkey_manager) = &global_hotkey_manager else {
+                            return Task::none();
+                        };
 
-                            Task::perform(
-                                async move {
-                                    backend_client
-                                        .set_entrypoint_state(plugin_id, entrypoint_id, enabled)
-                                        .await?;
+                        fn run(
+                            application_manager: &ApplicationManager,
+                            global_hotkey_manager: &GlobalHotKeyManager,
+                            plugin_id: PluginId,
+                            entrypoint_id: EntrypointId,
+                            shortcut: Option<PhysicalShortcut>,
+                        ) -> anyhow::Result<SettingsPluginMsgOut> {
+                            application_manager.set_global_entrypoint_shortcut(
+                                global_hotkey_manager,
+                                plugin_id,
+                                entrypoint_id,
+                                shortcut,
+                            )?;
 
-                                    let plugins = backend_client.plugins().await?;
-                                    let global_entrypoint_shortcuts =
-                                        backend_client.get_global_entrypoint_shortcuts().await?;
-                                    let entrypoint_aliases = backend_client.get_entrypoint_search_aliases().await?;
+                            let plugins = application_manager.plugins()?;
+                            let global_entrypoint_shortcuts = application_manager.get_global_entrypoint_shortcuts()?;
+                            let entrypoint_aliases = application_manager.get_entrypoint_search_aliases()?;
 
-                                    Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
-                                },
-                                |result| {
-                                    handle_backend_error(
-                                        result,
-                                        |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
-                                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
-                                                plugins,
-                                                global_entrypoint_shortcuts,
-                                                entrypoint_aliases,
-                                            ))
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                        PluginTableMsgOut::SelectItem(selected_item) => {
-                            Task::done(ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::SelectItem(
-                                selected_item,
+                            Ok(SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::PluginsReloaded(
+                                plugins,
+                                global_entrypoint_shortcuts,
+                                entrypoint_aliases,
                             )))
                         }
-                        PluginTableMsgOut::ToggleShowEntrypoints { plugin_id } => {
-                            Task::done(ManagementAppPluginMsgOut::Inner(
-                                ManagementAppPluginMsgIn::ToggleShowEntrypoint { plugin_id },
-                            ))
-                        }
-                        PluginTableMsgOut::ToggleShowGeneratedEntrypoints {
+
+                        let msg_out = run(
+                            &application_manager,
+                            global_hotkey_manager,
                             plugin_id,
                             entrypoint_id,
-                        } => {
-                            Task::done(ManagementAppPluginMsgOut::Inner(
-                                ManagementAppPluginMsgIn::ToggleShowGeneratedEntrypoint {
-                                    plugin_id,
-                                    entrypoint_id,
-                                },
-                            ))
-                        }
-                        PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut) => {
-                            let backend_client = backend_api.clone();
+                            shortcut,
+                        )
+                        .unwrap_or_else(|err| SettingsPluginMsgOut::Outer(SettingsMsg::HandleBackendError(err.into())));
 
-                            Task::perform(
-                                async move {
-                                    backend_client
-                                        .set_global_entrypoint_shortcut(plugin_id, entrypoint_id, shortcut)
-                                        .await?;
-
-                                    let plugins = backend_client.plugins().await?;
-                                    let global_entrypoint_shortcuts =
-                                        backend_client.get_global_entrypoint_shortcuts().await?;
-                                    let entrypoint_aliases = backend_client.get_entrypoint_search_aliases().await?;
-
-                                    Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
-                                },
-                                |result| {
-                                    handle_backend_error(
-                                        result,
-                                        |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
-                                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
-                                                plugins,
-                                                global_entrypoint_shortcuts,
-                                                entrypoint_aliases,
-                                            ))
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                        PluginTableMsgOut::AliasChanged(plugin_id, entrypoint_id, shortcut) => {
-                            let backend_client = backend_api.clone();
-
-                            Task::perform(
-                                async move {
-                                    backend_client
-                                        .set_entrypoint_search_alias(plugin_id, entrypoint_id, shortcut)
-                                        .await?;
-
-                                    let plugins = backend_client.plugins().await?;
-                                    let global_entrypoint_shortcuts =
-                                        backend_client.get_global_entrypoint_shortcuts().await?;
-                                    let entrypoint_aliases = backend_client.get_entrypoint_search_aliases().await?;
-
-                                    Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
-                                },
-                                |result| {
-                                    handle_backend_error(
-                                        result,
-                                        |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
-                                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
-                                                plugins,
-                                                global_entrypoint_shortcuts,
-                                                entrypoint_aliases,
-                                            ))
-                                        },
-                                    )
-                                },
-                            )
-                        }
+                        Task::done(msg_out)
                     }
-                })
+                    PluginTableMsgOut::AliasChanged(plugin_id, entrypoint_id, shortcut) => {
+                        let application_manager = application_manager.clone();
+
+                        Task::perform(
+                            async move {
+                                application_manager.set_entrypoint_search_alias(plugin_id, entrypoint_id, shortcut)?;
+
+                                let plugins = application_manager.plugins()?;
+                                let global_entrypoint_shortcuts =
+                                    application_manager.get_global_entrypoint_shortcuts()?;
+                                let entrypoint_aliases = application_manager.get_entrypoint_search_aliases()?;
+
+                                Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
+                            },
+                            |result| {
+                                handle_backend_error(
+                                    result,
+                                    |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
+                                        SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::PluginsReloaded(
+                                            plugins,
+                                            global_entrypoint_shortcuts,
+                                            entrypoint_aliases,
+                                        ))
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
             }
-            ManagementAppPluginMsgIn::ToggleShowEntrypoint { plugin_id } => {
+            SettingsPluginMsgIn::ToggleShowEntrypoint { plugin_id } => {
                 let plugins = {
                     let mut plugin_data = self.plugin_data.borrow_mut();
                     let settings_plugin_data = plugin_data.plugins_state.get_mut(&plugin_id).unwrap();
@@ -309,7 +288,7 @@ impl ManagementAppPluginsState {
 
                 Task::none()
             }
-            ManagementAppPluginMsgIn::ToggleShowGeneratedEntrypoint {
+            SettingsPluginMsgIn::ToggleShowGeneratedEntrypoint {
                 plugin_id,
                 entrypoint_id,
             } => {
@@ -334,7 +313,7 @@ impl ManagementAppPluginsState {
 
                 Task::none()
             }
-            ManagementAppPluginMsgIn::PluginPreferenceMsg(msg) => {
+            SettingsPluginMsgIn::PluginPreferenceMsg(msg) => {
                 match msg {
                     PluginPreferencesMsg::UpdatePreferenceValue {
                         plugin_id,
@@ -347,39 +326,38 @@ impl ManagementAppPluginsState {
                             user_data.clone(),
                         );
 
-                        let backend_api = backend_api.clone();
+                        let application_manager = application_manager.clone();
 
                         Task::perform(
                             async move {
-                                backend_api
-                                    .set_preference_value(plugin_id, entrypoint_id, id, user_data.to_user_data())
-                                    .await?;
+                                application_manager.set_preference_value(
+                                    plugin_id,
+                                    entrypoint_id,
+                                    id,
+                                    user_data.to_user_data(),
+                                )?;
 
                                 Ok(())
                             },
-                            |result| {
-                                handle_backend_error(result, |()| {
-                                    ManagementAppPluginMsgOut::Outer(ManagementAppMsg::Noop)
-                                })
-                            },
+                            |result| handle_backend_error(result, |()| SettingsPluginMsgOut::Outer(SettingsMsg::Noop)),
                         )
                     }
                 }
             }
-            ManagementAppPluginMsgIn::FetchPlugins => {
-                let backend_api = backend_api.clone();
+            SettingsPluginMsgIn::FetchPlugins => {
+                let application_manager = self.application_manager.clone();
 
                 Task::perform(
                     async move {
-                        let plugins = backend_api.plugins().await?;
-                        let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
-                        let entrypoint_aliases = backend_api.get_entrypoint_search_aliases().await?;
+                        let plugins = application_manager.plugins()?;
+                        let global_entrypoint_shortcuts = application_manager.get_global_entrypoint_shortcuts()?;
+                        let entrypoint_aliases = application_manager.get_entrypoint_search_aliases()?;
 
                         Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
                     },
                     |result| {
                         handle_backend_error(result, |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
-                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                            SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::PluginsReloaded(
                                 plugins,
                                 global_entrypoint_shortcuts,
                                 entrypoint_aliases,
@@ -388,29 +366,29 @@ impl ManagementAppPluginsState {
                     },
                 )
             }
-            ManagementAppPluginMsgIn::PluginsReloaded(plugins, shortcuts, entrypoint_aliases) => {
+            SettingsPluginMsgIn::PluginsReloaded(plugins, shortcuts, entrypoint_aliases) => {
                 self.apply_plugin_fetch(plugins, shortcuts, entrypoint_aliases);
 
                 Task::none()
             }
-            ManagementAppPluginMsgIn::RemovePlugin { plugin_id } => {
+            SettingsPluginMsgIn::RemovePlugin { plugin_id } => {
                 self.selected_item = SelectedItem::None;
 
-                let backend_client = backend_api.clone();
+                let application_manager = application_manager.clone();
 
                 Task::perform(
                     async move {
-                        backend_client.remove_plugin(plugin_id).await?;
+                        application_manager.remove_plugin(plugin_id)?;
 
-                        let plugins = backend_client.plugins().await?;
-                        let global_entrypoint_shortcuts = backend_client.get_global_entrypoint_shortcuts().await?;
-                        let entrypoint_aliases = backend_client.get_entrypoint_search_aliases().await?;
+                        let plugins = application_manager.plugins()?;
+                        let global_entrypoint_shortcuts = application_manager.get_global_entrypoint_shortcuts()?;
+                        let entrypoint_aliases = application_manager.get_entrypoint_search_aliases()?;
 
                         Ok((plugins, global_entrypoint_shortcuts, entrypoint_aliases))
                     },
                     |result| {
                         handle_backend_error(result, |(plugins, global_entrypoint_shortcuts, entrypoint_aliases)| {
-                            ManagementAppPluginMsgOut::Inner(ManagementAppPluginMsgIn::PluginsReloaded(
+                            SettingsPluginMsgOut::Inner(SettingsPluginMsgIn::PluginsReloaded(
                                 plugins,
                                 global_entrypoint_shortcuts,
                                 entrypoint_aliases,
@@ -419,12 +397,10 @@ impl ManagementAppPluginsState {
                     },
                 )
             }
-            ManagementAppPluginMsgIn::DownloadPlugin { plugin_id } => {
-                Task::done(ManagementAppPluginMsgOut::Outer(ManagementAppMsg::DownloadPlugin {
-                    plugin_id,
-                }))
+            SettingsPluginMsgIn::DownloadPlugin { plugin_id } => {
+                Task::done(SettingsPluginMsgOut::Outer(SettingsMsg::DownloadPlugin { plugin_id }))
             }
-            ManagementAppPluginMsgIn::SelectItem(selected_item) => {
+            SettingsPluginMsgIn::SelectItem(selected_item) => {
                 self.selected_item = selected_item;
 
                 Task::none()
@@ -522,11 +498,11 @@ impl ManagementAppPluginsState {
         )
     }
 
-    pub fn view(&self) -> Element<ManagementAppPluginMsgIn> {
+    pub fn view(&self) -> Element<SettingsPluginMsgIn> {
         let table: Element<_> = self
             .table_state
             .view()
-            .map(|msg| ManagementAppPluginMsgIn::PluginTableMsg(msg));
+            .map(|msg| SettingsPluginMsgIn::PluginTableMsg(msg));
 
         let table: Element<_> = container(table).padding(Padding::new(8.0)).into();
 
@@ -593,7 +569,7 @@ impl ManagementAppPluginsState {
 
                         column_content.push(
                             preferences_ui(plugin_id.clone(), None, &plugin.preferences, &self.preference_user_data)
-                                .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg)),
+                                .map(|msg| SettingsPluginMsgIn::PluginPreferenceMsg(msg)),
                         );
 
                         let content: Element<_> = column(column_content).spacing(12).into();
@@ -614,7 +590,7 @@ impl ManagementAppPluginsState {
                             let check_for_updates_button: Element<_> = button(check_for_updates_text_container)
                                 .width(Length::Fill)
                                 .class(ButtonStyle::Primary)
-                                .on_press(ManagementAppPluginMsgIn::DownloadPlugin {
+                                .on_press(SettingsPluginMsgIn::DownloadPlugin {
                                     plugin_id: plugin.plugin_id.clone(),
                                 })
                                 .into();
@@ -632,7 +608,7 @@ impl ManagementAppPluginsState {
                             let remove_button: Element<_> = button(remove_button_text_container)
                                 .width(Length::Fill)
                                 .class(ButtonStyle::Destructive)
-                                .on_press(ManagementAppPluginMsgIn::RemovePlugin {
+                                .on_press(SettingsPluginMsgIn::RemovePlugin {
                                     plugin_id: plugin.plugin_id.clone(),
                                 })
                                 .into();
@@ -699,7 +675,7 @@ impl ManagementAppPluginsState {
                                 &entrypoint.preferences,
                                 &self.preference_user_data,
                             )
-                            .map(|msg| ManagementAppPluginMsgIn::PluginPreferenceMsg(msg)),
+                            .map(|msg| SettingsPluginMsgIn::PluginPreferenceMsg(msg)),
                         );
 
                         let column: Element<_> = column(column_content).spacing(12).into();
@@ -717,9 +693,9 @@ impl ManagementAppPluginsState {
             SelectedItem::NewPlugin { repository_url } => {
                 let url_input: Element<_> = text_input("Enter Git Repository URL", &repository_url)
                     .on_input(|value| {
-                        ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: value })
+                        SettingsPluginMsgIn::SelectItem(SelectedItem::NewPlugin { repository_url: value })
                     })
-                    .on_submit(ManagementAppPluginMsgIn::DownloadPlugin {
+                    .on_submit(SettingsPluginMsgIn::DownloadPlugin {
                         plugin_id: PluginId::from_string(repository_url),
                     })
                     .into();
@@ -805,12 +781,12 @@ impl ManagementAppPluginsState {
 
         let top_button_action = match plugin_url {
             Some(plugin_url) => {
-                ManagementAppPluginMsgIn::DownloadPlugin {
+                SettingsPluginMsgIn::DownloadPlugin {
                     plugin_id: PluginId::from_string(plugin_url),
                 }
             }
             None => {
-                ManagementAppPluginMsgIn::SelectItem(SelectedItem::NewPlugin {
+                SettingsPluginMsgIn::SelectItem(SelectedItem::NewPlugin {
                     repository_url: Default::default(),
                 })
             }
@@ -960,10 +936,10 @@ impl PluginPreferenceUserDataState {
 
 pub fn handle_backend_error<T>(
     result: RequestResult<T>,
-    convert: impl FnOnce(T) -> ManagementAppPluginMsgOut,
-) -> ManagementAppPluginMsgOut {
+    convert: impl FnOnce(T) -> SettingsPluginMsgOut,
+) -> SettingsPluginMsgOut {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppPluginMsgOut::Outer(ManagementAppMsg::HandleBackendError(err)),
+        Err(err) => SettingsPluginMsgOut::Outer(SettingsMsg::HandleBackendError(err)),
     }
 }

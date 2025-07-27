@@ -3,12 +3,12 @@ use iced::widget::checkbox;
 use iced::widget::checkbox::Status;
 use iced::widget::checkbox::Style;
 
-use crate::theme::BACKGROUND_DARKER;
-use crate::theme::BACKGROUND_DARKEST;
-use crate::theme::BACKGROUND_LIGHTER;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::PRIMARY;
-use crate::theme::PRIMARY_HOVERED;
+use crate::ui::settings::theme::BACKGROUND_DARKER;
+use crate::ui::settings::theme::BACKGROUND_DARKEST;
+use crate::ui::settings::theme::BACKGROUND_LIGHTER;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::PRIMARY;
+use crate::ui::settings::theme::PRIMARY_HOVERED;
 
 impl checkbox::Catalog for GauntletSettingsTheme {
     type Class<'a> = ();

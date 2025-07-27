@@ -3,16 +3,16 @@ use iced::widget::button;
 use iced::widget::button::Status;
 use iced::widget::button::Style;
 
-use crate::theme::BACKGROUND_DARKER;
-use crate::theme::BACKGROUND_LIGHTER;
-use crate::theme::BUTTON_BORDER_RADIUS;
-use crate::theme::DANGER;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::PRIMARY;
-use crate::theme::PRIMARY_HOVERED;
-use crate::theme::SUCCESS;
-use crate::theme::TEXT_DARKEST;
-use crate::theme::TEXT_LIGHTEST;
+use crate::ui::settings::theme::BACKGROUND_DARKER;
+use crate::ui::settings::theme::BACKGROUND_LIGHTER;
+use crate::ui::settings::theme::BUTTON_BORDER_RADIUS;
+use crate::ui::settings::theme::DANGER;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::PRIMARY;
+use crate::ui::settings::theme::PRIMARY_HOVERED;
+use crate::ui::settings::theme::SUCCESS;
+use crate::ui::settings::theme::TEXT_DARKEST;
+use crate::ui::settings::theme::TEXT_LIGHTEST;
 
 pub enum ButtonStyle {
     Primary,

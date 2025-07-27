@@ -4,7 +4,6 @@ edition.workspace = true
 
 [dependencies]
 # workspaces
-gauntlet-management-client.workspace = true
 gauntlet-client.workspace = true
 gauntlet-server.workspace = true
 gauntlet-plugin-runtime.workspace = true

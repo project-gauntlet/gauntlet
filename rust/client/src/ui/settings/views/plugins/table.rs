@@ -9,7 +9,6 @@ use gauntlet_common::model::SettingsEntrypointType;
 use gauntlet_common::model::SettingsPlugin;
 use iced::Alignment;
 use iced::Length;
-use iced::Task;
 use iced::advanced::text::Shaping;
 use iced::padding;
 use iced::widget::Space;
@@ -25,15 +24,15 @@ use iced::widget::text_input;
 use iced_fonts::bootstrap::caret_down;
 use iced_fonts::bootstrap::caret_right;
 
-use crate::components::shortcut_selector::ShortcutData;
-use crate::components::shortcut_selector::shortcut_selector;
-use crate::theme::Element;
-use crate::theme::button::ButtonStyle;
-use crate::theme::container::ContainerStyle;
-use crate::theme::text_input::TextInputStyle;
-use crate::views::plugins::PluginDataContainer;
-use crate::views::plugins::SelectedItem;
-use crate::views::plugins::SettingsPluginData;
+use crate::ui::settings::components::shortcut_selector::ShortcutData;
+use crate::ui::settings::components::shortcut_selector::shortcut_selector;
+use crate::ui::settings::theme::Element;
+use crate::ui::settings::theme::button::ButtonStyle;
+use crate::ui::settings::theme::container::ContainerStyle;
+use crate::ui::settings::theme::text_input::TextInputStyle;
+use crate::ui::settings::views::plugins::PluginDataContainer;
+use crate::ui::settings::views::plugins::SelectedItem;
+use crate::ui::settings::views::plugins::SettingsPluginData;
 
 #[derive(Debug, Clone)]
 pub enum PluginTableMsgIn {
@@ -85,47 +84,47 @@ impl PluginTableState {
         }
     }
 
-    pub fn update(&mut self, message: PluginTableMsgIn) -> Task<PluginTableMsgOut> {
+    pub fn update(&mut self, message: PluginTableMsgIn) -> PluginTableMsgOut {
         match message {
             PluginTableMsgIn::EnabledToggleItem(item) => {
                 match item {
                     EnabledItem::Plugin { enabled, plugin_id } => {
-                        Task::done(PluginTableMsgOut::SetPluginState { enabled, plugin_id })
+                        PluginTableMsgOut::SetPluginState { enabled, plugin_id }
                     }
                     EnabledItem::Entrypoint {
                         enabled,
                         plugin_id,
                         entrypoint_id,
                     } => {
-                        Task::done(PluginTableMsgOut::SetEntrypointState {
+                        PluginTableMsgOut::SetEntrypointState {
                             enabled,
                             plugin_id,
                             entrypoint_id,
-                        })
+                        }
                     }
                 }
             }
-            PluginTableMsgIn::SelectItem(item) => Task::done(PluginTableMsgOut::SelectItem(item)),
+            PluginTableMsgIn::SelectItem(item) => PluginTableMsgOut::SelectItem(item),
             PluginTableMsgIn::ToggleShowEntrypoints { plugin_id } => {
-                Task::done(PluginTableMsgOut::ToggleShowEntrypoints { plugin_id })
+                PluginTableMsgOut::ToggleShowEntrypoints { plugin_id }
             }
             PluginTableMsgIn::ToggleShowGeneratedEntrypoints {
                 plugin_id,
                 entrypoint_id,
             } => {
-                Task::done(PluginTableMsgOut::ToggleShowGeneratedEntrypoints {
+                PluginTableMsgOut::ToggleShowGeneratedEntrypoints {
                     plugin_id,
                     entrypoint_id,
-                })
+                }
             }
             PluginTableMsgIn::ShortcutCaptured(plugin_id, entrypoint_id, shortcut) => {
-                Task::done(PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut))
+                PluginTableMsgOut::ShortcutCaptured(plugin_id, entrypoint_id, shortcut)
             }
             PluginTableMsgIn::AliasChanged(plugin_id, entrypoint_id, alias) => {
                 let alias = alias.trim().to_owned();
                 let alias = if alias.is_empty() { None } else { Some(alias) };
 
-                Task::done(PluginTableMsgOut::AliasChanged(plugin_id, entrypoint_id, alias))
+                PluginTableMsgOut::AliasChanged(plugin_id, entrypoint_id, alias)
             }
         }
     }

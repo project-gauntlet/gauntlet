@@ -33,10 +33,10 @@ use iced::widget::tooltip;
 use iced::widget::tooltip::Position;
 use iced_fonts::bootstrap::exclamation_triangle_fill;
 
-use crate::theme::Element;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::container::ContainerStyle;
-use crate::theme::text::TextStyle;
+use crate::ui::settings::theme::Element;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::container::ContainerStyle;
+use crate::ui::settings::theme::text::TextStyle;
 
 pub struct ShortcutData {
     pub shortcut: Option<PhysicalShortcut>,

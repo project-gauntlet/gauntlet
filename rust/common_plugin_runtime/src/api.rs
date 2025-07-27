@@ -35,6 +35,7 @@ pub trait BackendForPluginRuntimeApi {
     async fn ui_update_loading_bar(&self, entrypoint_id: EntrypointId, show: bool) -> RequestResult<()>;
     async fn ui_show_hud(&self, display: String) -> RequestResult<()>;
     async fn ui_hide_window(&self) -> RequestResult<()>;
+    async fn ui_show_settings(&self) -> RequestResult<()>;
     async fn ui_get_action_id_for_shortcut(
         &self,
         entrypoint_id: EntrypointId,

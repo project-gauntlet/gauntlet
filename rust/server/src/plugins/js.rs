@@ -961,6 +961,12 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
         Ok(())
     }
 
+    async fn ui_show_settings(&self) -> RequestResult<()> {
+        self.frontend_api.show_settings().await?;
+
+        Ok(())
+    }
+
     async fn ui_get_action_id_for_shortcut(
         &self,
         entrypoint_id: EntrypointId,

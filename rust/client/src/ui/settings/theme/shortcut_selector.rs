@@ -1,14 +1,14 @@
 use iced::Border;
 use iced::widget::container::Style;
 
-use crate::components::shortcut_selector;
-use crate::components::shortcut_selector::Status;
-use crate::theme::BACKGROUND_DARKER;
-use crate::theme::BACKGROUND_LIGHTER;
-use crate::theme::BUTTON_BORDER_RADIUS;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::PRIMARY;
-use crate::theme::TRANSPARENT;
+use crate::ui::settings::components::shortcut_selector;
+use crate::ui::settings::components::shortcut_selector::Status;
+use crate::ui::settings::theme::BACKGROUND_DARKER;
+use crate::ui::settings::theme::BACKGROUND_LIGHTER;
+use crate::ui::settings::theme::BUTTON_BORDER_RADIUS;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::PRIMARY;
+use crate::ui::settings::theme::TRANSPARENT;
 
 impl shortcut_selector::Catalog for GauntletSettingsTheme {
     type Class<'a> = ();

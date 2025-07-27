@@ -4,14 +4,14 @@ use iced::widget::text_input;
 use iced::widget::text_input::Status;
 use iced::widget::text_input::Style;
 
-use crate::theme::BACKGROUND_DARKER;
-use crate::theme::BACKGROUND_LIGHTER;
-use crate::theme::BACKGROUND_LIGHTEST;
-use crate::theme::BUTTON_BORDER_RADIUS;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::TEXT_DARKER;
-use crate::theme::TEXT_LIGHTEST;
-use crate::theme::TRANSPARENT;
+use crate::ui::settings::theme::BACKGROUND_DARKER;
+use crate::ui::settings::theme::BACKGROUND_LIGHTER;
+use crate::ui::settings::theme::BACKGROUND_LIGHTEST;
+use crate::ui::settings::theme::BUTTON_BORDER_RADIUS;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::TEXT_DARKER;
+use crate::ui::settings::theme::TEXT_LIGHTEST;
+use crate::ui::settings::theme::TRANSPARENT;
 
 pub enum TextInputStyle {
     FormInput,

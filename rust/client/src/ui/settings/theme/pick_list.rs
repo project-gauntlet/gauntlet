@@ -2,14 +2,14 @@ use iced::Border;
 use iced::overlay;
 use iced::widget::pick_list;
 
-use crate::theme::BACKGROUND_DARKER;
-use crate::theme::BACKGROUND_DARKEST;
-use crate::theme::BUTTON_BORDER_RADIUS;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::PRIMARY;
-use crate::theme::PRIMARY_HOVERED;
-use crate::theme::TEXT_DARKEST;
-use crate::theme::TEXT_LIGHTEST;
+use crate::ui::settings::theme::BACKGROUND_DARKER;
+use crate::ui::settings::theme::BACKGROUND_DARKEST;
+use crate::ui::settings::theme::BUTTON_BORDER_RADIUS;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::PRIMARY;
+use crate::ui::settings::theme::PRIMARY_HOVERED;
+use crate::ui::settings::theme::TEXT_DARKEST;
+use crate::ui::settings::theme::TEXT_LIGHTEST;
 
 impl pick_list::Catalog for GauntletSettingsTheme {
     type Class<'a> = ();

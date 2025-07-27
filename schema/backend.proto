@@ -4,9 +4,6 @@ service RpcBackend {
   // cli
   rpc BackendForCliApi(RpcBincode) returns (RpcBincode);
 
-  // settings
-  rpc BackendForSettingsApi(RpcBincode) returns (RpcBincode);
-
   // dev tools, screenshot gen
   rpc SaveLocalPlugin (RpcSaveLocalPluginRequest) returns (RpcSaveLocalPluginResponse);
 }

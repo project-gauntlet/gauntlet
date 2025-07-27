@@ -4500,7 +4500,6 @@ dependencies = [
  "clap",
  "gauntlet-client",
  "gauntlet-common",
- "gauntlet-management-client",
  "gauntlet-plugin-runtime",
  "gauntlet-server",
  "gauntlet-utils",
@@ -4596,21 +4595,6 @@ dependencies = [
  "indexmap 2.9.0",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "gauntlet-management-client"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gauntlet-common",
- "gauntlet-common-ui",
- "gauntlet-utils",
- "iced",
- "iced_fonts",
- "itertools 0.13.0",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

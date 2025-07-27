@@ -32,6 +32,8 @@ pub trait FrontendApi {
 
     async fn hide_window(&self) -> RequestResult<()>;
 
+    async fn show_settings(&self) -> RequestResult<()>;
+
     async fn show_preference_required_view(
         &self,
         plugin_id: PluginId,

@@ -1,29 +1,23 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
-use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
-use gauntlet_common::model::SettingsTheme;
-use gauntlet_common::model::WindowPositionMode;
-use gauntlet_common::rpc::backend_api::BackendForSettingsApi;
-use gauntlet_common::rpc::backend_api::BackendForSettingsApiProxy;
-use gauntlet_common::rpc::backend_api::GrpcBackendApi;
 use gauntlet_common_ui::padding;
+use gauntlet_server::global_hotkey::GlobalHotKeyManager;
+use gauntlet_server::plugins::ApplicationManager;
 use gauntlet_utils::channel::RequestError;
 use gauntlet_utils::channel::RequestResult;
 use iced::Alignment;
 use iced::Length;
 use iced::Padding;
-use iced::Renderer;
 use iced::Size;
 use iced::Subscription;
 use iced::Task;
 use iced::advanced::text::Shaping;
 use iced::alignment;
-use iced::font;
-use iced::futures;
 use iced::padding;
 use iced::time;
 use iced::widget::button;
@@ -37,54 +31,73 @@ use iced::widget::scrollable;
 use iced::widget::stack;
 use iced::widget::text;
 use iced::window;
-use iced_fonts::BOOTSTRAP_FONT_BYTES;
 use iced_fonts::bootstrap::exclamation_triangle_fill;
 use iced_fonts::bootstrap::gear_fill;
 use iced_fonts::bootstrap::patch_check_fill;
 use iced_fonts::bootstrap::puzzle_fill;
 use itertools::Itertools;
 
-use crate::components::spinner::Spinner;
-use crate::theme::Element;
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::button::ButtonStyle;
-use crate::theme::container::ContainerStyle;
-use crate::theme::text::TextStyle;
-use crate::views::general::ManagementAppGeneralMsgIn;
-use crate::views::general::ManagementAppGeneralMsgOut;
-use crate::views::general::ManagementAppGeneralState;
-use crate::views::plugins::ManagementAppPluginMsgIn;
-use crate::views::plugins::ManagementAppPluginMsgOut;
-use crate::views::plugins::ManagementAppPluginsState;
+use crate::ui::settings::components::spinner::Spinner;
+use crate::ui::settings::theme::Element;
+use crate::ui::settings::theme::button::ButtonStyle;
+use crate::ui::settings::theme::container::ContainerStyle;
+use crate::ui::settings::theme::text::TextStyle;
+use crate::ui::settings::views::general::SettingsGeneralMsgIn;
+use crate::ui::settings::views::general::SettingsGeneralMsgOut;
+use crate::ui::settings::views::general::SettingsGeneralState;
+use crate::ui::settings::views::plugins::SelectedItem;
+use crate::ui::settings::views::plugins::SettingsPluginMsgIn;
+use crate::ui::settings::views::plugins::SettingsPluginMsgOut;
+use crate::ui::settings::views::plugins::SettingsPluginsState;
 
-pub fn run() {
-    iced::application::<ManagementAppModel, ManagementAppMsg, GauntletSettingsTheme, Renderer>(new, update, view)
-        .title("Gauntlet Settings")
-        .window(window::Settings {
-            size: Size::new(1150.0, 700.0),
-            ..Default::default()
-        })
-        .subscription(subscription)
-        .theme(|_| GauntletSettingsTheme::default())
-        .run()
-        .expect("Unable to start settings application");
-}
-
-struct ManagementAppModel {
-    backend_api: Option<BackendForSettingsApiProxy>,
+pub struct SettingsWindowState {
+    pub settings_window_id: Option<window::Id>,
+    application_manager: Arc<ApplicationManager>,
+    wayland: bool,
     error_view: Option<ErrorView>,
     downloads_info: HashMap<PluginId, DownloadInfo>,
     download_info_shown: bool,
     current_settings_view: SettingsView,
-    general_state: ManagementAppGeneralState,
-    plugins_state: ManagementAppPluginsState,
+    general_state: SettingsGeneralState,
+    plugins_state: SettingsPluginsState,
+}
+
+impl SettingsWindowState {
+    pub fn new(application_manager: Arc<ApplicationManager>, wayland: bool) -> SettingsWindowState {
+        SettingsWindowState {
+            settings_window_id: None,
+            application_manager: application_manager.clone(),
+            wayland,
+            error_view: None,
+            downloads_info: HashMap::new(),
+            download_info_shown: false,
+            current_settings_view: SettingsView::Plugins,
+            general_state: SettingsGeneralState::new(application_manager.clone()),
+            plugins_state: SettingsPluginsState::new(application_manager.clone()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum SettingsParams {
+    Default,
+    PluginPreferences {
+        plugin_id: PluginId,
+    },
+    EntrypointPreferences {
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    },
 }
 
 #[derive(Debug, Clone)]
-pub enum ManagementAppMsg {
-    FontLoaded(Result<(), font::Error>),
-    General(ManagementAppGeneralMsgIn),
-    Plugin(ManagementAppPluginMsgIn),
+pub enum SettingsMsg {
+    Refresh,
+    OpenSettings(SettingsParams),
+    WindowCreated(window::Id),
+    WindowDestroyed,
+    General(SettingsGeneralMsgIn),
+    Plugin(SettingsPluginMsgIn),
     SwitchView(SettingsView),
     DownloadStatus { plugins: HashMap<PluginId, DownloadStatus> },
     HandleBackendError(RequestError),
@@ -113,130 +126,34 @@ pub enum DownloadInfo {
     Successful,
 }
 
-fn new() -> (ManagementAppModel, Task<ManagementAppMsg>) {
-    let backend_api = futures::executor::block_on(async {
-        anyhow::Ok(BackendForSettingsApiProxy::new(GrpcBackendApi::new().await?))
-    })
-    .inspect_err(|err| tracing::error!("Unable to connect to server: {:?}", err))
-    .ok();
-
-    let wayland = if cfg!(target_os = "linux") {
-        std::env::var("WAYLAND_DISPLAY")
-            .or_else(|_| std::env::var("WAYLAND_SOCKET"))
-            .is_ok()
-    } else {
-        false
-    };
-
-    (
-        ManagementAppModel {
-            backend_api: backend_api.clone(),
-            error_view: None,
-            downloads_info: HashMap::new(),
-            download_info_shown: false,
-            current_settings_view: SettingsView::Plugins,
-            general_state: ManagementAppGeneralState::new(backend_api.clone()),
-            plugins_state: ManagementAppPluginsState::new(backend_api.clone()),
-        },
-        Task::batch([
-            font::load(BOOTSTRAP_FONT_BYTES).map(ManagementAppMsg::FontLoaded),
-            Task::done(ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::FetchPlugins)),
-            Task::future(async {
-                match backend_api {
-                    Some(backend_api) => Some(init_data(backend_api).await),
-                    None => None,
-                }
-            })
-            .then(move |init_data| {
-                match init_data {
-                    None => Task::done(ManagementAppMsg::General(ManagementAppGeneralMsgIn::Noop)),
-                    Some(init) => {
-                        match init {
-                            Ok(init) => {
-                                Task::batch([
-                                    Task::done(ManagementAppMsg::General(ManagementAppGeneralMsgIn::InitSetting {
-                                        theme: init.theme,
-                                        window_position_mode: init.window_position_mode,
-                                        shortcut: init.global_shortcut,
-                                        shortcut_error: init.global_shortcut_error,
-                                        global_shortcuts_unsupported: wayland && !init.wayland_global_shortcuts_enabled,
-                                    })),
-                                    Task::done(ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::InitSetting {
-                                        global_entrypoint_shortcuts: init.global_entrypoint_shortcuts,
-                                        show_global_shortcuts: !wayland || init.wayland_global_shortcuts_enabled,
-                                    })),
-                                ])
-                            }
-                            Err(err) => Task::done(ManagementAppMsg::HandleBackendError(err)),
-                        }
-                    }
-                }
-            }),
-        ]),
-    )
-}
-
-struct InitSettingsData {
-    global_shortcut: Option<PhysicalShortcut>,
-    global_shortcut_error: Option<String>,
-    theme: SettingsTheme,
-    window_position_mode: WindowPositionMode,
-    global_entrypoint_shortcuts: HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>,
-    wayland_global_shortcuts_enabled: bool,
-}
-
-async fn init_data(backend_api: impl BackendForSettingsApi) -> RequestResult<InitSettingsData> {
-    let (global_shortcut, global_shortcut_error) = backend_api.get_global_shortcut().await?;
-    let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
-
-    let theme = backend_api.get_theme().await?;
-
-    let window_position_mode = backend_api.get_window_position_mode().await?;
-    let wayland_global_shortcuts_enabled = backend_api.wayland_global_shortcuts_enabled().await?;
-
-    Ok(InitSettingsData {
-        global_shortcut,
-        global_shortcut_error,
-        global_entrypoint_shortcuts,
-        theme,
-        window_position_mode,
-        wayland_global_shortcuts_enabled,
-    })
-}
-
-fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<ManagementAppMsg> {
-    let backend_api = match &state.backend_api {
-        Some(backend_api) => backend_api.clone(),
-        None => return Task::none(),
-    };
-
+pub fn update_settings(
+    state: &mut SettingsWindowState,
+    global_hotkey_manager: &Option<GlobalHotKeyManager>,
+    message: SettingsMsg,
+) -> Task<SettingsMsg> {
     match message {
-        ManagementAppMsg::Plugin(message) => {
-            state.plugins_state.update(message).map(|msg| {
+        SettingsMsg::Plugin(message) => {
+            state.plugins_state.update(global_hotkey_manager, message).map(|msg| {
                 match msg {
-                    ManagementAppPluginMsgOut::Inner(msg) => ManagementAppMsg::Plugin(msg),
-                    ManagementAppPluginMsgOut::Outer(msg) => msg,
+                    SettingsPluginMsgOut::Inner(msg) => SettingsMsg::Plugin(msg),
+                    SettingsPluginMsgOut::Outer(msg) => msg,
                 }
             })
         }
-        ManagementAppMsg::General(message) => {
-            state.general_state.update(message).map(|msg| {
+        SettingsMsg::General(message) => {
+            state.general_state.update(global_hotkey_manager, message).map(|msg| {
                 match msg {
-                    ManagementAppGeneralMsgOut::Inner(msg) => ManagementAppMsg::General(msg),
-                    ManagementAppGeneralMsgOut::Outer(msg) => msg,
+                    SettingsGeneralMsgOut::Inner(msg) => SettingsMsg::General(msg),
+                    SettingsGeneralMsgOut::Outer(msg) => msg,
                 }
             })
         }
-        ManagementAppMsg::FontLoaded(result) => {
-            result.expect("unable to load font");
-            Task::none()
-        }
-        ManagementAppMsg::SwitchView(view) => {
+        SettingsMsg::SwitchView(view) => {
             state.current_settings_view = view;
 
             Task::none()
         }
-        ManagementAppMsg::HandleBackendError(err) => {
+        SettingsMsg::HandleBackendError(err) => {
             state.error_view = Some(match err {
                 RequestError::Timeout => ErrorView::Timeout,
                 RequestError::Other { display } => ErrorView::UnknownError { display },
@@ -249,7 +166,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
 
             Task::none()
         }
-        ManagementAppMsg::DownloadStatus { plugins } => {
+        SettingsMsg::DownloadStatus { plugins } => {
             for (plugin, status) in plugins {
                 match status {
                     DownloadStatus::InProgress => {
@@ -266,13 +183,13 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                 }
             }
 
-            let backend_api = backend_api.clone();
+            let application_manager = state.application_manager.clone();
 
             Task::perform(
                 async move {
-                    let plugins = backend_api.plugins().await?;
-                    let global_entrypoint_shortcuts = backend_api.get_global_entrypoint_shortcuts().await?;
-                    let entrypoint_search_aliases = backend_api.get_entrypoint_search_aliases().await?;
+                    let plugins = application_manager.plugins()?;
+                    let global_entrypoint_shortcuts = application_manager.get_global_entrypoint_shortcuts()?;
+                    let entrypoint_search_aliases = application_manager.get_entrypoint_search_aliases()?;
 
                     Ok((plugins, global_entrypoint_shortcuts, entrypoint_search_aliases))
                 },
@@ -280,7 +197,7 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                     handle_backend_error(
                         result,
                         |(plugins, global_entrypoint_shortcuts, entrypoint_search_aliases)| {
-                            ManagementAppMsg::Plugin(ManagementAppPluginMsgIn::PluginsReloaded(
+                            SettingsMsg::Plugin(SettingsPluginMsgIn::PluginsReloaded(
                                 plugins,
                                 global_entrypoint_shortcuts,
                                 entrypoint_search_aliases,
@@ -290,24 +207,17 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
                 },
             )
         }
-        ManagementAppMsg::CheckDownloadStatus => {
+        SettingsMsg::CheckDownloadStatus => {
             if state.downloads_info.is_empty() {
                 Task::none()
             } else {
-                let backend_client = backend_api.clone();
+                let plugins = state.application_manager.download_status();
 
-                Task::perform(
-                    async move {
-                        let plugins = backend_client.download_status().await?;
-
-                        Ok(plugins)
-                    },
-                    |result| handle_backend_error(result, |plugins| ManagementAppMsg::DownloadStatus { plugins }),
-                )
+                Task::done(SettingsMsg::DownloadStatus { plugins })
             }
         }
-        ManagementAppMsg::DownloadPlugin { plugin_id } => {
-            let backend_client = backend_api.clone();
+        SettingsMsg::DownloadPlugin { plugin_id } => {
+            let backend_client = state.application_manager.clone();
 
             let already_downloading = state
                 .downloads_info
@@ -317,39 +227,97 @@ fn update(state: &mut ManagementAppModel, message: ManagementAppMsg) -> Task<Man
             if already_downloading {
                 Task::none()
             } else {
-                Task::perform(
-                    async move {
-                        backend_client.download_plugin(plugin_id).await?;
+                backend_client.download_plugin(plugin_id);
 
-                        Ok(())
-                    },
-                    |result| handle_backend_error(result, |()| ManagementAppMsg::Noop),
-                )
+                Task::none()
             }
         }
-        ManagementAppMsg::Noop => Task::none(),
-        ManagementAppMsg::ToggleDownloadInfo => {
+        SettingsMsg::Noop => Task::none(),
+        SettingsMsg::ToggleDownloadInfo => {
             state.download_info_shown = !state.download_info_shown;
             Task::none()
+        }
+        SettingsMsg::Refresh => {
+            fn run(state: &mut SettingsWindowState) -> anyhow::Result<Task<SettingsMsg>> {
+                let (global_shortcut, global_shortcut_error) =
+                    state.application_manager.get_global_shortcut().map(|data| {
+                        data.map(|(shortcut, error)| (Some(shortcut), error))
+                            .unwrap_or((None, None))
+                    })?;
+
+                let global_entrypoint_shortcuts = state.application_manager.get_global_entrypoint_shortcuts()?;
+
+                let theme = state.application_manager.get_theme()?;
+
+                let window_position_mode = state.application_manager.get_window_position_mode()?;
+                let wayland_global_shortcuts_enabled = state.application_manager.config()?.wayland_use_legacy_x11_api;
+
+                Ok(Task::batch([
+                    Task::done(SettingsMsg::General(SettingsGeneralMsgIn::InitSetting {
+                        theme,
+                        window_position_mode,
+                        shortcut: global_shortcut,
+                        shortcut_error: global_shortcut_error,
+                        global_shortcuts_unsupported: state.wayland && !wayland_global_shortcuts_enabled,
+                    })),
+                    Task::done(SettingsMsg::Plugin(SettingsPluginMsgIn::InitSetting {
+                        global_entrypoint_shortcuts,
+                        show_global_shortcuts: !state.wayland || wayland_global_shortcuts_enabled,
+                    })),
+                ]))
+            }
+
+            run(state).unwrap_or_else(|err| Task::done(SettingsMsg::HandleBackendError(err.into())))
+        }
+        SettingsMsg::WindowCreated(window_id) => {
+            state.settings_window_id = Some(window_id);
+
+            Task::none()
+        }
+        SettingsMsg::WindowDestroyed => {
+            state.settings_window_id = None;
+
+            Task::none()
+        }
+        SettingsMsg::OpenSettings(settings_params) => {
+            let item = match settings_params {
+                SettingsParams::Default => SelectedItem::None,
+                SettingsParams::PluginPreferences { plugin_id } => SelectedItem::Plugin { plugin_id },
+                SettingsParams::EntrypointPreferences {
+                    plugin_id,
+                    entrypoint_id,
+                } => {
+                    SelectedItem::Entrypoint {
+                        plugin_id,
+                        entrypoint_id,
+                    }
+                }
+            };
+
+            let open = match state.settings_window_id {
+                None => {
+                    let settings = window::Settings {
+                        size: Size::new(1150.0, 700.0),
+                        ..Default::default()
+                    };
+                    let (_, open) = window::open(settings);
+                    open.map(SettingsMsg::WindowCreated)
+                }
+                Some(window_id) => window::gain_focus(window_id),
+            };
+
+            Task::batch([
+                open,
+                Task::done(SettingsMsg::Plugin(SettingsPluginMsgIn::FetchPlugins)),
+                Task::done(SettingsMsg::Refresh),
+                Task::done(SettingsMsg::SwitchView(SettingsView::Plugins)),
+                Task::done(SettingsMsg::Plugin(SettingsPluginMsgIn::SelectItem(item))),
+            ])
         }
     }
 }
 
-fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
-    if let None = &state.backend_api {
-        let description: Element<_> =
-            text("Unable to connect to server. Please check if you have Gauntlet running on your PC").into();
-
-        let content: Element<_> = container(description)
-            .align_x(Alignment::Center)
-            .align_y(Alignment::Center)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into();
-
-        return content;
-    }
-
+pub fn view_settings(state: &SettingsWindowState) -> Element<'_, SettingsMsg> {
     if let Some(err) = &state.error_view {
         return match err {
             ErrorView::Timeout => {
@@ -421,8 +389,8 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
     }
 
     let content = match state.current_settings_view {
-        SettingsView::General => state.general_state.view().map(|msg| ManagementAppMsg::General(msg)),
-        SettingsView::Plugins => state.plugins_state.view().map(|msg| ManagementAppMsg::Plugin(msg)),
+        SettingsView::General => state.general_state.view().map(|msg| SettingsMsg::General(msg)),
+        SettingsView::Plugins => state.plugins_state.view().map(|msg| SettingsMsg::Plugin(msg)),
     };
 
     let icon_general: Element<_> = gear_fill()
@@ -445,7 +413,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
         .into();
 
     let general_button: Element<_> = button(general_button)
-        .on_press(ManagementAppMsg::SwitchView(SettingsView::General))
+        .on_press(SettingsMsg::SwitchView(SettingsView::General))
         .height(Length::Fill)
         .width(80)
         .class(
@@ -479,7 +447,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
         .into();
 
     let plugins_button: Element<_> = button(plugins_button)
-        .on_press(ManagementAppMsg::SwitchView(SettingsView::Plugins))
+        .on_press(SettingsMsg::SwitchView(SettingsView::Plugins))
         .height(Length::Fill)
         .width(80)
         .class(
@@ -587,7 +555,7 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
 
             let top_bar_right: Element<_> = button(top_bar_right)
                 .class(ButtonStyle::DownloadInfo)
-                .on_press(ManagementAppMsg::ToggleDownloadInfo)
+                .on_press(SettingsMsg::ToggleDownloadInfo)
                 .padding(Padding::from([4, 8]))
                 .height(Length::Fill)
                 .into();
@@ -735,12 +703,17 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
             .into()
     };
 
+    let content = container(content)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .class(ContainerStyle::WindowRoot);
+
     let content: Element<_> = mouse_area(content)
         .on_press(
             if state.download_info_shown {
-                ManagementAppMsg::ToggleDownloadInfo
+                SettingsMsg::ToggleDownloadInfo
             } else {
-                ManagementAppMsg::Noop
+                SettingsMsg::Noop
             },
         )
         .into();
@@ -754,16 +727,16 @@ fn view(state: &ManagementAppModel) -> Element<'_, ManagementAppMsg> {
     stack(content).into()
 }
 
-fn subscription(_state: &ManagementAppModel) -> Subscription<ManagementAppMsg> {
-    time::every(Duration::from_millis(300)).map(|_| ManagementAppMsg::CheckDownloadStatus)
+pub fn subscription_settings(state: &SettingsWindowState) -> Subscription<SettingsMsg> {
+    match state.settings_window_id {
+        None => Subscription::none(),
+        Some(_) => time::every(Duration::from_millis(300)).map(|_| SettingsMsg::CheckDownloadStatus),
+    }
 }
 
-pub fn handle_backend_error<T>(
-    result: RequestResult<T>,
-    convert: impl FnOnce(T) -> ManagementAppMsg,
-) -> ManagementAppMsg {
+pub fn handle_backend_error<T>(result: RequestResult<T>, convert: impl FnOnce(T) -> SettingsMsg) -> SettingsMsg {
     match result {
         Ok(val) => convert(val),
-        Err(err) => ManagementAppMsg::HandleBackendError(err),
+        Err(err) => SettingsMsg::HandleBackendError(err),
     }
 }

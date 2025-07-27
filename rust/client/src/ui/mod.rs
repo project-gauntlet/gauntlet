@@ -52,6 +52,7 @@ use iced::widget::text;
 use iced::widget::text::Shaping;
 use iced::widget::text_input;
 use iced::widget::text_input::focus;
+use iced::widget::themer;
 use iced::window;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
 
@@ -68,6 +69,7 @@ mod custom_widgets;
 mod grid_navigation;
 mod scroll_handle;
 mod search_list;
+mod settings;
 mod state;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod sys_tray;
@@ -89,6 +91,13 @@ use crate::ui::scenario_runner::ScenarioRunnerMsg;
 use crate::ui::scenario_runner::handle_scenario_runner_msg;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::server::handle_server_message;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::ui::SettingsMsg;
+use crate::ui::settings::ui::SettingsParams;
+use crate::ui::settings::ui::SettingsWindowState;
+use crate::ui::settings::ui::subscription_settings;
+use crate::ui::settings::ui::update_settings;
+use crate::ui::settings::ui::view_settings;
 use crate::ui::state::ErrorViewData;
 use crate::ui::state::Focus;
 use crate::ui::state::GlobalState;
@@ -100,8 +109,8 @@ use crate::ui::widget::action_panel::ActionPanel;
 use crate::ui::widget::action_panel::ActionPanelItem;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::root::render_root;
+use crate::ui::windows::MainWindowState;
 use crate::ui::windows::WindowActionMsg;
-use crate::ui::windows::WindowState;
 #[cfg(target_os = "linux")]
 use crate::ui::windows::x11_focus::x11_linux_focus_change_subscription;
 
@@ -112,7 +121,8 @@ pub struct AppModel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     _tray_icon: tray_icon::TrayIcon,
     theme: GauntletComplexTheme,
-    window: WindowState,
+    main_window_state: MainWindowState,
+    settings_window_state: SettingsWindowState,
 
     // ephemeral state
     prompt: String,
@@ -197,10 +207,7 @@ pub enum AppMsg {
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
     },
-    OpenSettingsPreferences {
-        plugin_id: PluginId,
-        entrypoint_id: Option<EntrypointId>,
-    },
+    OpenSettings(SettingsParams),
     OnOpenView {
         action_shortcuts: HashMap<String, PhysicalShortcut>,
     },
@@ -278,6 +285,7 @@ pub enum AppMsg {
         display: String,
     },
     HandleScenario(ScenarioRunnerMsg),
+    Settings(SettingsMsg),
 }
 
 pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
@@ -333,7 +341,7 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
 
     let client_context = ClientContext::new();
     let global_state = GlobalState::new(text_input::Id::unique());
-    let window = WindowState::new(
+    let window = MainWindowState::new(
         setup_data.window_position_file,
         setup_data.close_on_unfocus,
         setup_data.window_position_mode,
@@ -341,6 +349,13 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
         wayland,
         #[cfg(target_os = "linux")]
         layer_shell,
+    );
+    let settings_state = SettingsWindowState::new(
+        application_manager.clone(),
+        #[cfg(target_os = "linux")]
+        wayland,
+        #[cfg(not(target_os = "linux"))]
+        false,
     );
 
     (
@@ -351,7 +366,8 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             _tray_icon: sys_tray::create_tray(application_manager.clone()),
             theme,
-            window,
+            main_window_state: window,
+            settings_window_state: settings_state,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -368,10 +384,10 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
 }
 
 fn title(state: &AppModel, window: window::Id) -> String {
-    if Some(window) == state.window.main_window_id {
-        "Gauntlet".to_owned()
-    } else {
-        "Gauntlet HUD".to_owned()
+    match window {
+        _ if Some(window) == state.main_window_state.main_window_id => "Gauntlet".to_owned(),
+        _ if Some(window) == state.settings_window_state.settings_window_id => "Gauntlet Settings".to_owned(),
+        _ => "Gauntlet HUD".to_owned(),
     }
 }
 
@@ -648,7 +664,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Keyboard(event)) => {
-            let Some(main_window_id) = state.window.main_window_id else {
+            let Some(main_window_id) = state.main_window_state.main_window_id else {
                 return Task::none();
             };
 
@@ -742,13 +758,20 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Focused)) => {
-            state.window.handle_focused_event(window_id)
+            state.main_window_state.handle_focused_event(window_id)
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Unfocused)) => {
-            state.window.handle_unfocused_event(window_id)
+            state.main_window_state.handle_unfocused_event(window_id)
         }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Moved(point))) => {
-            state.window.handle_move_event(window_id, point)
+            state.main_window_state.handle_move_event(window_id, point)
+        }
+        AppMsg::IcedEvent(window_id, Event::Window(window::Event::Closed)) => {
+            if state.settings_window_state.settings_window_id == Some(window_id) {
+                Task::done(AppMsg::Settings(SettingsMsg::WindowDestroyed))
+            } else {
+                Task::none()
+            }
         }
         AppMsg::IcedEvent(_, _) => Task::none(),
         AppMsg::WidgetEvent {
@@ -807,10 +830,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 },
             )
         }
-        AppMsg::OpenSettingsPreferences {
-            plugin_id,
-            entrypoint_id,
-        } => state.open_settings_window_preferences(plugin_id, entrypoint_id),
+        AppMsg::OpenSettings(params) => Task::done(AppMsg::Settings(SettingsMsg::OpenSettings(params))),
         AppMsg::OnOpenView { action_shortcuts } => {
             match &mut state.global_state {
                 GlobalState::MainView {
@@ -1086,7 +1106,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::FocusPluginViewSearchBar { widget_id } => state.client_context.focus_search_bar(widget_id),
-        AppMsg::WindowAction(action) => state.window.handle_action(action),
+        AppMsg::WindowAction(action) => state.main_window_state.handle_action(action),
         AppMsg::SetTheme { theme } => {
             state.theme = GauntletComplexTheme::new(theme);
 
@@ -1192,17 +1212,28 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             Task::none()
         }
         AppMsg::HandleScenario(msg) => {
-            handle_scenario_runner_msg(msg, state.application_manager.clone(), state.window.main_window_id)
-                .map(AppMsg::HandleScenario)
+            handle_scenario_runner_msg(
+                msg,
+                state.application_manager.clone(),
+                state.main_window_state.main_window_id,
+            )
+            .map(AppMsg::HandleScenario)
+        }
+        AppMsg::Settings(msg) => {
+            update_settings(&mut state.settings_window_state, &state.global_hotkey_manager, msg).map(AppMsg::Settings)
         }
     }
 }
 
 fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
-    if Some(window) == state.window.main_window_id {
-        view_main(state)
-    } else {
-        view_hud(state)
+    match window {
+        _ if Some(window) == state.main_window_state.main_window_id => view_main(state),
+        _ if Some(window) == state.settings_window_state.settings_window_id => {
+            let themer: Element<_> = themer(GauntletSettingsTheme, view_settings(&state.settings_window_state)).into();
+
+            themer.map(AppMsg::Settings)
+        }
+        _ => view_hud(state),
     }
 }
 
@@ -1257,27 +1288,25 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                                 "Before using, plugin and entrypoint preferences need to be specified";
                             // note:
                             // we open plugin view and not entrypoint even though both need to be specified
-                            let msg = AppMsg::OpenSettingsPreferences {
+                            let msg = AppMsg::OpenSettings(SettingsParams::PluginPreferences {
                                 plugin_id: plugin_id.clone(),
-                                entrypoint_id: None,
-                            };
+                            });
                             (description_text, msg)
                         }
                         (false, true) => {
                             // TODO do not show "entrypoint" name to user
                             let description_text = "Before using, entrypoint preferences need to be specified";
-                            let msg = AppMsg::OpenSettingsPreferences {
+                            let msg = AppMsg::OpenSettings(SettingsParams::EntrypointPreferences {
                                 plugin_id: plugin_id.clone(),
-                                entrypoint_id: Some(entrypoint_id.clone()),
-                            };
+                                entrypoint_id: entrypoint_id.clone(),
+                            });
                             (description_text, msg)
                         }
                         (true, false) => {
                             let description_text = "Before using, plugin preferences need to be specified";
-                            let msg = AppMsg::OpenSettingsPreferences {
+                            let msg = AppMsg::OpenSettings(SettingsParams::PluginPreferences {
                                 plugin_id: plugin_id.clone(),
-                                entrypoint_id: None,
-                            };
+                            });
                             (description_text, msg)
                         }
                         (false, false) => unreachable!(),
@@ -1744,7 +1773,9 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 }
 
 fn subscription(#[allow(unused)] state: &AppModel) -> Subscription<AppMsg> {
-    let events_subscription = event::listen_with(|event, status, window_id| {
+    let mut subscriptions = vec![];
+
+    subscriptions.push(event::listen_with(|event, status, window_id| {
         match status {
             event::Status::Ignored => Some(AppMsg::IcedEvent(window_id, event)),
             event::Status::Captured => {
@@ -1757,25 +1788,23 @@ fn subscription(#[allow(unused)] state: &AppModel) -> Subscription<AppMsg> {
                 }
             }
         }
-    });
+    }));
 
-    #[allow(unused_mut)]
-    let mut subscriptions = vec![
-        Subscription::run(|| {
-            stream::channel(10, async move |sender| {
-                register_global_shortcut_listener(sender.clone());
+    subscriptions.push(Subscription::run(|| {
+        stream::channel(10, async move |sender| {
+            register_global_shortcut_listener(sender.clone());
 
-                std::future::pending::<()>().await;
+            std::future::pending::<()>().await;
 
-                unreachable!()
-            })
-            .map(AppMsg::HandleGlobalShortcut)
-        }),
-        events_subscription,
-    ];
+            unreachable!()
+        })
+        .map(AppMsg::HandleGlobalShortcut)
+    }));
+
+    subscriptions.push(subscription_settings(&state.settings_window_state).map(AppMsg::Settings));
 
     #[cfg(target_os = "linux")]
-    if !state.window.wayland {
+    if !state.main_window_state.wayland {
         subscriptions.push(x11_linux_focus_change_subscription())
     }
 
@@ -1951,17 +1980,6 @@ impl AppModel {
         Task::done(msg)
     }
 
-    fn open_settings_window_preferences(
-        &self,
-        plugin_id: PluginId,
-        entrypoint_id: Option<EntrypointId>,
-    ) -> Task<AppMsg> {
-        self.application_manager
-            .open_settings_window_preferences(plugin_id, entrypoint_id);
-
-        Task::none()
-    }
-
     fn inline_view_shortcuts(&self) -> Task<AppMsg> {
         let result = self
             .application_manager
@@ -1998,11 +2016,7 @@ impl AppModel {
                                 modifier_control: cfg!(not(target_os = "macos")),
                                 modifier_alt: false,
                                 modifier_meta: cfg!(target_os = "macos"),
-                            }) => {
-                                self.application_manager.open_settings_window();
-
-                                Task::none()
-                            }
+                            }) => Task::done(AppMsg::OpenSettings(SettingsParams::Default)),
                             Some(PhysicalShortcut {
                                 physical_key: PhysicalKey::KeyK,
                                 modifier_shift: false,

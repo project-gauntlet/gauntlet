@@ -19,11 +19,11 @@ use iced::widget::text_input;
 use iced_fonts::bootstrap::dash;
 use iced_fonts::bootstrap::plus;
 
-use crate::theme::Element;
-use crate::theme::button::ButtonStyle;
-use crate::theme::container::ContainerStyle;
-use crate::theme::text::TextStyle;
-use crate::views::plugins::PluginPreferenceUserDataState;
+use crate::ui::settings::theme::Element;
+use crate::ui::settings::theme::button::ButtonStyle;
+use crate::ui::settings::theme::container::ContainerStyle;
+use crate::ui::settings::theme::text::TextStyle;
+use crate::ui::settings::views::plugins::PluginPreferenceUserDataState;
 
 #[derive(Debug, Clone)]
 pub enum PluginPreferencesMsg {

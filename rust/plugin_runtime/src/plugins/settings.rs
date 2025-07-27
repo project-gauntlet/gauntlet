@@ -1,17 +1,22 @@
-use anyhow::anyhow;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use deno_core::OpState;
 use deno_core::op2;
-use gauntlet_common::detached_process::CommandExt;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
 
 use crate::deno::GauntletJsError;
 
-#[op2(fast)]
-pub fn open_settings() -> Result<(), GauntletJsError> {
-    let current_exe = std::env::current_exe().map_err(|err| anyhow!(err))?;
+#[op2(async)]
+pub async fn open_settings(state: Rc<RefCell<OpState>>) -> Result<(), GauntletJsError> {
+    let api = {
+        let state = state.borrow();
 
-    std::process::Command::new(current_exe)
-        .args(["settings"])
-        .spawn_detached()
-        .map_err(|err| anyhow!(err))?;
+        let api = state.borrow::<BackendForPluginRuntimeApiProxy>().clone();
 
-    Ok(())
+        api
+    };
+
+    api.ui_show_settings().await.map_err(Into::into)
 }

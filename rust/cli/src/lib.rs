@@ -7,10 +7,10 @@ use std::time::UNIX_EPOCH;
 
 use clap::Parser;
 use gauntlet_common::cli::is_server_running;
+use gauntlet_common::cli::open_settings_window;
 use gauntlet_common::cli::open_window;
 use gauntlet_common::cli::run_action;
 use gauntlet_common::dirs::Dirs;
-use gauntlet_management_client::start_management_client;
 use gauntlet_server::PLUGIN_CONNECT_ENV;
 use gauntlet_server::PLUGIN_UUID_ENV;
 use tracing_subscriber::EnvFilter;
@@ -110,7 +110,7 @@ pub fn init() {
         Some(command) => {
             match command {
                 Commands::Open => open_window(),
-                Commands::Settings => start_management_client(),
+                Commands::Settings => open_settings_window(),
                 Commands::Run {
                     plugin_id,
                     entrypoint_id,

@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use gauntlet_common::SETTINGS_ENV;
-use gauntlet_common::SettingsEnvData;
-use gauntlet_common::detached_process::CommandExt;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
@@ -30,7 +27,6 @@ use gauntlet_common::rpc::frontend_api::FrontendApi;
 use gauntlet_common::rpc::frontend_api::FrontendApiProxy;
 use gauntlet_common::rpc::frontend_api::FrontendApiRequestData;
 use gauntlet_common::rpc::frontend_api::FrontendApiResponseData;
-use gauntlet_common::settings_env_data_to_string;
 use gauntlet_common_plugin_runtime::model::JsPluginCode;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsExec;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissionsFileSystem;
@@ -174,7 +170,7 @@ impl ApplicationManager {
         })
     }
 
-    pub fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub fn download_plugin(&self, plugin_id: PluginId) {
         self.plugin_downloader.download_plugin(plugin_id)
     }
 
@@ -571,7 +567,7 @@ impl ApplicationManager {
             .set_global_entrypoint_shortcut(global_hotkey_manager, plugin_id, entrypoint_id, shortcut)
     }
 
-    pub fn get_global_entrypoint_shortcut(
+    pub fn get_global_entrypoint_shortcuts(
         &self,
     ) -> anyhow::Result<HashMap<(PluginId, EntrypointId), (PhysicalShortcut, Option<String>)>> {
         self.settings.global_entrypoint_shortcuts()
@@ -810,36 +806,6 @@ impl ApplicationManager {
             .toggle_window()
             .await
             .expect("failed to toggle window");
-    }
-
-    pub fn open_settings_window(&self) {
-        let current_exe = std::env::current_exe().expect("unable to get current_exe");
-
-        std::process::Command::new(current_exe)
-            .args(["settings"])
-            .spawn_detached()
-            .expect("failed to execute settings process");
-    }
-
-    pub fn open_settings_window_preferences(&self, plugin_id: PluginId, entrypoint_id: Option<EntrypointId>) {
-        let data = if let Some(entrypoint_id) = entrypoint_id {
-            SettingsEnvData::OpenEntrypointPreferences {
-                plugin_id: plugin_id.to_string(),
-                entrypoint_id: entrypoint_id.to_string(),
-            }
-        } else {
-            SettingsEnvData::OpenPluginPreferences {
-                plugin_id: plugin_id.to_string(),
-            }
-        };
-
-        let current_exe = std::env::current_exe().expect("unable to get current_exe");
-
-        std::process::Command::new(current_exe)
-            .args(["settings"])
-            .env(SETTINGS_ENV, settings_env_data_to_string(data))
-            .spawn_detached()
-            .expect("failed to execute settings process"); // this can fail in dev if binary was replaced by more recent compilation
     }
 
     fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {

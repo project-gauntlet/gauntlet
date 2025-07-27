@@ -56,7 +56,7 @@ impl PluginLoader {
         self.download_status_holder.download_status()
     }
 
-    pub fn download_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
+    pub fn download_plugin(&self, plugin_id: PluginId) {
         let download_status_guard = self.download_status_holder.download_started(plugin_id.clone());
 
         let data_db_repository = self.db_repository.clone();
@@ -104,8 +104,6 @@ impl PluginLoader {
                 })
             })
             .expect("failed to spawn thread");
-
-        Ok(())
     }
 
     pub fn save_local_plugin(&self, path: &str) -> anyhow::Result<PluginId> {

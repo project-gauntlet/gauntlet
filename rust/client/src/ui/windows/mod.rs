@@ -16,7 +16,7 @@ pub mod hud;
 #[cfg(target_os = "linux")]
 pub mod x11_focus;
 
-pub struct WindowState {
+pub struct MainWindowState {
     pub main_window_id: Option<window::Id>,
     focused: bool,
     #[cfg(target_os = "linux")]
@@ -31,14 +31,14 @@ pub struct WindowState {
     open_position: Position,
 }
 
-impl WindowState {
+impl MainWindowState {
     pub fn new(
         window_position_file: Option<PathBuf>,
         close_on_unfocus: bool,
         window_position_mode: WindowPositionMode,
         #[cfg(target_os = "linux")] wayland: bool,
         #[cfg(target_os = "linux")] layer_shell: bool,
-    ) -> WindowState {
+    ) -> MainWindowState {
         let open_position = window_position_file
             .as_ref()
             .map(|window_position_file| fs::read_to_string(window_position_file).ok())
@@ -73,7 +73,7 @@ impl WindowState {
     }
 }
 
-impl WindowState {
+impl MainWindowState {
     pub fn handle_action(&mut self, action: WindowActionMsg) -> Task<AppMsg> {
         match action {
             WindowActionMsg::SetWindowPositionMode { mode } => {

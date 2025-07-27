@@ -5,7 +5,6 @@ repository = "https://github.com/project-gauntlet/gauntlet"
 
 [workspace]
 members = [
-    "rust/management_client",
     "rust/client",
     "rust/server",
     "rust/common",
@@ -35,7 +34,6 @@ gauntlet-common = { path = "./rust/common" }
 gauntlet-common-ui = { path = "./rust/common_ui" }
 gauntlet-common-plugin-runtime = { path = "./rust/common_plugin_runtime" }
 gauntlet-plugin-runtime = { path = "./rust/plugin_runtime" }
-gauntlet-management-client = { path = "./rust/management_client" }
 gauntlet-client = { path = "./rust/client" }
 gauntlet-server = { path = "./rust/server" }
 gauntlet-utils = { path = "./rust/utils" }

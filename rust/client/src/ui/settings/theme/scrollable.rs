@@ -6,8 +6,8 @@ use iced::widget::scrollable;
 use iced::widget::scrollable::Status;
 use iced::widget::scrollable::Style;
 
-use crate::theme::GauntletSettingsTheme;
-use crate::theme::PRIMARY;
+use crate::ui::settings::theme::GauntletSettingsTheme;
+use crate::ui::settings::theme::PRIMARY;
 
 impl scrollable::Catalog for GauntletSettingsTheme {
     type Class<'a> = ();
