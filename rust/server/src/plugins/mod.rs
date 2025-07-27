@@ -809,7 +809,9 @@ impl ApplicationManager {
     }
 
     pub async fn open_settings_window(&self) {
-        self.frontend_api.show_settings().await
+        self.frontend_api
+            .show_settings()
+            .await
             .expect("failed to toggle window");
     }
 
