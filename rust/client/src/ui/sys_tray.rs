@@ -28,7 +28,12 @@ pub fn create_tray(application_manager: Arc<ApplicationManager>) -> tray_icon::T
                 });
             }
             "GAUNTLET_OPEN_SETTING_WINDOW" => {
-                application_manager.open_settings_window();
+                handle.spawn({
+                    let application_manager = application_manager.clone();
+                    async move {
+                        application_manager.open_settings_window().await;
+                    }
+                });
             }
             _ => {}
         }

@@ -94,7 +94,8 @@ pub enum SettingsParams {
 pub enum SettingsMsg {
     Refresh,
     OpenSettings(SettingsParams),
-    WindowCreated(window::Id),
+    WindowToBeCreated(window::Id),
+    WindowCreated,
     WindowDestroyed,
     General(SettingsGeneralMsgIn),
     Plugin(SettingsPluginMsgIn),
@@ -269,10 +270,17 @@ pub fn update_settings(
 
             run(state).unwrap_or_else(|err| Task::done(SettingsMsg::HandleBackendError(err.into())))
         }
-        SettingsMsg::WindowCreated(window_id) => {
+        SettingsMsg::WindowToBeCreated(window_id) => {
             state.settings_window_id = Some(window_id);
 
             Task::none()
+        }
+        SettingsMsg::WindowCreated => {
+            if let Some(window_id) = state.settings_window_id {
+                window::gain_focus(window_id)
+            } else {
+                Task::none()
+            }
         }
         SettingsMsg::WindowDestroyed => {
             state.settings_window_id = None;
@@ -301,9 +309,9 @@ pub fn update_settings(
                         ..Default::default()
                     };
                     let (_, open) = window::open(settings);
-                    open.map(SettingsMsg::WindowCreated)
+                    open.map(SettingsMsg::WindowToBeCreated)
                 }
-                Some(window_id) => window::gain_focus(window_id),
+                Some(_) => Task::none(),
             };
 
             Task::batch([

@@ -766,6 +766,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Moved(point))) => {
             state.main_window_state.handle_move_event(window_id, point)
         }
+        AppMsg::IcedEvent(window_id, Event::Window(window::Event::Opened { .. })) => {
+            if state.settings_window_state.settings_window_id == Some(window_id) {
+                Task::done(AppMsg::Settings(SettingsMsg::WindowCreated))
+            } else {
+                Task::none()
+            }
+        }
         AppMsg::IcedEvent(window_id, Event::Window(window::Event::Closed)) => {
             if state.settings_window_state.settings_window_id == Some(window_id) {
                 Task::done(AppMsg::Settings(SettingsMsg::WindowDestroyed))

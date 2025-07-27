@@ -808,6 +808,11 @@ impl ApplicationManager {
             .expect("failed to toggle window");
     }
 
+    pub async fn open_settings_window(&self) {
+        self.frontend_api.show_settings().await
+            .expect("failed to toggle window");
+    }
+
     fn reload_plugin(&self, plugin_id: PluginId) -> anyhow::Result<()> {
         tracing::info!(target = "plugin", "Reloading plugin with id: {:?}", plugin_id);
 
