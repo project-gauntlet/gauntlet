@@ -726,7 +726,7 @@ impl ApplicationManager {
     ) -> anyhow::Result<HashMap<String, PhysicalShortcut>> {
         self.send_command(PluginCommand::One {
             id: plugin_id.clone(),
-            data: OnePluginCommandData::RenderView {
+            data: OnePluginCommandData::OpenView {
                 entrypoint_id: entrypoint_id.clone(),
             },
         });

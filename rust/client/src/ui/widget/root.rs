@@ -44,7 +44,7 @@ impl<'b> ComponentWidgets<'b> {
     pub fn render_root_widget<'a>(
         &self,
         plugin_view_state: &PluginViewState,
-        entrypoint_name: Option<&String>,
+        entrypoint_name: Option<&str>,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
         match &self.root_widget {
@@ -53,8 +53,7 @@ impl<'b> ComponentWidgets<'b> {
                 match &root.content {
                     None => horizontal_space().into(),
                     Some(content) => {
-                        let entrypoint_name =
-                            entrypoint_name.expect("entrypoint name should always exist after render");
+                        let entrypoint_name = entrypoint_name.unwrap_or_default();
 
                         match content {
                             RootWidgetMembers::Detail(widget) => {
@@ -96,8 +95,8 @@ impl<'b> ComponentWidgets<'b> {
 
     pub fn render_root_inline_widget<'a>(
         &self,
-        plugin_name: Option<&String>,
-        entrypoint_name: Option<&String>,
+        plugin_name: Option<&str>,
+        entrypoint_name: Option<&str>,
     ) -> Element<'a, ComponentWidgetEvent> {
         match &self.root_widget {
             None => horizontal_space().into(),
@@ -107,10 +106,8 @@ impl<'b> ComponentWidgets<'b> {
                     Some(content) => {
                         match content {
                             RootWidgetMembers::Inline(widget) => {
-                                let entrypoint_name =
-                                    entrypoint_name.expect("entrypoint name should always exist after render");
-                                let plugin_name =
-                                    plugin_name.expect("entrypoint name should always exist after render");
+                                let entrypoint_name = entrypoint_name.unwrap_or_default();
+                                let plugin_name = plugin_name.unwrap_or_default();
 
                                 self.render_inline_widget(widget, plugin_name, entrypoint_name)
                             }

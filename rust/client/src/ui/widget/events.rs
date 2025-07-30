@@ -67,7 +67,7 @@ pub enum ComponentWidgetEvent {
 }
 
 impl ComponentWidgetEvent {
-    pub fn handle(self, _plugin_id: PluginId, state: Option<&mut ComponentWidgetState>) -> Option<UiViewEvent> {
+    pub fn handle(self, plugin_id: PluginId, state: Option<&mut ComponentWidgetState>) -> Option<UiViewEvent> {
         match self {
             ComponentWidgetEvent::LinkClick { widget_id: _, href } => Some(UiViewEvent::Open { href }),
             ComponentWidgetEvent::TagClick { widget_id } => Some(create_metadata_tag_item_on_click_event(widget_id)),
@@ -157,7 +157,11 @@ impl ComponentWidgetEvent {
             }
             ComponentWidgetEvent::RunPrimaryAction { widget_id, id } => {
                 Some(UiViewEvent::AppEvent {
-                    event: AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id },
+                    event: AppMsg::OnAnyActionPluginViewAnyPanel {
+                        plugin_id,
+                        widget_id,
+                        id,
+                    },
                 })
             }
         }

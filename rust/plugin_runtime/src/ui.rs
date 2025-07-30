@@ -90,8 +90,8 @@ pub fn op_react_replace_view<'a>(
     state: Rc<RefCell<OpState>>,
     #[serde] render_location: JsUiRenderLocation,
     top_level_view: bool,
-    #[string] entrypoint_id: &str,
-    #[string] entrypoint_name: &str,
+    #[string] entrypoint_id: String,
+    #[string] entrypoint_name: String,
     container: v8::Local<v8::Value>,
 ) -> Result<(), GauntletJsError> {
     tracing::trace!(target = "renderer_rs", "Calling op_react_replace_view...");
@@ -100,7 +100,6 @@ pub fn op_react_replace_view<'a>(
         .map_err(|err| anyhow!("Unable to deserialize component tree: {:#}", err))?;
 
     let entrypoint_id = EntrypointId::from_string(entrypoint_id);
-    let entrypoint_name = entrypoint_name.to_string();
 
     let (api, outer_handle) = {
         let state = state.borrow();

@@ -113,7 +113,7 @@ pub enum PluginCommand {
 
 #[derive(Clone, Debug)]
 pub enum OnePluginCommandData {
-    RenderView {
+    OpenView {
         entrypoint_id: EntrypointId,
     },
     CloseView,
@@ -402,7 +402,7 @@ async fn event_loop(
                 None
             } else {
                 match data {
-                    OnePluginCommandData::RenderView { entrypoint_id } => {
+                    OnePluginCommandData::OpenView { entrypoint_id } => {
                         Some(IntermediateUiEvent::OpenView { entrypoint_id })
                     }
                     OnePluginCommandData::CloseView => Some(IntermediateUiEvent::CloseView),

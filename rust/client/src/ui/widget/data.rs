@@ -13,7 +13,6 @@ use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::RootWidgetMembers;
-use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
 use iced::Task;
 use iced::widget::text_input;
@@ -247,7 +246,7 @@ impl<'b> ComponentWidgets<'b> {
 }
 
 impl<'b> ComponentWidgets<'b> {
-    pub fn first_open(&self) -> AppMsg {
+    pub fn first_open(&self, plugin_id: PluginId) -> AppMsg {
         let Some(root_widget) = &self.root_widget else {
             return AppMsg::Noop;
         };
@@ -272,7 +271,7 @@ impl<'b> ComponentWidgets<'b> {
             _ => return AppMsg::Noop,
         };
 
-        AppMsg::FocusPluginViewSearchBar { widget_id }
+        AppMsg::FocusPluginViewSearchBar { plugin_id, widget_id }
     }
 
     pub fn list_focused_item_id(focused_item: &ScrollHandle, widget: &ListWidget) -> Option<String> {
@@ -323,7 +322,6 @@ impl<'b> ComponentWidgets<'b> {
 
         Task::done(AppMsg::WidgetEvent {
             plugin_id,
-            render_location: UiRenderLocation::View,
             widget_event,
         })
     }
@@ -376,7 +374,6 @@ impl<'b> ComponentWidgets<'b> {
 
         Task::done(AppMsg::WidgetEvent {
             plugin_id,
-            render_location: UiRenderLocation::View,
             widget_event,
         })
     }

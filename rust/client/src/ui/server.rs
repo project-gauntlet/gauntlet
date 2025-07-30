@@ -125,7 +125,7 @@ async fn request_loop(
                 render_location,
                 top_level_view,
                 container,
-                data: images,
+                data,
             } => {
                 responder.respond(Ok(FrontendApiResponseData::ReplaceView { data: () }));
 
@@ -137,7 +137,7 @@ async fn request_loop(
                     render_location,
                     top_level_view,
                     container: Arc::new(container),
-                    data: images,
+                    data,
                 }
             }
             FrontendApiRequestData::ToggleWindow {} => {
@@ -216,7 +216,7 @@ async fn request_loop(
             } => {
                 responder.respond(Ok(FrontendApiResponseData::OpenPluginView { data: () }));
 
-                AppMsg::ShowNewView {
+                AppMsg::OpenNewView {
                     plugin_id,
                     entrypoint_id,
                 }
@@ -228,7 +228,7 @@ async fn request_loop(
             } => {
                 responder.respond(Ok(FrontendApiResponseData::OpenGeneratedPluginView { data: () }));
 
-                AppMsg::ShowNewGeneratedView {
+                AppMsg::OpenNewGeneratedView {
                     plugin_id,
                     entrypoint_id,
                     action_index,

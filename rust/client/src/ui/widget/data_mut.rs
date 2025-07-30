@@ -31,12 +31,12 @@ impl<'b> ComponentWidgetsMut<'b> {
     pub fn new(
         root_widget: &'b mut Option<Arc<RootWidget>>,
         state: &'b mut HashMap<UiWidgetId, ComponentWidgetState>,
-        plugin_id: PluginId,
+        plugin_id: &PluginId,
     ) -> ComponentWidgetsMut<'b> {
         Self {
             root_widget,
             state,
-            plugin_id,
+            plugin_id: plugin_id.clone(),
         }
     }
 

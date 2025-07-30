@@ -74,8 +74,8 @@ mod state;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod sys_tray;
 mod theme;
+mod view_container;
 mod widget;
-mod widget_container;
 
 pub mod scenario_runner;
 mod server;
@@ -146,11 +146,11 @@ pub enum AppMsg {
         entrypoint_id: EntrypointId,
         action_index: usize,
     },
-    ShowNewView {
+    OpenNewView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
-    ShowNewGeneratedView {
+    OpenNewGeneratedView {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
         action_index: usize,
@@ -159,11 +159,8 @@ pub enum AppMsg {
         plugin_id: PluginId,
         entrypoint_id: EntrypointId,
     },
-    RunGeneratedEntrypoint {
-        plugin_id: PluginId,
-        entrypoint_id: EntrypointId,
-        action_index: usize,
-    },
+    RunGeneratedEntrypoint(PluginId, EntrypointId, usize),
+    RequestPluginViewOpen(PluginId, EntrypointId),
     RunSearchItemAction(SearchResult, usize),
     RunPluginAction {
         render_location: UiRenderLocation,
@@ -193,7 +190,6 @@ pub enum AppMsg {
     IcedEvent(window::Id, Event),
     WidgetEvent {
         plugin_id: PluginId,
-        render_location: UiRenderLocation,
         widget_event: ComponentWidgetEvent,
     },
     Noop,
@@ -217,9 +213,8 @@ pub enum AppMsg {
     },
     ShowBackendError(RequestError),
     CloseAllReactViews,
-    ClosePluginView(PluginId),
-    OpenPluginView(PluginId, EntrypointId),
-    InlineViewShortcuts {
+    RequestReactViewClose(PluginId),
+    SetInlineViewShortcuts {
         shortcuts: HashMap<PluginId, HashMap<String, PhysicalShortcut>>,
     },
     OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus,
@@ -238,14 +233,17 @@ pub enum AppMsg {
         widget_id: UiWidgetId,
     },
     OnAnyActionPluginViewNoPanelKeyboardWithFocus {
+        plugin_id: PluginId,
         widget_id: UiWidgetId,
         id: Option<String>,
     },
     OnAnyActionPluginViewAnyPanelKeyboardWithFocus {
+        plugin_id: PluginId,
         widget_id: UiWidgetId,
         id: Option<String>,
     },
     OnAnyActionPluginViewAnyPanel {
+        plugin_id: PluginId,
         widget_id: UiWidgetId,
         id: Option<String>,
     },
@@ -265,6 +263,7 @@ pub enum AppMsg {
     PendingPluginViewLoadingBar,
     ShowPluginViewLoadingBar,
     FocusPluginViewSearchBar {
+        plugin_id: PluginId,
         widget_id: UiWidgetId,
     },
     SetTheme {
@@ -397,54 +396,43 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             plugin_id,
             entrypoint_id,
         } => {
-            match &mut state.global_state {
-                GlobalState::MainView {
-                    pending_plugin_view_data,
-                    ..
-                } => {
-                    *pending_plugin_view_data = Some(PluginViewData {
-                        top_level_view: true,
-                        plugin_id: plugin_id.clone(),
-                        entrypoint_id: entrypoint_id.clone(),
-                        action_shortcuts: HashMap::new(),
-                    });
-
-                    Task::batch([
-                        Task::done(AppMsg::OpenPluginView(plugin_id, entrypoint_id)),
-                        Task::done(AppMsg::PendingPluginViewLoadingBar),
-                    ])
-                }
-                GlobalState::ErrorView { .. } => Task::none(),
-                GlobalState::PluginView { .. } => Task::none(),
-                GlobalState::PendingPluginView { .. } => Task::none(),
-            }
+            Task::batch([
+                GlobalState::pending_plugin(&mut state.global_state, plugin_id.clone(), entrypoint_id.clone()),
+                Task::done(AppMsg::RequestPluginViewOpen(plugin_id, entrypoint_id)),
+                Task::done(AppMsg::PendingPluginViewLoadingBar),
+            ])
+        }
+        AppMsg::OpenNewView {
+            plugin_id,
+            entrypoint_id,
+        } => {
+            Task::batch([
+                GlobalState::pending_plugin(&mut state.global_state, plugin_id.clone(), entrypoint_id.clone()),
+                Task::done(AppMsg::RequestPluginViewOpen(plugin_id, entrypoint_id)),
+                Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)),
+            ])
         }
         AppMsg::OpenGeneratedView {
             plugin_id,
             entrypoint_id,
             action_index,
         } => {
-            match &mut state.global_state {
-                GlobalState::MainView {
-                    pending_plugin_view_data,
-                    ..
-                } => {
-                    *pending_plugin_view_data = Some(PluginViewData {
-                        top_level_view: true,
-                        plugin_id: plugin_id.clone(),
-                        entrypoint_id: entrypoint_id.clone(),
-                        action_shortcuts: HashMap::new(),
-                    });
-
-                    Task::batch([
-                        state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
-                        Task::done(AppMsg::PendingPluginViewLoadingBar),
-                    ])
-                }
-                GlobalState::ErrorView { .. } => Task::none(),
-                GlobalState::PluginView { .. } => Task::none(),
-                GlobalState::PendingPluginView { .. } => Task::none(),
-            }
+            Task::batch([
+                GlobalState::pending_plugin(&mut state.global_state, plugin_id.clone(), entrypoint_id.clone()),
+                Task::done(AppMsg::RunGeneratedEntrypoint(plugin_id, entrypoint_id, action_index)),
+                Task::done(AppMsg::PendingPluginViewLoadingBar),
+            ])
+        }
+        AppMsg::OpenNewGeneratedView {
+            plugin_id,
+            entrypoint_id,
+            action_index,
+        } => {
+            Task::batch([
+                GlobalState::pending_plugin(&mut state.global_state, plugin_id.clone(), entrypoint_id.clone()),
+                Task::done(AppMsg::RunGeneratedEntrypoint(plugin_id, entrypoint_id, action_index)),
+                Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)),
+            ])
         }
         AppMsg::RunCommand {
             plugin_id,
@@ -455,15 +443,36 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.run_command(plugin_id, entrypoint_id),
             ])
         }
-        AppMsg::RunGeneratedEntrypoint {
-            plugin_id,
-            entrypoint_id,
-            action_index,
-        } => {
-            Task::batch([
-                Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
-                state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
-            ])
+        AppMsg::RunGeneratedEntrypoint(plugin_id, entrypoint_id, action_index) => {
+            state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index)
+        }
+        AppMsg::RequestPluginViewOpen(plugin_id, entrypoint_id) => {
+            let msg = state
+                .application_manager
+                .request_render_view(plugin_id, entrypoint_id)
+                .map(|action_shortcuts| AppMsg::OnOpenView { action_shortcuts })
+                .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
+
+            Task::done(msg)
+        }
+        AppMsg::RequestReactViewClose(plugin_id) => {
+            state.application_manager.request_view_close(plugin_id.clone());
+            state.client_context.clear_view(&plugin_id);
+
+            Task::none()
+        }
+        AppMsg::CloseAllReactViews => {
+            if let GlobalState::PluginView { plugin_view_data, .. } = &state.global_state {
+                let plugin_id = plugin_view_data.plugin_id.clone();
+                state.application_manager.request_view_close(plugin_id);
+            }
+
+            for (plugin_id, _) in state.client_context.get_all_inline_view_containers() {
+                state.application_manager.request_view_close(plugin_id.clone());
+            }
+            state.client_context.clear_all_views();
+
+            Task::none()
         }
         AppMsg::RunPluginAction {
             render_location,
@@ -480,7 +489,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         Task::done(AppMsg::WidgetEvent {
                             widget_event,
                             plugin_id,
-                            render_location,
                         }),
                     ])
                 }
@@ -488,7 +496,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     Task::done(AppMsg::WidgetEvent {
                         widget_event,
                         plugin_id,
-                        render_location,
                     })
                 }
             }
@@ -519,11 +526,14 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     let action = &search_result.entrypoint_actions[action_index];
                     match &action.action_type {
                         SearchResultEntrypointActionType::Command => {
-                            Task::done(AppMsg::RunGeneratedEntrypoint {
-                                entrypoint_id: search_result.entrypoint_id.clone(),
-                                plugin_id: search_result.plugin_id.clone(),
-                                action_index,
-                            })
+                            Task::batch([
+                                Task::done(AppMsg::WindowAction(WindowActionMsg::HideWindow)),
+                                Task::done(AppMsg::RunGeneratedEntrypoint(
+                                    search_result.plugin_id.clone(),
+                                    search_result.entrypoint_id.clone(),
+                                    action_index,
+                                )),
+                            ])
                         }
                         SearchResultEntrypointActionType::View => {
                             Task::done(AppMsg::OpenGeneratedView {
@@ -578,15 +588,25 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             render_location,
             top_level_view,
             container,
-            data: images,
+            data,
         } => {
             let has_children = container.content.is_some();
+
+            let close_task = if let UiRenderLocation::InlineView = render_location {
+                if !has_children {
+                    Task::done(AppMsg::RequestReactViewClose(plugin_id.clone()))
+                } else {
+                    Task::none()
+                }
+            } else {
+                Task::none()
+            };
 
             Task::batch([
                 Task::done(state.client_context.render_ui(
                     render_location,
                     container,
-                    images,
+                    data,
                     &plugin_id,
                     &plugin_name,
                     &entrypoint_id,
@@ -597,6 +617,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     has_children,
                     render_location,
                 }),
+                close_task,
             ])
         }
         AppMsg::HandleRenderPluginUI {
@@ -637,7 +658,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     };
 
                     if let UiRenderLocation::InlineView = render_location {
-                        Task::batch([command, state.inline_view_shortcuts()])
+                        Task::batch([command, state.request_inline_view_shortcuts()])
                     } else {
                         command
                     }
@@ -742,9 +763,18 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                     }
                                 }
                                 GlobalState::ErrorView { .. } => Task::none(),
-                                GlobalState::PluginView { sub_state, .. } => {
+                                GlobalState::PluginView {
+                                    plugin_view_data,
+                                    sub_state,
+                                    ..
+                                } => {
+                                    let view = state.client_context.get_mut_view_container(&plugin_view_data.plugin_id);
+                                    let Some(view) = view else {
+                                        return Task::none();
+                                    };
+
                                     match sub_state {
-                                        PluginViewState::None => state.client_context.backspace_text(),
+                                        PluginViewState::None => view.backspace_text(),
                                         PluginViewState::ActionPanel { .. } => Task::none(),
                                     }
                                 }
@@ -792,8 +822,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::WidgetEvent {
             widget_event,
             plugin_id,
-            render_location,
-        } => state.handle_plugin_event(widget_event, plugin_id, render_location),
+        } => state.handle_plugin_event(widget_event, plugin_id),
         AppMsg::Noop => Task::none(),
         AppMsg::ShowPreferenceRequiredView {
             plugin_id,
@@ -888,8 +917,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                     }
                 }
                 GlobalState::ErrorView { .. } => {}
-                GlobalState::PluginView { sub_state, .. } => {
-                    state.client_context.toggle_action_panel();
+                GlobalState::PluginView {
+                    plugin_view_data,
+                    sub_state,
+                    ..
+                } => {
+                    let Some(view) = state.client_context.get_mut_view_container(&plugin_view_data.plugin_id) else {
+                        return Task::none();
+                    };
+
+                    view.toggle_action_panel();
 
                     match sub_state {
                         PluginViewState::None => PluginViewState::action_panel(sub_state, keyboard),
@@ -927,7 +964,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
             match state.client_context.get_first_inline_view_container() {
                 Some(container) => {
-                    let plugin_id = container.get_plugin_id();
+                    let plugin_id = container.plugin_id();
 
                     Task::batch([
                         Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
@@ -942,15 +979,27 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 None => Task::none(),
             }
         }
-        AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus { widget_id, id } => {
-            Task::done(AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id })
+        AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus {
+            widget_id,
+            plugin_id,
+            id,
+        } => {
+            Task::done(AppMsg::OnAnyActionPluginViewAnyPanel {
+                widget_id,
+                plugin_id,
+                id,
+            })
         }
-        AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus { widget_id, id } => {
+        AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus {
+            widget_id,
+            id,
+            plugin_id,
+        } => {
             Task::batch([
                 Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
                 Task::done(AppMsg::RunPluginAction {
                     render_location: UiRenderLocation::View,
-                    plugin_id: state.client_context.get_view_plugin_id(),
+                    plugin_id,
                     widget_id,
                     id,
                 }),
@@ -975,7 +1024,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
             if let Some(container) = state.client_context.get_first_inline_view_container() {
-                let plugin_id = container.get_plugin_id();
+                let plugin_id = container.plugin_id();
                 let action_ids = container.get_action_ids();
 
                 match action_ids.get(index) {
@@ -1023,35 +1072,19 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 GlobalState::PendingPluginView { .. } => Task::none(),
             }
         }
-        AppMsg::OnAnyActionPluginViewAnyPanel { widget_id, id } => {
+        AppMsg::OnAnyActionPluginViewAnyPanel {
+            widget_id,
+            id,
+            plugin_id,
+        } => {
             Task::done(AppMsg::RunPluginAction {
                 render_location: UiRenderLocation::View,
-                plugin_id: state.client_context.get_view_plugin_id(),
+                plugin_id,
                 widget_id,
                 id,
             })
         }
-        AppMsg::OpenPluginView(plugin_id, entrypoint_id) => state.open_plugin_view(plugin_id, entrypoint_id),
-        AppMsg::CloseAllReactViews => {
-            if let GlobalState::PluginView { plugin_view_data, .. } = &state.global_state {
-                let plugin_id = plugin_view_data.plugin_id.clone();
-                state.application_manager.request_view_close(plugin_id);
-            }
-
-            for (plugin_id, _) in state.client_context.get_all_inline_view_containers() {
-                state.application_manager.request_view_close(plugin_id.clone());
-            }
-            state.client_context.clear_all_inline_views();
-
-            Task::none()
-        }
-        AppMsg::ClosePluginView(plugin_id) => {
-            state.application_manager.request_view_close(plugin_id.clone());
-            state.client_context.clear_inline_view(&plugin_id);
-
-            Task::none()
-        }
-        AppMsg::InlineViewShortcuts { shortcuts } => {
+        AppMsg::SetInlineViewShortcuts { shortcuts } => {
             state.client_context.set_inline_view_shortcuts(shortcuts);
 
             Task::none()
@@ -1112,7 +1145,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
             Task::none()
         }
-        AppMsg::FocusPluginViewSearchBar { widget_id } => state.client_context.focus_search_bar(widget_id),
+        AppMsg::FocusPluginViewSearchBar { plugin_id, widget_id } => {
+            let Some(view) = state.client_context.get_view_container(&plugin_id) else {
+                return Task::none();
+            };
+
+            view.focus_search_bar(widget_id)
+        }
         AppMsg::WindowAction(action) => state.main_window_state.handle_action(action),
         AppMsg::SetTheme { theme } => {
             state.theme = GauntletComplexTheme::new(theme);
@@ -1120,43 +1159,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             GauntletComplexTheme::update_global(state.theme.clone());
 
             Task::none()
-        }
-        AppMsg::ShowNewView {
-            plugin_id,
-            entrypoint_id,
-        } => {
-            Task::batch([
-                GlobalState::pending_plugin(
-                    &mut state.global_state,
-                    PluginViewData {
-                        top_level_view: true,
-                        plugin_id: plugin_id.clone(),
-                        entrypoint_id: entrypoint_id.clone(),
-                        action_shortcuts: HashMap::new(),
-                    },
-                ),
-                Task::done(AppMsg::OpenPluginView(plugin_id, entrypoint_id)),
-                Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)),
-            ])
-        }
-        AppMsg::ShowNewGeneratedView {
-            plugin_id,
-            entrypoint_id,
-            action_index,
-        } => {
-            Task::batch([
-                GlobalState::pending_plugin(
-                    &mut state.global_state,
-                    PluginViewData {
-                        top_level_view: true,
-                        plugin_id: plugin_id.clone(),
-                        entrypoint_id: entrypoint_id.clone(),
-                        action_shortcuts: HashMap::new(),
-                    },
-                ),
-                state.run_generated_entrypoint(plugin_id, entrypoint_id, action_index),
-                Task::done(AppMsg::WindowAction(WindowActionMsg::ShowWindow)),
-            ])
         }
         AppMsg::HandleGlobalShortcut(event) => {
             match state.application_manager.handle_global_shortcut_event(event) {
@@ -1502,17 +1504,16 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
             };
 
             let inline_view = match state.client_context.get_all_inline_view_containers().first() {
+                None => horizontal_space().into(),
                 Some((plugin_id, container)) => {
                     let plugin_id = plugin_id.clone();
                     container.render_inline_root_widget().map(move |widget_event| {
                         AppMsg::WidgetEvent {
                             plugin_id: plugin_id.clone(),
-                            render_location: UiRenderLocation::InlineView,
                             widget_event,
                         }
                     })
                 }
-                None => horizontal_space().into(),
             };
 
             let content: Element<_> = column(vec![inline_view, list]).into();
@@ -1750,18 +1751,19 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                 ..
             } = plugin_view_data;
 
-            let view_container = state.client_context.get_view_container();
-
-            let container_element =
-                view_container
-                    .render_root_widget(sub_state, action_shortcuts)
-                    .map(|widget_event| {
-                        AppMsg::WidgetEvent {
-                            plugin_id: plugin_id.clone(),
-                            render_location: UiRenderLocation::View,
-                            widget_event,
-                        }
-                    });
+            let container_element = match state.client_context.get_view_container(plugin_id) {
+                None => horizontal_space().into(),
+                Some(view_container) => {
+                    view_container
+                        .render_root_widget(sub_state, action_shortcuts)
+                        .map(|widget_event| {
+                            AppMsg::WidgetEvent {
+                                plugin_id: plugin_id.clone(),
+                                widget_event,
+                            }
+                        })
+                }
+            };
 
             let element: Element<_> = container(container_element)
                 .width(Length::Fill)
@@ -1822,19 +1824,9 @@ impl AppModel {
     fn reset_window_state(&mut self) -> Task<AppMsg> {
         self.prompt = "".to_string();
 
-        self.client_context.clear_all_inline_views();
+        self.client_context.clear_all_views();
 
         GlobalState::initial(&mut self.global_state)
-    }
-
-    fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
-        let msg = self
-            .application_manager
-            .request_render_view(plugin_id, entrypoint_id)
-            .map(|action_shortcuts| AppMsg::OnOpenView { action_shortcuts })
-            .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
-
-        Task::done(msg)
     }
 
     fn run_command(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Task<AppMsg> {
@@ -1855,17 +1847,10 @@ impl AppModel {
         Task::none()
     }
 
-    fn handle_plugin_event(
-        &mut self,
-        widget_event: ComponentWidgetEvent,
-        plugin_id: PluginId,
-        render_location: UiRenderLocation,
-    ) -> Task<AppMsg> {
+    fn handle_plugin_event(&mut self, widget_event: ComponentWidgetEvent, plugin_id: PluginId) -> Task<AppMsg> {
         let application_manager = self.application_manager.clone();
 
-        let event = self
-            .client_context
-            .handle_event(render_location, &plugin_id, widget_event.clone());
+        let event = self.client_context.handle_event(&plugin_id, widget_event.clone());
 
         if let Some(event) = event {
             match event {
@@ -1921,19 +1906,14 @@ impl AppModel {
 
     fn handle_plugin_view_keyboard_event(
         &self,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
         physical_key: PhysicalKey,
         modifier_shift: bool,
         modifier_control: bool,
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let (plugin_id, entrypoint_id) = {
-            (
-                self.client_context.get_view_plugin_id(),
-                self.client_context.get_view_entrypoint_id(),
-            )
-        };
-
         self.application_manager.handle_keyboard_event(
             plugin_id,
             entrypoint_id,
@@ -1956,11 +1936,9 @@ impl AppModel {
         modifier_alt: bool,
         modifier_meta: bool,
     ) -> Task<AppMsg> {
-        let (plugin_id, entrypoint_id) = {
-            match self.client_context.get_first_inline_view_container() {
-                None => return Task::none(),
-                Some(container) => (container.get_plugin_id(), container.get_entrypoint_id()),
-            }
+        let (plugin_id, entrypoint_id) = match self.client_context.get_first_inline_view_container() {
+            None => return Task::none(),
+            Some(container) => (container.plugin_id(), container.entrypoint_id()),
         };
 
         self.application_manager.handle_keyboard_event(
@@ -1987,11 +1965,11 @@ impl AppModel {
         Task::done(msg)
     }
 
-    fn inline_view_shortcuts(&self) -> Task<AppMsg> {
+    fn request_inline_view_shortcuts(&self) -> Task<AppMsg> {
         let result = self
             .application_manager
             .inline_view_shortcuts()
-            .map(|shortcuts| AppMsg::InlineViewShortcuts { shortcuts })
+            .map(|shortcuts| AppMsg::SetInlineViewShortcuts { shortcuts })
             .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
 
         Task::done(result)
@@ -2144,7 +2122,18 @@ impl AppModel {
                 }
             }
             GlobalState::ErrorView { .. } => Task::none(),
-            GlobalState::PluginView { sub_state, .. } => {
+            GlobalState::PluginView {
+                plugin_view_data,
+                sub_state,
+                ..
+            } => {
+                let plugin_id = plugin_view_data.plugin_id.clone();
+                let entrypoint_id = plugin_view_data.entrypoint_id.clone();
+
+                let Some(view) = self.client_context.get_mut_view_container(&plugin_view_data.plugin_id) else {
+                    return Task::none();
+                };
+
                 match physical_key_model(physical_key, modifiers) {
                     Some(PhysicalShortcut {
                         physical_key: PhysicalKey::KeyK,
@@ -2162,6 +2151,8 @@ impl AppModel {
                     }) => {
                         if modifier_shift || modifier_control || modifier_alt || modifier_meta {
                             self.handle_plugin_view_keyboard_event(
+                                plugin_id,
+                                entrypoint_id,
                                 physical_key,
                                 modifier_shift,
                                 modifier_control,
@@ -2173,7 +2164,7 @@ impl AppModel {
                                 PluginViewState::None => {
                                     match text {
                                         None => Task::none(),
-                                        Some(text) => self.client_context.append_text(text.as_str()),
+                                        Some(text) => view.append_text(text.as_str()),
                                     }
                                 }
                                 PluginViewState::ActionPanel { .. } => Task::none(),
