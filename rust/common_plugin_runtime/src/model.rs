@@ -21,6 +21,10 @@ pub enum JsEvent {
         entrypoint_id: String,
     },
     CloseView,
+    PopView {
+        #[serde(rename = "entrypointId")]
+        entrypoint_id: String,
+    },
     RunCommand {
         #[serde(rename = "entrypointId")]
         entrypoint_id: String,

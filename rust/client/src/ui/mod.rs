@@ -161,6 +161,7 @@ pub enum AppMsg {
     },
     RunGeneratedEntrypoint(PluginId, EntrypointId, usize),
     RequestPluginViewOpen(PluginId, EntrypointId),
+    RequestPluginViewPop(PluginId, EntrypointId),
     RunSearchItemAction(SearchResult, usize),
     RunPluginAction {
         render_location: UiRenderLocation,
@@ -462,6 +463,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 .unwrap_or_else(|err| AppMsg::ShowBackendError(err.into()));
 
             Task::done(msg)
+        }
+        AppMsg::RequestPluginViewPop(plugin_id, entrypoint_id) => {
+            state.application_manager.request_view_pop(plugin_id, entrypoint_id);
+
+            Task::none()
         }
         AppMsg::RequestReactViewClose(plugin_id) => {
             state.application_manager.request_view_close(plugin_id.clone());

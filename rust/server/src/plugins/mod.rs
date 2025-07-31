@@ -738,6 +738,13 @@ impl ApplicationManager {
         Ok(shortcuts)
     }
 
+    pub fn request_view_pop(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) {
+        self.send_command(PluginCommand::One {
+            id: plugin_id.clone(),
+            data: OnePluginCommandData::PopView { entrypoint_id },
+        });
+    }
+
     pub fn request_view_close(&self, plugin_id: PluginId) {
         self.send_command(PluginCommand::One {
             id: plugin_id,

@@ -117,6 +117,9 @@ pub enum OnePluginCommandData {
         entrypoint_id: EntrypointId,
     },
     CloseView,
+    PopView {
+        entrypoint_id: EntrypointId,
+    },
     RunCommand {
         entrypoint_id: String,
     },
@@ -406,6 +409,9 @@ async fn event_loop(
                         Some(IntermediateUiEvent::OpenView { entrypoint_id })
                     }
                     OnePluginCommandData::CloseView => Some(IntermediateUiEvent::CloseView),
+                    OnePluginCommandData::PopView { entrypoint_id } => {
+                        Some(IntermediateUiEvent::PopView { entrypoint_id })
+                    }
                     OnePluginCommandData::RunCommand { entrypoint_id } => {
                         Some(IntermediateUiEvent::RunCommand { entrypoint_id })
                     }
@@ -520,6 +526,11 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
             }
         }
         IntermediateUiEvent::CloseView => JsEvent::CloseView,
+        IntermediateUiEvent::PopView { entrypoint_id } => {
+            JsEvent::PopView {
+                entrypoint_id: entrypoint_id.to_string(),
+            }
+        }
         IntermediateUiEvent::RunCommand { entrypoint_id } => JsEvent::RunCommand { entrypoint_id },
         IntermediateUiEvent::RunGeneratedEntrypoint {
             entrypoint_id,

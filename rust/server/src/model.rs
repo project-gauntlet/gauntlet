@@ -10,6 +10,9 @@ pub enum IntermediateUiEvent {
         entrypoint_id: EntrypointId,
     },
     CloseView,
+    PopView {
+        entrypoint_id: EntrypointId,
+    },
     RunCommand {
         entrypoint_id: String,
     },

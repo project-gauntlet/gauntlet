@@ -45,7 +45,7 @@ type MacOSDesktopSettings13AndPostData = {
     icon: ArrayBuffer | undefined,
 }
 
-type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | OpenInlineView | RefreshSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | PopView | OpenInlineView | RefreshSearchIndex
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -76,6 +76,11 @@ type OpenView = {
 
 type CloseView = {
     type: "CloseView"
+}
+
+type PopView = {
+    type: "PopView"
+    entrypointId: string
 }
 
 type RunCommand = {
@@ -189,6 +194,7 @@ declare module "ext:gauntlet/renderer.js" {
     import { ReactNode } from "react";
 
     export const render: (entrypointId: string, entrypointName: string, renderLocation: RenderLocation, component: ReactNode) => UiWidget;
+    export const popView: () => void;
     export const rerender: (component: ReactNode) => void;
     export const clearRenderer: () => void;
 }

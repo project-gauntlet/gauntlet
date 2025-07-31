@@ -1,7 +1,13 @@
 import type { FC } from "react";
 import { runEntrypointGenerators, runGeneratedEntrypoint, runGeneratedEntrypointAction } from "./entrypoint-generator";
 import { reloadSearchIndex } from "./search-index";
-import { closeView, handleEvent, handlePluginViewKeyboardEvent, renderInlineView, renderView } from "./render";
+import {
+    closeView,
+    handleEvent,
+    handlePluginViewKeyboardEvent, popMainView,
+    renderInlineView,
+    renderView,
+} from "./render";
 import {
     entrypoint_preferences_required,
     get_entrypoint_preferences,
@@ -94,6 +100,16 @@ export async function runPluginLoop() {
                 closeView()
                 break;
             }
+            case "PopView": {
+                const entrypointId = pluginEvent.entrypointId
+                try {
+                    popMainView()
+                } catch (e) {
+                    console.error("Error occurred when popping view", entrypointId, e)
+                    show_plugin_error_view(entrypointId, "View")
+                }
+                break;
+            }
             case "RunCommand": {
                 try {
                     if (await checkRequiredPreferencesAndAsk(pluginEvent.entrypointId)) {
@@ -132,7 +148,8 @@ export async function runPluginLoop() {
                     }
 
                     try {
-                        const handler: FC<{ text: string }> = (await import(`gauntlet:entrypoint?${entrypointId}`)).default;
+                        type InlineView = { text: string };
+                        const handler: FC<InlineView> = (await import(`gauntlet:entrypoint?${entrypointId}`)).default;
 
                         renderInlineView(entrypointId, getEntrypointName(entrypointId), handler, pluginEvent.text)
                     } catch (e) {

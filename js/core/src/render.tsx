@@ -3,7 +3,7 @@ import {
     op_log_trace,
     hide_window
 } from "ext:core/ops";
-import { clearRenderer, rerender, render } from "ext:gauntlet/renderer.js";
+import { clearRenderer, rerender, render, popView } from "ext:gauntlet/renderer.js";
 import type { FC } from "react";
 
 let latestRootUiWidget: UiWidget | undefined = undefined
@@ -12,6 +12,10 @@ let latestRootUiRenderLocation: RenderLocation | undefined = undefined
 export function renderView(entrypointId: string, entrypointName: string, View: FC) {
     latestRootUiRenderLocation = "View";
     latestRootUiWidget = render(entrypointId, entrypointName, "View", <View/>);
+}
+
+export function popMainView() {
+    popView()
 }
 
 export function renderInlineView(entrypointId: string, entrypointName: string, Handler: FC<{ text: string }>, text: string) {

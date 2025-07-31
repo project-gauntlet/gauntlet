@@ -375,7 +375,7 @@ impl Focus<SearchResult> for GlobalState {
                                 ])
                             }
                         } else {
-                            Task::done(AppMsg::RequestPluginViewOpen(plugin_id.clone(), entrypoint_id.clone()))
+                            Task::done(AppMsg::RequestPluginViewPop(plugin_id.clone(), entrypoint_id.clone()))
                         }
                     }
                     PluginViewState::ActionPanel { .. } => Task::done(AppMsg::ToggleActionPanel { keyboard: true }),
