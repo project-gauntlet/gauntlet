@@ -397,7 +397,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             entrypoint_id,
         } => {
             Task::batch([
-                GlobalState::pending_plugin(&mut state.global_state, plugin_id.clone(), entrypoint_id.clone()),
+                GlobalState::pending_plugin_main_view(
+                    &mut state.global_state,
+                    plugin_id.clone(),
+                    entrypoint_id.clone(),
+                ),
                 Task::done(AppMsg::RequestPluginViewOpen(plugin_id, entrypoint_id)),
                 Task::done(AppMsg::PendingPluginViewLoadingBar),
             ])
@@ -418,7 +422,11 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             action_index,
         } => {
             Task::batch([
-                GlobalState::pending_plugin(&mut state.global_state, plugin_id.clone(), entrypoint_id.clone()),
+                GlobalState::pending_plugin_main_view(
+                    &mut state.global_state,
+                    plugin_id.clone(),
+                    entrypoint_id.clone(),
+                ),
                 Task::done(AppMsg::RunGeneratedEntrypoint(plugin_id, entrypoint_id, action_index)),
                 Task::done(AppMsg::PendingPluginViewLoadingBar),
             ])

@@ -150,6 +150,27 @@ impl GlobalState {
 
         Task::none()
     }
+
+    pub fn pending_plugin_main_view(
+        prev_global_state: &mut GlobalState,
+        plugin_id: PluginId,
+        entrypoint_id: EntrypointId,
+    ) -> Task<AppMsg> {
+        if let GlobalState::MainView {
+            pending_plugin_view_data,
+            ..
+        } = prev_global_state
+        {
+            *pending_plugin_view_data = Some(PluginViewData {
+                top_level_view: true,
+                plugin_id: plugin_id.clone(),
+                entrypoint_id: entrypoint_id.clone(),
+                action_shortcuts: HashMap::new(),
+            });
+        }
+
+        Task::none()
+    }
 }
 
 pub trait Focus<T> {
