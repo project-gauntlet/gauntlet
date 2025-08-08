@@ -1,13 +1,10 @@
-use crate::ui::scroll_handle::ESTIMATED_ACTION_ITEM_HEIGHT;
 use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::widget::action_panel::action_item_container_id;
 
 #[derive(Debug, Clone)]
 pub enum PluginViewState {
     None,
-    ActionPanel {
-        // ephemeral state
-        focused_action_item: ScrollHandle,
-    },
+    ActionPanel { scroll_handle: ScrollHandle },
 }
 
 impl PluginViewState {
@@ -20,8 +17,14 @@ impl PluginViewState {
     }
 
     pub fn action_panel(prev_state: &mut PluginViewState, focus_first: bool) {
+        let first_action_item = if focus_first {
+            Some(action_item_container_id(0))
+        } else {
+            None
+        };
+
         *prev_state = Self::ActionPanel {
-            focused_action_item: ScrollHandle::new(focus_first, ESTIMATED_ACTION_ITEM_HEIGHT, 7),
+            scroll_handle: ScrollHandle::new(first_action_item),
         }
     }
 }

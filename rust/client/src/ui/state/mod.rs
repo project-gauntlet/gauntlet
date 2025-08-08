@@ -1,4 +1,4 @@
-mod main_view;
+pub mod main_view;
 mod plugin_view;
 
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ use iced::widget::text_input::focus;
 
 use crate::ui::AppMsg;
 use crate::ui::client_context::ClientContext;
-use crate::ui::scroll_handle::ESTIMATED_MAIN_LIST_ITEM_HEIGHT;
+use crate::ui::scroll_handle::ScrollContent;
 use crate::ui::scroll_handle::ScrollHandle;
 pub use crate::ui::state::main_view::MainViewState;
 pub use crate::ui::state::plugin_view::PluginViewState;
@@ -84,7 +84,7 @@ impl GlobalState {
     pub fn new(search_field_id: text_input::Id) -> GlobalState {
         GlobalState::MainView {
             search_field_id,
-            focused_search_result: ScrollHandle::new(true, ESTIMATED_MAIN_LIST_ITEM_HEIGHT, 7),
+            focused_search_result: ScrollHandle::new(None),
             sub_state: MainViewState::new(),
             pending_plugin_view_data: None,
             pending_plugin_view_loading_bar: LoadingBarState::Off,
@@ -104,6 +104,7 @@ impl GlobalState {
             close_window_on_esc,
         }
     }
+
     pub fn new_pending_plugin(pending_plugin_view_data: PluginViewData) -> GlobalState {
         GlobalState::PendingPluginView {
             pending_plugin_view_data,
@@ -174,19 +175,19 @@ impl GlobalState {
 }
 
 pub trait Focus<T> {
-    fn primary(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn secondary(&mut self, client_context: &ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn primary(&mut self, client_context: &ClientContext, focus_list: &ScrollContent<T>) -> Task<AppMsg>;
+    fn secondary(&mut self, client_context: &ClientContext, focus_list: &ScrollContent<T>) -> Task<AppMsg>;
     fn back(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
     fn next(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
     fn previous(&mut self, client_context: &ClientContext) -> Task<AppMsg>;
-    fn up(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn down(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn left(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
-    fn right(&mut self, client_context: &mut ClientContext, focus_list: &[T]) -> Task<AppMsg>;
+    fn up(&mut self, client_context: &mut ClientContext, focus_list: &ScrollContent<T>) -> Task<AppMsg>;
+    fn down(&mut self, client_context: &mut ClientContext, focus_list: &ScrollContent<T>) -> Task<AppMsg>;
+    fn left(&mut self, client_context: &mut ClientContext, focus_list: &ScrollContent<T>) -> Task<AppMsg>;
+    fn right(&mut self, client_context: &mut ClientContext, focus_list: &ScrollContent<T>) -> Task<AppMsg>;
 }
 
 impl Focus<SearchResult> for GlobalState {
-    fn primary(&mut self, client_context: &ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn primary(&mut self, client_context: &ClientContext, focus_list: &ScrollContent<SearchResult>) -> Task<AppMsg> {
         match self {
             GlobalState::MainView {
                 focused_search_result,
@@ -195,38 +196,34 @@ impl Focus<SearchResult> for GlobalState {
             } => {
                 match sub_state {
                     MainViewState::None => {
-                        if let Some(search_result) = focused_search_result.get(focus_list) {
-                            let search_result = search_result.clone();
-                            Task::done(AppMsg::OnPrimaryActionMainViewNoPanel { search_result })
-                        } else {
-                            Task::done(AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus)
-                        }
+                        let Some(search_result) = focused_search_result.get(focus_list) else {
+                            return Task::done(AppMsg::OnPrimaryActionMainViewNoPanelKeyboardWithoutFocus);
+                        };
+
+                        Task::done(AppMsg::OnPrimaryActionMainViewNoPanel {
+                            search_result: search_result.clone(),
+                        })
                     }
                     MainViewState::SearchResultActionPanel {
-                        focused_action_item, ..
+                        search_result,
+                        entrypoint_actions,
+                        scroll_handle,
                     } => {
-                        match focused_action_item.index {
-                            None => Task::none(),
-                            Some(widget_id) => {
-                                if let Some(search_result) = focused_search_result.get(&focus_list) {
-                                    let search_result = search_result.clone();
-                                    Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
-                                        search_result,
-                                        widget_id,
-                                    })
-                                } else {
-                                    Task::none()
-                                }
-                            }
-                        }
+                        let Some(index) = scroll_handle.get_index(entrypoint_actions) else {
+                            return Task::none();
+                        };
+
+                        Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
+                            search_result: search_result.clone(),
+                            index,
+                        })
                     }
-                    MainViewState::InlineViewActionPanel { focused_action_item } => {
-                        match focused_action_item.index {
-                            None => Task::none(),
-                            Some(widget_id) => {
-                                Task::done(AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id })
-                            }
-                        }
+                    MainViewState::InlineViewActionPanel { scroll_handle, actions } => {
+                        let Some(index) = scroll_handle.get_index(actions) else {
+                            return Task::none();
+                        };
+
+                        Task::done(AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { index })
                     }
                 }
             }
@@ -239,35 +236,31 @@ impl Focus<SearchResult> for GlobalState {
                     return Task::none();
                 };
 
-                let action_ids = view.get_action_ids();
+                let action_ids = view.get_action_widgets_with_ids();
                 let focused_item_id = view.get_focused_item_id();
 
                 match sub_state {
                     PluginViewState::None => {
-                        if let Some(widget_id) = action_ids.get(0) {
-                            let widget_id = *widget_id;
-                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus {
-                                plugin_id: plugin_view_data.plugin_id.clone(),
-                                widget_id,
-                                id: focused_item_id,
-                            })
-                        } else {
-                            Task::none()
-                        }
+                        let Some((_, widget_id)) = action_ids.first() else {
+                            return Task::none();
+                        };
+
+                        Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus {
+                            plugin_id: plugin_view_data.plugin_id.clone(),
+                            widget_id: *widget_id,
+                            id: focused_item_id,
+                        })
                     }
-                    PluginViewState::ActionPanel {
-                        focused_action_item, ..
-                    } => {
-                        if let Some(widget_id) = focused_action_item.get(&action_ids) {
-                            let widget_id = *widget_id;
-                            Task::done(AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus {
-                                plugin_id: plugin_view_data.plugin_id.clone(),
-                                widget_id,
-                                id: focused_item_id,
-                            })
-                        } else {
-                            Task::none()
-                        }
+                    PluginViewState::ActionPanel { scroll_handle } => {
+                        let Some(&widget_id) = scroll_handle.get(&ScrollContent::new_with_ids(action_ids)) else {
+                            return Task::none();
+                        };
+
+                        Task::done(AppMsg::OnAnyActionPluginViewAnyPanelKeyboardWithFocus {
+                            plugin_id: plugin_view_data.plugin_id.clone(),
+                            widget_id,
+                            id: focused_item_id,
+                        })
                     }
                 }
             }
@@ -276,7 +269,7 @@ impl Focus<SearchResult> for GlobalState {
         }
     }
 
-    fn secondary(&mut self, client_context: &ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn secondary(&mut self, client_context: &ClientContext, focus_list: &ScrollContent<SearchResult>) -> Task<AppMsg> {
         match self {
             GlobalState::MainView {
                 focused_search_result,
@@ -285,12 +278,13 @@ impl Focus<SearchResult> for GlobalState {
             } => {
                 match sub_state {
                     MainViewState::None => {
-                        if let Some(search_result) = focused_search_result.get(focus_list) {
-                            let search_result = search_result.clone();
-                            Task::done(AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result })
-                        } else {
-                            Task::done(AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus)
-                        }
+                        let Some(search_result) = focused_search_result.get(focus_list) else {
+                            return Task::done(AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus);
+                        };
+
+                        Task::done(AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus {
+                            search_result: search_result.clone(),
+                        })
                     }
                     MainViewState::SearchResultActionPanel { .. } | MainViewState::InlineViewActionPanel { .. } => {
                         // secondary does nothing when action panel is opened
@@ -303,25 +297,24 @@ impl Focus<SearchResult> for GlobalState {
                 sub_state,
                 ..
             } => {
-                let Some(container) = client_context.get_view_container(&plugin_view_data.plugin_id) else {
+                let Some(view) = client_context.get_view_container(&plugin_view_data.plugin_id) else {
                     return Task::none();
                 };
 
-                let action_ids = container.get_action_ids();
-                let focused_item_id = container.get_focused_item_id();
+                let action_ids = view.get_action_widgets();
+                let focused_item_id = view.get_focused_item_id();
 
                 match sub_state {
                     PluginViewState::None => {
-                        if let Some(widget_id) = action_ids.get(1) {
-                            let widget_id = *widget_id;
-                            Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus {
-                                plugin_id: plugin_view_data.plugin_id.clone(),
-                                widget_id,
-                                id: focused_item_id,
-                            })
-                        } else {
-                            Task::none()
-                        }
+                        let Some(widget_id) = action_ids.get(1) else {
+                            return Task::none();
+                        };
+
+                        Task::done(AppMsg::OnAnyActionPluginViewNoPanelKeyboardWithFocus {
+                            plugin_id: plugin_view_data.plugin_id.clone(),
+                            widget_id: *widget_id,
+                            id: focused_item_id,
+                        })
                     }
                     PluginViewState::ActionPanel { .. } => {
                         // secondary does nothing when action panel is opened
@@ -401,7 +394,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
-    fn up(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn up(&mut self, client_context: &mut ClientContext, focus_list: &ScrollContent<SearchResult>) -> Task<AppMsg> {
         match self {
             GlobalState::MainView {
                 focused_search_result,
@@ -409,12 +402,24 @@ impl Focus<SearchResult> for GlobalState {
                 ..
             } => {
                 match sub_state {
-                    MainViewState::None => focused_search_result.focus_previous().unwrap_or_else(|| Task::none()),
-                    MainViewState::SearchResultActionPanel { focused_action_item } => {
-                        focused_action_item.focus_previous().unwrap_or_else(|| Task::none())
+                    MainViewState::None => {
+                        let (_, task) = focused_search_result.list_focus_up(focus_list.ids());
+
+                        task.unwrap_or(Task::none())
                     }
-                    MainViewState::InlineViewActionPanel { focused_action_item } => {
-                        focused_action_item.focus_previous().unwrap_or_else(|| Task::none())
+                    MainViewState::SearchResultActionPanel {
+                        entrypoint_actions,
+                        scroll_handle,
+                        ..
+                    } => {
+                        let (_, task) = scroll_handle.list_focus_up(entrypoint_actions.ids());
+
+                        task.unwrap_or(Task::none())
+                    }
+                    MainViewState::InlineViewActionPanel { scroll_handle, actions } => {
+                        let (_, task) = scroll_handle.list_focus_up(actions.ids());
+
+                        task.unwrap_or(Task::none())
                     }
                 }
             }
@@ -430,15 +435,19 @@ impl Focus<SearchResult> for GlobalState {
 
                 match sub_state {
                     PluginViewState::None => view.focus_up(),
-                    PluginViewState::ActionPanel { focused_action_item } => {
-                        focused_action_item.focus_previous().unwrap_or_else(|| Task::none())
+                    PluginViewState::ActionPanel { scroll_handle } => {
+                        let action_ids = view.get_action_widgets_ids();
+
+                        let (_, task) = scroll_handle.list_focus_up(action_ids);
+
+                        task.unwrap_or(Task::none())
                     }
                 }
             }
             GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
-    fn down(&mut self, client_context: &mut ClientContext, focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn down(&mut self, client_context: &mut ClientContext, focus_list: &ScrollContent<SearchResult>) -> Task<AppMsg> {
         match self {
             GlobalState::MainView {
                 focused_search_result,
@@ -447,40 +456,23 @@ impl Focus<SearchResult> for GlobalState {
             } => {
                 match sub_state {
                     MainViewState::None => {
-                        if focus_list.len() != 0 {
-                            focused_search_result
-                                .focus_next(focus_list.len())
-                                .unwrap_or_else(|| Task::none())
-                        } else {
-                            Task::none()
-                        }
+                        let (_, task) = focused_search_result.list_focus_down(focus_list.ids());
+
+                        task.unwrap_or(Task::none())
                     }
-                    MainViewState::SearchResultActionPanel { focused_action_item } => {
-                        if let Some(search_item) = focused_search_result.get(focus_list) {
-                            if search_item.entrypoint_actions.len() != 0 {
-                                focused_action_item
-                                    .focus_next(search_item.entrypoint_actions.len())
-                                    .unwrap_or_else(|| Task::none())
-                            } else {
-                                Task::none()
-                            }
-                        } else {
-                            Task::none()
-                        }
+                    MainViewState::SearchResultActionPanel {
+                        entrypoint_actions,
+                        scroll_handle,
+                        ..
+                    } => {
+                        let (_, task) = scroll_handle.list_focus_down(entrypoint_actions.ids());
+
+                        task.unwrap_or(Task::none())
                     }
-                    MainViewState::InlineViewActionPanel { focused_action_item } => {
-                        match client_context.get_first_inline_view_action_panel() {
-                            Some(action_panel) => {
-                                if action_panel.action_count() != 0 {
-                                    focused_action_item
-                                        .focus_next(action_panel.action_count())
-                                        .unwrap_or_else(|| Task::none())
-                                } else {
-                                    Task::none()
-                                }
-                            }
-                            None => Task::none(),
-                        }
+                    MainViewState::InlineViewActionPanel { scroll_handle, actions } => {
+                        let (_, task) = scroll_handle.list_focus_down(actions.ids());
+
+                        task.unwrap_or(Task::none())
                     }
                 }
             }
@@ -496,23 +488,19 @@ impl Focus<SearchResult> for GlobalState {
 
                 match sub_state {
                     PluginViewState::None => view.focus_down(),
-                    PluginViewState::ActionPanel { focused_action_item } => {
-                        let action_ids = view.get_action_ids();
+                    PluginViewState::ActionPanel { scroll_handle } => {
+                        let action_ids = view.get_action_widgets_ids();
 
-                        if action_ids.len() != 0 {
-                            focused_action_item
-                                .focus_next(action_ids.len())
-                                .unwrap_or_else(|| Task::none())
-                        } else {
-                            Task::none()
-                        }
+                        let (_, task) = scroll_handle.list_focus_down(action_ids);
+
+                        task.unwrap_or(Task::none())
                     }
                 }
             }
             GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
-    fn left(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn left(&mut self, client_context: &mut ClientContext, _focus_list: &ScrollContent<SearchResult>) -> Task<AppMsg> {
         match self {
             GlobalState::PluginView {
                 plugin_view_data,
@@ -533,7 +521,7 @@ impl Focus<SearchResult> for GlobalState {
             GlobalState::PendingPluginView { .. } => Task::none(),
         }
     }
-    fn right(&mut self, client_context: &mut ClientContext, _focus_list: &[SearchResult]) -> Task<AppMsg> {
+    fn right(&mut self, client_context: &mut ClientContext, _focus_list: &ScrollContent<SearchResult>) -> Task<AppMsg> {
         match self {
             GlobalState::PluginView {
                 plugin_view_data,

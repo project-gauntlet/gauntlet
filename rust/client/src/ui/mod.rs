@@ -66,7 +66,6 @@ use crate::ui::theme::text_input::TextInputStyle;
 
 mod client_context;
 mod custom_widgets;
-mod grid_navigation;
 mod scroll_handle;
 mod search_list;
 mod settings;
@@ -89,6 +88,7 @@ use crate::ui::custom_widgets::loading_bar::LoadingBar;
 use crate::ui::scenario_runner::ScenarioRunnerData;
 use crate::ui::scenario_runner::ScenarioRunnerMsg;
 use crate::ui::scenario_runner::handle_scenario_runner_msg;
+use crate::ui::scroll_handle::ScrollContent;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::server::handle_server_message;
 use crate::ui::settings::theme::GauntletSettingsTheme;
@@ -105,8 +105,8 @@ use crate::ui::state::LoadingBarState;
 use crate::ui::state::MainViewState;
 use crate::ui::state::PluginViewData;
 use crate::ui::state::PluginViewState;
-use crate::ui::widget::action_panel::ActionPanel;
-use crate::ui::widget::action_panel::ActionPanelItem;
+use crate::ui::state::main_view::search_result_action_panel;
+use crate::ui::state::main_view::search_result_bot_panel_right_info;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::root::render_root;
 use crate::ui::windows::MainWindowState;
@@ -130,7 +130,7 @@ pub struct AppModel {
     // state
     client_context: ClientContext,
     global_state: GlobalState,
-    search_results: Vec<SearchResult>,
+    search_results: ScrollContent<SearchResult>,
     loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
     hud_display: Option<String>,
 }
@@ -228,10 +228,10 @@ pub enum AppMsg {
     OnSecondaryActionMainViewNoPanelKeyboardWithoutFocus,
     OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
         search_result: SearchResult,
-        widget_id: UiWidgetId,
+        index: usize,
     },
     OnAnyActionMainViewInlineViewPanelKeyboardWithFocus {
-        widget_id: UiWidgetId,
+        index: usize,
     },
     OnAnyActionPluginViewNoPanelKeyboardWithFocus {
         plugin_id: PluginId,
@@ -249,7 +249,7 @@ pub enum AppMsg {
         id: Option<String>,
     },
     OnAnyActionMainViewSearchResultPanelMouse {
-        widget_id: UiWidgetId,
+        index: usize,
     },
     OnPrimaryActionMainViewActionPanelMouse,
     ResetMainViewState,
@@ -280,12 +280,13 @@ pub enum AppMsg {
     },
     WindowAction(WindowActionMsg),
     ResetWindowState,
-    ResetMainWindowScroll,
+    ResetMainWindowItemFocus,
     SetHudDisplay {
         display: String,
     },
     HandleScenario(ScenarioRunnerMsg),
     Settings(SettingsMsg),
+    SetCurrentFocusedItem(Option<container::Id>),
 }
 
 pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
@@ -375,7 +376,7 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
             // state
             global_state,
             client_context,
-            search_results: vec![],
+            search_results: ScrollContent::new(vec![]),
             loading_bar_state: HashMap::new(),
             hud_display: None,
         },
@@ -561,7 +562,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::PromptChanged(mut new_prompt) => {
-            match &mut state.global_state {
+            let task = match &mut state.global_state {
                 GlobalState::MainView {
                     focused_search_result,
                     sub_state,
@@ -571,16 +572,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
 
                     state.prompt = new_prompt.clone();
 
-                    focused_search_result.reset(true);
-
                     MainViewState::initial(sub_state);
-                }
-                GlobalState::ErrorView { .. } => {}
-                GlobalState::PluginView { .. } => {}
-                GlobalState::PendingPluginView { .. } => {}
-            }
 
-            state.search(new_prompt, true)
+                    let first = state.search_results.ids().first().cloned();
+
+                    focused_search_result.focus_target(first).unwrap_or(Task::none())
+                }
+                _ => Task::none(),
+            };
+
+            Task::batch([task, state.search(new_prompt, true)])
         }
         AppMsg::UpdateSearchResults => {
             match &state.global_state {
@@ -590,9 +591,17 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::PromptSubmit => state.global_state.primary(&state.client_context, &state.search_results),
         AppMsg::SetSearchResults(new_search_results) => {
-            state.search_results = new_search_results;
+            let first_focus = if state.search_results.items().is_empty() {
+                // this is supposed to only be useful only the first time main window is opened
+                // hopefully doesn't cause problems elsewhere
+                Task::done(AppMsg::ResetMainWindowItemFocus)
+            } else {
+                Task::none()
+            };
 
-            Task::none()
+            state.search_results.update(new_search_results);
+
+            first_focus
         }
         AppMsg::RenderPluginUI {
             plugin_id,
@@ -650,14 +659,17 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         *pending_plugin_view_loading_bar = LoadingBarState::Off;
                     }
 
-                    if has_children {
+                    let focus_task = if has_children {
                         if let UiRenderLocation::InlineView = render_location {
-                            focused_search_result.unfocus();
+                            focused_search_result.focus_target(None).unwrap_or(Task::none())
+                        } else {
+                            Task::none()
                         }
-                    }
+                    } else {
+                        Task::none()
+                    };
 
-                    let command = match pending_plugin_view_data {
-                        None => Task::none(),
+                    let state_task = match pending_plugin_view_data {
                         Some(pending_plugin_view_data) => {
                             let pending_plugin_view_data = pending_plugin_view_data.clone();
                             GlobalState::plugin(
@@ -669,13 +681,16 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                 false,
                             )
                         }
+                        None => Task::none(),
                     };
 
-                    if let UiRenderLocation::InlineView = render_location {
-                        Task::batch([command, state.request_inline_view_shortcuts()])
+                    let shortcuts_task = if let UiRenderLocation::InlineView = render_location {
+                        state.request_inline_view_shortcuts()
                     } else {
-                        command
-                    }
+                        Task::none()
+                    };
+
+                    Task::batch([focus_task, state_task, shortcuts_task])
                 }
                 GlobalState::ErrorView { .. } => Task::none(),
                 GlobalState::PluginView { plugin_view_data, .. } => {
@@ -914,11 +929,15 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         MainViewState::None => {
                             if let Some(search_item) = focused_search_result.get(&state.search_results) {
                                 if search_item.entrypoint_actions.len() > 0 {
-                                    MainViewState::search_result_action_panel(sub_state, keyboard);
+                                    MainViewState::search_result_action_panel(sub_state, keyboard, search_item.clone());
                                 }
                             } else {
-                                if let Some(_) = state.client_context.get_first_inline_view_container() {
-                                    MainViewState::inline_result_action_panel(sub_state, keyboard);
+                                if let Some(view) = state.client_context.get_first_inline_view_container() {
+                                    MainViewState::inline_result_action_panel(
+                                        sub_state,
+                                        keyboard,
+                                        ScrollContent::new_with_ids(view.get_action_widgets_with_ids()),
+                                    );
                                 }
                             }
                         }
@@ -930,7 +949,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         }
                     }
                 }
-                GlobalState::ErrorView { .. } => {}
                 GlobalState::PluginView {
                     plugin_view_data,
                     sub_state,
@@ -947,6 +965,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         PluginViewState::ActionPanel { .. } => PluginViewState::initial(sub_state),
                     }
                 }
+                GlobalState::ErrorView { .. } => {}
                 GlobalState::PendingPluginView { .. } => {}
             }
 
@@ -964,18 +983,13 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::OnSecondaryActionMainViewNoPanelKeyboardWithFocus { search_result } => {
             Task::done(AppMsg::RunSearchItemAction(search_result, 1))
         }
-        AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
-            search_result,
-            widget_id,
-        } => {
-            let index = widget_id;
-
+        AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus { search_result, index } => {
             Task::batch([
                 Task::done(AppMsg::RunSearchItemAction(search_result, index)),
                 Task::done(AppMsg::ResetMainViewState),
             ])
         }
-        AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id } => {
+        AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { index } => {
             match state.client_context.get_first_inline_view_container() {
                 Some(container) => {
                     let plugin_id = container.plugin_id();
@@ -985,7 +999,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                         Task::done(AppMsg::RunPluginAction {
                             render_location: UiRenderLocation::InlineView,
                             plugin_id,
-                            widget_id,
+                            widget_id: index,
                             id: None,
                         }),
                     ])
@@ -1039,7 +1053,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         AppMsg::OnAnyActionMainViewNoPanelKeyboardAtIndex { index } => {
             if let Some(container) = state.client_context.get_first_inline_view_container() {
                 let plugin_id = container.plugin_id();
-                let action_ids = container.get_action_ids();
+                let action_ids = container.get_action_widgets();
 
                 match action_ids.get(index) {
                     Some(widget_id) => {
@@ -1058,7 +1072,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 Task::none()
             }
         }
-        AppMsg::OnAnyActionMainViewSearchResultPanelMouse { widget_id } => {
+        AppMsg::OnAnyActionMainViewSearchResultPanelMouse { index } => {
             match &mut state.global_state {
                 GlobalState::MainView {
                     focused_search_result,
@@ -1072,7 +1086,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                                 let search_result = search_result.clone();
                                 Task::done(AppMsg::OnAnyActionMainViewSearchResultPanelKeyboardWithFocus {
                                     search_result,
-                                    widget_id,
+                                    index,
                                 })
                             } else {
                                 Task::none()
@@ -1219,14 +1233,15 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             responder,
         } => handle_server_message(state, request_data, responder),
         AppMsg::ResetWindowState => state.reset_window_state(),
-        AppMsg::ResetMainWindowScroll => {
-            if let GlobalState::MainView {
-                focused_search_result, ..
-            } = &state.global_state
-            {
-                focused_search_result.scroll_to(0)
-            } else {
-                Task::none()
+        AppMsg::ResetMainWindowItemFocus => {
+            match &mut state.global_state {
+                GlobalState::MainView {
+                    focused_search_result, ..
+                } => {
+                    let first = state.search_results.ids().first().cloned();
+                    focused_search_result.focus_target(first).unwrap_or(Task::none())
+                }
+                _ => Task::none(),
             }
         }
         AppMsg::SetHudDisplay { display } => {
@@ -1244,6 +1259,42 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
         }
         AppMsg::Settings(msg) => {
             update_settings(&mut state.settings_window_state, &state.global_hotkey_manager, msg).map(AppMsg::Settings)
+        }
+        AppMsg::SetCurrentFocusedItem(target_item_id) => {
+            match &mut state.global_state {
+                GlobalState::MainView {
+                    focused_search_result,
+                    sub_state,
+                    ..
+                } => {
+                    match sub_state {
+                        MainViewState::None => focused_search_result.set_current_focused_item(target_item_id),
+                        MainViewState::SearchResultActionPanel { scroll_handle, .. } => {
+                            scroll_handle.set_current_focused_item(target_item_id)
+                        }
+                        MainViewState::InlineViewActionPanel { scroll_handle, .. } => {
+                            scroll_handle.set_current_focused_item(target_item_id)
+                        }
+                    }
+                }
+                GlobalState::PluginView {
+                    sub_state,
+                    plugin_view_data,
+                    ..
+                } => {
+                    match sub_state {
+                        PluginViewState::None => {
+                            state
+                                .client_context
+                                .set_current_focused_item(plugin_view_data.plugin_id.clone(), target_item_id)
+                        }
+                        PluginViewState::ActionPanel { scroll_handle } => {
+                            scroll_handle.set_current_focused_item(target_item_id)
+                        }
+                    }
+                }
+                _ => Task::none(),
+            }
         }
     }
 }
@@ -1534,124 +1585,10 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
 
             let (primary_action, action_panel) =
                 if let Some(search_item) = focused_search_result.get(&state.search_results) {
-                    let primary_shortcut = PhysicalShortcut {
-                        physical_key: PhysicalKey::Enter,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: false,
-                    };
-
-                    let secondary_shortcut = PhysicalShortcut {
-                        physical_key: PhysicalKey::Enter,
-                        modifier_shift: true,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: false,
-                    };
-
-                    let create_static =
-                        |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
-                            let mut actions: Vec<_> = search_item
-                                .entrypoint_actions
-                                .iter()
-                                .enumerate()
-                                .map(|(index, action)| {
-                                    let physical_shortcut = if index == 0 {
-                                        Some(secondary_shortcut.clone())
-                                    } else {
-                                        action.shortcut.clone()
-                                    };
-
-                                    ActionPanelItem::Action {
-                                        label: action.label.clone(),
-                                        widget_id: index,
-                                        physical_shortcut,
-                                    }
-                                })
-                                .collect();
-
-                            let primary_action_widget_id = 0;
-
-                            if actions.len() == 0 {
-                                (
-                                    Some((label.to_string(), primary_action_widget_id, primary_shortcut)),
-                                    None,
-                                )
-                            } else {
-                                let label = label.to_string();
-
-                                let primary_action = ActionPanelItem::Action {
-                                    label: label.clone(),
-                                    widget_id: primary_action_widget_id,
-                                    physical_shortcut: Some(primary_shortcut.clone()),
-                                };
-
-                                actions.insert(0, primary_action);
-
-                                let action_panel = ActionPanel {
-                                    title: Some(search_item.entrypoint_name.clone()),
-                                    items: actions,
-                                };
-
-                                (
-                                    Some((label, primary_action_widget_id, primary_shortcut)),
-                                    Some(action_panel),
-                                )
-                            }
-                        };
-
-                    let create_generated =
-                        |label: &str, primary_shortcut: PhysicalShortcut, secondary_shortcut: PhysicalShortcut| {
-                            let label = search_item
-                                .entrypoint_actions
-                                .first()
-                                .map(|action| action.label.clone())
-                                .unwrap_or_else(|| label.to_string()); // should never happen, because there is always at least one action
-
-                            let actions: Vec<_> = search_item
-                                .entrypoint_actions
-                                .iter()
-                                .enumerate()
-                                .map(|(index, action)| {
-                                    let physical_shortcut = match index {
-                                        0 => Some(primary_shortcut.clone()),
-                                        1 => Some(secondary_shortcut.clone()),
-                                        _ => action.shortcut.clone(),
-                                    };
-
-                                    ActionPanelItem::Action {
-                                        label: action.label.clone(),
-                                        widget_id: index,
-                                        physical_shortcut,
-                                    }
-                                })
-                                .collect();
-
-                            let primary_action_widget_id = 0;
-
-                            let action_panel = ActionPanel {
-                                title: Some(search_item.entrypoint_name.clone()),
-                                items: actions,
-                            };
-
-                            (
-                                Some((label, primary_action_widget_id, primary_shortcut)),
-                                Some(action_panel),
-                            )
-                        };
-
-                    match search_item.entrypoint_type {
-                        SearchResultEntrypointType::Command => {
-                            create_static("Run Command", primary_shortcut, secondary_shortcut)
-                        }
-                        SearchResultEntrypointType::View => {
-                            create_static("Open View", primary_shortcut, secondary_shortcut)
-                        }
-                        SearchResultEntrypointType::Generated => {
-                            create_generated("Run Command", primary_shortcut, secondary_shortcut)
-                        }
-                    }
+                    (
+                        Some(search_result_bot_panel_right_info(search_item)),
+                        search_result_action_panel(search_item),
+                    )
                 } else {
                     match state.client_context.get_first_inline_view_action_panel() {
                         None => (None, None),
@@ -1659,15 +1596,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                             match action_panel.find_first() {
                                 None => (None, None),
                                 Some((label, widget_id)) => {
-                                    let shortcut = PhysicalShortcut {
-                                        physical_key: PhysicalKey::Enter,
-                                        modifier_shift: false,
-                                        modifier_control: false,
-                                        modifier_alt: false,
-                                        modifier_meta: false,
-                                    };
-
-                                    (Some((label, widget_id, shortcut)), Some(action_panel))
+                                    (Some((label, widget_id, primary_shortcut())), Some(action_panel))
                                 }
                             }
                         }
@@ -1693,17 +1622,15 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         None::<&ScrollHandle>,
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
-                        |_widget_id| {
-                            // widget_id here is always 0
+                        |_index| {
+                            // index here is always 0
                             AppMsg::OnPrimaryActionMainViewActionPanelMouse
                         },
-                        |_widget_id| AppMsg::Noop,
+                        |_index| AppMsg::Noop,
                         || AppMsg::Noop,
                     )
                 }
-                MainViewState::SearchResultActionPanel {
-                    focused_action_item, ..
-                } => {
+                MainViewState::SearchResultActionPanel { scroll_handle, .. } => {
                     render_root(
                         true,
                         input,
@@ -1712,20 +1639,18 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         content,
                         primary_action,
                         action_panel,
-                        Some(focused_action_item),
+                        Some(scroll_handle),
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
-                        |_widget_id| {
-                            // widget_id here is always 0
+                        |_index| {
+                            // index here is always 0
                             AppMsg::OnPrimaryActionMainViewActionPanelMouse
                         },
-                        |widget_id| AppMsg::OnAnyActionMainViewSearchResultPanelMouse { widget_id },
+                        |index| AppMsg::OnAnyActionMainViewSearchResultPanelMouse { index },
                         || AppMsg::Noop,
                     )
                 }
-                MainViewState::InlineViewActionPanel {
-                    focused_action_item, ..
-                } => {
+                MainViewState::InlineViewActionPanel { scroll_handle, .. } => {
                     render_root(
                         true,
                         input,
@@ -1734,14 +1659,14 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                         content,
                         primary_action,
                         action_panel,
-                        Some(focused_action_item),
+                        Some(scroll_handle),
                         "",
                         || AppMsg::ToggleActionPanel { keyboard: false },
-                        |_widget_id| {
+                        |_index| {
                             // widget_id here is always 0
                             AppMsg::OnPrimaryActionMainViewActionPanelMouse
                         },
-                        |widget_id| AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { widget_id },
+                        |index| AppMsg::OnAnyActionMainViewInlineViewPanelKeyboardWithFocus { index },
                         || AppMsg::Noop,
                     )
                 }
@@ -2225,5 +2150,25 @@ impl AppModel {
         *prompt = chars.as_str().to_owned();
 
         focus(search_field_id.clone())
+    }
+}
+
+pub fn primary_shortcut() -> PhysicalShortcut {
+    PhysicalShortcut {
+        physical_key: PhysicalKey::Enter,
+        modifier_shift: false,
+        modifier_control: false,
+        modifier_alt: false,
+        modifier_meta: false,
+    }
+}
+
+pub fn secondary_shortcut() -> PhysicalShortcut {
+    PhysicalShortcut {
+        physical_key: PhysicalKey::Enter,
+        modifier_shift: true,
+        modifier_control: false,
+        modifier_alt: false,
+        modifier_meta: false,
     }
 }

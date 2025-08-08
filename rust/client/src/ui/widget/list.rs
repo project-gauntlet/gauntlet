@@ -33,7 +33,7 @@ use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::grid::render_section;
 use crate::ui::widget::images::render_image;
-use crate::ui::widget::state::RootState;
+use crate::ui::widget::state::ScrollableRootState;
 
 impl<'b> ComponentWidgets<'b> {
     pub fn render_list_widget<'a>(
@@ -44,10 +44,10 @@ impl<'b> ComponentWidgets<'b> {
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = list_widget.__id__;
-        let RootState {
+        let ScrollableRootState {
             show_action_panel,
-            focused_item,
-        } = self.root_state(widget_id);
+            scroll_handle,
+        } = self.state.scrollable_root_state(widget_id);
 
         let mut pending: Vec<&ListItemWidget> = vec![];
         let mut items: Vec<Element<_>> = vec![];
@@ -64,7 +64,13 @@ impl<'b> ComponentWidgets<'b> {
                     if !pending.is_empty() {
                         let content: Vec<_> = pending
                             .iter()
-                            .map(|widget| self.render_list_item_widget(widget, focused_item.index, index_counter))
+                            .map(|widget| {
+                                self.render_list_item_widget(
+                                    widget,
+                                    scroll_handle.current_item_id.clone(),
+                                    index_counter,
+                                )
+                            })
                             .collect();
 
                         let content: Element<_> = column(content).into();
@@ -76,7 +82,7 @@ impl<'b> ComponentWidgets<'b> {
 
                     items.push(self.render_list_section_widget(
                         widget,
-                        focused_item.index,
+                        scroll_handle.current_item_id.clone(),
                         index_counter,
                         first_section,
                     ));
@@ -89,7 +95,9 @@ impl<'b> ComponentWidgets<'b> {
         if !pending.is_empty() {
             let content: Vec<_> = pending
                 .iter()
-                .map(|widget| self.render_list_item_widget(widget, focused_item.index, index_counter))
+                .map(|widget| {
+                    self.render_list_item_widget(widget, scroll_handle.current_item_id.clone(), index_counter)
+                })
                 .collect();
 
             let content: Element<_> = column(content).into();
@@ -108,7 +116,7 @@ impl<'b> ComponentWidgets<'b> {
             let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::ListInner);
 
             let content: Element<_> = scrollable(content)
-                .id(focused_item.scrollable_id.clone())
+                .id(scroll_handle.scrollable_id.clone())
                 .width(Length::Fill)
                 .into();
 
@@ -135,7 +143,8 @@ impl<'b> ComponentWidgets<'b> {
 
         let content: Element<_> = row(elements).height(Length::Fill).into();
 
-        let focused_item_id = ComponentWidgets::list_focused_item_id(focused_item, list_widget);
+        let focused_item_id =
+            self.list_focused_item_id(scroll_handle, scroll_handle.current_item_id.clone(), list_widget);
 
         self.render_plugin_root(
             *show_action_panel,
@@ -154,7 +163,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_list_section_widget<'a>(
         &self,
         widget: &ListSectionWidget,
-        item_focus_index: Option<usize>,
+        item_focused_id: Option<container::Id>,
         index_counter: &Cell<usize>,
         first_section: bool,
     ) -> Element<'a, ComponentWidgetEvent> {
@@ -165,7 +174,7 @@ impl<'b> ComponentWidgets<'b> {
             .map(|members| {
                 match members {
                     ListSectionWidgetOrderedMembers::ListItem(widget) => {
-                        self.render_list_item_widget(widget, item_focus_index, index_counter)
+                        self.render_list_item_widget(widget, item_focused_id.clone(), index_counter)
                     }
                 }
             })
@@ -192,7 +201,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_list_item_widget<'a>(
         &self,
         widget: &ListItemWidget,
-        item_focus_index: Option<usize>,
+        item_focused_id: Option<container::Id>,
         index_counter: &Cell<usize>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let icon: Option<Element<_>> = widget
@@ -243,10 +252,12 @@ impl<'b> ComponentWidgets<'b> {
 
         let content: Element<_> = row(content).align_y(Alignment::Center).into();
 
-        let style = match item_focus_index {
+        let state = self.state.scrollable_item_state(widget.__id__);
+
+        let style = match &item_focused_id {
             None => ButtonStyle::ListItem,
             Some(focused_index) => {
-                if focused_index == index_counter.get() {
+                if focused_index == &state.id {
                     ButtonStyle::ListItemFocused
                 } else {
                     ButtonStyle::ListItem
@@ -256,7 +267,7 @@ impl<'b> ComponentWidgets<'b> {
 
         index_counter.set(index_counter.get() + 1);
 
-        let action_ids = self.get_action_ids();
+        let action_ids = self.get_action_widgets();
         let primary_action = action_ids.first();
 
         let on_press_msg = match primary_action {
@@ -269,6 +280,8 @@ impl<'b> ComponentWidgets<'b> {
             }
         };
 
-        button(content).on_press(on_press_msg).width(Length::Fill).themed(style)
+        let element = button(content).on_press(on_press_msg).width(Length::Fill).themed(style);
+
+        container(element).id(state.id.clone()).into()
     }
 }

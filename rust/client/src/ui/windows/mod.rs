@@ -215,8 +215,6 @@ impl MainWindowState {
             commands.push(Task::done(AppMsg::ResetWindowState));
         }
 
-        commands.push(Task::done(AppMsg::ResetMainWindowScroll));
-
         #[cfg(target_os = "macos")]
         macos_focus_previous_app();
 
@@ -234,7 +232,7 @@ impl MainWindowState {
             self.open_position,
         ));
 
-        Task::batch([
+        let task = Task::batch([
             open_task.map(|id| WindowActionMsg::SetMainWindowId(Some(id))),
             #[cfg(target_os = "macos")]
             match self.window_position_mode {
@@ -243,8 +241,12 @@ impl MainWindowState {
             },
             window::gain_focus(main_window_id),
             window::set_level(main_window_id, Level::AlwaysOnTop),
+        ]);
+
+        Task::batch([
+            task.map(AppMsg::WindowAction),
+            Task::done(AppMsg::ResetMainWindowItemFocus),
         ])
-        .map(AppMsg::WindowAction)
     }
 }
 

@@ -23,6 +23,7 @@ use iced::widget::vertical_rule;
 use iced_fonts::bootstrap::arrow_left;
 
 use crate::ui::custom_widgets::loading_bar::LoadingBar;
+use crate::ui::primary_shortcut;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
@@ -57,7 +58,7 @@ impl<'b> ComponentWidgets<'b> {
 
                         match content {
                             RootWidgetMembers::Detail(widget) => {
-                                let RootState { show_action_panel, .. } = self.root_state(widget.__id__);
+                                let RootState { show_action_panel, .. } = self.state.root_state(widget.__id__);
 
                                 let content = self.render_detail_widget(widget, false);
 
@@ -167,22 +168,11 @@ impl<'b> ComponentWidgets<'b> {
 
         let mut action_panel = convert_action_panel(action_panel, &action_shortcuts);
 
-        let primary_action =
-            action_panel
-                .as_mut()
-                .map(|panel| panel.find_first())
-                .flatten()
-                .map(|(label, widget_id)| {
-                    let shortcut = PhysicalShortcut {
-                        physical_key: PhysicalKey::Enter,
-                        modifier_shift: false,
-                        modifier_control: false,
-                        modifier_alt: false,
-                        modifier_meta: false,
-                    };
-
-                    (label.to_string(), widget_id, shortcut)
-                });
+        let primary_action = action_panel
+            .as_mut()
+            .map(|panel| panel.find_first())
+            .flatten()
+            .map(|(label, widget_id)| (label.to_string(), widget_id, primary_shortcut()));
 
         match plugin_view_state {
             PluginViewState::None => {
@@ -216,7 +206,7 @@ impl<'b> ComponentWidgets<'b> {
                     || ComponentWidgetEvent::Noop,
                 )
             }
-            PluginViewState::ActionPanel { focused_action_item } => {
+            PluginViewState::ActionPanel { scroll_handle } => {
                 render_root(
                     show_action_panel,
                     top_panel,
@@ -225,7 +215,7 @@ impl<'b> ComponentWidgets<'b> {
                     content,
                     primary_action,
                     action_panel,
-                    Some(&focused_action_item),
+                    Some(&scroll_handle),
                     entrypoint_name,
                     || {
                         ComponentWidgetEvent::ToggleActionPanel {

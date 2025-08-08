@@ -7,6 +7,8 @@ use gauntlet_common::model::PluginId;
 use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
+use iced::Task;
+use iced::widget::container;
 
 use crate::model::UiViewEvent;
 use crate::ui::AppMsg;
@@ -116,5 +118,11 @@ impl ClientContext {
         if let Some(index) = self.views.iter().position(|(id, _)| id == plugin_id) {
             self.views.remove(index);
         }
+    }
+
+    pub fn set_current_focused_item(&mut self, plugin_id: PluginId, target_id: Option<container::Id>) -> Task<AppMsg> {
+        self.get_mut_view_container(&plugin_id)
+            .map(|view| view.set_focused_item_id(target_id))
+            .unwrap_or(Task::none())
     }
 }

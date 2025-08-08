@@ -30,7 +30,7 @@ use crate::ui::theme::text::TextStyle;
 use crate::ui::widget::accessories::render_icon_accessory;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::events::ComponentWidgetEvent;
-use crate::ui::widget::state::RootState;
+use crate::ui::widget::state::ScrollableRootState;
 
 impl<'b> ComponentWidgets<'b> {
     pub fn render_grid_widget<'a>(
@@ -40,10 +40,10 @@ impl<'b> ComponentWidgets<'b> {
         entrypoint_name: &str,
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
-        let RootState {
+        let ScrollableRootState {
             show_action_panel,
-            focused_item,
-        } = self.root_state(grid_widget.__id__);
+            scroll_handle,
+        } = self.state.scrollable_root_state(grid_widget.__id__);
 
         let content = if grid_widget.content.ordered_members.is_empty() {
             match &grid_widget.content.empty_view {
@@ -67,7 +67,7 @@ impl<'b> ComponentWidgets<'b> {
                             let content = self.render_grid_section(
                                 &pending,
                                 &grid_widget.columns,
-                                focused_item.index,
+                                scroll_handle.current_item_id.clone(),
                                 index_counter,
                             );
 
@@ -78,7 +78,7 @@ impl<'b> ComponentWidgets<'b> {
 
                         items.push(self.render_grid_section_widget(
                             widget,
-                            focused_item.index,
+                            scroll_handle.current_item_id.clone(),
                             index_counter,
                             first_section,
                         ));
@@ -89,8 +89,12 @@ impl<'b> ComponentWidgets<'b> {
             }
 
             if !pending.is_empty() {
-                let content =
-                    self.render_grid_section(&pending, &grid_widget.columns, focused_item.index, index_counter);
+                let content = self.render_grid_section(
+                    &pending,
+                    &grid_widget.columns,
+                    scroll_handle.current_item_id.clone(),
+                    index_counter,
+                );
 
                 items.push(content);
             }
@@ -100,7 +104,7 @@ impl<'b> ComponentWidgets<'b> {
             let content: Element<_> = container(content).width(Length::Fill).themed(ContainerStyle::GridInner);
 
             let content: Element<_> = scrollable(content)
-                .id(focused_item.scrollable_id.clone())
+                .id(scroll_handle.scrollable_id.clone())
                 .width(Length::Fill)
                 .into();
 
@@ -109,7 +113,8 @@ impl<'b> ComponentWidgets<'b> {
             content
         };
 
-        let focused_item_id = ComponentWidgets::grid_focused_item_id(focused_item, grid_widget);
+        let focused_item_id =
+            self.grid_focused_item_id(scroll_handle, scroll_handle.current_item_id.clone(), grid_widget);
 
         self.render_plugin_root(
             *show_action_panel,
@@ -128,7 +133,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_grid_section_widget<'a>(
         &self,
         widget: &GridSectionWidget,
-        item_focus_index: Option<usize>,
+        item_focused_id: Option<container::Id>,
         index_counter: &Cell<usize>,
         first_section: bool,
     ) -> Element<'a, ComponentWidgetEvent> {
@@ -143,7 +148,7 @@ impl<'b> ComponentWidgets<'b> {
             })
             .collect();
 
-        let content = self.render_grid_section(&items, &widget.columns, item_focus_index, index_counter);
+        let content = self.render_grid_section(&items, &widget.columns, item_focused_id, index_counter);
 
         let section_title_style = if first_section {
             RowStyle::GridFirstSectionTitle
@@ -164,7 +169,7 @@ impl<'b> ComponentWidgets<'b> {
     fn render_grid_item_widget<'a>(
         &self,
         widget: &GridItemWidget,
-        item_focus_index: Option<usize>,
+        item_focused_id: Option<container::Id>,
         index_counter: &Cell<usize>,
         grid_width: usize,
     ) -> Element<'a, ComponentWidgetEvent> {
@@ -178,14 +183,16 @@ impl<'b> ComponentWidgets<'b> {
             8.. => 50,
         };
 
+        let state = self.state.scrollable_item_state(widget.__id__);
+
         let content: Element<_> = container(self.render_content_widget(&widget.content.content, true))
             .height(height)
             .into();
 
-        let style = match item_focus_index {
+        let style = match &item_focused_id {
             None => ButtonStyle::GridItem,
             Some(focused_index) => {
-                if focused_index == index_counter.get() {
+                if focused_index == &state.id {
                     ButtonStyle::GridItemFocused
                 } else {
                     ButtonStyle::GridItem
@@ -195,7 +202,7 @@ impl<'b> ComponentWidgets<'b> {
 
         index_counter.set(index_counter.get() + 1);
 
-        let action_ids = self.get_action_ids();
+        let action_ids = self.get_action_widgets();
         let primary_action = action_ids.first();
 
         let on_press_msg = match primary_action {
@@ -242,6 +249,8 @@ impl<'b> ComponentWidgets<'b> {
 
         let content: Element<_> = column(vec![content, sub_content]).width(Length::Fill).into();
 
+        let content: Element<_> = container(content).id(state.id.clone()).into();
+
         content
     }
 
@@ -250,7 +259,7 @@ impl<'b> ComponentWidgets<'b> {
         items: &[&GridItemWidget],
         /*aspect_ratio: Option<&str>,*/
         columns: &Option<f64>,
-        item_focus_index: Option<usize>,
+        item_focused_id: Option<container::Id>,
         index_counter: &Cell<usize>,
     ) -> Element<'a, ComponentWidgetEvent> {
         // TODO
@@ -270,7 +279,7 @@ impl<'b> ComponentWidgets<'b> {
 
         let rows: Vec<Element<_>> = items
             .iter()
-            .map(|widget| self.render_grid_item_widget(widget, item_focus_index, index_counter, columns))
+            .map(|widget| self.render_grid_item_widget(widget, item_focused_id.clone(), index_counter, columns))
             .chunks(columns)
             .into_iter()
             .flat_map(|row_items| row_items)

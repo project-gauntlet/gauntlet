@@ -14,7 +14,7 @@ impl<'b> ComponentWidgets<'b> {
         let TextFieldState {
             state_value,
             text_input_id,
-        } = self.text_field_state(widget_id);
+        } = self.state.text_field_state(widget_id);
 
         text_input(widget.placeholder.as_deref().unwrap_or_default(), state_value)
             .id(text_input_id.clone())

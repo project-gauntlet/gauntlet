@@ -42,7 +42,7 @@ use crate::ui::widget::state::TextFieldState;
 impl<'b> ComponentWidgets<'b> {
     fn render_text_field_widget<'a>(&self, widget: &TextFieldWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let TextFieldState { state_value, .. } = self.text_field_state(widget.__id__);
+        let TextFieldState { state_value, .. } = self.state.text_field_state(widget.__id__);
 
         text_input("", state_value)
             .on_input(move |value| ComponentWidgetEvent::OnChangeTextField { widget_id, value })
@@ -51,7 +51,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_password_field_widget<'a>(&self, widget: &PasswordFieldWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let TextFieldState { state_value, .. } = self.text_field_state(widget_id);
+        let TextFieldState { state_value, .. } = self.state.text_field_state(widget_id);
 
         text_input("", state_value)
             .secure(true)
@@ -61,7 +61,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_checkbox_widget<'a>(&self, widget: &CheckboxWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let CheckboxState { state_value } = self.checkbox_state(widget_id);
+        let CheckboxState { state_value } = self.state.checkbox_state(widget_id);
 
         checkbox(widget.title.as_deref().unwrap_or_default(), state_value.to_owned())
             .on_toggle(move |value| ComponentWidgetEvent::ToggleCheckbox { widget_id, value })
@@ -70,7 +70,7 @@ impl<'b> ComponentWidgets<'b> {
 
     fn render_select_widget<'a>(&self, widget: &SelectWidget) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let SelectState { state_value } = self.select_state(widget_id);
+        let SelectState { state_value } = self.state.select_state(widget_id);
 
         let items: Vec<_> = widget
             .content
@@ -115,7 +115,7 @@ impl<'b> ComponentWidgets<'b> {
         action_shortcuts: &HashMap<String, PhysicalShortcut>,
     ) -> Element<'a, ComponentWidgetEvent> {
         let widget_id = widget.__id__;
-        let RootState { show_action_panel, .. } = self.root_state(widget_id);
+        let RootState { show_action_panel, .. } = self.state.root_state(widget_id);
 
         let items: Vec<Element<_>> = widget
             .content

@@ -17,6 +17,7 @@ use iced::widget::row;
 use iced::widget::text;
 use iced::widget::text::Shaping;
 
+use crate::ui::scroll_handle::ScrollContent;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
@@ -29,12 +30,12 @@ use crate::ui::widget::accessories::render_icon_accessory;
 use crate::ui::widget::accessories::render_text_accessory;
 
 pub fn search_list<'a>(
-    search_results: &'a [SearchResult],
+    search_results: &'a ScrollContent<SearchResult>,
     focused_search_result: &ScrollHandle,
 ) -> Element<'a, SearchResult> {
     let items: Vec<Element<_>> = search_results
+        .items()
         .iter()
-        .enumerate()
         .map(|(index, search_result)| {
             let entrypoint_name: Element<_> = text(&search_result.entrypoint_name).shaping(Shaping::Advanced).into();
             let entrypoint_name: Element<_> = container(entrypoint_name).themed(ContainerStyle::MainListItemText);
@@ -135,7 +136,7 @@ pub fn search_list<'a>(
 
             let button_content: Element<_> = row(button_content).align_y(Alignment::Center).into();
 
-            let style = match focused_search_result.index {
+            let style = match &focused_search_result.current_item_id {
                 None => ButtonStyle::MainListItem,
                 Some(focused_index) => {
                     if focused_index == index {
@@ -146,10 +147,12 @@ pub fn search_list<'a>(
                 }
             };
 
-            button(button_content)
+            let content = button(button_content)
                 .width(Length::Fill)
                 .on_press(search_result.clone())
-                .themed(style)
+                .themed(style);
+
+            container(content).id(index.clone()).into()
         })
         .collect();
 

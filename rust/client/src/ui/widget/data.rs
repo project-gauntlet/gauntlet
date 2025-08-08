@@ -15,32 +15,32 @@ use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::RootWidgetMembers;
 use gauntlet_common::model::UiWidgetId;
 use iced::Task;
+use iced::widget::container;
 use iced::widget::text_input;
+use indexmap::IndexMap;
 
 use crate::ui::AppMsg;
-use crate::ui::grid_navigation::GridSectionData;
+use crate::ui::scroll_handle::ScrollContent;
 use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::widget::action_panel::ActionPanel;
 use crate::ui::widget::action_panel::convert_action_panel;
+use crate::ui::widget::data_mut::ComponentWidgetsMut;
 use crate::ui::widget::events::ComponentWidgetEvent;
-use crate::ui::widget::grid::grid_width;
-use crate::ui::widget::state::CheckboxState;
-use crate::ui::widget::state::ComponentWidgetState;
-use crate::ui::widget::state::RootState;
-use crate::ui::widget::state::SelectState;
+use crate::ui::widget::state::ComponentWidgetStateContainer;
+use crate::ui::widget::state::ScrollableRootState;
 use crate::ui::widget::state::TextFieldState;
 
 #[derive(Debug)]
 pub struct ComponentWidgets<'b> {
     pub root_widget: &'b Option<Arc<RootWidget>>,
-    pub state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
+    pub state: &'b ComponentWidgetStateContainer,
     pub data: &'b HashMap<UiWidgetId, Vec<u8>>,
 }
 
 impl<'b> ComponentWidgets<'b> {
     pub fn new(
         root_widget: &'b Option<Arc<RootWidget>>,
-        state: &'b HashMap<UiWidgetId, ComponentWidgetState>,
+        state: &'b ComponentWidgetStateContainer,
         data: &'b HashMap<UiWidgetId, Vec<u8>>,
     ) -> ComponentWidgets<'b> {
         Self {
@@ -50,57 +50,17 @@ impl<'b> ComponentWidgets<'b> {
         }
     }
 
-    pub fn text_field_state(&self, widget_id: UiWidgetId) -> &TextFieldState {
-        let state = self.state.get(&widget_id).expect(&format!(
-            "requested state should always be present for id: {}",
-            widget_id
-        ));
-
-        match state {
-            ComponentWidgetState::TextField(state) => state,
-            _ => panic!("TextFieldState expected, {:?} found", state),
-        }
-    }
-
-    pub fn checkbox_state(&self, widget_id: UiWidgetId) -> &CheckboxState {
-        let state = self.state.get(&widget_id).expect(&format!(
-            "requested state should always be present for id: {}",
-            widget_id
-        ));
-
-        match state {
-            ComponentWidgetState::Checkbox(state) => state,
-            _ => panic!("CheckboxState expected, {:?} found", state),
-        }
-    }
-
-    pub fn select_state(&self, widget_id: UiWidgetId) -> &SelectState {
-        let state = self.state.get(&widget_id).expect(&format!(
-            "requested state should always be present for id: {}",
-            widget_id
-        ));
-
-        match state {
-            ComponentWidgetState::Select(state) => state,
-            _ => panic!("SelectState expected, {:?} found", state),
-        }
-    }
-
-    pub fn root_state(&self, widget_id: UiWidgetId) -> &RootState {
-        let state = self.state.get(&widget_id).expect(&format!(
-            "requested state should always be present for id: {}",
-            widget_id
-        ));
-
-        match state {
-            ComponentWidgetState::Root(state) => state,
-            _ => panic!("RootState expected, {:?} found", state),
+    pub fn from_mut<'a>(widgets: &'b ComponentWidgetsMut<'a>) -> Self {
+        Self {
+            root_widget: &widgets.root_widget,
+            state: &widgets.state,
+            data: &widgets.data,
         }
     }
 }
 
 impl<'b> ComponentWidgets<'b> {
-    pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
+    pub fn get_action_widgets(&self) -> Vec<UiWidgetId> {
         let Some(root_widget) = &self.root_widget else {
             return vec![];
         };
@@ -155,93 +115,28 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Form(_) => None,
             RootWidgetMembers::Inline(_) => None,
             RootWidgetMembers::List(widget) => {
-                let RootState { focused_item, .. } = self.root_state(widget.__id__);
+                let ScrollableRootState {
+                    scroll_handle: focused_item,
+                    ..
+                } = self.state.scrollable_root_state(widget.__id__);
 
-                ComponentWidgets::list_focused_item_id(focused_item, widget)
+                self.list_focused_item_id(focused_item, focused_item.current_item_id.clone(), widget)
             }
             RootWidgetMembers::Grid(widget) => {
-                let RootState { focused_item, .. } = self.root_state(widget.__id__);
+                let ScrollableRootState {
+                    scroll_handle: focused_item,
+                    ..
+                } = self.state.scrollable_root_state(widget.__id__);
 
-                ComponentWidgets::grid_focused_item_id(focused_item, widget)
+                self.grid_focused_item_id(focused_item, focused_item.current_item_id.clone(), widget)
             }
         }
     }
 
     pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
-        let TextFieldState { text_input_id, .. } = self.text_field_state(widget_id);
+        let TextFieldState { text_input_id, .. } = self.state.text_field_state(widget_id);
 
         text_input::focus(text_input_id.clone())
-    }
-
-    pub fn grid_section_sizes(grid_widget: &GridWidget) -> Vec<GridSectionData> {
-        let mut amount_per_section: Vec<GridSectionData> = vec![];
-        let mut pending_section_size = 0;
-
-        let mut cumulative_item_index = 0;
-        let mut cumulative_row_index = 0;
-
-        let mut cumulative_item_index_at_start = cumulative_item_index;
-        let mut cumulative_row_index_at_start = cumulative_row_index;
-
-        for members in &grid_widget.content.ordered_members {
-            match &members {
-                GridWidgetOrderedMembers::GridItem(_) => {
-                    pending_section_size = pending_section_size + 1;
-                }
-                GridWidgetOrderedMembers::GridSection(widget) => {
-                    if pending_section_size > 0 {
-                        let width = grid_width(&grid_widget.columns);
-                        amount_per_section.push(GridSectionData {
-                            start_index: cumulative_item_index_at_start,
-                            start_row_index: cumulative_row_index_at_start,
-                            amount_in_section: pending_section_size,
-                            width,
-                        });
-
-                        cumulative_item_index = cumulative_item_index + pending_section_size;
-                        cumulative_row_index =
-                            cumulative_row_index_at_start + (usize::div_ceil(pending_section_size, width));
-
-                        cumulative_item_index_at_start = cumulative_item_index;
-                        cumulative_row_index_at_start = cumulative_row_index;
-
-                        pending_section_size = 0;
-                    }
-
-                    let section_amount = widget
-                        .content
-                        .ordered_members
-                        .iter()
-                        .filter(|members| matches!(members, GridSectionWidgetOrderedMembers::GridItem(_)))
-                        .count();
-
-                    let width = grid_width(&widget.columns);
-                    amount_per_section.push(GridSectionData {
-                        start_index: cumulative_item_index_at_start,
-                        start_row_index: cumulative_row_index_at_start,
-                        amount_in_section: section_amount,
-                        width,
-                    });
-
-                    cumulative_item_index = cumulative_item_index + section_amount;
-                    cumulative_row_index = cumulative_row_index_at_start + (usize::div_ceil(section_amount, width));
-
-                    cumulative_item_index_at_start = cumulative_item_index;
-                    cumulative_row_index_at_start = cumulative_row_index;
-                }
-            }
-        }
-
-        if pending_section_size > 0 {
-            amount_per_section.push(GridSectionData {
-                start_index: cumulative_item_index_at_start,
-                start_row_index: cumulative_row_index_at_start,
-                amount_in_section: pending_section_size,
-                width: grid_width(&grid_widget.columns),
-            });
-        }
-
-        amount_per_section
     }
 }
 
@@ -274,19 +169,26 @@ impl<'b> ComponentWidgets<'b> {
         AppMsg::FocusPluginViewSearchBar { plugin_id, widget_id }
     }
 
-    pub fn list_focused_item_id(focused_item: &ScrollHandle, widget: &ListWidget) -> Option<String> {
-        let mut items = vec![];
+    pub fn list_focused_item_id(
+        &self,
+        scroll_handle: &ScrollHandle,
+        target_item_id: Option<container::Id>,
+        widget: &ListWidget,
+    ) -> Option<String> {
+        let mut items = IndexMap::new();
 
         for members in &widget.content.ordered_members {
             match &members {
                 ListWidgetOrderedMembers::ListItem(item) => {
-                    items.push(&item.id);
+                    let state = self.state.scrollable_item_state(item.__id__);
+                    items.insert(state.id.clone(), &item.id);
                 }
                 ListWidgetOrderedMembers::ListSection(section) => {
                     for members in &section.content.ordered_members {
                         match &members {
                             ListSectionWidgetOrderedMembers::ListItem(item) => {
-                                items.push(&item.id);
+                                let state = self.state.scrollable_item_state(item.__id__);
+                                items.insert(state.id.clone(), &item.id);
                             }
                         }
                     }
@@ -294,18 +196,20 @@ impl<'b> ComponentWidgets<'b> {
             }
         }
 
-        match focused_item.get(&items) {
+        match scroll_handle.get_by_id(&ScrollContent::new_with_ids(items), target_item_id) {
             None => None,
             Some(item_id) => Some(item_id.to_string()),
         }
     }
 
     pub fn list_item_focus_event(
+        &self,
         plugin_id: PluginId,
-        focused_item: &ScrollHandle,
+        scroll_handle: &ScrollHandle,
+        target_item_id: Option<container::Id>,
         widget: &ListWidget,
     ) -> Task<AppMsg> {
-        let widget_event = match ComponentWidgets::list_focused_item_id(focused_item, widget) {
+        let widget_event = match self.list_focused_item_id(scroll_handle, target_item_id, widget) {
             None => {
                 ComponentWidgetEvent::FocusListItem {
                     list_widget_id: widget.__id__,
@@ -326,19 +230,26 @@ impl<'b> ComponentWidgets<'b> {
         })
     }
 
-    pub fn grid_focused_item_id(focused_item: &ScrollHandle, widget: &GridWidget) -> Option<String> {
-        let mut items = vec![];
+    pub fn grid_focused_item_id(
+        &self,
+        scroll_handle: &ScrollHandle,
+        target_item_id: Option<container::Id>,
+        widget: &GridWidget,
+    ) -> Option<String> {
+        let mut items = IndexMap::new();
 
         for members in &widget.content.ordered_members {
             match &members {
                 GridWidgetOrderedMembers::GridItem(item) => {
-                    items.push(&item.id);
+                    let state = self.state.scrollable_item_state(item.__id__);
+                    items.insert(state.id.clone(), &item.id);
                 }
                 GridWidgetOrderedMembers::GridSection(section) => {
                     for members in &section.content.ordered_members {
                         match &members {
                             GridSectionWidgetOrderedMembers::GridItem(item) => {
-                                items.push(&item.id);
+                                let state = self.state.scrollable_item_state(item.__id__);
+                                items.insert(state.id.clone(), &item.id);
                             }
                         }
                     }
@@ -346,18 +257,20 @@ impl<'b> ComponentWidgets<'b> {
             }
         }
 
-        match focused_item.get(&items) {
+        match scroll_handle.get_by_id(&ScrollContent::new_with_ids(items), target_item_id) {
             None => None,
             Some(item_id) => Some(item_id.to_string()),
         }
     }
 
     pub fn grid_item_focus_event(
+        &self,
         plugin_id: PluginId,
-        focused_item: &ScrollHandle,
+        scroll_handle: &ScrollHandle,
+        target_item_id: Option<container::Id>,
         widget: &GridWidget,
     ) -> Task<AppMsg> {
-        let widget_event = match ComponentWidgets::grid_focused_item_id(focused_item, widget) {
+        let widget_event = match self.grid_focused_item_id(scroll_handle, target_item_id, widget) {
             None => {
                 ComponentWidgetEvent::FocusGridItem {
                     grid_widget_id: widget.__id__,

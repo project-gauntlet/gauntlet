@@ -10,21 +10,24 @@ use gauntlet_common::model::RootWidget;
 use gauntlet_common::model::UiRenderLocation;
 use gauntlet_common::model::UiWidgetId;
 use iced::Task;
+use iced::widget::container;
+use indexmap::IndexMap;
 
 use crate::model::UiViewEvent;
 use crate::ui::AppMsg;
 use crate::ui::state::PluginViewState;
 use crate::ui::theme::Element;
 use crate::ui::widget::action_panel::ActionPanel;
+use crate::ui::widget::action_panel::action_item_container_id;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::data_mut::ComponentWidgetsMut;
 use crate::ui::widget::events::ComponentWidgetEvent;
-use crate::ui::widget::state::ComponentWidgetState;
+use crate::ui::widget::state::ComponentWidgetStateContainer;
 use crate::ui::widget::state::create_state;
 
 pub struct PluginViewContainer {
     root_widget: Option<Arc<RootWidget>>,
-    state: HashMap<UiWidgetId, ComponentWidgetState>,
+    state: ComponentWidgetStateContainer,
     data: HashMap<UiWidgetId, Vec<u8>>,
     render_location: UiRenderLocation,
     plugin_id: PluginId,
@@ -37,7 +40,7 @@ impl PluginViewContainer {
     pub fn new(render_location: UiRenderLocation, plugin_id: PluginId, entrypoint_id: EntrypointId) -> Self {
         Self {
             root_widget: None,
-            state: HashMap::new(),
+            state: ComponentWidgetStateContainer(HashMap::new()),
             data: HashMap::new(),
             render_location,
             plugin_id,
@@ -76,8 +79,8 @@ impl PluginViewContainer {
         // so this way we use already existing values but remove state for removed widgets
         let old_state = mem::replace(&mut self.state, create_state(&container));
 
-        for (key, value) in old_state.into_iter() {
-            match self.state.entry(key) {
+        for (key, value) in old_state.0.into_iter() {
+            match self.state.0.entry(key) {
                 Entry::Occupied(mut entry) => {
                     // copy over old value, but only if type of the widget didn't change
                     // if it did change, the widget state is reset
@@ -106,7 +109,7 @@ impl PluginViewContainer {
     pub fn handle_event(&mut self, plugin_id: PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
         let widget_id = event.widget_id();
 
-        event.handle(plugin_id, self.state.get_mut(&widget_id))
+        event.handle(plugin_id, self.state.0.get_mut(&widget_id))
     }
 
     pub fn render_root_widget<'a>(
@@ -127,11 +130,13 @@ impl PluginViewContainer {
     }
 
     pub fn append_text(&mut self, text: &str) -> Task<AppMsg> {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).append_text(text)
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id)
+            .append_text(text)
     }
 
     pub fn backspace_text(&mut self) -> Task<AppMsg> {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).backspace_text()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id)
+            .backspace_text()
     }
 
     pub fn focus_search_bar(&self, widget_id: UiWidgetId) -> Task<AppMsg> {
@@ -139,11 +144,24 @@ impl PluginViewContainer {
     }
 
     pub fn toggle_action_panel(&mut self) {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).toggle_action_panel()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id)
+            .toggle_action_panel()
     }
 
-    pub fn get_action_ids(&self) -> Vec<UiWidgetId> {
-        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).get_action_ids()
+    pub fn get_action_widgets_with_ids(&self) -> IndexMap<container::Id, UiWidgetId> {
+        self.get_action_widgets()
+            .into_iter()
+            .enumerate()
+            .map(|(index, id)| (action_item_container_id(index), id))
+            .collect()
+    }
+
+    pub fn get_action_widgets_ids(&self) -> Vec<container::Id> {
+        self.get_action_widgets_with_ids().keys().cloned().collect()
+    }
+
+    pub fn get_action_widgets(&self) -> Vec<UiWidgetId> {
+        ComponentWidgets::new(&self.root_widget, &self.state, &self.data).get_action_widgets()
     }
 
     pub fn get_focused_item_id(&self) -> Option<String> {
@@ -155,18 +173,23 @@ impl PluginViewContainer {
     }
 
     pub fn focus_up(&mut self) -> Task<AppMsg> {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).focus_up()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id).focus_up()
     }
 
     pub fn focus_down(&mut self) -> Task<AppMsg> {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).focus_down()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id).focus_down()
     }
 
     pub fn focus_left(&mut self) -> Task<AppMsg> {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).focus_left()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id).focus_left()
     }
 
     pub fn focus_right(&mut self) -> Task<AppMsg> {
-        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &self.plugin_id).focus_right()
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id).focus_right()
+    }
+
+    pub fn set_focused_item_id(&mut self, target_id: Option<container::Id>) -> Task<AppMsg> {
+        ComponentWidgetsMut::new(&mut self.root_widget, &mut self.state, &mut self.data, &self.plugin_id)
+            .set_focused_item_id(target_id)
     }
 }

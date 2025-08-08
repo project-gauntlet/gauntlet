@@ -1,12 +1,10 @@
 use std::cell::Cell;
 use std::collections::HashMap;
 
-use gauntlet_common::model::ActionPanelSectionWidget;
 use gauntlet_common::model::ActionPanelSectionWidgetOrderedMembers;
 use gauntlet_common::model::ActionPanelWidget;
 use gauntlet_common::model::ActionPanelWidgetOrderedMembers;
 use gauntlet_common::model::ActionWidget;
-use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::UiWidgetId;
 use gauntlet_common_ui::shortcut_to_text;
@@ -24,7 +22,9 @@ use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
 
+use crate::ui::primary_shortcut;
 use crate::ui::scroll_handle::ScrollHandle;
+use crate::ui::secondary_shortcut;
 use crate::ui::theme::Element;
 use crate::ui::theme::ThemableWidget;
 use crate::ui::theme::button::ButtonStyle;
@@ -40,10 +40,6 @@ pub struct ActionPanel {
 }
 
 impl ActionPanel {
-    pub fn action_count(&self) -> usize {
-        self.items.iter().map(|item| item.action_count()).sum()
-    }
-
     pub fn find_first(&self) -> Option<(String, UiWidgetId)> {
         ActionPanelItem::find_first(&self.items)
     }
@@ -53,6 +49,7 @@ impl ActionPanel {
 pub enum ActionPanelItem {
     Action {
         label: String,
+        container_id: container::Id,
         widget_id: UiWidgetId,
         physical_shortcut: Option<PhysicalShortcut>,
     },
@@ -62,14 +59,11 @@ pub enum ActionPanelItem {
     },
 }
 
-impl ActionPanelItem {
-    fn action_count(&self) -> usize {
-        match self {
-            ActionPanelItem::Action { .. } => 1,
-            ActionPanelItem::ActionSection { items, .. } => items.iter().map(|item| item.action_count()).sum(),
-        }
-    }
+pub fn action_item_container_id(index: usize) -> container::Id {
+    container::Id::new(format!("gauntlet-entrypoint-action-{}", index))
+}
 
+impl ActionPanelItem {
     fn find_first(items: &[ActionPanelItem]) -> Option<(String, UiWidgetId)> {
         for item in items {
             match item {
@@ -90,70 +84,73 @@ pub fn convert_action_panel(
     action_panel: &Option<ActionPanelWidget>,
     action_shortcuts: &HashMap<String, PhysicalShortcut>,
 ) -> Option<ActionPanel> {
-    match action_panel {
-        Some(ActionPanelWidget { content, title, .. }) => {
-            fn action_widget_to_action(
-                ActionWidget { __id__, id, label }: &ActionWidget,
-                action_shortcuts: &HashMap<String, PhysicalShortcut>,
-            ) -> ActionPanelItem {
-                let physical_shortcut: Option<PhysicalShortcut> =
-                    id.as_ref().map(|id| action_shortcuts.get(id)).flatten().cloned();
+    let Some(ActionPanelWidget { content, title, .. }) = action_panel else {
+        return None;
+    };
 
-                ActionPanelItem::Action {
-                    label: label.clone(),
-                    widget_id: *__id__,
-                    physical_shortcut,
+    fn action_widget_to_action(
+        widget: &ActionWidget,
+        action_shortcuts: &HashMap<String, PhysicalShortcut>,
+        index_counter: &Cell<usize>,
+    ) -> ActionPanelItem {
+        let physical_shortcut = widget.id.as_ref().map(|id| action_shortcuts.get(id)).flatten().cloned();
+
+        let container_id = action_item_container_id(index_counter.get());
+
+        index_counter.set(index_counter.get() + 1);
+
+        ActionPanelItem::Action {
+            label: widget.label.clone(),
+            container_id,
+            widget_id: widget.__id__,
+            physical_shortcut,
+        }
+    }
+
+    let index_counter = Cell::new(0);
+
+    let items = content
+        .ordered_members
+        .iter()
+        .map(|members| {
+            match members {
+                ActionPanelWidgetOrderedMembers::Action(widget) => {
+                    action_widget_to_action(widget, action_shortcuts, &index_counter)
+                }
+                ActionPanelWidgetOrderedMembers::ActionPanelSection(widget) => {
+                    let section_items = widget
+                        .content
+                        .ordered_members
+                        .iter()
+                        .map(|members| {
+                            match members {
+                                ActionPanelSectionWidgetOrderedMembers::Action(widget) => {
+                                    action_widget_to_action(widget, action_shortcuts, &index_counter)
+                                }
+                            }
+                        })
+                        .collect();
+
+                    ActionPanelItem::ActionSection {
+                        title: widget.title.clone(),
+                        items: section_items,
+                    }
                 }
             }
+        })
+        .collect();
 
-            let items = content
-                .ordered_members
-                .iter()
-                .map(|members| {
-                    match members {
-                        ActionPanelWidgetOrderedMembers::Action(widget) => {
-                            action_widget_to_action(widget, action_shortcuts)
-                        }
-                        ActionPanelWidgetOrderedMembers::ActionPanelSection(ActionPanelSectionWidget {
-                            content,
-                            title,
-                            ..
-                        }) => {
-                            let section_items = content
-                                .ordered_members
-                                .iter()
-                                .map(|members| {
-                                    match members {
-                                        ActionPanelSectionWidgetOrderedMembers::Action(widget) => {
-                                            action_widget_to_action(widget, action_shortcuts)
-                                        }
-                                    }
-                                })
-                                .collect();
-
-                            ActionPanelItem::ActionSection {
-                                title: title.clone(),
-                                items: section_items,
-                            }
-                        }
-                    }
-                })
-                .collect();
-
-            Some(ActionPanel {
-                title: title.clone(),
-                items,
-            })
-        }
-        _ => None,
-    }
+    Some(ActionPanel {
+        title: title.clone(),
+        items,
+    })
 }
 
 fn render_action_panel_items<'a, T: 'a + Clone>(
     root: bool,
     title: Option<String>,
     items: Vec<ActionPanelItem>,
-    action_panel_focus_index: Option<usize>,
+    action_panel_focus_id: Option<container::Id>,
     on_action_click: &dyn Fn(UiWidgetId) -> T,
     index_counter: &Cell<usize>,
 ) -> Vec<Element<'a, T>> {
@@ -189,30 +186,13 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
         match item {
             ActionPanelItem::Action {
                 label,
+                container_id,
                 widget_id,
                 physical_shortcut,
             } => {
                 let physical_shortcut = match index_counter.get() {
-                    0 => {
-                        Some(PhysicalShortcut {
-                            // primary
-                            physical_key: PhysicalKey::Enter,
-                            modifier_shift: false,
-                            modifier_control: false,
-                            modifier_alt: false,
-                            modifier_meta: false,
-                        })
-                    }
-                    1 => {
-                        Some(PhysicalShortcut {
-                            // secondary
-                            physical_key: PhysicalKey::Enter,
-                            modifier_shift: true,
-                            modifier_control: false,
-                            modifier_alt: false,
-                            modifier_meta: false,
-                        })
-                    }
+                    0 => Some(primary_shortcut()),
+                    1 => Some(secondary_shortcut()),
                     _ => physical_shortcut,
                 };
 
@@ -229,10 +209,10 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                     text(label).shaping(Shaping::Advanced).into()
                 };
 
-                let style = match action_panel_focus_index {
+                let style = match &action_panel_focus_id {
                     None => ButtonStyle::Action,
                     Some(focused_index) => {
-                        if focused_index == index_counter.get() {
+                        if focused_index == &container_id {
                             ButtonStyle::ActionFocused
                         } else {
                             ButtonStyle::Action
@@ -254,7 +234,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                     false,
                     title,
                     items,
-                    action_panel_focus_index,
+                    action_panel_focus_id.clone(),
                     on_action_click,
                     index_counter,
                 );
@@ -278,7 +258,7 @@ pub fn render_action_panel<'a, T: 'a + Clone, F: Fn(UiWidgetId) -> T>(
         true,
         action_panel.title,
         action_panel.items,
-        action_panel_scroll_handle.index,
+        action_panel_scroll_handle.current_item_id.clone(),
         &on_action_click,
         &Cell::new(0),
     );

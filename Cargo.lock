@@ -4526,6 +4526,7 @@ dependencies = [
  "iced",
  "iced_fonts",
  "image",
+ "indexmap 2.9.0",
  "itertools 0.13.0",
  "objc2-app-kit 0.2.2",
  "once_cell",
@@ -5746,7 +5747,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -5762,7 +5763,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -5780,7 +5781,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -5811,7 +5812,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "futures",
  "iced_core",
@@ -5825,7 +5826,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -5845,7 +5846,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -5854,7 +5855,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -5866,7 +5867,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "bytes",
  "iced_core",
@@ -5879,7 +5880,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -5896,7 +5897,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -5916,7 +5917,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -5931,7 +5932,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.13.99"
-source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#126063be65dedc5f2ba3e9ac67f35a5ec9c939ce"
+source = "git+https://github.com/project-gauntlet/iced.git?branch=gauntlet-0.13.1#b4ce8061d1281963360f204d93e5b2ffba582e08"
 dependencies = [
  "iced_debug",
  "iced_program",
