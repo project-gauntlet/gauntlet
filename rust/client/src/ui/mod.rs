@@ -482,7 +482,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 state.application_manager.request_view_close(plugin_id);
             }
 
-            for (plugin_id, _) in state.client_context.get_all_inline_view_containers() {
+            for (plugin_id, _) in state.client_context.get_inline_view_containers() {
                 state.application_manager.request_view_close(plugin_id.clone());
             }
             state.client_context.clear_all_views();
@@ -1568,7 +1568,7 @@ fn view_main(state: &AppModel) -> Element<'_, AppMsg> {
                 horizontal_rule(1).into()
             };
 
-            let inline_view = match state.client_context.get_all_inline_view_containers().first() {
+            let inline_view = match state.client_context.get_inline_view_containers().first() {
                 None => horizontal_space().into(),
                 Some((plugin_id, container)) => {
                     let plugin_id = plugin_id.clone();

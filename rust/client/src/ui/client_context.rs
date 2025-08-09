@@ -30,7 +30,7 @@ impl ClientContext {
     }
 
     pub fn get_first_inline_view_container(&self) -> Option<&PluginViewContainer> {
-        self.get_all_inline_view_containers()
+        self.get_inline_view_containers()
             .iter()
             .next()
             .map(|(_, container)| container)
@@ -47,14 +47,14 @@ impl ClientContext {
             .flatten()
     }
 
-    pub fn get_all_inline_view_containers(&self) -> Vec<&(PluginId, PluginViewContainer)> {
+    pub fn get_inline_view_containers(&self) -> Vec<&(PluginId, PluginViewContainer)> {
         self.views
             .iter()
             .filter(|(_, container)| matches!(container.render_location(), UiRenderLocation::InlineView))
             .collect()
     }
 
-    pub fn get_mut_or_create_view_container(
+    pub fn get_mut_or_create_any_view_container(
         &mut self,
         render_location: UiRenderLocation,
         plugin_id: &PluginId,
@@ -80,10 +80,14 @@ impl ClientContext {
     }
 
     pub fn get_mut_view_container(&mut self, plugin_id: &PluginId) -> Option<&mut PluginViewContainer> {
+        self.get_mut_any_view_container(plugin_id)
+            .filter(|container| matches!(container.render_location(), UiRenderLocation::View))
+    }
+
+    pub fn get_mut_any_view_container(&mut self, plugin_id: &PluginId) -> Option<&mut PluginViewContainer> {
         self.views
             .iter_mut()
             .find(|(id, _)| id == plugin_id)
-            .filter(|(_, container)| matches!(container.render_location(), UiRenderLocation::View))
             .map(|(_, container)| container)
     }
 
@@ -97,12 +101,12 @@ impl ClientContext {
         entrypoint_id: &EntrypointId,
         entrypoint_name: &str,
     ) -> AppMsg {
-        self.get_mut_or_create_view_container(render_location, plugin_id, entrypoint_id)
+        self.get_mut_or_create_any_view_container(render_location, plugin_id, entrypoint_id)
             .replace_view(container, data, plugin_name, entrypoint_name)
     }
 
     pub fn handle_event(&mut self, plugin_id: &PluginId, event: ComponentWidgetEvent) -> Option<UiViewEvent> {
-        self.get_mut_view_container(plugin_id)
+        self.get_mut_any_view_container(plugin_id)
             .and_then(|view| view.handle_event(plugin_id.clone(), event))
     }
 
@@ -121,7 +125,7 @@ impl ClientContext {
     }
 
     pub fn set_current_focused_item(&mut self, plugin_id: PluginId, target_id: Option<container::Id>) -> Task<AppMsg> {
-        self.get_mut_view_container(&plugin_id)
+        self.get_mut_any_view_container(&plugin_id)
             .map(|view| view.set_focused_item_id(target_id))
             .unwrap_or(Task::none())
     }
