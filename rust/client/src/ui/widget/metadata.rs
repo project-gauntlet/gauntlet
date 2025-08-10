@@ -177,6 +177,7 @@ fn render_metadata_item<'a>(
     is_in_list: bool,
 ) -> Element<'a, ComponentWidgetEvent> {
     let label: Element<_> = text(label.to_string())
+        .size(15)
         .shaping(Shaping::Advanced)
         .themed(TextStyle::MetadataItemLabel);
 

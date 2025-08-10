@@ -158,6 +158,7 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
 
     if let Some(title) = title {
         let text: Element<_> = text(title)
+            .size(15)
             .shaping(Shaping::Advanced)
             .font(Font {
                 weight: Weight::Bold,
@@ -200,13 +201,13 @@ fn render_action_panel_items<'a, T: 'a + Clone>(
                     physical_shortcut.as_ref().map(|shortcut| render_shortcut(shortcut));
 
                 let content: Element<_> = if let Some(shortcut_element) = shortcut_element {
-                    let text: Element<_> = text(label).shaping(Shaping::Advanced).into();
+                    let text: Element<_> = text(label).shaping(Shaping::Advanced).size(15).into();
 
                     let space: Element<_> = horizontal_space().into();
 
                     row([text, space, shortcut_element]).align_y(Alignment::Center).into()
                 } else {
-                    text(label).shaping(Shaping::Advanced).into()
+                    text(label).shaping(Shaping::Advanced).size(15).into()
                 };
 
                 let style = match &action_panel_focus_id {

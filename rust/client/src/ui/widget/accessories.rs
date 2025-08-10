@@ -34,7 +34,10 @@ pub fn render_icon_accessory<'a, T: 'a + Clone>(
     match widget.tooltip.as_ref() {
         None => content,
         Some(tooltip_text) => {
-            let tooltip_text: Element<_> = text(tooltip_text.to_string()).shaping(Shaping::Advanced).into();
+            let tooltip_text: Element<_> = text(tooltip_text.to_string())
+                .shaping(Shaping::Advanced)
+                .size(15)
+                .into();
 
             tooltip(content, tooltip_text, Position::Top).themed(TooltipStyle::Tooltip)
         }
@@ -52,6 +55,7 @@ pub fn render_text_accessory<'a, T: 'a + Clone>(
 
     let text_content: Element<_> = text(widget.text.to_string())
         .shaping(Shaping::Advanced)
+        .size(15)
         .themed(TextStyle::TextAccessory);
 
     let mut content: Vec<Element<_>> = vec![];
@@ -74,7 +78,10 @@ pub fn render_text_accessory<'a, T: 'a + Clone>(
     match widget.tooltip.as_ref() {
         None => content,
         Some(tooltip_text) => {
-            let tooltip_text: Element<_> = text(tooltip_text.to_string()).shaping(Shaping::Advanced).into();
+            let tooltip_text: Element<_> = text(tooltip_text.to_string())
+                .shaping(Shaping::Advanced)
+                .size(15)
+                .into();
 
             tooltip(content, tooltip_text, Position::Top).themed(TooltipStyle::Tooltip)
         }

@@ -37,12 +37,16 @@ pub fn search_list<'a>(
         .items()
         .iter()
         .map(|(index, search_result)| {
-            let entrypoint_name: Element<_> = text(&search_result.entrypoint_name).shaping(Shaping::Advanced).into();
+            let entrypoint_name: Element<_> = text(&search_result.entrypoint_name)
+                .size(15)
+                .shaping(Shaping::Advanced)
+                .into();
             let entrypoint_name: Element<_> = container(entrypoint_name).themed(ContainerStyle::MainListItemText);
 
             let spacer: Element<_> = horizontal_space().width(Length::Fill).into();
 
             let plugin_name_text: Element<_> = text(search_result.plugin_name.clone())
+                .size(15)
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::MainListItemSubtext);
 
@@ -70,7 +74,7 @@ pub fn search_list<'a>(
             button_content.push(plugin_name_text);
 
             if let Some(alias) = &search_result.entrypoint_alias {
-                let alias: Element<_> = text(alias.clone()).shaping(Shaping::Advanced).into();
+                let alias: Element<_> = text(alias.clone()).shaping(Shaping::Advanced).size(15).into();
 
                 let alias: Element<_> = container(alias).themed(ContainerStyle::MainListItemAlias).into();
 
@@ -127,6 +131,7 @@ pub fn search_list<'a>(
             };
 
             let type_text: Element<_> = text(type_text.to_string())
+                .size(15)
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::MainListItemSubtext);
 

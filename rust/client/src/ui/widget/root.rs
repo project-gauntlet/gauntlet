@@ -263,6 +263,7 @@ pub fn render_root<'a, T: 'a + Clone>(
     let primary_action = match primary_action {
         Some((label, widget_id, shortcut)) => {
             let label: Element<_> = text(label)
+                .size(15)
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::RootBottomPanelPrimaryActionText);
 
@@ -285,7 +286,9 @@ pub fn render_root<'a, T: 'a + Clone>(
 
     let (hide_action_panel, action_panel, bottom_panel) = match action_panel {
         Some(action_panel) => {
-            let actions_text: Element<_> = text("Actions").themed(TextStyle::RootBottomPanelActionToggleText);
+            let actions_text: Element<_> = text("Actions")
+                .size(15)
+                .themed(TextStyle::RootBottomPanelActionToggleText);
 
             let actions_text: Element<_> =
                 container(actions_text).themed(ContainerStyle::RootBottomPanelActionToggleText);

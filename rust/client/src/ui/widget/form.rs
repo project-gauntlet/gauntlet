@@ -130,6 +130,7 @@ impl<'b> ComponentWidgets<'b> {
                         None => Space::with_width(Length::FillPortion(2)).into(),
                         Some(label) => {
                             let label: Element<_> = text(label.to_string())
+                                .size(15)
                                 .shaping(Shaping::Advanced)
                                 .align_x(Horizontal::Right)
                                 .width(Length::Fill)

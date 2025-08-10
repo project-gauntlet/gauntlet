@@ -209,7 +209,10 @@ impl<'b> ComponentWidgets<'b> {
             .as_ref()
             .map(|icon| render_image(self.data, widget.__id__, icon, None));
 
-        let title: Element<_> = text(widget.title.to_string()).shaping(Shaping::Advanced).into();
+        let title: Element<_> = text(widget.title.to_string())
+            .shaping(Shaping::Advanced)
+            .size(15)
+            .into();
         let title: Element<_> = container(title).themed(ContainerStyle::ListItemTitle);
 
         let mut content = vec![title];
@@ -222,6 +225,7 @@ impl<'b> ComponentWidgets<'b> {
 
         if let Some(subtitle) = &widget.subtitle {
             let subtitle: Element<_> = text(subtitle.to_string())
+                .size(15)
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::ListItemSubtitle);
             let subtitle: Element<_> = container(subtitle).themed(ContainerStyle::ListItemSubtitle);

@@ -30,6 +30,7 @@ impl<'b> ComponentWidgets<'b> {
             None => horizontal_space().into(),
             Some(subtitle) => {
                 text(subtitle.to_string())
+                    .size(15)
                     .shaping(Shaping::Advanced)
                     .themed(TextStyle::EmptyViewSubtitle)
             }

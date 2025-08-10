@@ -46,6 +46,7 @@ impl<'b> ComponentWidgets<'b> {
         entrypoint_name: &str,
     ) -> Element<'a, ComponentWidgetEvent> {
         let name: Element<_> = text(format!("{} - {}", plugin_name, entrypoint_name))
+            .size(15)
             .shaping(Shaping::Advanced)
             .themed(TextStyle::InlineName);
 

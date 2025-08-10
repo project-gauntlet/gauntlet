@@ -30,7 +30,7 @@ impl<'b> ComponentWidgets<'b> {
             TextRenderType::H6 => Some(16),
         };
 
-        let mut text = text(value.join("")).shaping(Shaping::Advanced);
+        let mut text = text(value.join("")).shaping(Shaping::Advanced).size(15);
 
         if let Some(size) = header {
             text = text.size(size).font(Font {

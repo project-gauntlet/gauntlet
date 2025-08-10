@@ -222,6 +222,7 @@ impl<'b> ComponentWidgets<'b> {
         if let Some(title) = &widget.title {
             // TODO text truncation when iced supports it
             let title = text(title.to_string())
+                .size(15)
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::GridItemTitle);
 
@@ -230,6 +231,7 @@ impl<'b> ComponentWidgets<'b> {
 
         if let Some(subtitle) = &widget.subtitle {
             let subtitle = text(subtitle.to_string())
+                .size(15)
                 .shaping(Shaping::Advanced)
                 .themed(TextStyle::GridItemSubTitle);
 
@@ -310,7 +312,7 @@ pub fn render_section<'a>(
     if let Some(title) = title {
         let title: Element<_> = text(title.to_string())
             .shaping(Shaping::Advanced)
-            .size(15)
+            .size(14)
             .themed(theme_kind_title_text);
 
         title_content.push(title)
@@ -319,7 +321,7 @@ pub fn render_section<'a>(
     if let Some(subtitle) = subtitle {
         let subtitle: Element<_> = text(subtitle.to_string())
             .shaping(Shaping::Advanced)
-            .size(15)
+            .size(14)
             .themed(theme_kind_subtitle_text);
 
         title_content.push(subtitle)
