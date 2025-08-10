@@ -13,7 +13,7 @@ use crate::ui::windows::WindowActionMsg;
 const HUD_WINDOW_WIDTH: f32 = 400.0;
 const HUD_WINDOW_HEIGHT: f32 = 40.0;
 
-pub fn show_hud_window(#[cfg(target_os = "linux")] layer_shell: bool) -> Task<WindowActionMsg> {
+pub fn show_hud_window(#[cfg(target_os = "linux")] layer_shell: bool, display: String) -> Task<WindowActionMsg> {
     let settings = Settings {
         size: Size::new(HUD_WINDOW_WIDTH, HUD_WINDOW_HEIGHT),
         position: Position::SpecificWith(|window, screen| {
@@ -45,9 +45,23 @@ pub fn show_hud_window(#[cfg(target_os = "linux")] layer_shell: bool) -> Task<Wi
         ..Default::default()
     };
 
-    window::open(settings)
-        .1
-        .then(|id| sleep_for_2_seconds(id).then(|id| window::close(id)))
+    window::open(settings).1.then(move |window_id| {
+        Task::batch([
+            Task::done(WindowActionMsg::SetHudWindowId {
+                window_id,
+                display: Some(display.clone()),
+            }),
+            sleep_for_2_seconds(window_id).then(move |window_id| {
+                Task::batch([
+                    Task::done(WindowActionMsg::SetHudWindowId {
+                        window_id,
+                        display: None,
+                    }),
+                    window::close(window_id),
+                ])
+            }),
+        ])
+    })
 }
 
 #[cfg(target_os = "linux")]

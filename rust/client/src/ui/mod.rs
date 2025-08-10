@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -131,8 +132,7 @@ pub struct AppModel {
     client_context: ClientContext,
     global_state: GlobalState,
     search_results: ScrollContent<SearchResult>,
-    loading_bar_state: HashMap<(PluginId, EntrypointId), ()>,
-    hud_display: Option<String>,
+    loading_bar_state: HashSet<(PluginId, EntrypointId)>,
 }
 
 #[derive(Debug, Clone)]
@@ -281,9 +281,6 @@ pub enum AppMsg {
     WindowAction(WindowActionMsg),
     ResetWindowState,
     ResetMainWindowItemFocus,
-    SetHudDisplay {
-        display: String,
-    },
     HandleScenario(ScenarioRunnerMsg),
     Settings(SettingsMsg),
     SetCurrentFocusedItem(Option<container::Id>),
@@ -377,8 +374,7 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
             global_state,
             client_context,
             search_results: ScrollContent::new(vec![]),
-            loading_bar_state: HashMap::new(),
-            hud_display: None,
+            loading_bar_state: HashSet::new(),
         },
         Task::batch(tasks),
     )
@@ -388,7 +384,8 @@ fn title(state: &AppModel, window: window::Id) -> String {
     match window {
         _ if Some(window) == state.main_window_state.main_window_id => "Gauntlet".to_owned(),
         _ if Some(window) == state.settings_window_state.settings_window_id => "Gauntlet Settings".to_owned(),
-        _ => "Gauntlet HUD".to_owned(),
+        _ if state.main_window_state.hud_windows.contains_key(&window) => "Gauntlet HUD".to_owned(),
+        _ => "".to_string(),
     }
 }
 
@@ -1135,7 +1132,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             show,
         } => {
             if show {
-                state.loading_bar_state.insert((plugin_id, entrypoint_id), ());
+                state.loading_bar_state.insert((plugin_id, entrypoint_id));
             } else {
                 state.loading_bar_state.remove(&(plugin_id, entrypoint_id));
             }
@@ -1244,11 +1241,6 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 _ => Task::none(),
             }
         }
-        AppMsg::SetHudDisplay { display } => {
-            state.hud_display = Some(display);
-
-            Task::none()
-        }
         AppMsg::HandleScenario(msg) => {
             handle_scenario_runner_msg(
                 msg,
@@ -1307,42 +1299,39 @@ fn view(state: &AppModel, window: window::Id) -> Element<'_, AppMsg> {
 
             themer.map(AppMsg::Settings)
         }
-        _ => view_hud(state),
+        _ if state.main_window_state.hud_windows.contains_key(&window) => {
+            let display = state.main_window_state.hud_windows.get(&window).unwrap();
+
+            view_hud(display)
+        }
+        _ => horizontal_space().into(),
     }
 }
 
-fn view_hud(state: &AppModel) -> Element<'_, AppMsg> {
-    match &state.hud_display {
-        Some(hud_display) => {
-            let hud: Element<_> = text(hud_display.to_string()).shaping(Shaping::Advanced).into();
+fn view_hud(hud_display: &str) -> Element<'_, AppMsg> {
+    let hud = text(hud_display.to_string()).shaping(Shaping::Advanced);
 
-            let hud = container(hud)
-                .align_x(Horizontal::Center)
-                .align_y(Vertical::Center)
-                .height(Length::Fill)
-                .themed(ContainerStyle::HudInner);
+    let hud = container(hud)
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Center)
+        .height(Length::Fill)
+        .themed(ContainerStyle::HudInner);
 
-            let hud = container(hud)
-                .align_x(Horizontal::Center)
-                .align_y(Vertical::Center)
-                .height(Length::Fill)
-                .themed(ContainerStyle::Hud);
+    let hud = container(hud)
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Center)
+        .height(Length::Fill)
+        .themed(ContainerStyle::Hud);
 
-            let hud = container(hud)
-                .height(Length::Fill)
-                .width(Length::Fill)
-                .align_x(Horizontal::Center)
-                .align_y(Vertical::Center)
-                .class(ContainerStyleInner::Transparent)
-                .into();
+    let hud = container(hud)
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .align_x(Horizontal::Center)
+        .align_y(Vertical::Center)
+        .class(ContainerStyleInner::Transparent)
+        .into();
 
-            hud
-        }
-        None => {
-            // this should never be shown, but in case it does, do not make it fully transparent
-            container(horizontal_space()).themed(ContainerStyle::Hud)
-        }
-    }
+    hud
 }
 
 fn view_main(state: &AppModel) -> Element<'_, AppMsg> {

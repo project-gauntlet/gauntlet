@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -29,6 +30,7 @@ pub struct MainWindowState {
     #[cfg(target_os = "linux")]
     x11_active_window: Option<u32>,
     open_position: Position,
+    pub hud_windows: HashMap<window::Id, String>,
 }
 
 impl MainWindowState {
@@ -69,6 +71,7 @@ impl MainWindowState {
             #[cfg(target_os = "linux")]
             x11_active_window: None,
             open_position,
+            hud_windows: HashMap::new(),
         }
     }
 }
@@ -105,10 +108,17 @@ impl MainWindowState {
                 let show_hud = show_hud_window(
                     #[cfg(target_os = "linux")]
                     self.layer_shell,
-                )
-                .map(AppMsg::WindowAction);
+                    display,
+                );
 
-                Task::batch([Task::done(AppMsg::SetHudDisplay { display }), show_hud])
+                show_hud.map(AppMsg::WindowAction)
+            }
+            WindowActionMsg::SetHudWindowId { window_id, display } => {
+                match display {
+                    None => self.hud_windows.remove(&window_id),
+                    Some(display) => self.hud_windows.insert(window_id, display),
+                };
+                Task::none()
             }
             WindowActionMsg::SetMainWindowId(id) => {
                 self.main_window_id = id;
@@ -266,6 +276,10 @@ pub enum WindowActionMsg {
     ToggleWindow,
     ShowHud {
         display: String,
+    },
+    SetHudWindowId {
+        window_id: window::Id,
+        display: Option<String>,
     },
 }
 
