@@ -20,6 +20,7 @@ use deno_core::error::ModuleLoaderError;
 use deno_core::thiserror;
 use deno_core::url::ParseError;
 use deno_core::url::Url;
+use deno_core::v8;
 use deno_error::JsErrorBox;
 use deno_resolver::npm::ByonmInNpmPackageChecker;
 use deno_resolver::npm::ManagedNpmResolver;
@@ -536,6 +537,7 @@ pub async fn start_js_runtime(
             should_break_on_first_statement: false,
             origin_storage_dir: Some(PathBuf::from(init.local_storage_dir)),
             stdio: Stdio { stdin, stdout, stderr },
+            create_params: Some(v8::CreateParams::default().heap_limits(0, 50 * 1024 * 1024)),
             ..Default::default()
         },
     );
