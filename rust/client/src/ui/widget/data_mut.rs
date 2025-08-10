@@ -5,6 +5,7 @@ use std::sync::Arc;
 use gauntlet_common::model::GridSectionWidgetOrderedMembers;
 use gauntlet_common::model::GridWidget;
 use gauntlet_common::model::GridWidgetOrderedMembers;
+use gauntlet_common::model::JsOption;
 use gauntlet_common::model::ListSectionWidgetOrderedMembers;
 use gauntlet_common::model::ListWidget;
 use gauntlet_common::model::ListWidgetOrderedMembers;
@@ -20,6 +21,7 @@ use iced::widget::text_input;
 use itertools::Itertools;
 
 use crate::ui::AppMsg;
+use crate::ui::scroll_handle::ScrollHandle;
 use crate::ui::widget::data::ComponentWidgets;
 use crate::ui::widget::grid::grid_width;
 use crate::ui::widget::state::ComponentWidgetStateContainer;
@@ -172,8 +174,8 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::Inline(_) => Task::none(),
             RootWidgetMembers::List(widget) => {
                 let ids = self.list_collect_ids(&widget);
-                let state = self.state.scrollable_root_state_mut(widget.__id__);
-                let (next_item, Some(focus_task)) = state.scroll_handle.list_focus_up(ids) else {
+                let mut scroll_handle = self.list_scroll_handle(widget);
+                let (next_item, Some(focus_task)) = scroll_handle.list_focus_up(ids) else {
                     return Task::none();
                 };
 
@@ -189,8 +191,8 @@ impl<'b> ComponentWidgetsMut<'b> {
             }
             RootWidgetMembers::Grid(widget) => {
                 let ids = self.grid_collect_ids(widget);
-                let state = self.state.scrollable_root_state_mut(widget.__id__);
-                let (next_item, Some(focus_task)) = state.scroll_handle.grid_focus_up(ids) else {
+                let mut scroll_handle = self.grid_scroll_handle(widget);
+                let (next_item, Some(focus_task)) = scroll_handle.grid_focus_up(ids) else {
                     return Task::none();
                 };
 
@@ -221,8 +223,8 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::Form(_) => Task::none(),
             RootWidgetMembers::List(widget) => {
                 let ids = self.list_collect_ids(widget);
-                let state = self.state.scrollable_root_state_mut(widget.__id__);
-                let (next_item, Some(focus_task)) = state.scroll_handle.list_focus_down(ids) else {
+                let mut scroll_handle = self.list_scroll_handle(widget);
+                let (next_item, Some(focus_task)) = scroll_handle.list_focus_down(ids) else {
                     return Task::none();
                 };
 
@@ -243,8 +245,8 @@ impl<'b> ComponentWidgetsMut<'b> {
                 };
 
                 let ids = self.grid_collect_ids(widget);
-                let state = self.state.scrollable_root_state_mut(widget.__id__);
-                let (next_item, Some(focus_task)) = state.scroll_handle.grid_focus_down(ids) else {
+                let mut scroll_handle = self.grid_scroll_handle(widget);
+                let (next_item, Some(focus_task)) = scroll_handle.grid_focus_down(ids) else {
                     return Task::none();
                 };
 
@@ -278,8 +280,8 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(widget) => {
                 let ids = self.grid_collect_ids(widget);
-                let state = self.state.scrollable_root_state_mut(widget.__id__);
-                let (next_item, Some(focus_task)) = state.scroll_handle.grid_focus_left(ids) else {
+                let mut scroll_handle = self.grid_scroll_handle(widget);
+                let (next_item, Some(focus_task)) = scroll_handle.grid_focus_left(ids) else {
                     return Task::none();
                 };
 
@@ -312,8 +314,8 @@ impl<'b> ComponentWidgetsMut<'b> {
             RootWidgetMembers::List(_) => Task::none(),
             RootWidgetMembers::Grid(widget) => {
                 let ids = self.grid_collect_ids(widget);
-                let state = self.state.scrollable_root_state_mut(widget.__id__);
-                let (next_item, Some(focus_task)) = state.scroll_handle.grid_focus_right(ids) else {
+                let mut scroll_handle = self.grid_scroll_handle(widget);
+                let (next_item, Some(focus_task)) = scroll_handle.grid_focus_right(ids) else {
                     return Task::none();
                 };
 
@@ -442,5 +444,81 @@ impl<'b> ComponentWidgetsMut<'b> {
         }
 
         result
+    }
+
+    pub fn list_id_for_id(&self, widget: &ListWidget, target_item_id: &String) -> Option<container::Id> {
+        for members in &widget.content.ordered_members {
+            match &members {
+                ListWidgetOrderedMembers::ListItem(item) => {
+                    let state = self.state.scrollable_item_state(item.__id__);
+                    if &item.id == target_item_id {
+                        return Some(state.id.clone());
+                    }
+                }
+                ListWidgetOrderedMembers::ListSection(section) => {
+                    for members in &section.content.ordered_members {
+                        match &members {
+                            ListSectionWidgetOrderedMembers::ListItem(item) => {
+                                let state = self.state.scrollable_item_state(item.__id__);
+                                if &item.id == target_item_id {
+                                    return Some(state.id.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn grid_id_for_id(&self, widget: &GridWidget, target_item_id: &String) -> Option<container::Id> {
+        for members in &widget.content.ordered_members {
+            match &members {
+                GridWidgetOrderedMembers::GridItem(item) => {
+                    let state = self.state.scrollable_item_state(item.__id__);
+                    if &item.id == target_item_id {
+                        return Some(state.id.clone());
+                    }
+                }
+                GridWidgetOrderedMembers::GridSection(section) => {
+                    for members in &section.content.ordered_members {
+                        match &members {
+                            GridSectionWidgetOrderedMembers::GridItem(item) => {
+                                let state = self.state.scrollable_item_state(item.__id__);
+                                if &item.id == target_item_id {
+                                    return Some(state.id.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn grid_scroll_handle(&self, widget: &GridWidget) -> ScrollHandle {
+        let state = self.state.scrollable_root_state(widget.__id__);
+        match &widget.focused_item_id {
+            JsOption::Undefined => state.scroll_handle.clone(),
+            JsOption::Null => ScrollHandle::from(&state.scroll_handle, None),
+            JsOption::Value(focused_item_id) => {
+                ScrollHandle::from(&state.scroll_handle, self.grid_id_for_id(widget, focused_item_id))
+            }
+        }
+    }
+
+    fn list_scroll_handle(&self, widget: &ListWidget) -> ScrollHandle {
+        let state = self.state.scrollable_root_state(widget.__id__);
+        match &widget.focused_item_id {
+            JsOption::Undefined => state.scroll_handle.clone(),
+            JsOption::Null => ScrollHandle::from(&state.scroll_handle, None),
+            JsOption::Value(focused_item_id) => {
+                ScrollHandle::from(&state.scroll_handle, self.list_id_for_id(widget, focused_item_id))
+            }
+        }
     }
 }

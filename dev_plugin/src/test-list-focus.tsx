@@ -5,7 +5,7 @@ export default function Main(): ReactElement {
     const [id, setId] = useState<string | null>(null);
 
     return (
-        <List onItemFocusChange={setId}>
+        <List onItemFocusChange={setId} focusedItemId={id}>
             <List.Item id="adarian" title="Adarian"/>
             <List.Item id="aruzan" title="Aruzan"/>
             <List.Item id="blutopian" title="Blutopian"/>

@@ -151,6 +151,7 @@ declare global {
                 children?: ElementComponent<typeof ActionPanel | typeof ListItem | typeof ListSection | typeof SearchBar | typeof EmptyView | typeof Detail>;
                 isLoading?: boolean;
                 onItemFocusChange?: (itemId: string | null) => void;
+                focusedItemId?: string | null;
             };
             ["gauntlet:grid_item"]: {
                 children?: ElementComponent<typeof IconAccessory | typeof Content>;
@@ -169,6 +170,7 @@ declare global {
                 isLoading?: boolean;
                 columns?: number;
                 onItemFocusChange?: (itemId: string | null) => void;
+                focusedItemId?: string | null;
             };
         }
     }
@@ -700,6 +702,7 @@ export interface ListProps {
     actions?: ElementComponent<typeof ActionPanel>;
     isLoading?: boolean;
     onItemFocusChange?: (itemId: string | null) => void;
+    focusedItemId?: string | null;
 }
 export const List: FC<ListProps> & {
     Item: typeof ListItem;
@@ -708,7 +711,7 @@ export const List: FC<ListProps> & {
     EmptyView: typeof EmptyView;
     Detail: typeof Detail;
 } = (props: ListProps): ReactNode => {
-    return <gauntlet:list isLoading={props.isLoading} onItemFocusChange={props.onItemFocusChange}>{props.actions as any}{props.children}</gauntlet:list>;
+    return <gauntlet:list isLoading={props.isLoading} onItemFocusChange={props.onItemFocusChange} focusedItemId={props.focusedItemId}>{props.actions as any}{props.children}</gauntlet:list>;
 };
 List.Item = ListItem;
 List.Section = ListSection;
@@ -746,6 +749,7 @@ export interface GridProps {
     actions?: ElementComponent<typeof ActionPanel>;
     columns?: number;
     onItemFocusChange?: (itemId: string | null) => void;
+    focusedItemId?: string | null;
 }
 export const Grid: FC<GridProps> & {
     Item: typeof GridItem;
@@ -753,7 +757,7 @@ export const Grid: FC<GridProps> & {
     SearchBar: typeof SearchBar;
     EmptyView: typeof EmptyView;
 } = (props: GridProps): ReactNode => {
-    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns} onItemFocusChange={props.onItemFocusChange}>{props.actions as any}{props.children}</gauntlet:grid>;
+    return <gauntlet:grid isLoading={props.isLoading} columns={props.columns} onItemFocusChange={props.onItemFocusChange} focusedItemId={props.focusedItemId}>{props.actions as any}{props.children}</gauntlet:grid>;
 };
 Grid.Item = GridItem;
 Grid.Section = GridSection;

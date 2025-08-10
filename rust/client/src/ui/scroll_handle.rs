@@ -65,6 +65,13 @@ impl ScrollHandle {
         }
     }
 
+    pub fn from(scroll_handle: &ScrollHandle, current_item_id: Option<container::Id>) -> ScrollHandle {
+        ScrollHandle {
+            scrollable_id: scroll_handle.scrollable_id.clone(),
+            current_item_id,
+        }
+    }
+
     pub fn get<'a, T>(&self, items: &'a ScrollContent<T>) -> Option<&'a T> {
         self.get_by_id(items, self.current_item_id.clone())
     }
@@ -121,7 +128,8 @@ impl ScrollHandle {
         grid: Vec<Vec<container::Id>>,
     ) -> (Option<container::Id>, Option<Task<AppMsg>>) {
         let Some(current_item_id) = &self.current_item_id else {
-            return (None, self.focus_target(behavior.unfocused(grid)));
+            let target_item_id = behavior.unfocused(grid);
+            return (target_item_id.clone(), self.focus_target(target_item_id));
         };
 
         let Some((row_index, row)) = grid.iter().find_position(|row| row.contains(&current_item_id)) else {

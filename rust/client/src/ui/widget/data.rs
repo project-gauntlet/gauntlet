@@ -6,6 +6,7 @@ use gauntlet_common::model::ActionPanelWidgetOrderedMembers;
 use gauntlet_common::model::GridSectionWidgetOrderedMembers;
 use gauntlet_common::model::GridWidget;
 use gauntlet_common::model::GridWidgetOrderedMembers;
+use gauntlet_common::model::JsOption;
 use gauntlet_common::model::ListSectionWidgetOrderedMembers;
 use gauntlet_common::model::ListWidget;
 use gauntlet_common::model::ListWidgetOrderedMembers;
@@ -27,7 +28,6 @@ use crate::ui::widget::action_panel::convert_action_panel;
 use crate::ui::widget::data_mut::ComponentWidgetsMut;
 use crate::ui::widget::events::ComponentWidgetEvent;
 use crate::ui::widget::state::ComponentWidgetStateContainer;
-use crate::ui::widget::state::ScrollableRootState;
 use crate::ui::widget::state::TextFieldState;
 
 #[derive(Debug)]
@@ -115,20 +115,34 @@ impl<'b> ComponentWidgets<'b> {
             RootWidgetMembers::Form(_) => None,
             RootWidgetMembers::Inline(_) => None,
             RootWidgetMembers::List(widget) => {
-                let ScrollableRootState {
-                    scroll_handle: focused_item,
-                    ..
-                } = self.state.scrollable_root_state(widget.__id__);
+                match &widget.focused_item_id {
+                    JsOption::Undefined => {
+                        let state = self.state.scrollable_root_state(widget.__id__);
 
-                self.list_focused_item_id(focused_item, focused_item.current_item_id.clone(), widget)
+                        self.list_focused_item_id(
+                            &state.scroll_handle,
+                            state.scroll_handle.current_item_id.clone(),
+                            widget,
+                        )
+                    }
+                    JsOption::Null => None,
+                    JsOption::Value(value) => Some(value.clone()),
+                }
             }
             RootWidgetMembers::Grid(widget) => {
-                let ScrollableRootState {
-                    scroll_handle: focused_item,
-                    ..
-                } = self.state.scrollable_root_state(widget.__id__);
+                match &widget.focused_item_id {
+                    JsOption::Undefined => {
+                        let state = self.state.scrollable_root_state(widget.__id__);
 
-                self.grid_focused_item_id(focused_item, focused_item.current_item_id.clone(), widget)
+                        self.grid_focused_item_id(
+                            &state.scroll_handle,
+                            state.scroll_handle.current_item_id.clone(),
+                            widget,
+                        )
+                    }
+                    JsOption::Null => None,
+                    JsOption::Value(value) => Some(value.clone()),
+                }
             }
         }
     }

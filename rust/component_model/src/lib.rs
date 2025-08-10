@@ -958,7 +958,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property(
                 "isLoading",
-                mark_doc!("/list/props/isLoading.md"),
+                mark_doc!("/detail/props/isLoading.md"),
                 OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
@@ -1181,7 +1181,7 @@ pub fn create_component_model() -> Vec<Component> {
         [
             property(
                 "isLoading",
-                mark_doc!("/list/props/isLoading.md"),
+                mark_doc!("/form/props/isLoading.md"),
                 OptionalKind::Yes,
                 PropertyType::Boolean,
             ),
@@ -1453,6 +1453,12 @@ pub fn create_component_model() -> Vec<Component> {
                     PropertyType::String,
                 )],
             ),
+            property(
+                "focusedItemId",
+                mark_doc!("/list/props/focusedItemId.md"),
+                OptionalKind::YesButComplicated,
+                PropertyType::String,
+            ),
         ],
         children_members(
             [
@@ -1565,6 +1571,12 @@ pub fn create_component_model() -> Vec<Component> {
                     OptionalKind::Yes,
                     PropertyType::String,
                 )],
+            ),
+            property(
+                "focusedItemId",
+                mark_doc!("/grid/props/focusedItemId.md"),
+                OptionalKind::YesButComplicated,
+                PropertyType::String,
             ),
         ],
         children_members(
