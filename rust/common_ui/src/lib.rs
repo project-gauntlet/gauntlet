@@ -6,10 +6,11 @@ use iced::Pixels;
 use iced::border::Radius;
 use iced::keyboard::Modifiers;
 use iced::widget::text;
-use iced_fonts::bootstrap::arrow_return_left;
-use iced_fonts::bootstrap::command;
-use iced_fonts::bootstrap::option;
-use iced_fonts::bootstrap::shift;
+use iced_fonts::lucide::arrow_big_up;
+use iced_fonts::lucide::chevron_up;
+use iced_fonts::lucide::command;
+use iced_fonts::lucide::corner_down_left;
+use iced_fonts::lucide::option;
 
 pub fn padding(
     top: impl Into<Pixels>,
@@ -50,9 +51,9 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
     let (key_name, show_shift) = match shortcut.physical_key {
         PhysicalKey::Enter => {
             let key_name = if cfg!(target_os = "macos") {
-                arrow_return_left().into()
+                corner_down_left().size(14).into()
             } else {
-                text("Enter").into()
+                text("Enter").size(15).into()
             };
 
             (key_name, shortcut.modifier_shift)
@@ -60,7 +61,7 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
         _ => {
             let (key_name, show_shift) = physical_key_name(&shortcut.physical_key, shortcut.modifier_shift);
 
-            let key_name: Element<_, _> = text(key_name).into();
+            let key_name: Element<_, _> = text(key_name).size(15).into();
 
             (key_name, show_shift)
         }
@@ -68,9 +69,9 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let alt_modifier_text = if shortcut.modifier_alt {
         if cfg!(target_os = "macos") {
-            Some(option().into())
+            Some(option().size(15).into())
         } else {
-            Some(text("Alt").into())
+            Some(text("Alt").size(15).into())
         }
     } else {
         None
@@ -78,14 +79,15 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let meta_modifier_text = if shortcut.modifier_meta {
         if cfg!(target_os = "macos") {
-            Some(command().into())
+            Some(command().size(13).into())
         } else if cfg!(target_os = "windows") {
             Some(
                 text("Win") // is it possible to have shortcuts that use win?
+                    .size(15)
                     .into(),
             )
         } else {
-            Some(text("Super").into())
+            Some(text("Super").size(15).into())
         }
     } else {
         None
@@ -93,12 +95,9 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let control_modifier_text = if shortcut.modifier_control {
         if cfg!(target_os = "macos") {
-            Some(
-                text("^") // TODO bootstrap doesn't have proper macos ctrl icon
-                    .into(),
-            )
+            Some(chevron_up().size(15).into())
         } else {
-            Some(text("Ctrl").into())
+            Some(text("Ctrl").size(15).into())
         }
     } else {
         None
@@ -106,9 +105,9 @@ pub fn shortcut_to_text<'a, Message, Theme: text::Catalog + 'a>(
 
     let shift_modifier_text = if show_shift && shortcut.modifier_shift {
         if cfg!(target_os = "macos") {
-            Some(shift().into())
+            Some(arrow_big_up().size(17).into())
         } else {
-            Some(text("Shift").into())
+            Some(text("Shift").size(15).into())
         }
     } else {
         None

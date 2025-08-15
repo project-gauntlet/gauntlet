@@ -285,7 +285,7 @@ pub fn render_shortcut<'a, T: 'a>(shortcut: &PhysicalShortcut) -> Element<'a, T>
         modifier: Option<Element<'element, T>>,
     ) {
         if let Some(modifier) = modifier {
-            let modifier: Element<_> = container(modifier).themed(ContainerStyle::ActionShortcutModifier);
+            let modifier: Element<_> = container(modifier).center_y(Length::Fill).height(22).themed(ContainerStyle::ActionShortcutModifier);
 
             let modifier: Element<_> = container(modifier).themed(ContainerStyle::ActionShortcutModifiersInit);
 
@@ -298,7 +298,7 @@ pub fn render_shortcut<'a, T: 'a>(shortcut: &PhysicalShortcut) -> Element<'a, T>
     apply_modifier(&mut result, shift_modifier_text);
     apply_modifier(&mut result, alt_modifier_text);
 
-    let key_name: Element<_> = container(key_name).themed(ContainerStyle::ActionShortcutModifier);
+    let key_name: Element<_> = container(key_name).center_y(Length::Fill).height(22).themed(ContainerStyle::ActionShortcutModifier);
 
     result.push(key_name);
 

@@ -56,6 +56,7 @@ use iced::widget::text_input::focus;
 use iced::widget::themer;
 use iced::window;
 use iced_fonts::BOOTSTRAP_FONT_BYTES;
+use iced_fonts::LUCIDE_FONT_BYTES;
 
 use crate::model::UiViewEvent;
 use crate::ui::search_list::search_list;
@@ -300,6 +301,7 @@ pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
             ..Default::default()
         })
         .font(BOOTSTRAP_FONT_BYTES)
+        .font(LUCIDE_FONT_BYTES)
         .subscription(subscription)
         .theme(|state, _| state.theme.clone())
         .run()

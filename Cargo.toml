@@ -26,8 +26,8 @@ edition = "2024"
 # iced
 #iced = { version = "0.13.99", features = ["wgpu", "tiny-skia", "web-colors", "tokio", "lazy", "advanced", "image", "svg"] }
 iced = { git = "https://github.com/project-gauntlet/iced.git", branch = "gauntlet-0.13.1", features = ["wgpu", "tiny-skia", "web-colors", "tokio", "lazy", "advanced", "image", "svg"] }
-#iced_fonts = { version = "0.2.99", features = ["bootstrap"] }
-iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13.1", features = ["bootstrap"] }
+#iced_fonts = { version = "0.2.99", features = ["bootstrap", "lucide"] }
+iced_fonts =  { git = "https://github.com/project-gauntlet/iced_fonts.git", branch = "gauntlet-0.13.1", features = ["bootstrap", "lucide"] }
 
 # workspaces
 gauntlet-common = { path = "./rust/common" }

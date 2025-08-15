@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
-use std::time::Duration;
 use std::vec;
 
 use anyhow::Context;
@@ -1236,7 +1235,7 @@ async fn show_linux_native_hud(display: String) -> anyhow::Result<()> {
     proxy.add_notification(notification_id, notification).await?;
 
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         let _ = proxy.remove_notification(notification_id).await;
     });
 
