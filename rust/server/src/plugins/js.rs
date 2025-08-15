@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
+use std::time::Duration;
+use std::vec;
 
 use anyhow::Context;
 use anyhow::anyhow;
@@ -50,6 +52,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::model::IntermediateUiEvent;
+use crate::plugins::Settings;
 use crate::plugins::binary_data_gatherer::BinaryDataGatherer;
 use crate::plugins::clipboard::Clipboard;
 use crate::plugins::data_db_repository::DataDbRepository;
@@ -78,6 +81,7 @@ pub struct PluginRuntimeData {
     pub db_repository: DataDbRepository,
     pub search_index: SearchIndex,
     pub icon_cache: IconCache,
+    pub settings: Settings,
     pub frontend_api: FrontendApiProxy,
     pub dirs: Dirs,
     pub clipboard: Clipboard,
@@ -159,6 +163,7 @@ pub async fn start_plugin_runtime(data: PluginRuntimeData, run_status_guard: Run
         data.search_index,
         data.clipboard,
         data.frontend_api,
+        data.settings,
         data.uuid.clone(),
         data.id.clone(),
         data.name,
@@ -601,6 +606,7 @@ pub struct BackendForPluginRuntimeApiImpl {
     search_index: SearchIndex,
     clipboard: Clipboard,
     frontend_api: FrontendApiProxy,
+    settings: Settings,
     #[allow(unused)]
     plugin_uuid: String,
     plugin_id: PluginId,
@@ -614,6 +620,7 @@ impl BackendForPluginRuntimeApiImpl {
         search_index: SearchIndex,
         clipboard: Clipboard,
         frontend_api: FrontendApiProxy,
+        settings: Settings,
         plugin_uuid: String,
         plugin_id: PluginId,
         plugin_name: String,
@@ -624,6 +631,7 @@ impl BackendForPluginRuntimeApiImpl {
             search_index,
             clipboard,
             frontend_api,
+            settings,
             plugin_uuid,
             plugin_id,
             plugin_name,
@@ -961,7 +969,16 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
     }
 
     async fn ui_show_hud(&self, display: String) -> RequestResult<()> {
-        self.frontend_api.show_hud(display).await?;
+        if cfg!(target_os = "linux") {
+            if self.settings.config().linux_native_hud {
+                #[cfg(target_os = "linux")]
+                show_linux_native_hud(display).await?;
+            } else {
+                self.frontend_api.show_hud(display).await?;
+            }
+        } else {
+            self.frontend_api.show_hud(display).await?;
+        }
 
         Ok(())
     }
@@ -1200,4 +1217,28 @@ fn any_preferences_missing_value(
     }
 
     false
+}
+
+#[cfg(target_os = "linux")]
+async fn show_linux_native_hud(display: String) -> anyhow::Result<()> {
+    use ashpd::desktop::notification::DisplayHint;
+    use ashpd::desktop::notification::Notification;
+    use ashpd::desktop::notification::NotificationProxy;
+    use ashpd::desktop::notification::Priority;
+
+    let proxy = NotificationProxy::new().await?;
+
+    let notification_id = "sh.gauntlet.Hud";
+    let notification = Notification::new(&display)
+        .priority(Priority::Urgent)
+        .display_hint(vec![DisplayHint::Transient, DisplayHint::ShowAsNew]);
+
+    proxy.add_notification(notification_id, notification).await?;
+
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        let _ = proxy.remove_notification(notification_id).await;
+    });
+
+    Ok(())
 }

@@ -298,8 +298,10 @@ impl Settings {
 fn effective_config(config: ApplicationConfig, layer_shell_supported: bool) -> EffectiveConfig {
     let window_config = config.main_window.unwrap_or_default();
     let wayland_config = config.wayland.unwrap_or_default();
+    let linux_config = config.linux.unwrap_or_default();
 
     let close_on_unfocus = window_config.close_on_unfocus.unwrap_or(true);
+    let linux_native_hud = linux_config.native_hud.unwrap_or(true);
 
     let main_window_surface = wayland_config
         .main_window_surface
@@ -324,5 +326,6 @@ fn effective_config(config: ApplicationConfig, layer_shell_supported: bool) -> E
         close_on_unfocus,
         layer_shell,
         wayland_use_legacy_x11_api,
+        linux_native_hud,
     }
 }

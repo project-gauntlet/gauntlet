@@ -44,6 +44,7 @@ url = "2.5"
 ureq = "2.10"
 dark-light = "1.1.1"
 schemars = "0.8"
+ashpd = "0.11"
 
 [features]
 release = ["gauntlet-common/release", "gauntlet-plugin-runtime/release"]

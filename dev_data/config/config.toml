@@ -6,3 +6,6 @@
 #main_window_surface = "xdg_shell"
 global_shortcuts_api = "legacy_x11_api"
 #global_shortcuts_api = "none"
+
+[linux]
+native_hud = true

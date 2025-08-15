@@ -919,6 +919,7 @@ impl ApplicationManager {
             search_index: self.search_index.clone(),
             icon_cache: self.icon_cache.clone(),
             frontend_api: self.frontend_api.clone(),
+            settings: self.settings.clone(),
             dirs: self.dirs.clone(),
             clipboard: self.clipboard.clone(),
         };

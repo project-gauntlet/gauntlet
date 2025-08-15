@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub struct ApplicationConfig {
     pub main_window: Option<ApplicationWindowConfig>,
     pub wayland: Option<WaylandConfig>,
+    pub linux: Option<LinuxConfig>,
 }
 
 #[derive(Deserialize, Debug, Default)]
@@ -16,6 +17,11 @@ pub struct ApplicationWindowConfig {
 pub struct WaylandConfig {
     pub main_window_surface: Option<WaylandMainWindowConfig>,
     pub global_shortcuts_api: Option<WaylandGlobalShortcutConfig>,
+}
+
+#[derive(Deserialize, Debug, Default)]
+pub struct LinuxConfig {
+    pub native_hud: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -40,4 +46,5 @@ pub struct EffectiveConfig {
     pub close_on_unfocus: bool,
     pub layer_shell: bool,
     pub wayland_use_legacy_x11_api: bool,
+    pub linux_native_hud: bool,
 }
