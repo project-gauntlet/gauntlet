@@ -45,7 +45,6 @@ pub struct GauntletComplexTheme {
     content_code_block_text: ThemeCode,
     content_horizontal_break: ThemePaddingOnly,
     content_image: ThemeImage,
-    content_paragraph: ThemePaddingOnly,
     detail_content: ThemePaddingOnly,
     detail_metadata: ThemePaddingOnly,
     empty_view_image: ThemePaddingSize,
@@ -275,9 +274,6 @@ impl GauntletComplexTheme {
             },
             list_item_title: ThemePaddingOnly {
                 padding: padding_all(4.0),
-            },
-            content_paragraph: ThemePaddingOnly {
-                padding: padding_all(8.0),
             },
             content_code_block: ThemePaddingOnly {
                 padding: padding_all(0.0),

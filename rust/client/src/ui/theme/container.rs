@@ -325,7 +325,7 @@ impl<'a, Message: 'a> ThemableWidget<'a, Message> for Container<'a, Message, Gau
             ContainerStyle::ListItemSubtitle => self.padding(theme.list_item_subtitle.padding.to_iced()),
             ContainerStyle::ListItemTitle => self.padding(theme.list_item_title.padding.to_iced()),
             ContainerStyle::ListItemIcon => self.padding(theme.list_item_icon.padding.to_iced()),
-            ContainerStyle::ContentParagraph => self.padding(theme.content_paragraph.padding.to_iced()),
+            ContainerStyle::ContentParagraph => self,
             ContainerStyle::ContentHorizontalBreak => self.padding(theme.content_horizontal_break.padding.to_iced()),
             ContainerStyle::ContentCodeBlock => self.padding(theme.content_code_block.padding.to_iced()),
             ContainerStyle::ContentCodeBlockText => {
