@@ -13,6 +13,7 @@ export default function Windows(): ReactElement {
                     <ListOfWindows
                         windows={openWindows()}
                         focusWindow={(windowId) => focusWaylandWindow(windowId)}
+                        focusSecond={true}
                     />
                 )
             } else {
@@ -20,6 +21,7 @@ export default function Windows(): ReactElement {
                     <ListOfWindows
                         windows={openWindows()}
                         focusWindow={(windowId) => focusX11Window(windowId)}
+                        focusSecond={true}
                     />
                 )
             }

@@ -4,16 +4,22 @@ import {
     GeneratedEntrypointAction,
 } from "@project-gauntlet/api/helpers";
 import { linux_open_application } from "gauntlet:bridge/internal-linux";
+import { useState } from "react";
 import { Action, ActionPanel, List } from "@project-gauntlet/api/components";
 
-export function ListOfWindows({ windows, focusWindow }: {
+export function ListOfWindows({ windows, focusWindow, focusSecond }: {
     windows: Record<string, OpenWindowData>,
-    focusWindow: (windowId: string) => void
+    focusWindow: (windowId: string) => void,
+    focusSecond: boolean
 }) {
     const knownWindows = readWindowOrder();
 
     const sortedWindows = Object.keys(windows) // sort windows based on array stored on storage
         .sort((a, b) => knownWindows.indexOf(a) - knownWindows.indexOf(b));
+
+    const [id, setId] = useState<string | null>(
+        focusSecond ? sortedWindows.at(1) || null : null
+    );
 
     return (
         <List
@@ -30,6 +36,8 @@ export function ListOfWindows({ windows, focusWindow }: {
                     />
                 </ActionPanel>
             }
+            onItemFocusChange={setId}
+            focusedItemId={id}
         >
             {
                 sortedWindows.map(window => <List.Item key={window} id={window} title={windows[window]!!.title}/>)
@@ -112,6 +120,7 @@ export function applicationActions(
                         <ListOfWindows
                             windows={appWindows}
                             focusWindow={windowId => focusWindow(windowId)}
+                            focusSecond={false}
                         />
                     )
                 }
