@@ -44,6 +44,8 @@ url = "2.5"
 ureq = "2.10"
 dark-light = "1.1.1"
 schemars = "0.8"
+
+[target.'cfg(target_os = "linux")'.dependencies]
 ashpd = "0.11"
 
 [features]
