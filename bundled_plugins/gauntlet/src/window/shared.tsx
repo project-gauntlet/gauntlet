@@ -4,7 +4,6 @@ import {
     GeneratedEntrypointAction,
 } from "@project-gauntlet/api/helpers";
 import { linux_open_application } from "gauntlet:bridge/internal-linux";
-import React from "react";
 import { Action, ActionPanel, List } from "@project-gauntlet/api/components";
 
 export function ListOfWindows({ windows, focusWindow }: {
@@ -45,7 +44,13 @@ export type OpenWindowData = {
     appId: string
 }
 
-export const openWindows: Record<string, OpenWindowData> = {};
+
+export function openWindows(): Record<string, OpenWindowData> {
+    if ((globalThis as any).__openWindows == undefined) {
+        (globalThis as any).__openWindows = {}
+    }
+    return (globalThis as any).__openWindows
+}
 
 export function applicationActions(
     id: string,
@@ -65,7 +70,7 @@ export function applicationActions(
     }
 
     const appWindows = Object.fromEntries(
-        Object.entries(openWindows)
+        Object.entries(openWindows())
             .filter(([_, windowData]) => windowData.appId == id)
     )
 
@@ -103,7 +108,12 @@ export function applicationActions(
             {
                 label: "Show windows",
                 view: () => {
-                    return <ListOfWindows windows={appWindows} focusWindow={windowId => focusWindow(windowId)}/>
+                    return (
+                        <ListOfWindows
+                            windows={appWindows}
+                            focusWindow={windowId => focusWindow(windowId)}
+                        />
+                    )
                 }
             },
             {
@@ -123,7 +133,7 @@ export function applicationAccessories(id: string, experimentalWindowTracking: b
         return []
     }
 
-    const appWindows = Object.entries(openWindows)
+    const appWindows = Object.entries(openWindows())
         .filter(([_, windowData]) => windowData.appId == id)
 
     if (appWindows.length == 0) {
@@ -147,7 +157,7 @@ export function addOpenWindow(
     add: (id: string, data: GeneratedEntrypoint) => void,
 ) {
     if (generatedEntrypoint) {
-        openWindows[windowId] = {
+        openWindows()[windowId] = {
             id: windowId,
             appId: appId,
             title: windowTitle
@@ -172,11 +182,11 @@ export function deleteOpenWindow(
     get: (id: string) => GeneratedEntrypoint | undefined,
     add: (id: string, data: GeneratedEntrypoint) => void,
 ) {
-    const openWindow = openWindows[windowId];
+    const openWindow = openWindows()[windowId];
     if (openWindow) {
         const generatedEntrypoint = get(openWindow.appId);
 
-        delete openWindows[windowId];
+        delete openWindows()[windowId];
 
         const knownWindows = readWindowOrder();
         const newKnownWindows = knownWindows.filter(id => id != windowId)

@@ -10,11 +10,17 @@ export default function Windows(): ReactElement {
         case "linux": {
             if (wayland()) {
                 return (
-                    <ListOfWindows windows={openWindows} focusWindow={(windowId) => focusWaylandWindow(windowId)}/>
+                    <ListOfWindows
+                        windows={openWindows()}
+                        focusWindow={(windowId) => focusWaylandWindow(windowId)}
+                    />
                 )
             } else {
                 return (
-                    <ListOfWindows windows={openWindows} focusWindow={(windowId) => focusX11Window(windowId)}/>
+                    <ListOfWindows
+                        windows={openWindows()}
+                        focusWindow={(windowId) => focusX11Window(windowId)}
+                    />
                 )
             }
         }
