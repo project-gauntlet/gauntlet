@@ -3,11 +3,55 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project doesn't adhere to Semantic Versioning, see [Versioning](./README.md#versioning)
+and this project doesn't adhere to Semantic Versioning, see [Versioning](https://gauntlet.sh/docs/information/versioning)
 
 For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://github.com/project-gauntlet/tools/blob/main/CHANGELOG.md)
 
 ## [Unreleased]
+
+### General
+
+- When opening `Opened windows` view second item is now focused by default
+  - Because the window ordering is "most recently focused on the top", second can be considered as an "alternative" application that was focused before the last one
+- Implemented native hud notifications on Linux
+  - Enabled by default
+  - `linux.native_hud` boolean configuration option is available to disable this
+- Restricted JavaScript runtime heap size to 50 MB per plugin
+
+### Plugins
+- It is now possible to programmatically control which item in grid/list is focused
+  - `<List/>` and `<Grid/>` now have new property `focusedItemId`
+  - If `focusedItemId` property is `undefined` the focus is uncontrolled
+  - if `focusedItemId` property is `null` the focus is controlled and unset
+  - if `focusedItemId` property is `string` the focus is controlled and set to item with specified `id`
+- Refine nullability of event function arguments on React components
+  - **BREAKING CHANGE**: Following function properties now return `null` as an argument instead of `undefined`
+    - `<Action/>`'s `onAction`
+    - `<List/>`'s `onItemFocusChange`
+    - `<Gird/>`'s `onItemFocusChange`
+  - For following function property arguments `undefined` was removed from type signature
+    - `<SearchBar/>`'s `onChange`
+    - `<TextField/>`'s `onChange`
+    - `<PasswordField/>`'s `onChange`
+    - `<Select/>`'s `onChange`
+
+### UI/UX improvements
+- Text in main view search results, plugin view, action panel and bottom panel right side is now smaller
+- Removed padding from content paragraph text
+- Keyboard shortcuts in UI now use Lucide icons
+
+### Fixes
+- Settings are now part of the main application instead of the separate process
+  - Only single settings window can now exist at the same time.
+- Fixed inline view being recreated each time key is pressed in search bar, causing useRef not preserve the value
+- Fixed back navigation being treated as whole separate view session
+  - This also fixed state leaking between views when changing views very quickly
+- Fixed panic if state of the widget under specific id changed type
+- Fixed blurry window on Linux Wayland LayerShell due to missing fractional scaling support
+- Reworked viewport scrolling when using keyboard navigation
+  - Fixed incorrect scrolling distance for long lists/grids
+  - Fixed scrolling position sometimes not being reset correctly
+- Fixed `Opened Windows` view often not showing any windows
 
 ## [20] - 2025-07-07
 
