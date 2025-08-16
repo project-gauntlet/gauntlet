@@ -9,6 +9,8 @@ For changes in `@project-gauntlet/tools` see [separate CHANGELOG.md](https://git
 
 ## [Unreleased]
 
+## [21] - 2025-08-16
+
 ### General
 
 - When opening `Opened windows` view second item is now focused by default
