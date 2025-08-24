@@ -1,0 +1,27 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [published]
+
+env:
+  VERSION_REGEX: '^v(\d+)$'
+  # winget-create will read the following environment variable to access the GitHub token needed for submitting a PR
+  # See https://aka.ms/winget-create-token
+  WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+jobs:
+  publish:
+    runs-on: windows-latest # Action can only run on Windows
+    steps:
+      - name: Publish To WinGet
+        run: |
+          $release = '${{ toJSON(github.event.release) }}' | ConvertFrom-Json
+          $wingetRelevantAsset = $release | Select-Object -Property assets | Where-Object { $_.name -like '*.msi' } | Select-Object -First 1
+          $regex = [Regex]::New($env:VERSION_REGEX)
+          $version = $regex.Match($release.tag_name).Groups[1].Value
+
+          $wingetPackage = "Exidex.Gauntlet"
+
+          & curl.exe -JLO https://aka.ms/wingetcreate/latest
+          & .\wingetcreate.exe update $wingetPackage -s -v $version -u $wingetRelevantAsset.browser_download_url
