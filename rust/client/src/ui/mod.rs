@@ -82,6 +82,7 @@ pub mod scenario_runner;
 mod server;
 #[cfg(target_os = "linux")]
 mod wayland;
+mod window_tracking;
 mod windows;
 
 pub use theme::GauntletComplexTheme;
@@ -125,6 +126,8 @@ pub struct AppModel {
     theme: GauntletComplexTheme,
     main_window_state: MainWindowState,
     settings_window_state: SettingsWindowState,
+    #[cfg(target_os = "macos")]
+    macos_window_tracker: window_tracking::macos::MacosWindowTracker,
 
     // ephemeral state
     prompt: String,
@@ -285,6 +288,9 @@ pub enum AppMsg {
     HandleScenario(ScenarioRunnerMsg),
     Settings(SettingsMsg),
     SetCurrentFocusedItem(Option<container::Id>),
+    WindowTrackingMacosFocusWindow {
+        window_uuid: String,
+    },
 }
 
 pub fn run(minimized: bool, scenario_runner_data: Option<ScenarioRunnerData>) {
@@ -321,6 +327,14 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
 
     #[cfg(target_os = "linux")]
     let layer_shell = wayland && setup_data.layer_shell;
+
+    #[cfg(target_os = "macos")]
+    if !window_tracking::macos::request_macos_accessibility_permissions() {
+        tracing::error!("Unable to get macos accessibility permissions")
+    }
+
+    #[cfg(target_os = "macos")]
+    let macos_window_tracker = window_tracking::macos::setup_macos_window_tracker(application_manager.clone());
 
     let theme = GauntletComplexTheme::new(setup_data.theme);
     GauntletComplexTheme::set_global(theme.clone());
@@ -368,6 +382,8 @@ fn new(minimized: bool, #[allow(unused)] scenario_runner_data: Option<ScenarioRu
             theme,
             main_window_state: window,
             settings_window_state: settings_state,
+            #[cfg(target_os = "macos")]
+            macos_window_tracker,
 
             // ephemeral state
             prompt: "".to_string(),
@@ -1289,6 +1305,10 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
                 }
                 _ => Task::none(),
             }
+        }
+        AppMsg::WindowTrackingMacosFocusWindow { window_uuid } => {
+            state.macos_window_tracker.focus_window(window_uuid);
+            Task::none()
         }
     }
 }

@@ -18,7 +18,8 @@ import {
     op_plugin_get_pending_event,
     plugin_preferences_required,
     show_plugin_error_view,
-    show_preferences_required_view
+    show_preferences_required_view,
+    application_macos_receive_event
 } from "ext:core/ops";
 
 
@@ -161,6 +162,10 @@ export async function runPluginLoop() {
             case "RefreshSearchIndex": {
                 // noinspection ES6MissingAwait
                 reloadSearchIndex(false)
+                break;
+            }
+            case "MacosWindowTrackingEvent": {
+                application_macos_receive_event(pluginEvent.event)
                 break;
             }
         }

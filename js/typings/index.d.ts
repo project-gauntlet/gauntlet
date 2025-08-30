@@ -45,7 +45,7 @@ type MacOSDesktopSettings13AndPostData = {
     icon: ArrayBuffer | undefined,
 }
 
-type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | PopView | OpenInlineView | RefreshSearchIndex
+type PluginEvent = ViewEvent | NotReactsKeyboardEvent | RunCommand | RunGeneratedEntrypoint | OpenView | CloseView | PopView | OpenInlineView | RefreshSearchIndex | MacosWindowTrackingEvent
 type RenderLocation = "InlineView" | "View"
 
 type ViewEvent = {
@@ -101,6 +101,11 @@ type OpenInlineView = {
 
 type RefreshSearchIndex = {
     type: "RefreshSearchIndex"
+}
+
+type MacosWindowTrackingEvent = {
+    type: "MacosWindowTrackingEvent",
+    event: MacosApplicationEvent
 }
 
 type PropertyValue = PropertyValueString | PropertyValueNumber | PropertyValueBool | PropertyValueUndefined | PropertyValueNull
@@ -181,7 +186,9 @@ declare module "gauntlet:bridge/internal-macos" {
     function macos_app_from_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_app_from_arbitrary_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_open_application(app_path: String): void
+    function macos_focus_window(windowId: string): void
     function macos_get_localized_language(): string | undefined
+    function application_macos_pending_event(): Promise<MacosApplicationEvent>
 }
 
 declare module "gauntlet:bridge/internal-windows" {
@@ -207,6 +214,8 @@ declare module "ext:core/ops" {
     function wayland(): boolean
     function application_x11_pending_event(): Promise<X11ApplicationEvent>
     function application_wayland_pending_event(): Promise<WaylandApplicationEvent>
+    function application_macos_pending_event(): Promise<MacosApplicationEvent | undefined>
+    function application_macos_receive_event(event: MacosApplicationEvent): void
 
     function linux_open_application(desktop_id: string): void
     function linux_x11_focus_window(window_id: string): void
@@ -225,6 +234,7 @@ declare module "ext:core/ops" {
     function macos_app_from_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_app_from_arbitrary_path(path: string, lang: string | undefined): Promise<undefined | DesktopPathAction<MacOSDesktopApplicationData>>
     function macos_open_application(app_path: String): void
+    function macos_focus_window(windowId: string): void
     function macos_get_localized_language(): string | undefined
 
     function windows_application_dirs(): string[]
@@ -402,6 +412,27 @@ type WaylandApplicationEventWindowAppIdChanged = {
     type: "WindowAppIdChanged",
     window_id: string,
     app_id: string,
+};
+
+type MacosApplicationEvent =
+    | MacosApplicationEventWindowOpened
+    | MacosApplicationEventWindowClosed
+    | MacosApplicationEventWindowTitleChanged
+
+type MacosApplicationEventWindowOpened = {
+    type: "WindowOpened",
+    window_id: string,
+    bundle_path?: string,
+    title?: string,
+};
+type MacosApplicationEventWindowClosed = {
+    type: "WindowClosed",
+    window_id: string,
+};
+type MacosApplicationEventWindowTitleChanged = {
+    type: "WindowTitleChanged",
+    window_id: string,
+    title?: string,
 };
 
 type X11WindowProtocol = "DeleteWindow" | "TakeFocus"

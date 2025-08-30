@@ -1,6 +1,6 @@
 import { GeneratedEntrypoint } from "@project-gauntlet/api/helpers";
-import { addOpenWindow, deleteOpenWindow, openLinuxApplication } from "./shared";
-import { application_x11_pending_event, linux_x11_focus_window } from "gauntlet:bridge/internal-linux";
+import { addOpenWindow, deleteOpenWindow } from "./shared";
+import { application_x11_pending_event } from "gauntlet:bridge/internal-linux";
 
 export type X11WindowData = {
     // x11 window id
@@ -30,13 +30,9 @@ export type X11WindowData = {
     desktopFileName: string | undefined,
 }
 
-
-export function focusX11Window(windowId: string) {
-    linux_x11_focus_window(windowId)
-}
-
 export function applicationEventLoopX11(
     focusWindow: (windowId: string) => void,
+    openApplication: (appId: string) => void,
     add: (id: string, data: GeneratedEntrypoint) => void,
     get: (id: string) => GeneratedEntrypoint | undefined,
     getAll: () => { [id: string]: GeneratedEntrypoint },
@@ -86,7 +82,7 @@ export function applicationEventLoopX11(
                 case "DestroyNotify": {
                     delete windows[applicationEvent.id]
 
-                    deleteOpenWindow(applicationEvent.id, openLinuxApplication, focusWindow, get, add)
+                    deleteOpenWindow(applicationEvent.id, openApplication, focusWindow, get, add)
 
                     break;
                 }
@@ -95,7 +91,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.mapped = true;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -105,7 +101,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.mapped = false;
 
-                        deleteOpenWindow(applicationEvent.id, openLinuxApplication, focusWindow, get, add)
+                        deleteOpenWindow(applicationEvent.id, openApplication, focusWindow, get, add)
                     }
 
                     break;
@@ -116,7 +112,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.mapped = true;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -126,7 +122,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.title = applicationEvent.title;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -137,7 +133,7 @@ export function applicationEventLoopX11(
                         window.class = applicationEvent.class;
                         window.instance = applicationEvent.instance;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -147,7 +143,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.windowGroup = applicationEvent.window_group;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -157,7 +153,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.protocols = applicationEvent.protocols;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -167,7 +163,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.transientFor = applicationEvent.transient_for;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -177,7 +173,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.windowTypes = applicationEvent.window_types;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -187,7 +183,7 @@ export function applicationEventLoopX11(
                     if (window) {
                         window.desktopFileName = applicationEvent.desktop_file_name;
 
-                        validateAndAddOpenWindow(window, windows, openLinuxApplication, focusWindow, add, getAll)
+                        validateAndAddOpenWindow(window, windows, openApplication, focusWindow, add, get, getAll)
                     }
 
                     break;
@@ -200,9 +196,10 @@ export function applicationEventLoopX11(
 function validateAndAddOpenWindow(
     window: X11WindowData,
     windows: Record<string, X11WindowData>,
-    openApplication: (appId: string) => (() => void),
+    openApplication: (appId: string) => void,
     focusWindow: (windowId: string) => void,
     add: (id: string, data: GeneratedEntrypoint) => void,
+    get: (id: string) => GeneratedEntrypoint | undefined,
     getAll: () => { [id: string]: GeneratedEntrypoint },
 ) {
 
@@ -232,22 +229,16 @@ function validateAndAddOpenWindow(
     }
 
     function process(appId: string) {
-        const generatedEntrypoint = generated[appId];
-
-        if (generatedEntrypoint) {
-            addOpenWindow(
-                appId,
-                generatedEntrypoint,
-                window.id,
-                window.title,
-                openApplication(appId),
-                focusWindow,
-                add,
-            )
-        }
+        addOpenWindow(
+            appId,
+            window.id,
+            window.title,
+            openApplication,
+            focusWindow,
+            get,
+            add,
+        )
     }
-
-    const generated = getAll();
 
     let appId = window.desktopFileName;
     if (appId) {
@@ -256,7 +247,7 @@ function validateAndAddOpenWindow(
     }
 
     const startupWmClassToAppId = Object.fromEntries(
-        Object.entries(generated)
+        Object.entries(getAll())
             .map(([appId, generated]): [string | undefined, string] => [((generated as any)["__linux__"]).startupWmClass, appId])
             .filter((val): val is [string, string]  => {
                 const [wmClass, _appId] = val

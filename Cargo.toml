@@ -69,6 +69,29 @@ x11rb = { version = "0.13", features = ["extra-traits"] }
 x11rb-async = { version = "0.13", features = ["extra-traits"] }
 x11rb-protocol = { version = "0.13" }
 smithay-client-toolkit = { version = "0.19.2" }
+objc2 = "0.6.1"
+objc2-app-kit = { version = "0.3.1", features = [
+    "NSWorkspace",
+    "NSRunningApplication",
+    "NSImage",
+    "NSImageRep",
+    "NSBitmapImageRep",
+    "NSGraphics",
+    "NSGraphicsContext",
+    "libc"
+] }
+objc2-foundation = { version = "0.3.1", features = [
+    "NSString",
+    "NSDictionary",
+    "NSKeyValueObserving",
+    "NSGeometry",
+    "NSEnumerator",
+] }
+objc2-core-graphics = { version = "0.3.1", features = ["CGWindow"] }
+accessibility = "0.2.0"
+accessibility-sys = "0.2.0"
+core-foundation = "0.10.1"
+
 
 [dependencies]
 gauntlet-cli = { path = "rust/cli" }

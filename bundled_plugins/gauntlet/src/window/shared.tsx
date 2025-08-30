@@ -3,7 +3,6 @@ import {
     GeneratedEntrypointAccessory,
     GeneratedEntrypointAction,
 } from "@project-gauntlet/api/helpers";
-import { linux_open_application } from "gauntlet:bridge/internal-linux";
 import { useState } from "react";
 import { Action, ActionPanel, List } from "@project-gauntlet/api/components";
 
@@ -40,7 +39,19 @@ export function ListOfWindows({ windows, focusWindow, focusSecond }: {
             focusedItemId={id}
         >
             {
-                sortedWindows.map(window => <List.Item key={window} id={window} title={windows[window]!!.title}/>)
+                sortedWindows.map(window => {
+                    let title = windows[window]!!.title;
+
+                    if (title == undefined) {
+                        title = "Unknown window name"
+                    }
+
+                    if (title.trim() === "") {
+                        title = "Empty window name"
+                    }
+
+                    return <List.Item key={window} id={window} title={title}/>;
+                })
             }
         </List>
     )
@@ -48,8 +59,8 @@ export function ListOfWindows({ windows, focusWindow, focusSecond }: {
 
 export type OpenWindowData = {
     id: string,
-    title: string,
-    appId: string
+    title: string | undefined,
+    appId: string | undefined,
 }
 
 
@@ -63,7 +74,7 @@ export function openWindows(): Record<string, OpenWindowData> {
 export function applicationActions(
     id: string,
     experimentalWindowTracking: boolean,
-    openApplication: () => void,
+    openApplication: (appId: string) => void,
     focusWindow: (windowId: string) => void,
 ): GeneratedEntrypointAction[] {
     if (!experimentalWindowTracking) {
@@ -71,7 +82,7 @@ export function applicationActions(
             {
                 label: "Open application",
                 run: () => {
-                    openApplication()
+                    openApplication(id)
                 },
             }
         ]
@@ -91,7 +102,7 @@ export function applicationActions(
             {
                 label: "Open application",
                 run: () => {
-                    openApplication()
+                    openApplication(id)
                 },
             }
         ]
@@ -107,7 +118,7 @@ export function applicationActions(
             {
                 label: "Open new instance",
                 run: () => {
-                    openApplication()
+                    openApplication(id)
                 },
             }
         ]
@@ -128,7 +139,7 @@ export function applicationActions(
             {
                 label: "Open new instance",
                 run: () => {
-                    openApplication()
+                    openApplication(id)
                 },
             }
         ]
@@ -157,63 +168,65 @@ export function applicationAccessories(id: string, experimentalWindowTracking: b
 }
 
 export function addOpenWindow(
-    appId: string,
-    generatedEntrypoint: GeneratedEntrypoint,
+    appId: string | undefined,
     windowId: string,
-    windowTitle: string,
-    openApplication: () => void,
+    windowTitle: string | undefined,
+    openApplication: (appId: string) => void,
     focusWindow: (windowId: string) => void,
+    get: (id: string) => GeneratedEntrypoint | undefined,
     add: (id: string, data: GeneratedEntrypoint) => void,
 ) {
-    if (generatedEntrypoint) {
-        openWindows()[windowId] = {
-            id: windowId,
-            appId: appId,
-            title: windowTitle
+    openWindows()[windowId] = {
+        id: windowId,
+        appId: appId,
+        title: windowTitle
+    }
+
+    const knownWindows = readWindowOrder();
+    knownWindows.push(windowId);
+    writeWindowOrder(knownWindows)
+
+    if (appId) {
+        const generatedEntrypoint = get(appId);
+        if (generatedEntrypoint) {
+            if (appId) {
+                add(appId, {
+                    ...generatedEntrypoint,
+                    actions: applicationActions(appId, true, openApplication, focusWindow),
+                    accessories: applicationAccessories(appId, true)
+                })
+            }
         }
-
-        const knownWindows = readWindowOrder();
-        knownWindows.push(windowId);
-        writeWindowOrder(knownWindows)
-
-        add(appId, {
-            ...generatedEntrypoint,
-            actions: applicationActions(appId, true, openApplication, focusWindow),
-            accessories: applicationAccessories(appId, true)
-        })
     }
 }
 
 export function deleteOpenWindow(
     windowId: string,
-    openApplication: (appId: string) => (() => void),
+    openApplication: (appId: string) => void,
     focusWindow: (windowId: string) => void,
     get: (id: string) => GeneratedEntrypoint | undefined,
     add: (id: string, data: GeneratedEntrypoint) => void,
 ) {
     const openWindow = openWindows()[windowId];
     if (openWindow) {
-        const generatedEntrypoint = get(openWindow.appId);
-
         delete openWindows()[windowId];
 
         const knownWindows = readWindowOrder();
         const newKnownWindows = knownWindows.filter(id => id != windowId)
         writeWindowOrder(newKnownWindows)
 
-        if (generatedEntrypoint) {
-            add(openWindow.appId, {
-                ...generatedEntrypoint,
-                actions: applicationActions(openWindow.appId, true, openApplication(openWindow.appId), focusWindow),
-                accessories: applicationAccessories(openWindow.appId, true)
-            })
-        }
-    }
-}
+        const appId = openWindow.appId;
+        if (appId) {
+            const generatedEntrypoint = get(appId);
 
-export function openLinuxApplication(appId: string) {
-    return () => {
-        linux_open_application(appId)
+            if (generatedEntrypoint) {
+                add(appId, {
+                    ...generatedEntrypoint,
+                    actions: applicationActions(appId, true, openApplication, focusWindow),
+                    accessories: applicationAccessories(appId, true)
+                })
+            }
+        }
     }
 }
 

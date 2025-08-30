@@ -231,6 +231,22 @@ pub enum KeyboardEventOrigin {
     PluginView,
 }
 
+#[derive(Debug, Clone)]
+pub enum MacosWindowTrackingEvent {
+    WindowOpened {
+        window_id: String,
+        bundle_path: Option<String>,
+        title: Option<String>,
+    },
+    WindowClosed {
+        window_id: String,
+    },
+    WindowTitleChanged {
+        window_id: String,
+        title: Option<String>,
+    },
+}
+
 gauntlet_utils_macros::widget_model_gen!();
 
 #[derive(Debug, Encode, Decode)]

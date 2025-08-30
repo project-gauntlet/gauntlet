@@ -8,6 +8,7 @@ use anyhow::anyhow;
 use gauntlet_common::dirs::Dirs;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::KeyboardEventOrigin;
+use gauntlet_common::model::MacosWindowTrackingEvent;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PluginId;
 use gauntlet_common::model::RootWidget;
@@ -28,6 +29,7 @@ use gauntlet_common_plugin_runtime::model::JsGeneratedSearchItemAccessory;
 use gauntlet_common_plugin_runtime::model::JsGeneratedSearchItemActionType;
 use gauntlet_common_plugin_runtime::model::JsInit;
 use gauntlet_common_plugin_runtime::model::JsKeyboardEventOrigin;
+use gauntlet_common_plugin_runtime::model::JsMacosApplicationEvent;
 use gauntlet_common_plugin_runtime::model::JsMessage;
 use gauntlet_common_plugin_runtime::model::JsPluginCode;
 use gauntlet_common_plugin_runtime::model::JsPluginPermissions;
@@ -145,6 +147,7 @@ pub enum OnePluginCommandData {
         modifier_meta: bool,
     },
     RefreshSearchIndex,
+    MacosWindowTracking(MacosWindowTrackingEvent),
 }
 
 #[derive(Clone, Debug)]
@@ -459,6 +462,9 @@ async fn event_loop(
                         })
                     }
                     OnePluginCommandData::RefreshSearchIndex => Some(IntermediateUiEvent::RefreshSearchIndex),
+                    OnePluginCommandData::MacosWindowTracking(event) => {
+                        Some(IntermediateUiEvent::MacosWindowTracking(event))
+                    }
                 }
             }
         }
@@ -596,6 +602,29 @@ fn from_intermediate_to_js_event(event: IntermediateUiEvent) -> JsEvent {
         }
         IntermediateUiEvent::OpenInlineView { text } => JsEvent::OpenInlineView { text },
         IntermediateUiEvent::RefreshSearchIndex => JsEvent::RefreshSearchIndex,
+        IntermediateUiEvent::MacosWindowTracking(event) => {
+            let event = match event {
+                MacosWindowTrackingEvent::WindowOpened {
+                    window_id,
+                    bundle_path,
+                    title,
+                } => {
+                    JsMacosApplicationEvent::WindowOpened {
+                        window_id,
+                        bundle_path,
+                        title,
+                    }
+                }
+                MacosWindowTrackingEvent::WindowClosed { window_id } => {
+                    JsMacosApplicationEvent::WindowClosed { window_id }
+                }
+                MacosWindowTrackingEvent::WindowTitleChanged { window_id, title } => {
+                    JsMacosApplicationEvent::WindowTitleChanged { window_id, title }
+                }
+            };
+
+            JsEvent::MacosWindowTrackingEvent { event }
+        }
     }
 }
 
@@ -1077,6 +1106,14 @@ impl BackendForPluginRuntimeApi for BackendForPluginRuntimeApiImpl {
                 plugin_preferences_required,
                 entrypoint_preferences_required,
             )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn window_tracking_macos_focus_window(&self, window_uuid: String) -> RequestResult<()> {
+        self.frontend_api
+            .window_tracking_macos_focus_window(window_uuid)
             .await?;
 
         Ok(())

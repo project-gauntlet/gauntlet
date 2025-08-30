@@ -64,4 +64,5 @@ pub trait BackendForPluginRuntimeApi {
         plugin_preferences_required: bool,
         entrypoint_preferences_required: bool,
     ) -> RequestResult<()>;
+    async fn window_tracking_macos_focus_window(&self, window_uuid: String) -> RequestResult<()>;
 }

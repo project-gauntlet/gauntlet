@@ -62,6 +62,26 @@ pub enum JsEvent {
         text: String,
     },
     RefreshSearchIndex,
+    MacosWindowTrackingEvent {
+        event: JsMacosApplicationEvent,
+    },
+}
+
+#[derive(Debug, Deserialize, Serialize, Encode, Decode)]
+#[serde(tag = "type")]
+pub enum JsMacosApplicationEvent {
+    WindowOpened {
+        window_id: String,
+        bundle_path: Option<String>,
+        title: Option<String>,
+    },
+    WindowClosed {
+        window_id: String,
+    },
+    WindowTitleChanged {
+        window_id: String,
+        title: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Encode, Decode)]

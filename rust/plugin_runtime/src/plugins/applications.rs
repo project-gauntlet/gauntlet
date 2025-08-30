@@ -17,6 +17,13 @@ pub use linux::gauntlet_internal_linux;
 #[cfg(target_os = "macos")]
 mod macos;
 
+#[cfg(target_os = "macos")]
+pub use macos::application_macos_pending_event;
+#[cfg(target_os = "macos")]
+pub use macos::application_macos_receive_event;
+#[cfg(target_os = "macos")]
+pub use macos::macos_focus_window;
+
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -93,6 +100,8 @@ pub fn wayland(state: Rc<RefCell<OpState>>) -> bool {
 pub enum DesktopEnvironment {
     #[cfg(target_os = "linux")]
     Linux(linux::LinuxDesktopEnvironment),
+    #[cfg(target_os = "macos")]
+    Macos(macos::MacosDesktopEnvironment),
     #[allow(unused)]
     None,
 }
@@ -102,7 +111,10 @@ impl DesktopEnvironment {
         #[cfg(target_os = "linux")]
         let result = Ok(Self::Linux(linux::LinuxDesktopEnvironment::new()?));
 
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        let result = Ok(Self::Macos(macos::MacosDesktopEnvironment::new()?));
+
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         let result = Ok(Self::None);
 
         result
@@ -112,7 +124,7 @@ impl DesktopEnvironment {
         match self {
             #[cfg(target_os = "linux")]
             DesktopEnvironment::Linux(linux) => linux.is_wayland(),
-            DesktopEnvironment::None => false,
+            _ => false,
         }
     }
 }

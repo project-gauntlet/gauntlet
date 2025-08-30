@@ -1,5 +1,6 @@
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::KeyboardEventOrigin;
+use gauntlet_common::model::MacosWindowTrackingEvent;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::UiPropertyValue;
 use gauntlet_common::model::UiWidgetId;
@@ -38,6 +39,7 @@ pub enum IntermediateUiEvent {
         text: String,
     },
     RefreshSearchIndex,
+    MacosWindowTracking(MacosWindowTrackingEvent),
 }
 
 pub enum ActionShortcutKey {

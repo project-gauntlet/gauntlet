@@ -1,15 +1,23 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use anyhow::Context;
 use anyhow::anyhow;
+use cacao::core_graphics::base::CGFloat;
 use cacao::filesystem::FileManager;
 use cacao::filesystem::SearchPathDirectory;
 use cacao::filesystem::SearchPathDomainMask;
+use deno_core::OpState;
 use deno_core::ToJsBuffer;
-use objc2::ClassType;
+use deno_core::op2;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApi;
+use gauntlet_common_plugin_runtime::api::BackendForPluginRuntimeApiProxy;
+use gauntlet_common_plugin_runtime::model::JsMacosApplicationEvent;
+use objc2::AnyThread;
 use objc2_app_kit::NSBitmapImageRep;
 use objc2_app_kit::NSCompositeCopy;
 use objc2_app_kit::NSDeviceRGBColorSpace;
@@ -17,7 +25,6 @@ use objc2_app_kit::NSGraphicsContext;
 use objc2_app_kit::NSImage;
 use objc2_app_kit::NSPNGFileType;
 use objc2_app_kit::NSWorkspace;
-use objc2_foundation::CGFloat;
 use objc2_foundation::NSDictionary;
 use objc2_foundation::NSInteger;
 use objc2_foundation::NSPoint;
@@ -27,8 +34,14 @@ use objc2_foundation::NSString;
 use objc2_foundation::NSZeroRect;
 use regex::Regex;
 use serde::Deserialize;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::channel;
 
+use crate::deno::GauntletJsError;
+use crate::plugins::applications::ApplicationContext;
 use crate::plugins::applications::DesktopApplication;
+use crate::plugins::applications::DesktopEnvironment;
 use crate::plugins::applications::DesktopPathAction;
 use crate::plugins::applications::DesktopSettings13AndPostData;
 use crate::plugins::applications::DesktopSettingsPre13Data;
@@ -456,7 +469,7 @@ unsafe fn resize_ns_image(source_image: &NSImage, width: NSInteger, height: NSIn
 
         let data = bitmap_image_rep.representationUsingType_properties(NSPNGFileType, &NSDictionary::dictionary())?;
 
-        Some(data.bytes().to_vec())
+        Some(data.to_vec())
     }
 }
 
@@ -527,4 +540,89 @@ enum SidebarSection {
         #[allow(unused)]
         title: String,
     },
+}
+
+pub struct MacosDesktopEnvironment {
+    event_receiver: Rc<RefCell<Receiver<JsMacosApplicationEvent>>>,
+    sender: Sender<JsMacosApplicationEvent>,
+}
+
+impl MacosDesktopEnvironment {
+    pub fn new() -> anyhow::Result<Self> {
+        let (sender, receiver) = channel(10);
+
+        Ok(Self {
+            event_receiver: Rc::new(RefCell::new(receiver)),
+            sender,
+        })
+    }
+}
+
+#[op2(async)]
+pub async fn application_macos_receive_event(
+    state: Rc<RefCell<OpState>>,
+    #[serde] event: JsMacosApplicationEvent,
+) -> Result<(), GauntletJsError> {
+    tracing::debug!("Received macos application event from main app {:?}", event);
+
+    let state = state.borrow();
+
+    let context = state.borrow::<ApplicationContext>();
+
+    match &context.desktop {
+        DesktopEnvironment::Macos(env) => {
+            env.sender
+                .send(event)
+                .await
+                .context("Failed to send event back to plugin runtime")?;
+        }
+        _ => Err(anyhow!("Calling application_macos_receive_event on non-macos platform"))?,
+    }
+
+    Ok(())
+}
+
+#[op2(async)]
+#[serde]
+pub async fn application_macos_pending_event(
+    state: Rc<RefCell<OpState>>,
+) -> Result<JsMacosApplicationEvent, GauntletJsError> {
+    let receiver = {
+        let state = state.borrow();
+
+        let context = state.borrow::<ApplicationContext>();
+
+        match &context.desktop {
+            DesktopEnvironment::Macos(env) => env.event_receiver.clone(),
+            _ => Err(anyhow!("Calling application_macos_pending_event on non-macos platform"))?,
+        }
+    };
+
+    let mut receiver = receiver.borrow_mut();
+    let event = receiver
+        .recv()
+        .await
+        .ok_or_else(|| anyhow!("plugin event stream was suddenly closed"))?;
+
+    tracing::trace!("Received macos application event {:?}", event);
+
+    Ok(event)
+}
+
+#[op2(async)]
+pub async fn macos_focus_window(
+    state: Rc<RefCell<OpState>>,
+    #[string] window_uuid: String,
+) -> Result<(), GauntletJsError> {
+    let api = {
+        let state = state.borrow();
+
+        let api = state.borrow::<BackendForPluginRuntimeApiProxy>().clone();
+
+        api
+    };
+
+    api.window_tracking_macos_focus_window(window_uuid)
+        .await
+        .map_err(Into::into)
 }

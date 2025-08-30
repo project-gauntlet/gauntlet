@@ -13,6 +13,12 @@ use gauntlet_component_model::PropertyType;
 use gauntlet_component_model::create_component_model;
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(target_os = "macos")] // needed for window focus stuff, specifically SkyLight framework
+    println!(
+        "cargo:rustc-link-search=framework={}",
+        "/System/Library/PrivateFrameworks"
+    );
+
     let out_dir = env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("components.rs");
 

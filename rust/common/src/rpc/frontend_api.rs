@@ -70,4 +70,6 @@ pub trait FrontendApi {
     ) -> RequestResult<()>;
 
     async fn open_plugin_view(&self, plugin_id: PluginId, entrypoint_id: EntrypointId) -> RequestResult<()>;
+
+    async fn window_tracking_macos_focus_window(&self, window_uuid: String) -> RequestResult<()>;
 }

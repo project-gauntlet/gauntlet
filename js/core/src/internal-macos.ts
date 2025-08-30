@@ -4,10 +4,12 @@ export {
     macos_application_dirs,
     macos_major_version,
     macos_open_application,
+    macos_focus_window,
     macos_get_localized_language,
     macos_open_setting_13_and_post,
     macos_open_setting_pre_13,
     macos_settings_13_and_post,
     macos_settings_pre_13,
     macos_system_applications,
+    application_macos_pending_event,
 } from "ext:core/ops";

@@ -1,14 +1,10 @@
-import { addOpenWindow, deleteOpenWindow, openLinuxApplication } from "./shared";
+import { addOpenWindow, deleteOpenWindow } from "./shared";
 import { GeneratedEntrypoint } from "@project-gauntlet/api/helpers";
-import { linux_wayland_focus_window, application_wayland_pending_event } from "gauntlet:bridge/internal-linux";
-
-
-export function focusWaylandWindow(windowId: string) {
-    linux_wayland_focus_window(windowId)
-}
+import { application_wayland_pending_event } from "gauntlet:bridge/internal-linux";
 
 export function applicationEventLoopWayland(
     focusWindow: (windowId: string) => void,
+    openApplication: (appId: string) => void,
     add: (id: string, data: GeneratedEntrypoint) => void,
     get: (id: string) => GeneratedEntrypoint | undefined,
     getAll: () => { [id: string]: GeneratedEntrypoint },
@@ -32,7 +28,7 @@ export function applicationEventLoopWayland(
                 case "WindowClosed": {
                     delete knownWindows[applicationEvent.window_id]
 
-                    deleteOpenWindow(applicationEvent.window_id, openLinuxApplication, focusWindow, get, add)
+                    deleteOpenWindow(applicationEvent.window_id, openApplication, focusWindow, get, add)
 
                     break;
                 }
@@ -52,6 +48,7 @@ export function applicationEventLoopWayland(
                                 windowAppId,
                                 windowTitle,
                                 focusWindow,
+                                openApplication,
                                 add,
                                 get,
                                 getAll
@@ -77,6 +74,7 @@ export function applicationEventLoopWayland(
                                 windowAppId,
                                 windowTitle,
                                 focusWindow,
+                                openApplication,
                                 add,
                                 get,
                                 getAll
@@ -92,43 +90,45 @@ export function applicationEventLoopWayland(
 
 function addOpenWindowWayland(
     windowId: string,
-    windowAppId: string,
+    appId: string,
     windowTitle: string,
     focusWindow: (windowId: string) => void,
+    openApplication: (appId: string) => void,
     add: (id: string, data: GeneratedEntrypoint) => void,
     get: (id: string) => GeneratedEntrypoint | undefined,
     getAll: () => { [id: string]: GeneratedEntrypoint },
 ) {
-    let appId = windowAppId;
-    let generatedEntrypoint = get(windowAppId);
+    const newGet = (id: string): GeneratedEntrypoint | undefined => {
+        let generatedEntrypoint = get(id);
 
-    if (generatedEntrypoint == undefined) {
-        const startupWmClassToAppId = Object.fromEntries(
-            Object.entries(getAll())
-                .map(([appId, generated]): [string | undefined, string] => [((generated as any)["__linux__"]).startupWmClass, appId])
-                .filter((val): val is [string, string]  => {
-                    const [wmClass, _appId] = val
-                    return wmClass != undefined
-                })
-        );
+        if (generatedEntrypoint == undefined) {
+            const startupWmClassToAppId = Object.fromEntries(
+                Object.entries(getAll())
+                    .map(([appId, generated]): [string | undefined, string] => [((generated as any)["__linux__"]).startupWmClass, appId])
+                    .filter((val): val is [string, string]  => {
+                        const [wmClass, _appId] = val
+                        return wmClass != undefined
+                    })
+            );
 
-        const appIdFromWmClass = startupWmClassToAppId[windowAppId];
+            const appIdFromWmClass = startupWmClassToAppId[id];
 
-        if (appIdFromWmClass) {
-            appId = appIdFromWmClass;
-            generatedEntrypoint = get(appId);
+            if (appIdFromWmClass) {
+                appId = appIdFromWmClass;
+                generatedEntrypoint = get(appId);
+            }
         }
+
+        return generatedEntrypoint;
     }
 
-    if (generatedEntrypoint) {
-        addOpenWindow(
-            appId,
-            generatedEntrypoint,
-            windowId,
-            windowTitle,
-            openLinuxApplication(appId),
-            focusWindow,
-            add,
-        )
-    }
+    addOpenWindow(
+        appId,
+        windowId,
+        windowTitle,
+        openApplication,
+        focusWindow,
+        newGet,
+        add,
+    )
 }

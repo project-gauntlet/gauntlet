@@ -2,11 +2,18 @@ import { GeneratedEntrypoint, GeneratorContext } from "@project-gauntlet/api/hel
 import { walk, WalkOptions } from "@std/fs/walk";
 import { debounce } from "@std/async/debounce";
 import { current_os, wayland } from "gauntlet:bridge/internal-all";
-import { linux_app_from_path, linux_application_dirs, linux_open_application, } from "gauntlet:bridge/internal-linux";
+import {
+    linux_app_from_path,
+    linux_application_dirs,
+    linux_open_application,
+    linux_wayland_focus_window,
+    linux_x11_focus_window
+} from "gauntlet:bridge/internal-linux";
 import {
     macos_app_from_arbitrary_path,
     macos_app_from_path,
     macos_application_dirs,
+    macos_focus_window,
     macos_get_localized_language,
     macos_major_version,
     macos_open_application,
@@ -17,9 +24,14 @@ import {
     macos_system_applications
 } from "gauntlet:bridge/internal-macos";
 import { applicationAccessories, applicationActions } from "./window/shared";
-import { applicationEventLoopX11, focusX11Window } from "./window/x11";
-import { applicationEventLoopWayland, focusWaylandWindow } from "./window/wayland";
-import { windows_app_from_path, windows_application_dirs, windows_open_application } from "gauntlet:bridge/internal-windows";
+import { applicationEventLoopX11 } from "./window/x11";
+import { applicationEventLoopWayland } from "./window/wayland";
+import {
+    windows_app_from_path,
+    windows_application_dirs,
+    windows_open_application
+} from "gauntlet:bridge/internal-windows";
+import { applicationEventLoopMacos } from "./window/macos";
 
 type EntrypointPreferences = { experimentalWindowTracking: boolean, bundleNameLang: "default" | "localized" };
 
@@ -38,10 +50,8 @@ export default async function Applications(context: GeneratorContext<object, Ent
                             actions: applicationActions(
                                 id,
                                 experimentalWindowTracking,
-                                () => {
-                                    linux_open_application(id)
-                                },
-                                focusWaylandWindow,
+                                linux_open_application,
+                                linux_wayland_focus_window,
                             ),
                             accessories: applicationAccessories(id, experimentalWindowTracking),
                             icon: data.icon, // TODO lazy icons
@@ -56,10 +66,8 @@ export default async function Applications(context: GeneratorContext<object, Ent
                             actions: applicationActions(
                                 id,
                                 experimentalWindowTracking,
-                                () => {
-                                    linux_open_application(id)
-                                },
-                                focusX11Window,
+                                linux_open_application,
+                                linux_x11_focus_window,
                             ),
                             accessories: applicationAccessories(id, experimentalWindowTracking),
                             icon: data.icon, // TODO lazy icons
@@ -78,7 +86,8 @@ export default async function Applications(context: GeneratorContext<object, Ent
                 if (wayland()) {
                     try {
                         applicationEventLoopWayland(
-                            focusWaylandWindow,
+                            linux_wayland_focus_window,
+                            linux_open_application,
                             add,
                             get,
                             getAll
@@ -89,7 +98,8 @@ export default async function Applications(context: GeneratorContext<object, Ent
                 } else {
                     try {
                         applicationEventLoopX11(
-                            focusX11Window,
+                            linux_x11_focus_window,
+                            linux_open_application,
                             add,
                             get,
                             getAll
@@ -164,9 +174,7 @@ export default async function Applications(context: GeneratorContext<object, Ent
                                 actions: [
                                     {
                                         label: "Open application",
-                                        run: () => {
-                                            macos_open_application(data.path)
-                                        },
+                                        run: () => macos_open_application(data.path),
                                     }
                                 ],
                                 icon: data.icon,
@@ -179,25 +187,39 @@ export default async function Applications(context: GeneratorContext<object, Ent
                 }
             }
 
-            return await genericGenerator<MacOSDesktopApplicationData>(
+            const cleanup = await genericGenerator<MacOSDesktopApplicationData>(
                 macos_application_dirs(),
                 path => macos_app_from_arbitrary_path(path, lang),
                 (_id, data) => ({
                     name: data.name,
-                    actions: [
-                        {
-                            label: "Open application",
-                            run: () => {
-                                macos_open_application(data.path)
-                            },
-                        }
-                    ],
+                    actions: applicationActions(
+                        data.path,
+                        experimentalWindowTracking,
+                        macos_open_application,
+                        macos_focus_window,
+                    ),
+                    accessories: applicationAccessories(data.path, experimentalWindowTracking),
                     icon: data.icon,
                 }),
                 add,
                 remove,
                 { exts: ["app"], maxDepth: 2, followSymlinks: true, }
             );
+
+            if (experimentalWindowTracking) {
+                try {
+                    applicationEventLoopMacos(
+                        macos_focus_window,
+                        macos_open_application,
+                        add,
+                        get,
+                    );
+                } catch (e) {
+                    console.log("error when setting up macos application event loop", e)
+                }
+            }
+
+            return cleanup
         }
         case "windows": {
             return await genericGenerator<WindowsDesktopApplicationData>(

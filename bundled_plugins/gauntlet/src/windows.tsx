@@ -2,8 +2,8 @@ import React, { ReactElement } from "react";
 import { List } from "@project-gauntlet/api/components";
 import { ListOfWindows, openWindows } from "./window/shared";
 import { current_os, wayland } from "gauntlet:bridge/internal-all";
-import { focusWaylandWindow } from "./window/wayland";
-import { focusX11Window } from "./window/x11";
+import { macos_focus_window } from "gauntlet:bridge/internal-macos";
+import { linux_wayland_focus_window, linux_x11_focus_window } from "gauntlet:bridge/internal-linux";
 
 export default function Windows(): ReactElement {
     switch (current_os()) {
@@ -12,7 +12,7 @@ export default function Windows(): ReactElement {
                 return (
                     <ListOfWindows
                         windows={openWindows()}
-                        focusWindow={(windowId) => focusWaylandWindow(windowId)}
+                        focusWindow={linux_wayland_focus_window}
                         focusSecond={true}
                     />
                 )
@@ -20,11 +20,20 @@ export default function Windows(): ReactElement {
                 return (
                     <ListOfWindows
                         windows={openWindows()}
-                        focusWindow={(windowId) => focusX11Window(windowId)}
+                        focusWindow={linux_x11_focus_window}
                         focusSecond={true}
                     />
                 )
             }
+        }
+        case "macos": {
+            return (
+                <ListOfWindows
+                    windows={openWindows()}
+                    focusWindow={macos_focus_window}
+                    focusSecond={true}
+                />
+            )
         }
         default: {
             return (

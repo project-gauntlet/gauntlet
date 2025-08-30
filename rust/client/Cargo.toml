@@ -26,6 +26,7 @@ indexmap.workspace = true
 
 # other
 arc-swap = "1.7.1"
+uuid = "1.18.0"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 tray-icon = { version = "0.19.2", default-features = false }
@@ -35,7 +36,13 @@ x11rb-async.workspace = true
 smithay-client-toolkit.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.2.2", features = ["NSWorkspace"] }
+objc2.workspace = true
+objc2-app-kit.workspace = true
+objc2-foundation.workspace = true
+objc2-core-graphics.workspace = true
+accessibility.workspace = true
+accessibility-sys.workspace = true
+core-foundation.workspace = true
 
 [build-dependencies]
 gauntlet-component-model.workspace = true

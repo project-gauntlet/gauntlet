@@ -239,6 +239,11 @@ async fn request_loop(
 
                 AppMsg::OpenSettings(SettingsParams::Default)
             }
+            FrontendApiRequestData::WindowTrackingMacosFocusWindow { window_uuid } => {
+                responder.respond(Ok(FrontendApiResponseData::WindowTrackingMacosFocusWindow { data: () }));
+
+                AppMsg::WindowTrackingMacosFocusWindow { window_uuid }
+            }
         }
     };
 

@@ -6,6 +6,7 @@ use gauntlet_common::model::DownloadStatus;
 use gauntlet_common::model::EntrypointId;
 use gauntlet_common::model::KeyboardEventOrigin;
 use gauntlet_common::model::LocalSaveData;
+use gauntlet_common::model::MacosWindowTrackingEvent;
 use gauntlet_common::model::PhysicalKey;
 use gauntlet_common::model::PhysicalShortcut;
 use gauntlet_common::model::PluginId;
@@ -798,6 +799,13 @@ impl ApplicationManager {
         self.send_command(PluginCommand::One {
             id: plugin_id,
             data: OnePluginCommandData::RefreshSearchIndex,
+        })
+    }
+
+    pub fn send_macos_window_tracking_event(&self, event: MacosWindowTrackingEvent) {
+        self.send_command(PluginCommand::One {
+            id: PluginId::from_string("bundled://gauntlet"),
+            data: OnePluginCommandData::MacosWindowTracking(event),
         })
     }
 

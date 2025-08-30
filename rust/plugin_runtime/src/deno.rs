@@ -397,7 +397,10 @@ deno_core::extension!(
         crate::plugins::applications::macos_app_from_arbitrary_path,
         crate::plugins::applications::macos_app_from_path,
         crate::plugins::applications::macos_open_application,
+        crate::plugins::applications::macos_focus_window,
         crate::plugins::applications::macos_get_localized_language,
+        crate::plugins::applications::application_macos_pending_event,
+        crate::plugins::applications::application_macos_receive_event,
     ],
     esm_entry_point = "ext:gauntlet/internal-macos/bootstrap.js",
     esm = [
