@@ -12,7 +12,9 @@ use accessibility_sys::AXObserverCreate;
 use accessibility_sys::AXObserverGetRunLoopSource;
 use accessibility_sys::AXObserverRef;
 use accessibility_sys::AXUIElementRef;
+use accessibility_sys::kAXDialogSubrole;
 use accessibility_sys::kAXErrorSuccess;
+use accessibility_sys::kAXStandardWindowSubrole;
 use accessibility_sys::kAXTitleChangedNotification;
 use accessibility_sys::kAXUIElementDestroyedNotification;
 use accessibility_sys::kAXWindowCreatedNotification;
@@ -30,6 +32,7 @@ use objc2_app_kit::NSRunningApplication;
 use uuid::Uuid;
 
 use super::sys::AXObserver;
+use super::sys::bruteforce_windows_for_app;
 
 pub struct WindowNotificationDelegate {
     app_element: AXUIElement,
@@ -119,10 +122,8 @@ impl WindowNotificationDelegate {
             run_loop.add_source(&source, kCFRunLoopDefaultMode);
         }
 
-        let windows_iter = self.app_element.windows().context("Failed to get windows")?;
-
-        for window in windows_iter.into_iter() {
-            self.inner.window_opened(window.clone());
+        if let Err(err) = self.inner.refresh_windows() {
+            tracing::warn!("Failed to init macos windows: {}", err);
         }
 
         Ok(())
@@ -165,11 +166,10 @@ impl WindowNotificationDelegate {
 
         #[allow(non_upper_case_globals)]
         match notification.as_str() {
-            kAXWindowCreatedNotification => {
-                delegate.window_opened(element);
-            }
-            kAXUIElementDestroyedNotification => {
-                delegate.element_destroyed(element);
+            kAXUIElementDestroyedNotification | kAXWindowCreatedNotification => {
+                if let Err(err) = delegate.refresh_windows() {
+                    tracing::warn!("Failed to refresh windows: {}", err);
+                }
             }
             kAXTitleChangedNotification => {
                 delegate.title_changed(element);
@@ -203,27 +203,64 @@ fn get_bundle_path(pid: pid_t) -> Option<String> {
 }
 
 impl WindowNotificationDelegateInner {
+    fn refresh_windows(&self) -> anyhow::Result<()> {
+        tracing::debug!("Refreshing windows for app: {}", self.app_pid);
+        let mut retrieved_windows: Vec<_> = AXUIElement::application(self.app_pid)
+            .windows()?
+            .into_iter()
+            .map(|item| item.clone())
+            .collect();
+
+        for window in bruteforce_windows_for_app(self.app_pid) {
+            if !retrieved_windows.contains(&window) {
+                retrieved_windows.push(window);
+            };
+        }
+
+        tracing::debug!("Retrieved {} windows", retrieved_windows.len());
+
+        let stored_windows = self
+            .windows
+            .borrow()
+            .iter()
+            .map(|(_, _, window)| window.clone())
+            .collect::<Vec<_>>();
+
+        tracing::debug!("Stored {} windows", stored_windows.len());
+
+        for window in stored_windows.into_iter() {
+            let Some(index) = retrieved_windows.iter().position(|el| el == &window) else {
+                // doesn't exist anymore, destroy it
+                self.window_destroyed(window);
+                continue;
+            };
+
+            retrieved_windows.swap_remove(index);
+        }
+
+        tracing::debug!("left retrieved {} windows", retrieved_windows.len());
+
+        for window in retrieved_windows.into_iter() {
+            self.window_opened(window);
+        }
+
+        Ok(())
+    }
+
     fn window_opened(&self, window: AXUIElement) {
         let mut windows = self.windows.borrow_mut();
 
-        // search for reused AXUIElements, in case that happens, but not sure if it does
-        windows.retain(|(window_id, _, el)| {
-            let duplicate = el == &window;
-            if duplicate {
-                let event = MacosWindowTrackingEvent::WindowClosed {
-                    window_id: window_id.clone(),
-                };
+        let role = window.role().ok().map(|role| role.to_string());
+        let subrole = window.subrole().ok().map(|subrole| subrole.to_string());
 
-                self.application_manager.send_macos_window_tracking_event(event);
-            }
+        // ignore non-regular windows
+        if role.as_deref() != Some(kAXWindowRole) {
+            return;
+        }
 
-            !duplicate
-        });
-
-        match window.role() {
-            // ignore non-regular windows
-            Ok(role) if role == kAXWindowRole => {}
-            _ => return,
+        // standard but minimized windows can have dialog subrole instead of standard window subrole
+        if subrole.as_deref() != Some(kAXStandardWindowSubrole) && subrole.as_deref() != Some(kAXDialogSubrole) {
+            return;
         }
 
         let window_id = Uuid::new_v4().to_string();
@@ -241,7 +278,7 @@ impl WindowNotificationDelegateInner {
         self.application_manager.send_macos_window_tracking_event(event);
     }
 
-    fn element_destroyed(&self, element: AXUIElement) {
+    fn window_destroyed(&self, element: AXUIElement) {
         let mut windows = self.windows.borrow_mut();
 
         let Some(index) = windows.iter().position(|(_, _, el)| el == &element) else {

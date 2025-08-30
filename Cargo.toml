@@ -87,7 +87,7 @@ objc2-foundation = { version = "0.3.1", features = [
     "NSGeometry",
     "NSEnumerator",
 ] }
-objc2-core-graphics = { version = "0.3.1", features = ["CGWindow"] }
+core-graphics = "0.25.0"
 accessibility = "0.2.0"
 accessibility-sys = "0.2.0"
 core-foundation = "0.10.1"

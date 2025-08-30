@@ -1307,6 +1307,7 @@ fn update(state: &mut AppModel, message: AppMsg) -> Task<AppMsg> {
             }
         }
         AppMsg::WindowTrackingMacosFocusWindow { window_uuid } => {
+            #[cfg(target_os = "macos")]
             state.macos_window_tracker.focus_window(window_uuid);
             Task::none()
         }

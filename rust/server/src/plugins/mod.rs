@@ -803,6 +803,8 @@ impl ApplicationManager {
     }
 
     pub fn send_macos_window_tracking_event(&self, event: MacosWindowTrackingEvent) {
+        tracing::info!("Sending macos window tracking event: {:?}", event);
+
         self.send_command(PluginCommand::One {
             id: PluginId::from_string("bundled://gauntlet"),
             data: OnePluginCommandData::MacosWindowTracking(event),

@@ -151,6 +151,8 @@ impl ApplicationNotificationDelegate {
             return Err(anyhow::anyhow!("No window with uuid: {}", window_uuid));
         };
 
+        println!("Focusing window: {}, {:?}, {}", window_uuid, window, pid);
+
         make_key_window(*pid, window).context("Failed to make window key")?;
 
         // some apps seem to also require additional raise action
