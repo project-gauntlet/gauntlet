@@ -21,35 +21,29 @@ pub fn request_macos_accessibility_permissions() -> bool {
     unsafe { AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef()) }
 }
 
-// todo
-//  on each ax notification + non-ax destroy event
-//  get app pid using AXUIElementGetPid
-//  run bruteforce search (+ regular) for axuielement using _AXUIElementCreateWithRemoteToken
-//  from each found window axuielement
-//    filter based on window role/subrole
-//    get window using _AXUIElementGetWindow
-//    get title
-//  to focus use window id and private api
+// only active space(s) and fullscreen apps (only single item per app will be shown) are supported
+// tabs are supported only on active "desktop" space, not supported in fullscreen window
+// show warning when:
+//  there are non-active spaces
+//    except fullscreen windows
+//  there multiple fullscreen windows for specific app
 
+// warning should say:
+// gauntlet doesn't show windows on non-active spaces except fullscreen applications
+// gauntlet doesn't support fullscreen applications on multiple spaces
+// gauntlet doesn't support native tabs for fullscreen applications
 
-// do not support hidden windows
-// do not support multiple "desktop" spaces unless they are all visible
-// what about multiple fullscreen windows of the same app?
-// what about tabs in visible apps in non-visible spaces?
-// i.e., only non-hidden windows in visible spaces and maybe(?) fullscreen apps
-// support minimized windows but only on visible spaces
+// refresh window list when space switches
+// if current space is fullscreen do not scan for tabs? show warning?
 
-// support fullscreen applications?
-// support tabs on the visible windows in visible spaces only
+// CGSSpaceGetType to get type of given space
+// CGSGetWindowWorkspace to get list of spaces for specific window
+// ? to get space for given
+// ? to get current space
 
-// I think ignoring existence of spaces is fine???
+//  todo what if there are 2 monitors. is it same space or multiple? what does "separate spaces" setting do?
+//  todo what if gauntlet started on fullscreen space?
 
-// is the private function for focusing a window needed?
-
-// todo support for windows on separate spaces
-// todo multiple desktop spaces ("Desktop" vs. "Desktop 1" and "Desktop 2")
-// todo sometimes the window state seems to be lost, clearing the list of windows
-// todo when starting the gauntlet, tabbed windows only show single one
 // todo implement this https://github.com/glide-wm/glide/issues/10
 // todo how to handle system apps and settings wrt window tracking?
 // todo add all github issue links and appreciations to the commit message
@@ -63,5 +57,6 @@ pub fn request_macos_accessibility_permissions() -> bool {
 //   https://github.com/koekeishiya/yabai/issues/68
 //   https://github.com/koekeishiya/yabai/issues/199#issuecomment-519152388
 //   https://github.com/lwouis/alt-tab-macos/issues/1324#issuecomment-2631035482
+//   https://github.com/glide-wm/glide/issues/10
 
 

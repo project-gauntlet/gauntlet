@@ -7,7 +7,12 @@ use accessibility::AXUIElement;
 use accessibility_sys::kAXRaiseAction;
 use accessibility_sys::pid_t;
 use anyhow::Context;
+use core_foundation::base::CFType;
+use core_foundation::base::FromVoid;
+use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::CFString;
+use core_graphics::display::CGDisplay;
+use core_graphics::window::kCGWindowListExcludeDesktopElements;
 use gauntlet_server::plugins::ApplicationManager;
 use objc2::AnyThread;
 use objc2::DefinedClass;
@@ -24,7 +29,8 @@ use objc2_app_kit::NSWorkspaceDidLaunchApplicationNotification;
 use objc2_app_kit::NSWorkspaceDidTerminateApplicationNotification;
 use objc2_foundation::NSNotification;
 
-use super::window::WindowNotificationDelegate;
+use super::window::{WindowNotificationDelegate, WindowType};
+use crate::ui::window_tracking::macos::sys::ax_window_id;
 use crate::ui::window_tracking::macos::sys::make_key_window;
 
 pub struct MacosWindowTracker {
@@ -84,7 +90,6 @@ impl ApplicationNotificationDelegate {
         let state = ApplicationNotificationDelegateState {
             application_manager,
             applications: RefCell::new(HashMap::new()),
-            windows: Rc::new(RefCell::new(vec![])),
         };
 
         let delegate = ApplicationNotificationDelegate::alloc().set_ivars(state);
@@ -117,9 +122,8 @@ impl ApplicationNotificationDelegate {
 
     fn create_window_notification_delegate(&self, pid: pid_t) -> anyhow::Result<()> {
         let application_manager = self.ivars().application_manager.clone();
-        let windows = self.ivars().windows.clone();
 
-        let delegate = WindowNotificationDelegate::new(pid, application_manager, windows)
+        let delegate = WindowNotificationDelegate::new(pid, application_manager)
             .context("Error creating window notification delegate")?;
 
         delegate
@@ -153,7 +157,16 @@ impl ApplicationNotificationDelegate {
 
         println!("Focusing window: {}, {:?}, {}", window_uuid, window, pid);
 
-        make_key_window(*pid, window).context("Failed to make window key")?;
+        if let Some(windows) = CGDisplay::window_list_info(kCGWindowListExcludeDesktopElements, None) {
+            for item in windows.into_iter() {
+                let item: CFDictionary<CFString, CFType> = unsafe { CFDictionary::from_void(item.clone()) }.clone();
+                println!("CFDictionary: {:?}", item);
+            }
+        };
+
+        let window_id = ax_window_id(window).context("Failed to get window id")?;
+
+        make_key_window(*pid, window_id).context("Failed to make window key")?;
 
         // some apps seem to also require additional raise action
         window
@@ -167,7 +180,6 @@ impl ApplicationNotificationDelegate {
 struct ApplicationNotificationDelegateState {
     application_manager: Arc<ApplicationManager>,
     applications: RefCell<HashMap<pid_t, WindowNotificationDelegate>>,
-    windows: Rc<RefCell<Vec<(String, pid_t, AXUIElement)>>>,
 }
 
 define_class!(

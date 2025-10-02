@@ -57,11 +57,9 @@ impl ProcessSerialNumber {
     }
 }
 
-pub fn make_key_window(pid: pid_t, window: &AXUIElement) -> anyhow::Result<()> {
+pub fn make_key_window(pid: pid_t, window_id: CGWindowID) -> anyhow::Result<()> {
     // See https://github.com/Hammerspoon/hammerspoon/issues/370#issuecomment-545545468.
     // god bless all the wizards in that thread that worked on it, thank you
-
-    let window_id = ax_window_id(window)?;
 
     println!("window id: {}", window_id);
 
@@ -95,7 +93,9 @@ pub fn make_key_window(pid: pid_t, window: &AXUIElement) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(unused)]
 pub fn bruteforce_windows_for_app(app_pid: pid_t) -> Vec<AXUIElement> {
+    // this whole thing can take more than a second, do not run on the main thread
     unsafe {
         let mut result = vec![];
         let mut data = [0; 0x14];

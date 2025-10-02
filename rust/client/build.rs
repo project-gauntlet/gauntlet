@@ -13,7 +13,7 @@ use gauntlet_component_model::PropertyType;
 use gauntlet_component_model::create_component_model;
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(target_os = "macos")] // needed for window focus stuff, specifically SkyLight framework
+    #[cfg(target_os = "macos")]
     println!(
         "cargo:rustc-link-search=framework={}",
         "/System/Library/PrivateFrameworks"

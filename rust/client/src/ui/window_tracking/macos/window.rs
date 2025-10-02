@@ -1,9 +1,11 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use accessibility::AXAttribute;
 use accessibility::AXUIElement;
 use accessibility::AXUIElementAttributes;
 use accessibility::Error;
@@ -15,12 +17,17 @@ use accessibility_sys::AXUIElementRef;
 use accessibility_sys::kAXDialogSubrole;
 use accessibility_sys::kAXErrorSuccess;
 use accessibility_sys::kAXStandardWindowSubrole;
+use accessibility_sys::kAXTabGroupRole;
+use accessibility_sys::kAXTabsAttribute;
 use accessibility_sys::kAXTitleChangedNotification;
 use accessibility_sys::kAXUIElementDestroyedNotification;
 use accessibility_sys::kAXWindowCreatedNotification;
 use accessibility_sys::kAXWindowRole;
 use accessibility_sys::pid_t;
 use anyhow::Context;
+use core_foundation::array::CFArray;
+use core_foundation::base::CFType;
+use core_foundation::base::FromVoid;
 use core_foundation::base::TCFType;
 use core_foundation::runloop::CFRunLoop;
 use core_foundation::runloop::kCFRunLoopDefaultMode;
@@ -32,7 +39,7 @@ use objc2_app_kit::NSRunningApplication;
 use uuid::Uuid;
 
 use super::sys::AXObserver;
-use super::sys::bruteforce_windows_for_app;
+use super::sys::ax_window_id;
 
 pub struct WindowNotificationDelegate {
     app_element: AXUIElement,
@@ -40,9 +47,20 @@ pub struct WindowNotificationDelegate {
     inner: Rc<WindowNotificationDelegateInner>,
 }
 
+pub enum WindowType {
+    Window,
+    Tab,
+}
+
+struct WindowData {
+    app_pid: pid_t,
+    window_type: WindowType,
+    element: AXUIElement,
+}
+
 struct WindowNotificationDelegateInner {
     app_pid: pid_t,
-    windows: Rc<RefCell<Vec<(String, pid_t, AXUIElement)>>>,
+    windows: Rc<RefCell<HashMap<String, WindowData>>>,
     application_manager: Arc<ApplicationManager>,
 }
 
@@ -52,14 +70,8 @@ const WINDOW_EVENTS: [&str; 3] = [
     kAXTitleChangedNotification,
 ];
 
-const MESSAGING_TIMEOUT_SEC: f32 = 1.0;
-
 impl WindowNotificationDelegate {
-    pub fn new(
-        pid: pid_t,
-        application_manager: Arc<ApplicationManager>,
-        windows: Rc<RefCell<Vec<(String, pid_t, AXUIElement)>>>,
-    ) -> anyhow::Result<Self> {
+    pub fn new(pid: pid_t, application_manager: Arc<ApplicationManager>) -> anyhow::Result<Self> {
         let observer = unsafe {
             let mut result = MaybeUninit::uninit();
 
@@ -76,7 +88,7 @@ impl WindowNotificationDelegate {
             let element = AXUIElement::application(pid);
 
             element
-                .set_messaging_timeout(MESSAGING_TIMEOUT_SEC)
+                .set_messaging_timeout(1.0)
                 .context("Failed to set messaging timeout")?;
 
             element
@@ -87,7 +99,7 @@ impl WindowNotificationDelegate {
             observer,
             inner: Rc::new(WindowNotificationDelegateInner {
                 app_pid: pid,
-                windows,
+                windows: Rc::new(RefCell::new(HashMap::new())),
                 application_manager,
             }),
         })
@@ -142,7 +154,7 @@ impl WindowNotificationDelegate {
 
         let windows = self.inner.windows.borrow();
 
-        for (window_id, _, _) in windows.iter() {
+        for (window_id, _) in windows.iter() {
             let event = MacosWindowTrackingEvent::WindowClosed {
                 window_id: window_id.clone(),
             };
@@ -205,40 +217,51 @@ fn get_bundle_path(pid: pid_t) -> Option<String> {
 impl WindowNotificationDelegateInner {
     fn refresh_windows(&self) -> anyhow::Result<()> {
         tracing::debug!("Refreshing windows for app: {}", self.app_pid);
+
         let mut retrieved_windows: Vec<_> = AXUIElement::application(self.app_pid)
             .windows()?
             .into_iter()
-            .map(|item| item.clone())
+            .map(|window| window.clone())
+            .flat_map(|window| {
+                let tabs = list_tabs(window.clone());
+
+                if !tabs.is_empty() {
+                    return tabs.into_iter().map(|tab| (WindowType::Tab, tab)).collect::<Vec<_>>();
+                }
+
+                return vec![(WindowType::Window, window)];
+            })
             .collect();
 
-        for window in bruteforce_windows_for_app(self.app_pid) {
-            if !retrieved_windows.contains(&window) {
-                retrieved_windows.push(window);
-            };
-        }
-
-        tracing::debug!("Retrieved {} windows", retrieved_windows.len());
+        tracing::debug!("Retrieved windows: {}", retrieved_windows.len());
 
         let stored_windows = self
             .windows
             .borrow()
             .iter()
-            .map(|(_, _, window)| window.clone())
+            .map(|(_, window)| (window.app_pid.clone(), window.clone()))
             .collect::<Vec<_>>();
 
-        tracing::debug!("Stored {} windows", stored_windows.len());
+        tracing::debug!("Stored windows: {}", stored_windows.len());
 
-        for window in stored_windows.into_iter() {
-            let Some(index) = retrieved_windows.iter().position(|el| el == &window) else {
+        let mut destroyed_windows = 0;
+        for (pid, window) in stored_windows.iter() {
+            if pid != &self.app_pid {
+                continue;
+            }
+
+            let Some(index) = retrieved_windows.iter().position(|el| el == window) else {
                 // doesn't exist anymore, destroy it
-                self.window_destroyed(window);
+                self.window_destroyed(window.clone());
                 continue;
             };
 
+            destroyed_windows += 1;
             retrieved_windows.swap_remove(index);
         }
 
-        tracing::debug!("left retrieved {} windows", retrieved_windows.len());
+        tracing::debug!("Destroyed windows: {}", retrieved_windows.len());
+        tracing::debug!("New windows: {}", retrieved_windows.len());
 
         for window in retrieved_windows.into_iter() {
             self.window_opened(window);
@@ -264,7 +287,7 @@ impl WindowNotificationDelegateInner {
         }
 
         let window_id = Uuid::new_v4().to_string();
-        windows.push((window_id.clone(), self.app_pid, window.clone()));
+        windows.insert(window_id.clone(), (self.app_pid, window.clone()));
 
         let title = window.title().map(|title| title.to_string()).ok();
         let bundle_path = get_bundle_path(self.app_pid);
@@ -285,7 +308,7 @@ impl WindowNotificationDelegateInner {
             return;
         };
 
-        let (window_id, _, _) = windows.swap_remove(index);
+        let (window_id, _, _) = windows.remove(index);
 
         let event = MacosWindowTrackingEvent::WindowClosed { window_id };
 
@@ -308,4 +331,41 @@ impl WindowNotificationDelegateInner {
 
         self.application_manager.send_macos_window_tracking_event(event);
     }
+}
+
+fn list_tabs(window: AXUIElement) -> Vec<AXUIElement> {
+    let Ok(children) = window.children() else {
+        return vec![];
+    };
+
+    let tab_group = children.into_iter().find(|child| {
+        let role = child.role().map(|val| val.to_string()).ok();
+        if role.as_deref() != Some(kAXTabGroupRole) {
+            return false;
+        }
+
+        let title = child.title().map(|val| val.to_string()).ok();
+        if title.as_deref() != Some("tab bar") {
+            return false;
+        }
+
+        return true;
+    });
+
+    let Some(tab_group) = tab_group else {
+        return vec![];
+    };
+
+    let tabs_attribute = AXAttribute::<CFType>::new(&CFString::from_static_string(kAXTabsAttribute));
+    let Some(tabs) = tab_group.attribute(&tabs_attribute).ok() else {
+        return vec![];
+    };
+
+    let Some(tabs) = tabs.downcast::<CFArray>() else {
+        return vec![];
+    };
+
+    tabs.into_iter()
+        .map(|item| unsafe { AXUIElement::from_void(item.clone()) }.clone())
+        .collect()
 }
